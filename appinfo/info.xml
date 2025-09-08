@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<info xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	  xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
+	<id>threedviewer</id>
+	<name>Three D Viewer</name>
+	<summary>3D Viewer</summary>
+	<description>This is a Nextcloud app that allows users to view 3D models directly within their Nextcloud instance. The app leverages the Three.js library for rendering 3D graphics in the browser.</description>
+	<version>1.0.0</version>
+	<licence>agpl</licence>
+	<author mail="maz1987in@gmail.com" homepage="https://github.com/maz1987in">Mazin Al Saadi</author>
+	<namespace>ThreeDViewer</namespace>
+	<category>multimedia</category>
+	<bugs>https://github.com/maz1987in/3Dviewer-Nextcloud/issues</bugs>
+	<dependencies>
+		<nextcloud min-version="30" max-version="32"/>
+	</dependencies>
+	<navigations>
+		<navigation>
+			<id>threedviewer</id>
+			<name>Three D Viewer</name>
+			<route>threedviewer.page.index</route>
+			<icon>app.svg</icon>
+			<type>link</type>
+		</navigation>
+	</navigations>
+</info>
