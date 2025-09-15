@@ -1,0 +1,25 @@
+{
+  "translations": {
+    "Model loaded": "تم تحميل النموذج",
+    "Loaded {file}": "تم تحميل {file}",
+    "Error loading model": "حدث خطأ أثناء تحميل النموذج",
+    "3D viewer controls": "عناصر تحكم عارض ثلاثي الأبعاد",
+    "3D viewer canvas container": "حاوية لوحة عرض ثلاثي الأبعاد",
+    "Reset view": "إعادة ضبط العرض",
+    "Reset": "إعادة ضبط",
+    "Toggle grid": "تبديل الشبكة",
+    "Grid on": "الشبكة مفعلة",
+    "Grid off": "الشبكة معطلة",
+    "Toggle axes": "تبديل المحاور",
+    "Axes on": "المحاور مفعلة",
+    "Axes off": "المحاور معطلة",
+    "Toggle wireframe": "تبديل الإطار السلكي",
+    "Wireframe on": "الإطار السلكي مفعل",
+    "Wireframe off": "الإطار السلكي معطل",
+    "Background color": "لون الخلفية",
+    "Dismiss": "إغلاق",
+    "Loading 3D scene…": "جارٍ تحميل المشهد ثلاثي الأبعاد…",
+    "MTL fetch failed ({status})": "فشل جلب ملف MTL (‏{status})"
+  },
+  "pluralForm": "nplurals=6; plural=n==0?0:n==1?1:n==2?2:n%100>=3 && n%100<=10?3:n%100>=11 && n%100<=99?4:5;"
+}

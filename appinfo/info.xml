@@ -14,6 +14,10 @@
 	<dependencies>
 		<nextcloud min-version="30" max-version="32"/>
 	</dependencies>
+	<scripts>
+		<!-- Vite outputs ESM bundle with .mjs extension -->
+		<script>js/threedviewer-files.mjs</script>
+	</scripts>
 	<navigations>
 		<navigation>
 			<id>threedviewer</id>

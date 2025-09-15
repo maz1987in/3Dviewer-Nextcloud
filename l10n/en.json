@@ -1,0 +1,25 @@
+{
+  "translations": {
+    "Model loaded": "Model loaded",
+    "Loaded {file}": "Loaded {file}",
+    "Error loading model": "Error loading model",
+    "3D viewer controls": "3D viewer controls",
+    "3D viewer canvas container": "3D viewer canvas container",
+    "Reset view": "Reset view",
+    "Reset": "Reset",
+    "Toggle grid": "Toggle grid",
+    "Grid on": "Grid on",
+    "Grid off": "Grid off",
+    "Toggle axes": "Toggle axes",
+    "Axes on": "Axes on",
+    "Axes off": "Axes off",
+    "Toggle wireframe": "Toggle wireframe",
+    "Wireframe on": "Wireframe on",
+    "Wireframe off": "Wireframe off",
+    "Background color": "Background color",
+    "Dismiss": "Dismiss",
+    "Loading 3D scene…": "Loading 3D scene…",
+    "MTL fetch failed ({status})": "MTL fetch failed ({status})"
+  },
+  "pluralForm": "nplurals=2; plural=(n != 1);"
+}

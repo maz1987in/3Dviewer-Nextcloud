@@ -1,3 +1,75 @@
+# ---- Nextcloud App / PHP ----
+/.idea/
+/.vscode/
+/.phpunit.result.cache
+/.php-cs-fixer.cache
+/.cache/
+composer.lock
+vendor/
+vendor-bin/**/vendor/
+vendor-bin/**/composer.lock
+
+# If you choose to ship vendor in release packages, remove the 'vendor/' ignore above
+# and add a release packaging script instead.
+
+# ---- Node / Vite / Frontend ----
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+package-lock.json
+
+# Local environment overrides
+.env
+.env.local
+.env.*.local
+
+# Optional: If you decide to move build output to a dist folder, ignore it here
+dist/
+
+# Current build outputs land in root js/ & css/ folders (kept in repo for app deployment)
+# If you decide NOT to commit built assets, uncomment the following lines:
+# js/
+# css/
+
+# Source maps (uncomment to ignore if not committing)
+*.map
+
+# ---- Playwright / Test Artifacts ----
+test-results/
+playwright-report/
+blob-report/
+.nyc_output/
+coverage/
+
+# ---- Logs & Temp ----
+*.log
+logs/
+tmp/
+temp/
+*.swp
+*.swo
+
+# ---- OS / Editor Junk ----
+.DS_Store
+Thumbs.db
+*.orig
+*.bak
+*.rej
+
+# ---- Archive / Packaging ----
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+
+# ---- Misc ----
+draco/*.wasm
+basis/*.wasm
+# Keep decoder JS files if needed for production; comment out if you want them versioned.
+# draco/*.js
+# basis/*.js
 /.idea/
 /*.iml
 
