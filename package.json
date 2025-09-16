@@ -9,6 +9,7 @@
   "scripts": {
     "prebuild": "node scripts/copy-decoders.mjs",
     "build": "vite build",
+  "postbuild": "npm run size:check",
     "dev": "vite --mode development build",
     "watch": "vite --mode development build --watch",
     "copy-decoders": "node scripts/copy-decoders.mjs",
@@ -16,7 +17,10 @@
     "stylelint": "stylelint src/**/*.vue src/**/*.scss src/**/*.css",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
-    "test:e2e:report": "playwright show-report"
+    "test:e2e:report": "playwright show-report",
+    "size:check": "node scripts/check-bundle-size.mjs",
+    "test:smoke": "npm run build && playwright test tests/smoke",
+    "test:smoke:headed": "npm run build && playwright test tests/smoke --headed"
   },
   "type": "module",
   "browserslist": [

@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace Service;
+namespace OCA\ThreeDViewer\Tests\Unit\Service;
 
 use OCA\ThreeDViewer\Service\FileService;
-use OCP\Files\File;
 use OCA\ThreeDViewer\Service\ModelFileSupport;
 use OCA\ThreeDViewer\Service\Exception\UnsupportedFileTypeException;
+use OCA\ThreeDViewer\Service\Exception\UnauthorizedException;
+use OCP\Files\File;
 use OCP\Files\IRootFolder;
 use OCP\Files\NotFoundException;
 use OCP\IUser;
 use OCP\IUserSession;
 use PHPUnit\Framework\TestCase;
-use RuntimeException;
 
 final class FileServiceTest extends TestCase {
 	private $rootFolder;
@@ -38,7 +38,7 @@ final class FileServiceTest extends TestCase {
 		$this->userSession->method('getUser')->willReturn(null);
 		$support = $this->createMock(ModelFileSupport::class);
 		$service = new FileService($this->rootFolder, $this->userSession, $support);
-		$this->expectException(RuntimeException::class);
+		$this->expectException(UnauthorizedException::class);
 		$service->getValidatedFile(123);
 	}
 
@@ -65,5 +65,19 @@ final class FileServiceTest extends TestCase {
 		$service = new FileService($this->rootFolder, $this->userSession, $support);
 		$this->expectException(UnsupportedFileTypeException::class);
 		$service->getValidatedFile(55);
+	}
+
+	public function testGetValidatedFileSuccess(): void {
+		$this->userSession->method('getUser')->willReturn($this->user);
+		$this->user->method('getUID')->willReturn('uid');
+		$this->rootFolder->method('getUserFolder')->willReturn($this->userFolder);
+		$file = $this->createMock(File::class);
+		$file->method('getExtension')->willReturn('obj');
+		$this->userFolder->method('getById')->willReturn([$file]);
+		$support = $this->createMock(ModelFileSupport::class);
+		$support->method('isSupported')->with('obj')->willReturn(true);
+		$service = new FileService($this->rootFolder, $this->userSession, $support);
+		$validated = $service->getValidatedFile(900);
+		$this->assertSame($file, $validated);
 	}
 }

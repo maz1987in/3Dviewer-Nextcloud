@@ -1,0 +1,1 @@
+FBX minimal sample placeholder. Provide a tiny ASCII FBX later for automated tests.

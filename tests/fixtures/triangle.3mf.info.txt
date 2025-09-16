@@ -1,0 +1,1 @@
+3MF minimal sample placeholder: create an actual small 3mf model in future (needs zipped structure).

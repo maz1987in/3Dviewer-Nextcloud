@@ -36,6 +36,9 @@ export function bootstrapViewer (selector = '#threedviewer', options = {}) { // 
 		if (vm.$el && vm.$el.id !== desiredId) {
 			vm.$el.id = desiredId
 		}
+		if (typeof window !== 'undefined') {
+			window.__THREEDVIEWER_LAST_VM = vm // test harness hook (non-public API)
+		}
 		return vm
 	}
 	if (!mountEl) {

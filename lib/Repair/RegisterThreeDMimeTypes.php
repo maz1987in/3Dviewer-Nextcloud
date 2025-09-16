@@ -39,6 +39,8 @@ class RegisterThreeDMimeTypes implements IRepairStep {
 			'ply' => 'model/ply',
 			'fbx' => 'application/octet-stream', // no official registered specific type commonly used
 			'mtl' => 'text/plain', // material library (Wavefront); plain text
+			'3mf' => 'model/3mf',
+			'3ds' => 'application/octet-stream',
 		];
 		foreach ($desired as $ext => $mime) {
 			$shouldAdd = true;

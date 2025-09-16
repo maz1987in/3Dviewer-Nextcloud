@@ -1,12 +1,23 @@
 <template>
 	<div class="three-viewer" ref="container" :aria-label="t('threedviewer','3D viewer canvas container')">
-		<div v-if="loading" class="loading" aria-live="polite">{{ t('threedviewer', 'Loading 3D scene…') }}</div>
+		<div v-if="loading" class="loading" aria-live="polite">
+			<span v-if="progress.message">{{ progress.message }}</span>
+			<span v-else-if="progress.total > 0">{{ t('threedviewer', 'Loading {loaded}/{total}…', { loaded: progress.loaded, total: progress.total }) }}</span>
+			<span v-else-if="progress.loaded > 0">{{ t('threedviewer', 'Loaded {loaded}…', { loaded: progress.loaded }) }}</span>
+			<span v-else>{{ t('threedviewer', 'Loading 3D scene…') }}</span>
+			<div v-if="progress.total > 0" class="progress-bar" :aria-label="t('threedviewer','Model load progress')" role="progressbar" :aria-valuemin="0" :aria-valuemax="progress.total" :aria-valuenow="progress.loaded">
+				<div class="progress-bar__fill" :style="{ width: Math.min(100, (progress.loaded / progress.total) * 100) + '%' }"></div>
+			</div>
+			<div class="loading-actions">
+				<button type="button" class="cancel-btn" @click="cancelLoad" :disabled="aborting">{{ aborting ? t('threedviewer','Canceling…') : t('threedviewer','Cancel loading') }}</button>
+			</div>
+		</div>
 	</div>
 </template>
 
 <script>
 import * as THREE from 'three'
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import { loadModelByExtension, isSupportedExtension } from '../loaders/registry.js'
 
 export default {
 	name: 'ThreeViewer',
@@ -20,86 +31,83 @@ export default {
 	data() {
 		return {
 			loading: true,
+			progress: { loaded: 0, total: 0, message: null },
 			renderer: null,
 			scene: null,
 			camera: null,
 			controls: null,
 			animationId: null,
-			observer: null,
 			modelRoot: null,
 			initialCameraPos: null,
 			initialTarget: new THREE.Vector3(0,0,0),
-			hasDraco: null, // null = undetected, boolean after probe
+			baselineCameraPos: null,
+			baselineTarget: null,
+			currentFileId: null,
+			_saveTimer: null,
+			hasDraco: null,
 			hasKtx2: null,
+			hasMeshopt: null,
+			abortController: null,
+			aborting: false,
+			abortedEmitted: false,
 		}
 	},
-	mounted() {
-		this.init()
-	},
-	beforeDestroy() {
-		this.dispose()
-	},
+	mounted() { this.init(); if (typeof window !== 'undefined') { window.__THREEDVIEWER_VIEWER = this } },
+	beforeDestroy() { this.dispose(); this.cancelOngoingLoad() },
 	watch: {
 		showGrid(val) { if (this.grid) this.grid.visible = val },
 		showAxes(val) { if (this.axes) this.axes.visible = val },
 		wireframe(val) { this.applyWireframe(val) },
 		background(val) { this.applyBackground(val) },
-		fileId: {
-			immediate: false,
-			handler(id) { if (id) { this.loadModel(id) } },
-		},
+		fileId: { immediate: false, handler(id) { if (id) { this.cancelOngoingLoad(); this.loadModel(id) } } },
 	},
 	methods: {
-		init() {
+		async init() {
 			const container = this.$refs.container
 			const width = container.clientWidth || 800
 			const height = container.clientHeight || 600
-
 			this.scene = new THREE.Scene()
 			this.scene.background = new THREE.Color(this.$root?.$ncTheme?.isDark ? 0x1e1e1e : 0xf5f5f5)
-
 			this.camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 1000)
 			this.camera.position.set(2, 2, 2)
-
 			this.renderer = new THREE.WebGLRenderer({ antialias: true })
 			this.renderer.setPixelRatio(window.devicePixelRatio)
 			this.renderer.setSize(width, height)
 			container.appendChild(this.renderer.domElement)
-
 			const ambient = new THREE.AmbientLight(0xffffff, 0.7)
 			const dir = new THREE.DirectionalLight(0xffffff, 0.8)
 			dir.position.set(5, 10, 7.5)
 			this.scene.add(ambient, dir)
-
-			// Placeholder geometry (spinning cube) if no file provided yet
 			if (!this.fileId) {
 				const geo = new THREE.BoxGeometry(1, 1, 1)
 				const mat = new THREE.MeshStandardMaterial({ color: 0x1565c0, metalness: 0.1, roughness: 0.8 })
 				this.cube = new THREE.Mesh(geo, mat)
 				this.scene.add(this.cube)
 			}
-
-			// Grid & axes helpers (default visible; can be toggled later)
 			this.grid = new THREE.GridHelper(10, 10)
 			this.axes = new THREE.AxesHelper(2)
 			this.scene.add(this.grid, this.axes)
 			this.grid.visible = this.showGrid
 			this.axes.visible = this.showAxes
-
-			this.controls = new OrbitControls(this.camera, this.renderer.domElement)
-			this.controls.enableDamping = true
-			this.controls.dampingFactor = 0.05
-			this.controls.screenSpacePanning = false
-			this.controls.update()
-
+			// Lazy-load OrbitControls to keep main bundle smaller
+			try {
+				const mod = await import(/* webpackChunkName: "orbit-controls" */ 'three/examples/jsm/controls/OrbitControls.js')
+				const OrbitControls = mod.OrbitControls || mod.default
+				this.controls = new OrbitControls(this.camera, this.renderer.domElement)
+				this.controls.enableDamping = true
+				this.controls.dampingFactor = 0.05
+				this.controls.screenSpacePanning = false
+				this.controls.update()
+				this.controls.addEventListener('end', this.onControlsEnd)
+			} catch (e) {
+				// If dynamic import fails, continue without controls (rare)
+				console.warn('[ThreeViewer] Failed to load OrbitControls chunk', e)
+			}
 			window.addEventListener('resize', this.onWindowResize)
-
 			this.initialCameraPos = this.camera.position.clone()
 			this.loading = false
 			this.animate()
-			if (this.fileId) {
-				this.loadModel(this.fileId)
-			}
+			if (this.fileId) this.loadModel(this.fileId)
 		},
 		animate() {
 			this.animationId = requestAnimationFrame(this.animate)
@@ -111,60 +119,118 @@ export default {
 			this.renderer?.render(this.scene, this.camera)
 		},
 		async loadModel(fileId) {
+			this.cancelOngoingLoad()
 			this.loading = true
+			this.progress = { loaded: 0, total: 0, message: null }
+			this.currentFileId = fileId
+			this.baselineCameraPos = null
+			this.baselineTarget = null
+			this.aborting = false
+			this.abortedEmitted = false
+			this.abortController = new AbortController()
+			// Announce load start early (before fetch) for external listeners / tests
+			const startPayload = { fileId }
+			this.$emit('load-start', startPayload)
+			this.dispatchViewerEvent('load-start', startPayload)
 			try {
 				const url = `/ocs/v2.php/apps/threedviewer/file/${fileId}`
-				const res = await fetch(url, { headers: { 'Accept': 'application/octet-stream' } })
+				const res = await fetch(url, { headers: { 'Accept': 'application/octet-stream' }, signal: this.abortController.signal })
 				if (!res.ok) throw new Error(`HTTP ${res.status}`)
-				// Determine extension from content-disposition filename or fallback to glb
-				let filename = (res.headers.get('Content-Disposition') || '').match(/filename="?([^";]+)"?/i)?.[1] || `model.glb`
+				let filename = (res.headers.get('Content-Disposition') || '').match(/filename="?([^";]+)"?/i)?.[1] || 'model.glb'
 				const ext = filename.split('.').pop().toLowerCase()
-				const blob = await res.blob()
-				const arrayBuffer = await blob.arrayBuffer()
-				if (['glb','gltf'].includes(ext)) {
-					await this.loadGltf(arrayBuffer)
-				} else if (ext === 'stl') {
-					await this.loadStl(arrayBuffer)
-				} else if (ext === 'ply') {
-					await this.loadPly(arrayBuffer)
-				} else if (ext === 'obj') {
-					await this.loadObj(arrayBuffer)
-				} else if (ext === 'fbx') {
-					await this.loadFbx(arrayBuffer)
+				if (!isSupportedExtension(ext)) throw new Error(`Unsupported extension: ${ext}`)
+				let arrayBuffer
+				const contentLength = Number(res.headers.get('Content-Length') || 0)
+				if (res.body && contentLength > 0 && 'getReader' in res.body) {
+					this.progress.total = contentLength
+					const reader = res.body.getReader()
+					const chunks = []
+					let received = 0
+					while (true) {
+						const { done, value } = await reader.read()
+						if (done) break
+						chunks.push(value)
+						received += value.byteLength
+						this.progress.loaded = received
+						if (this.aborting) throw new DOMException('Aborted', 'AbortError')
+					}
+					const totalLength = received
+					arrayBuffer = new Uint8Array(totalLength)
+					let offset = 0
+					for (const c of chunks) { arrayBuffer.set(c, offset); offset += c.byteLength }
+					arrayBuffer = arrayBuffer.buffer
 				} else {
-					console.warn('Unsupported loader yet for', ext)
+					const blob = await res.blob()
+					arrayBuffer = await blob.arrayBuffer()
+					this.progress.loaded = this.progress.total = arrayBuffer.byteLength
 				}
-				this.$emit('model-loaded', { fileId, filename })
+				if (['glb','gltf'].includes(ext)) await this.detectDecoderAssets()
+				const { object3D } = await loadModelByExtension(ext, arrayBuffer, {
+					THREE,
+					scene: this.scene,
+					renderer: this.renderer,
+					applyWireframe: (enabled) => this.applyWireframe(enabled),
+					ensurePlaceholderRemoved: () => this.ensurePlaceholderRemoved(),
+					hasDraco: this.hasDraco,
+					hasKtx2: this.hasKtx2,
+					wireframe: this.wireframe,
+					fileId: this.fileId,
+				})
+				if (this.aborting) throw new DOMException('Aborted', 'AbortError')
+				this.modelRoot = object3D
+				this.scene.add(this.modelRoot)
+				this.fitCameraToObject(this.modelRoot)
+				this.baselineCameraPos = this.camera.position.clone()
+				this.baselineTarget = this.controls.target.clone()
+				this.applySavedCamera(fileId)
+				const payload = { fileId, filename }
+				this.$emit('model-loaded', payload)
+				this.dispatchViewerEvent('model-loaded', payload)
 			} catch (e) {
-				console.error(e)
-				this.$emit('error', e.message || e.toString())
+				if (e && e.name === 'AbortError') {
+					this.progress.message = t('threedviewer','Canceled')
+					const payload = { fileId }
+					this.$emit('model-aborted', payload)
+					this.dispatchViewerEvent('model-aborted', payload)
+				} else {
+					console.error(e)
+					const payload = { message: e.message || e.toString(), error: e }
+					this.$emit('error', payload)
+					this.dispatchViewerEvent('error', payload)
+					this.progress.message = null
+					this.progress.loaded = 0
+					this.progress.total = 0
+				}
 			} finally {
+				if (this.progress.total > 0 && this.progress.loaded < this.progress.total && !this.aborting) {
+					this.progress.loaded = this.progress.total
+				}
 				this.loading = false
+				this.aborting = false
+				this.abortController = null
 			}
 		},
-		async loadFbx(arrayBuffer) {
-			// FBXLoader expects a DataView / ArrayBuffer parse via parse() is not publicly exposed; we create a Blob URL.
-			// We convert the ArrayBuffer to a Blob and feed it to loader.load using an object URL.
-			const { FBXLoader } = await import('three/examples/jsm/loaders/FBXLoader.js')
-			const loader = new FBXLoader()
-			return new Promise((resolve, reject) => {
-				try {
-					const blob = new Blob([arrayBuffer], { type: 'application/octet-stream' })
-					const url = URL.createObjectURL(blob)
-					loader.load(url, object => {
-						URL.revokeObjectURL(url)
-						this.ensurePlaceholderRemoved()
-						this.modelRoot = object
-						this.scene.add(this.modelRoot)
-						this.fitCameraToObject(this.modelRoot)
-						this.applyWireframe(this.wireframe)
-						resolve()
-					}, undefined, err => {
-						URL.revokeObjectURL(url)
-						reject(err)
-					})
-				} catch (e) { reject(e) }
-			})
+		cancelOngoingLoad() {
+			if (this.abortController) {
+				try { this.abortController.abort() } catch (_) {}
+				this.abortController = null
+				this.aborting = false
+			}
+		},
+		cancelLoad() {
+			if (!this.loading || this.aborting) return
+			if (this.abortController) {
+				this.aborting = true
+				try { this.abortController.abort() } catch (_) {}
+				// Proactively dispatch aborted event to guarantee external listeners receive it,
+				// even if the underlying fetch rejects before our try/catch below handles it.
+				if (!this.abortedEmitted) {
+					const payload = { fileId: this.currentFileId }
+					this.$emit('model-aborted', payload)
+					this.dispatchViewerEvent('model-aborted', payload)
+					this.abortedEmitted = true
+				}
+			}
 		},
 		async ensurePlaceholderRemoved() {
 			if (this.cube) {
@@ -174,149 +240,31 @@ export default {
 				this.cube = null
 			}
 		},
-		async loadGltf(arrayBuffer) {
-			// Dynamically import GLTFLoader and wire optional DRACO & KTX2 decoders.
-			await this.detectDecoderAssets()
-			const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js')
-			const loader = new GLTFLoader()
-			// DRACO (compressed geometry) support – only if assets detected.
-			if (this.hasDraco) {
-				try {
-					const { DRACOLoader } = await import('three/examples/jsm/loaders/DRACOLoader.js')
-					const dracoLoader = new DRACOLoader()
-					dracoLoader.setDecoderPath('/apps/threedviewer/draco/')
-					loader.setDRACOLoader(dracoLoader)
-				} catch (e) {
-					console.warn('[threedviewer] DRACO dynamic import failed after positive detection', e)
-				}
-			}
-			// KTX2 (Basis) – only if assets detected.
-			if (this.hasKtx2) {
-				try {
-					const { KTX2Loader } = await import('three/examples/jsm/loaders/KTX2Loader.js')
-					const ktx2Loader = new KTX2Loader()
-					ktx2Loader.setTranscoderPath('/apps/threedviewer/basis/')
-					ktx2Loader.detectSupport(this.renderer)
-					loader.setKTX2Loader(ktx2Loader)
-				} catch (e) {
-					console.warn('[threedviewer] KTX2 dynamic import failed after positive detection', e)
-				}
-			}
-			return new Promise((resolve, reject) => {
-				loader.parse(arrayBuffer, '', gltf => {
-					this.ensurePlaceholderRemoved()
-					this.modelRoot = gltf.scene
-					this.scene.add(this.modelRoot)
-					this.fitCameraToObject(this.modelRoot)
-					this.applyWireframe(this.wireframe)
-					resolve()
-				}, reject)
-			})
-		},
 		async detectDecoderAssets() {
-			// Only probe once per session (component lifetime)
-			if (this.hasDraco !== null && this.hasKtx2 !== null) return
+			if (this.hasDraco !== null && this.hasKtx2 !== null && this.hasMeshopt !== null) return
 			const dracoUrl = '/apps/threedviewer/draco/draco_decoder.wasm'
 			const ktx2Url = '/apps/threedviewer/basis/basis_transcoder.wasm'
-			const head = async (url) => {
+			// Meshopt decoder (optional) — place expected decoder at /apps/threedviewer/meshopt/meshopt_decoder.wasm
+			const meshoptUrl = '/apps/threedviewer/meshopt/meshopt_decoder.wasm'
+			const head = async url => {
 				try {
 					const res = await fetch(url, { method: 'HEAD' })
 					if (res.ok) return true
-					// Some environments may disallow HEAD; attempt a very small GET (cannot easily range without server support)
 					if (res.status === 405) {
 						const getRes = await fetch(url, { method: 'GET' })
 						return getRes.ok
 					}
-				} catch (_) { /* silent */ }
+				} catch (_) {}
 				return false
 			}
-			const [draco, ktx2] = await Promise.all([
+			const [draco, ktx2, meshopt] = await Promise.all([
 				this.hasDraco === null ? head(dracoUrl) : this.hasDraco,
 				this.hasKtx2 === null ? head(ktx2Url) : this.hasKtx2,
+				this.hasMeshopt === null ? head(meshoptUrl) : this.hasMeshopt,
 			])
 			this.hasDraco = !!draco
 			this.hasKtx2 = !!ktx2
-			if (this.hasDraco || this.hasKtx2) {
-				console.log('[threedviewer] Decoder assets detected', { draco: this.hasDraco, ktx2: this.hasKtx2 })
-			} else {
-				console.log('[threedviewer] No decoder assets detected; proceeding without DRACO/KTX2 support')
-			}
-		},
-		async loadStl(arrayBuffer) {
-			const { STLLoader } = await import('three/examples/jsm/loaders/STLLoader.js')
-			const loader = new STLLoader()
-			return new Promise((resolve, reject) => {
-				try {
-					const geo = loader.parse(arrayBuffer)
-					this.ensurePlaceholderRemoved()
-					const mat = new THREE.MeshStandardMaterial({ color: 0x888888 })
-					this.modelRoot = new THREE.Mesh(geo, mat)
-					this.scene.add(this.modelRoot)
-					this.fitCameraToObject(this.modelRoot)
-					this.applyWireframe(this.wireframe)
-					resolve()
-				} catch (e) { reject(e) }
-			})
-		},
-		async loadPly(arrayBuffer) {
-			const { PLYLoader } = await import('three/examples/jsm/loaders/PLYLoader.js')
-			const loader = new PLYLoader()
-			return new Promise((resolve, reject) => {
-				try {
-					const geo = loader.parse(arrayBuffer)
-					geo.computeVertexNormals?.()
-					this.ensurePlaceholderRemoved()
-					const mat = new THREE.MeshStandardMaterial({ color: 0xb0bec5, flatShading: false })
-					this.modelRoot = new THREE.Mesh(geo, mat)
-					this.scene.add(this.modelRoot)
-					this.fitCameraToObject(this.modelRoot)
-					this.applyWireframe(this.wireframe)
-					resolve()
-				} catch (e) { reject(e) }
-			})
-		},
-		async loadObj(arrayBuffer) {
-			const textDecoder = new TextDecoder()
-			const objText = textDecoder.decode(arrayBuffer)
-			// Extract potential mtllib references (first one only for now)
-			let mtlName = null
-			for (const line of objText.split(/\r?\n/)) {
-				if (line.toLowerCase().startsWith('mtllib ')) {
-					mtlName = line.split(/\s+/)[1]?.trim()
-					break
-				}
-			}
-			const { OBJLoader } = await import('three/examples/jsm/loaders/OBJLoader.js')
-			const loader = new OBJLoader()
-			if (mtlName) {
-				try {
-					const { MTLLoader } = await import('three/examples/jsm/loaders/MTLLoader.js')
-					// We need a fileId to know base OBJ; pass current fileId prop
-					const mtlUrl = `/ocs/v2.php/apps/threedviewer/file/${this.fileId}/mtl/${encodeURIComponent(mtlName)}`
-					const mtlRes = await fetch(mtlUrl, { headers: { 'Accept': 'text/plain' } })
-					if (mtlRes.ok) {
-						const mtlText = await mtlRes.text()
-						const mtlLoader = new MTLLoader()
-						const materials = mtlLoader.parse(mtlText, '')
-						materials.preload()
-						loader.setMaterials(materials)
-					} else {
-						this.$emit('error', t('threedviewer', 'MTL fetch failed ({status})', { status: mtlRes.status }))
-					}
-				} catch (e) {
-					// MTL optional; log quietly
-				}
-			}
-			return new Promise((resolve, reject) => {
-				try {
-					this.ensurePlaceholderRemoved()
-					this.modelRoot = loader.parse(objText)
-					this.scene.add(this.modelRoot)
-					this.fitCameraToObject(this.modelRoot)
-					this.applyWireframe(this.wireframe)
-					resolve()
-				} catch (e) { reject(e) }
-			})
+			this.hasMeshopt = !!meshopt
 		},
 		fitCameraToObject(obj) {
 			const box = new THREE.Box3().setFromObject(obj)
@@ -331,6 +279,10 @@ export default {
 			this.camera.position.set(center.x + cameraZ, center.y + cameraZ, center.z + cameraZ)
 			this.controls.target.copy(center)
 			this.controls.update()
+			if (!this.baselineCameraPos || !this.baselineTarget) {
+				this.baselineCameraPos = this.camera.position.clone()
+				this.baselineTarget = this.controls.target.clone()
+			}
 		},
 		applyWireframe(enabled) {
 			if (!this.modelRoot) return
@@ -341,17 +293,42 @@ export default {
 				}
 			})
 		},
-		applyBackground(val) {
-			if (!val) return
-			try { this.scene.background = new THREE.Color(val) } catch (_) { /* ignore invalid */ }
-		},
+		applyBackground(val) { if (val) { try { this.scene.background = new THREE.Color(val) } catch (_) {} } },
 		resetView() {
-			if (this.initialCameraPos) {
+			if (this.baselineCameraPos && this.baselineTarget) {
+				this.camera.position.copy(this.baselineCameraPos)
+				this.controls.target.copy(this.baselineTarget)
+				this.controls.update()
+			} else if (this.initialCameraPos) {
 				this.camera.position.copy(this.initialCameraPos)
 				this.controls.target.copy(this.initialTarget)
 				this.controls.update()
 			}
 			this.$emit('reset-done')
+		},
+		onControlsEnd() { if (this.fileId) this.scheduleCameraSave() },
+		scheduleCameraSave() {
+			if (this._saveTimer) clearTimeout(this._saveTimer)
+			this._saveTimer = setTimeout(() => this.saveCameraState(this.fileId), 400)
+		},
+		getCameraStore() { try { return JSON.parse(localStorage.getItem('threedviewer.camera.v1')) || {} } catch (_) { return {} } },
+		setCameraStore(store) { try { localStorage.setItem('threedviewer.camera.v1', JSON.stringify(store)) } catch (_) {} },
+		saveCameraState(fileId) {
+			if (!fileId || !this.camera || !this.controls) return
+			const store = this.getCameraStore()
+			store[fileId] = { pos: [this.camera.position.x, this.camera.position.y, this.camera.position.z], target: [this.controls.target.x, this.controls.target.y, this.controls.target.z] }
+			this.setCameraStore(store)
+		},
+		applySavedCamera(fileId) {
+			if (!fileId) return false
+			const entry = this.getCameraStore()[fileId]
+			if (!entry || !entry.pos || !entry.target) return false
+			try {
+				this.camera.position.set(entry.pos[0], entry.pos[1], entry.pos[2])
+				this.controls.target.set(entry.target[0], entry.target[1], entry.target[2])
+				this.controls.update()
+				return true
+			} catch (_) { return false }
 		},
 		onWindowResize() {
 			if (!this.renderer || !this.camera) return
@@ -366,48 +343,41 @@ export default {
 			cancelAnimationFrame(this.animationId)
 			window.removeEventListener('resize', this.onWindowResize)
 			this.controls?.dispose()
+			if (this.controls) this.controls.removeEventListener('end', this.onControlsEnd)
+			if (this._saveTimer) { clearTimeout(this._saveTimer); this._saveTimer = null }
+			this.cancelOngoingLoad()
 			if (this.renderer) {
 				this.renderer.dispose()
-				if (this.renderer.domElement?.parentNode) {
-					this.renderer.domElement.parentNode.removeChild(this.renderer.domElement)
-				}
+				if (this.renderer.domElement?.parentNode) this.renderer.domElement.parentNode.removeChild(this.renderer.domElement)
 			}
-			// Basic cleanup of placeholder objects
 			;['cube', 'grid', 'axes', 'modelRoot'].forEach(key => {
 				if (this[key]) {
 					this.scene?.remove(this[key])
 					if (this[key].geometry) this[key].geometry.dispose()
 					if (this[key].material) {
-						if (Array.isArray(this[key].material)) {
-							this[key].material.forEach(m => m.dispose())
-						} else {
-							this[key].material.dispose()
-						}
+						if (Array.isArray(this[key].material)) this[key].material.forEach(m => m.dispose())
+						else this[key].material.dispose()
 					}
 				}
 			})
+		},
+		dispatchViewerEvent(type, detail) {
+			try {
+				const el = this.$refs.container
+				if (el) {
+					el.dispatchEvent(new CustomEvent(`threedviewer:${type}` , { detail, bubbles: true, composed: true }))
+				}
+			} catch (_) {}
 		},
 	},
 }
 </script>
 
 <style scoped>
-.three-viewer {
-	position: relative;
-	width: 100%;
-	height: calc(100vh - 120px);
-	min-height: 400px;
-	outline: none;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-}
-.loading {
-	position: absolute;
-	top: 50%;
-	left: 50%;
-	transform: translate(-50%, -50%);
-	font-size: 0.95rem;
-	color: var(--color-text-light, #555);
-}
+.three-viewer { position: relative; width: 100%; height: calc(100vh - 120px); min-height: 400px; outline: none; display: flex; align-items: center; justify-content: center; }
+.loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 0.95rem; color: var(--color-text-light, #555); }
+.loading-actions { margin-top: 0.5rem; text-align: center; }
+.cancel-btn { cursor: pointer; font-size: 0.75rem; padding: 4px 10px; border-radius: 4px; background: var(--color-primary, #0d47a1); color: #fff; border: none; }
+.cancel-btn[disabled] { opacity: 0.6; cursor: default; }
 </style>
+

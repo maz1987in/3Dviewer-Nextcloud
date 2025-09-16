@@ -3,13 +3,13 @@
 		<button @click="$emit('reset-view')" :aria-label="t('threedviewer','Reset view')" class="tb" type="button">
 			{{ t('threedviewer','Reset') }}
 		</button>
-		<button @click="$emit('toggle-grid')" :aria-pressed="grid" :aria-label="t('threedviewer','Toggle grid')" class="tb" type="button">
+		<button @click="$emit('toggle-grid')" :aria-pressed="grid" :aria-label="t('threedviewer','Toggle grid')" class="tb" type="button" :title="t('threedviewer','Toggle grid')">
 			{{ grid ? t('threedviewer','Grid on') : t('threedviewer','Grid off') }}
 		</button>
-		<button @click="$emit('toggle-axes')" :aria-pressed="axes" :aria-label="t('threedviewer','Toggle axes')" class="tb" type="button">
+		<button @click="$emit('toggle-axes')" :aria-pressed="axes" :aria-label="t('threedviewer','Toggle axes')" class="tb" type="button" :title="t('threedviewer','Toggle axes')">
 			{{ axes ? t('threedviewer','Axes on') : t('threedviewer','Axes off') }}
 		</button>
-		<button @click="$emit('toggle-wireframe')" :aria-pressed="wireframe" :aria-label="t('threedviewer','Toggle wireframe')" class="tb" type="button">
+		<button @click="$emit('toggle-wireframe')" :aria-pressed="wireframe" :aria-label="t('threedviewer','Toggle wireframe')" class="tb" type="button" :title="t('threedviewer','Toggle wireframe')">
 			{{ wireframe ? t('threedviewer','Wireframe on') : t('threedviewer','Wireframe off') }}
 		</button>
 		<label class="color-picker" :aria-label="t('threedviewer','Background color')">

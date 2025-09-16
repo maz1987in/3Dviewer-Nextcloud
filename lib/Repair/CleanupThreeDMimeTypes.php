@@ -39,6 +39,8 @@ class CleanupThreeDMimeTypes implements IRepairStep {
 			'ply' => 'model/ply',
 			'fbx' => 'application/octet-stream',
 			'mtl' => 'text/plain',
+			'3mf' => 'model/3mf',
+			'3ds' => 'application/octet-stream',
 		];
 		foreach ($targets as $ext => $mime) {
 			$remove = false;

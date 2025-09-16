@@ -1,0 +1,1 @@
+Placeholder: For future binary GLB if needed. Using minimal embedded glTF instead for now.

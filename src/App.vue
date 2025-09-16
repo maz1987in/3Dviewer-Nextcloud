@@ -28,10 +28,18 @@
 </template>
 
 <script>
-import NcAppContent from '@nextcloud/vue/dist/Components/NcAppContent.js'
 import ToastContainer from './components/ToastContainer.vue'
 import ThreeViewer from './components/ThreeViewer.vue'
 import ViewerToolbar from './components/ViewerToolbar.vue'
+
+// Attempt to import NcAppContent (Nextcloud UI component); provide minimal fallback if unavailable (e.g., in Playwright data URL harness)
+let NcAppContent
+try {
+	// eslint-disable-next-line import/no-unresolved
+	NcAppContent = (await import('@nextcloud/vue/dist/Components/NcAppContent.js')).default
+} catch (e) {
+	NcAppContent = { name: 'NcAppContentStub', functional: true, render(h, ctx) { return h('div', { class: 'nc-app-content-stub' }, ctx.children) } }
+}
 
 export default {
 	name: 'App',
@@ -51,13 +59,59 @@ export default {
 			lastError: null,
 			modelMeta: null,
 			toasts: [],
+			_prefsLoaded: false,
 		}
+	},
+	created() {
+		this.loadPrefs()
+	},
+	mounted() {
+		// Test harness fallback: if no fileId parsed but a global test file id is present inject it.
+		if (!this.fileId && typeof window !== 'undefined' && window.__TEST_FILE_ID) {
+			this.fileId = Number(window.__TEST_FILE_ID)
+		}
+	},
+	watch: {
+		grid() { this.savePrefs() },
+		axes() { this.savePrefs() },
+		wireframe() { this.savePrefs() },
+		background() { this.savePrefs() },
 	},
 	methods: {
 		parseFileId() {
 			const params = new URLSearchParams(window.location.search)
 			const id = params.get('fileId')
 			return id ? Number(id) : null
+		},
+		loadPrefs() {
+			try {
+				const raw = localStorage.getItem('threedviewer:prefs')
+				if (!raw) return
+				const parsed = JSON.parse(raw)
+				if (typeof parsed === 'object' && parsed) {
+					if (typeof parsed.grid === 'boolean') this.grid = parsed.grid
+					if (typeof parsed.axes === 'boolean') this.axes = parsed.axes
+					if (typeof parsed.wireframe === 'boolean') this.wireframe = parsed.wireframe
+					if (typeof parsed.background === 'string' && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(parsed.background)) {
+						this.background = parsed.background
+					}
+				}
+				this._prefsLoaded = true
+			} catch (e) { /* ignore corrupted prefs */ }
+		},
+		savePrefs() {
+			// Avoid saving before initial load to prevent overwriting valid existing settings prematurely
+			if (!this._prefsLoaded) return
+			try {
+				const data = {
+					grid: this.grid,
+					axes: this.axes,
+					wireframe: this.wireframe,
+					background: this.background,
+					v: 1,
+				}
+				localStorage.setItem('threedviewer:prefs', JSON.stringify(data))
+			} catch (_) { /* storage may be disabled */ }
 		},
 		onReset() {
 			this.$refs.viewer?.resetView?.()

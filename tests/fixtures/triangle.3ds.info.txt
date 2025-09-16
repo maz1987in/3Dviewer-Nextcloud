@@ -1,0 +1,1 @@
+3DS minimal sample placeholder: binary format; supply actual small file later.

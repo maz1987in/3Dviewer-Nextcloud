@@ -8,7 +8,8 @@
 	}
 
 	const APP_ID = 'threedviewer'
-	const supportedExt = ['glb','gltf','obj','stl','ply','fbx']
+	const supportedExt = ['glb','gltf','obj','stl','ply','fbx','3mf','3ds']
+	const ICON_CLASS = 'icon-3d-model'
 
 	function isSupported(fileName) {
 		const ext = fileName.split('.').pop().toLowerCase()
@@ -33,7 +34,7 @@
 		displayName: t(APP_ID, 'View 3D'),
 		mime: 'application/octet-stream', // broad; we gate by ext in permissions
 		permissions: OC.PERMISSION_READ,
-		iconClass: 'icon-view',
+		iconClass: ICON_CLASS,
 		order: 15,
 		actionHandler: openInViewer,
 	})
@@ -43,8 +44,45 @@
 	if (originalCurrentFile) {
 		const wrapped = function(fileName, context) {
 			if (!isSupported(fileName)) return false
+			// Attempt to set icon on the row if possible
+			try {
+				const $tr = context && (context.$file || context.file) // jQuery-like wrapper or element
+				if ($tr && typeof $tr.find === 'function') {
+					const $icon = $tr.find('.filename .thumbnail, .filename .icon')
+					if ($icon && $icon.length) {
+						$icon.removeClass().addClass(ICON_CLASS)
+					}
+				}
+			} catch(e) { /* ignore icon errors */ }
 			return originalCurrentFile(fileName, context)
 		}
 		OCA.Files.fileActions._defaultActions["application/octet-stream"].View3DModel = wrapped
 	}
+
+	// Passive scan after load to tag existing rows (initial render) and attach placeholder thumbnails
+	try {
+		const process = () => {
+			document.querySelectorAll('tr[data-file]').forEach(tr => {
+				const nameCell = tr.querySelector('.filename')
+				if (!nameCell) return
+				const fname = nameCell.getAttribute('data-original-filename') || nameCell.textContent.trim()
+				if (fname && isSupported(fname)) {
+					const icon = nameCell.querySelector('.thumbnail, .icon')
+					if (icon) {
+						icon.className = ICON_CLASS
+						// If there's an <img> intended for a preview, set its src to our placeholder thumbnail endpoint
+						const fileId = tr.getAttribute('data-id') || tr.getAttribute('data-fileid')
+						const img = icon.tagName === 'IMG' ? icon : icon.querySelector('img')
+						if (fileId && img && !img.dataset.threedThumbApplied) {
+							img.src = OC.generateUrl(`/apps/${APP_ID}/thumb/${fileId}`)
+							img.dataset.threedThumbApplied = '1'
+						}
+					}
+				}
+			})
+		}
+		// Initial and delayed pass
+		process()
+		setTimeout(process, 1500)
+	} catch(e) {}
 })();
