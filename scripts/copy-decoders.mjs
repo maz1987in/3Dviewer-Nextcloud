@@ -54,18 +54,22 @@ async function run() {
   for (const key of Object.keys(sources)) {
     const srcDir = sources[key]
     const outDir = path.join(root, key) // top-level /draco or /basis
+    const jsOutDir = path.join(root, 'js', key) // also copy to js/ for serving
     await ensureDir(outDir)
+    await ensureDir(jsOutDir)
 
     for (const file of fileGlobs[key]) {
       const from = path.join(srcDir, file)
       const to = path.join(outDir, file)
+      const jsTo = path.join(jsOutDir, file)
       const copied = await copyIfExists(from, to)
-      report.push({ key, file, copied })
+      const jsCopied = await copyIfExists(from, jsTo)
+      report.push({ key, file, copied, jsCopied })
     }
   }
 
   // Minimal console output (CI friendly)
-  const lines = report.map(r => `${r.key}/${r.file}: ${r.copied ? 'copied' : 'missing'}`)
+  const lines = report.map(r => `${r.key}/${r.file}: ${r.copied ? 'copied' : 'missing'}${r.jsCopied ? ' (js)' : ''}`)
   console.log('[copy-decoders] Summary:\n' + lines.join('\n'))
 
   // Fail hard only if ALL primary decoder files are missing; otherwise we allow build to proceed

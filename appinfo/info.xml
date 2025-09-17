@@ -21,6 +21,15 @@
 	<styles>
 		<style>css/file-icons.css</style>
 	</styles>
+	<routes>
+		<route name="threedviewer.asset.serve" url="/asset/{type}/{filename}" verb="GET" controller="AssetController" action="serveAsset">
+			<param name="type" default="" />
+			<param name="filename" default="" />
+		</route>
+		<route name="threedviewer.decoder.serve" url="/decoder/{filename}" verb="GET" controller="AssetController" action="serveDecoder">
+			<param name="filename" default="" />
+		</route>
+	</routes>
 	<navigations>
 		<navigation>
 			<id>threedviewer</id>

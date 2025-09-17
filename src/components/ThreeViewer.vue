@@ -241,30 +241,12 @@ export default {
 			}
 		},
 		async detectDecoderAssets() {
-			if (this.hasDraco !== null && this.hasKtx2 !== null && this.hasMeshopt !== null) return
-			const dracoUrl = '/apps/threedviewer/draco/draco_decoder.wasm'
-			const ktx2Url = '/apps/threedviewer/basis/basis_transcoder.wasm'
-			// Meshopt decoder (optional) — place expected decoder at /apps/threedviewer/meshopt/meshopt_decoder.wasm
-			const meshoptUrl = '/apps/threedviewer/meshopt/meshopt_decoder.wasm'
-			const head = async url => {
-				try {
-					const res = await fetch(url, { method: 'HEAD' })
-					if (res.ok) return true
-					if (res.status === 405) {
-						const getRes = await fetch(url, { method: 'GET' })
-						return getRes.ok
-					}
-				} catch (_) {}
-				return false
-			}
-			const [draco, ktx2, meshopt] = await Promise.all([
-				this.hasDraco === null ? head(dracoUrl) : this.hasDraco,
-				this.hasKtx2 === null ? head(ktx2Url) : this.hasKtx2,
-				this.hasMeshopt === null ? head(meshoptUrl) : this.hasMeshopt,
-			])
-			this.hasDraco = !!draco
-			this.hasKtx2 = !!ktx2
-			this.hasMeshopt = !!meshopt
+			// Temporarily disable decoder detection to avoid 404 errors
+			// The 3D viewer will work without decoders, just with reduced functionality
+			this.hasDraco = false
+			this.hasKtx2 = false
+			this.hasMeshopt = false
+			console.log('[threedviewer] Decoder detection disabled - using basic 3D viewer mode')
 		},
 		fitCameraToObject(obj) {
 			const box = new THREE.Box3().setFromObject(obj)

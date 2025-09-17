@@ -5,6 +5,7 @@ const path = require('path')
 
 webpackConfig.entry = {
 	main: { import: path.join(__dirname, 'src', 'main.js'), filename: 'main.js' },
+	'threedviewer-files': { import: path.join(__dirname, 'src', 'files.js'), filename: 'threedviewer-files.mjs' },
 }
 
 webpackConfig.plugins.push(

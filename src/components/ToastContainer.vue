@@ -1,10 +1,10 @@
 <template>
 	<div class="toast-container" role="status" aria-live="polite">
 		<transition-group name="toast-fade" tag="div">
-			<div v-for="t in toasts" :key="t.id" class="toast" :class="t.type" @click="$emit('dismiss', t.id)" :aria-label="t.title">
-				<strong class="title">{{ t.title }}</strong>
-				<div class="msg">{{ t.message }}</div>
-				<button type="button" class="close" :aria-label="t('threedviewer','Dismiss')" @click.stop="$emit('dismiss', t.id)">×</button>
+			<div v-for="toast in toasts" :key="toast.id" class="toast" :class="toast.type" @click="$emit('dismiss', toast.id)" :aria-label="toast.title">
+				<strong class="title">{{ toast.title }}</strong>
+				<div class="msg">{{ toast.message }}</div>
+				<button type="button" class="close" :aria-label="t('threedviewer','Dismiss')" @click.stop="$emit('dismiss', toast.id)">×</button>
 			</div>
 		</transition-group>
 	</div>

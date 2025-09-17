@@ -7,7 +7,7 @@ export default async function loadGltf(arrayBuffer, context) {
 		try {
 			const { DRACOLoader } = await import('three/examples/jsm/loaders/DRACOLoader.js')
 			const dracoLoader = new DRACOLoader()
-		dracoLoader.setDecoderPath('/apps/threedviewer/draco/')
+		dracoLoader.setDecoderPath('/apps/threedviewer/decoder/')
 			loader.setDRACOLoader(dracoLoader)
 		} catch (e) { console.warn('[threedviewer] DRACO loader unavailable', e) }
 	}
@@ -15,7 +15,7 @@ export default async function loadGltf(arrayBuffer, context) {
 		try {
 			const { KTX2Loader } = await import('three/examples/jsm/loaders/KTX2Loader.js')
 			const ktx2Loader = new KTX2Loader()
-			ktx2Loader.setTranscoderPath('/apps/threedviewer/basis/')
+			ktx2Loader.setTranscoderPath('/apps/threedviewer/decoder/')
 			ktx2Loader.detectSupport(renderer)
 			loader.setKTX2Loader(ktx2Loader)
 		} catch (e) { console.warn('[threedviewer] KTX2 loader unavailable', e) }
