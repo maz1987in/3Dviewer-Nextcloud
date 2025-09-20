@@ -976,32 +976,35 @@ export default {
 					console.warn('Internal file listing failed:', e)
 				}
 				
-				// Method 2: Try to get files from the current directory context
+				// Method 2: Try to get files from the 3D viewer OCS API
 				if (files.length === 0) {
 					try {
-						console.log('Trying alternative API method...')
-						const response = await fetch('/ocs/v2.php/apps/files/api/v1/files', {
+						console.log('Trying 3D viewer OCS API method...')
+						const response = await fetch('/ocs/v2.php/apps/threedviewer/api/files', {
 							headers: {
 								'OCS-APIRequest': 'true',
-								'Content-Type': 'application/json'
+								'Accept': 'application/json',
+								'X-Requested-With': 'XMLHttpRequest'
 							}
 						})
-						console.log('Alternative API response status:', response.status)
+						console.log('3D viewer OCS API response status:', response.status)
 						
 						if (response.ok) {
 							const data = await response.json()
-							console.log('Alternative API data:', data)
+							console.log('3D viewer OCS API data:', data)
 							
-							if (data.ocs && data.ocs.data) {
-								files = data.ocs.data.filter(file => {
-									const extension = file.name.split('.').pop().toLowerCase()
-									return supportedExtensions.includes(extension)
-								})
-								console.log('Found files via alternative API:', files.length)
+							if (data.ocs && data.ocs.data && data.ocs.data.files) {
+								files = data.ocs.data.files.map(file => ({
+									id: file.id,
+									name: file.name,
+									size: file.size,
+									path: file.path
+								}))
+								console.log('Found files via 3D viewer OCS API:', files.length)
 							}
 						}
 					} catch (e) {
-						console.warn('Alternative API method failed:', e)
+						console.warn('3D viewer OCS API method failed:', e)
 					}
 				}
 				
@@ -1083,7 +1086,7 @@ export default {
 				let arrayBuffer
 				
 				// Handle dummy files for testing
-				if (file.id.startsWith('dummy')) {
+				if (String(file.id).startsWith('dummy')) {
 					console.log('Loading dummy file for testing...')
 					
 					// Create a simple test model (a cube)
@@ -1104,24 +1107,19 @@ export default {
 					// Update camera to show both models
 					this.fitBothModelsToView()
 					
-					this.pushToast({
-						type: 'success',
-						title: this.t('threedviewer', 'Test comparison model loaded'),
-						message: this.t('threedviewer', 'Now comparing with {filename} (test mode)', { filename: file.name })
-					})
-					
 					return
 				}
 				
-				// Get file content from Nextcloud using DAV API
-				const fileUrl = `/remote.php/dav/files/admin/file-${file.id}`
+				// Get file content from Nextcloud using 3D viewer OCS API
+				const fileUrl = `/ocs/v2.php/apps/threedviewer/api/file/${file.id}`
 				console.log('Fetching file from:', fileUrl)
 				
 				const response = await fetch(fileUrl, {
 					method: 'GET',
 					headers: {
 						'Accept': 'application/octet-stream',
-						'X-Requested-With': 'XMLHttpRequest'
+						'X-Requested-With': 'XMLHttpRequest',
+						'OCS-APIRequest': 'true'
 					},
 					credentials: 'same-origin'
 				})
@@ -1136,7 +1134,7 @@ export default {
 				const extension = file.name.split('.').pop().toLowerCase()
 				
 				// Load the comparison model
-				const result = await this.loadModelByExtension(extension, arrayBuffer, {
+				const result = await loadModelByExtension(extension, arrayBuffer, {
 					THREE: THREE,
 					scene: this.scene,
 					applyWireframe: this.applyWireframe,
@@ -1164,11 +1162,6 @@ export default {
 					// Update camera to show both models
 					this.fitBothModelsToView()
 					
-					this.pushToast({
-						type: 'success',
-						title: this.t('threedviewer', 'Comparison model loaded'),
-						message: this.t('threedviewer', 'Now comparing with {filename}', { filename: file.name })
-					})
 				}
 				
 			} catch (error) {
@@ -1199,7 +1192,7 @@ export default {
 				const extension = file.name.split('.').pop().toLowerCase()
 				
 				// Load the comparison model
-				const result = await this.loadModelByExtension(extension, arrayBuffer, {
+				const result = await loadModelByExtension(extension, arrayBuffer, {
 					THREE: THREE,
 					scene: this.scene,
 					applyWireframe: this.applyWireframe,
@@ -1227,11 +1220,6 @@ export default {
 					// Update camera to show both models
 					this.fitBothModelsToView()
 					
-					this.pushToast({
-						type: 'success',
-						title: this.t('threedviewer', 'Comparison model loaded'),
-						message: this.t('threedviewer', 'Now comparing with {filename}', { filename: file.name })
-					})
 				}
 				
 			} catch (error) {

@@ -7,6 +7,7 @@ namespace OCA\ThreeDViewer\Controller;
 use OCA\ThreeDViewer\Service\ModelFileSupport;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
+use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\Http\StreamResponse;
 use OCP\Files\IRootFolder;
@@ -30,8 +31,8 @@ class FileController extends Controller {
 
     /**
      * Serve a 3D file by ID using Nextcloud filesystem API
-     * @NoCSRFRequired
      */
+    #[NoCSRFRequired]
     public function serveFile(int $fileId): StreamResponse|JSONResponse {
         try {
             $user = $this->userSession->getUser();
@@ -83,8 +84,8 @@ class FileController extends Controller {
 
     /**
      * List 3D files in user's folder
-     * @NoCSRFRequired
      */
+    #[NoCSRFRequired]
     public function listFiles(): JSONResponse {
         try {
             $user = $this->userSession->getUser();
