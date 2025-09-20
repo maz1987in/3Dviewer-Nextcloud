@@ -5,6 +5,7 @@ export default createAppConfig(
   {
     main: resolve(join("src", "main.js")),
     files: resolve(join("src", "files.js")),
+    viewer: resolve(join("src", "viewer-entry.js")),
   },
   {
     createEmptyCSSEntryPoints: true,

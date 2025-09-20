@@ -17,6 +17,7 @@
 	<scripts>
 		<!-- Vite outputs ESM bundle with .mjs extension -->
 		<script>js/threedviewer-files.mjs</script>
+		<script>js/threedviewer-viewer.mjs</script>
 	</scripts>
 	<styles>
 		<style>css/file-icons.css</style>

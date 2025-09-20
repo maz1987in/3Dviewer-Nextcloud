@@ -178,57 +178,41 @@ import '../css/threedviewer-filesIntegration.css'
 			}
 		}
 
-		// Override click handlers directly on file rows
+		// Add hybrid approach: Viewer API + click interceptor as fallback
+		console.log('[threedviewer] Using hybrid approach: Viewer API + click interceptor fallback')
+		
+		// Add click interceptor as fallback for when Viewer API doesn't work
 		try {
 			document.addEventListener('click', function(e) {
-				console.log('[threedviewer] Click detected on:', e.target)
-				
-				// Try multiple selectors to find the file row
+				// Only intercept if it's a 3D file and Viewer API didn't handle it
 				const row = e.target.closest('tr[data-file]') || 
 					e.target.closest('tr[data-id]') || 
 					e.target.closest('tr[data-fileid]') ||
 					e.target.closest('tr.file-row') ||
 					e.target.closest('tr[data-path]') ||
-					e.target.closest('tr') ||
-					e.target.closest('.files-list__row') ||
-					e.target.closest('[data-file]') ||
-					e.target.closest('[data-id]')
+					e.target.closest('.files-list__row')
 				
-				if (!row) {
-					console.log('[threedviewer] No file row found')
-					return
-				}
+				if (!row) return
 				
-				console.log('[threedviewer] File row found:', row)
-				console.log('[threedviewer] Row attributes:', row.attributes ? Array.from(row.attributes).map(attr => `${attr.name}="${attr.value}"`).join(', ') : 'No attributes')
-				
-				// Try multiple selectors to find the filename
+				// Get filename
 				const nameCell = row.querySelector('.filename') || 
 					row.querySelector('.name') || 
 					row.querySelector('[data-original-filename]') ||
-					row.querySelector('td:first-child') ||
-					row.querySelector('td[data-original-filename]') ||
-					row.querySelector('.files-list__row-name-') ||
-					row.querySelector('[data-v-61358520]') ||
-					e.target.closest('.files-list__row-name-') ||
-					e.target
+					row.querySelector('td:first-child')
 				
-				if (!nameCell) {
-					console.log('[threedviewer] No filename cell found')
-					return
-				}
+				if (!nameCell) return
 				
-				// Get filename from row attributes first, then fall back to cell content
 				const fname = row.getAttribute('data-cy-files-list-row-name') ||
 					nameCell.getAttribute('data-original-filename') || 
 					nameCell.getAttribute('data-filename') ||
-					nameCell.textContent.trim() ||
-					nameCell.innerText.trim()
-				console.log('[threedviewer] Filename:', fname)
-				console.log('[threedviewer] Is supported:', fname && isSupported(fname))
+					nameCell.textContent.trim()
 				
 				if (fname && isSupported(fname)) {
-					console.log('[threedviewer] Intercepted click on 3D file:', fname)
+					// Check if this is already being handled by Viewer API
+					// If so, don't interfere
+					if (e.defaultPrevented) return
+					
+					console.log('[threedviewer] Click interceptor fallback for 3D file:', fname)
 					e.preventDefault()
 					e.stopPropagation()
 					e.stopImmediatePropagation()
@@ -237,64 +221,74 @@ import '../css/threedviewer-filesIntegration.css'
 						row.getAttribute('data-id') || 
 						row.getAttribute('data-fileid') ||
 						row.getAttribute('data-file-id')
-					console.log('[threedviewer] File ID:', fileId)
 					
 					if (fileId) {
-						// Navigate directly to the 3D viewer app
+						// Open in modal or redirect
 						const viewerUrl = OC.generateUrl(`/apps/${APP_ID}/?fileId=${fileId}`)
-						console.log('[threedviewer] Opening 3D viewer:', viewerUrl)
+						console.log('[threedviewer] Opening 3D viewer via fallback:', viewerUrl)
 						window.location.href = viewerUrl
-					} else {
-						console.warn('[threedviewer] No file ID found for 3D file:', fname)
 					}
 					return false
 				}
 			}, true) // Use capture phase
-			console.log('[threedviewer] Added click interceptor')
+			console.log('[threedviewer] Added click interceptor fallback')
 		} catch (e) {
-			console.warn('[threedviewer] Unable to add click interceptor', e)
+			console.warn('[threedviewer] Unable to add click interceptor fallback', e)
 		}
 
 		// Register with Nextcloud Viewer for modal display
 		if (hasViewerAPI) {
 			console.log('[threedviewer] Registering 3D file handler with Viewer API')
 			try {
-				// Register a handler for 3D files with the Viewer API
+				// Use the dedicated viewer API integration
+				import('./viewer-api.js').then(module => {
+					module.initViewerAPI()
+				}).catch(error => {
+					console.error('[threedviewer] Failed to load viewer API module:', error)
+					// Fallback to basic registration
+					registerBasicViewerHandler()
+				})
+			} catch (e) {
+				console.warn('[threedviewer] Failed to register with Viewer API:', e)
+				console.log('[threedviewer] Falling back to standalone app mode')
+			}
+		} else {
+			console.log('[threedviewer] Viewer API not available, using standalone app mode')
+		}
+		
+		// Fallback basic registration function
+		function registerBasicViewerHandler() {
+			try {
 				OCA.Viewer.registerHandler({
-					id: 'threedviewer-handler',
+					id: 'threedviewer-basic',
 					group: '3d',
-					mimes: [
-						'model/gltf-binary',
-						'model/gltf+json',
-						'model/ply',
-						'model/stl',
-						'application/octet-stream'
-					],
+					mimes: ['all'],
 					canView: (mime, file, attr) => {
 						const name = (file && (file.name || file.basename)) || (attr && attr.filename) || ''
 						return isSupported(name)
 					},
-					// Create a simple component that redirects to our 3D viewer
 					component: {
-						template: '<div style="padding: 20px; text-align: center;"><h3>3D Model Viewer</h3><p>Opening 3D model...</p></div>',
+						template: '<div style="padding: 20px; text-align: center;"><h3>3D Model Viewer</h3><p>Loading...</p></div>',
 						mounted() {
-							// Get file info from the component props
-							const fileInfo = this.$attrs.fileinfo || this.$attrs.file
-							if (fileInfo && fileInfo.fileid) {
-								const viewerUrl = OC.generateUrl(`/apps/${APP_ID}/?fileId=${fileInfo.fileid}`)
-								console.log('[threedviewer] Redirecting to 3D viewer:', viewerUrl)
+							const fileInfo = this.$attrs.fileinfo || this.$attrs.file || this.$attrs
+							const fileId = fileInfo?.fileid || fileInfo?.id || fileInfo?.fileId
+							const fileName = fileInfo?.name || fileInfo?.filename || fileInfo?.basename || ''
+							
+							if (fileId && isSupported(fileName)) {
+								// Redirect to standalone app
+								const viewerUrl = OC.generateUrl(`/apps/${APP_ID}/?fileId=${fileId}`)
+								console.log('[threedviewer] Redirecting to standalone app:', viewerUrl)
 								window.location.href = viewerUrl
+							} else {
+								this.$el.innerHTML = '<div style="padding: 20px; text-align: center; color: red;">Unsupported file type</div>'
 							}
 						}
 					}
 				})
-				console.log('[threedviewer] Successfully registered 3D file handler with Viewer API')
+				console.log('[threedviewer] Registered basic viewer handler')
 			} catch (e) {
-				console.warn('[threedviewer] Failed to register with Viewer API:', e)
-				console.log('[threedviewer] Using click interceptor for 3D file handling instead')
+				console.error('[threedviewer] Failed to register basic viewer handler:', e)
 			}
-		} else {
-			console.log('[threedviewer] Viewer API not available, using click interceptor only')
 		}
 
 		// Passive scan after load to tag existing rows (initial render) and attach placeholder thumbnails
