@@ -30,6 +30,10 @@
 		<route name="threedviewer.decoder.serve" url="/decoder/{filename}" verb="GET" controller="AssetController" action="serveDecoder">
 			<param name="filename" default="" />
 		</route>
+		<route name="threedviewer.file.serve" url="/file/{fileId}" verb="GET" controller="FileController" action="serveFile">
+			<param name="fileId" default="" />
+		</route>
+		<route name="threedviewer.files.list" url="/files" verb="GET" controller="FileController" action="listFiles" />
 	</routes>
 	<navigations>
 		<navigation>

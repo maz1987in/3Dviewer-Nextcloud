@@ -4,99 +4,129 @@ declare(strict_types=1);
 
 namespace OCA\ThreeDViewer\Controller;
 
-use OCA\ThreeDViewer\AppInfo\Application;
-use OCA\ThreeDViewer\Service\FileService;
 use OCA\ThreeDViewer\Service\ModelFileSupport;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
-use OCP\AppFramework\Http\Attribute\ApiRoute;
-use OCP\AppFramework\Http\Attribute\NoAdminRequired;
-use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
-use OCP\AppFramework\Http\DataResponse;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\Http\StreamResponse;
+use OCP\Files\IRootFolder;
 use OCP\Files\NotFoundException;
 use OCP\IRequest;
-use RuntimeException;
-use OCA\ThreeDViewer\Service\Exception\UnsupportedFileTypeException;
-use OCA\ThreeDViewer\Service\Exception\UnauthorizedException;
+use OCP\IUserSession;
 
 /**
- * Streams validated 3D model files to the frontend viewer.
- * (Future: public share token variant + range support if needed.)
- *
- * @psalm-suppress UnusedClass The controller is referenced indirectly via Nextcloud's routing system.
+ * Controller for serving 3D files using Nextcloud filesystem API
  */
 class FileController extends Controller {
     public function __construct(
         string $appName,
         IRequest $request,
-    private readonly FileService $fileService,
-    private readonly ModelFileSupport $support,
+        private readonly IRootFolder $rootFolder,
+        private readonly IUserSession $userSession,
+        private readonly ModelFileSupport $modelFileSupport,
     ) {
         parent::__construct($appName, $request);
     }
 
-    #[NoAdminRequired]
-    #[NoCSRFRequired]
-    #[ApiRoute(verb: 'GET', url: '/file/{fileId}')]
     /**
-     * @return StreamResponse|JSONResponse
+     * Serve a 3D file by ID using Nextcloud filesystem API
+     * @NoCSRFRequired
      */
-    public function stream(int $fileId): StreamResponse|JSONResponse {
+    public function serveFile(int $fileId): StreamResponse|JSONResponse {
         try {
-            $file = $this->fileService->getValidatedFile($fileId);
+            $user = $this->userSession->getUser();
+            if ($user === null) {
+                return new JSONResponse(['error' => 'User not authenticated'], Http::STATUS_UNAUTHORIZED);
+            }
+
+            // Get user's folder
+            $userFolder = $this->rootFolder->getUserFolder($user->getUID());
+            
+            // Find file by ID
+            $files = $userFolder->getById($fileId);
+            if (empty($files)) {
+                return new JSONResponse(['error' => 'File not found'], Http::STATUS_NOT_FOUND);
+            }
+
+            $file = $files[0];
+            if (!$file instanceof \OCP\Files\File) {
+                return new JSONResponse(['error' => 'Not a file'], Http::STATUS_BAD_REQUEST);
+            }
+
+            // Check if file is supported
+            $extension = strtolower($file->getExtension());
+            if (!$this->modelFileSupport->isSupported($extension)) {
+                return new JSONResponse(['error' => 'Unsupported file type'], Http::STATUS_UNSUPPORTED_MEDIA_TYPE);
+            }
+
+            // Open file stream
+            $stream = $file->fopen('r');
+            if ($stream === false) {
+                return new JSONResponse(['error' => 'Failed to open file'], Http::STATUS_INTERNAL_SERVER_ERROR);
+            }
+
+            // Create response
+            $response = new StreamResponse($stream);
+            $response->addHeader('Content-Type', $this->modelFileSupport->mapContentType($extension));
+            $response->addHeader('Content-Length', (string)$file->getSize());
+            $response->addHeader('Content-Disposition', 'inline; filename="' . addslashes($file->getName()) . '"');
+            $response->addHeader('Cache-Control', 'no-store');
+
+            return $response;
+
         } catch (NotFoundException $e) {
             return new JSONResponse(['error' => 'File not found'], Http::STATUS_NOT_FOUND);
-        } catch (UnauthorizedException $e) {
-            return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_UNAUTHORIZED);
-        } catch (UnsupportedFileTypeException $e) {
-            return new JSONResponse(['error' => $e->getMessage()], 415); // Unsupported Media Type
-        } catch (RuntimeException $e) { // fallback
-            return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
+        } catch (\Exception $e) {
+            return new JSONResponse(['error' => 'Internal server error'], Http::STATUS_INTERNAL_SERVER_ERROR);
         }
-
-    $ext = strtolower($file->getExtension());
-    $contentType = $this->support->mapContentType($ext);
-        $stream = $file->fopen('r');
-        if ($stream === false) {
-            return new JSONResponse(['error' => 'Failed to open file'], Http::STATUS_INTERNAL_SERVER_ERROR);
-        }
-        $response = new StreamResponse($stream);
-        $response->addHeader('Content-Type', $contentType);
-        $response->addHeader('Content-Length', (string)$file->getSize());
-        $response->addHeader('Content-Disposition', 'inline; filename="' . addslashes($file->getName()) . '"');
-        $response->addHeader('Cache-Control', 'no-store');
-
-        return $response;
     }
 
-    #[NoAdminRequired]
-    #[NoCSRFRequired]
-    #[ApiRoute(verb: 'GET', url: '/file/{fileId}/mtl/{mtlName}')] // mtlName raw; Nextcloud router handles encoding
     /**
-     * @return StreamResponse|JSONResponse
+     * List 3D files in user's folder
+     * @NoCSRFRequired
      */
-    public function streamSiblingMtl(int $fileId, string $mtlName): StreamResponse|JSONResponse {
+    public function listFiles(): JSONResponse {
         try {
-            $file = $this->fileService->getSiblingMaterialFile($fileId, $mtlName);
-        } catch (NotFoundException $e) {
-            return new JSONResponse(['error' => 'MTL not found'], Http::STATUS_NOT_FOUND);
-        } catch (UnauthorizedException $e) {
-            return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_UNAUTHORIZED);
-        } catch (UnsupportedFileTypeException $e) {
-            return new JSONResponse(['error' => $e->getMessage()], 415);
-        } catch (RuntimeException $e) {
-            return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
+            $user = $this->userSession->getUser();
+            if ($user === null) {
+                return new JSONResponse(['error' => 'User not authenticated'], Http::STATUS_UNAUTHORIZED);
+            }
+
+            $userFolder = $this->rootFolder->getUserFolder($user->getUID());
+            $files = [];
+
+            // Recursively find all 3D files
+            $this->find3DFiles($userFolder, $files);
+
+            return new JSONResponse(['files' => $files]);
+
+        } catch (\Exception $e) {
+            return new JSONResponse(['error' => 'Internal server error'], Http::STATUS_INTERNAL_SERVER_ERROR);
         }
-        $stream = $file->fopen('r');
-        if ($stream === false) {
-            return new JSONResponse(['error' => 'Failed to open file'], Http::STATUS_INTERNAL_SERVER_ERROR);
+    }
+
+    /**
+     * Recursively find 3D files in a folder
+     */
+    private function find3DFiles(\OCP\Files\Folder $folder, array &$files): void {
+        $children = $folder->getDirectoryListing();
+        
+        foreach ($children as $node) {
+            if ($node instanceof \OCP\Files\File) {
+                $extension = strtolower($node->getExtension());
+                if ($this->modelFileSupport->isSupported($extension)) {
+                    $files[] = [
+                        'id' => $node->getId(),
+                        'name' => $node->getName(),
+                        'path' => $node->getPath(),
+                        'size' => $node->getSize(),
+                        'mtime' => $node->getMTime(),
+                        'extension' => $extension
+                    ];
+                }
+            } elseif ($node instanceof \OCP\Files\Folder) {
+                $this->find3DFiles($node, $files);
+            }
         }
-        $response = new StreamResponse($stream);
-        $response->addHeader('Content-Type', 'text/plain');
-        $response->addHeader('Content-Length', (string)$file->getSize());
-        $response->addHeader('Cache-Control', 'no-store');
-        return $response;
     }
 }

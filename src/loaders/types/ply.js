@@ -1,6 +1,7 @@
+import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader.js'
+
 export default async function loadPly(arrayBuffer, context) {
 	const { THREE, applyWireframe, ensurePlaceholderRemoved, wireframe } = context
-	const { PLYLoader } = await import('three/examples/jsm/loaders/PLYLoader.js')
 	const loader = new PLYLoader()
 	const geo = loader.parse(arrayBuffer)
 	geo.computeVertexNormals?.()

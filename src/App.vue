@@ -10,6 +10,10 @@
 				:auto-rotate="autoRotate"
 				:presets="animationPresets"
 				:current-preset="currentPreset"
+				:measurement-mode="measurementMode"
+				:annotation-mode="annotationMode"
+				:comparison-mode="comparisonMode"
+				:performance-mode="performanceMode"
 				@reset-view="onReset"
 				@fit-to-view="onFitToView"
 				@toggle-auto-rotate="onToggleAutoRotate"
@@ -18,6 +22,10 @@
 				@toggle-axes="axes = !axes"
 				@toggle-wireframe="wireframe = !wireframe"
 				@change-background="onBackgroundChange"
+				@toggle-measurement="onToggleMeasurement"
+				@toggle-annotation="onToggleAnnotation"
+				@toggle-comparison="onToggleComparison"
+				@toggle-performance="onTogglePerformance"
 			/>
 			<ThreeViewer
 				:file-id="fileId"
@@ -67,6 +75,11 @@ export default {
 			currentPreset: '',
 			lastError: null,
 			modelMeta: null,
+			// Advanced features
+			measurementMode: false,
+			annotationMode: false,
+			comparisonMode: false,
+			performanceMode: 'auto',
 			toasts: [],
 			_prefsLoaded: false,
 		}
@@ -137,6 +150,36 @@ export default {
 				this.currentPreset = presetName
 				this.$refs.viewer?.animateToPreset?.(presetName)
 			}
+		},
+		
+		// Advanced features event handlers
+		onToggleMeasurement() {
+			this.measurementMode = !this.measurementMode
+			this.annotationMode = false
+			this.comparisonMode = false
+			this.$refs.viewer?.toggleMeasurementMode?.()
+		},
+		
+		onToggleAnnotation() {
+			this.annotationMode = !this.annotationMode
+			this.measurementMode = false
+			this.comparisonMode = false
+			this.$refs.viewer?.toggleAnnotationMode?.()
+		},
+		
+		onToggleComparison() {
+			this.comparisonMode = !this.comparisonMode
+			this.measurementMode = false
+			this.annotationMode = false
+			this.$refs.viewer?.toggleComparisonMode?.()
+		},
+		
+		onTogglePerformance() {
+			const modes = ['auto', 'high', 'medium', 'low']
+			const currentIndex = modes.indexOf(this.performanceMode)
+			const nextIndex = (currentIndex + 1) % modes.length
+			this.performanceMode = modes[nextIndex]
+			this.$refs.viewer?.setPerformanceMode?.(this.performanceMode)
 		},
 		onBackgroundChange(val) {
 			this.background = val

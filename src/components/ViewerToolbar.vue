@@ -31,8 +31,23 @@
 				<span class="tb-icon">🔲</span>
 				<span class="tb-text">{{ wireframe ? t('threedviewer','Wireframe on') : t('threedviewer','Wireframe off') }}</span>
 			</button>
-		</div>
-		<div class="toolbar-secondary">
+			<!-- Advanced features -->
+			<button @click="$emit('toggle-measurement')" :aria-pressed="measurementMode" :aria-label="t('threedviewer','Measurement tools')" class="tb" type="button" :title="t('threedviewer','Measurement tools')">
+				<span class="tb-icon">📏</span>
+				<span class="tb-text">{{ t('threedviewer','Measure') }}</span>
+			</button>
+			<button @click="$emit('toggle-annotation')" :aria-pressed="annotationMode" :aria-label="t('threedviewer','Add annotations')" class="tb" type="button" :title="t('threedviewer','Add annotations')">
+				<span class="tb-icon">📝</span>
+				<span class="tb-text">{{ t('threedviewer','Annotate') }}</span>
+			</button>
+			<button @click="$emit('toggle-comparison')" :aria-pressed="comparisonMode" :aria-label="t('threedviewer','Compare models')" class="tb" type="button" :title="t('threedviewer','Compare models')">
+				<span class="tb-icon">⚖️</span>
+				<span class="tb-text">{{ t('threedviewer','Compare') }}</span>
+			</button>
+			<button @click="$emit('toggle-performance')" :aria-label="t('threedviewer','Performance settings')" class="tb" type="button" :title="t('threedviewer','Performance settings')">
+				<span class="tb-icon">⚡</span>
+				<span class="tb-text">{{ getPerformanceModeText() }}</span>
+			</button>
 			<label class="color-picker" :aria-label="t('threedviewer','Background color')">
 				<span class="tb-icon">🎨</span>
 				<input type="color" :value="background" @input="$emit('change-background', $event.target.value)" />
@@ -52,6 +67,11 @@ export default {
 		autoRotate: { type: Boolean, default: false },
 		presets: { type: Array, default: () => [] },
 		currentPreset: { type: String, default: '' },
+		// Advanced features
+		measurementMode: { type: Boolean, default: false },
+		annotationMode: { type: Boolean, default: false },
+		comparisonMode: { type: Boolean, default: false },
+		performanceMode: { type: String, default: 'auto' }
 	},
 	data() {
 		return {
@@ -101,6 +121,16 @@ export default {
 				
 				buttons[nextIndex]?.focus()
 				event.preventDefault()
+			}
+		},
+		
+		getPerformanceModeText() {
+			switch (this.performanceMode) {
+				case 'high': return this.t('threedviewer', 'High')
+				case 'medium': return this.t('threedviewer', 'Medium')
+				case 'low': return this.t('threedviewer', 'Low')
+				case 'auto':
+				default: return this.t('threedviewer', 'Auto')
 			}
 		}
 	}

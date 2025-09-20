@@ -120,7 +120,7 @@ import '../css/threedviewer-filesIntegration.css'
 		console.log('[threedviewer] Initializing Files integration...')
 		
 		const APP_ID = 'threedviewer'
-		const supportedExt = ['glb','gltf','obj','stl','ply','fbx','3mf','3ds']
+		const supportedExt = ['glb','gltf','obj','stl','ply','fbx','3mf','3ds','dae','x3d','vrml','wrl']
 		const ICON_CLASS = 'icon-3d-model'
 
 		function isSupported(fileName) {
@@ -223,8 +223,11 @@ import '../css/threedviewer-filesIntegration.css'
 						row.getAttribute('data-file-id')
 					
 					if (fileId) {
-						// Open in new tab
-						const viewerUrl = OC.generateUrl(`/apps/${APP_ID}/?fileId=${fileId}`)
+						// Get current directory from URL
+						const currentDir = new URLSearchParams(window.location.search).get('dir') || '/'
+						
+						// Open in new tab with filename and directory parameters
+						const viewerUrl = OC.generateUrl(`/apps/${APP_ID}/?fileId=${fileId}&filename=${encodeURIComponent(fname)}&dir=${encodeURIComponent(currentDir)}`)
 						console.log('[threedviewer] Opening 3D viewer in new tab:', viewerUrl)
 						window.open(viewerUrl, '_blank', 'noopener,noreferrer')
 					}

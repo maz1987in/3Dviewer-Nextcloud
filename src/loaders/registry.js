@@ -11,6 +11,10 @@ const loaders = {
 	fbx: () => import('./types/fbx.js'),
 	'3mf': () => import('./types/threeMF.js'),
 	'3ds': () => import('./types/threeDS.js'),
+	dae: () => import('./types/dae.js'),
+	x3d: () => import('./types/x3d.js'),
+	vrml: () => import('./types/vrml.js'),
+	wrl: () => import('./types/vrml.js'), // VRML files can have .wrl extension
 }
 
 export async function loadModelByExtension(ext, arrayBuffer, context) {

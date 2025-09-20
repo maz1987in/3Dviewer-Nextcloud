@@ -11,6 +11,7 @@ use OCP\AppFramework\Bootstrap\IRegistrationContext;
 use OCP\IURLGenerator;
 use OCP\Util;
 use OCA\ThreeDViewer\Controller\AssetController;
+use OCA\ThreeDViewer\Controller\FileController;
 
 use function file_exists;
 
@@ -50,12 +51,26 @@ class Application extends App implements IBootstrap {
 					$c->query('OCP\\IURLGenerator')
 				);
 			});
+			
+			// Register file controller for serving 3D files
+			/** @psalm-suppress UndefinedInterfaceMethod */
+			$context->registerService(FileController::class, function($c) {
+				return new FileController(
+					self::APP_ID,
+					$c->query('OCP\\IRequest'),
+					$c->query('OCP\\Files\\IRootFolder'),
+					$c->query('OCP\\IUserSession'),
+					$c->query('OCA\\ThreeDViewer\\Service\\ModelFileSupport')
+				);
+			});
 		}
 		
-		// Register controller for routes
+		// Register controllers for routes
 		if (\method_exists($context, 'registerController')) {
 			/** @psalm-suppress UndefinedInterfaceMethod */
 			$context->registerController(AssetController::class);
+			/** @psalm-suppress UndefinedInterfaceMethod */
+			$context->registerController(FileController::class);
 		}
 	}
 

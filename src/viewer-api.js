@@ -117,6 +117,10 @@ export function registerViewerHandler() {
 				'model/fbx',
 				'model/3mf',
 				'model/3ds',
+				'model/vrml',
+				'model/x3d',
+				'model/collada+xml',
+				'application/x-collada',
 				'application/octet-stream',
 				'application/gltf-binary',
 				'application/gltf+json',
@@ -232,6 +236,7 @@ export function registerViewerHandlerLegacy() {
 					const fileInfo = this.$attrs.fileinfo || this.$attrs.file || this.$attrs
 					const fileId = fileInfo?.fileid || fileInfo?.id || fileInfo?.fileId
 					const fileName = fileInfo?.name || fileInfo?.filename || fileInfo?.basename || ''
+					const fileDir = fileInfo?.dir || fileInfo?.path || '/'
 					
 					console.log('[threedviewer] Legacy component mounted:', { fileId, fileName })
 					
@@ -255,14 +260,14 @@ export function registerViewerHandlerLegacy() {
 							}).catch(error => {
 								console.error('[threedviewer] Failed to load modal component:', error)
 								// Fallback to new tab
-								const viewerUrl = OC.generateUrl(`/apps/${APP_ID}/?fileId=${fileId}`)
+								const viewerUrl = OC.generateUrl(`/apps/${APP_ID}/?fileId=${fileId}&filename=${encodeURIComponent(fileName)}&dir=${encodeURIComponent(fileDir)}`)
 								console.log('[threedviewer] Opening in new tab:', viewerUrl)
 								window.open(viewerUrl, '_blank', 'noopener,noreferrer')
 							})
 						} catch (error) {
 							console.error('[threedviewer] Error loading modal:', error)
 							// Fallback to new tab
-							const viewerUrl = OC.generateUrl(`/apps/${APP_ID}/?fileId=${fileId}`)
+							const viewerUrl = OC.generateUrl(`/apps/${APP_ID}/?fileId=${fileId}&filename=${encodeURIComponent(fileName)}&dir=${encodeURIComponent(fileDir)}`)
 							console.log('[threedviewer] Opening in new tab:', viewerUrl)
 							window.open(viewerUrl, '_blank', 'noopener,noreferrer')
 						}
