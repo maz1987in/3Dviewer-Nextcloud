@@ -28,7 +28,7 @@
   ],
   "dependencies": {
     "@nextcloud/vue": "^8.29.2",
-    "three": "^0.169.0",
+    "three": "^0.180.0",
     "vue": "^2.7.16"
   },
   "devDependencies": {
