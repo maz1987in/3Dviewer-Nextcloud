@@ -1291,19 +1291,39 @@ export default {
 			const center = boundingBox.getCenter(new THREE.Vector3())
 			const size = boundingBox.getSize(new THREE.Vector3())
 			
+			// Center both models at origin (only if not already centered)
+			const tolerance = 0.1
+			const isAlreadyCentered = Math.abs(center.x) < tolerance && Math.abs(center.z) < tolerance
+			
+				if (!isAlreadyCentered) {
+					if (this.modelRoot) {
+						this.modelRoot.position.sub(center)
+					}
+					if (this.comparisonModel) {
+						this.comparisonModel.position.sub(center)
+					}
+				}
+			
 			// Calculate distance needed to fit both models
 			const maxDim = Math.max(size.x, size.y, size.z)
 			const distance = maxDim * 2
 			
-			// Position camera
-			this.camera.position.set(center.x, center.y + distance * 0.5, center.z + distance * 0.7)
-			this.camera.lookAt(center)
+			// Position camera to look at origin with better distance
+			const cameraDistance = Math.max(distance * 1.5, 30) // Ensure minimum distance
+			this.camera.position.set(cameraDistance, cameraDistance * 0.3, cameraDistance * 0.7)
+			this.camera.lookAt(0, 0, 0)
 			
-			// Update controls target
-			if (this.controls) {
-				this.controls.target.copy(center)
-				this.controls.update()
-			}
+				// Update controls target to origin
+				if (this.controls) {
+					this.controls.target.set(0, 0, 0)
+					this.controls.update()
+					
+					// Force the camera to look at origin immediately
+					this.camera.lookAt(0, 0, 0)
+				}
+			
+			// Update grid size for comparison mode
+			this.updateGridForComparison()
 		},
 		
 		toggleOriginalModel() {
@@ -1832,6 +1852,7 @@ export default {
 				// Create 3D Nextcloud demo scene when no file is specified
 				this.createNextcloudDemoScene()
 			}
+			// Create initial grid - will be resized based on model
 			this.grid = new THREE.GridHelper(10, 10)
 			this.axes = new THREE.AxesHelper(2)
 			this.scene.add(this.grid, this.axes)
@@ -1847,8 +1868,28 @@ export default {
 				this.controls.enableDamping = true
 				this.controls.dampingFactor = 0.05
 				this.controls.screenSpacePanning = false
+				
+				// Prevent models from going out of view
+				this.controls.minDistance = 5
+				this.controls.maxDistance = 100
+				this.controls.maxPolarAngle = Math.PI * 0.8 // Prevent going too far below
+				this.controls.minPolarAngle = Math.PI * 0.1 // Prevent going too far above
+				
 				this.controls.update()
 				this.controls.addEventListener('end', this.onControlsEnd)
+				
+				// Monitor camera target to prevent off-center viewing
+				this.controls.addEventListener('change', () => {
+					if (this.modelRoot) {
+						// Check if camera target is off-center and reset if needed
+						if (Math.abs(this.controls.target.x) > 0.1 || Math.abs(this.controls.target.z) > 0.1) {
+							console.log(`Camera target drifted off-center, resetting to origin...`)
+							this.controls.target.set(0, 0, 0)
+							this.controls.update()
+							this.camera.lookAt(0, 0, 0)
+						}
+					}
+				})
 				
 				// Setup mobile-specific controls
 				this.setupMobileControls()
@@ -1997,6 +2038,9 @@ export default {
 			this.scene.add(demoGroup)
 			this.modelRoot = demoGroup
 			this.model = demoGroup
+			
+			// Update grid size for demo scene
+			this.updateGridSize(demoGroup)
 			
 			// Position camera to view the demo scene
 			this.camera.position.set(3, 2, 3)
@@ -2299,6 +2343,9 @@ export default {
 					console.log('Created modelRoot and enhanced demo car scene')
 				}
 				
+				// Update grid size for demo scene
+				this.updateGridSize(demoGroup)
+				
 				// Ensure the demo group is visible
 				demoGroup.visible = true
 				demoGroup.position.set(0, 0, 0)
@@ -2400,13 +2447,167 @@ export default {
 			const maxDim = Math.max(size.x, size.y, size.z)
 			const fov = this.camera.fov * (Math.PI / 180)
 			let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2)) * 1.4
-			this.camera.position.set(center.x + cameraZ, center.y + cameraZ, center.z + cameraZ)
-			this.controls.target.copy(center)
-			this.controls.update()
+			
+			// Only center the model if it's not already centered (within a small tolerance)
+			const tolerance = 0.1
+			const isAlreadyCentered = Math.abs(center.x) < tolerance && Math.abs(center.z) < tolerance
+			
+				if (!isAlreadyCentered) {
+					// Center the model at origin by translating it
+					obj.position.sub(center)
+				}
+			
+			// Set camera position to look at origin with better distance
+			const cameraDistance = Math.max(cameraZ * 2, 20) // Ensure minimum distance
+			this.camera.position.set(cameraDistance, cameraDistance * 0.5, cameraDistance)
+			this.camera.lookAt(0, 0, 0)
+			
+				// Update controls target to origin
+				this.controls.target.set(0, 0, 0)
+				this.controls.update()
+				
+				// Force the camera to look at origin immediately
+				this.camera.lookAt(0, 0, 0)
+			
 			if (!this.baselineCameraPos || !this.baselineTarget) {
 				this.baselineCameraPos = this.camera.position.clone()
 				this.baselineTarget = this.controls.target.clone()
 			}
+			
+			// Update grid size based on model
+			this.updateGridSize(obj)
+		},
+		
+		updateGridSize(model) {
+			if (!this.grid || !model) return
+			
+			// Calculate bounding box of the model
+			const box = new THREE.Box3().setFromObject(model)
+			if (box.isEmpty()) return
+			
+			const size = box.getSize(new THREE.Vector3())
+			const center = box.getCenter(new THREE.Vector3())
+			
+			// Use X and Z dimensions for grid (ignore Y for height)
+			const maxDim = Math.max(size.x, size.z)
+			
+			// Make grid much larger and more visible for debugging
+			let gridSize, divisions
+			
+			// Force a large, visible grid regardless of model size
+			gridSize = Math.max(50, Math.ceil(maxDim * 3)) // Much larger grid
+			divisions = Math.max(20, Math.ceil(gridSize / 2)) // More divisions for visibility
+			
+			// Ensure grid size is even for better centering
+			if (gridSize % 2 !== 0) {
+				gridSize += 1
+			}
+			
+			// Remove old grid
+			this.scene.remove(this.grid)
+			this.grid.geometry.dispose()
+			
+			// Create new grid with appropriate size
+			this.grid = new THREE.GridHelper(gridSize, divisions)
+			
+			// Make grid much more visible and prominent
+			if (this.grid.material) {
+				this.grid.material.opacity = 1.0
+				this.grid.material.transparent = false
+				this.grid.material.color.setHex(0x00ff00) // Bright green color
+			}
+			
+			// Position the grid at the model's ground level (bottom of bounding box)
+			// This ensures the grid is at the bottom of the model
+			const groundLevel = center.y - (size.y / 2)
+			// Add a small offset to position the grid slightly below the model for better visual effect
+			const gridOffset = -0.1
+			const finalGridY = groundLevel + gridOffset
+			this.grid.position.set(0, finalGridY, 0)
+			
+			this.scene.add(this.grid)
+			this.grid.visible = this.showGrid
+			
+			// Force grid to be visible and positioned correctly after a short delay
+			setTimeout(() => {
+				if (this.grid) {
+					this.grid.visible = true
+					const finalY = groundLevel + gridOffset
+					this.grid.position.set(0, finalY, 0)
+					if (this.grid.material) {
+						this.grid.material.color.setHex(0x00ff00)
+						this.grid.material.opacity = 1.0
+					}
+				}
+			}, 100)
+			
+			console.log(`Updated grid size to ${gridSize}x${gridSize} with ${divisions} divisions for model size ${maxDim.toFixed(2)}`)
+		},
+		
+		updateGridForComparison() {
+			if (!this.grid) return
+			
+			// Calculate bounding box that includes both models
+			const boundingBox = new THREE.Box3()
+			
+			if (this.modelRoot) {
+				boundingBox.union(new THREE.Box3().setFromObject(this.modelRoot))
+			}
+			
+			if (this.comparisonModel) {
+				boundingBox.union(new THREE.Box3().setFromObject(this.comparisonModel))
+			}
+			
+			if (boundingBox.isEmpty()) return
+			
+			const size = boundingBox.getSize(new THREE.Vector3())
+			const center = boundingBox.getCenter(new THREE.Vector3())
+			const maxDim = Math.max(size.x, size.z) // Use X and Z dimensions for grid
+			
+			// More intelligent grid sizing for comparison
+			let gridSize, divisions
+			
+			if (maxDim < 5) {
+				// Very small models - use smaller grid with more divisions
+				gridSize = Math.max(5, Math.ceil(maxDim * 2))
+				divisions = Math.max(5, Math.ceil(gridSize))
+			} else if (maxDim < 20) {
+				// Medium models - use moderate grid
+				gridSize = Math.max(10, Math.ceil(maxDim * 1.5))
+				divisions = Math.max(10, Math.ceil(gridSize / 1.5))
+			} else if (maxDim < 100) {
+				// Large models - use larger grid with fewer divisions
+				gridSize = Math.max(20, Math.ceil(maxDim * 1.2))
+				divisions = Math.max(10, Math.ceil(gridSize / 2))
+			} else {
+				// Very large models - use much larger grid
+				gridSize = Math.max(50, Math.ceil(maxDim * 1.1))
+				divisions = Math.max(10, Math.ceil(gridSize / 5))
+			}
+			
+			// Ensure grid size is even for better centering
+			if (gridSize % 2 !== 0) {
+				gridSize += 1
+			}
+			
+			// Remove old grid
+			this.scene.remove(this.grid)
+			this.grid.geometry.dispose()
+			
+			// Create new grid with appropriate size
+			this.grid = new THREE.GridHelper(gridSize, divisions)
+			
+			// Position the grid at the ground level of both models
+			// This ensures the grid is at the bottom of the models
+			const groundLevel = center.y - size.y / 2
+			// Add a small offset to position the grid slightly below the models for better visual effect
+			const gridOffset = -0.1
+			this.grid.position.set(0, groundLevel + gridOffset, 0)
+			
+			this.scene.add(this.grid)
+			this.grid.visible = this.showGrid
+			
+			console.log(`Updated grid size for comparison to ${gridSize}x${gridSize} with ${divisions} divisions for combined model size ${maxDim.toFixed(2)}`)
 		},
 		applyWireframe(enabled) {
 			if (!this.modelRoot) return
