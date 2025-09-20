@@ -254,17 +254,17 @@ export function registerViewerHandlerLegacy() {
 								console.log('[threedviewer] Modal component loaded successfully')
 							}).catch(error => {
 								console.error('[threedviewer] Failed to load modal component:', error)
-								// Fallback to redirect
+								// Fallback to new tab
 								const viewerUrl = OC.generateUrl(`/apps/${APP_ID}/?fileId=${fileId}`)
-								console.log('[threedviewer] Redirecting to standalone app:', viewerUrl)
-								window.location.href = viewerUrl
+								console.log('[threedviewer] Opening in new tab:', viewerUrl)
+								window.open(viewerUrl, '_blank', 'noopener,noreferrer')
 							})
 						} catch (error) {
 							console.error('[threedviewer] Error loading modal:', error)
-							// Fallback to redirect
+							// Fallback to new tab
 							const viewerUrl = OC.generateUrl(`/apps/${APP_ID}/?fileId=${fileId}`)
-							console.log('[threedviewer] Redirecting to standalone app:', viewerUrl)
-							window.location.href = viewerUrl
+							console.log('[threedviewer] Opening in new tab:', viewerUrl)
+							window.open(viewerUrl, '_blank', 'noopener,noreferrer')
 						}
 					} else {
 						this.$el.innerHTML = '<div style="padding: 20px; text-align: center;">Unsupported file type</div>'

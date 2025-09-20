@@ -136,7 +136,7 @@ import '../css/threedviewer-filesIntegration.css'
 				console.warn('[threedviewer] No fileId in context for', fileName, context)
 				return false
 			}
-			window.location.href = OC.generateUrl(`/apps/${APP_ID}/?fileId=${fileId}`)
+			window.open(OC.generateUrl(`/apps/${APP_ID}/?fileId=${fileId}`), '_blank', 'noopener,noreferrer')
 			return true
 		}
 
@@ -223,10 +223,10 @@ import '../css/threedviewer-filesIntegration.css'
 						row.getAttribute('data-file-id')
 					
 					if (fileId) {
-						// Open in modal or redirect
+						// Open in new tab
 						const viewerUrl = OC.generateUrl(`/apps/${APP_ID}/?fileId=${fileId}`)
-						console.log('[threedviewer] Opening 3D viewer via fallback:', viewerUrl)
-						window.location.href = viewerUrl
+						console.log('[threedviewer] Opening 3D viewer in new tab:', viewerUrl)
+						window.open(viewerUrl, '_blank', 'noopener,noreferrer')
 					}
 					return false
 				}
@@ -275,10 +275,10 @@ import '../css/threedviewer-filesIntegration.css'
 							const fileName = fileInfo?.name || fileInfo?.filename || fileInfo?.basename || ''
 							
 							if (fileId && isSupported(fileName)) {
-								// Redirect to standalone app
+								// Open in new tab
 								const viewerUrl = OC.generateUrl(`/apps/${APP_ID}/?fileId=${fileId}`)
-								console.log('[threedviewer] Redirecting to standalone app:', viewerUrl)
-								window.location.href = viewerUrl
+								console.log('[threedviewer] Opening in new tab:', viewerUrl)
+								window.open(viewerUrl, '_blank', 'noopener,noreferrer')
 							} else {
 								this.$el.innerHTML = '<div style="padding: 20px; text-align: center; color: red;">Unsupported file type</div>'
 							}

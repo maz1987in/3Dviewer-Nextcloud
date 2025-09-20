@@ -7,7 +7,13 @@
 				:axes="axes"
 				:wireframe="wireframe"
 				:background="background"
+				:auto-rotate="autoRotate"
+				:presets="animationPresets"
+				:current-preset="currentPreset"
 				@reset-view="onReset"
+				@fit-to-view="onFitToView"
+				@toggle-auto-rotate="onToggleAutoRotate"
+				@change-preset="onChangePreset"
 				@toggle-grid="grid = !grid"
 				@toggle-axes="axes = !axes"
 				@toggle-wireframe="wireframe = !wireframe"
@@ -56,6 +62,9 @@ export default {
 			axes: true,
 			wireframe: false,
 			background: '#f5f5f5',
+			autoRotate: false,
+			animationPresets: [],
+			currentPreset: '',
 			lastError: null,
 			modelMeta: null,
 			toasts: [],
@@ -116,12 +125,29 @@ export default {
 		onReset() {
 			this.$refs.viewer?.resetView?.()
 		},
+		onFitToView() {
+			this.$refs.viewer?.fitToView?.()
+		},
+		onToggleAutoRotate() {
+			this.autoRotate = !this.autoRotate
+			this.$refs.viewer?.toggleAutoRotate?.()
+		},
+		onChangePreset(presetName) {
+			if (presetName) {
+				this.currentPreset = presetName
+				this.$refs.viewer?.animateToPreset?.(presetName)
+			}
+		},
 		onBackgroundChange(val) {
 			this.background = val
 		},
 		onModelLoaded(meta) {
 			this.modelMeta = meta
 			this.lastError = null
+			// Sync animation presets from viewer
+			if (this.$refs.viewer?.animationPresets) {
+				this.animationPresets = this.$refs.viewer.animationPresets
+			}
 			this.pushToast({ type: 'success', title: this.tSuccessTitle(), message: this.tLoadedMessage(meta.filename) })
 		},
 		onError(msg) {
@@ -129,9 +155,33 @@ export default {
 			console.error('Viewer error:', msg)
 			this.pushToast({ type: 'error', title: this.tErrorTitle(), message: msg })
 		},
-		pushToast({ type = 'info', title, message }) {
+		pushToast({ type = 'info', title, message, timeout = null }) {
 			const id = Date.now() + Math.random()
-			this.toasts.push({ id, type, title, message, timeout: 8000 })
+			
+			// Set different default timeouts based on toast type
+			let defaultTimeout
+			switch (type) {
+				case 'success':
+					defaultTimeout = 4000 // 4 seconds for success messages
+					break
+				case 'error':
+					defaultTimeout = 8000 // 8 seconds for error messages (longer for reading)
+					break
+				case 'info':
+				default:
+					defaultTimeout = 5000 // 5 seconds for info messages
+					break
+			}
+			
+			this.toasts.push({ 
+				id, 
+				type, 
+				title, 
+				message, 
+				timeout: timeout !== null ? timeout : defaultTimeout,
+				progress: 0,
+				paused: false
+			})
 		},
 		dismissToast(id) {
 			this.toasts = this.toasts.filter(t => t.id !== id)
