@@ -1,93 +1,138 @@
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js'
 import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js'
+import { BaseLoader, MaterialLoaderMixin } from '../BaseLoader.js'
 
+/**
+ * OBJ loader class with MTL material support
+ */
+class ObjLoader extends BaseLoader {
+  constructor() {
+    super('OBJLoader', ['obj'])
+    this.objLoader = null
+    this.mtlLoader = null
+  }
+
+  /**
+   * Load OBJ model with optional MTL materials
+   * @param {ArrayBuffer} arrayBuffer - File data
+   * @param {Object} context - Loading context
+   * @returns {Promise<Object>} Load result
+   */
+  async loadModel(arrayBuffer, context) {
+    const { THREE, fileId } = context
+    
+    // Decode the OBJ file content
+    const objText = this.decodeText(arrayBuffer)
+    
+    // Look for MTL file reference
+    const mtlName = this.findMtlReference(objText)
+    
+    // Create loaders
+    this.objLoader = new OBJLoader()
+    
+    // Load MTL materials if referenced
+    if (mtlName && fileId) {
+      await this.loadMtlMaterials(mtlName, fileId)
+    }
+    
+    // Parse the OBJ content
+    const object3D = this.objLoader.parse(objText)
+    
+    if (!object3D || object3D.children.length === 0) {
+      throw new Error('No valid geometry found in OBJ file')
+    }
+    
+    this.logInfo('OBJ model parsed successfully', {
+      children: object3D.children.length,
+      hasMaterials: !!mtlName
+    })
+    
+    // Process the result
+    return this.processModel(object3D, context)
+  }
+
+  /**
+   * Decode ArrayBuffer to text
+   * @param {ArrayBuffer} arrayBuffer - File data
+   * @returns {string} Decoded text
+   */
+  decodeText(arrayBuffer) {
+    const textDecoder = new TextDecoder('utf-8', { fatal: false })
+    const text = textDecoder.decode(arrayBuffer)
+    
+    if (!text || text.trim().length === 0) {
+      throw new Error('Empty or invalid OBJ file content')
+    }
+    
+    return text
+  }
+
+  /**
+   * Find MTL file reference in OBJ text
+   * @param {string} objText - OBJ file content
+   * @returns {string|null} MTL file name
+   */
+  findMtlReference(objText) {
+    for (const line of objText.split(/\r?\n/)) {
+      const trimmedLine = line.trim()
+      if (trimmedLine.toLowerCase().startsWith('mtllib ')) {
+        const mtlName = trimmedLine.split(/\s+/)[1]?.trim()
+        if (mtlName) {
+          this.logInfo('Found MTL reference', { mtlName })
+          return mtlName
+        }
+      }
+    }
+    return null
+  }
+
+  /**
+   * Load MTL materials
+   * @param {string} mtlName - MTL file name
+   * @param {number} fileId - File ID for API request
+   */
+  async loadMtlMaterials(mtlName, fileId) {
+    try {
+      const mtlUrl = `/apps/threedviewer/api/file/${fileId}/mtl/${encodeURIComponent(mtlName)}`
+      
+      const response = await fetch(mtlUrl, {
+        headers: { 'Accept': 'text/plain' },
+        signal: this.abortController?.signal || AbortSignal.timeout(10000)
+      })
+      
+      if (response.ok) {
+        const mtlText = await response.text()
+        if (mtlText && mtlText.trim().length > 0) {
+          this.mtlLoader = new MTLLoader()
+          const materials = this.mtlLoader.parse(mtlText, '')
+          materials.preload()
+          this.objLoader.setMaterials(materials)
+          this.logInfo('MTL materials loaded successfully', { mtlName })
+        }
+      } else {
+        this.logWarning('MTL file not found or error loading', { 
+          mtlName, 
+          status: response.status 
+        })
+      }
+    } catch (error) {
+      this.logWarning('Failed to load MTL materials', { 
+        mtlName, 
+        error: error.message 
+      })
+    }
+  }
+}
+
+// Create loader instance
+const objLoader = new ObjLoader()
+
+/**
+ * Load OBJ model (legacy function for compatibility)
+ * @param {ArrayBuffer} arrayBuffer - File data
+ * @param {Object} context - Loading context
+ * @returns {Promise<Object>} Load result
+ */
 export default async function loadObj(arrayBuffer, context) {
-	const { THREE, scene, applyWireframe, ensurePlaceholderRemoved, wireframe, fileId } = context
-	
-	try {
-		// Decode the OBJ file content
-		const textDecoder = new TextDecoder('utf-8', { fatal: false })
-		const objText = textDecoder.decode(arrayBuffer)
-		
-		if (!objText || objText.trim().length === 0) {
-			throw new Error('Empty or invalid OBJ file content')
-		}
-		
-		// Look for MTL file reference
-		let mtlName = null
-		for (const line of objText.split(/\r?\n/)) {
-			const trimmedLine = line.trim()
-			if (trimmedLine.toLowerCase().startsWith('mtllib ')) { 
-				mtlName = trimmedLine.split(/\s+/)[1]?.trim()
-				break 
-			}
-		}
-		
-		// Create OBJ loader
-		const loader = new OBJLoader()
-		
-		// Try to load MTL materials if referenced
-		if (mtlName) {
-			try {
-				const mtlUrl = `/apps/threedviewer/api/file/${fileId}/mtl/${encodeURIComponent(mtlName)}`
-				
-				const mtlRes = await fetch(mtlUrl, { 
-					headers: { 'Accept': 'text/plain' },
-					signal: AbortSignal.timeout(10000) // 10 second timeout
-				})
-				
-				if (mtlRes.ok) {
-					const mtlText = await mtlRes.text()
-					if (mtlText && mtlText.trim().length > 0) {
-						const mtlLoader = new MTLLoader()
-						const materials = mtlLoader.parse(mtlText, '')
-						materials.preload()
-						loader.setMaterials(materials)
-						console.log('[OBJLoader] Successfully loaded MTL materials:', mtlName)
-					}
-				} else {
-					console.warn('[OBJLoader] MTL file not found or error loading:', mtlName, mtlRes.status)
-				}
-			} catch (e) { 
-				console.warn('[OBJLoader] Failed to load MTL materials:', mtlName, e.message)
-				// Continue without materials
-			}
-		}
-		
-		// Remove placeholder objects
-		ensurePlaceholderRemoved()
-		
-		// Parse the OBJ content
-		const object3D = loader.parse(objText)
-		
-		if (!object3D || object3D.children.length === 0) {
-			throw new Error('No valid geometry found in OBJ file')
-		}
-		
-		// Apply wireframe if needed
-		applyWireframe(wireframe)
-		
-		// Add to scene
-		scene.add(object3D)
-		
-		// Calculate bounding box for camera positioning
-		const box = new THREE.Box3().setFromObject(object3D)
-		const center = box.getCenter(new THREE.Vector3())
-		const size = box.getSize(new THREE.Vector3())
-		
-		// Center the model
-		object3D.position.sub(center)
-		
-		console.log('[OBJLoader] Successfully loaded OBJ model with', object3D.children.length, 'children')
-		
-		return { 
-			object3D,
-			boundingBox: box,
-			center: center,
-			size: size
-		}
-	} catch (error) {
-		console.error('[OBJLoader] Error loading OBJ file:', error)
-		throw new Error(`Failed to load OBJ file: ${error.message}`)
-	}
+  return objLoader.load(arrayBuffer, context)
 }

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace OCA\ThreeDViewer\Controller;
 
 use OCA\ThreeDViewer\Service\ModelFileSupport;
-use OCP\AppFramework\Controller;
+use OCA\ThreeDViewer\Service\ResponseBuilder;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\JSONResponse;
@@ -14,19 +14,30 @@ use OCP\Files\IRootFolder;
 use OCP\Files\NotFoundException;
 use OCP\IRequest;
 use OCP\IUserSession;
+use Psr\Log\LoggerInterface;
 
 /**
  * Controller for serving 3D files using Nextcloud filesystem API
  */
-class FileController extends Controller {
+class FileController extends BaseController {
     public function __construct(
         string $appName,
         IRequest $request,
         private readonly IRootFolder $rootFolder,
         private readonly IUserSession $userSession,
-        private readonly ModelFileSupport $modelFileSupport,
+        ModelFileSupport $modelFileSupport,
+        ResponseBuilder $responseBuilder,
+        LoggerInterface $logger
     ) {
-        parent::__construct($appName, $request);
+        parent::__construct($appName, $request, $responseBuilder, $modelFileSupport, $logger);
+    }
+
+    /**
+     * Test endpoint to verify routing is working
+     */
+    #[NoCSRFRequired]
+    public function test(): JSONResponse {
+        return new JSONResponse(['status' => 'ok', 'message' => 'FileController is working']);
     }
 
     /**
@@ -35,50 +46,56 @@ class FileController extends Controller {
     #[NoCSRFRequired]
     public function serveFile(int $fileId): StreamResponse|JSONResponse {
         try {
+            // Validate file ID
+            $fileId = $this->validateFileId($fileId);
+            
+            // Check authentication
             $user = $this->userSession->getUser();
             if ($user === null) {
-                return new JSONResponse(['error' => 'User not authenticated'], Http::STATUS_UNAUTHORIZED);
+                return $this->responseBuilder->createUnauthorizedResponse('User not authenticated');
             }
 
-            // Get user's folder
+            // Get user's folder and find file
             $userFolder = $this->rootFolder->getUserFolder($user->getUID());
-            
-            // Find file by ID
             $files = $userFolder->getById($fileId);
+            
             if (empty($files)) {
-                return new JSONResponse(['error' => 'File not found'], Http::STATUS_NOT_FOUND);
+                return $this->responseBuilder->createNotFoundResponse('File not found');
             }
 
             $file = $files[0];
             if (!$file instanceof \OCP\Files\File) {
-                return new JSONResponse(['error' => 'Not a file'], Http::STATUS_BAD_REQUEST);
+                return $this->responseBuilder->createBadRequestResponse('Not a file');
             }
 
-            // Check if file is supported
+            // Validate file
+            $this->validateFile($file);
+            
+            // Check file size
+            if (!$this->isFileSizeAcceptable($file)) {
+                return $this->responseBuilder->createErrorResponse(
+                    'File too large',
+                    Http::STATUS_REQUEST_ENTITY_TOO_LARGE,
+                    [
+                        'file_size' => $this->formatFileSize($file->getSize()),
+                        'max_size' => $this->formatFileSize(500 * 1024 * 1024)
+                    ]
+                );
+            }
+
+            // Log file access
+            $this->logFileAccess($file, 'serve', [
+                'size_category' => $this->getFileSizeCategory($file),
+                'client_ip' => $this->getClientIp(),
+                'is_mobile' => $this->isMobileRequest()
+            ]);
+
+            // Build and return response
             $extension = strtolower($file->getExtension());
-            if (!$this->modelFileSupport->isSupported($extension)) {
-                return new JSONResponse(['error' => 'Unsupported file type'], Http::STATUS_UNSUPPORTED_MEDIA_TYPE);
-            }
+            return $this->responseBuilder->buildStreamResponse($file, $extension);
 
-            // Open file stream
-            $stream = $file->fopen('r');
-            if ($stream === false) {
-                return new JSONResponse(['error' => 'Failed to open file'], Http::STATUS_INTERNAL_SERVER_ERROR);
-            }
-
-            // Create response
-            $response = new StreamResponse($stream);
-            $response->addHeader('Content-Type', $this->modelFileSupport->mapContentType($extension));
-            $response->addHeader('Content-Length', (string)$file->getSize());
-            $response->addHeader('Content-Disposition', 'inline; filename="' . addslashes($file->getName()) . '"');
-            $response->addHeader('Cache-Control', 'no-store');
-
-            return $response;
-
-        } catch (NotFoundException $e) {
-            return new JSONResponse(['error' => 'File not found'], Http::STATUS_NOT_FOUND);
-        } catch (\Exception $e) {
-            return new JSONResponse(['error' => 'Internal server error'], Http::STATUS_INTERNAL_SERVER_ERROR);
+        } catch (\Throwable $e) {
+            return $this->handleException($e);
         }
     }
 
@@ -88,9 +105,10 @@ class FileController extends Controller {
     #[NoCSRFRequired]
     public function listFiles(): JSONResponse {
         try {
+            // Check authentication
             $user = $this->userSession->getUser();
             if ($user === null) {
-                return new JSONResponse(['error' => 'User not authenticated'], Http::STATUS_UNAUTHORIZED);
+                return $this->responseBuilder->createUnauthorizedResponse('User not authenticated');
             }
 
             $userFolder = $this->rootFolder->getUserFolder($user->getUID());
@@ -99,10 +117,17 @@ class FileController extends Controller {
             // Recursively find all 3D files
             $this->find3DFiles($userFolder, $files);
 
-            return new JSONResponse(['files' => $files]);
+            // Log file listing
+            $this->logger->info('File list requested', [
+                'user_id' => $user->getUID(),
+                'total_files' => count($files),
+                'client_ip' => $this->getClientIp()
+            ]);
 
-        } catch (\Exception $e) {
-            return new JSONResponse(['error' => 'Internal server error'], Http::STATUS_INTERNAL_SERVER_ERROR);
+            return $this->responseBuilder->createFileListResponse($files, count($files));
+
+        } catch (\Throwable $e) {
+            return $this->handleException($e);
         }
     }
 
@@ -122,7 +147,9 @@ class FileController extends Controller {
                         'path' => $node->getPath(),
                         'size' => $node->getSize(),
                         'mtime' => $node->getMTime(),
-                        'extension' => $extension
+                        'extension' => $extension,
+                        'size_category' => $this->getFileSizeCategory($node),
+                        'formatted_size' => $this->formatFileSize($node->getSize())
                     ];
                 }
             } elseif ($node instanceof \OCP\Files\Folder) {

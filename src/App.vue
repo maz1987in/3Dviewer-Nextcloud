@@ -29,10 +29,16 @@
 			/>
 			<ThreeViewer
 				:file-id="fileId"
+				:filename="filename"
+				:dir="dir"
 				:show-grid="grid"
 				:show-axes="axes"
 				:wireframe="wireframe"
 				:background="background"
+				:measurement-mode="measurementMode"
+				:annotation-mode="annotationMode"
+				:comparison-mode="comparisonMode"
+				:performance-mode="performanceMode"
 				@model-loaded="onModelLoaded"
 				@error="onError"
 				ref="viewer"
@@ -66,6 +72,8 @@ export default {
 	data() {
 		return {
 			fileId: this.parseFileId(),
+			filename: this.parseFilename(),
+			dir: this.parseDir(),
 			grid: true,
 			axes: true,
 			wireframe: false,
@@ -104,6 +112,14 @@ export default {
 			const params = new URLSearchParams(window.location.search)
 			const id = params.get('fileId')
 			return id ? Number(id) : null
+		},
+		parseFilename() {
+			const params = new URLSearchParams(window.location.search)
+			return params.get('filename') || null
+		},
+		parseDir() {
+			const params = new URLSearchParams(window.location.search)
+			return params.get('dir') || null
 		},
 		loadPrefs() {
 			try {

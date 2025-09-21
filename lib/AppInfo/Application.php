@@ -42,8 +42,23 @@ class Application extends App implements IBootstrap {
 			$context->registerEventListener('OCA\\Files\\Event\\LoadViewer', 'OCA\\ThreeDViewer\\FileAction\\View3DAction');
 		}
 
-		// Register asset controller for serving decoder files
+		// Register services
 		if (\method_exists($context, 'registerService')) {
+			// Register ModelFileSupport service
+			/** @psalm-suppress UndefinedInterfaceMethod */
+			$context->registerService('OCA\\ThreeDViewer\\Service\\ModelFileSupport', function($c) {
+				return new \OCA\ThreeDViewer\Service\ModelFileSupport();
+			});
+			
+			// Register ResponseBuilder service
+			/** @psalm-suppress UndefinedInterfaceMethod */
+			$context->registerService('OCA\\ThreeDViewer\\Service\\ResponseBuilder', function($c) {
+				return new \OCA\ThreeDViewer\Service\ResponseBuilder(
+					$c->query('OCA\\ThreeDViewer\\Service\\ModelFileSupport')
+				);
+			});
+			
+			// Register asset controller for serving decoder files
 			/** @psalm-suppress UndefinedInterfaceMethod */
 			$context->registerService(AssetController::class, function($c) {
 				return new AssetController(
@@ -60,7 +75,9 @@ class Application extends App implements IBootstrap {
 					$c->query('OCP\\IRequest'),
 					$c->query('OCP\\Files\\IRootFolder'),
 					$c->query('OCP\\IUserSession'),
-					$c->query('OCA\\ThreeDViewer\\Service\\ModelFileSupport')
+					$c->query('OCA\\ThreeDViewer\\Service\\ModelFileSupport'),
+					$c->query('OCA\\ThreeDViewer\\Service\\ResponseBuilder'),
+					$c->query('Psr\\Log\\LoggerInterface')
 				);
 			});
 		}
