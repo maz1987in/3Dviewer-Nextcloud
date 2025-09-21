@@ -193,6 +193,17 @@ export const THEME_SETTINGS = {
 }
 
 /**
+ * Comparison settings
+ */
+export const COMPARISON_SETTINGS = {
+  defaultComparisonColor: 0x007acc,
+  indicatorSize: 0.1,
+  indicatorOpacity: 0.8,
+  sideBySideOffset: 2.0,
+  overlayOpacity: 0.5
+}
+
+/**
  * File size categories and limits
  */
 export const FILE_SIZE_CATEGORIES = {
@@ -393,6 +404,7 @@ export const VIEWER_CONFIG = {
   loading: LOADING_SETTINGS,
   error: ERROR_SETTINGS,
   theme: THEME_SETTINGS,
+  comparison: COMPARISON_SETTINGS,
   fileSizeCategories: FILE_SIZE_CATEGORIES,
   supportedFormats: SUPPORTED_FORMATS,
   limits: {

@@ -147,6 +147,27 @@
 				</div>
 			</div>
 		</div>
+		
+		<!-- Comparison file selection modal -->
+		<div v-if="isComparisonMode && comparisonFiles.length > 0 && !hasComparisonModel" class="comparison-modal" :class="{ 'mobile': isMobile }">
+			<div class="comparison-modal-content">
+				<div class="comparison-header">
+					<h3>{{ t('threedviewer', 'Select Model to Compare') }}</h3>
+					<button type="button" class="close-comparison-btn" @click="toggleComparisonMode" :class="{ 'mobile': isMobile }">
+						{{ t('threedviewer', 'Close') }}
+					</button>
+				</div>
+				<div class="comparison-file-list">
+					<div v-for="file in comparisonFiles" :key="file.id" class="comparison-file-item" @click="selectComparisonFile(file)">
+						<div class="file-info">
+							<span class="file-name">{{ file.name }}</span>
+							<span class="file-size">{{ formatFileSize(file.size) }}</span>
+						</div>
+						<div class="file-extension">{{ file.name.split('.').pop().toUpperCase() }}</div>
+					</div>
+				</div>
+			</div>
+		</div>
 	</div>
 </template>
 
@@ -218,7 +239,7 @@ export default {
 				const height = container.value.clientHeight
 				camera.initCamera(width, height, isMobile.value)
 				
-				// Setup controls (disabled due to NaN issue)
+				// Setup controls
 				await camera.setupControls(renderer.value)
 				
 				// Setup custom controls for interaction
@@ -534,11 +555,6 @@ export default {
 			comparison.toggleComparisonModel()
 		}
 		
-		const fitBothModelsToView = () => {
-			if (modelRoot.value && hasComparisonModel.value) {
-				comparison.fitBothModelsToView(modelRoot.value, hasComparisonModel.value, camera.fitBothModelsToView)
-			}
-		}
 		
 		// Loading methods
 		const cancelLoad = () => {
@@ -605,10 +621,112 @@ export default {
 			console.log('🔍 DEBUG - All annotations cleared')
 		}
 		
-		const toggleComparisonMode = () => {
-			// TODO: Implement comparison functionality
-			console.log('🔍 DEBUG - Comparison mode toggled (not yet implemented)')
-			emit('toggle-comparison')
+		const toggleComparisonMode = async () => {
+			try {
+				if (!comparison.isComparisonMode.value) {
+					// Entering comparison mode - load available files
+					console.log('🔍 DEBUG - Entering comparison mode')
+					await loadComparisonFiles()
+				} else {
+					// Exiting comparison mode - clear comparison
+					console.log('🔍 DEBUG - Exiting comparison mode')
+					comparison.clearComparison()
+				}
+				
+				comparison.toggleComparisonMode()
+				emit('toggle-comparison')
+			} catch (error) {
+				logError('ThreeViewer', 'Failed to toggle comparison mode', error)
+			}
+		}
+		
+		const loadComparisonFiles = async () => {
+			try {
+				console.log('🔍 DEBUG - Loading comparison files')
+				await comparison.loadNextcloudFiles()
+				console.log('🔍 DEBUG - Comparison files loaded:', comparison.comparisonFiles.value.length)
+			} catch (error) {
+				logError('ThreeViewer', 'Failed to load comparison files', error)
+			}
+		}
+		
+		const selectComparisonFile = async (file) => {
+			try {
+				console.log('🔍 DEBUG - Selecting comparison file:', file.name)
+				
+				// Load the comparison model
+				const context = {
+					THREE,
+					scene: scene.value,
+					abortController: new AbortController(),
+					applyWireframe: props.wireframe,
+					ensurePlaceholderRemoved: () => {},
+					wireframe: props.wireframe
+				}
+				
+				await comparison.loadComparisonModelFromNextcloud(file, context)
+				
+				// Add the comparison model to the scene
+				if (comparison.comparisonModel.value) {
+					scene.value.add(comparison.comparisonModel.value)
+					console.log('🔍 DEBUG - Comparison model added to scene')
+					
+					// Fit both models to view
+					if (modelRoot.value && comparison.comparisonModel.value) {
+						fitBothModelsToView()
+					}
+				}
+			} catch (error) {
+				logError('ThreeViewer', 'Failed to load comparison model', error)
+			}
+		}
+		
+		const fitBothModelsToView = () => {
+			if (modelRoot.value && comparison.comparisonModel.value) {
+				// First position the models side by side
+				comparison.fitBothModelsToView(modelRoot.value, comparison.comparisonModel.value, (model1, model2) => {
+					// After positioning, fit camera to the combined bounding box
+					const box1 = new THREE.Box3().setFromObject(model1)
+					const box2 = new THREE.Box3().setFromObject(model2)
+					const combinedBox = box1.union(box2)
+					
+					const center = combinedBox.getCenter(new THREE.Vector3())
+					const size = combinedBox.getSize(new THREE.Vector3())
+			const maxDim = Math.max(size.x, size.y, size.z)
+					
+					// Calculate camera distance
+					const fov = camera.camera.value.fov * (Math.PI / 180)
+					const cameraDistance = maxDim / (2 * Math.tan(fov / 2)) * 1.5
+					
+					// Position camera to view both models
+					camera.camera.value.position.set(
+						center.x + cameraDistance,
+						center.y + cameraDistance * 0.5,
+						center.z + cameraDistance
+					)
+					camera.camera.value.lookAt(center)
+					
+					console.log('🔍 DEBUG - Both models fitted to view')
+					console.log('🔍 DEBUG - Final model positions:', {
+						model1: { x: model1.position.x, y: model1.position.y, z: model1.position.z },
+						model2: { x: model2.position.x, y: model2.position.y, z: model2.position.z },
+						combinedCenter: { x: center.x, y: center.y, z: center.z },
+						cameraPosition: { x: camera.camera.value.position.x, y: camera.camera.value.position.y, z: camera.camera.value.position.z }
+					})
+					
+					// Force a render to update the view
+					if (renderer.value && scene.value) {
+						renderer.value.render(scene.value, camera.camera.value)
+						console.log('🔍 DEBUG - Forced render after positioning')
+					}
+					
+					// Enable camera controls after positioning
+					if (camera.controls.value) {
+						camera.controls.value.enabled = true
+						console.log('🔍 DEBUG - Camera controls enabled after comparison positioning')
+					}
+				})
+			}
 		}
 		
 		const setPerformanceMode = (mode) => {
@@ -698,6 +816,10 @@ export default {
 			annotations: annotation.annotations,
 			annotationCount: annotation.annotationCount,
 			
+			// Comparison
+			comparisonFiles: comparison.comparisonFiles,
+			isComparisonLoading: comparison.isComparisonLoading,
+			
 			// Methods
 			toggleOriginalModel,
 			toggleComparisonModel,
@@ -716,6 +838,8 @@ export default {
 			updateAnnotationText,
 			clearAllAnnotations,
 			toggleComparisonMode,
+			loadComparisonFiles,
+			selectComparisonFile,
 			setPerformanceMode
 		}
 	}
@@ -777,26 +901,191 @@ export default {
 
 .comparison-controls {
 	position: absolute;
-	top: 20px;
-	right: 20px;
-	z-index: 100;
+	top: 60px; /* Position below main toolbar */
+	right: 8px;
+	z-index: 10;
+	background: rgba(0,0,0,0.45);
+	backdrop-filter: blur(8px);
+	padding: 6px 8px;
+	border-radius: 8px;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	align-items: center;
+	transition: all 0.3s ease;
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .comparison-buttons {
 	display: flex;
-	gap: 10px;
+	gap: 4px;
+	align-items: center;
+	flex-wrap: wrap;
 }
 
 .comparison-btn {
-	background: rgba(0, 0, 0, 0.7);
-	color: white;
+	font-size: 11px;
+	line-height: 1;
+	padding: 6px 8px;
+	background: var(--color-primary-element, #1976d2);
+	color: #fff;
 	border: none;
-	padding: 10px;
-	border-radius: 5px;
+	border-radius: 6px;
 	cursor: pointer;
 	display: flex;
 	align-items: center;
-	gap: 5px;
+	gap: 4px;
+	transition: all 0.2s ease;
+	touch-action: manipulation;
+	min-height: 32px;
+	font-weight: 500;
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+	position: relative;
+	overflow: hidden;
+}
+
+.comparison-btn::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: -100%;
+	width: 100%;
+	height: 100%;
+	background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+	transition: left 0.5s;
+}
+
+.comparison-btn:hover::before {
+	left: 100%;
+}
+
+.comparison-btn:hover {
+	background: var(--color-primary-element-hover, #1565c0);
+	transform: translateY(-1px);
+}
+
+.comparison-btn:focus-visible {
+	outline: 2px solid var(--color-primary-text, #fff);
+	outline-offset: 2px;
+}
+
+.btn-icon {
+	font-size: 12px;
+	line-height: 1;
+}
+
+.btn-text {
+	font-size: 10px;
+	white-space: nowrap;
+}
+
+/* Mobile-specific styles for comparison controls */
+.comparison-controls.mobile {
+	top: 50px; /* Adjust for mobile toolbar height */
+	right: 4px;
+	left: 4px;
+	flex-direction: row;
+	justify-content: space-between;
+	padding: 6px 8px;
+	border-radius: 8px;
+}
+
+.comparison-controls.mobile .comparison-buttons {
+	flex: 1;
+	justify-content: flex-start;
+}
+
+.comparison-controls.mobile .comparison-btn {
+	font-size: 10px;
+	padding: 6px 8px;
+	min-height: 44px; /* iOS recommended touch target size */
+	border-radius: 6px;
+}
+
+.comparison-controls.mobile .btn-icon {
+	font-size: 14px;
+}
+
+.comparison-controls.mobile .btn-text {
+	font-size: 9px;
+}
+
+/* Landscape mobile optimization */
+@media (max-width: 768px) and (orientation: landscape) {
+	.comparison-controls.mobile {
+		top: 40px;
+		left: 2px;
+		right: 2px;
+		padding: 4px 6px;
+	}
+	
+	.comparison-controls.mobile .comparison-btn {
+		padding: 4px 6px;
+		min-height: 36px;
+	}
+}
+
+/* Very small screens */
+@media (max-width: 480px) {
+	.comparison-controls.mobile .btn-text {
+		display: none; /* Hide text on very small screens, show only icons */
+	}
+	
+	.comparison-controls.mobile .comparison-btn {
+		padding: 8px;
+		min-width: 44px;
+		justify-content: center;
+	}
+}
+
+/* Dark theme support for comparison controls */
+.dark-theme .comparison-controls {
+	background: rgba(30, 30, 30, 0.8);
+	border-color: rgba(255, 255, 255, 0.2);
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.dark-theme .comparison-btn {
+	background: var(--color-primary, #64b5f6);
+	color: #000;
+}
+
+.dark-theme .comparison-btn:hover {
+	background: var(--color-primary-element-hover, #42a5f5);
+}
+
+/* Accessibility improvements for comparison controls */
+.comparison-btn:focus-visible {
+	outline: 2px solid var(--color-primary, #0d47a1);
+	outline-offset: 2px;
+	box-shadow: 0 0 0 4px rgba(13, 71, 161, 0.2);
+}
+
+/* High contrast mode for comparison controls */
+@media (prefers-contrast: high) {
+	.comparison-btn {
+		border: 2px solid currentColor;
+	}
+	
+	.comparison-controls {
+		border: 2px solid rgba(255, 255, 255, 0.5);
+	}
+}
+
+/* Reduced motion for comparison controls */
+@media (prefers-reduced-motion: reduce) {
+	.comparison-btn::before {
+		display: none;
+	}
+	
+	.comparison-btn:hover {
+		transform: none;
+	}
+	
+	.comparison-controls {
+		transition: none;
+	}
 }
 
 .mobile-hints {
@@ -1101,14 +1390,137 @@ export default {
 	}
 	
 	.annotation-header {
+	flex-direction: column;
+		gap: 10px;
+		align-items: stretch;
+}
+
+	.clear-annotations-btn {
+	width: 100%;
+		padding: 8px;
+	}
+}
+
+/* Comparison modal styles */
+.comparison-modal {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: rgba(0, 0, 0, 0.8);
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	z-index: 1000;
+}
+
+.comparison-modal-content {
+	background: #2a2a2a;
+	border: 1px solid #444;
+	border-radius: 8px;
+	padding: 20px;
+	max-width: 500px;
+	max-height: 80vh;
+	overflow-y: auto;
+	width: 90%;
+}
+
+.comparison-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 20px;
+	padding-bottom: 15px;
+	border-bottom: 1px solid #444;
+}
+
+.comparison-header h3 {
+	margin: 0;
+	color: #fff;
+	font-size: 18px;
+}
+
+.close-comparison-btn {
+	background: #ff4444;
+	color: white;
+	border: none;
+	padding: 8px 16px;
+	border-radius: 4px;
+	cursor: pointer;
+	font-size: 14px;
+}
+
+.close-comparison-btn:hover {
+	background: #ff6666;
+}
+
+.comparison-file-list {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.comparison-file-item {
+	background: #333;
+	border: 1px solid #555;
+	border-radius: 6px;
+	padding: 15px;
+	cursor: pointer;
+	transition: all 0.2s ease;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+
+.comparison-file-item:hover {
+	background: #444;
+	border-color: #666;
+	transform: translateY(-2px);
+}
+
+.file-info {
+	display: flex;
+	flex-direction: column;
+	gap: 5px;
+	flex: 1;
+}
+
+.file-name {
+	color: #fff;
+	font-weight: bold;
+	font-size: 14px;
+}
+
+.file-size {
+	color: #aaa;
+	font-size: 12px;
+}
+
+.file-extension {
+	background: #007acc;
+	color: white;
+	padding: 4px 8px;
+	border-radius: 4px;
+	font-size: 11px;
+	font-weight: bold;
+}
+
+@media (max-width: 768px) {
+	.comparison-modal-content {
+		width: 95%;
+		padding: 15px;
+	}
+	
+	.comparison-header {
 		flex-direction: column;
 		gap: 10px;
 		align-items: stretch;
 	}
 	
-	.clear-annotations-btn {
+	.close-comparison-btn {
 		width: 100%;
-		padding: 8px;
+		padding: 10px;
 	}
 }
 </style>

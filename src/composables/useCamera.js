@@ -347,23 +347,13 @@ export function useCamera() {
               isFinite(camera.value.position.y) && 
               isFinite(camera.value.position.z)) {
             console.log('🔍 DEBUG - Manual positioning stabilized, ready for user interaction')
+            manuallyPositioned.value = false
             
-            // Keep controls disabled permanently due to NaN issue
-            setTimeout(() => {
-              if (camera.value && 
-                  isFinite(camera.value.position.x) && 
-                  isFinite(camera.value.position.y) && 
-                  isFinite(camera.value.position.z)) {
-                console.log('🔍 DEBUG - Camera is stable, but OrbitControls causes NaN - keeping disabled')
-                manuallyPositioned.value = false
-                
-                // Keep controls disabled permanently due to NaN issue
-                if (controls.value) {
-                  controls.value.enabled = false
-                  console.log('🔍 DEBUG - Controls kept disabled due to NaN issue with OrbitControls')
-                }
-              }
-            }, 2000) // Wait another 2 seconds before enabling interaction
+            // Re-enable controls after stabilization
+            if (controls.value) {
+              controls.value.enabled = true
+              console.log('🔍 DEBUG - Controls re-enabled after stabilization')
+            }
           }
         }, 1000) // Wait 1 second for stabilization
       
@@ -722,6 +712,45 @@ export function useCamera() {
   const render = (renderer, scene) => {
     if (renderer && scene && camera.value) {
       try {
+        // Clean up any invalid geometries in the scene before rendering
+        scene.traverse((child) => {
+          if (child.geometry) {
+            // Check for invalid geometry attributes
+            if (!child.geometry.attributes || !child.geometry.attributes.position) {
+              console.log('🔍 DEBUG - Removing invalid geometry (no attributes):', child.name)
+              child.geometry.dispose()
+              child.geometry = null
+              return
+            }
+            
+            // Check for null bounding sphere
+            try {
+              if (!child.geometry.boundingSphere) {
+                child.geometry.computeBoundingSphere()
+              }
+              if (child.geometry.boundingSphere && child.geometry.boundingSphere.center === null) {
+                console.log('🔍 DEBUG - Removing geometry with null bounding sphere center:', child.name)
+                child.geometry.dispose()
+                child.geometry = null
+                return
+              }
+            } catch (error) {
+              console.log('🔍 DEBUG - Removing geometry with invalid bounding sphere:', child.name, error.message)
+              child.geometry.dispose()
+              child.geometry = null
+              return
+            }
+          }
+          
+          if (child.material) {
+            if (!child.material.isMaterial) {
+              console.log('🔍 DEBUG - Removing invalid material:', child.name)
+              child.material.dispose()
+              child.material = null
+            }
+          }
+        })
+        
         // Auto-rotate functionality
         if (autoRotateEnabled.value && !isMouseDown.value) {
           rotationY.value += autoRotateSpeed.value * 0.01

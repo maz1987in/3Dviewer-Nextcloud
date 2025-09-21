@@ -4,6 +4,7 @@
  */
 
 import { ref, computed, readonly } from 'vue'
+import * as THREE from 'three'
 import { loadModelByExtension, isSupportedExtension } from '../loaders/registry.js'
 import { logError } from '../utils/error-handler.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
@@ -125,6 +126,7 @@ export function useComparison() {
       comparisonError.value = null
       
       logError('useComparison', 'Loading comparison model from Nextcloud', file)
+      console.log('🔍 DEBUG - Loading comparison model:', file.name, 'Context:', context)
       
       // Skip dummy files
       if (String(file.id).startsWith('dummy')) {
@@ -182,6 +184,7 @@ export function useComparison() {
       const result = await loadModelByExtension(extension, arrayBuffer, {
         ...context,
         fileId: file.id,
+        filename: file.name,
         THREE: context.THREE,
         scene: context.scene,
         applyWireframe: context.applyWireframe,
@@ -191,7 +194,24 @@ export function useComparison() {
       
       if (result && result.object3D) {
         comparisonModel.value = result.object3D
-        addComparisonIndicator(result.object3D, file.name)
+        console.log('🔍 DEBUG - Comparison model loaded, position before indicator:', {
+          x: result.object3D.position.x,
+          y: result.object3D.position.y,
+          z: result.object3D.position.z
+        })
+        
+        // Add comparison indicator with proper error handling
+        if (context && context.scene) {
+          addComparisonIndicator(result.object3D, file.name, context.scene)
+        } else {
+          console.warn('🔍 DEBUG - Context or scene not available for comparison indicator')
+        }
+        
+        console.log('🔍 DEBUG - Comparison model position after indicator:', {
+          x: result.object3D.position.x,
+          y: result.object3D.position.y,
+          z: result.object3D.position.z
+        })
         
         logError('useComparison', 'Comparison model loaded successfully')
         return result
@@ -234,7 +254,13 @@ export function useComparison() {
       
       if (result && result.object3D) {
         comparisonModel.value = result.object3D
-        addComparisonIndicator(result.object3D, file.name)
+        
+        // Add comparison indicator with proper error handling
+        if (context && context.scene) {
+          addComparisonIndicator(result.object3D, file.name, context.scene)
+        } else {
+          console.warn('🔍 DEBUG - Context or scene not available for comparison indicator')
+        }
         
         logError('useComparison', 'Comparison model loaded successfully')
         return result
@@ -275,29 +301,48 @@ export function useComparison() {
    * Add comparison indicator to model
    * @param {THREE.Object3D} model - Model object
    * @param {string} filename - File name
+   * @param {THREE.Scene} scene - Scene object
    */
-  const addComparisonIndicator = (model, filename) => {
-    if (!model || !context.scene) return
-    
-    // Create a small indicator above the model
-    const geometry = new THREE.SphereGeometry(0.1, 8, 6)
-    const material = new THREE.MeshBasicMaterial({ 
-      color: VIEWER_CONFIG.comparison.defaultComparisonColor,
-      transparent: true,
-      opacity: 0.8
-    })
-    
-    const indicator = new THREE.Mesh(geometry, material)
-    
-    // Position indicator above the model
-    const box = new THREE.Box3().setFromObject(model)
-    const size = box.getSize(new THREE.Vector3())
-    indicator.position.set(0, size.y / 2 + 0.2, 0)
-    
-    model.add(indicator)
-    comparisonIndicator.value = indicator
-    
-    logError('useComparison', 'Comparison indicator added', { filename })
+  const addComparisonIndicator = (model, filename, scene) => {
+    try {
+      if (!model || !scene) {
+        console.warn('🔍 DEBUG - addComparisonIndicator: Missing model or scene', { 
+          model: model ? 'exists' : 'null', 
+          scene: scene ? 'exists' : 'null' 
+        })
+        return
+      }
+      
+      // Create a small indicator above the model
+      const geometry = new THREE.SphereGeometry(0.1, 8, 6)
+      const material = new THREE.MeshBasicMaterial({ 
+        color: VIEWER_CONFIG.comparison.defaultComparisonColor,
+        transparent: true,
+        opacity: 0.8
+      })
+      
+      const indicator = new THREE.Mesh(geometry, material)
+      
+      // Position indicator above the model
+      const box = new THREE.Box3().setFromObject(model)
+      const size = box.getSize(new THREE.Vector3())
+      const center = box.getCenter(new THREE.Vector3())
+      
+      // Position indicator relative to model's center
+      indicator.position.set(0, size.y / 2 + 0.2, 0)
+      
+      model.add(indicator)
+      comparisonIndicator.value = indicator
+      
+      logError('useComparison', 'Comparison indicator added', { 
+        filename, 
+        modelPosition: model.position,
+        indicatorPosition: indicator.position 
+      })
+    } catch (error) {
+      console.error('🔍 DEBUG - addComparisonIndicator error:', error)
+      logError('useComparison', 'Failed to add comparison indicator', error)
+    }
   }
 
   /**
@@ -307,29 +352,84 @@ export function useComparison() {
    * @param {Function} fitFunction - Function to fit camera to both models
    */
   const fitBothModelsToView = (model1, model2, fitFunction) => {
-    if (!model1 || !model2 || !fitFunction) return
+    console.log('🔍 DEBUG - fitBothModelsToView called:', { 
+      model1: model1 ? 'exists' : 'null', 
+      model2: model2 ? 'exists' : 'null', 
+      fitFunction: fitFunction ? 'exists' : 'null' 
+    })
+    
+    if (!model1 || !model2 || !fitFunction) {
+      console.log('🔍 DEBUG - fitBothModelsToView early return - missing parameters')
+      return
+    }
     
     try {
-      // Center both models at origin
-      const box1 = new THREE.Box3().setFromObject(model1)
-      const box2 = new THREE.Box3().setFromObject(model2)
-      const combinedBox = box1.union(box2)
-      
-      const center = combinedBox.getCenter(new THREE.Vector3())
-      const tolerance = 0.1
-      const isAlreadyCentered = Math.abs(center.x) < tolerance && 
-                               Math.abs(center.y) < tolerance && 
-                               Math.abs(center.z) < tolerance
-      
-      if (!isAlreadyCentered) {
-        model1.position.sub(center)
-        model2.position.sub(center)
+      // Ensure models are valid before proceeding
+      if (!model1 || !model2) {
+        console.log('🔍 DEBUG - Invalid models provided to fitBothModelsToView')
+        return
       }
       
-      // Use the provided fit function
+      // Get bounding boxes for both models
+      const box1 = new THREE.Box3().setFromObject(model1)
+      const box2 = new THREE.Box3().setFromObject(model2)
+      
+      // Check if bounding boxes are valid
+      if (box1.isEmpty() || box2.isEmpty()) {
+        console.log('🔍 DEBUG - One or both models have empty bounding boxes')
+        return
+      }
+      
+      // Calculate sizes
+      const size1 = box1.getSize(new THREE.Vector3())
+      const size2 = box2.getSize(new THREE.Vector3())
+      
+      // Calculate the offset needed to position models side by side
+      // Use a larger multiplier to ensure clear separation
+      const offset = Math.max(size1.x, size1.z, size2.x, size2.z) * 1.2
+      
+      // Position models side by side
+      // Keep original model at its current position
+      // Move comparison model to the right
+      const originalX = model2.position.x
+      model2.position.x = offset
+      model2.position.y = model2.position.y  // Keep original Y position
+      model2.position.z = model2.position.z  // Keep original Z position
+      
+      // Force update the matrix to ensure position changes take effect
+      model2.updateMatrixWorld(true)
+      
+      console.log('🔍 DEBUG - Model positioning applied:', {
+        offset,
+        model1Pos: { x: model1.position.x, y: model1.position.y, z: model1.position.z },
+        model2Pos: { x: model2.position.x, y: model2.position.y, z: model2.position.z }
+      })
+      
+      // Verify the positioning worked
+      const model1WorldPos = model1.getWorldPosition(new THREE.Vector3())
+      const model2WorldPos = model2.getWorldPosition(new THREE.Vector3())
+      console.log('🔍 DEBUG - Verification after positioning:', {
+        model1WorldPos: { x: model1WorldPos.x, y: model1WorldPos.y, z: model1WorldPos.z },
+        model2WorldPos: { x: model2WorldPos.x, y: model2WorldPos.y, z: model2WorldPos.z },
+        model1Visible: model1.visible,
+        model2Visible: model2.visible,
+        separation: Math.abs(model2WorldPos.x - model1WorldPos.x)
+      })
+      
+      // Keep both models at the same ground level (Y=0)
+      // Don't adjust Y positions - let them stay at their natural positions
+      // This prevents the models from moving up/down
+      
+      // Use the provided fit function to fit camera to both models
       fitFunction(model1, model2)
       
-      logError('useComparison', 'Both models fitted to view')
+      logError('useComparison', 'Both models fitted to view', { 
+        offset, 
+        model1Pos: { x: model1.position.x, y: model1.position.y, z: model1.position.z }, 
+        model2Pos: { x: model2.position.x, y: model2.position.y, z: model2.position.z },
+        model1Visible: model1.visible,
+        model2Visible: model2.visible
+      })
     } catch (error) {
       logError('useComparison', 'Failed to fit both models to view', error)
     }
