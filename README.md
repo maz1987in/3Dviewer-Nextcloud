@@ -1,6 +1,32 @@
-# Three D Viewer
+# 3D Viewer for Nextcloud
 
-A template to get started with Nextcloud app development.
+A comprehensive 3D model viewer application for Nextcloud that supports multiple 3D file formats with advanced features like dynamic grid sizing, model comparison, and real-time streaming.
+
+## 📚 Documentation
+
+- **[Installation Guide](docs/INSTALLATION.md)** - Step-by-step installation instructions
+- **[User Guide](docs/USER_GUIDE.md)** - How to use the 3D viewer features
+- **[Developer Guide](docs/DEVELOPER_GUIDE.md)** - Development setup and contribution guidelines
+- **[API Reference](docs/API_REFERENCE.md)** - Complete API documentation
+- **[Technical Architecture](docs/TECHNICAL_ARCHITECTURE.md)** - System design and architecture
+- **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and solutions
+
+## 🚀 Quick Start
+
+1. **Install the app** from the Nextcloud App Store or manually
+2. **Upload 3D files** to your Nextcloud Files
+3. **Click on any 3D file** to open the viewer
+4. **Navigate** using mouse/touch controls
+
+## ✨ Features
+
+- **Multi-format Support**: GLB, GLTF, OBJ (+ MTL), STL, PLY, FBX, 3MF, 3DS, VRML, X3D
+- **Dynamic Grid System**: Automatically adapts to model size and position
+- **Model Comparison**: Side-by-side model viewing with synchronized controls
+- **Real-time Streaming**: Secure file streaming with authentication
+- **Performance Optimized**: Code splitting and dynamic imports
+- **Theme Integration**: Respects Nextcloud light/dark themes
+- **Accessibility**: ARIA labels and keyboard navigation
 
 ## Usage
 
