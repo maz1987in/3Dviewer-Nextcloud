@@ -7,16 +7,16 @@ This guide provides comprehensive information for developers working on the 3D V
 ### Prerequisites
 
 - **PHP**: 8.1 or higher
-- **Node.js**: 20.19 or higher
+- **Node.js**: 22 or higher
 - **Composer**: Latest version
 - **Git**: For version control
-- **Nextcloud**: 25+ (for testing)
+- **Nextcloud**: 30–32 (for testing)
 
 ### Development Environment Setup
 
 1. **Clone Repository**
    ```bash
-   git clone https://github.com/your-username/3Dviewer-Nextcloud.git
+   git clone https://github.com/maz1987in/3Dviewer-Nextcloud.git
    cd 3Dviewer-Nextcloud
    ```
 
@@ -29,9 +29,13 @@ This guide provides comprehensive information for developers working on the 3D V
    npm install
    ```
 
-3. **Build Frontend**
+3. **Build/Watch Frontend**
    ```bash
+   # Build once (Vite)
    npm run build
+
+   # Watch mode during development
+   npm run watch
    ```
 
 4. **Set Up Nextcloud**
@@ -52,18 +56,21 @@ This guide provides comprehensive information for developers working on the 3D V
 
 ```
 lib/
-├── Controller/           # API controllers
-│   ├── ApiController.php
-│   ├── FileController.php
-│   ├── PublicFileController.php
-│   └── ThumbnailController.php
-├── Service/             # Business logic
+├── Controller/
+│   ├── ApiController.php          # OCS endpoints: /api, /api/files, /api/file/{id}
+│   ├── FileController.php         # App routes: /file/{id}, /files
+│   ├── PublicFileController.php   # Public share routes: /public/file/...
+│   ├── AssetController.php        # Decoder/assets serving
+│   └── BaseController.php
+├── Service/
+│   ├── ModelFileSupport.php       # Supported extensions/MIME mapping
 │   ├── FileService.php
 │   ├── ShareFileService.php
-│   └── ModelFileSupport.php
-├── MimeType/            # MIME type handling
-├── FileAction/          # File actions
-└── AppInfo/             # App metadata
+│   └── ResponseBuilder.php
+├── Repair/
+│   ├── RegisterThreeDMimeTypes.php
+│   └── CleanupThreeDMimeTypes.php
+└── AppInfo/
     └── Application.php
 ```
 
@@ -71,20 +78,17 @@ lib/
 
 ```
 src/
-├── components/          # Vue components
-│   ├── ThreeViewer.vue  # Main 3D viewer
-│   ├── ViewerToolbar.vue
-│   ├── ViewerModal.vue
-│   └── ToastContainer.vue
-├── loaders/             # Three.js loaders
-│   ├── registry.js
-│   └── types/
-│       ├── gltf.js
-│       ├── obj.js
-│       └── ...
-├── main.js             # Application entry
-├── viewer-api.js       # API integration
-└── viewer-entry.js     # Viewer entry point
+├── components/
+│   ├── ThreeViewer.vue            # Main viewer (measurement, annotation, comparison)
+│   └── ViewerToolbar.vue
+├── composables/                   # useModelLoading, useComparison, useMeasurement, ...
+├── loaders/
+│   ├── registry.js                # Extension -> loader module mapping
+│   └── types/                     # gltf, obj, stl, ply, fbx, 3mf, 3ds, dae, x3d, vrml
+├── utils/
+│   └── error-handler.js
+├── viewer-entry.js                # Entry point mounted by Nextcloud
+└── main.js
 ```
 
 ## 🔧 Development Workflow
@@ -200,17 +204,14 @@ test('loads 3D model', async ({ page }) => {
 ### Running Tests
 
 ```bash
-# All tests
-npm run test:all
-
 # PHP unit tests
 composer test:unit
 
 # Frontend smoke tests
 npm run test:smoke
 
-# Specific test file
-composer test:unit -- --filter FileControllerTest
+# E2E tests
+npm run test:e2e
 ```
 
 ### Test Data

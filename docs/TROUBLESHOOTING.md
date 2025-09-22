@@ -67,6 +67,16 @@ composer install --no-dev --optimize-autoloader
 npm install
 ```
 
+**Decoder assets missing (DRACO/Basis)**:
+```bash
+# Ensure decoder assets exist (after build)
+ls -la /path/to/nextcloud/apps/threedviewer/draco/
+ls -la /path/to/nextcloud/apps/threedviewer/basis/
+
+# If missing, rebuild which copies them via prebuild script
+npm run build
+```
+
 ### Models Not Displaying
 
 #### Symptoms
@@ -77,8 +87,8 @@ npm install
 #### Diagnosis
 1. **Check File Format**
    ```javascript
-   // Verify file extension is supported
-   const supportedFormats = ['glb', 'gltf', 'obj', 'stl', 'ply', 'fbx'];
+  // Verify file extension is supported (core)
+  const supportedFormats = ['glb','gltf','obj','stl','ply','fbx','3mf','3ds'];
    console.log('File format supported:', supportedFormats.includes(fileExtension));
    ```
 
@@ -108,6 +118,7 @@ npm install
 - Compress the model
 - Increase PHP memory limit
 - Use streaming for very large files
+ - Try canceling and reloading; verify network bandwidth
 
 **Corrupted File**:
 - Re-upload the file
@@ -160,6 +171,7 @@ npm install
 - Optimize model geometry
 - Use texture compression
 - Enable progressive loading
+ - Verify decoders are present (DRACO/Basis)
 
 **Choppy Animation**:
 - Reduce model complexity
@@ -215,6 +227,7 @@ npm install
 - Increase frame rate
 - Optimize rendering
 - Check browser performance
+ - Disable other overlays (measurement/annotation) temporarily
 
 ### Grid Issues
 
@@ -265,6 +278,33 @@ npm install
 - Verify grid positioning logic
 - Update grid after model load
 - Check ground level calculation
+
+### API/Networking Issues
+
+#### Symptoms
+- 401/403 responses when listing/streaming
+- 404 on OCS endpoints
+- CORS errors in console
+
+#### Diagnosis
+1. Verify OCS header on requests
+```http
+OCS-APIRequest: true
+```
+2. Check app routes are reachable
+```bash
+curl -I https://your-host/apps/threedviewer/test
+```
+3. Check WebDAV fallback
+```bash
+curl -I https://your-host/remote.php/dav/files/<user>/<dir>/<filename>
+```
+
+#### Solutions
+- Include `OCS-APIRequest: true` for OCS endpoints
+- Ensure the app is enabled: `php occ app:enable threedviewer`
+- Verify the user has permission to the file
+- If OCS fails, the viewer can fall back to WebDAV; ensure WebDAV is enabled
 
 ## 🔍 Debugging Tools
 
@@ -511,9 +551,8 @@ When reporting issues, include:
 
 ### Contact Information
 
-- **GitHub Issues**: [Report bugs](https://github.com/your-username/3Dviewer-Nextcloud/issues)
-- **GitHub Discussions**: [Ask questions](https://github.com/your-username/3Dviewer-Nextcloud/discussions)
-- **Email**: [Contact maintainers](mailto:support@example.com)
+- **GitHub Issues**: [Report bugs](https://github.com/maz1987in/3Dviewer-Nextcloud/issues)
+- **GitHub Discussions**: [Ask questions](https://github.com/maz1987in/3Dviewer-Nextcloud/discussions)
 
 ## 🔧 Maintenance
 

@@ -40,11 +40,11 @@ The 3D Viewer is a Nextcloud application that provides 3D model viewing capabili
 ### Core Components
 
 #### Controllers
-- **`ApiController`**: Main API endpoint for file operations
-- **`FileController`**: File streaming and management
-- **`PublicFileController`**: Public share file access
-- **`ThumbnailController`**: Thumbnail generation
-- **`PageController`**: Page rendering
+- **`ApiController`**: OCS endpoints (`/api`, `/api/files`, `/api/file/{id}`)
+- **`FileController`**: App routes for authenticated streaming/listing (`/file/{id}`, `/files`)
+- **`PublicFileController`**: Public share streaming (`/public/file/{token}/{id}`, sibling MTL)
+- **`AssetController`**: Serves decoder and asset files
+- **`ThumbnailController` / `PageController`**: Present in codebase; feature exposure may vary
 
 #### Services
 - **`FileService`**: File operations and validation
@@ -57,18 +57,23 @@ The 3D Viewer is a Nextcloud application that provides 3D model viewing capabili
 
 ### API Design
 
-#### RESTful Endpoints
+#### OCS Endpoints
 ```
-GET  /ocs/v2.php/apps/threedviewer/api/files
-GET  /ocs/v2.php/apps/threedviewer/api/file/{fileId}
-GET  /ocs/v2.php/apps/threedviewer/api/file/{fileId}/mtl/{mtlName}
-GET  /ocs/v2.php/apps/threedviewer/api/thumb/{fileId}
+GET /ocs/v2.php/apps/threedviewer/api              # index (hello)
+GET /ocs/v2.php/apps/threedviewer/api/files        # list files
+GET /ocs/v2.php/apps/threedviewer/api/file/{id}    # stream file for current user
+```
+
+#### App Routes
+```
+GET /apps/threedviewer/file/{id}                   # stream file
+GET /apps/threedviewer/files                       # list files
 ```
 
 #### Public Share Endpoints
 ```
-GET  /ocs/v2.php/apps/threedviewer/api/public/file/{token}/{fileId}
-GET  /ocs/v2.php/apps/threedviewer/api/public/file/{token}/{fileId}/mtl/{mtlName}
+GET /ocs/v2.php/apps/threedviewer/public/file/{token}/{id}
+GET /ocs/v2.php/apps/threedviewer/public/file/{token}/{id}/mtl/{mtlName}
 ```
 
 ### Security Implementation
@@ -93,52 +98,14 @@ GET  /ocs/v2.php/apps/threedviewer/api/public/file/{token}/{fileId}/mtl/{mtlName
 ### Component Structure
 
 ```
-ThreeViewer.vue (Main Component)
-├── ViewerToolbar.vue (Toolbar)
-├── ViewerModal.vue (Modal Dialogs)
-└── ToastContainer.vue (Notifications)
+ThreeViewer.vue (Main component: comparison, measurement, annotations)
+└── ViewerToolbar.vue (Toolbar)
 ```
 
-### State Management
+### State and Composables
 
-#### Vue.js Reactive State
-```javascript
-data() {
-  return {
-    // Scene state
-    scene: null,
-    camera: null,
-    renderer: null,
-    controls: null,
-    
-    // Model state
-    modelRoot: null,
-    comparisonModel: null,
-    currentFileId: null,
-    
-    // UI state
-    showGrid: true,
-    showAxes: false,
-    wireframeMode: false,
-    loading: false,
-    
-    // Performance state
-    frameRate: 0,
-    memoryUsage: 0
-  }
-}
-```
-
-#### Event System
-```javascript
-// Component events
-this.$emit('model-loaded', { fileId, filename });
-this.$emit('model-aborted', { fileId });
-this.$emit('error', { message, error });
-
-// Global events
-this.$root.$emit('threedviewer:load-start', { fileId });
-```
+- Composition API with refs/computed: `useCamera`, `useModelLoading`, `useComparison`, `useMeasurement`, `useAnnotation`
+- Emits include: `model-loaded`, `error`, `toggle-comparison`, etc.
 
 ### Three.js Integration
 
@@ -156,17 +123,21 @@ const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
 
 #### Model Loading
 ```javascript
-// Dynamic loader imports
-const loadModelByExtension = async (extension, arrayBuffer, options) => {
-  switch (extension) {
-    case 'glb':
-    case 'gltf':
-      return await loadGLTF(arrayBuffer, options);
-    case 'obj':
-      return await loadOBJ(arrayBuffer, options);
-    // ... other formats
-  }
-};
+// src/loaders/registry.js
+const loaders = {
+  gltf: () => import('./types/gltf.js'),
+  glb: () => import('./types/gltf.js'),
+  stl: () => import('./types/stl.js'),
+  ply: () => import('./types/ply.js'),
+  obj: () => import('./types/obj.js'),
+  fbx: () => import('./types/fbx.js'),
+  '3mf': () => import('./types/threeMF.js'),
+  '3ds': () => import('./types/threeDS.js'),
+  dae: () => import('./types/dae.js'),
+  x3d: () => import('./types/x3d.js'),
+  vrml: () => import('./types/vrml.js'),
+  wrl: () => import('./types/vrml.js'),
+}
 ```
 
 #### Camera Controls
@@ -285,77 +256,18 @@ if (window.gc) {
 }
 ```
 
-### Streaming Architecture
+### Streaming and Loading Strategy
 
-#### File Streaming
-```javascript
-// Stream large files
-const response = await fetch(fileUrl, {
-  headers: {
-    'Accept': 'application/octet-stream',
-    'X-Requested-With': 'XMLHttpRequest'
-  }
-});
-
-const reader = response.body.getReader();
-const chunks = [];
-
-while (true) {
-  const { done, value } = await reader.read();
-  if (done) break;
-  chunks.push(value);
-}
-```
-
-#### Abortable Loading
-```javascript
-// Abort controller for cancellation
-this.abortController = new AbortController();
-
-const response = await fetch(fileUrl, {
-  signal: this.abortController.signal
-});
-
-// Cancel loading
-this.abortController.abort();
-```
+- Primary: `GET /apps/threedviewer/file/{id}`
+- Fallbacks: WebDAV `remote.php/dav/files/{user}/{dir}/{filename}` and direct path as needed
+- Abort support via `AbortController` in `useModelLoading`
 
 ## 🔧 Build System
 
 ### Frontend Build
 
-#### Vite Configuration
-```javascript
-export default defineConfig({
-  plugins: [vue()],
-  build: {
-    outDir: 'js',
-    rollupOptions: {
-      input: {
-        main: 'src/main.js',
-        files: 'src/files.js',
-        viewer: 'src/viewer-entry.js'
-      }
-    }
-  }
-});
-```
-
-#### Prebuild Scripts
-```javascript
-// Copy decoder assets
-import { copyFileSync, mkdirSync } from 'fs';
-
-const copyDecoders = () => {
-  // Copy DRACO decoders
-  copyFileSync('node_modules/three/examples/jsm/libs/draco/draco_decoder.js', 'draco/draco_decoder.js');
-  copyFileSync('node_modules/three/examples/jsm/libs/draco/draco_decoder.wasm', 'draco/draco_decoder.wasm');
-  
-  // Copy Basis decoders
-  copyFileSync('node_modules/three/examples/jsm/libs/basis/basis_transcoder.js', 'basis/basis_transcoder.js');
-  copyFileSync('node_modules/three/examples/jsm/libs/basis/basis_transcoder.wasm', 'basis/basis_transcoder.wasm');
-};
-```
+- Vite 7 configuration in `vite.config.js` (outputs ESM bundles to `js/` as referenced by `appinfo/info.xml`)
+- Prebuild scripts: `scripts/copy-decoders.mjs` (copies DRACO/Basis decoders)
 
 ### Backend Build
 
@@ -580,26 +492,12 @@ location /apps/threedviewer/ {
 
 ### Development Deployment
 
-#### Docker Setup
-```dockerfile
-FROM node:20-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm install
-COPY . .
-RUN npm run build
-```
-
-#### Local Development
 ```bash
-# Start development server
-npm run dev
+# Build once
+npm run build
 
-# Watch for changes
+# Watch for changes (rebuilds)
 npm run watch
-
-# Run tests
-npm run test
 ```
 
 ---

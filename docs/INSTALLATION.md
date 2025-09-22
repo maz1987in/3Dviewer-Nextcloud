@@ -5,9 +5,9 @@ This guide covers the installation of the 3D Viewer for Nextcloud application.
 ## 📋 Prerequisites
 
 ### System Requirements
-- **Nextcloud**: Version 25+ (recommended)
+- **Nextcloud**: Version 30–32
 - **PHP**: Version 8.1 or higher
-- **Node.js**: Version 20.19+ (for development)
+- **Node.js**: Version 22+ (for development/build)
 - **Memory**: Minimum 512MB RAM (1GB+ recommended)
 - **Storage**: 100MB+ free space
 
@@ -19,14 +19,11 @@ This guide covers the installation of the 3D Viewer for Nextcloud application.
 - `php-xml`
 
 ### Browser Support
-- **Chrome**: 90+
-- **Firefox**: 88+
-- **Safari**: 14+
-- **Edge**: 90+
+- Modern browsers per `@nextcloud/browserslist-config`
 
 ## 🚀 Installation Methods
 
-### Method 1: App Store Installation (Recommended)
+### Method 1: App Store Installation (when published)
 
 1. **Access Nextcloud Admin Panel**
    - Log in as administrator
@@ -45,7 +42,7 @@ This guide covers the installation of the 3D Viewer for Nextcloud application.
 1. **Download the App**
    ```bash
    # Clone the repository
-   git clone https://github.com/your-username/3Dviewer-Nextcloud.git
+   git clone https://github.com/maz1987in/3Dviewer-Nextcloud.git
    cd 3Dviewer-Nextcloud
    ```
 
@@ -60,7 +57,7 @@ This guide covers the installation of the 3D Viewer for Nextcloud application.
 
 3. **Build the Frontend**
    ```bash
-   # Build for production
+   # Build for production (vite)
    npm run build
    ```
 
@@ -82,7 +79,7 @@ This guide covers the installation of the 3D Viewer for Nextcloud application.
 
 1. **Clone Repository**
    ```bash
-   git clone https://github.com/your-username/3Dviewer-Nextcloud.git
+   git clone https://github.com/maz1987in/3Dviewer-Nextcloud.git
    cd 3Dviewer-Nextcloud
    ```
 
@@ -95,8 +92,8 @@ This guide covers the installation of the 3D Viewer for Nextcloud application.
 
 3. **Build Development Version**
    ```bash
-   # Build with development optimizations
-   npm run build
+   # Build development/watch
+   npm run watch
    ```
 
 4. **Symlink to Nextcloud**
@@ -109,30 +106,11 @@ This guide covers the installation of the 3D Viewer for Nextcloud application.
 
 ### Basic Configuration
 
-The app works out of the box with default settings. No initial configuration is required.
+Works out of the box. No initial configuration required.
 
 ### Advanced Configuration
 
-1. **File Size Limits**
-   - Default: 100MB per file
-   - Configure in Nextcloud admin settings
-   - Adjust `upload_max_filesize` and `post_max_size` in PHP
-
-2. **Memory Limits**
-   - Default: 256MB PHP memory limit
-   - Increase for large models: `memory_limit = 512M`
-
-3. **Timeout Settings**
-   - Default: 30 seconds execution time
-   - Increase for large files: `max_execution_time = 300`
-
-### Environment Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `THREEDVIEWER_MAX_FILE_SIZE` | Maximum file size in bytes | `104857600` (100MB) |
-| `THREEDVIEWER_ENABLE_COMPRESSION` | Enable DRACO/KTX2 support | `true` |
-| `THREEDVIEWER_DEBUG_MODE` | Enable debug logging | `false` |
+- File size, memory, and timeout limits are governed by your PHP/Nextcloud server settings. Adjust `upload_max_filesize`, `post_max_size`, `memory_limit`, and `max_execution_time` as appropriate for your instance.
 
 ## 🔧 Post-Installation Setup
 
@@ -153,30 +131,20 @@ The app works out of the box with default settings. No initial configuration is 
 
 ### 2. Configure MIME Types
 
-The app automatically registers supported MIME types. If you encounter issues:
+The app registers supported MIME types automatically. If needed, run:
 
-1. **Check MIME Type Registration**
-   ```bash
-   # Run repair command
-   php occ app:repair threedviewer
-   ```
+```bash
+php occ app:repair threedviewer
+```
 
-2. **Manual MIME Type Addition**
-   - Go to Admin → Settings → MIME types
-   - Add custom MIME types if needed
+### 3. Decoder Files (DRACO/Basis)
 
-### 3. Set Up Compression Support
+Decoder assets are bundled and copied during build. Verify presence after build/deploy:
 
-1. **Verify Decoder Files**
-   ```bash
-   # Check if decoder files exist
-   ls -la /path/to/nextcloud/apps/threedviewer/draco/
-   ls -la /path/to/nextcloud/apps/threedviewer/basis/
-   ```
-
-2. **Enable Compression** (if not already enabled)
-   - Set `THREEDVIEWER_ENABLE_COMPRESSION=true`
-   - Restart web server
+```bash
+ls -la /path/to/nextcloud/apps/threedviewer/draco/
+ls -la /path/to/nextcloud/apps/threedviewer/basis/
+```
 
 ## 🧪 Testing Installation
 
@@ -189,9 +157,7 @@ The app automatically registers supported MIME types. If you encounter issues:
 2. **Test Viewer Features**
    - Open a 3D model
    - Test camera controls (orbit, zoom, pan)
-   - Test grid toggle
-   - Test axes toggle
-   - Test wireframe mode
+   - Test grid/axes toggle and wireframe mode
 
 3. **Test Performance**
    - Upload a moderately large file (10-50MB)
@@ -240,13 +206,7 @@ The app automatically registers supported MIME types. If you encounter issues:
 
 Enable debug mode for troubleshooting:
 
-1. **Enable Debug Logging**
-   ```bash
-   # Set debug mode
-   export THREEDVIEWER_DEBUG_MODE=true
-   ```
-
-2. **Check Logs**
+1. **Check Logs**
    ```bash
    # Check Nextcloud logs
    tail -f /path/to/nextcloud/data/nextcloud.log
@@ -257,7 +217,7 @@ Enable debug mode for troubleshooting:
    tail -f /var/log/nginx/error.log
    ```
 
-3. **Browser Console**
+2. **Browser Console**
    - Open browser developer tools
    - Check console for JavaScript errors
    - Check network tab for failed requests
@@ -267,7 +227,7 @@ Enable debug mode for troubleshooting:
 If you encounter issues during installation:
 
 1. **Check Documentation**: Review this guide and other docs
-2. **Search Issues**: Check [GitHub Issues](https://github.com/your-username/3Dviewer-Nextcloud/issues)
+2. **Search Issues**: Check [GitHub Issues](https://github.com/maz1987in/3Dviewer-Nextcloud/issues)
 3. **Create Issue**: Provide detailed error information
 4. **Community Support**: Ask in [GitHub Discussions](https://github.com/your-username/3Dviewer-Nextcloud/discussions)
 

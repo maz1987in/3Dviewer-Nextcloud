@@ -284,6 +284,10 @@ export function useModelLoading() {
     
     loading.value = false
     logError('useModelLoading', 'Load cancelled')
+    // Test harness hook
+    if (typeof window !== 'undefined') {
+      window.__ABORTED = true
+    }
   }
 
   /**

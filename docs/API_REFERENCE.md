@@ -4,8 +4,8 @@ This document provides comprehensive API documentation for the 3D Viewer Nextclo
 
 ## 🌐 Base URLs
 
-- **Production**: `https://your-nextcloud.com/ocs/v2.php/apps/threedviewer/api`
-- **Development**: `http://localhost:8080/ocs/v2.php/apps/threedviewer/api`
+- **OCS base**: `/ocs/v2.php/apps/threedviewer`
+- **App base**: `/apps/threedviewer`
 
 ## 🔐 Authentication
 
@@ -19,128 +19,50 @@ X-Requested-With: XMLHttpRequest
 
 ## 📁 File Management
 
-### List Files
+### List Files (OCS)
 
-Get a list of available 3D files.
-
-```http
-GET /files
-```
-
-**Response:**
-```json
-{
-  "ocs": {
-    "meta": {
-      "status": "ok",
-      "statuscode": 200,
-      "message": "OK"
-    },
-    "data": {
-      "files": [
-        {
-          "id": 123,
-          "name": "model.glb",
-          "size": 1048576,
-          "path": "/admin/files/Models/model.glb",
-          "mimetype": "model/gltf-binary",
-          "mtime": 1640995200
-        }
-      ]
-    }
-  }
-}
-```
-
-### Stream File
-
-Stream a 3D model file.
+Get a list of available 3D files for the current user.
 
 ```http
-GET /file/{fileId}
+GET /ocs/v2.php/apps/threedviewer/api/files
+OCS-APIRequest: true
 ```
 
-**Parameters:**
-- `fileId` (integer): The file ID
+Response body is a JSON object with `files: [{ id, name, path, size, mtime, mimetype }]`.
 
-**Response:**
-- **200**: File stream begins
-- **401**: Unauthorized
-- **404**: File not found
-- **415**: Unsupported file type
+### Stream File (App Route)
 
-**Headers:**
-```http
-Content-Type: application/octet-stream
-Content-Disposition: attachment; filename="model.glb"
-Cache-Control: no-store
-```
-
-### Stream MTL File
-
-Stream a material file for OBJ models.
+Stream a 3D model file for the current user by file ID.
 
 ```http
-GET /file/{fileId}/mtl/{mtlName}
+GET /apps/threedviewer/file/{fileId}
 ```
 
-**Parameters:**
-- `fileId` (integer): The parent OBJ file ID
-- `mtlName` (string): The MTL filename
+Responses: 200 stream, 401 unauthorized, 404 not found, 415 unsupported.
 
-**Response:**
-- **200**: MTL file stream begins
-- **404**: MTL file not found
-- **415**: Invalid usage (non-OBJ parent)
+### Public Share Streaming
+
+Stream files from a public share token (no auth) when allowed.
+
+```http
+GET /ocs/v2.php/apps/threedviewer/public/file/{token}/{fileId}
+GET /ocs/v2.php/apps/threedviewer/public/file/{token}/{fileId}/mtl/{mtlName}
+```
 
 ## 🖼️ Thumbnails
 
-### Get Thumbnail
+### Thumbnails
 
-Get a thumbnail for a 3D model.
+Thumbnail endpoints may be added in future versions.
 
-```http
-GET /thumb/{fileId}
-```
+## 🔗 OCS Index
 
-**Parameters:**
-- `fileId` (integer): The file ID
-
-**Response:**
-- **200**: Thumbnail image (PNG)
-- **404**: Thumbnail not available
-
-## 🔗 Public Share API
-
-### Stream Public File
-
-Stream a file from a public share.
+Basic OCS index endpoint (from `openapi.json`):
 
 ```http
-GET /public/file/{token}/{fileId}
+GET /ocs/v2.php/apps/threedviewer/api
+OCS-APIRequest: true
 ```
-
-**Parameters:**
-- `token` (string): Public share token
-- `fileId` (integer): The file ID
-
-**Response:**
-- **200**: File stream begins
-- **404**: File or share not found
-- **415**: Unsupported file type
-
-### Stream Public MTL
-
-Stream a material file from a public share.
-
-```http
-GET /public/file/{token}/{fileId}/mtl/{mtlName}
-```
-
-**Parameters:**
-- `token` (string): Public share token
-- `fileId` (integer): The parent OBJ file ID
-- `mtlName` (string): The MTL filename
 
 ## 📊 Status Codes
 
@@ -152,39 +74,17 @@ GET /public/file/{token}/{fileId}/mtl/{mtlName}
 | 415 | Unsupported media type |
 | 500 | Internal server error |
 
-## 🎯 Frontend API
+## 🎯 Frontend Component API
 
 ### Vue Component Events
 
 The `ThreeViewer` component emits the following events:
 
-#### load-start
+Events may include: `model-loaded`, `error`, `toggle-comparison`, etc. Refer to `src/components/ThreeViewer.vue` for the latest emits.
 
-Emitted when model loading begins.
-
+Example:
 ```javascript
-// Event payload
-{
-  fileId: 123
-}
-
-// Usage
-<ThreeViewer @load-start="onLoadStart" />
-```
-
-#### model-loaded
-
-Emitted when model successfully loads.
-
-```javascript
-// Event payload
-{
-  fileId: 123,
-  filename: "model.glb"
-}
-
-// Usage
-<ThreeViewer @model-loaded="onModelLoaded" />
+<ThreeViewer @model-loaded="onModelLoaded" @error="onError" />
 ```
 
 #### model-aborted

@@ -15,9 +15,9 @@ This guide explains how to use the 3D Viewer for Nextcloud application.
    - The 3D viewer will open automatically
 
 3. **First View**
-   - The model will load and be automatically centered
-   - A grid will appear at the bottom of the model
-   - Camera will be positioned for optimal viewing
+   - The model is centered automatically
+   - Grid/axes helpers can be shown/hidden
+   - Camera is positioned for optimal view and can be reset
 
 ## 🎮 Navigation Controls
 
@@ -41,72 +41,39 @@ This guide explains how to use the 3D Viewer for Nextcloud application.
 
 ### Keyboard Shortcuts
 
-| Key | Action | Description |
-|-----|--------|-------------|
-| `R` | Reset view | Return to initial camera position |
-| `G` | Toggle grid | Show/hide the grid |
-| `A` | Toggle axes | Show/hide coordinate axes |
-| `W` | Toggle wireframe | Switch between solid and wireframe |
-| `F` | Fit to view | Adjust camera to fit entire model |
-| `Esc` | Close viewer | Return to file list |
+Shortcuts may vary by integration; common actions include reset view, fit to view, and toggles for grid/axes/wireframe.
 
 ## 🛠️ Toolbar Features
 
 ### Main Toolbar
 
-The toolbar appears at the top of the viewer and includes:
+Typical controls include:
 
-#### View Controls
-- **Reset View** (🔄): Return camera to initial position
-- **Fit to View** (📐): Adjust camera to show entire model
-- **Toggle Grid** (⊞): Show/hide the reference grid
-- **Toggle Axes** (📏): Show/hide coordinate axes
-
-#### Display Options
-- **Wireframe Mode** (🔲): Switch between solid and wireframe rendering
-- **Background Color** (🎨): Change viewer background color
-- **Fullscreen** (⛶): Enter/exit fullscreen mode
-
-#### Model Controls
-- **Load Comparison** (⚖️): Load a second model for comparison
-- **Toggle Original** (👁️): Show/hide the original model (in comparison mode)
-- **Toggle Comparison** (👁️): Show/hide the comparison model
+- **Reset View** (🔄)
+- **Fit to View** (📐)
+- **Grid/Axes** toggles
+- **Wireframe** toggle
+- **Comparison mode** (⚖️) controls
 
 ### Comparison Mode
 
 1. **Enable Comparison**
-   - Click the "Load Comparison" button
-   - Select a second 3D file from the file picker
+   - Click the comparison button to enter comparison mode
+   - A list of supported files from your Nextcloud appears to pick from
 
-2. **Comparison Controls**
-   - Both models will be displayed side by side
-   - Camera controls affect both models simultaneously
-   - Use toggle buttons to show/hide individual models
+2. **Controls**
+   - Toggle visibility for Original and Comparison models
+   - "Fit Both" positions models side by side and frames the camera on both
 
-3. **Exit Comparison**
-   - Click "Close Comparison" to return to single model view
+3. **Exit**
+   - Use the close comparison action to return to single model view
 
 ## 📁 Supported File Formats
 
-### Primary Formats
+### Supported Formats
 
-| Format | Extension | Features | Notes |
-|--------|-----------|----------|-------|
-| **GLB** | `.glb` | Full support | Binary glTF format |
-| **GLTF** | `.gltf` | Full support | JSON-based format |
-| **OBJ** | `.obj` | Full support | Includes MTL material support |
-| **STL** | `.stl` | Full support | 3D printing format |
-| **PLY** | `.ply` | Full support | Polygon file format |
-
-### Additional Formats
-
-| Format | Extension | Features | Notes |
-|--------|-----------|----------|-------|
-| **FBX** | `.fbx` | Full support | Autodesk format |
-| **3MF** | `.3mf` | Full support | 3D Manufacturing format |
-| **3DS** | `.3ds` | Full support | 3D Studio format |
-| **VRML** | `.wrl` | Basic support | Virtual Reality Modeling Language |
-| **X3D** | `.x3d` | Basic support | Extensible 3D format |
+- Core: GLB, GLTF, OBJ (+MTL), STL, PLY, FBX, 3MF, 3DS
+- Experimental/extra: DAE, X3D, VRML/WRL
 
 ### Material Support
 
@@ -128,10 +95,8 @@ The dynamic grid system automatically adapts to your model:
 
 ### Lighting
 
-- **Automatic**: Default lighting setup for optimal viewing
-- **Ambient**: Soft ambient lighting
-- **Directional**: Main directional light source
-- **Shadows**: Optional shadow rendering
+- Ambient + directional + point lights by default
+- Shadows enabled; performance depends on device
 
 ### Background
 
@@ -143,10 +108,8 @@ The dynamic grid system automatically adapts to your model:
 
 ### Loading Optimization
 
-- **Progress Indicator**: Shows loading progress for large files
-- **Abort Loading**: Cancel loading if file is too large
-- **Streaming**: Large files load progressively
-- **Caching**: Models are cached for faster subsequent loads
+- Progress indicator and cancel (abort) support
+- Decoder auto-detection (DRACO/Basis) when available
 
 ### Rendering Optimization
 
@@ -156,38 +119,29 @@ The dynamic grid system automatically adapts to your model:
 
 ### Memory Management
 
-- **Automatic Cleanup**: Unused resources are freed
-- **Model Switching**: Smooth transitions between models
-- **Error Recovery**: Graceful handling of loading errors
+- Automatic cleanup of scene resources on unload
+- Graceful error states with retry
 
 ## 🔧 Advanced Features
 
 ### Camera Management
 
-- **Smart Positioning**: Camera automatically positions for best view
-- **Boundary Limits**: Prevents camera from going too far
-- **Smooth Transitions**: Animated camera movements
-- **Multiple Views**: Save and restore camera positions
+- Fit to object and reset view
+- Mobile-friendly controls with gesture hints
 
 ### Model Information
 
-- **File Details**: View file size, format, and metadata
-- **Geometry Stats**: Number of vertices, faces, materials
-- **Performance Metrics**: Rendering performance information
+- File details may be shown in UI/tooling; performance metrics available via console in development
 
 ### Export Options
 
-- **Screenshot**: Capture current view as image
-- **Model Data**: Export model information
-- **View State**: Save current camera position
+- Screenshot/export features may be added in future versions
 
 ## 📱 Mobile Usage
 
 ### Touch Interface
 
-- **Intuitive Gestures**: Natural touch controls
-- **Responsive Design**: Adapts to different screen sizes
-- **Performance**: Optimized for mobile devices
+- Natural gestures for rotate/zoom/pan with on-screen hints
 
 ### Mobile-Specific Features
 
@@ -255,4 +209,4 @@ The dynamic grid system automatically adapts to your model:
 
 ---
 
-For technical details, see the [Technical Architecture](TECHNICAL_ARCHITECTURE.md) guide. For troubleshooting specific issues, see the [Troubleshooting](TROUBLESHOOTING.md) guide.
+For troubleshooting specific issues, see the [Troubleshooting](TROUBLESHOOTING.md) guide.

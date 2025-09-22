@@ -22,13 +22,13 @@ package-lock.json
 .env.local
 .env.*.local
 
-# Build outputs (uncomment if not committing built assets)
-# js/
-# css/
-# dist/
+# Build outputs (ignore built assets)
+js/
+css/
+dist/
 
-# Source maps (uncomment to ignore if not committing)
-# *.map
+# Source maps
+*.map
 
 # ---- Playwright / Test Artifacts ----
 test-results/

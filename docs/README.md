@@ -5,22 +5,10 @@ This directory contains comprehensive documentation for the 3D Viewer Nextcloud 
 ## 📚 Documentation Index
 
 ### Core Documentation
-- [**Installation Guide**](INSTALLATION.md) - Step-by-step installation instructions
-- [**User Guide**](USER_GUIDE.md) - How to use the 3D viewer features
-- [**Developer Guide**](DEVELOPER_GUIDE.md) - Development setup and contribution guidelines
-- [**API Reference**](API_REFERENCE.md) - Complete API documentation
-- [**Technical Architecture**](TECHNICAL_ARCHITECTURE.md) - System design and architecture
-
-### Feature Documentation
-- [**Model Formats**](MODEL_FORMATS.md) - Supported 3D file formats and features
-- [**Performance Guide**](PERFORMANCE.md) - Optimization and performance tuning
-- [**Troubleshooting**](TROUBLESHOOTING.md) - Common issues and solutions
-- [**Security**](SECURITY.md) - Security considerations and best practices
-
-### Development Resources
-- [**Testing Guide**](TESTING.md) - Testing strategies and test execution
-- [**Deployment Guide**](DEPLOYMENT.md) - Production deployment instructions
-- [**Configuration**](CONFIGURATION.md) - Configuration options and settings
+- [**Installation Guide**](INSTALLATION.md)
+- [**User Guide**](USER_GUIDE.md)
+- [**Developer Guide**](DEVELOPER_GUIDE.md)
+- [**API Reference**](API_REFERENCE.md)
 
 ## 🚀 Quick Start
 
@@ -30,42 +18,39 @@ This directory contains comprehensive documentation for the 3D Viewer Nextcloud 
 
 ## 📖 Overview
 
-The 3D Viewer for Nextcloud is a comprehensive application that enables users to view, interact with, and compare 3D models directly within their Nextcloud instance. It supports multiple 3D file formats and provides advanced features like dynamic grid sizing, model comparison, and real-time streaming.
+The 3D Viewer for Nextcloud lets users view, interact with, and compare 3D models directly within Nextcloud. It supports multiple 3D file formats and provides features like dynamic grid sizing, model comparison, measurement, and annotations.
 
 ### Key Features
-- **Multi-format Support**: GLB, GLTF, OBJ (+ MTL), STL, PLY, FBX, 3MF, 3DS, VRML, X3D
-- **Dynamic Grid System**: Automatically adapts to model size and position
-- **Model Comparison**: Side-by-side model viewing with synchronized controls
-- **Real-time Streaming**: Secure file streaming with authentication
-- **Performance Optimized**: Code splitting and dynamic imports
-- **Theme Integration**: Respects Nextcloud light/dark themes
-- **Accessibility**: ARIA labels and keyboard navigation
+- **Multi-format support**: GLB, GLTF, OBJ (+MTL), STL, PLY, FBX, 3MF, 3DS
+- **Experimental formats**: DAE, X3D, VRML/WRL (listing and client-side loading via WebDAV)
+- **Dynamic grid system**: Automatically adapts to model size and position
+- **Model comparison**: Load a second model, position side-by-side, fit both to view
+- **Measurement and annotations**: Create distance measurements and text notes
+- **Abort and retry loading**: Cancel large loads with graceful error states
+- **Performance-optimized**: Dynamic imports, decoder auto-detection (DRACO/Basis)
+- **Theme integration & accessibility**: Works with light/dark themes, ARIA roles
 
 ### Architecture
-- **Frontend**: Vue.js 2 + Three.js for 3D rendering
-- **Backend**: PHP with Nextcloud framework integration
-- **API**: RESTful API with OCS integration
-- **Security**: Permission-based file access and CSRF protection
+- **Frontend**: Vue 2.7 + Three.js, Vite build
+- **Backend**: PHP 8.1+ on Nextcloud app framework
+- **API**: OCS endpoints and app routes for file listing/streaming
+- **Security**: Authenticated access via Nextcloud sessions and OCS
 
 ## 🔧 Technical Stack
 
 ### Frontend
-- **Vue.js 2**: Component-based UI framework
-- **Three.js**: 3D graphics library
-- **Vite**: Build tool and development server
-- **Webpack**: Module bundling (legacy)
+- **Vue 2.7**
+- **Three.js 0.169**
+- **Vite 7**
 
 ### Backend
-- **PHP 8.1+**: Server-side language
-- **Nextcloud Framework**: App framework integration
-- **OCS API**: Open Collaboration Services API
-- **Composer**: Dependency management
+- **PHP 8.1+**, **Composer**
+- **Nextcloud app framework (NC 30-32)**
+- **OCS API** for API endpoints
 
 ### Build Tools
-- **Node.js 20.19+**: JavaScript runtime
-- **npm**: Package management
-- **ESLint**: Code linting
-- **Stylelint**: CSS linting
+- **Node.js 22+**, **npm 10+**
+- **ESLint**, **Stylelint**
 
 ## 📊 Performance Metrics
 
@@ -85,33 +70,30 @@ The 3D Viewer for Nextcloud is a comprehensive application that enables users to
 ## 🧪 Testing
 
 ### Test Coverage
-- **Unit Tests**: PHP backend services and controllers
-- **Integration Tests**: API endpoints and file streaming
-- **Smoke Tests**: Frontend mounting and basic functionality
-- **E2E Tests**: Complete user workflows
+- **PHP unit tests** (services and controllers)
+- **Playwright smoke/e2e tests** (viewer flows)
 
 ### Running Tests
 ```bash
-# All tests
-npm run test:all
-
-# Frontend tests
+# Frontend smoke tests (build + Playwright smoke suite)
 npm run test:smoke
 
-# Backend tests
+# Full e2e tests (headless/headed/report)
+npm run test:e2e
+npm run test:e2e:headed
+npm run test:e2e:report
+
+# Backend unit tests
 composer test:unit
 
-# Code quality
+# Linting
+npm run lint && npm run stylelint
 composer cs:check
 ```
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details on:
-- Code style guidelines
-- Pull request process
-- Issue reporting
-- Development setup
+We welcome contributions! See the Developer Guide for setup, style, and testing.
 
 ## 📄 License
 
@@ -119,8 +101,7 @@ This project is licensed under the AGPL-3.0 License. See [LICENSE](../LICENSE) f
 
 ## 📞 Support
 
-- **Issues**: [GitHub Issues](https://github.com/your-username/3Dviewer-Nextcloud/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/your-username/3Dviewer-Nextcloud/discussions)
+- **Issues**: [GitHub Issues](https://github.com/maz1987in/3Dviewer-Nextcloud/issues)
 - **Documentation**: This documentation directory
 
 ---

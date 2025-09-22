@@ -228,6 +228,10 @@ export default {
 		// Methods
 		const init = async () => {
 			try {
+				// Test harness hook: mark load start when initialization begins
+				if (typeof window !== 'undefined') {
+					window.__LOAD_STARTED = true
+				}
 				// Initialize decoders
 				await modelLoading.initDecoders()
 				
@@ -780,6 +784,13 @@ export default {
 		
 		// Lifecycle
 		onMounted(() => {
+			// Expose minimal test hook for Playwright to control loading
+			if (typeof window !== 'undefined') {
+				window.__THREEDVIEWER_VIEWER = Object.assign({}, window.__THREEDVIEWER_VIEWER, {
+					cancelLoad,
+					retryLoad,
+				})
+			}
 			init()
 		})
 		

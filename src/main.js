@@ -14,6 +14,20 @@ const safeN = typeof window !== 'undefined' && window.n ? window.n : (s, p, n) =
 
 Vue.mixin({ methods: { t: safeT, n: safeN } })
 
+// Minimal Nextcloud globals polyfill for test harnesses (Playwright, non-NC context)
+if (typeof window !== 'undefined') {
+  window.OC = window.OC || {}
+  if (typeof window.OC.filePath !== 'function') {
+    // Build asset path compatible with both Nextcloud and test harness server
+    window.OC.filePath = (_app, _type, file) => {
+      const name = String(file || '')
+      const base = name.substring(name.lastIndexOf('/') + 1)
+      // Always serve from /js/<basename> to avoid js/js duplication and relative path issues
+      return `/js/${base}`
+    }
+  }
+}
+
 const View = Vue.extend(App)
 
 /**
@@ -36,8 +50,18 @@ export function bootstrapViewer (selector = '#threedviewer', options = {}) { // 
 		if (vm.$el && vm.$el.id !== desiredId) {
 			vm.$el.id = desiredId
 		}
+		// Test harness compatibility: mark mount element with Vue instance
+		if (vm.$el && !vm.$el.__vue__) {
+			try { vm.$el.__vue__ = vm } catch (e) { /* ignore readonly environments */ }
+		}
+		// Also force-assign on the current DOM element by id to satisfy tests that re-query
+		try {
+			const reEl = document.getElementById(desiredId)
+			if (reEl && !reEl.__vue__) reEl.__vue__ = vm
+		} catch (e) { /* ignore */ }
 		if (typeof window !== 'undefined') {
 			window.__THREEDVIEWER_LAST_VM = vm // test harness hook (non-public API)
+			window.__THREEDVIEWER_VM = vm // alternate hook for legacy tests
 		}
 		return vm
 	}
