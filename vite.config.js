@@ -14,6 +14,9 @@ export default createAppConfig(
     // Decoder assets are now copied by scripts/copy-decoders.mjs via prebuild script
     build: {
       target: 'es2022', // Support top-level await
+      esbuild: {
+        target: 'es2022' // Override esbuild target specifically
+      }
     }
   }
 );
