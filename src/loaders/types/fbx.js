@@ -28,7 +28,6 @@ export default async function loadFbx(arrayBuffer, context) {
 		// Center the model
 		object3D.position.sub(center)
 		
-		console.log('[FBXLoader] Successfully loaded FBX model with', object3D.children.length, 'children')
 		
 		return { 
 			object3D,
@@ -37,7 +36,6 @@ export default async function loadFbx(arrayBuffer, context) {
 			size: size
 		}
 	} catch (error) {
-		console.error('[FBXLoader] Error loading FBX file:', error)
 		throw new Error(`Failed to load FBX file: ${error.message}`)
 	}
 }

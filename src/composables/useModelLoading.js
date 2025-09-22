@@ -60,16 +60,13 @@ export function useModelLoading() {
         hasKtx2.value = false
       }
 
-      // Check Meshopt availability
+      // Check Meshopt availability (disabled due to CSP restrictions)
       try {
-        await import('three/examples/jsm/libs/meshopt_decoder.module.js')
-        hasMeshopt.value = true
+        // Meshopt decoder disabled due to CSP 'unsafe-eval' restrictions
+        // await import('three/examples/jsm/libs/meshopt_decoder.module.js')
+        hasMeshopt.value = false
       } catch (e) {
         hasMeshopt.value = false
-        // Log WebAssembly CSP errors as warnings, not errors
-        if (e.message && e.message.includes('WebAssembly')) {
-          logError('useModelLoading', 'Meshopt decoder blocked by CSP policy', e, 'warn')
-        }
       }
 
       logError('useModelLoading', 'Decoders initialized', {

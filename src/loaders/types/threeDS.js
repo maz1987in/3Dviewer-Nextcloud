@@ -28,7 +28,6 @@ export default async function loadThreeDS(arrayBuffer, context) {
 		// Center the model
 		object3D.position.sub(center)
 		
-		console.log('[3DSLoader] Successfully loaded 3DS model with', object3D.children.length, 'children')
 		
 		return { 
 			object3D,
@@ -37,7 +36,6 @@ export default async function loadThreeDS(arrayBuffer, context) {
 			size: size
 		}
 	} catch (error) {
-		console.error('[3DSLoader] Error loading 3DS file:', error)
 		throw new Error(`Failed to load 3DS file: ${error.message}`)
 	}
 }

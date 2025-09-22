@@ -21,16 +21,14 @@ function createViewerComponent() {
 			const fileId = fileInfo?.fileid || fileInfo?.id || fileInfo?.fileId
 			const fileName = fileInfo?.name || fileInfo?.filename || fileInfo?.basename || ''
 			
-			console.log('[threedviewer] Viewer API component mounted:', { fileId, fileName })
+			// Viewer API component mounted
 			
 			if (!fileId) {
-				console.warn('[threedviewer] No file ID provided to viewer component')
 				this.$el.innerHTML = '<div style="padding: 20px; text-align: center; color: red;">No file ID available</div>'
 				return
 			}
 			
 			if (!isSupported(fileName)) {
-				console.warn('[threedviewer] Unsupported file type:', fileName)
 				this.$el.innerHTML = '<div style="padding: 20px; text-align: center; color: red;">Unsupported file type</div>'
 				return
 			}
@@ -54,12 +52,11 @@ function createViewerComponent() {
 							},
 							on: {
 								'model-loaded': (meta) => {
-									console.log('[threedviewer] Model loaded in Viewer API:', meta)
+									// Model loaded in Viewer API
 									// Emit event to parent if needed
 									this.$emit('model-loaded', meta)
 								},
 								'error': (error) => {
-									console.error('[threedviewer] Error in Viewer API:', error)
 									// Emit event to parent if needed
 									this.$emit('error', error)
 								}
@@ -75,7 +72,6 @@ function createViewerComponent() {
 					this.modalInstance = modalInstance
 					
 				} catch (error) {
-					console.error('[threedviewer] Failed to mount ViewerModal:', error)
 					this.$el.innerHTML = `
 						<div style="padding: 20px; text-align: center; color: red;">
 							<h3>Failed to load 3D viewer</h3>
@@ -98,11 +94,9 @@ function createViewerComponent() {
 // Register with Nextcloud Viewer API
 export function registerViewerHandler() {
 	if (!window.OCA || !OCA.Viewer || typeof OCA.Viewer.registerHandler !== 'function') {
-		console.warn('[threedviewer] Viewer API not available')
 		return false
 	}
 	
-	console.log('[threedviewer] Registering with Nextcloud Viewer API')
 	
 	try {
 		OCA.Viewer.registerHandler({
@@ -162,26 +156,15 @@ export function registerViewerHandler() {
 				const isSupportedByMime = supportedMimes.includes(fileMime)
 				
 				const canView = isSupportedByExt || isSupportedByMime
-				console.log('[threedviewer] canView check:', { 
-					name, 
-					mime: fileMime, 
-					isSupportedByExt, 
-					isSupportedByMime, 
-					canView,
-					file: file ? Object.keys(file) : 'no file',
-					attr: attr ? Object.keys(attr) : 'no attr'
-				})
 				
 				return canView
 			},
 			component: createViewerComponent()
 		})
 		
-		console.log('[threedviewer] Successfully registered with Viewer API')
 		return true
 		
 	} catch (error) {
-		console.error('[threedviewer] Failed to register with Viewer API:', error)
 		return false
 	}
 }
@@ -189,11 +172,9 @@ export function registerViewerHandler() {
 // Alternative registration method for different Viewer API versions
 export function registerViewerHandlerLegacy() {
 	if (!window.OCA || !OCA.Viewer || typeof OCA.Viewer.registerHandler !== 'function') {
-		console.warn('[threedviewer] Viewer API not available for legacy registration')
 		return false
 	}
 	
-	console.log('[threedviewer] Registering with legacy Viewer API method')
 	
 	try {
 		OCA.Viewer.registerHandler({
@@ -226,7 +207,6 @@ export function registerViewerHandlerLegacy() {
 				].includes(fileMime)
 				
 				const canView = isSupportedByExt || isSupportedByMime
-				console.log('[threedviewer] Legacy canView check:', { name, mime: fileMime, isSupportedByExt, isSupportedByMime, canView })
 				
 				return canView
 			},
@@ -238,7 +218,6 @@ export function registerViewerHandlerLegacy() {
 					const fileName = fileInfo?.name || fileInfo?.filename || fileInfo?.basename || ''
 					const fileDir = fileInfo?.dir || fileInfo?.path || '/'
 					
-					console.log('[threedviewer] Legacy component mounted:', { fileId, fileName })
 					
 					if (fileId && isSupported(fileName)) {
 						// Try to use the modal component first
@@ -256,19 +235,14 @@ export function registerViewerHandlerLegacy() {
 								modalInstance.$mount()
 								this.$el.appendChild(modalInstance.$el)
 								
-								console.log('[threedviewer] Modal component loaded successfully')
 							}).catch(error => {
-								console.error('[threedviewer] Failed to load modal component:', error)
 								// Fallback to new tab
 								const viewerUrl = OC.generateUrl(`/apps/${APP_ID}/?fileId=${fileId}&filename=${encodeURIComponent(fileName)}&dir=${encodeURIComponent(fileDir)}`)
-								console.log('[threedviewer] Opening in new tab:', viewerUrl)
 								window.open(viewerUrl, '_blank', 'noopener,noreferrer')
 							})
 						} catch (error) {
-							console.error('[threedviewer] Error loading modal:', error)
 							// Fallback to new tab
 							const viewerUrl = OC.generateUrl(`/apps/${APP_ID}/?fileId=${fileId}&filename=${encodeURIComponent(fileName)}&dir=${encodeURIComponent(fileDir)}`)
-							console.log('[threedviewer] Opening in new tab:', viewerUrl)
 							window.open(viewerUrl, '_blank', 'noopener,noreferrer')
 						}
 					} else {
@@ -278,22 +252,18 @@ export function registerViewerHandlerLegacy() {
 			}
 		})
 		
-		console.log('[threedviewer] Successfully registered with legacy Viewer API')
 		return true
 		
 	} catch (error) {
-		console.error('[threedviewer] Failed to register with legacy Viewer API:', error)
 		return false
 	}
 }
 
 // Auto-register when module loads
 export function initViewerAPI() {
-	console.log('[threedviewer] Initializing Viewer API...')
 	
 	// Try immediate registration first
 	if (registerViewerHandler()) {
-		console.log('[threedviewer] Viewer API registered immediately')
 		return
 	}
 	
@@ -302,7 +272,7 @@ export function initViewerAPI() {
 		document.addEventListener('DOMContentLoaded', () => {
 			setTimeout(() => {
 				if (!registerViewerHandler()) {
-					console.log('[threedviewer] Trying legacy registration...')
+					// Trying legacy registration
 					registerViewerHandlerLegacy()
 				}
 			}, 500)
@@ -310,7 +280,7 @@ export function initViewerAPI() {
 	} else {
 		setTimeout(() => {
 			if (!registerViewerHandler()) {
-				console.log('[threedviewer] Trying legacy registration...')
+				// Trying legacy registration
 				registerViewerHandlerLegacy()
 			}
 		}, 500)
@@ -320,7 +290,6 @@ export function initViewerAPI() {
 	window.addEventListener('load', () => {
 		setTimeout(() => {
 			if (!registerViewerHandler()) {
-				console.log('[threedviewer] Final fallback registration...')
 				registerViewerHandlerLegacy()
 			}
 		}, 1000)

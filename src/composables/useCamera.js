@@ -31,15 +31,7 @@ export function useCamera() {
 	const autoRotateEnabled = ref(false)
 	const autoRotateSpeed = ref(0.5)
   
-  // Debug: Track when manuallyPositioned changes
-  watch(manuallyPositioned, (newVal, oldVal) => {
-    console.log('🔍 DEBUG - manuallyPositioned changed:', {
-      from: oldVal,
-      to: newVal,
-      cameraPosition: camera.value ? `${camera.value.position.x.toFixed(2)}, ${camera.value.position.y.toFixed(2)}, ${camera.value.position.z.toFixed(2)}` : 'null',
-      stack: new Error().stack?.split('\n').slice(1, 4).join('\n')
-    })
-  })
+  // Track when manuallyPositioned changes
   
   // Animation state
   const isAnimating = ref(false)
@@ -101,14 +93,7 @@ export function useCamera() {
       camera.value = new THREE.PerspectiveCamera(fov, width / height, VIEWER_CONFIG.camera.near, VIEWER_CONFIG.camera.far)
       camera.value.position.set(2, 2, 2)
       
-      console.log('🔍 DEBUG - Camera created:', {
-        fov,
-        width,
-        height,
-        near: VIEWER_CONFIG.camera.near,
-        far: VIEWER_CONFIG.camera.far,
-        position: { x: camera.value.position.x, y: camera.value.position.y, z: camera.value.position.z }
-      })
+      // Camera created successfully
       
       initialCameraPos.value = camera.value.position.clone()
       
@@ -152,7 +137,6 @@ export function useCamera() {
       
       // Disable user interaction until camera is fully stable
       controls.value.addEventListener('start', () => {
-        console.log('🔍 DEBUG - User interaction blocked - camera not ready yet')
         // Don't reset the flag - keep manual positioning active
       })
       
@@ -221,11 +205,7 @@ export function useCamera() {
    * @param {THREE.Object3D} obj - Object to fit camera to
    */
   const fitCameraToObject = (obj) => {
-    console.log('🔍 DEBUG - fitCameraToObject called:', {
-      camera: camera.value ? 'exists' : 'null',
-      controls: controls.value ? 'exists' : 'null',
-      obj: obj ? 'exists' : 'null'
-    })
+    // Fitting camera to object
     
     if (!camera.value || !controls.value || !obj) return
     
@@ -248,15 +228,10 @@ export function useCamera() {
       const fov = camera.value.fov * (Math.PI / 180)
       let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2)) * 1.4
       
-      console.log('🔍 DEBUG - Camera calculation:')
-      console.log('  - FOV (radians):', fov)
-      console.log('  - Max dimension:', maxDim)
-      console.log('  - Tan(fov/2):', Math.tan(fov / 2))
-      console.log('  - Initial cameraZ:', cameraZ)
+      // Camera calculation completed
       
       // Validate cameraZ to prevent NaN
       if (!isFinite(cameraZ) || cameraZ <= 0) {
-        console.log('  - cameraZ is invalid, using fallback:', maxDim * 2)
         cameraZ = maxDim * 2 // Fallback to 2x the max dimension
       }
       
@@ -280,11 +255,10 @@ export function useCamera() {
       
       // Validate camera before setting position
       if (!camera.value) {
-        console.log('  - ERROR: Camera is null/undefined!')
         return
       }
       
-      console.log('  - Setting camera position to:', cameraDistance, cameraDistance * 0.5, cameraDistance)
+      // Setting camera position
       
       // Update controls target to world center
       controls.value.target.copy(worldCenter)
@@ -314,14 +288,10 @@ export function useCamera() {
       // Update distance to match actual distance
       distance.value = camera.value.position.distanceTo(worldCenter)
       
-      console.log('🔍 DEBUG - Initial rotation calculated:')
-      console.log('  - rotationX:', rotationX.value)
-      console.log('  - rotationY:', rotationY.value)
-      console.log('  - distance:', distance.value)
+      // Initial rotation calculated
       
       // Ensure the camera position is valid before proceeding
       if (!isFinite(camera.value.position.x) || !isFinite(camera.value.position.y) || !isFinite(camera.value.position.z)) {
-        console.log('🔍 DEBUG - Camera position is invalid, resetting to safe values')
         camera.value.position.set(23.35, 11.68, 23.35)
       }
       
@@ -346,30 +316,18 @@ export function useCamera() {
               isFinite(camera.value.position.x) && 
               isFinite(camera.value.position.y) && 
               isFinite(camera.value.position.z)) {
-            console.log('🔍 DEBUG - Manual positioning stabilized, ready for user interaction')
             manuallyPositioned.value = false
             
             // Re-enable controls after stabilization
             if (controls.value) {
               controls.value.enabled = true
-              console.log('🔍 DEBUG - Controls re-enabled after stabilization')
             }
           }
         }, 1000) // Wait 1 second for stabilization
       
       // Verify the position was set correctly
-      console.log('  - Camera position after setting:', camera.value.position.x, camera.value.position.y, camera.value.position.z)
       
-      console.log('🔍 DEBUG - Camera fitted to object:')
-      console.log('  - Local center:', center.x, center.y, center.z)
-      console.log('  - World position:', worldPosition.x, worldPosition.y, worldPosition.z)
-      console.log('  - World center:', worldCenter.x, worldCenter.y, worldCenter.z)
-      console.log('  - Size:', size.x, size.y, size.z)
-      console.log('  - Camera distance:', cameraDistance)
-      console.log('  - Camera position:', camera.value.position.x, camera.value.position.y, camera.value.position.z)
-      console.log('  - Camera target:', controls.value.target.x, controls.value.target.y, controls.value.target.z)
-      console.log('  - Camera FOV:', camera.value.fov)
-      console.log('  - Camera near/far:', camera.value.near, camera.value.far)
+      // Camera fitted to object successfully
       
       logError('useCamera', 'Camera fitted to object', { 
         center: { x: center.x, y: center.y, z: center.z },
@@ -580,35 +538,7 @@ export function useCamera() {
           isFinite(camera.value.position.x) && 
           isFinite(camera.value.position.y) && 
           isFinite(camera.value.position.z)) {
-        console.log('🔍 DEBUG - About to call controls.update():', {
-          cameraPositionBefore: `${camera.value.position.x}, ${camera.value.position.y}, ${camera.value.position.z}`,
-          manuallyPositioned: manuallyPositioned.value,
-          controlsEnabled: controls.value.enabled
-        })
-        
         controls.value.update()
-        
-        console.log('🔍 DEBUG - After controls.update():', {
-          cameraPositionAfter: `${camera.value.position.x}, ${camera.value.position.y}, ${camera.value.position.z}`,
-          isFinite: isFinite(camera.value.position.x) && isFinite(camera.value.position.y) && isFinite(camera.value.position.z)
-        })
-      }
-    } else if (manuallyPositioned.value) {
-      // Debug: Log when we're skipping controls update due to manual positioning
-      if (Math.random() < 0.01) { // Log 1% of the time
-        console.log('🔍 DEBUG - Skipping controls update (manually positioned):', {
-          manuallyPositioned: manuallyPositioned.value,
-          cameraPosition: camera.value ? `${camera.value.position.x.toFixed(2)}, ${camera.value.position.y.toFixed(2)}, ${camera.value.position.z.toFixed(2)}` : 'null'
-        })
-      }
-    } else {
-      // Debug: Log when manuallyPositioned is false unexpectedly
-      if (Math.random() < 0.1) { // Log 10% of the time
-        console.log('🔍 DEBUG - Controls update skipped (disabled or manually positioned):', {
-          manuallyPositioned: manuallyPositioned.value,
-          controlsEnabled: controls.value ? controls.value.enabled : 'null',
-          cameraPosition: camera.value ? `${camera.value.position.x.toFixed(2)}, ${camera.value.position.y.toFixed(2)}, ${camera.value.position.z.toFixed(2)}` : 'null'
-        })
       }
     }
   }
@@ -661,12 +591,12 @@ export function useCamera() {
       event.preventDefault()
       event.stopPropagation()
 
-      console.log('🔍 DEBUG - Wheel event:', { deltaY: event.deltaY, distance: distance.value })
+      // Wheel event handled
 
       distance.value += event.deltaY * 0.05  // Much more sensitive zoom
       distance.value = Math.max(2, Math.min(200, distance.value))  // Wider zoom range
 
-      console.log('🔍 DEBUG - New distance:', distance.value)
+      // Distance updated
 
       // Update camera position based on current rotation and new distance around model center
       const x = modelCenter.value.x + Math.sin(rotationY.value) * Math.cos(rotationX.value) * distance.value
@@ -676,7 +606,7 @@ export function useCamera() {
       camera.value.position.set(x, y, z)
       camera.value.lookAt(modelCenter.value)
 
-      console.log('🔍 DEBUG - Camera position after zoom:', camera.value.position.x, camera.value.position.y, camera.value.position.z)
+      // Camera position updated after zoom
     }
 
     const onClick = (event) => {
@@ -717,7 +647,6 @@ export function useCamera() {
           if (child.geometry) {
             // Check for invalid geometry attributes
             if (!child.geometry.attributes || !child.geometry.attributes.position) {
-              console.log('🔍 DEBUG - Removing invalid geometry (no attributes):', child.name)
               child.geometry.dispose()
               child.geometry = null
               return
@@ -729,13 +658,11 @@ export function useCamera() {
                 child.geometry.computeBoundingSphere()
               }
               if (child.geometry.boundingSphere && child.geometry.boundingSphere.center === null) {
-                console.log('🔍 DEBUG - Removing geometry with null bounding sphere center:', child.name)
                 child.geometry.dispose()
                 child.geometry = null
                 return
               }
             } catch (error) {
-              console.log('🔍 DEBUG - Removing geometry with invalid bounding sphere:', child.name, error.message)
               child.geometry.dispose()
               child.geometry = null
               return
@@ -744,7 +671,6 @@ export function useCamera() {
           
           if (child.material) {
             if (!child.material.isMaterial) {
-              console.log('🔍 DEBUG - Removing invalid material:', child.name)
               child.material.dispose()
               child.material = null
             }
@@ -764,14 +690,8 @@ export function useCamera() {
           camera.value.lookAt(modelCenter.value)
         }
         
-        // Debug: Check if camera position becomes NaN and fix it
+        // Check if camera position becomes NaN and fix it
         if (!isFinite(camera.value.position.x) || !isFinite(camera.value.position.y) || !isFinite(camera.value.position.z)) {
-          console.log('🔍 DEBUG - Camera position is NaN! Fixing...', {
-            position: `${camera.value.position.x}, ${camera.value.position.y}, ${camera.value.position.z}`,
-            manuallyPositioned: manuallyPositioned.value,
-            controlsEnabled: controls.value ? controls.value.enabled : 'null'
-          })
-          
           // Fix the camera position
           camera.value.position.set(23.35, 11.68, 23.35)
           camera.value.lookAt(0, 0, 0)
@@ -781,30 +701,13 @@ export function useCamera() {
             controls.value.object.position.copy(camera.value.position)
             controls.value.target.set(0, 0, 0)
             controls.value.enabled = false // Disable controls if they cause NaN
-            console.log('🔍 DEBUG - Controls disabled due to NaN issue')
           }
         }
         
         renderer.render(scene, camera.value)
-        // Debug: Log render calls occasionally
-        if (Math.random() < 0.01) { // Log 1% of render calls
-          console.log('🔍 DEBUG - Render called:', {
-            renderer: renderer ? 'exists' : 'null',
-            scene: scene ? 'exists' : 'null',
-            camera: camera.value ? 'exists' : 'null',
-            cameraPosition: camera.value ? `${camera.value.position.x.toFixed(2)}, ${camera.value.position.y.toFixed(2)}, ${camera.value.position.z.toFixed(2)}` : 'null',
-            sceneChildren: scene ? scene.children.length : 0
-          })
-        }
       } catch (error) {
-        console.error('🔍 DEBUG - Render error:', error)
+        // Render error handled
       }
-    } else {
-      console.log('🔍 DEBUG - Render skipped:', {
-        renderer: renderer ? 'exists' : 'null',
-        scene: scene ? 'exists' : 'null',
-        camera: camera.value ? 'exists' : 'null'
-      })
     }
   }
 
@@ -813,7 +716,7 @@ export function useCamera() {
    */
   const toggleAutoRotate = () => {
     autoRotateEnabled.value = !autoRotateEnabled.value
-    console.log('🔍 DEBUG - Auto-rotate toggled:', autoRotateEnabled.value)
+    // Auto-rotate toggled
   }
 
   /**
@@ -822,7 +725,7 @@ export function useCamera() {
    */
   const setAutoRotateSpeed = (speed) => {
     autoRotateSpeed.value = speed
-    console.log('🔍 DEBUG - Auto-rotate speed set to:', speed)
+    // Auto-rotate speed set
   }
 
   /**

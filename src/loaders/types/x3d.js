@@ -69,7 +69,6 @@ export default async function loadX3D(arrayBuffer, context) {
 		// Center the model
 		group.position.sub(center)
 		
-		console.warn('[X3DLoader] X3D format has limited support. Showing placeholder.')
 		
 		return {
 			object3D: group,
@@ -79,7 +78,6 @@ export default async function loadX3D(arrayBuffer, context) {
 			animations: []
 		}
 	} catch (error) {
-		console.error('[X3DLoader] Error loading X3D file:', error)
 		throw new Error(`Failed to load X3D file: ${error.message}`)
 	}
 }

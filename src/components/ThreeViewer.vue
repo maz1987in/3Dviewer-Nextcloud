@@ -288,15 +288,7 @@ export default {
 			const containerWidth = container.value.clientWidth || container.value.offsetWidth || 800
 			const containerHeight = container.value.clientHeight || container.value.offsetHeight || 600
 			
-			// Debug: Check container dimensions
-			console.log('🔍 DEBUG - Container dimensions:', {
-				clientWidth: container.value.clientWidth,
-				clientHeight: container.value.clientHeight,
-				offsetWidth: container.value.offsetWidth,
-				offsetHeight: container.value.offsetHeight,
-				computedWidth: containerWidth,
-				computedHeight: containerHeight
-			})
+			// Container dimensions checked
 			
 			// Create renderer
 			renderer.value = new THREE.WebGLRenderer({ 
@@ -312,15 +304,7 @@ export default {
 			
 			container.value.appendChild(renderer.value.domElement)
 			
-			// Debug: Check renderer setup
-			console.log('🔍 DEBUG - Renderer setup:', {
-				containerWidth: container.value.clientWidth,
-				containerHeight: container.value.clientHeight,
-				rendererSize: renderer.value.getSize(new THREE.Vector2()),
-				domElement: renderer.value.domElement ? 'exists' : 'null',
-				domElementStyle: renderer.value.domElement ? renderer.value.domElement.style.cssText : 'null',
-				domElementVisible: renderer.value.domElement ? renderer.value.domElement.offsetWidth > 0 : false
-			})
+			// Renderer setup completed
 			
 			// Setup lighting
 			setupLighting()
@@ -373,14 +357,7 @@ export default {
 				const filename = props.filename ? decodeURIComponent(props.filename) : 'model.glb'
 				const extension = filename.split('.').pop().toLowerCase()
 				
-				// Debug logging
-				console.log('🔍 DEBUG - Props received:', {
-					fileId,
-					propsFilename: props.filename,
-					propsDir: props.dir,
-					decodedFilename: props.filename ? decodeURIComponent(props.filename) : 'N/A',
-					decodedDir: props.dir ? decodeURIComponent(props.dir) : 'N/A'
-				})
+			// Props received and processed
 				
 				logError('ThreeViewer', 'Loading model', {
 					fileId,
@@ -402,7 +379,7 @@ export default {
 					response = await fetch(`/apps/threedviewer/file/${fileId}`)
 					if (response.ok) {
 						// Success with custom API
-			} else {
+					} else {
 						throw new Error(`Custom API failed: ${response.status}`)
 					}
 				} catch (e) {
@@ -441,18 +418,7 @@ export default {
 					modelRoot.value = loadedModel.object3D
 					scene.value.add(modelRoot.value)
 					
-					// Debug logging
-					console.log('🔍 DEBUG - Model added to scene:')
-					console.log('  - Children count:', modelRoot.value.children.length)
-					console.log('  - Position:', modelRoot.value.position.x, modelRoot.value.position.y, modelRoot.value.position.z)
-					console.log('  - Visible:', modelRoot.value.visible)
-					console.log('  - Scene children:', scene.value.children.length)
-					console.log('  - Has geometry:', modelRoot.value.geometry ? 'yes' : 'no')
-					if (modelRoot.value.children[0]) {
-						console.log('  - First child type:', modelRoot.value.children[0].type)
-						console.log('  - First child visible:', modelRoot.value.children[0].visible)
-						console.log('  - First child position:', modelRoot.value.children[0].position.x, modelRoot.value.children[0].position.y, modelRoot.value.children[0].position.z)
-					}
+				// Model added to scene successfully
 					
 					// Fit camera to object
 					camera.fitCameraToObject(modelRoot.value)
@@ -615,39 +581,32 @@ export default {
 		// Advanced feature methods
 		const toggleMeasurementMode = () => {
 			measurement.toggleMeasurement()
-			console.log('🔍 DEBUG - Measurement mode toggled:', measurement.isActive.value)
 		}
 		
 		const toggleAnnotationMode = () => {
 			annotation.toggleAnnotation()
-			console.log('🔍 DEBUG - Annotation mode toggled:', annotation.isActive.value)
 			emit('toggle-annotation')
 		}
 		
 		const deleteAnnotation = (annotationId) => {
 			annotation.deleteAnnotation(annotationId)
-			console.log('🔍 DEBUG - Annotation deleted:', annotationId)
 		}
 		
 		const updateAnnotationText = (annotationId, newText) => {
 			annotation.updateAnnotationText(annotationId, newText)
-			console.log('🔍 DEBUG - Annotation text updated:', annotationId, newText)
 		}
 		
 		const clearAllAnnotations = () => {
 			annotation.clearAllAnnotations()
-			console.log('🔍 DEBUG - All annotations cleared')
 		}
 		
 		const toggleComparisonMode = async () => {
 			try {
 				if (!comparison.isComparisonMode.value) {
 					// Entering comparison mode - load available files
-					console.log('🔍 DEBUG - Entering comparison mode')
 					await loadComparisonFiles()
 				} else {
 					// Exiting comparison mode - clear comparison
-					console.log('🔍 DEBUG - Exiting comparison mode')
 					comparison.clearComparison()
 				}
 				
@@ -660,9 +619,7 @@ export default {
 		
 		const loadComparisonFiles = async () => {
 			try {
-				console.log('🔍 DEBUG - Loading comparison files')
 				await comparison.loadNextcloudFiles()
-				console.log('🔍 DEBUG - Comparison files loaded:', comparison.comparisonFiles.value.length)
 			} catch (error) {
 				logError('ThreeViewer', 'Failed to load comparison files', error)
 			}
@@ -670,7 +627,7 @@ export default {
 		
 		const selectComparisonFile = async (file) => {
 			try {
-				console.log('🔍 DEBUG - Selecting comparison file:', file.name)
+				// Selecting comparison file
 				
 				// Load the comparison model
 				const context = {
@@ -687,7 +644,6 @@ export default {
 				// Add the comparison model to the scene
 				if (comparison.comparisonModel.value) {
 					scene.value.add(comparison.comparisonModel.value)
-					console.log('🔍 DEBUG - Comparison model added to scene')
 					
 					// Fit both models to view
 					if (modelRoot.value && comparison.comparisonModel.value) {
@@ -724,24 +680,16 @@ export default {
 					)
 					camera.camera.value.lookAt(center)
 					
-					console.log('🔍 DEBUG - Both models fitted to view')
-					console.log('🔍 DEBUG - Final model positions:', {
-						model1: { x: model1.position.x, y: model1.position.y, z: model1.position.z },
-						model2: { x: model2.position.x, y: model2.position.y, z: model2.position.z },
-						combinedCenter: { x: center.x, y: center.y, z: center.z },
-						cameraPosition: { x: camera.camera.value.position.x, y: camera.camera.value.position.y, z: camera.camera.value.position.z }
-					})
+					// Both models fitted to view
 					
 					// Force a render to update the view
 					if (renderer.value && scene.value) {
 						renderer.value.render(scene.value, camera.camera.value)
-						console.log('🔍 DEBUG - Forced render after positioning')
 					}
 					
 					// Enable camera controls after positioning
 					if (camera.controls.value) {
 						camera.controls.value.enabled = true
-						console.log('🔍 DEBUG - Camera controls enabled after comparison positioning')
 					}
 				})
 			}
@@ -749,7 +697,6 @@ export default {
 		
 		const setPerformanceMode = (mode) => {
 			// TODO: Implement performance mode functionality
-			console.log('🔍 DEBUG - Performance mode set to:', mode)
 		}
 		
 		// Watchers

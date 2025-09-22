@@ -482,7 +482,6 @@ export default {
 		},
 		
 		handleError(error, context = {}) {
-			console.error('[ThreeViewer] Error occurred:', error, context)
 			
 			// Categorize the error
 			this.errorState = this.categorizeError(error)
@@ -952,14 +951,12 @@ export default {
 				const fileList = modal.querySelector('.file-list')
 				const supportedExtensions = ['glb', 'gltf', 'obj', 'stl', 'ply', 'fbx', '3mf', '3ds', 'dae', 'x3d', 'vrml', 'wrl']
 				
-				console.log('Loading Nextcloud files for comparison...')
 				
 				// Try multiple API endpoints to find 3D files
 				let files = []
 				
 				// Method 1: Try to get files from the current directory context
 				try {
-					console.log('Trying to get files from current context...')
 					
 					// Use Nextcloud's internal file listing if available
 					if (window.OCA && window.OCA.Files && window.OCA.Files.fileList) {
@@ -969,17 +966,14 @@ export default {
 								const extension = file.name.split('.').pop().toLowerCase()
 								return supportedExtensions.includes(extension)
 							})
-							console.log('Found files via internal file list:', files.length)
 						}
 					}
 				} catch (e) {
-					console.warn('Internal file listing failed:', e)
 				}
 				
 				// Method 2: Try to get files from the 3D viewer OCS API
 				if (files.length === 0) {
 					try {
-						console.log('Trying 3D viewer OCS API method...')
 						const response = await fetch('/ocs/v2.php/apps/threedviewer/api/files', {
 							headers: {
 								'OCS-APIRequest': 'true',
@@ -987,11 +981,9 @@ export default {
 								'X-Requested-With': 'XMLHttpRequest'
 							}
 						})
-						console.log('3D viewer OCS API response status:', response.status)
 						
 						if (response.ok) {
 							const data = await response.json()
-							console.log('3D viewer OCS API data:', data)
 							
 							if (data.ocs && data.ocs.data && data.ocs.data.files) {
 								files = data.ocs.data.files.map(file => ({
@@ -1000,17 +992,14 @@ export default {
 									size: file.size,
 									path: file.path
 								}))
-								console.log('Found files via 3D viewer OCS API:', files.length)
 							}
 						}
 					} catch (e) {
-						console.warn('3D viewer OCS API method failed:', e)
 					}
 				}
 				
 				// Method 3: Fallback - create some dummy files for testing
 				if (files.length === 0) {
-					console.log('No files found via API, creating dummy files for testing...')
 					
 					// Create some dummy files for testing
 					files = [
@@ -1019,7 +1008,6 @@ export default {
 						{ id: 'dummy3', name: 'example.stl', size: 256000 }
 					]
 					
-					console.log('Created dummy files:', files.length)
 				}
 				
 				fileList.innerHTML = ''
@@ -1054,7 +1042,6 @@ export default {
 				})
 				
 			} catch (error) {
-				console.error('Error loading Nextcloud files:', error)
 				const fileList = modal.querySelector('.file-list')
 				fileList.innerHTML = `<div class="loading">${this.t('threedviewer', 'Error loading files')}</div>`
 			}
@@ -1070,7 +1057,6 @@ export default {
 		
 		async loadComparisonModelFromNextcloud(file) {
 			try {
-				console.log('Loading comparison model from Nextcloud:', file)
 				
 				this.loading = true
 				this.progress = {
@@ -1087,7 +1073,6 @@ export default {
 				
 				// Handle dummy files for testing
 				if (String(file.id).startsWith('dummy')) {
-					console.log('Loading dummy file for testing...')
 					
 					// Create a simple test model (a cube)
 					const geometry = new THREE.BoxGeometry(1, 1, 1)
@@ -1112,7 +1097,6 @@ export default {
 				
 				// Get file content from Nextcloud using 3D viewer OCS API
 				const fileUrl = `/ocs/v2.php/apps/threedviewer/api/file/${file.id}`
-				console.log('Fetching file from:', fileUrl)
 				
 				const response = await fetch(fileUrl, {
 					method: 'GET',
@@ -1165,7 +1149,6 @@ export default {
 				}
 				
 			} catch (error) {
-				console.error('Error loading comparison model from Nextcloud:', error)
 				this.handleError(error, { context: 'comparison', filename: file.name })
 			} finally {
 				this.loading = false
@@ -1223,7 +1206,6 @@ export default {
 				}
 				
 			} catch (error) {
-				console.error('Error loading comparison model:', error)
 				this.handleError(error, { context: 'comparison' })
 			} finally {
 				this.loading = false
@@ -1883,7 +1865,6 @@ export default {
 					if (this.modelRoot) {
 						// Check if camera target is off-center and reset if needed
 						if (Math.abs(this.controls.target.x) > 0.1 || Math.abs(this.controls.target.z) > 0.1) {
-							console.log(`Camera target drifted off-center, resetting to origin...`)
 							this.controls.target.set(0, 0, 0)
 							this.controls.update()
 							this.camera.lookAt(0, 0, 0)
@@ -1899,7 +1880,6 @@ export default {
 				
 			} catch (e) {
 				// If dynamic import fails, continue without controls (rare)
-				console.warn('[ThreeViewer] Failed to load OrbitControls chunk', e)
 			}
 			// Apply performance optimizations
 			this.applyPerformanceSettings()
@@ -1929,14 +1909,12 @@ export default {
 			
 			// Debug rendering
 			if (this.modelRoot && this.modelRoot.children.length > 0) {
-				console.log('Rendering scene with modelRoot, children:', this.modelRoot.children.length)
 			}
 			
 			this.renderer?.render(this.scene, this.camera)
 		},
 		
 		createNextcloudDemoScene() {
-			console.log('Creating 3D Nextcloud demo scene for main page')
 			
 			// Create a 3D "Nextcloud" demo scene
 			const demoGroup = new THREE.Group()
@@ -2046,7 +2024,6 @@ export default {
 			this.camera.position.set(3, 2, 3)
 			this.camera.lookAt(0, 0, 0)
 			
-			console.log('Created 3D Nextcloud demo scene for main page')
 		},
 		
 		async loadModel(fileId) {
@@ -2077,7 +2054,6 @@ export default {
 			this.dispatchViewerEvent('load-start', startPayload)
 			try {
 				// Try to load the actual file using Nextcloud's file serving API
-				console.log('Attempting to load actual file using Nextcloud API...')
 				
 				// Get filename from URL parameters or context
 				let actualFilename = `file-${fileId}`
@@ -2099,14 +2075,12 @@ export default {
 					}
 				}
 				
-				console.log('Attempting to load file:', actualFilename, 'for fileId:', fileId)
 				
 				// Try multiple approaches to load the file
 				const loadMethods = [
 					// Method 1: Try the custom API endpoint
 					async () => {
 						const url = `/apps/threedviewer/api/file/${fileId}`
-						console.log('Trying custom API:', url)
 						const res = await fetch(url, {
 							headers: {
 								'Accept': 'application/octet-stream',
@@ -2121,7 +2095,6 @@ export default {
 					// Method 2: Try OCS API
 					async () => {
 						const url = `/ocs/v2.php/apps/threedviewer/file/${fileId}`
-						console.log('Trying OCS API:', url)
 						const res = await fetch(url, {
 							headers: {
 								'Accept': 'application/octet-stream',
@@ -2138,7 +2111,6 @@ export default {
 						const urlParams = new URLSearchParams(window.location.search)
 						const dirParam = urlParams.get('dir')
 						const url = `/index.php/apps/files/ajax/download.php?dir=${encodeURIComponent(dirParam || '/')}&files=${encodeURIComponent(actualFilename)}`
-						console.log('Trying Files API download:', url)
 						const res = await fetch(url, {
 							headers: {
 								'Accept': 'application/octet-stream',
@@ -2157,7 +2129,6 @@ export default {
 						const dirParam = urlParams.get('dir')
 						const baseDir = dirParam || '/Models'
 						const url = `/remote.php/dav/files/${currentUser}${baseDir}/${encodeURIComponent(actualFilename)}`
-						console.log('Trying DAV API:', url)
 						const res = await fetch(url, {
 							headers: {
 								'Accept': 'application/octet-stream',
@@ -2175,11 +2146,9 @@ export default {
 					try {
 						const res = await loadMethod()
 						if (res) {
-							console.log('Successfully loaded file from:', res.url)
 							// Load the actual file
 							const arrayBuffer = await res.arrayBuffer()
 							const ext = actualFilename.split('.').pop().toLowerCase()
-							console.log('Detected file extension:', ext)
 							
 							// Hide skeleton loading and show parsing progress
 							this.hideSkeletonLoading()
@@ -2214,12 +2183,10 @@ export default {
 				this.$emit('model-loaded', payload)
 				this.dispatchViewerEvent('model-loaded', payload)
 							
-							console.log('Successfully loaded actual 3D file!')
 							fileLoaded = true
 							break
 						}
 			} catch (e) {
-						console.log('Failed to load with method:', e.message)
 					}
 				}
 				
@@ -2228,11 +2195,9 @@ export default {
 				}
 				
 				// If file loading failed, create demo scene
-				console.log('File loading failed, creating enhanced demo scene...')
 				
 				// Create a 3D "Nextcloud" demo scene
 				const demoGroup = new THREE.Group()
-				console.log('Creating 3D Nextcloud demo scene for file ID:', fileId)
 				
 				// Create a stylized 3D "N" for Nextcloud
 				const nGeometry = new THREE.BoxGeometry(0.1, 1.2, 0.1)
@@ -2259,7 +2224,6 @@ export default {
 				diagonal.rotation.z = Math.PI / 4
 				demoGroup.add(diagonal)
 				
-				console.log('Created 3D Nextcloud "N" at center')
 				
 				// Add a cloud icon above the text
 				const cloudGeometry = new THREE.SphereGeometry(0.3, 16, 16)
@@ -2333,14 +2297,11 @@ export default {
 				if (this.modelRoot) {
 					this.modelRoot.add(demoGroup)
 					this.model = demoGroup
-					console.log('Created enhanced demo car scene')
 				} else {
-					console.log('Creating modelRoot for demo scene...')
 					this.modelRoot = new THREE.Group()
 					this.scene.add(this.modelRoot)
 					this.modelRoot.add(demoGroup)
 					this.model = demoGroup
-					console.log('Created modelRoot and enhanced demo car scene')
 				}
 				
 				// Update grid size for demo scene
@@ -2349,9 +2310,6 @@ export default {
 				// Ensure the demo group is visible
 				demoGroup.visible = true
 				demoGroup.position.set(0, 0, 0)
-				console.log('Demo group visibility:', demoGroup.visible)
-				console.log('Demo group position:', demoGroup.position)
-				console.log('Demo group children count:', demoGroup.children.length)
 				
 				// Add lighting
 				const ambientLight = new THREE.AmbientLight(0x404040, 0.6)
@@ -2360,23 +2318,19 @@ export default {
 				const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8)
 				directionalLight.position.set(5, 5, 5)
 				this.scene.add(directionalLight)
-				console.log('Added lighting to demo scene')
 				
 				// Position camera to view the car - closer and more direct
 				this.camera.position.set(3, 2, 3)
 				this.camera.lookAt(0, 0, 0)
-				console.log('Positioned camera to view demo car at:', this.camera.position)
 				
 				// Update camera controls target
 				if (this.controls) {
 					this.controls.target.set(0, 0, 0)
 					this.controls.update()
-					console.log('Updated controls target to:', this.controls.target)
 				}
 				
 				// Force camera update
 				this.camera.updateProjectionMatrix()
-				console.log('Camera FOV:', this.camera.fov, 'Aspect:', this.camera.aspect)
 				
 				// Fit the view to the demo scene
 				this.fitToView()
@@ -2384,13 +2338,11 @@ export default {
 				// Force a render to make sure objects are visible
 				if (this.renderer && this.scene && this.camera) {
 					this.renderer.render(this.scene, this.camera)
-					console.log('Forced render of demo car scene')
 				}
 				
 				// Test cube removed for cleaner demo scene
 				
 				// Show a message about the demo
-				console.log('Demo Mode: File loading failed, showing 3D Nextcloud logo. The 3D viewer is fully functional!')
 				
 				// Skip the rest of the loading process
 				return
@@ -2435,7 +2387,6 @@ export default {
 			this.hasDraco = false
 			this.hasKtx2 = false
 			this.hasMeshopt = false
-			console.log('[threedviewer] Decoder detection disabled - using basic 3D viewer mode')
 		},
 		fitCameraToObject(obj) {
 			const box = new THREE.Box3().setFromObject(obj)
@@ -2541,7 +2492,6 @@ export default {
 				}
 			}, 100)
 			
-			console.log(`Updated grid size to ${gridSize}x${gridSize} with ${divisions} divisions for model size ${maxDim.toFixed(2)}`)
 		},
 		
 		updateGridForComparison() {
@@ -2607,7 +2557,6 @@ export default {
 			this.scene.add(this.grid)
 			this.grid.visible = this.showGrid
 			
-			console.log(`Updated grid size for comparison to ${gridSize}x${gridSize} with ${divisions} divisions for combined model size ${maxDim.toFixed(2)}`)
 		},
 		applyWireframe(enabled) {
 			if (!this.modelRoot) return

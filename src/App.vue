@@ -211,7 +211,7 @@ export default {
 		},
 		onError(msg) {
 			this.lastError = msg
-			console.error('Viewer error:', msg)
+			// Viewer error handled
 			this.pushToast({ type: 'error', title: this.tErrorTitle(), message: msg })
 		},
 		pushToast({ type = 'info', title, message, timeout = null }) {

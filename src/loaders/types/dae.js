@@ -46,7 +46,6 @@ export default async function loadDAE(arrayBuffer, context) {
 				animations: collada.animations || []
 			})
 		} catch (error) {
-			console.error('Error loading DAE file:', error)
 			reject(new Error(`Failed to load DAE file: ${error.message}`))
 		}
 	})

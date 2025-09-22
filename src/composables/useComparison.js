@@ -126,7 +126,7 @@ export function useComparison() {
       comparisonError.value = null
       
       logError('useComparison', 'Loading comparison model from Nextcloud', file)
-      console.log('🔍 DEBUG - Loading comparison model:', file.name, 'Context:', context)
+      // Loading comparison model
       
       // Skip dummy files
       if (String(file.id).startsWith('dummy')) {
@@ -194,24 +194,16 @@ export function useComparison() {
       
       if (result && result.object3D) {
         comparisonModel.value = result.object3D
-        console.log('🔍 DEBUG - Comparison model loaded, position before indicator:', {
-          x: result.object3D.position.x,
-          y: result.object3D.position.y,
-          z: result.object3D.position.z
-        })
+        // Comparison model loaded
         
         // Add comparison indicator with proper error handling
         if (context && context.scene) {
           addComparisonIndicator(result.object3D, file.name, context.scene)
         } else {
-          console.warn('🔍 DEBUG - Context or scene not available for comparison indicator')
+          // Context or scene not available for comparison indicator
         }
         
-        console.log('🔍 DEBUG - Comparison model position after indicator:', {
-          x: result.object3D.position.x,
-          y: result.object3D.position.y,
-          z: result.object3D.position.z
-        })
+        // Comparison model positioned
         
         logError('useComparison', 'Comparison model loaded successfully')
         return result
@@ -259,7 +251,7 @@ export function useComparison() {
         if (context && context.scene) {
           addComparisonIndicator(result.object3D, file.name, context.scene)
         } else {
-          console.warn('🔍 DEBUG - Context or scene not available for comparison indicator')
+          // Context or scene not available for comparison indicator
         }
         
         logError('useComparison', 'Comparison model loaded successfully')
@@ -306,10 +298,6 @@ export function useComparison() {
   const addComparisonIndicator = (model, filename, scene) => {
     try {
       if (!model || !scene) {
-        console.warn('🔍 DEBUG - addComparisonIndicator: Missing model or scene', { 
-          model: model ? 'exists' : 'null', 
-          scene: scene ? 'exists' : 'null' 
-        })
         return
       }
       
@@ -340,7 +328,7 @@ export function useComparison() {
         indicatorPosition: indicator.position 
       })
     } catch (error) {
-      console.error('🔍 DEBUG - addComparisonIndicator error:', error)
+      // Error adding comparison indicator
       logError('useComparison', 'Failed to add comparison indicator', error)
     }
   }
@@ -352,21 +340,15 @@ export function useComparison() {
    * @param {Function} fitFunction - Function to fit camera to both models
    */
   const fitBothModelsToView = (model1, model2, fitFunction) => {
-    console.log('🔍 DEBUG - fitBothModelsToView called:', { 
-      model1: model1 ? 'exists' : 'null', 
-      model2: model2 ? 'exists' : 'null', 
-      fitFunction: fitFunction ? 'exists' : 'null' 
-    })
+    // Fitting both models to view
     
     if (!model1 || !model2 || !fitFunction) {
-      console.log('🔍 DEBUG - fitBothModelsToView early return - missing parameters')
       return
     }
     
     try {
       // Ensure models are valid before proceeding
       if (!model1 || !model2) {
-        console.log('🔍 DEBUG - Invalid models provided to fitBothModelsToView')
         return
       }
       
@@ -376,7 +358,6 @@ export function useComparison() {
       
       // Check if bounding boxes are valid
       if (box1.isEmpty() || box2.isEmpty()) {
-        console.log('🔍 DEBUG - One or both models have empty bounding boxes')
         return
       }
       
@@ -399,22 +380,11 @@ export function useComparison() {
       // Force update the matrix to ensure position changes take effect
       model2.updateMatrixWorld(true)
       
-      console.log('🔍 DEBUG - Model positioning applied:', {
-        offset,
-        model1Pos: { x: model1.position.x, y: model1.position.y, z: model1.position.z },
-        model2Pos: { x: model2.position.x, y: model2.position.y, z: model2.position.z }
-      })
+      // Model positioning applied
       
       // Verify the positioning worked
       const model1WorldPos = model1.getWorldPosition(new THREE.Vector3())
       const model2WorldPos = model2.getWorldPosition(new THREE.Vector3())
-      console.log('🔍 DEBUG - Verification after positioning:', {
-        model1WorldPos: { x: model1WorldPos.x, y: model1WorldPos.y, z: model1WorldPos.z },
-        model2WorldPos: { x: model2WorldPos.x, y: model2WorldPos.y, z: model2WorldPos.z },
-        model1Visible: model1.visible,
-        model2Visible: model2.visible,
-        separation: Math.abs(model2WorldPos.x - model1WorldPos.x)
-      })
       
       // Keep both models at the same ground level (Y=0)
       // Don't adjust Y positions - let them stay at their natural positions

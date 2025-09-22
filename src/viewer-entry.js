@@ -5,7 +5,6 @@ import Vue from 'vue'
 import { initViewerAPI } from './viewer-api.js'
 
 // Initialize the viewer API integration
-console.log('[threedviewer] Initializing Viewer API entry point')
 
 // Wait for DOM to be ready and initialize
 if (document.readyState === 'loading') {

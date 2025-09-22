@@ -89,12 +89,10 @@ export default {
 			this.background = val
 		},
 		onModelLoaded(meta) {
-			console.log('[ViewerModal] Model loaded:', meta)
 			// Emit event for parent components
 			this.$emit('model-loaded', meta)
 		},
 		onError(msg) {
-			console.error('[ViewerModal] Error:', msg)
 			// Emit event for parent components
 			this.$emit('error', msg)
 		},

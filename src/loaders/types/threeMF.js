@@ -6,7 +6,6 @@ export default async function loadThreeMF(arrayBuffer, context) {
 	try {
 		// For 3MF files, we'll create a fallback geometry due to CSP and loader compatibility issues
 		// 3MF files are complex ZIP archives that require special handling
-		console.log('[3MFLoader] Creating fallback geometry for 3MF file due to loader limitations')
 		
 		// Create a representative geometry based on the filename
 		// Extract dimensions from filename if possible (e.g., "latching_box_80x40x16.3mf")
@@ -59,10 +58,10 @@ export default async function loadThreeMF(arrayBuffer, context) {
 				object3D.add(wireframe)
 			}
 		} catch (wireframeError) {
-			console.warn('[3MFLoader] Failed to create wireframe, continuing without it:', wireframeError)
+			// Failed to create wireframe, continuing without it
 		}
 		
-		console.log('[3MFLoader] Created fallback geometry with dimensions:', { width, height, depth })
+		// Created fallback geometry
 		
 		if (!object3D || object3D.children.length === 0) {
 			throw new Error('No valid geometry found in 3MF file')
@@ -82,7 +81,7 @@ export default async function loadThreeMF(arrayBuffer, context) {
 		// Center the model
 		object3D.position.sub(center)
 		
-		console.log('[3MFLoader] Successfully loaded 3MF model with', object3D.children.length, 'children')
+		// Successfully loaded 3MF model
 		
 		return { 
 			object3D,
@@ -91,7 +90,7 @@ export default async function loadThreeMF(arrayBuffer, context) {
 			size: size
 		}
 	} catch (error) {
-		console.error('[3MFLoader] Error loading 3MF file:', error)
+		// Error loading 3MF file
 		throw new Error(`Failed to load 3MF file: ${error.message}`)
 	}
 }

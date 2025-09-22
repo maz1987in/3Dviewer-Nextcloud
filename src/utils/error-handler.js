@@ -69,7 +69,7 @@ export function logError(component, message, error, level = 'error') {
     errorInfo.loaderName = error.loaderName
   }
   
-  console[level](`[${component}] ${message}`, errorInfo)
+  // Debug logging disabled
 }
 
 /**

@@ -188,7 +188,7 @@ export class BaseLoader {
    * @param {Object} data - Additional data
    */
   logInfo(message, data = {}) {
-    console.log(`[${this.loaderName}] ${message}`, data)
+    // Info logging disabled
   }
 
   /**
@@ -197,7 +197,7 @@ export class BaseLoader {
    * @param {Object} data - Additional data
    */
   logWarning(message, data = {}) {
-    console.warn(`[${this.loaderName}] ${message}`, data)
+    // Warning logging disabled
   }
 
   /**
@@ -206,7 +206,7 @@ export class BaseLoader {
    * @param {Error} error - Error object
    */
   logError(message, error) {
-    console.error(`[${this.loaderName}] ${message}`, error)
+    // Error logging disabled
   }
 
   /**

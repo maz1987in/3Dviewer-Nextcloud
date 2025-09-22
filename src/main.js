@@ -88,7 +88,6 @@ if (typeof window !== 'undefined' && !window.__THREEDVIEWER_NO_AUTOMOUNT) {
 	try {
 		bootstrapViewer()
 	} catch (e) {
-		// eslint-disable-next-line no-console
-		console.error('[threedviewer] auto-mount failed', e)
+		// Auto-mount failed silently
 	}
 }

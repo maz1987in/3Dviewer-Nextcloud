@@ -48,7 +48,6 @@ export default async function loadVRML(arrayBuffer, context) {
 						// Center the model
 						vrmlScene.position.sub(center)
 						
-						console.log('[VRMLLoader] Successfully loaded VRML model')
 						
 						resolve({
 							object3D: vrmlScene,
@@ -58,17 +57,14 @@ export default async function loadVRML(arrayBuffer, context) {
 							animations: result.animations || []
 						})
 					} catch (error) {
-						console.error('Error processing VRML scene:', error)
 						reject(new Error(`Failed to process VRML scene: ${error.message}`))
 					}
 				})
 			} catch (error) {
-				console.error('Error loading VRML file:', error)
 				reject(new Error(`Failed to load VRML file: ${error.message}`))
 			}
 		})
 	} catch (error) {
-		console.error('[VRMLLoader] Error loading VRML file:', error)
 		throw new Error(`Failed to load VRML file: ${error.message}`)
 	}
 }

@@ -36,7 +36,7 @@ export function useAnnotation() {
       annotationGroup.value.name = 'annotationGroup'
       scene.add(annotationGroup.value)
       
-      console.log('🔍 DEBUG - Annotation system initialized')
+      // Annotation system initialized
     } catch (error) {
       logError('useAnnotation', 'Failed to initialize annotation system', error)
     }
@@ -45,20 +45,18 @@ export function useAnnotation() {
   // Toggle annotation mode
   const toggleAnnotation = () => {
     isActive.value = !isActive.value
-    console.log('🔍 DEBUG - Annotation mode toggled:', isActive.value)
+    // Annotation mode toggled
   }
   
   // Handle click events for annotation placement
   const handleClick = (event, camera) => {
-    console.log('🔍 DEBUG - Annotation click handler called:', { isActive: isActive.value, event: event.type })
+    // Annotation click handler called
     
     if (!isActive.value) {
-      console.log('🔍 DEBUG - Annotation not active, ignoring click')
       return
     }
     
     if (!sceneRef.value) {
-      console.log('🔍 DEBUG - Scene not available for annotation')
       return
     }
     
@@ -68,7 +66,7 @@ export function useAnnotation() {
       mouse.value.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
       mouse.value.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
       
-      console.log('🔍 DEBUG - Mouse coordinates:', { x: mouse.value.x, y: mouse.value.y })
+      // Mouse coordinates processed
       
       // Update raycaster
       raycaster.value.setFromCamera(mouse.value, camera)
@@ -81,16 +79,15 @@ export function useAnnotation() {
         }
       })
       
-      console.log('🔍 DEBUG - Intersectable objects found:', intersectableObjects.length)
+      // Intersectable objects found
       
       // Perform raycasting
       const intersects = raycaster.value.intersectObjects(intersectableObjects, false)
       
-      console.log('🔍 DEBUG - Intersections found:', intersects.length)
+      // Intersections found
       
       if (intersects.length > 0) {
         const point = intersects[0].point.clone()
-        console.log('🔍 DEBUG - Adding annotation point:', point)
         addAnnotationPoint(point)
       }
     } catch (error) {
@@ -118,7 +115,7 @@ export function useAnnotation() {
       annotation.pointMesh = createAnnotationPoint(annotation)
       annotation.textMesh = createAnnotationText(annotation)
       
-      console.log('🔍 DEBUG - Annotation added:', annotation)
+      // Annotation added
     } catch (error) {
       logError('useAnnotation', 'Failed to add annotation point', error)
     }
@@ -184,7 +181,7 @@ export function useAnnotation() {
       annotationGroup.value.add(textMesh)
       textMeshes.value.push(textMesh)
       
-      console.log('🔍 DEBUG - Annotation text created:', annotation.text)
+      // Annotation text created
       return textMesh
     } catch (error) {
       logError('useAnnotation', 'Failed to create annotation text', error)
@@ -232,7 +229,7 @@ export function useAnnotation() {
     if (index !== -1) {
       const annotation = annotations.value[index]
       
-      console.log('🔍 DEBUG - Deleting annotation:', annotationId, 'at position:', annotation.point)
+      // Deleting annotation
       
       // Remove visual elements using stored references
       if (annotation.pointMesh && annotationGroup.value) {
@@ -241,7 +238,7 @@ export function useAnnotation() {
         if (pointIndex !== -1) {
           pointMeshes.value.splice(pointIndex, 1)
         }
-        console.log('🔍 DEBUG - Removed point mesh')
+        // Removed point mesh
       }
       
       if (annotation.textMesh && annotationGroup.value) {
@@ -250,23 +247,20 @@ export function useAnnotation() {
         if (textIndex !== -1) {
           textMeshes.value.splice(textIndex, 1)
         }
-        console.log('🔍 DEBUG - Removed text mesh')
+        // Removed text mesh
       }
       
       // Remove from annotations array
       annotations.value.splice(index, 1)
       
-      console.log('🔍 DEBUG - Annotation deleted:', annotationId)
+      // Annotation deleted
     }
   }
   
   // Clear all annotations
   const clearAllAnnotations = () => {
     try {
-      console.log('🔍 DEBUG - Starting clear all annotations')
-      console.log('🔍 DEBUG - Point meshes count:', pointMeshes.value.length)
-      console.log('🔍 DEBUG - Text meshes count:', textMeshes.value.length)
-      console.log('🔍 DEBUG - Annotation group children count:', annotationGroup.value?.children.length || 0)
+      // Starting clear all annotations
       
       // Force remove all children from annotation group
       if (annotationGroup.value) {
@@ -274,7 +268,7 @@ export function useAnnotation() {
         while (annotationGroup.value.children.length > 0) {
           const child = annotationGroup.value.children[0]
           annotationGroup.value.remove(child)
-          console.log('🔍 DEBUG - Removed child:', child.name || 'unnamed')
+          // Removed child
         }
       }
       
@@ -289,8 +283,7 @@ export function useAnnotation() {
       pointMeshes.value = []
       textMeshes.value = []
       
-      console.log('🔍 DEBUG - All annotations cleared')
-      console.log('🔍 DEBUG - Final annotation group children count:', annotationGroup.value?.children.length || 0)
+      // All annotations cleared
     } catch (error) {
       logError('useAnnotation', 'Failed to clear all annotations', error)
     }

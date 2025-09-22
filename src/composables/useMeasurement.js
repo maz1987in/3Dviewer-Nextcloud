@@ -38,7 +38,7 @@ export function useMeasurement() {
 			measurementGroup.value.name = 'measurementGroup'
 			scene.add(measurementGroup.value)
 			
-			console.log('🔍 DEBUG - Measurement system initialized')
+			// Measurement system initialized
 		} catch (error) {
 			logError('useMeasurement', 'Failed to initialize measurement system', error)
 		}
@@ -50,20 +50,18 @@ export function useMeasurement() {
 		if (!isActive.value) {
 			clearCurrentMeasurement()
 		}
-		console.log('🔍 DEBUG - Measurement mode toggled:', isActive.value)
+		// Measurement mode toggled
 	}
 	
 	// Handle mouse click for point selection
 	const handleClick = (event, camera) => {
-		console.log('🔍 DEBUG - Measurement click handler called:', { isActive: isActive.value, event: event.type })
+		// Measurement click handler called
 		
 		if (!isActive.value) {
-			console.log('🔍 DEBUG - Measurement not active, ignoring click')
 			return
 		}
 		
 		if (!sceneRef.value) {
-			console.log('🔍 DEBUG - Scene not available for measurement')
 			return
 		}
 		
@@ -73,7 +71,7 @@ export function useMeasurement() {
 			mouse.value.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
 			mouse.value.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
 			
-			console.log('🔍 DEBUG - Mouse coordinates:', { x: mouse.value.x, y: mouse.value.y })
+			// Mouse coordinates processed
 			
 			// Update raycaster
 			raycaster.value.setFromCamera(mouse.value, camera)
@@ -86,18 +84,15 @@ export function useMeasurement() {
 				}
 			})
 			
-			console.log('🔍 DEBUG - Intersectable objects found:', intersectableObjects.length)
+			// Intersectable objects found
 			
 			const intersects = raycaster.value.intersectObjects(intersectableObjects, true)
 			
-			console.log('🔍 DEBUG - Intersections found:', intersects.length)
+			// Intersections found
 			
 			if (intersects.length > 0) {
 				const point = intersects[0].point
-				console.log('🔍 DEBUG - Adding measurement point:', point)
 				addMeasurementPoint(point)
-			} else {
-				console.log('🔍 DEBUG - No intersections found')
 			}
 		} catch (error) {
 			logError('useMeasurement', 'Failed to handle click', error)
@@ -111,7 +106,7 @@ export function useMeasurement() {
 		// Create visual indicator for the point
 		createPointIndicator(point)
 		
-		console.log('🔍 DEBUG - Point added:', point, 'Total points:', points.value.length)
+		// Point added
 		
 		// If we have 2 points, create a measurement
 		if (points.value.length === 2) {
@@ -166,7 +161,7 @@ export function useMeasurement() {
 		// Create distance text
 		createDistanceText(measurement)
 		
-		console.log('🔍 DEBUG - Measurement created:', measurement)
+		// Measurement created
 		
 		// Reset for next measurement
 		points.value = []
@@ -234,9 +229,7 @@ export function useMeasurement() {
 			measurementGroup.value.add(textMesh)
 			textMeshes.value.push(textMesh)
 			
-			console.log(`🔍 DEBUG - Distance: ${measurement.distance.toFixed(3)} units`)
-			console.log(`🔍 DEBUG - Point 1: (${measurement.point1.x.toFixed(3)}, ${measurement.point1.y.toFixed(3)}, ${measurement.point1.z.toFixed(3)})`)
-			console.log(`🔍 DEBUG - Point 2: (${measurement.point2.x.toFixed(3)}, ${measurement.point2.y.toFixed(3)}, ${measurement.point2.z.toFixed(3)})`)
+			// Distance calculated
 		} catch (error) {
 			logError('useMeasurement', 'Failed to create distance text', error)
 		}
@@ -263,7 +256,7 @@ export function useMeasurement() {
 		lineMeshes.value = []
 		textMeshes.value = []
 		
-		console.log('🔍 DEBUG - All measurements cleared')
+		// All measurements cleared
 	}
 	
 	// Get measurement summary

@@ -4,9 +4,6 @@
 import '../css/threedviewer-filesIntegration.css'
 
 (function() {
-		console.log('[threedviewer] Files integration script loading...')
-		console.log('[threedviewer] Current URL:', window.location.href)
-		console.log('[threedviewer] Is Files app context:', window.location.pathname.includes('/apps/files/'))
 	
 	// Wait for Files app to be ready
 	let retryCount = 0
@@ -16,24 +13,15 @@ import '../css/threedviewer-filesIntegration.css'
 	function waitForFilesApp() {
 		// Debug what's available
 		if (retryCount === 0) {
-			console.log('[threedviewer] Debug - window.OCA:', !!window.OCA)
-			console.log('[threedviewer] Debug - OCA.Files:', !!(window.OCA && OCA.Files))
-			console.log('[threedviewer] Debug - OCA.Files.fileActions:', !!(window.OCA && OCA.Files && OCA.Files.fileActions))
 			if (window.OCA) {
-				console.log('[threedviewer] Debug - OCA keys:', Object.keys(OCA))
 				if (OCA.Files) {
-					console.log('[threedviewer] Debug - OCA.Files keys:', Object.keys(OCA.Files))
 					// Check if fileActions might be in a different location
 					if (OCA.Files.fileActions) {
-						console.log('[threedviewer] Debug - fileActions found!')
 					} else {
-						console.log('[threedviewer] Debug - fileActions not found, checking alternatives...')
 						// Check if there's a different way to access file actions
 						if (OCA.FilesApp) {
-							console.log('[threedviewer] Debug - OCA.FilesApp found:', Object.keys(OCA.FilesApp))
 						}
 						if (OCA.Files && OCA.Files.App) {
-							console.log('[threedviewer] Debug - OCA.Files.App found:', Object.keys(OCA.Files.App))
 						}
 					}
 				}
@@ -63,47 +51,36 @@ import '../css/threedviewer-filesIntegration.css'
 		
 		// Try to manually initialize fileActions if it doesn't exist
 		if (hasFilesAppWithoutFileActions && retryCount > 10) {
-			console.log('[threedviewer] Attempting to manually initialize fileActions...')
 			try {
 				// Check if we can access fileActions through a different path
 				if (OCA.Files.App && OCA.Files.App.fileActions) {
-					console.log('[threedviewer] Found fileActions in OCA.Files.App!')
 					OCA.Files.fileActions = OCA.Files.App.fileActions
 				} else if (OCA.FilesApp && OCA.FilesApp.fileActions) {
-					console.log('[threedviewer] Found fileActions in OCA.FilesApp!')
 					OCA.Files.fileActions = OCA.FilesApp.fileActions
 				}
 			} catch (e) {
-				console.log('[threedviewer] Could not manually initialize fileActions:', e)
 			}
 		}
 		
 		if ((hasFilesApp || hasAlternativeFilesApp || hasViewerAPI) && !initialized) {
-			console.log('[threedviewer] Files app or Viewer API detected, initializing...')
 			initFilesIntegration()
 		} else if (retryCount < maxRetries) {
 			retryCount++
 			if (retryCount % 10 === 0) { // Log every 10th retry to reduce spam
-				console.log('[threedviewer] Files app not ready, retrying... (' + retryCount + '/' + maxRetries + ')')
 				// Debug what's available during retries
 				if (window.OCA && OCA.Files) {
-					console.log('[threedviewer] Debug - OCA.Files keys during retry:', Object.keys(OCA.Files))
 					if (OCA.Files.fileActions) {
-						console.log('[threedviewer] Debug - fileActions now available!')
 					}
 				}
 			}
 			setTimeout(waitForFilesApp, 100)
 		} else if (!initialized) {
-			console.warn('[threedviewer] Files app not available after maximum retries, giving up')
 			// Don't try fallback if Files app is clearly not available
-			console.log('[threedviewer] Files app not detected, skipping initialization')
 		}
 	}
 	
 	function initFilesIntegration() {
 		if (initialized) {
-			console.log('[threedviewer] Already initialized, skipping...')
 			return
 		}
 		
@@ -112,12 +89,10 @@ import '../css/threedviewer-filesIntegration.css'
 		const hasViewerAPI = window.OCA && OCA.Viewer && typeof OCA.Viewer.registerHandler === 'function'
 		
 		if (!hasFileActions && !hasViewerAPI) {
-			console.warn('[threedviewer] Neither Files app fileActions nor Viewer API available, cannot initialize integration')
 			return
 		}
 		
 		initialized = true
-		console.log('[threedviewer] Initializing Files integration...')
 		
 		const APP_ID = 'threedviewer'
 		const supportedExt = ['glb','gltf','obj','stl','ply','fbx','3mf','3ds','dae','x3d','vrml','wrl']
@@ -133,7 +108,6 @@ import '../css/threedviewer-filesIntegration.css'
 			// context.fileId might be available; fallback: context.$file.attr('data-id') style (legacy) if missing
 			const fileId = context && (context.fileid || context.id || context.fileId)
 			if (!fileId) {
-				console.warn('[threedviewer] No fileId in context for', fileName, context)
 				return false
 			}
 			window.open(OC.generateUrl(`/apps/${APP_ID}/?fileId=${fileId}`), '_blank', 'noopener,noreferrer')
@@ -154,9 +128,7 @@ import '../css/threedviewer-filesIntegration.css'
 				},
 				actionHandler: openInViewer,
 			})
-			console.log('[threedviewer] Registered file action with fileActions API')
 		} else {
-			console.log('[threedviewer] fileActions API not available, skipping file action registration')
 		}
 
 		// Set as default action for single-click
@@ -166,20 +138,16 @@ import '../css/threedviewer-filesIntegration.css'
 				mimes.forEach((mime) => {
 					if (typeof OCA.Files.fileActions.setDefault === 'function') {
 						OCA.Files.fileActions.setDefault(mime, 'View3DModel')
-						console.log('[threedviewer] Set default action for', mime)
 					}
 					if (typeof OCA.Files.fileActions.registerDefault === 'function') {
 						OCA.Files.fileActions.registerDefault(mime, 'View3DModel')
-						console.log('[threedviewer] Registered default action for', mime)
 					}
 				})
 			} catch (e) {
-				console.warn('[threedviewer] Unable to register default file action', e)
 			}
 		}
 
 		// Add hybrid approach: Viewer API + click interceptor as fallback
-		console.log('[threedviewer] Using hybrid approach: Viewer API + click interceptor fallback')
 		
 		// Add click interceptor as fallback for when Viewer API doesn't work
 		try {
@@ -212,7 +180,6 @@ import '../css/threedviewer-filesIntegration.css'
 					// If so, don't interfere
 					if (e.defaultPrevented) return
 					
-					console.log('[threedviewer] Click interceptor fallback for 3D file:', fname)
 					e.preventDefault()
 					e.stopPropagation()
 					e.stopImmediatePropagation()
@@ -228,35 +195,27 @@ import '../css/threedviewer-filesIntegration.css'
 						
 						// Open in new tab with filename and directory parameters
 						const viewerUrl = OC.generateUrl(`/apps/${APP_ID}/?fileId=${fileId}&filename=${encodeURIComponent(fname)}&dir=${encodeURIComponent(currentDir)}`)
-						console.log('[threedviewer] Opening 3D viewer in new tab:', viewerUrl)
 						window.open(viewerUrl, '_blank', 'noopener,noreferrer')
 					}
 					return false
 				}
 			}, true) // Use capture phase
-			console.log('[threedviewer] Added click interceptor fallback')
 		} catch (e) {
-			console.warn('[threedviewer] Unable to add click interceptor fallback', e)
 		}
 
 		// Register with Nextcloud Viewer for modal display
 		if (hasViewerAPI) {
-			console.log('[threedviewer] Registering 3D file handler with Viewer API')
 			try {
 				// Use the dedicated viewer API integration
 				import('./viewer-api.js').then(module => {
 					module.initViewerAPI()
 				}).catch(error => {
-					console.error('[threedviewer] Failed to load viewer API module:', error)
 					// Fallback to basic registration
 					registerBasicViewerHandler()
 				})
 			} catch (e) {
-				console.warn('[threedviewer] Failed to register with Viewer API:', e)
-				console.log('[threedviewer] Falling back to standalone app mode')
 			}
 		} else {
-			console.log('[threedviewer] Viewer API not available, using standalone app mode')
 		}
 		
 		// Fallback basic registration function
@@ -280,7 +239,6 @@ import '../css/threedviewer-filesIntegration.css'
 							if (fileId && isSupported(fileName)) {
 								// Open in new tab
 								const viewerUrl = OC.generateUrl(`/apps/${APP_ID}/?fileId=${fileId}`)
-								console.log('[threedviewer] Opening in new tab:', viewerUrl)
 								window.open(viewerUrl, '_blank', 'noopener,noreferrer')
 							} else {
 								this.$el.innerHTML = '<div style="padding: 20px; text-align: center; color: red;">Unsupported file type</div>'
@@ -288,9 +246,7 @@ import '../css/threedviewer-filesIntegration.css'
 						}
 					}
 				})
-				console.log('[threedviewer] Registered basic viewer handler')
 			} catch (e) {
-				console.error('[threedviewer] Failed to register basic viewer handler:', e)
 			}
 		}
 
@@ -332,7 +288,6 @@ import '../css/threedviewer-filesIntegration.css'
 			
 			// Check if Files app became available
 			if (window.OCA && OCA.Files && OCA.Files.fileActions && typeof OCA.Files.fileActions.registerAction === 'function') {
-				console.log('[threedviewer] Files app detected via MutationObserver, initializing...')
 				observer.disconnect()
 				initFilesIntegration()
 			}
@@ -356,9 +311,7 @@ import '../css/threedviewer-filesIntegration.css'
 	// Also listen for Files app loading events
 	document.addEventListener('DOMContentLoaded', function() {
 		if (initialized) return
-		console.log('[threedviewer] DOM loaded, checking for Files app...')
 		if (window.OCA && OCA.Files && OCA.Files.fileActions) {
-			console.log('[threedviewer] Files app found on DOM ready, initializing...')
 			initFilesIntegration()
 		}
 	})
@@ -366,16 +319,13 @@ import '../css/threedviewer-filesIntegration.css'
 	// Listen for custom Files app events
 	document.addEventListener('OCA.Files.App.ready', function() {
 		if (initialized) return
-		console.log('[threedviewer] Files app ready event received, initializing...')
 		initFilesIntegration()
 	})
 	
 	// Listen for window load event as final fallback
 	window.addEventListener('load', function() {
 		if (initialized) return
-		console.log('[threedviewer] Window loaded, final check for Files app...')
 		if (window.OCA && OCA.Files && OCA.Files.fileActions) {
-			console.log('[threedviewer] Files app found on window load, initializing...')
 			initFilesIntegration()
 		}
 	})
