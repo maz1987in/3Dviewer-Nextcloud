@@ -1,0 +1,208 @@
+/* 3D Viewer Files Integration Styles */
+
+.files-list .filename .thumbnail[src*=".glb"],
+.files-list .filename .thumbnail[src*=".gltf"],
+.files-list .filename .thumbnail[src*=".obj"],
+.files-list .filename .thumbnail[src*=".stl"],
+.files-list .filename .thumbnail[src*=".ply"],
+.files-list .filename .thumbnail[src*=".fbx"],
+.files-list .filename .thumbnail[src$="=glb"],
+.files-list .filename .thumbnail[src$="=gltf"],
+.files-list .filename .thumbnail[src$="=obj"],
+.files-list .filename .thumbnail[src$="=stl"],
+.files-list .filename .thumbnail[src$="=ply"],
+.files-list .filename .thumbnail[src$="=fbx"] {
+	background-image: url('../img/app.svg');
+	background-size: cover;
+	background-position: center;
+	filter: none !important;
+}
+
+.files-list .filename .thumbnail[src*=".glb"],
+.files-list .filename .thumbnail[src*=".gltf"],
+.files-list .filename .thumbnail[src*=".obj"],
+.files-list .filename .thumbnail[src*=".stl"],
+.files-list .filename .thumbnail[src*=".ply"],
+.files-list .filename .thumbnail[src*=".fbx"] {
+	content: '';
+	border: 1px solid var(--color-border);
+	border-radius: 4px;
+	background-color: var(--color-background-darker);
+}
+
+.fileActionsMenu .action-view3d,
+.fileActionsMenu .action-view3d-extension {
+	background-image: url('../img/3d-icon.svg');
+	background-size: 16px 16px;
+	background-repeat: no-repeat;
+	background-position: center;
+}
+
+.fileActionsMenu .action-view3d .action-text,
+.fileActionsMenu .action-view3d-extension .action-text {
+	padding-left: 20px;
+}
+
+/* 3D icon for file actions */
+.icon-3d {
+	background-image: url('../img/3d-icon.svg');
+	background-size: 16px 16px;
+	background-repeat: no-repeat;
+	background-position: center;
+	width: 16px;
+	height: 16px;
+	display: inline-block;
+}
+
+/* Viewer page styles */
+#threedviewer-viewer {
+	height: 100vh;
+	display: flex;
+	flex-direction: column;
+	background: #f5f5f5;
+}
+
+.viewer-header {
+	background: white;
+	padding: 16px;
+	border-bottom: 1px solid #ddd;
+	box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.viewer-header h1 {
+	margin: 0 0 8px 0;
+	color: #333;
+	font-size: 24px;
+}
+
+.file-info {
+	display: flex;
+	gap: 16px;
+	color: #666;
+	font-size: 14px;
+}
+
+.file-name {
+	font-weight: 500;
+}
+
+.viewer-container {
+	flex: 1;
+	position: relative;
+	display: flex;
+	flex-direction: column;
+}
+
+#viewer-canvas {
+	flex: 1;
+	background: #f0f0f0;
+	position: relative;
+}
+
+.viewer-controls {
+	position: absolute;
+	top: 16px;
+	right: 16px;
+	display: flex;
+	gap: 8px;
+	z-index: 1000;
+}
+
+.control-btn {
+	background: rgba(255, 255, 255, 0.9);
+	border: 1px solid #ddd;
+	border-radius: 4px;
+	padding: 8px 12px;
+	cursor: pointer;
+	font-size: 12px;
+	transition: all 0.2s;
+}
+
+.control-btn:hover {
+	background: white;
+	box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.control-btn.active {
+	background: #0082c9;
+	color: white;
+	border-color: #0082c9;
+}
+
+.viewer-loading {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	text-align: center;
+	color: #666;
+	z-index: 100;
+}
+
+.loading-spinner {
+	border: 3px solid #f3f3f3;
+	border-top: 3px solid #0082c9;
+	border-radius: 50%;
+	width: 40px;
+	height: 40px;
+	animation: spin 1s linear infinite;
+	margin: 0 auto 16px;
+}
+
+@keyframes spin {
+	0% { transform: rotate(0deg); }
+	100% { transform: rotate(360deg); }
+}
+
+/* Hide loading when model is loaded */
+.viewer-loaded .viewer-loading {
+	display: none;
+}
+
+/* Fullscreen styles */
+.viewer-fullscreen {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100vw;
+	height: 100vh;
+	z-index: 9999;
+	background: #000;
+}
+
+.viewer-fullscreen .viewer-controls {
+	background: rgba(0, 0, 0, 0.7);
+	border-radius: 4px;
+}
+
+.viewer-fullscreen .control-btn {
+	background: rgba(255, 255, 255, 0.2);
+	color: white;
+	border-color: rgba(255, 255, 255, 0.3);
+}
+
+.viewer-fullscreen .control-btn:hover {
+	background: rgba(255, 255, 255, 0.3);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+	.viewer-controls {
+		top: 8px;
+		right: 8px;
+		flex-wrap: wrap;
+	}
+	
+	.control-btn {
+		padding: 6px 8px;
+		font-size: 11px;
+	}
+	
+	.viewer-header {
+		padding: 12px;
+	}
+	
+	.viewer-header h1 {
+		font-size: 20px;
+	}
+}

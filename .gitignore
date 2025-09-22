@@ -26,6 +26,9 @@ js/
 css/
 dist/
 
+# Exception: Source CSS files should be tracked
+!src/css/
+
 # Source maps
 *.map
 

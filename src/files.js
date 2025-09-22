@@ -1,7 +1,7 @@
 // Registers a file action in the Files app to open supported 3D model files in the ThreeDViewer app
 // Uses Nextcloud Viewer API pattern for proper integration
 
-import '../css/threedviewer-filesIntegration.css'
+import './css/threedviewer-filesIntegration.css'
 
 (function() {
 	
