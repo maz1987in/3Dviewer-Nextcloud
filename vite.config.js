@@ -12,5 +12,8 @@ export default createAppConfig(
     extractLicenseInformation: true,
     thirdPartyLicense: false,
     // Decoder assets are now copied by scripts/copy-decoders.mjs via prebuild script
+    build: {
+      target: 'es2022', // Support top-level await
+    }
   }
 );
