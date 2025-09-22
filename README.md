@@ -380,6 +380,24 @@ composer test:unit
 Tests are intentionally narrow: each controller/service test focuses on success + key failure modes (not exhaustive integration). Add new tests under `tests/unit/<Domain>` following existing naming patterns (e.g. `FileControllerTest.php`).
 
 ### Debugging Tips
+## Release Automation
+
+GitHub Releases are created automatically when you push a tag that starts with `v` (e.g. `v1.0.1`). The workflow:
+
+- Installs Node 22, builds the frontend
+- Installs PHP 8.1 dependencies without dev
+- Packages a distributable zip (excluding dev/test files)
+- Publishes the zip as a GitHub Release asset
+
+How to release:
+
+```
+git tag v1.0.1
+git push origin v1.0.1
+```
+
+The action is defined in `.github/workflows/release.yml`.
+
 * If viewer fails to mount, open devtools console and look for dynamic import errors (e.g. controls chunk 404). Ensure the built `js/` assets deployed fully.
 * Streaming 404 / 415 errors: validate the extension exists in `ModelFileSupport` and the backend route path matches the request (`/ocs/v2.php/apps/threedviewer/file/{fileId}`).
 * Decoder issues: Confirm presence of `draco/` and `basis/` directories at the app root in deployment.

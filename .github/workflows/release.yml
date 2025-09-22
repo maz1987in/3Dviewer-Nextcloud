@@ -1,0 +1,70 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install Node dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Setup PHP 8.1
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          tools: composer
+
+      - name: Install PHP dependencies (no dev)
+        run: composer install --no-dev --optimize-autoloader --prefer-dist
+
+      - name: Prepare artifact directory
+        run: |
+          APP_DIR="threedviewer-${GITHUB_REF_NAME}"
+          mkdir "$APP_DIR"
+          rsync -a ./ "$APP_DIR" \
+            --exclude ".git/" \
+            --exclude ".github/" \
+            --exclude "node_modules/" \
+            --exclude "tests/" \
+            --exclude "test-results/" \
+            --exclude "playwright-report/" \
+            --exclude "blob-report/" \
+            --exclude "docs/" \
+            --exclude "docker/" \
+            --exclude "scripts/" \
+            --exclude "vendor-bin/" \
+            --exclude "dist/" \
+            --exclude "*.map"
+          zip -r "${APP_DIR}.zip" "$APP_DIR"
+          echo "ARTIFACT=${APP_DIR}.zip" >> $GITHUB_ENV
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.ARTIFACT }}
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+
