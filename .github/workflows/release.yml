@@ -20,10 +20,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
+          # Don't cache npm to avoid platform-specific dependency issues
+          # cache: 'npm'
 
       - name: Install Node dependencies
-        run: npm ci --no-audit --no-fund
+        run: |
+          # Install dependencies fresh for the Linux platform
+          # This ensures platform-specific binaries are correctly installed
+          npm install --no-audit --no-fund
 
       - name: Build frontend
         run: npm run build
