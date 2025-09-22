@@ -286,6 +286,13 @@ This section mirrors the current internal engineering TODO list for transparency
 | ⏳ | DRACO/KTX2 runtime wiring | Detect presence of `/draco` & `/basis` decoder assets and conditionally initialize `DRACOLoader` / `KTX2Loader` (currently silently attempted). Update README to mark compression officially supported once verified. |
 | ⏳ | Thumbnail placeholder service | Backend service + endpoint returning a static PNG placeholder for supported model types (`/thumbnail/{fileId}`); sets groundwork for future real rendered thumbnails. |
 | ⏳ | MIME registration migration | Add an `IRepairStep` to register missing MIME mappings (e.g. `mtl` → `text/plain`, `ply` → `model/ply`, `fbx` → `application/octet-stream` if absent) without overriding existing core mappings. |
+| ⏳ | Animation | Animation playback for GLTF models |
+| ⏳ | Material Editing | Material editing and customization |
+| ⏳ | Measurement | Model measurement tools |
+| ⏳ | VR/AR support | VR/AR support |
+| ⏳ | Animation | Animation playback for GLTF models |
+| ⏳ | Collaborative viewing | Collaborative viewing |
+| ⏳ |Aannotation | Model annotation system |
 
 Legend: ⏳ pending / planned, ✅ completed in repository history.
 
