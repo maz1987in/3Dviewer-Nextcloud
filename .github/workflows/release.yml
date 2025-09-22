@@ -25,9 +25,7 @@ jobs:
 
       - name: Install Node dependencies
         run: |
-          # Remove package-lock.json to avoid platform-specific dependency conflicts
-          # The macOS-generated lock file causes issues on Linux runners
-          rm -f package-lock.json
+          # Clean environment to ensure fresh dependency resolution
           rm -rf node_modules
           # Clear npm cache to ensure fresh dependency resolution
           npm cache clean --force
