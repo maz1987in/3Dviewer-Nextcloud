@@ -10,9 +10,9 @@ import { lookup as mimeLookup } from 'mime-types'
 function buildHtml() {
   const fixturePath = path.resolve(process.cwd(), 'tests/fixtures/triangle.gltf')
   const fixtureContent = fs.readFileSync(fixturePath, 'utf8')
-  return `<!DOCTYPE html><html><head><meta charset='utf-8'><title>Viewer Smoke</title></head>
+  return `<!DOCTYPE html><html><head><meta charset='utf-8'><title>Viewer Smoke</title><style>html, body { height: 100%; margin: 0; padding: 0; }</style></head>
   <body>
-  <div id="threedviewer"></div>
+  <div id="threedviewer" style="height: 100vh;"></div>
   <script>
   const FIXTURE = ${JSON.stringify(fixtureContent)};
   const blob = new Blob([FIXTURE], { type: 'model/gltf+json' });
@@ -117,7 +117,7 @@ test('draco gltf loads when decoder present (soft)', async ({ page }) => {
   const dracoWasmPath = path.resolve(process.cwd(), 'draco', 'draco_decoder.wasm')
   if (!fs.existsSync(dracoWasmPath)) test.skip()
   const dracoFixture = fs.readFileSync(path.resolve(process.cwd(), 'tests/fixtures/triangle-draco.gltf'), 'utf8')
-  const html = `<!DOCTYPE html><html><head><meta charset='utf-8'><title>DRACO Test</title></head><body><div id="threedviewer"></div>
+  const html = `<!DOCTYPE html><html><head><meta charset='utf-8'><title>DRACO Test</title><style>html, body { height: 100%; margin: 0; padding: 0; }</style></head><body><div id="threedviewer" style="height: 100vh;"></div>
   <script>
   const FIXTURE = ${JSON.stringify(dracoFixture)};
   const blob = new Blob([FIXTURE], { type: 'model/gltf+json' });

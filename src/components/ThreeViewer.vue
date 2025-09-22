@@ -235,8 +235,8 @@ export default {
 				await setupScene()
 				
 				// Initialize camera
-				const width = container.value.clientWidth
-				const height = container.value.clientHeight
+				const width = container.value.clientWidth || container.value.offsetWidth || 800
+				const height = container.value.clientHeight || container.value.offsetHeight || 600
 				camera.initCamera(width, height, isMobile.value)
 				
 				// Setup controls
@@ -280,6 +280,20 @@ export default {
 			// Create scene
 			scene.value = new THREE.Scene()
 			
+			// Ensure container has proper dimensions
+			const containerWidth = container.value.clientWidth || container.value.offsetWidth || 800
+			const containerHeight = container.value.clientHeight || container.value.offsetHeight || 600
+			
+			// Debug: Check container dimensions
+			console.log('🔍 DEBUG - Container dimensions:', {
+				clientWidth: container.value.clientWidth,
+				clientHeight: container.value.clientHeight,
+				offsetWidth: container.value.offsetWidth,
+				offsetHeight: container.value.offsetHeight,
+				computedWidth: containerWidth,
+				computedHeight: containerHeight
+			})
+			
 			// Create renderer
 			renderer.value = new THREE.WebGLRenderer({ 
 				antialias: true,
@@ -287,7 +301,7 @@ export default {
 				powerPreference: 'high-performance'
 			})
 			
-			renderer.value.setSize(container.value.clientWidth, container.value.clientHeight)
+			renderer.value.setSize(containerWidth, containerHeight)
 			renderer.value.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 			renderer.value.shadowMap.enabled = true
 			renderer.value.shadowMap.type = THREE.PCFSoftShadowMap
@@ -851,6 +865,7 @@ export default {
 	position: relative; 
 	width: 100%; 
 	height: 100%;
+	min-height: 400px; /* Ensure minimum height for proper canvas sizing */
 	overflow: hidden;
 }
 
