@@ -32,6 +32,8 @@ jobs:
           # Install dependencies fresh for the Linux platform
           # This ensures platform-specific binaries are correctly installed
           npm install --no-audit --no-fund
+          # Explicitly install the correct Rollup binary for Linux
+          npm install @rollup/rollup-linux-x64-gnu --no-save
 
       - name: Build frontend
         run: npm run build
