@@ -31,8 +31,6 @@
 		"test:coverage": "phpunit tests -c tests/phpunit.xml --colors=always --coverage-html coverage --coverage-clover coverage.xml",
 		"openapi": "generate-spec",
 		"rector": "rector && composer cs:fix",
-		"security:check": "enlightn/security-checker security:check",
-		"security:audit": "enlightn/security-checker audit",
 		"validate": [
 			"@lint",
 			"@cs:check",
@@ -51,8 +49,7 @@
 	},
 	"require-dev": {
 		"nextcloud/ocp": "dev-stable30",
-		"roave/security-advisories": "dev-latest",
-		"enlightn/security-checker": "^2.0"
+		"roave/security-advisories": "dev-latest"
 	},
 	"config": {
 		"allow-plugins": {
