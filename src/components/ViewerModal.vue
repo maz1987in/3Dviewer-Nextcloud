@@ -1,27 +1,25 @@
 <template>
 	<div class="viewer-modal">
 		<ThreeViewer
+			ref="viewer"
 			:file-id="fileId"
 			:show-grid="grid"
 			:show-axes="axes"
 			:wireframe="wireframe"
 			:background="background"
 			@model-loaded="onModelLoaded"
-			@error="onError"
-			ref="viewer"
-		/>
+			@error="onError" />
 		<ViewerToolbar
 			:grid="grid"
 			:axes="axes"
 			:wireframe="wireframe"
 			:background="background"
+			class="modal-toolbar"
 			@reset-view="onReset"
 			@toggle-grid="grid = !grid"
 			@toggle-axes="axes = !axes"
 			@toggle-wireframe="wireframe = !wireframe"
-			@change-background="onBackgroundChange"
-			class="modal-toolbar"
-		/>
+			@change-background="onBackgroundChange" />
 	</div>
 </template>
 
@@ -48,6 +46,12 @@ export default {
 			background: '#f5f5f5',
 			_prefsLoaded: false,
 		}
+	},
+	watch: {
+		grid() { this.savePrefs() },
+		axes() { this.savePrefs() },
+		wireframe() { this.savePrefs() },
+		background() { this.savePrefs() },
 	},
 	created() {
 		this.loadPrefs()
@@ -96,12 +100,6 @@ export default {
 			// Emit event for parent components
 			this.$emit('error', msg)
 		},
-	},
-	watch: {
-		grid() { this.savePrefs() },
-		axes() { this.savePrefs() },
-		wireframe() { this.savePrefs() },
-		background() { this.savePrefs() },
 	},
 }
 </script>

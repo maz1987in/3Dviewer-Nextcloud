@@ -1,0 +1,41 @@
+#!/bin/bash
+
+# Pre-commit hook for 3D Viewer Nextcloud App
+# This hook runs before each commit to ensure code quality
+
+echo "Running pre-commit checks..."
+
+# Check for PHP syntax errors
+echo "Checking PHP syntax..."
+find . -name "*.php" -not -path './vendor/*' -not -path './vendor-bin/*' -not -path './build/*' -print0 | xargs -0 -n1 php -l
+if [ $? -ne 0 ]; then
+    echo "❌ PHP syntax errors found!"
+    exit 1
+fi
+
+# Run PHP CS Fixer check
+echo "Checking PHP code style..."
+composer cs:check
+if [ $? -ne 0 ]; then
+    echo "❌ PHP code style issues found! Run 'composer cs:fix' to fix them."
+    exit 1
+fi
+
+# Run ESLint check
+echo "Checking JavaScript code style..."
+npm run lint
+if [ $? -ne 0 ]; then
+    echo "❌ JavaScript code style issues found! Run 'npm run lint:fix' to fix them."
+    exit 1
+fi
+
+# Run Stylelint check
+echo "Checking CSS code style..."
+npm run stylelint
+if [ $? -ne 0 ]; then
+    echo "❌ CSS code style issues found! Run 'npm run stylelint:fix' to fix them."
+    exit 1
+fi
+
+echo "✅ All pre-commit checks passed!"
+exit 0

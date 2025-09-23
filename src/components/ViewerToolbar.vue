@@ -1,56 +1,112 @@
 <template>
-	<div class="viewer-toolbar" role="toolbar" :aria-label="t('threedviewer', '3D viewer controls')" :class="{ 'mobile': isMobile }">
+	<div class="viewer-toolbar"
+		role="toolbar"
+		:aria-label="t('threedviewer', '3D viewer controls')"
+		:class="{ 'mobile': isMobile }">
 		<div class="toolbar-main">
-			<button @click="$emit('reset-view')" :aria-label="t('threedviewer','Reset view')" class="tb" type="button">
+			<button :aria-label="t('threedviewer','Reset view')"
+				class="tb"
+				type="button"
+				@click="$emit('reset-view')">
 				<span class="tb-icon">🔄</span>
 				<span class="tb-text">{{ t('threedviewer','Reset') }}</span>
 			</button>
-			<button @click="$emit('fit-to-view')" :aria-label="t('threedviewer','Fit to view')" class="tb" type="button" :title="t('threedviewer','Fit model to view')">
+			<button :aria-label="t('threedviewer','Fit to view')"
+				class="tb"
+				type="button"
+				:title="t('threedviewer','Fit model to view')"
+				@click="$emit('fit-to-view')">
 				<span class="tb-icon">📏</span>
 				<span class="tb-text">{{ t('threedviewer','Fit') }}</span>
 			</button>
-			<button @click="$emit('toggle-auto-rotate')" :aria-pressed="autoRotate" :aria-label="t('threedviewer','Toggle auto-rotate')" class="tb" type="button" :title="t('threedviewer','Toggle auto-rotate')">
+			<button :aria-pressed="autoRotate"
+				:aria-label="t('threedviewer','Toggle auto-rotate')"
+				class="tb"
+				type="button"
+				:title="t('threedviewer','Toggle auto-rotate')"
+				@click="$emit('toggle-auto-rotate')">
 				<span class="tb-icon">🔄</span>
 				<span class="tb-text">{{ autoRotate ? t('threedviewer','Auto-rotate on') : t('threedviewer','Auto-rotate off') }}</span>
 			</button>
-			<div class="view-presets" v-if="!isMobile">
-				<select @change="$emit('change-preset', $event.target.value)" :value="currentPreset" class="preset-select" :title="t('threedviewer','Camera presets')">
-					<option value="">{{ t('threedviewer','View Presets') }}</option>
-					<option v-for="preset in presets" :key="preset.name" :value="preset.name">{{ preset.label }}</option>
+			<div v-if="!isMobile" class="view-presets">
+				<select :value="currentPreset"
+					class="preset-select"
+					:title="t('threedviewer','Camera presets')"
+					@change="$emit('change-preset', $event.target.value)">
+					<option value="">
+						{{ t('threedviewer','View Presets') }}
+					</option>
+					<option v-for="preset in presets" :key="preset.name" :value="preset.name">
+						{{ preset.label }}
+					</option>
 				</select>
 			</div>
-			<button @click="$emit('toggle-grid')" :aria-pressed="grid" :aria-label="t('threedviewer','Toggle grid')" class="tb" type="button" :title="t('threedviewer','Toggle grid')">
+			<button :aria-pressed="grid"
+				:aria-label="t('threedviewer','Toggle grid')"
+				class="tb"
+				type="button"
+				:title="t('threedviewer','Toggle grid')"
+				@click="$emit('toggle-grid')">
 				<span class="tb-icon">⊞</span>
 				<span class="tb-text">{{ grid ? t('threedviewer','Grid on') : t('threedviewer','Grid off') }}</span>
 			</button>
-			<button @click="$emit('toggle-axes')" :aria-pressed="axes" :aria-label="t('threedviewer','Toggle axes')" class="tb" type="button" :title="t('threedviewer','Toggle axes')">
+			<button :aria-pressed="axes"
+				:aria-label="t('threedviewer','Toggle axes')"
+				class="tb"
+				type="button"
+				:title="t('threedviewer','Toggle axes')"
+				@click="$emit('toggle-axes')">
 				<span class="tb-icon">📐</span>
 				<span class="tb-text">{{ axes ? t('threedviewer','Axes on') : t('threedviewer','Axes off') }}</span>
 			</button>
-			<button @click="$emit('toggle-wireframe')" :aria-pressed="wireframe" :aria-label="t('threedviewer','Toggle wireframe')" class="tb" type="button" :title="t('threedviewer','Toggle wireframe')">
+			<button :aria-pressed="wireframe"
+				:aria-label="t('threedviewer','Toggle wireframe')"
+				class="tb"
+				type="button"
+				:title="t('threedviewer','Toggle wireframe')"
+				@click="$emit('toggle-wireframe')">
 				<span class="tb-icon">🔲</span>
 				<span class="tb-text">{{ wireframe ? t('threedviewer','Wireframe on') : t('threedviewer','Wireframe off') }}</span>
 			</button>
 			<!-- Advanced features -->
-			<button @click="$emit('toggle-measurement')" :aria-pressed="measurementMode" :aria-label="t('threedviewer','Measurement tools')" class="tb" type="button" :title="t('threedviewer','Measurement tools')">
+			<button :aria-pressed="measurementMode"
+				:aria-label="t('threedviewer','Measurement tools')"
+				class="tb"
+				type="button"
+				:title="t('threedviewer','Measurement tools')"
+				@click="$emit('toggle-measurement')">
 				<span class="tb-icon">📏</span>
 				<span class="tb-text">{{ t('threedviewer','Measure') }}</span>
 			</button>
-			<button @click="$emit('toggle-annotation')" :aria-pressed="annotationMode" :aria-label="t('threedviewer','Add annotations')" class="tb" type="button" :title="t('threedviewer','Add annotations')">
+			<button :aria-pressed="annotationMode"
+				:aria-label="t('threedviewer','Add annotations')"
+				class="tb"
+				type="button"
+				:title="t('threedviewer','Add annotations')"
+				@click="$emit('toggle-annotation')">
 				<span class="tb-icon">📝</span>
 				<span class="tb-text">{{ t('threedviewer','Annotate') }}</span>
 			</button>
-			<button @click="$emit('toggle-comparison')" :aria-pressed="comparisonMode" :aria-label="t('threedviewer','Compare models')" class="tb" type="button" :title="t('threedviewer','Compare models')">
+			<button :aria-pressed="comparisonMode"
+				:aria-label="t('threedviewer','Compare models')"
+				class="tb"
+				type="button"
+				:title="t('threedviewer','Compare models')"
+				@click="$emit('toggle-comparison')">
 				<span class="tb-icon">⚖️</span>
 				<span class="tb-text">{{ t('threedviewer','Compare') }}</span>
 			</button>
-			<button @click="$emit('toggle-performance')" :aria-label="t('threedviewer','Performance settings')" class="tb" type="button" :title="t('threedviewer','Performance settings')">
+			<button :aria-label="t('threedviewer','Performance settings')"
+				class="tb"
+				type="button"
+				:title="t('threedviewer','Performance settings')"
+				@click="$emit('toggle-performance')">
 				<span class="tb-icon">⚡</span>
 				<span class="tb-text">{{ getPerformanceModeText() }}</span>
 			</button>
 			<label class="color-picker" :aria-label="t('threedviewer','Background color')">
 				<span class="tb-icon">🎨</span>
-				<input type="color" :value="background" @input="$emit('change-background', $event.target.value)" />
+				<input type="color" :value="background" @input="$emit('change-background', $event.target.value)">
 			</label>
 		</div>
 	</div>
@@ -71,7 +127,7 @@ export default {
 		measurementMode: { type: Boolean, default: false },
 		annotationMode: { type: Boolean, default: false },
 		comparisonMode: { type: Boolean, default: false },
-		performanceMode: { type: String, default: 'auto' }
+		performanceMode: { type: String, default: 'auto' },
 	},
 	data() {
 		return {
@@ -89,51 +145,51 @@ export default {
 	},
 	methods: {
 		detectMobile() {
-			return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
-				   (navigator.maxTouchPoints && navigator.maxTouchPoints > 1) ||
-				   window.innerWidth <= 768
+			return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+				   || (navigator.maxTouchPoints && navigator.maxTouchPoints > 1)
+				   || window.innerWidth <= 768
 		},
 		handleResize() {
 			this.isMobile = this.detectMobile()
 		},
-		
+
 		setupKeyboardNavigation() {
 			// Add keyboard navigation for toolbar
 			this.$el.addEventListener('keydown', this.handleKeydown)
 		},
-		
+
 		removeKeyboardNavigation() {
 			this.$el.removeEventListener('keydown', this.handleKeydown)
 		},
-		
+
 		handleKeydown(event) {
 			// Handle arrow key navigation within toolbar
 			if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
 				const buttons = this.$el.querySelectorAll('button, select')
 				const currentIndex = Array.from(buttons).indexOf(event.target)
 				let nextIndex
-				
+
 				if (event.key === 'ArrowRight') {
 					nextIndex = (currentIndex + 1) % buttons.length
 				} else {
 					nextIndex = (currentIndex - 1 + buttons.length) % buttons.length
 				}
-				
+
 				buttons[nextIndex]?.focus()
 				event.preventDefault()
 			}
 		},
-		
+
 		getPerformanceModeText() {
 			switch (this.performanceMode) {
-				case 'high': return this.t('threedviewer', 'High')
-				case 'medium': return this.t('threedviewer', 'Medium')
-				case 'low': return this.t('threedviewer', 'Low')
-				case 'auto':
-				default: return this.t('threedviewer', 'Auto')
+			case 'high': return this.t('threedviewer', 'High')
+			case 'medium': return this.t('threedviewer', 'Medium')
+			case 'low': return this.t('threedviewer', 'Low')
+			case 'auto':
+			default: return this.t('threedviewer', 'Auto')
 			}
-		}
-	}
+		},
+	},
 }
 </script>
 
@@ -330,12 +386,12 @@ export default {
 		right: 2px;
 		padding: 4px 6px;
 	}
-	
+
 	.viewer-toolbar.mobile .tb {
 		padding: 4px 6px;
 		min-height: 36px;
 	}
-	
+
 	.viewer-toolbar.mobile .color-picker {
 		padding: 4px 6px;
 		min-height: 36px;
@@ -347,7 +403,7 @@ export default {
 	.viewer-toolbar.mobile .tb-text {
 		display: none; /* Hide text on very small screens, show only icons */
 	}
-	
+
 	.viewer-toolbar.mobile .tb {
 		padding: 8px;
 		min-width: 44px;
@@ -401,7 +457,7 @@ export default {
 	.tb {
 		border: 2px solid currentColor;
 	}
-	
+
 	.viewer-toolbar {
 		border: 2px solid rgba(255, 255, 255, 0.5);
 	}
@@ -412,11 +468,11 @@ export default {
 	.tb::before {
 		display: none;
 	}
-	
+
 	.tb:hover {
 		transform: none;
 	}
-	
+
 	.viewer-toolbar {
 		transition: none;
 	}

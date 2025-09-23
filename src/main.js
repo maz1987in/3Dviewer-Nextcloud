@@ -3,12 +3,14 @@ import App from './App.vue'
 
 // Provide fallback translation helpers if not injected by Nextcloud runtime (e.g. Playwright harness)
 // eslint-disable-next-line no-unused-vars
-const safeT = typeof window !== 'undefined' && window.t ? window.t : (s, ...args) => {
-	if (args && args.length) {
-		return String(s).replace(/\{(\d+)\}/g, (m, i) => (args[i] !== undefined ? args[i] : m))
+const safeT = typeof window !== 'undefined' && window.t
+	? window.t
+	: (s, ...args) => {
+		if (args && args.length) {
+			return String(s).replace(/\{(\d+)\}/g, (m, i) => (args[i] !== undefined ? args[i] : m))
+		}
+		return s
 	}
-	return s
-}
 // eslint-disable-next-line no-unused-vars
 const safeN = typeof window !== 'undefined' && window.n ? window.n : (s, p, n) => (n === 1 ? s : p)
 
@@ -16,16 +18,16 @@ Vue.mixin({ methods: { t: safeT, n: safeN } })
 
 // Minimal Nextcloud globals polyfill for test harnesses (Playwright, non-NC context)
 if (typeof window !== 'undefined') {
-  window.OC = window.OC || {}
-  if (typeof window.OC.filePath !== 'function') {
-    // Build asset path compatible with both Nextcloud and test harness server
-    window.OC.filePath = (_app, _type, file) => {
-      const name = String(file || '')
-      const base = name.substring(name.lastIndexOf('/') + 1)
-      // Always serve from /js/<basename> to avoid js/js duplication and relative path issues
-      return `/js/${base}`
-    }
-  }
+	window.OC = window.OC || {}
+	if (typeof window.OC.filePath !== 'function') {
+		// Build asset path compatible with both Nextcloud and test harness server
+		window.OC.filePath = (_app, _type, file) => {
+			const name = String(file || '')
+			const base = name.substring(name.lastIndexOf('/') + 1)
+			// Always serve from /js/<basename> to avoid js/js duplication and relative path issues
+			return `/js/${base}`
+		}
+	}
 }
 
 const View = Vue.extend(App)
@@ -36,9 +38,9 @@ const View = Vue.extend(App)
  * against aggressive tree-shaking / minification.
  * @param {string} selector CSS selector of mount point
  * @param {object} [options] Extra options (future use)
- * @returns {Promise<Vue>|Vue} mounted root instance (Promise when waiting for element)
+ * @return {Promise<Vue>|Vue} mounted root instance (Promise when waiting for element)
  */
-export function bootstrapViewer (selector = '#threedviewer', options = {}) { // eslint-disable-line no-unused-vars
+export function bootstrapViewer(selector = '#threedviewer', options = {}) { // eslint-disable-line no-unused-vars
 	const mountEl = typeof selector === 'string' ? document.querySelector(selector) : selector
 	const performMount = (el) => {
 		if (!el) throw new Error(`Mount element '${selector}' not found`)

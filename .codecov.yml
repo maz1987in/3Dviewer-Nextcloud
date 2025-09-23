@@ -1,0 +1,40 @@
+coverage:
+  status:
+    project:
+      default:
+        target: 70%
+        threshold: 5%
+    patch:
+      default:
+        target: 60%
+        threshold: 5%
+
+comment:
+  layout: "header,diff,files,footer"
+  behavior: default
+  require_changes: false
+  require_base: no
+  require_head: yes
+
+github_checks:
+  annotations: true
+
+ignore:
+  - "tests/"
+  - "vendor/"
+  - "vendor-bin/"
+  - "node_modules/"
+  - "build/"
+  - "dist/"
+  - "*.min.js"
+  - "*.min.css"
+
+flags:
+  php:
+    paths:
+      - "lib/"
+    carryforward: true
+  javascript:
+    paths:
+      - "src/"
+    carryforward: true

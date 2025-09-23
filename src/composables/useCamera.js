@@ -9,768 +9,768 @@ import { VIEWER_CONFIG } from '../config/viewer-config.js'
 import { logError } from '../utils/error-handler.js'
 
 export function useCamera() {
-  // Camera and controls state
-  const camera = ref(null)
-  const controls = ref(null)
-  const initialCameraPos = ref(null)
-  const baselineCameraPos = ref(null)
-  const baselineTarget = ref(null)
-  const initialTarget = ref(new THREE.Vector3(0, 0, 0))
-  const manuallyPositioned = ref(false)
-  
-  // Custom camera controls state
-  const isMouseDown = ref(false)
-  const mouseX = ref(0)
-  const mouseY = ref(0)
-  const rotationX = ref(0)
-  const rotationY = ref(0)
-  const distance = ref(23.35)
-  const modelCenter = ref(new THREE.Vector3(0, 0, 0))
-  
+	// Camera and controls state
+	const camera = ref(null)
+	const controls = ref(null)
+	const initialCameraPos = ref(null)
+	const baselineCameraPos = ref(null)
+	const baselineTarget = ref(null)
+	const initialTarget = ref(new THREE.Vector3(0, 0, 0))
+	const manuallyPositioned = ref(false)
+
+	// Custom camera controls state
+	const isMouseDown = ref(false)
+	const mouseX = ref(0)
+	const mouseY = ref(0)
+	const rotationX = ref(0)
+	const rotationY = ref(0)
+	const distance = ref(23.35)
+	const modelCenter = ref(new THREE.Vector3(0, 0, 0))
+
 	// Auto-rotate state
 	const autoRotateEnabled = ref(false)
 	const autoRotateSpeed = ref(0.5)
-  
-  // Track when manuallyPositioned changes
-  
-  // Animation state
-  const isAnimating = ref(false)
-  
-  // Mobile state
-  const isMobile = ref(false)
-  
-  // Animation presets
-  const animationPresets = ref([
-    {
-      name: 'front',
-      label: 'Front View',
-      position: { x: 0, y: 0, z: 5 },
-      target: { x: 0, y: 0, z: 0 }
-    },
-    {
-      name: 'back',
-      label: 'Back View',
-      position: { x: 0, y: 0, z: -5 },
-      target: { x: 0, y: 0, z: 0 }
-    },
-    {
-      name: 'left',
-      label: 'Left View',
-      position: { x: -5, y: 0, z: 0 },
-      target: { x: 0, y: 0, z: 0 }
-    },
-    {
-      name: 'right',
-      label: 'Right View',
-      position: { x: 5, y: 0, z: 0 },
-      target: { x: 0, y: 0, z: 0 }
-    },
-    {
-      name: 'top',
-      label: 'Top View',
-      position: { x: 0, y: 5, z: 0 },
-      target: { x: 0, y: 0, z: 0 }
-    },
-    {
-      name: 'orbit',
-      label: 'Orbit View',
-      position: { x: 4, y: 2, z: 4 },
-      target: { x: 0, y: 0, z: 0 }
-    }
-  ])
 
-  /**
-   * Initialize camera with appropriate settings
-   * @param {number} width - Viewport width
-   * @param {number} height - Viewport height
-   * @param {boolean} mobile - Whether this is a mobile device
-   */
-  const initCamera = (width, height, mobile = false) => {
-    try {
-      isMobile.value = mobile
-      const fov = mobile ? 75 : VIEWER_CONFIG.camera.fov
-      
-      camera.value = new THREE.PerspectiveCamera(fov, width / height, VIEWER_CONFIG.camera.near, VIEWER_CONFIG.camera.far)
-      camera.value.position.set(2, 2, 2)
-      
-      // Camera created successfully
-      
-      initialCameraPos.value = camera.value.position.clone()
-      
-      logError('useCamera', 'Camera initialized', { fov, width, height, mobile })
-    } catch (error) {
-      logError('useCamera', 'Failed to initialize camera', error)
-      throw error
-    }
-  }
+	// Track when manuallyPositioned changes
 
-  /**
-   * Setup OrbitControls for camera interaction
-   * @param {THREE.WebGLRenderer} renderer - WebGL renderer
-   */
-  const setupControls = async (renderer) => {
-    try {
-      const mod = await import('three/examples/jsm/controls/OrbitControls.js')
-      const OrbitControls = mod.OrbitControls || mod.default
-      
-      controls.value = new OrbitControls(camera.value, renderer.domElement)
-      
-      // DISABLE controls initially to prevent interference with camera positioning
-      controls.value.enabled = false
-      
-      // Basic controls setup
-      controls.value.enableDamping = true
-      controls.value.dampingFactor = 0.05
-      controls.value.screenSpacePanning = false
-      
-      // Prevent models from going out of view
-      controls.value.minDistance = VIEWER_CONFIG.camera.minDistance
-      controls.value.maxDistance = VIEWER_CONFIG.camera.maxDistance
-      controls.value.maxPolarAngle = VIEWER_CONFIG.camera.maxPolarAngle
-      controls.value.minPolarAngle = VIEWER_CONFIG.camera.minPolarAngle
-      
-      controls.value.update()
-      
-      // Monitor camera target to prevent off-center viewing
-      controls.value.addEventListener('change', onControlsChange)
-      controls.value.addEventListener('end', onControlsEnd)
-      
-      // Disable user interaction until camera is fully stable
-      controls.value.addEventListener('start', () => {
-        // Don't reset the flag - keep manual positioning active
-      })
-      
-      // Setup mobile-specific controls
-      if (isMobile.value) {
-        setupMobileControls()
-      }
-      
-      logError('useCamera', 'Controls initialized successfully')
-    } catch (error) {
-      logError('useCamera', 'Failed to setup controls', error)
-      throw error
-    }
-  }
+	// Animation state
+	const isAnimating = ref(false)
 
-  /**
-   * Setup mobile-specific controls
-   */
-  const setupMobileControls = () => {
-    if (!isMobile.value || !controls.value) return
-    
-    controls.value.enableDamping = true
-    controls.value.dampingFactor = 0.1
-    controls.value.screenSpacePanning = true
-    controls.value.touches = {
-      ONE: THREE.TOUCH.ROTATE,
-      TWO: THREE.TOUCH.DOLLY_PAN
-    }
-    
-    logError('useCamera', 'Mobile controls configured')
-  }
+	// Mobile state
+	const isMobile = ref(false)
 
-  /**
-   * Handle controls change event
-   */
-  const onControlsChange = () => {
-    if (!controls.value || !camera.value || manuallyPositioned.value) return
-    
-    // Check if camera target is off-center and reset if needed
-    const target = controls.value.target
-    const threshold = VIEWER_CONFIG.camera.targetResetThreshold
-    
-    if (Math.abs(target.x) > threshold || Math.abs(target.z) > threshold) {
-      logError('useCamera', 'Camera target drifted off-center, resetting to origin', { 
-        target: { x: target.x, y: target.y, z: target.z },
-        threshold 
-      })
-      
-      controls.value.target.set(0, 0, 0)
-      controls.value.update()
-      camera.value.lookAt(0, 0, 0)
-    }
-  }
+	// Animation presets
+	const animationPresets = ref([
+		{
+			name: 'front',
+			label: 'Front View',
+			position: { x: 0, y: 0, z: 5 },
+			target: { x: 0, y: 0, z: 0 },
+		},
+		{
+			name: 'back',
+			label: 'Back View',
+			position: { x: 0, y: 0, z: -5 },
+			target: { x: 0, y: 0, z: 0 },
+		},
+		{
+			name: 'left',
+			label: 'Left View',
+			position: { x: -5, y: 0, z: 0 },
+			target: { x: 0, y: 0, z: 0 },
+		},
+		{
+			name: 'right',
+			label: 'Right View',
+			position: { x: 5, y: 0, z: 0 },
+			target: { x: 0, y: 0, z: 0 },
+		},
+		{
+			name: 'top',
+			label: 'Top View',
+			position: { x: 0, y: 5, z: 0 },
+			target: { x: 0, y: 0, z: 0 },
+		},
+		{
+			name: 'orbit',
+			label: 'Orbit View',
+			position: { x: 4, y: 2, z: 4 },
+			target: { x: 0, y: 0, z: 0 },
+		},
+	])
 
-  /**
-   * Handle controls end event
-   */
-  const onControlsEnd = () => {
-    if (controls.value && !manuallyPositioned.value) {
-      controls.value.update()
-    }
-  }
+	/**
+	 * Initialize camera with appropriate settings
+	 * @param {number} width - Viewport width
+	 * @param {number} height - Viewport height
+	 * @param {boolean} mobile - Whether this is a mobile device
+	 */
+	const initCamera = (width, height, mobile = false) => {
+		try {
+			isMobile.value = mobile
+			const fov = mobile ? 75 : VIEWER_CONFIG.camera.fov
 
-  /**
-   * Fit camera to an object
-   * @param {THREE.Object3D} obj - Object to fit camera to
-   */
-  const fitCameraToObject = (obj) => {
-    // Fitting camera to object
-    
-    if (!camera.value || !controls.value || !obj) return
-    
-    try {
-      const box = new THREE.Box3().setFromObject(obj)
-      if (box.isEmpty()) return
-      
-      const center = box.getCenter(new THREE.Vector3())
-      const size = box.getSize(new THREE.Vector3())
-      const maxDim = Math.max(size.x, size.y, size.z)
-      
-      // Get the world position of the object and add the center offset
-      const worldPosition = new THREE.Vector3()
-      obj.getWorldPosition(worldPosition)
-      const worldCenter = center.clone().add(worldPosition)
-      
-      // Update model center for camera controls
-      modelCenter.value.copy(worldCenter)
-      
-      const fov = camera.value.fov * (Math.PI / 180)
-      let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2)) * 1.4
-      
-      // Camera calculation completed
-      
-      // Validate cameraZ to prevent NaN
-      if (!isFinite(cameraZ) || cameraZ <= 0) {
-        cameraZ = maxDim * 2 // Fallback to 2x the max dimension
-      }
-      
-      // Only center the model if it's not already centered (within a small tolerance)
-      const tolerance = 0.1
-      const isAlreadyCentered = Math.abs(center.x) < tolerance && 
-                               Math.abs(center.y) < tolerance && 
-                               Math.abs(center.z) < tolerance
-      
-      if (!isAlreadyCentered) {
-        obj.position.sub(center)
-      }
-      
-      // Set camera position to look at origin with better distance
-      let cameraDistance = Math.max(cameraZ * 2, 20)
-      
-      // Validate cameraDistance to prevent NaN
-      if (!isFinite(cameraDistance) || cameraDistance <= 0) {
-        cameraDistance = 50 // Fallback distance
-      }
-      
-      // Validate camera before setting position
-      if (!camera.value) {
-        return
-      }
-      
-      // Setting camera position
-      
-      // Update controls target to world center
-      controls.value.target.copy(worldCenter)
-      
-      // Update controls first
-      controls.value.update()
-      
-      // Set camera position relative to world center
-      camera.value.position.set(
-        worldCenter.x + cameraDistance, 
-        worldCenter.y + cameraDistance * 0.5, 
-        worldCenter.z + cameraDistance
-      )
-      camera.value.lookAt(worldCenter)
-      
-      // Calculate initial rotation values based on camera position
-      const direction = new THREE.Vector3()
-      direction.subVectors(camera.value.position, worldCenter).normalize()
-      
-      // Calculate rotationY (horizontal rotation)
-      rotationY.value = Math.atan2(direction.x, direction.z)
-      
-      // Calculate rotationX (vertical rotation) 
-      const horizontalDistance = Math.sqrt(direction.x * direction.x + direction.z * direction.z)
-      rotationX.value = Math.atan2(direction.y, horizontalDistance)
-      
-      // Update distance to match actual distance
-      distance.value = camera.value.position.distanceTo(worldCenter)
-      
-      // Initial rotation calculated
-      
-      // Ensure the camera position is valid before proceeding
-      if (!isFinite(camera.value.position.x) || !isFinite(camera.value.position.y) || !isFinite(camera.value.position.z)) {
-        camera.value.position.set(23.35, 11.68, 23.35)
-      }
-      
-      // Set the controls' internal position state to match
-      if (controls.value.object) {
-        controls.value.object.position.copy(camera.value.position)
-      }
-      
-      // Also update the controls' internal state
-      if (controls.value.object && controls.value.object !== camera.value) {
-        controls.value.object.position.copy(camera.value.position)
-        controls.value.object.lookAt(0, 0, 0)
-      }
-      
-      // Mark that we've manually positioned the camera
-      manuallyPositioned.value = true
-      
-        // Set a timeout to allow manual positioning to stabilize
-        setTimeout(() => {
-          // Only allow manual positioning to be reset if camera is still valid
-          if (camera.value && 
-              isFinite(camera.value.position.x) && 
-              isFinite(camera.value.position.y) && 
-              isFinite(camera.value.position.z)) {
-            manuallyPositioned.value = false
-            
-            // Re-enable controls after stabilization
-            if (controls.value) {
-              controls.value.enabled = true
-            }
-          }
-        }, 1000) // Wait 1 second for stabilization
-      
-      // Verify the position was set correctly
-      
-      // Camera fitted to object successfully
-      
-      logError('useCamera', 'Camera fitted to object', { 
-        center: { x: center.x, y: center.y, z: center.z },
-        size: { x: size.x, y: size.y, z: size.z },
-        cameraDistance 
-      })
-    } catch (error) {
-      logError('useCamera', 'Failed to fit camera to object', error)
-    }
-  }
+			camera.value = new THREE.PerspectiveCamera(fov, width / height, VIEWER_CONFIG.camera.near, VIEWER_CONFIG.camera.far)
+			camera.value.position.set(2, 2, 2)
 
-  /**
-   * Fit camera to view both models (comparison mode)
-   * @param {THREE.Object3D} model1 - First model
-   * @param {THREE.Object3D} model2 - Second model
-   */
-  const fitBothModelsToView = (model1, model2) => {
-    if (!camera.value || !controls.value || !model1 || !model2) return
-    
-    try {
-      const box1 = new THREE.Box3().setFromObject(model1)
-      const box2 = new THREE.Box3().setFromObject(model2)
-      const combinedBox = box1.union(box2)
-      
-      const center = combinedBox.getCenter(new THREE.Vector3())
-      const size = combinedBox.getSize(new THREE.Vector3())
-      const maxDim = Math.max(size.x, size.y, size.z)
-      
-      // Center both models at origin
-      const tolerance = 0.1
-      const isAlreadyCentered = Math.abs(center.x) < tolerance && 
-                               Math.abs(center.y) < tolerance && 
-                               Math.abs(center.z) < tolerance
-      
-      if (!isAlreadyCentered) {
-        model1.position.sub(center)
-        model2.position.sub(center)
-      }
-      
-      // Position camera to look at origin with better distance
-      const distance = maxDim * 1.5
-      const cameraDistance = Math.max(distance * 1.5, 30)
-      camera.value.position.set(cameraDistance, cameraDistance * 0.3, cameraDistance * 0.7)
-      camera.value.lookAt(0, 0, 0)
-      
-      // Update controls target to origin
-      controls.value.target.set(0, 0, 0)
-      controls.value.update()
-      
-      // Force the camera to look at origin immediately
-      camera.value.lookAt(0, 0, 0)
-      
-      logError('useCamera', 'Camera fitted to both models', { 
-        center: { x: center.x, y: center.y, z: center.z },
-        size: { x: size.x, y: size.y, z: size.z },
-        cameraDistance 
-      })
-    } catch (error) {
-      logError('useCamera', 'Failed to fit camera to both models', error)
-    }
-  }
+			// Camera created successfully
 
-  /**
-   * Reset camera to initial position
-   */
-  const resetView = () => {
-    if (!camera.value || !controls.value) return
-    
-    try {
-      if (baselineCameraPos.value && baselineTarget.value) {
-        camera.value.position.copy(baselineCameraPos.value)
-        controls.value.target.copy(baselineTarget.value)
-      } else if (initialCameraPos.value) {
-        camera.value.position.copy(initialCameraPos.value)
-        controls.value.target.copy(initialTarget.value)
-      }
-      
-      controls.value.update()
-      logError('useCamera', 'View reset to baseline/initial position')
-    } catch (error) {
-      logError('useCamera', 'Failed to reset view', error)
-    }
-  }
+			initialCameraPos.value = camera.value.position.clone()
 
-  /**
-   * Fit camera to view with padding
-   * @param {THREE.Object3D} obj - Object to fit to
-   * @param {number} padding - Padding factor
-   */
-  const fitToView = (obj, padding = 1.2) => {
-    if (!camera.value || !controls.value || !obj) return
-    
-    try {
-      const box = new THREE.Box3().setFromObject(obj)
-      if (box.isEmpty()) return
-      
-      const size = box.getSize(new THREE.Vector3())
-      const maxDim = Math.max(size.x, size.y, size.z)
-      const fov = camera.value.fov * (Math.PI / 180)
-      const distance = Math.abs(maxDim / Math.sin(fov / 2)) * padding
-      
-      const direction = camera.value.position.clone().sub(controls.value.target).normalize()
-      camera.value.position.copy(controls.value.target).add(direction.multiplyScalar(distance))
-      controls.value.update()
-      
-      logError('useCamera', 'Camera fitted to view', { distance, padding })
-    } catch (error) {
-      logError('useCamera', 'Failed to fit to view', error)
-    }
-  }
+			logError('useCamera', 'Camera initialized', { fov, width, height, mobile })
+		} catch (error) {
+			logError('useCamera', 'Failed to initialize camera', error)
+			throw error
+		}
+	}
 
+	/**
+	 * Setup OrbitControls for camera interaction
+	 * @param {THREE.WebGLRenderer} renderer - WebGL renderer
+	 */
+	const setupControls = async (renderer) => {
+		try {
+			const mod = await import('three/examples/jsm/controls/OrbitControls.js')
+			const OrbitControls = mod.OrbitControls || mod.default
 
-  /**
-   * Animate camera to preset position
-   * @param {string} presetName - Name of the preset
-   * @param {number} duration - Animation duration in ms
-   */
-  const animateToPreset = (presetName, duration = 1000) => {
-    if (!controls.value) return
-    
-    const preset = animationPresets.value.find(p => p.name === presetName)
-    if (!preset) return
-    
-    isAnimating.value = true
-    const startTime = Date.now()
-    
-    const startPosition = camera.value.position.clone()
-    const startTarget = controls.value.target.clone()
-    const endPosition = new THREE.Vector3(preset.position.x, preset.position.y, preset.position.z)
-    const endTarget = new THREE.Vector3(preset.target.x, preset.target.y, preset.target.z)
-    
-    const animate = () => {
-      const elapsed = Date.now() - startTime
-      const progress = Math.min(elapsed / duration, 1)
-      
-      // Easing function (ease-in-out)
-      const easeProgress = progress < 0.5 
-        ? 2 * progress * progress 
-        : 1 - Math.pow(-2 * progress + 2, 2) / 2
-      
-      // Interpolate position and target
-      camera.value.position.lerpVectors(startPosition, endPosition, easeProgress)
-      controls.value.target.lerpVectors(startTarget, endTarget, easeProgress)
-      controls.value.update()
-      
-      if (progress < 1) {
-        requestAnimationFrame(animate)
-      } else {
-        isAnimating.value = false
-        logError('useCamera', 'Preset animation completed', { preset: presetName })
-      }
-    }
-    
-    animate()
-  }
+			controls.value = new OrbitControls(camera.value, renderer.domElement)
 
-  /**
-   * Smooth zoom to target distance
-   * @param {number} targetDistance - Target zoom distance
-   * @param {number} duration - Animation duration in ms
-   */
-  const smoothZoom = (targetDistance, duration = 500) => {
-    if (!controls.value) return
-    
-    const startDistance = camera.value.position.distanceTo(controls.value.target)
-    const startTime = Date.now()
-    
-    const animate = () => {
-      const elapsed = Date.now() - startTime
-      const progress = Math.min(elapsed / duration, 1)
-      
-      // Easing function (ease-out)
-      const easeProgress = 1 - Math.pow(1 - progress, 3)
-      
-      const currentDistance = startDistance + (targetDistance - startDistance) * easeProgress
-      const direction = camera.value.position.clone().sub(controls.value.target).normalize()
-      camera.value.position.copy(controls.value.target).add(direction.multiplyScalar(currentDistance))
-      controls.value.update()
-      
-      if (progress < 1) {
-        requestAnimationFrame(animate)
-      }
-    }
-    
-    animate()
-  }
+			// DISABLE controls initially to prevent interference with camera positioning
+			controls.value.enabled = false
 
-  /**
-   * Update camera on window resize
-   * @param {number} width - New viewport width
-   * @param {number} height - New viewport height
-   */
-  const onWindowResize = (width, height) => {
-    if (!camera.value) return
-    
-    camera.value.aspect = width / height
-    camera.value.updateProjectionMatrix()
-    logError('useCamera', 'Camera updated for resize', { width, height })
-  }
+			// Basic controls setup
+			controls.value.enableDamping = true
+			controls.value.dampingFactor = 0.05
+			controls.value.screenSpacePanning = false
 
-  /**
-   * Update controls
-   */
-  const updateControls = () => {
-    if (controls.value && !manuallyPositioned.value && controls.value.enabled) {
-      // Only update controls if they are enabled, camera position is valid (not NaN) and we haven't manually positioned it
-      if (camera.value && 
-          isFinite(camera.value.position.x) && 
-          isFinite(camera.value.position.y) && 
-          isFinite(camera.value.position.z)) {
-        controls.value.update()
-      }
-    }
-  }
+			// Prevent models from going out of view
+			controls.value.minDistance = VIEWER_CONFIG.camera.minDistance
+			controls.value.maxDistance = VIEWER_CONFIG.camera.maxDistance
+			controls.value.maxPolarAngle = VIEWER_CONFIG.camera.maxPolarAngle
+			controls.value.minPolarAngle = VIEWER_CONFIG.camera.minPolarAngle
 
-  /**
-   * Setup custom camera controls (mouse events)
-   * @param {HTMLElement} domElement - DOM element to attach events to
-   */
-  const setupCustomControls = (domElement, measurementHandler = null) => {
-    if (!domElement || !camera.value) return
+			controls.value.update()
 
-    const onMouseDown = (event) => {
-      isMouseDown.value = true
-      mouseX.value = event.clientX
-      mouseY.value = event.clientY
-    }
+			// Monitor camera target to prevent off-center viewing
+			controls.value.addEventListener('change', onControlsChange)
+			controls.value.addEventListener('end', onControlsEnd)
 
-    const onMouseMove = (event) => {
-      if (!isMouseDown.value || !camera.value) return
+			// Disable user interaction until camera is fully stable
+			controls.value.addEventListener('start', () => {
+				// Don't reset the flag - keep manual positioning active
+			})
 
-      const deltaX = event.clientX - mouseX.value
-      const deltaY = event.clientY - mouseY.value
+			// Setup mobile-specific controls
+			if (isMobile.value) {
+				setupMobileControls()
+			}
 
-      rotationY.value -= deltaX * 0.005  // Invert horizontal rotation, more sensitive
-      rotationX.value += deltaY * 0.005  // Keep vertical rotation normal (not inverted)
+			logError('useCamera', 'Controls initialized successfully')
+		} catch (error) {
+			logError('useCamera', 'Failed to setup controls', error)
+			throw error
+		}
+	}
 
-      // Clamp rotationX to prevent flipping
-      rotationX.value = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, rotationX.value))
+	/**
+	 * Setup mobile-specific controls
+	 */
+	const setupMobileControls = () => {
+		if (!isMobile.value || !controls.value) return
 
-      // Update camera position based on rotation around model center
-      const x = modelCenter.value.x + Math.sin(rotationY.value) * Math.cos(rotationX.value) * distance.value
-      const y = modelCenter.value.y + Math.sin(rotationX.value) * distance.value
-      const z = modelCenter.value.z + Math.cos(rotationY.value) * Math.cos(rotationX.value) * distance.value
+		controls.value.enableDamping = true
+		controls.value.dampingFactor = 0.1
+		controls.value.screenSpacePanning = true
+		controls.value.touches = {
+			ONE: THREE.TOUCH.ROTATE,
+			TWO: THREE.TOUCH.DOLLY_PAN,
+		}
 
-      camera.value.position.set(x, y, z)
-      camera.value.lookAt(modelCenter.value)
+		logError('useCamera', 'Mobile controls configured')
+	}
 
-      mouseX.value = event.clientX
-      mouseY.value = event.clientY
-    }
+	/**
+	 * Handle controls change event
+	 */
+	const onControlsChange = () => {
+		if (!controls.value || !camera.value || manuallyPositioned.value) return
 
-    const onMouseUp = () => {
-      isMouseDown.value = false
-    }
+		// Check if camera target is off-center and reset if needed
+		const target = controls.value.target
+		const threshold = VIEWER_CONFIG.camera.targetResetThreshold
 
-    const onWheel = (event) => {
-      if (!camera.value) return
+		if (Math.abs(target.x) > threshold || Math.abs(target.z) > threshold) {
+			logError('useCamera', 'Camera target drifted off-center, resetting to origin', {
+				target: { x: target.x, y: target.y, z: target.z },
+				threshold,
+			})
 
-      // Prevent default browser zoom behavior
-      event.preventDefault()
-      event.stopPropagation()
+			controls.value.target.set(0, 0, 0)
+			controls.value.update()
+			camera.value.lookAt(0, 0, 0)
+		}
+	}
 
-      // Wheel event handled
+	/**
+	 * Handle controls end event
+	 */
+	const onControlsEnd = () => {
+		if (controls.value && !manuallyPositioned.value) {
+			controls.value.update()
+		}
+	}
 
-      distance.value += event.deltaY * 0.05  // Much more sensitive zoom
-      distance.value = Math.max(2, Math.min(200, distance.value))  // Wider zoom range
+	/**
+	 * Fit camera to an object
+	 * @param {THREE.Object3D} obj - Object to fit camera to
+	 */
+	const fitCameraToObject = (obj) => {
+		// Fitting camera to object
 
-      // Distance updated
+		if (!camera.value || !controls.value || !obj) return
 
-      // Update camera position based on current rotation and new distance around model center
-      const x = modelCenter.value.x + Math.sin(rotationY.value) * Math.cos(rotationX.value) * distance.value
-      const y = modelCenter.value.y + Math.sin(rotationX.value) * distance.value
-      const z = modelCenter.value.z + Math.cos(rotationY.value) * Math.cos(rotationX.value) * distance.value
+		try {
+			const box = new THREE.Box3().setFromObject(obj)
+			if (box.isEmpty()) return
 
-      camera.value.position.set(x, y, z)
-      camera.value.lookAt(modelCenter.value)
+			const center = box.getCenter(new THREE.Vector3())
+			const size = box.getSize(new THREE.Vector3())
+			const maxDim = Math.max(size.x, size.y, size.z)
 
-      // Camera position updated after zoom
-    }
+			// Get the world position of the object and add the center offset
+			const worldPosition = new THREE.Vector3()
+			obj.getWorldPosition(worldPosition)
+			const worldCenter = center.clone().add(worldPosition)
 
-    const onClick = (event) => {
-      // Only handle clicks if measurement handler is provided and not dragging
-      if (measurementHandler && !isMouseDown.value) {
-        // Get scene from the measurement handler's context
-        measurementHandler(event, camera.value)
-      }
-    }
+			// Update model center for camera controls
+			modelCenter.value.copy(worldCenter)
 
-    // Add event listeners
-    domElement.addEventListener('mousedown', onMouseDown)
-    domElement.addEventListener('mousemove', onMouseMove)
-    domElement.addEventListener('mouseup', onMouseUp)
-    domElement.addEventListener('wheel', onWheel)
-    domElement.addEventListener('click', onClick)
+			const fov = camera.value.fov * (Math.PI / 180)
+			let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2)) * 1.4
 
-    // Return cleanup function
-    return () => {
-      domElement.removeEventListener('mousedown', onMouseDown)
-      domElement.removeEventListener('mousemove', onMouseMove)
-      domElement.removeEventListener('mouseup', onMouseUp)
-      domElement.removeEventListener('wheel', onWheel)
-      domElement.removeEventListener('click', onClick)
-    }
-  }
+			// Camera calculation completed
 
-  /**
-   * Render the scene
-   * @param {THREE.WebGLRenderer} renderer - WebGL renderer
-   * @param {THREE.Scene} scene - Three.js scene
-   */
-  const render = (renderer, scene) => {
-    if (renderer && scene && camera.value) {
-      try {
-        // Clean up any invalid geometries in the scene before rendering
-        scene.traverse((child) => {
-          if (child.geometry) {
-            // Check for invalid geometry attributes
-            if (!child.geometry.attributes || !child.geometry.attributes.position) {
-              child.geometry.dispose()
-              child.geometry = null
-              return
-            }
-            
-            // Check for null bounding sphere
-            try {
-              if (!child.geometry.boundingSphere) {
-                child.geometry.computeBoundingSphere()
-              }
-              if (child.geometry.boundingSphere && child.geometry.boundingSphere.center === null) {
-                child.geometry.dispose()
-                child.geometry = null
-                return
-              }
-            } catch (error) {
-              child.geometry.dispose()
-              child.geometry = null
-              return
-            }
-          }
-          
-          if (child.material) {
-            if (!child.material.isMaterial) {
-              child.material.dispose()
-              child.material = null
-            }
-          }
-        })
-        
-        // Auto-rotate functionality
-        if (autoRotateEnabled.value && !isMouseDown.value) {
-          rotationY.value += autoRotateSpeed.value * 0.01
-          
-          // Update camera position based on current rotation around model center
-          const x = modelCenter.value.x + Math.sin(rotationY.value) * Math.cos(rotationX.value) * distance.value
-          const y = modelCenter.value.y + Math.sin(rotationX.value) * distance.value
-          const z = modelCenter.value.z + Math.cos(rotationY.value) * Math.cos(rotationX.value) * distance.value
-          
-          camera.value.position.set(x, y, z)
-          camera.value.lookAt(modelCenter.value)
-        }
-        
-        // Check if camera position becomes NaN and fix it
-        if (!isFinite(camera.value.position.x) || !isFinite(camera.value.position.y) || !isFinite(camera.value.position.z)) {
-          // Fix the camera position
-          camera.value.position.set(23.35, 11.68, 23.35)
-          camera.value.lookAt(0, 0, 0)
-          
-          // Update controls if they exist and disable them temporarily
-          if (controls.value && controls.value.object) {
-            controls.value.object.position.copy(camera.value.position)
-            controls.value.target.set(0, 0, 0)
-            controls.value.enabled = false // Disable controls if they cause NaN
-          }
-        }
-        
-        renderer.render(scene, camera.value)
-      } catch (error) {
-        // Render error handled
-      }
-    }
-  }
+			// Validate cameraZ to prevent NaN
+			if (!isFinite(cameraZ) || cameraZ <= 0) {
+				cameraZ = maxDim * 2 // Fallback to 2x the max dimension
+			}
 
-  /**
-   * Toggle auto-rotate
-   */
-  const toggleAutoRotate = () => {
-    autoRotateEnabled.value = !autoRotateEnabled.value
-    // Auto-rotate toggled
-  }
+			// Only center the model if it's not already centered (within a small tolerance)
+			const tolerance = 0.1
+			const isAlreadyCentered = Math.abs(center.x) < tolerance
+                               && Math.abs(center.y) < tolerance
+                               && Math.abs(center.z) < tolerance
 
-  /**
-   * Set auto-rotate speed
-   * @param {number} speed - Rotation speed (default: 2.0)
-   */
-  const setAutoRotateSpeed = (speed) => {
-    autoRotateSpeed.value = speed
-    // Auto-rotate speed set
-  }
+			if (!isAlreadyCentered) {
+				obj.position.sub(center)
+			}
 
-  /**
-   * Dispose of camera and controls
-   */
-  const dispose = () => {
-    if (controls.value) {
-      controls.value.dispose()
-      controls.value = null
-    }
-    
-    camera.value = null
-    initialCameraPos.value = null
-    baselineCameraPos.value = null
-    baselineTarget.value = null
-    
-    logError('useCamera', 'Camera and controls disposed')
-  }
+			// Set camera position to look at origin with better distance
+			let cameraDistance = Math.max(cameraZ * 2, 20)
 
-  return {
-    // State
-    camera: readonly(camera),
-    controls: readonly(controls),
-    isAnimating: readonly(isAnimating),
-    autoRotate: readonly(autoRotateEnabled),
-    autoRotateSpeed: readonly(autoRotateSpeed),
-    isMobile: readonly(isMobile),
-    animationPresets: readonly(animationPresets),
-    
-    // Methods
-    initCamera,
-    setupControls,
-    setupCustomControls,
-    setupMobileControls,
-    fitCameraToObject,
-    fitBothModelsToView,
-    resetView,
-    fitToView,
-    toggleAutoRotate,
-    setAutoRotateSpeed,
-    animateToPreset,
-    smoothZoom,
-    onWindowResize,
-    updateControls,
-    render,
-    dispose
-  }
+			// Validate cameraDistance to prevent NaN
+			if (!isFinite(cameraDistance) || cameraDistance <= 0) {
+				cameraDistance = 50 // Fallback distance
+			}
+
+			// Validate camera before setting position
+			if (!camera.value) {
+				return
+			}
+
+			// Setting camera position
+
+			// Update controls target to world center
+			controls.value.target.copy(worldCenter)
+
+			// Update controls first
+			controls.value.update()
+
+			// Set camera position relative to world center
+			camera.value.position.set(
+				worldCenter.x + cameraDistance,
+				worldCenter.y + cameraDistance * 0.5,
+				worldCenter.z + cameraDistance,
+			)
+			camera.value.lookAt(worldCenter)
+
+			// Calculate initial rotation values based on camera position
+			const direction = new THREE.Vector3()
+			direction.subVectors(camera.value.position, worldCenter).normalize()
+
+			// Calculate rotationY (horizontal rotation)
+			rotationY.value = Math.atan2(direction.x, direction.z)
+
+			// Calculate rotationX (vertical rotation)
+			const horizontalDistance = Math.sqrt(direction.x * direction.x + direction.z * direction.z)
+			rotationX.value = Math.atan2(direction.y, horizontalDistance)
+
+			// Update distance to match actual distance
+			distance.value = camera.value.position.distanceTo(worldCenter)
+
+			// Initial rotation calculated
+
+			// Ensure the camera position is valid before proceeding
+			if (!isFinite(camera.value.position.x) || !isFinite(camera.value.position.y) || !isFinite(camera.value.position.z)) {
+				camera.value.position.set(23.35, 11.68, 23.35)
+			}
+
+			// Set the controls' internal position state to match
+			if (controls.value.object) {
+				controls.value.object.position.copy(camera.value.position)
+			}
+
+			// Also update the controls' internal state
+			if (controls.value.object && controls.value.object !== camera.value) {
+				controls.value.object.position.copy(camera.value.position)
+				controls.value.object.lookAt(0, 0, 0)
+			}
+
+			// Mark that we've manually positioned the camera
+			manuallyPositioned.value = true
+
+			// Set a timeout to allow manual positioning to stabilize
+			setTimeout(() => {
+				// Only allow manual positioning to be reset if camera is still valid
+				if (camera.value
+              && isFinite(camera.value.position.x)
+              && isFinite(camera.value.position.y)
+              && isFinite(camera.value.position.z)) {
+					manuallyPositioned.value = false
+
+					// Re-enable controls after stabilization
+					if (controls.value) {
+						controls.value.enabled = true
+					}
+				}
+			}, 1000) // Wait 1 second for stabilization
+
+			// Verify the position was set correctly
+
+			// Camera fitted to object successfully
+
+			logError('useCamera', 'Camera fitted to object', {
+				center: { x: center.x, y: center.y, z: center.z },
+				size: { x: size.x, y: size.y, z: size.z },
+				cameraDistance,
+			})
+		} catch (error) {
+			logError('useCamera', 'Failed to fit camera to object', error)
+		}
+	}
+
+	/**
+	 * Fit camera to view both models (comparison mode)
+	 * @param {THREE.Object3D} model1 - First model
+	 * @param {THREE.Object3D} model2 - Second model
+	 */
+	const fitBothModelsToView = (model1, model2) => {
+		if (!camera.value || !controls.value || !model1 || !model2) return
+
+		try {
+			const box1 = new THREE.Box3().setFromObject(model1)
+			const box2 = new THREE.Box3().setFromObject(model2)
+			const combinedBox = box1.union(box2)
+
+			const center = combinedBox.getCenter(new THREE.Vector3())
+			const size = combinedBox.getSize(new THREE.Vector3())
+			const maxDim = Math.max(size.x, size.y, size.z)
+
+			// Center both models at origin
+			const tolerance = 0.1
+			const isAlreadyCentered = Math.abs(center.x) < tolerance
+                               && Math.abs(center.y) < tolerance
+                               && Math.abs(center.z) < tolerance
+
+			if (!isAlreadyCentered) {
+				model1.position.sub(center)
+				model2.position.sub(center)
+			}
+
+			// Position camera to look at origin with better distance
+			const distance = maxDim * 1.5
+			const cameraDistance = Math.max(distance * 1.5, 30)
+			camera.value.position.set(cameraDistance, cameraDistance * 0.3, cameraDistance * 0.7)
+			camera.value.lookAt(0, 0, 0)
+
+			// Update controls target to origin
+			controls.value.target.set(0, 0, 0)
+			controls.value.update()
+
+			// Force the camera to look at origin immediately
+			camera.value.lookAt(0, 0, 0)
+
+			logError('useCamera', 'Camera fitted to both models', {
+				center: { x: center.x, y: center.y, z: center.z },
+				size: { x: size.x, y: size.y, z: size.z },
+				cameraDistance,
+			})
+		} catch (error) {
+			logError('useCamera', 'Failed to fit camera to both models', error)
+		}
+	}
+
+	/**
+	 * Reset camera to initial position
+	 */
+	const resetView = () => {
+		if (!camera.value || !controls.value) return
+
+		try {
+			if (baselineCameraPos.value && baselineTarget.value) {
+				camera.value.position.copy(baselineCameraPos.value)
+				controls.value.target.copy(baselineTarget.value)
+			} else if (initialCameraPos.value) {
+				camera.value.position.copy(initialCameraPos.value)
+				controls.value.target.copy(initialTarget.value)
+			}
+
+			controls.value.update()
+			logError('useCamera', 'View reset to baseline/initial position')
+		} catch (error) {
+			logError('useCamera', 'Failed to reset view', error)
+		}
+	}
+
+	/**
+	 * Fit camera to view with padding
+	 * @param {THREE.Object3D} obj - Object to fit to
+	 * @param {number} padding - Padding factor
+	 */
+	const fitToView = (obj, padding = 1.2) => {
+		if (!camera.value || !controls.value || !obj) return
+
+		try {
+			const box = new THREE.Box3().setFromObject(obj)
+			if (box.isEmpty()) return
+
+			const size = box.getSize(new THREE.Vector3())
+			const maxDim = Math.max(size.x, size.y, size.z)
+			const fov = camera.value.fov * (Math.PI / 180)
+			const distance = Math.abs(maxDim / Math.sin(fov / 2)) * padding
+
+			const direction = camera.value.position.clone().sub(controls.value.target).normalize()
+			camera.value.position.copy(controls.value.target).add(direction.multiplyScalar(distance))
+			controls.value.update()
+
+			logError('useCamera', 'Camera fitted to view', { distance, padding })
+		} catch (error) {
+			logError('useCamera', 'Failed to fit to view', error)
+		}
+	}
+
+	/**
+	 * Animate camera to preset position
+	 * @param {string} presetName - Name of the preset
+	 * @param {number} duration - Animation duration in ms
+	 */
+	const animateToPreset = (presetName, duration = 1000) => {
+		if (!controls.value) return
+
+		const preset = animationPresets.value.find(p => p.name === presetName)
+		if (!preset) return
+
+		isAnimating.value = true
+		const startTime = Date.now()
+
+		const startPosition = camera.value.position.clone()
+		const startTarget = controls.value.target.clone()
+		const endPosition = new THREE.Vector3(preset.position.x, preset.position.y, preset.position.z)
+		const endTarget = new THREE.Vector3(preset.target.x, preset.target.y, preset.target.z)
+
+		const animate = () => {
+			const elapsed = Date.now() - startTime
+			const progress = Math.min(elapsed / duration, 1)
+
+			// Easing function (ease-in-out)
+			const easeProgress = progress < 0.5
+				? 2 * progress * progress
+				: 1 - Math.pow(-2 * progress + 2, 2) / 2
+
+			// Interpolate position and target
+			camera.value.position.lerpVectors(startPosition, endPosition, easeProgress)
+			controls.value.target.lerpVectors(startTarget, endTarget, easeProgress)
+			controls.value.update()
+
+			if (progress < 1) {
+				requestAnimationFrame(animate)
+			} else {
+				isAnimating.value = false
+				logError('useCamera', 'Preset animation completed', { preset: presetName })
+			}
+		}
+
+		animate()
+	}
+
+	/**
+	 * Smooth zoom to target distance
+	 * @param {number} targetDistance - Target zoom distance
+	 * @param {number} duration - Animation duration in ms
+	 */
+	const smoothZoom = (targetDistance, duration = 500) => {
+		if (!controls.value) return
+
+		const startDistance = camera.value.position.distanceTo(controls.value.target)
+		const startTime = Date.now()
+
+		const animate = () => {
+			const elapsed = Date.now() - startTime
+			const progress = Math.min(elapsed / duration, 1)
+
+			// Easing function (ease-out)
+			const easeProgress = 1 - Math.pow(1 - progress, 3)
+
+			const currentDistance = startDistance + (targetDistance - startDistance) * easeProgress
+			const direction = camera.value.position.clone().sub(controls.value.target).normalize()
+			camera.value.position.copy(controls.value.target).add(direction.multiplyScalar(currentDistance))
+			controls.value.update()
+
+			if (progress < 1) {
+				requestAnimationFrame(animate)
+			}
+		}
+
+		animate()
+	}
+
+	/**
+	 * Update camera on window resize
+	 * @param {number} width - New viewport width
+	 * @param {number} height - New viewport height
+	 */
+	const onWindowResize = (width, height) => {
+		if (!camera.value) return
+
+		camera.value.aspect = width / height
+		camera.value.updateProjectionMatrix()
+		logError('useCamera', 'Camera updated for resize', { width, height })
+	}
+
+	/**
+	 * Update controls
+	 */
+	const updateControls = () => {
+		if (controls.value && !manuallyPositioned.value && controls.value.enabled) {
+			// Only update controls if they are enabled, camera position is valid (not NaN) and we haven't manually positioned it
+			if (camera.value
+          && isFinite(camera.value.position.x)
+          && isFinite(camera.value.position.y)
+          && isFinite(camera.value.position.z)) {
+				controls.value.update()
+			}
+		}
+	}
+
+	/**
+	 * Setup custom camera controls (mouse events)
+	 * @param {HTMLElement} domElement - DOM element to attach events to
+	 * @param measurementHandler
+	 */
+	const setupCustomControls = (domElement, measurementHandler = null) => {
+		if (!domElement || !camera.value) return
+
+		const onMouseDown = (event) => {
+			isMouseDown.value = true
+			mouseX.value = event.clientX
+			mouseY.value = event.clientY
+		}
+
+		const onMouseMove = (event) => {
+			if (!isMouseDown.value || !camera.value) return
+
+			const deltaX = event.clientX - mouseX.value
+			const deltaY = event.clientY - mouseY.value
+
+			rotationY.value -= deltaX * 0.005 // Invert horizontal rotation, more sensitive
+			rotationX.value += deltaY * 0.005 // Keep vertical rotation normal (not inverted)
+
+			// Clamp rotationX to prevent flipping
+			rotationX.value = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, rotationX.value))
+
+			// Update camera position based on rotation around model center
+			const x = modelCenter.value.x + Math.sin(rotationY.value) * Math.cos(rotationX.value) * distance.value
+			const y = modelCenter.value.y + Math.sin(rotationX.value) * distance.value
+			const z = modelCenter.value.z + Math.cos(rotationY.value) * Math.cos(rotationX.value) * distance.value
+
+			camera.value.position.set(x, y, z)
+			camera.value.lookAt(modelCenter.value)
+
+			mouseX.value = event.clientX
+			mouseY.value = event.clientY
+		}
+
+		const onMouseUp = () => {
+			isMouseDown.value = false
+		}
+
+		const onWheel = (event) => {
+			if (!camera.value) return
+
+			// Prevent default browser zoom behavior
+			event.preventDefault()
+			event.stopPropagation()
+
+			// Wheel event handled
+
+			distance.value += event.deltaY * 0.05 // Much more sensitive zoom
+			distance.value = Math.max(2, Math.min(200, distance.value)) // Wider zoom range
+
+			// Distance updated
+
+			// Update camera position based on current rotation and new distance around model center
+			const x = modelCenter.value.x + Math.sin(rotationY.value) * Math.cos(rotationX.value) * distance.value
+			const y = modelCenter.value.y + Math.sin(rotationX.value) * distance.value
+			const z = modelCenter.value.z + Math.cos(rotationY.value) * Math.cos(rotationX.value) * distance.value
+
+			camera.value.position.set(x, y, z)
+			camera.value.lookAt(modelCenter.value)
+
+			// Camera position updated after zoom
+		}
+
+		const onClick = (event) => {
+			// Only handle clicks if measurement handler is provided and not dragging
+			if (measurementHandler && !isMouseDown.value) {
+				// Get scene from the measurement handler's context
+				measurementHandler(event, camera.value)
+			}
+		}
+
+		// Add event listeners
+		domElement.addEventListener('mousedown', onMouseDown)
+		domElement.addEventListener('mousemove', onMouseMove)
+		domElement.addEventListener('mouseup', onMouseUp)
+		domElement.addEventListener('wheel', onWheel)
+		domElement.addEventListener('click', onClick)
+
+		// Return cleanup function
+		return () => {
+			domElement.removeEventListener('mousedown', onMouseDown)
+			domElement.removeEventListener('mousemove', onMouseMove)
+			domElement.removeEventListener('mouseup', onMouseUp)
+			domElement.removeEventListener('wheel', onWheel)
+			domElement.removeEventListener('click', onClick)
+		}
+	}
+
+	/**
+	 * Render the scene
+	 * @param {THREE.WebGLRenderer} renderer - WebGL renderer
+	 * @param {THREE.Scene} scene - Three.js scene
+	 */
+	const render = (renderer, scene) => {
+		if (renderer && scene && camera.value) {
+			try {
+				// Clean up any invalid geometries in the scene before rendering
+				scene.traverse((child) => {
+					if (child.geometry) {
+						// Check for invalid geometry attributes
+						if (!child.geometry.attributes || !child.geometry.attributes.position) {
+							child.geometry.dispose()
+							child.geometry = null
+							return
+						}
+
+						// Check for null bounding sphere
+						try {
+							if (!child.geometry.boundingSphere) {
+								child.geometry.computeBoundingSphere()
+							}
+							if (child.geometry.boundingSphere && child.geometry.boundingSphere.center === null) {
+								child.geometry.dispose()
+								child.geometry = null
+								return
+							}
+						} catch (error) {
+							child.geometry.dispose()
+							child.geometry = null
+							return
+						}
+					}
+
+					if (child.material) {
+						if (!child.material.isMaterial) {
+							child.material.dispose()
+							child.material = null
+						}
+					}
+				})
+
+				// Auto-rotate functionality
+				if (autoRotateEnabled.value && !isMouseDown.value) {
+					rotationY.value += autoRotateSpeed.value * 0.01
+
+					// Update camera position based on current rotation around model center
+					const x = modelCenter.value.x + Math.sin(rotationY.value) * Math.cos(rotationX.value) * distance.value
+					const y = modelCenter.value.y + Math.sin(rotationX.value) * distance.value
+					const z = modelCenter.value.z + Math.cos(rotationY.value) * Math.cos(rotationX.value) * distance.value
+
+					camera.value.position.set(x, y, z)
+					camera.value.lookAt(modelCenter.value)
+				}
+
+				// Check if camera position becomes NaN and fix it
+				if (!isFinite(camera.value.position.x) || !isFinite(camera.value.position.y) || !isFinite(camera.value.position.z)) {
+					// Fix the camera position
+					camera.value.position.set(23.35, 11.68, 23.35)
+					camera.value.lookAt(0, 0, 0)
+
+					// Update controls if they exist and disable them temporarily
+					if (controls.value && controls.value.object) {
+						controls.value.object.position.copy(camera.value.position)
+						controls.value.target.set(0, 0, 0)
+						controls.value.enabled = false // Disable controls if they cause NaN
+					}
+				}
+
+				renderer.render(scene, camera.value)
+			} catch (error) {
+				// Render error handled
+			}
+		}
+	}
+
+	/**
+	 * Toggle auto-rotate
+	 */
+	const toggleAutoRotate = () => {
+		autoRotateEnabled.value = !autoRotateEnabled.value
+		// Auto-rotate toggled
+	}
+
+	/**
+	 * Set auto-rotate speed
+	 * @param {number} speed - Rotation speed (default: 2.0)
+	 */
+	const setAutoRotateSpeed = (speed) => {
+		autoRotateSpeed.value = speed
+		// Auto-rotate speed set
+	}
+
+	/**
+	 * Dispose of camera and controls
+	 */
+	const dispose = () => {
+		if (controls.value) {
+			controls.value.dispose()
+			controls.value = null
+		}
+
+		camera.value = null
+		initialCameraPos.value = null
+		baselineCameraPos.value = null
+		baselineTarget.value = null
+
+		logError('useCamera', 'Camera and controls disposed')
+	}
+
+	return {
+		// State
+		camera: readonly(camera),
+		controls: readonly(controls),
+		isAnimating: readonly(isAnimating),
+		autoRotate: readonly(autoRotateEnabled),
+		autoRotateSpeed: readonly(autoRotateSpeed),
+		isMobile: readonly(isMobile),
+		animationPresets: readonly(animationPresets),
+
+		// Methods
+		initCamera,
+		setupControls,
+		setupCustomControls,
+		setupMobileControls,
+		fitCameraToObject,
+		fitBothModelsToView,
+		resetView,
+		fitToView,
+		toggleAutoRotate,
+		setAutoRotateSpeed,
+		animateToPreset,
+		smoothZoom,
+		onWindowResize,
+		updateControls,
+		render,
+		dispose,
+	}
 }

@@ -1,0 +1,26 @@
+#!/bin/bash
+
+# Post-checkout hook for 3D Viewer Nextcloud App
+# This hook runs after each checkout to ensure environment is up to date
+
+echo "Running post-checkout setup..."
+
+# Check if package.json has changed
+if git diff-tree -r --name-only --no-commit-id HEAD HEAD@{1} | grep -q package.json; then
+    echo "📦 package.json changed, updating dependencies..."
+    npm install
+fi
+
+# Check if composer.json has changed
+if git diff-tree -r --name-only --no-commit-id HEAD HEAD@{1} | grep -q composer.json; then
+    echo "📦 composer.json changed, updating dependencies..."
+    composer install
+fi
+
+# Check if decoder files need to be copied
+if [ ! -d "draco" ] || [ ! -d "basis" ]; then
+    echo "📦 Copying decoder files..."
+    npm run copy-decoders
+fi
+
+echo "✅ Post-checkout setup complete!"

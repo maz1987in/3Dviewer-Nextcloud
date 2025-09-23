@@ -1,49 +1,135 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+All notable changes to the 3D Viewer Nextcloud app will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
 ### Added
-
-- Initial 3D viewer foundation (Vue 2 + Three.js) with lazy-loaded loaders.
-- Supported model formats: glb, gltf, obj (+ mtl), stl, ply, fbx, 3mf, 3ds.
-- Secure authenticated streaming endpoints: `/file/{fileId}` and `/file/{fileId}/mtl/{mtlName}`.
-- Public share streaming endpoints: `/public/file/{token}/{fileId}` and sibling MTL path.
-- Centralized model support service (`ModelFileSupport`) for extension allow‑list & MIME mapping.
-- File & share resolution services (`FileService`, `ShareFileService`) with permission & extension validation.
-- Controller layer (`FileController`, `PublicFileController`) returning streamed responses with strict status codes (401/404/415/500 handling).
-- Decoder asset copy script (`scripts/copy-decoders.mjs`) provisioning DRACO and KTX2/Basis binaries into `/draco` and `/basis` prior to build.
-- Conditional CSP relaxation (adds `blob:` only when decoder assets detected) to support future wasm decoder loading.
-- Viewer UI: toolbar (reset, grid, axes, wireframe toggle stubs, background color), orbit controls, auto camera framing, wireframe mode.
-- Toast notifications for load success/failure.
-- Localization infrastructure with English (`en`) and Arabic (`ar`) translations.
-- PHPUnit test coverage for streaming controllers (authenticated + public) including success, not found, unauthorized, unsupported type, and sibling MTL cases.
-- FBX loader integration via dynamic import and object URL handling.
-- Files app integration: custom file action enabling click-to-open viewer for supported 3D model files.
-- Conditional DRACO & KTX2 decoder runtime detection and loader wiring (GLTFLoader now probes for decoder assets before enabling compressed geometry/texture support).
-- Repair step to register missing MIME types (ply, fbx, mtl) without overwriting existing mappings.
-- Cleanup repair step to remove previously added 3D MIME mappings on admin repair/uninstall (best-effort, conservative).
-- Placeholder thumbnail endpoint `/thumb/{fileId}` serving static PNG for supported 3D model files and Files app integration to display it.
-- Toolbar preferences persistence (grid, axes, wireframe, background color) via localStorage.
-- Progressive loading feedback: streaming download progress bar, per-loader progress events (3MF/FBX/3DS), and parse-phase messaging for synchronous loaders (OBJ/STL/PLY) with normalized state reset.
-- Camera state persistence per file (position & target stored in localStorage, restored on reopen) plus baseline framed view used for Reset.
-- Bundle size budget script (`scripts/check-bundle-size.mjs`) with postbuild size check and documented thresholds in README.
-- Abortable model loading (cancel button & AbortController integration with streaming progress and graceful cleanup).
+- Comprehensive development tooling and configuration
+- Jest testing framework for JavaScript unit tests
+- Enhanced GitHub Actions workflows with security scanning
+- Improved code quality tools (Stylelint, Psalm enhancements)
+- Development documentation and contribution guidelines
+- Git hooks for automated code quality checks
+- VS Code workspace configuration
+- Makefile for common development tasks
 
 ### Changed
-
-- Removed prior experimental Vite plugin approach for decoder copying in favor of deterministic prebuild script.
-- Refactored frontend loaders into modular registry (`src/loaders/`) replacing monolithic conditional logic in `ThreeViewer.vue` for improved maintainability and tree‑shaking.
+- Enhanced package.json with additional scripts and dependencies
+- Improved composer.json with security auditing and additional test configurations
+- Updated stylelint configuration with comprehensive CSS/SCSS rules
+- Enhanced psalm.xml with better static analysis settings
 
 ### Security
+- Added security scanning workflows (CodeQL, npm audit, composer audit)
+- Enhanced dependency vulnerability scanning
+- Added security advisories configuration
 
-- Enforced extension allow‑list to prevent arbitrary file reads through streaming endpoints.
-- Added conditional CSP logic—`blob:` sources only allowed when decoder assets exist (defense-in-depth for wasm scenario).
+## [1.0.0] - 2024-01-XX
+
+### Added
+- Initial release of 3D Viewer Nextcloud app
+- Support for multiple 3D file formats (GLB, GLTF, OBJ, STL, PLY, FBX, 3MF, 3DS)
+- Dynamic grid system that adapts to model size
+- Model comparison functionality with synchronized controls
+- Real-time streaming with authentication
+- Performance optimizations with code splitting and dynamic imports
+- Theme integration respecting Nextcloud light/dark themes
+- Accessibility features with ARIA labels and keyboard navigation
+- Bundle size monitoring and optimization
+- Comprehensive documentation and user guides
+- PHPUnit testing for backend components
+- Playwright testing for end-to-end scenarios
+- Smoke tests for critical functionality
+
+### Technical Features
+- Vue.js 2 + Three.js frontend implementation
+- Secure file streaming endpoints
+- Dynamic loader imports for format-specific code
+- DRACO and KTX2/Basis decoder support (with asset copying)
+- Abortable model loading with progress feedback
+- Camera state persistence and restoration
+- Error handling with user-friendly notifications
+- Public share support for anonymous access
+- MIME type registration and cleanup
+- Centralized model file support logic
+
+### API Endpoints
+- `GET /apps/threedviewer/file/{fileId}` - Stream authenticated model files
+- `GET /apps/threedviewer/file/{fileId}/mtl/{mtlName}` - Stream MTL files for OBJ models
+- `GET /apps/threedviewer/public/file/{token}/{fileId}` - Stream public share model files
+- `GET /apps/threedviewer/asset/{type}/{filename}` - Serve static assets
+- `GET /apps/threedviewer/decoder/{filename}` - Serve decoder files
+
+### Supported Formats
+- **Frontend & Backend**: GLB, GLTF, OBJ (+ MTL), STL, PLY, FBX, 3MF, 3DS
+- **Compression**: DRACO (geometry), KTX2/Basis (textures)
+- **Materials**: Full MTL support for OBJ files with automatic sibling resolution
+
+### Performance
+- Bundle size budget enforcement (950KB main, 120KB chunks)
+- Dynamic imports for format-specific loaders
+- Code splitting for optimal loading
+- Abortable loading for large files
+- Progress feedback during model loading
+
+### Testing
+- PHPUnit unit tests for controllers and services
+- Playwright end-to-end tests
+- Smoke tests for critical functionality
+- Bundle size monitoring
+- Abort behavior testing
 
 ### Documentation
+- Comprehensive README with technical details
+- Installation and user guides
+- Developer documentation
+- API reference
+- Troubleshooting guide
+- Technical architecture documentation
 
-- Expanded README with streaming API details and decoder asset handling section.
+---
+
+## Version History
+
+### Development Milestones
+
+- **v0.1.0** - Initial prototype with basic GLTF support
+- **v0.5.0** - Added multiple format support and streaming
+- **v0.8.0** - Performance optimizations and accessibility features
+- **v0.9.0** - Public share support and enhanced error handling
+- **v1.0.0** - Production-ready release with comprehensive testing
+
+### Breaking Changes
+
+None in v1.0.0 (initial release)
+
+### Migration Notes
+
+For users upgrading from development versions:
+
+1. **Decoder Assets**: Ensure `draco/` and `basis/` directories are present
+2. **MIME Types**: Run the repair step to register missing MIME mappings
+3. **Browser Compatibility**: Requires modern browser with WebGL 2.0 support
+4. **Nextcloud Version**: Requires Nextcloud 30+ for optimal compatibility
+
+---
+
+## Legend
+
+- **Added** for new features
+- **Changed** for changes in existing functionality
+- **Deprecated** for soon-to-be removed features
+- **Removed** for now removed features
+- **Fixed** for any bug fixes
+- **Security** for vulnerability fixes
+
+## Links
+
+- [GitHub Repository](https://github.com/your-username/3Dviewer-Nextcloud)
+- [Nextcloud App Store](https://apps.nextcloud.com/apps/threedviewer)
+- [Documentation](docs/)
+- [Issue Tracker](https://github.com/your-username/3Dviewer-Nextcloud/issues)

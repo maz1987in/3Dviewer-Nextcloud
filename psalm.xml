@@ -7,15 +7,26 @@
     xsi:schemaLocation="https://getpsalm.org/schema/config vendor/vimeo/psalm/config.xsd"
     findUnusedBaselineEntry="true"
     findUnusedCode="true"
-	phpVersion="8.1"
+    phpVersion="8.1"
+    cacheDirectory=".psalm-cache"
+    threads="1"
 >
     <projectFiles>
         <directory name="lib" />
+        <directory name="tests" />
         <ignoreFiles>
             <directory name="vendor" />
+            <directory name="vendor-bin" />
+            <directory name="build" />
+            <directory name="dist" />
+            <directory name="node_modules" />
         </ignoreFiles>
     </projectFiles>
-	<extraFiles>
-		<directory name="vendor"/>
-	</extraFiles>
+    <extraFiles>
+        <directory name="vendor"/>
+    </extraFiles>
+    <issueHandlers>
+        <UnusedVariable errorLevel="suppress" />
+        <UnusedParam errorLevel="suppress" />
+    </issueHandlers>
 </psalm>

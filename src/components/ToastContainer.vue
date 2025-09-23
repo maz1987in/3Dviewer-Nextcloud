@@ -1,20 +1,26 @@
 <template>
 	<div class="toast-container" role="status" aria-live="polite">
 		<transition-group name="toast-fade" tag="div">
-			<div 
-				v-for="toast in toasts" 
-				:key="toast.id" 
-				class="toast" 
-				:class="toast.type" 
-				@click="$emit('dismiss', toast.id)" 
+			<div
+				v-for="toast in toasts"
+				:key="toast.id"
+				class="toast"
+				:class="toast.type"
 				:aria-label="toast.title"
+				@click="$emit('dismiss', toast.id)"
 				@mouseenter="pauseAutoHide(toast.id)"
-				@mouseleave="resumeAutoHide(toast.id)"
-			>
+				@mouseleave="resumeAutoHide(toast.id)">
 				<strong class="title">{{ toast.title }}</strong>
-				<div class="msg">{{ toast.message }}</div>
-				<div v-if="toast.timeout > 0" class="progress-bar" :style="{ '--progress': toast.progress + '%' }"></div>
-				<button type="button" class="close" :aria-label="t('threedviewer','Dismiss')" @click.stop="$emit('dismiss', toast.id)">×</button>
+				<div class="msg">
+					{{ toast.message }}
+				</div>
+				<div v-if="toast.timeout > 0" class="progress-bar" :style="{ '--progress': toast.progress + '%' }" />
+				<button type="button"
+					class="close"
+					:aria-label="t('threedviewer','Dismiss')"
+					@click.stop="$emit('dismiss', toast.id)">
+					×
+				</button>
 			</div>
 		</transition-group>
 	</div>
@@ -43,7 +49,7 @@ export default {
 						}
 					})
 				}
-				
+
 				// Set up auto-hide for new toasts
 				newToasts.forEach(toast => {
 					if (toast.timeout && toast.timeout > 0 && !this.timers.has(toast.id)) {
@@ -52,7 +58,7 @@ export default {
 				})
 			},
 			immediate: true,
-		}
+		},
 	},
 	beforeDestroy() {
 		// Clean up all timers
@@ -63,57 +69,57 @@ export default {
 		setupAutoHide(toast) {
 			const duration = toast.timeout || 5000 // Default 5 seconds
 			let remaining = duration
-			
+
 			// Update progress every 50ms for smooth animation
 			const progressInterval = setInterval(() => {
 				remaining -= 50
 				const progress = Math.max(0, Math.min(100, ((duration - remaining) / duration) * 100))
-				
+
 				// Update the toast object directly (Vue reactivity)
 				const toastIndex = this.toasts.findIndex(t => t.id === toast.id)
 				if (toastIndex !== -1) {
 					this.$set(this.toasts[toastIndex], 'progress', progress)
 				}
 			}, 50)
-			
+
 			this.progressIntervals.set(toast.id, progressInterval)
-			
+
 			// Set up the dismiss timer
 			const timer = setTimeout(() => {
 				this.$emit('dismiss', toast.id)
 				this.clearToastTimer(toast.id)
 			}, duration)
-			
+
 			this.timers.set(toast.id, timer)
 		},
-		
+
 		clearToastTimer(toastId) {
 			const timer = this.timers.get(toastId)
 			if (timer) {
 				clearTimeout(timer)
 				this.timers.delete(toastId)
 			}
-			
+
 			const progressInterval = this.progressIntervals.get(toastId)
 			if (progressInterval) {
 				clearInterval(progressInterval)
 				this.progressIntervals.delete(toastId)
 			}
 		},
-		
+
 		pauseAutoHide(toastId) {
 			const timer = this.timers.get(toastId)
 			const progressInterval = this.progressIntervals.get(toastId)
-			
+
 			if (timer && progressInterval) {
 				clearTimeout(timer)
 				clearInterval(progressInterval)
-				
+
 				// Store the paused state
 				this.$set(this.toasts.find(t => t.id === toastId), 'paused', true)
 			}
 		},
-		
+
 		resumeAutoHide(toastId) {
 			const toast = this.toasts.find(t => t.id === toastId)
 			if (toast && toast.paused && toast.timeout > 0) {

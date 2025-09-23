@@ -4,12 +4,12 @@
 import './css/threedviewer-filesIntegration.css'
 
 (function() {
-	
+
 	// Wait for Files app to be ready
 	let retryCount = 0
 	const maxRetries = 100 // 10 seconds max
 	let initialized = false
-	
+
 	function waitForFilesApp() {
 		// Debug what's available
 		if (retryCount === 0) {
@@ -27,28 +27,28 @@ import './css/threedviewer-filesIntegration.css'
 				}
 			}
 		}
-		
+
 		// Check for Files app with more comprehensive detection
-		const hasFilesApp = window.OCA && 
-			OCA.Files && 
-			OCA.Files.fileActions && 
-			typeof OCA.Files.fileActions.registerAction === 'function'
-		
+		const hasFilesApp = window.OCA
+			&& OCA.Files
+			&& OCA.Files.fileActions
+			&& typeof OCA.Files.fileActions.registerAction === 'function'
+
 		// Also check for alternative Files app loading patterns
-		const hasAlternativeFilesApp = window.OCA && 
-			OCA.Files && 
-			typeof OCA.Files.registerFileAction === 'function'
-		
+		const hasAlternativeFilesApp = window.OCA
+			&& OCA.Files
+			&& typeof OCA.Files.registerFileAction === 'function'
+
 		// Check for Viewer API as alternative approach
-		const hasViewerAPI = window.OCA && 
-			OCA.Viewer && 
-			typeof OCA.Viewer.registerHandler === 'function'
-		
+		const hasViewerAPI = window.OCA
+			&& OCA.Viewer
+			&& typeof OCA.Viewer.registerHandler === 'function'
+
 		// Check if fileActions might be loaded later or in a different way
-		const hasFilesAppWithoutFileActions = window.OCA && 
-			OCA.Files && 
-			!OCA.Files.fileActions
-		
+		const hasFilesAppWithoutFileActions = window.OCA
+			&& OCA.Files
+			&& !OCA.Files.fileActions
+
 		// Try to manually initialize fileActions if it doesn't exist
 		if (hasFilesAppWithoutFileActions && retryCount > 10) {
 			try {
@@ -61,7 +61,7 @@ import './css/threedviewer-filesIntegration.css'
 			} catch (e) {
 			}
 		}
-		
+
 		if ((hasFilesApp || hasAlternativeFilesApp || hasViewerAPI) && !initialized) {
 			initFilesIntegration()
 		} else if (retryCount < maxRetries) {
@@ -78,24 +78,24 @@ import './css/threedviewer-filesIntegration.css'
 			// Don't try fallback if Files app is clearly not available
 		}
 	}
-	
+
 	function initFilesIntegration() {
 		if (initialized) {
 			return
 		}
-		
+
 		// Check if Files app or Viewer API is available before initializing
 		const hasFileActions = window.OCA && OCA.Files && OCA.Files.fileActions && typeof OCA.Files.fileActions.registerAction === 'function'
 		const hasViewerAPI = window.OCA && OCA.Viewer && typeof OCA.Viewer.registerHandler === 'function'
-		
+
 		if (!hasFileActions && !hasViewerAPI) {
 			return
 		}
-		
+
 		initialized = true
-		
+
 		const APP_ID = 'threedviewer'
-		const supportedExt = ['glb','gltf','obj','stl','ply','fbx','3mf','3ds','dae','x3d','vrml','wrl']
+		const supportedExt = ['glb', 'gltf', 'obj', 'stl', 'ply', 'fbx', '3mf', '3ds', 'dae', 'x3d', 'vrml', 'wrl']
 		const ICON_CLASS = 'icon-3d-model'
 
 		function isSupported(fileName) {
@@ -123,7 +123,7 @@ import './css/threedviewer-filesIntegration.css'
 				permissions: OC.PERMISSION_READ,
 				iconClass: ICON_CLASS,
 				order: 15,
-				enabled: function(fileName /*, context */) {
+				enabled(fileName /*, context */) {
 					return isSupported(fileName)
 				},
 				actionHandler: openInViewer,
@@ -148,51 +148,51 @@ import './css/threedviewer-filesIntegration.css'
 		}
 
 		// Add hybrid approach: Viewer API + click interceptor as fallback
-		
+
 		// Add click interceptor as fallback for when Viewer API doesn't work
 		try {
 			document.addEventListener('click', function(e) {
 				// Only intercept if it's a 3D file and Viewer API didn't handle it
-				const row = e.target.closest('tr[data-file]') || 
-					e.target.closest('tr[data-id]') || 
-					e.target.closest('tr[data-fileid]') ||
-					e.target.closest('tr.file-row') ||
-					e.target.closest('tr[data-path]') ||
-					e.target.closest('.files-list__row')
-				
+				const row = e.target.closest('tr[data-file]')
+					|| e.target.closest('tr[data-id]')
+					|| e.target.closest('tr[data-fileid]')
+					|| e.target.closest('tr.file-row')
+					|| e.target.closest('tr[data-path]')
+					|| e.target.closest('.files-list__row')
+
 				if (!row) return
-				
+
 				// Get filename
-				const nameCell = row.querySelector('.filename') || 
-					row.querySelector('.name') || 
-					row.querySelector('[data-original-filename]') ||
-					row.querySelector('td:first-child')
-				
+				const nameCell = row.querySelector('.filename')
+					|| row.querySelector('.name')
+					|| row.querySelector('[data-original-filename]')
+					|| row.querySelector('td:first-child')
+
 				if (!nameCell) return
-				
-				const fname = row.getAttribute('data-cy-files-list-row-name') ||
-					nameCell.getAttribute('data-original-filename') || 
-					nameCell.getAttribute('data-filename') ||
-					nameCell.textContent.trim()
-				
+
+				const fname = row.getAttribute('data-cy-files-list-row-name')
+					|| nameCell.getAttribute('data-original-filename')
+					|| nameCell.getAttribute('data-filename')
+					|| nameCell.textContent.trim()
+
 				if (fname && isSupported(fname)) {
 					// Check if this is already being handled by Viewer API
 					// If so, don't interfere
 					if (e.defaultPrevented) return
-					
+
 					e.preventDefault()
 					e.stopPropagation()
 					e.stopImmediatePropagation()
-					
-					const fileId = row.getAttribute('data-cy-files-list-row-fileid') ||
-						row.getAttribute('data-id') || 
-						row.getAttribute('data-fileid') ||
-						row.getAttribute('data-file-id')
-					
+
+					const fileId = row.getAttribute('data-cy-files-list-row-fileid')
+						|| row.getAttribute('data-id')
+						|| row.getAttribute('data-fileid')
+						|| row.getAttribute('data-file-id')
+
 					if (fileId) {
 						// Get current directory from URL
 						const currentDir = new URLSearchParams(window.location.search).get('dir') || '/'
-						
+
 						// Open in new tab with filename and directory parameters
 						const viewerUrl = OC.generateUrl(`/apps/${APP_ID}/?fileId=${fileId}&filename=${encodeURIComponent(fname)}&dir=${encodeURIComponent(currentDir)}`)
 						window.open(viewerUrl, '_blank', 'noopener,noreferrer')
@@ -217,7 +217,7 @@ import './css/threedviewer-filesIntegration.css'
 			}
 		} else {
 		}
-		
+
 		// Fallback basic registration function
 		function registerBasicViewerHandler() {
 			try {
@@ -235,7 +235,7 @@ import './css/threedviewer-filesIntegration.css'
 							const fileInfo = this.$attrs.fileinfo || this.$attrs.file || this.$attrs
 							const fileId = fileInfo?.fileid || fileInfo?.id || fileInfo?.fileId
 							const fileName = fileInfo?.name || fileInfo?.filename || fileInfo?.basename || ''
-							
+
 							if (fileId && isSupported(fileName)) {
 								// Open in new tab
 								const viewerUrl = OC.generateUrl(`/apps/${APP_ID}/?fileId=${fileId}`)
@@ -243,8 +243,8 @@ import './css/threedviewer-filesIntegration.css'
 							} else {
 								this.$el.innerHTML = '<div style="padding: 20px; text-align: center; color: red;">Unsupported file type</div>'
 							}
-						}
-					}
+						},
+					},
 				})
 			} catch (e) {
 			}
@@ -275,31 +275,31 @@ import './css/threedviewer-filesIntegration.css'
 			// Initial and delayed pass
 			process()
 			setTimeout(process, 1500)
-		} catch(e) {}
+		} catch (e) {}
 	}
 
 	// Start waiting for Files app
 	waitForFilesApp()
-	
+
 	// Monitor for Files app loading with MutationObserver
 	if (window.MutationObserver) {
 		const observer = new MutationObserver(function(mutations) {
 			if (initialized) return
-			
+
 			// Check if Files app became available
 			if (window.OCA && OCA.Files && OCA.Files.fileActions && typeof OCA.Files.fileActions.registerAction === 'function') {
 				observer.disconnect()
 				initFilesIntegration()
 			}
 		})
-		
+
 		// Observe changes to the document
-		observer.observe(document, { 
-			childList: true, 
-			subtree: true, 
-			attributes: true 
+		observer.observe(document, {
+			childList: true,
+			subtree: true,
+			attributes: true,
 		})
-		
+
 		// Disconnect after 15 seconds to avoid memory leaks
 		setTimeout(() => {
 			if (!initialized) {
@@ -307,7 +307,7 @@ import './css/threedviewer-filesIntegration.css'
 			}
 		}, 15000)
 	}
-	
+
 	// Also listen for Files app loading events
 	document.addEventListener('DOMContentLoaded', function() {
 		if (initialized) return
@@ -315,13 +315,13 @@ import './css/threedviewer-filesIntegration.css'
 			initFilesIntegration()
 		}
 	})
-	
+
 	// Listen for custom Files app events
 	document.addEventListener('OCA.Files.App.ready', function() {
 		if (initialized) return
 		initFilesIntegration()
 	})
-	
+
 	// Listen for window load event as final fallback
 	window.addEventListener('load', function() {
 		if (initialized) return
@@ -329,4 +329,4 @@ import './css/threedviewer-filesIntegration.css'
 			initFilesIntegration()
 		}
 	})
-})();
+})()

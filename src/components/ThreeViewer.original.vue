@@ -1,44 +1,80 @@
 <template>
-	<div class="three-viewer" ref="container" :aria-label="t('threedviewer','3D viewer canvas container')" :class="{ 'mobile': isMobile }">
-		<div v-if="loading" class="loading" aria-live="polite" :class="{ 'mobile': isMobile }">
+	<div ref="container"
+		class="three-viewer"
+		:aria-label="t('threedviewer','3D viewer canvas container')"
+		:class="{ 'mobile': isMobile }">
+		<div v-if="loading"
+			class="loading"
+			aria-live="polite"
+			:class="{ 'mobile': isMobile }">
 			<div class="loading-content">
-				<div class="loading-spinner" :class="{ 'mobile': isMobile }"></div>
+				<div class="loading-spinner" :class="{ 'mobile': isMobile }" />
 				<div class="loading-text">
-					<div class="loading-stage">{{ getStageText(progress.stage) }}</div>
+					<div class="loading-stage">
+						{{ getStageText(progress.stage) }}
+					</div>
 					<div class="loading-details">
-			<span v-if="progress.message">{{ progress.message }}</span>
+						<span v-if="progress.message">{{ progress.message }}</span>
 						<span v-else-if="progress.total > 0">{{ formatBytes(progress.loaded) }} / {{ formatBytes(progress.total) }}</span>
 						<span v-else-if="progress.loaded > 0">{{ formatBytes(progress.loaded) }}</span>
-			<span v-else>{{ t('threedviewer', 'Loading 3D scene…') }}</span>
-			</div>
-					<div v-if="progress.percentage > 0" class="loading-percentage">{{ progress.percentage }}%</div>
+						<span v-else>{{ t('threedviewer', 'Loading 3D scene…') }}</span>
+					</div>
+					<div v-if="progress.percentage > 0" class="loading-percentage">
+						{{ progress.percentage }}%
+					</div>
 					<div v-if="progress.estimatedTime && progress.estimatedTime > 0" class="loading-time">
 						{{ t('threedviewer', 'About {time}s remaining', { time: progress.estimatedTime }) }}
 					</div>
 				</div>
-				<div v-if="progress.total > 0" class="progress-bar" :aria-label="t('threedviewer','Model load progress')" role="progressbar" :aria-valuemin="0" :aria-valuemax="progress.total" :aria-valuenow="progress.loaded" :class="{ 'mobile': isMobile }">
-					<div class="progress-bar__fill" :style="{ width: Math.min(100, progress.percentage) + '%' }"></div>
-					<div class="progress-bar__label">{{ progress.percentage }}%</div>
+				<div v-if="progress.total > 0"
+					class="progress-bar"
+					:aria-label="t('threedviewer','Model load progress')"
+					role="progressbar"
+					:aria-valuemin="0"
+					:aria-valuemax="progress.total"
+					:aria-valuenow="progress.loaded"
+					:class="{ 'mobile': isMobile }">
+					<div class="progress-bar__fill" :style="{ width: Math.min(100, progress.percentage) + '%' }" />
+					<div class="progress-bar__label">
+						{{ progress.percentage }}%
+					</div>
 				</div>
 				<div class="loading-actions" :class="{ 'mobile': isMobile }">
-					<button v-if="progress.stage !== 'error'" type="button" class="cancel-btn" @click="cancelLoad" :disabled="aborting" :class="{ 'mobile': isMobile }">
+					<button v-if="progress.stage !== 'error'"
+						type="button"
+						class="cancel-btn"
+						:disabled="aborting"
+						:class="{ 'mobile': isMobile }"
+						@click="cancelLoad">
 						{{ aborting ? t('threedviewer','Canceling…') : t('threedviewer','Cancel loading') }}
 					</button>
-					<button v-if="progress.stage === 'error'" type="button" class="retry-btn" @click="retryLoad" :class="{ 'mobile': isMobile }">
+					<button v-if="progress.stage === 'error'"
+						type="button"
+						class="retry-btn"
+						:class="{ 'mobile': isMobile }"
+						@click="retryLoad">
 						{{ t('threedviewer','Retry') }}
 					</button>
 				</div>
 			</div>
 		</div>
-		
+
 		<!-- Enhanced error display -->
 		<div v-if="progress.stage === 'error' && errorState.type" class="error-display" :class="{ 'mobile': isMobile }">
 			<div class="error-content">
-				<div class="error-icon">⚠️</div>
-				<div class="error-message">{{ errorState.message }}</div>
-				<div v-if="errorState.details" class="error-details">{{ errorState.details }}</div>
+				<div class="error-icon">
+					⚠️
+				</div>
+				<div class="error-message">
+					{{ errorState.message }}
+				</div>
+				<div v-if="errorState.details" class="error-details">
+					{{ errorState.details }}
+				</div>
 				<div v-if="errorState.suggestions && errorState.suggestions.length > 0" class="error-suggestions">
-					<div class="suggestions-title">{{ t('threedviewer', 'Suggestions:') }}</div>
+					<div class="suggestions-title">
+						{{ t('threedviewer', 'Suggestions:') }}
+					</div>
 					<ul class="suggestions-list">
 						<li v-for="suggestion in errorState.suggestions" :key="suggestion" class="suggestion-item">
 							{{ suggestion }}
@@ -46,35 +82,41 @@
 					</ul>
 				</div>
 				<div class="error-actions">
-					<button v-if="canRetryError()" type="button" class="retry-btn" @click="retryLoad" :class="{ 'mobile': isMobile }">
+					<button v-if="canRetryError()"
+						type="button"
+						class="retry-btn"
+						:class="{ 'mobile': isMobile }"
+						@click="retryLoad">
 						{{ t('threedviewer','Retry') }}
 					</button>
-					<button type="button" class="dismiss-btn" @click="dismissError" :class="{ 'mobile': isMobile }">
+					<button type="button"
+						class="dismiss-btn"
+						:class="{ 'mobile': isMobile }"
+						@click="dismissError">
 						{{ t('threedviewer','Dismiss') }}
 					</button>
 				</div>
 			</div>
 		</div>
-		
-		
+
 		<!-- Comparison controls -->
 		<div v-if="comparisonMode && comparisonModel" class="comparison-controls" :class="{ 'mobile': isMobile }">
 			<div class="comparison-buttons">
-				<button @click="toggleOriginalModel" class="comparison-btn" :title="t('threedviewer', 'Toggle original model')">
+				<button class="comparison-btn" :title="t('threedviewer', 'Toggle original model')" @click="toggleOriginalModel">
 					<span class="btn-icon">👁️</span>
 					<span class="btn-text">{{ t('threedviewer', 'Original') }}</span>
 				</button>
-				<button @click="toggleComparisonModel" class="comparison-btn" :title="t('threedviewer', 'Toggle comparison model')">
+				<button class="comparison-btn" :title="t('threedviewer', 'Toggle comparison model')" @click="toggleComparisonModel">
 					<span class="btn-icon">👁️</span>
 					<span class="btn-text">{{ t('threedviewer', 'Comparison') }}</span>
 				</button>
-				<button @click="fitBothModelsToView" class="comparison-btn" :title="t('threedviewer', 'Fit both models to view')">
+				<button class="comparison-btn" :title="t('threedviewer', 'Fit both models to view')" @click="fitBothModelsToView">
 					<span class="btn-icon">📏</span>
 					<span class="btn-text">{{ t('threedviewer', 'Fit Both') }}</span>
 				</button>
 			</div>
 		</div>
-		
+
 		<!-- Mobile gesture hints -->
 		<div v-if="isMobile && !loading && modelRoot" class="mobile-hints">
 			<div class="hint-item">
@@ -117,7 +159,7 @@ export default {
 			animationId: null,
 			modelRoot: null,
 			initialCameraPos: null,
-			initialTarget: new THREE.Vector3(0,0,0),
+			initialTarget: new THREE.Vector3(0, 0, 0),
 			baselineCameraPos: null,
 			baselineTarget: null,
 			currentFileId: null,
@@ -145,7 +187,7 @@ export default {
 				details: null,
 				suggestions: [],
 				canRetry: true,
-				errorCode: null
+				errorCode: null,
 			},
 			// Advanced features
 			measurementMode: false,
@@ -166,12 +208,10 @@ export default {
 				fps: 0,
 				triangles: 0,
 				drawCalls: 0,
-				lastUpdate: 0
+				lastUpdate: 0,
 			},
 		}
 	},
-	mounted() { this.init(); if (typeof window !== 'undefined') { window.__THREEDVIEWER_VIEWER = this } },
-	beforeDestroy() { this.dispose(); this.cancelOngoingLoad() },
 	watch: {
 		showGrid(val) { if (this.grid) this.grid.visible = val },
 		showAxes(val) { if (this.axes) this.axes.visible = val },
@@ -179,141 +219,143 @@ export default {
 		background(val) { this.applyBackground(val) },
 		fileId: { immediate: false, handler(id) { if (id) { this.cancelOngoingLoad(); this.loadModel(id) } } },
 	},
+	mounted() { this.init(); if (typeof window !== 'undefined') { window.__THREEDVIEWER_VIEWER = this } },
+	beforeDestroy() { this.dispose(); this.cancelOngoingLoad() },
 	methods: {
 		isMobileDevice() {
-			return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
-				   (navigator.maxTouchPoints && navigator.maxTouchPoints > 1) ||
-				   window.innerWidth <= 768
+			return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+				   || (navigator.maxTouchPoints && navigator.maxTouchPoints > 1)
+				   || window.innerWidth <= 768
 		},
-		
+
 		setupMobileControls() {
 			if (!this.isMobile || !this.controls) return
-			
+
 			// Enhanced touch controls for mobile
 			this.controls.enableDamping = true
 			this.controls.dampingFactor = 0.1
 			this.controls.screenSpacePanning = true
 			this.controls.touches = {
 				ONE: THREE.TOUCH.ROTATE,
-				TWO: THREE.TOUCH.DOLLY_PAN
+				TWO: THREE.TOUCH.DOLLY_PAN,
 			}
-			
+
 			// Add pinch-to-zoom support
 			this.setupPinchZoom()
-			
+
 			// Add double-tap to reset view
 			this.setupDoubleTapReset()
 		},
-		
+
 		setupPinchZoom() {
 			const canvas = this.renderer.domElement
 			let lastTouchDistance = 0
-			
+
 			canvas.addEventListener('touchstart', (e) => {
 				if (e.touches.length === 2) {
 					const touch1 = e.touches[0]
 					const touch2 = e.touches[1]
 					lastTouchDistance = Math.sqrt(
-						Math.pow(touch2.clientX - touch1.clientX, 2) +
-						Math.pow(touch2.clientY - touch1.clientY, 2)
+						Math.pow(touch2.clientX - touch1.clientX, 2)
+						+ Math.pow(touch2.clientY - touch1.clientY, 2),
 					)
 				}
 			}, { passive: true })
-			
+
 			canvas.addEventListener('touchmove', (e) => {
 				if (e.touches.length === 2) {
 					e.preventDefault()
 					const touch1 = e.touches[0]
 					const touch2 = e.touches[1]
 					const currentDistance = Math.sqrt(
-						Math.pow(touch2.clientX - touch1.clientX, 2) +
-						Math.pow(touch2.clientY - touch1.clientY, 2)
+						Math.pow(touch2.clientX - touch1.clientX, 2)
+						+ Math.pow(touch2.clientY - touch1.clientY, 2),
 					)
-					
+
 					if (lastTouchDistance > 0) {
 						const scale = currentDistance / lastTouchDistance
 						const scaleSpeed = 0.1
 						const delta = (scale - 1) * scaleSpeed
-						
+
 						// Apply zoom
 						if (this.controls) {
 							this.controls.dollyIn(delta)
 							this.controls.update()
 						}
 					}
-					
+
 					lastTouchDistance = currentDistance
 				}
 			}, { passive: false })
 		},
-		
+
 		setupDoubleTapReset() {
 			const canvas = this.renderer.domElement
 			let lastTap = 0
-			
+
 			canvas.addEventListener('touchend', (e) => {
 				const currentTime = new Date().getTime()
 				const tapLength = currentTime - lastTap
-				
+
 				if (tapLength < 500 && tapLength > 0) {
 					// Double tap detected
 					this.resetView()
 				}
-				
+
 				lastTap = currentTime
 			}, { passive: true })
 		},
-		
+
 		showSkeletonLoading() {
 			// Create a skeleton loading animation
 			if (this.skeletonGroup) {
 				this.scene.remove(this.skeletonGroup)
 			}
-			
+
 			this.skeletonGroup = new THREE.Group()
-			
+
 			// Create animated skeleton cubes
 			const geometry = new THREE.BoxGeometry(0.5, 0.5, 0.5)
-			const material = new THREE.MeshBasicMaterial({ 
-				color: 0x666666, 
-				transparent: true, 
-				opacity: 0.6 
+			const material = new THREE.MeshBasicMaterial({
+				color: 0x666666,
+				transparent: true,
+				opacity: 0.6,
 			})
-			
+
 			for (let i = 0; i < 8; i++) {
 				const cube = new THREE.Mesh(geometry, material)
 				cube.position.set(
 					(Math.random() - 0.5) * 4,
 					(Math.random() - 0.5) * 4,
-					(Math.random() - 0.5) * 4
+					(Math.random() - 0.5) * 4,
 				)
 				cube.rotation.set(
 					Math.random() * Math.PI,
 					Math.random() * Math.PI,
-					Math.random() * Math.PI
+					Math.random() * Math.PI,
 				)
 				this.skeletonGroup.add(cube)
 			}
-			
+
 			this.scene.add(this.skeletonGroup)
 		},
-		
+
 		hideSkeletonLoading() {
 			if (this.skeletonGroup) {
 				this.scene.remove(this.skeletonGroup)
 				this.skeletonGroup = null
 			}
 		},
-		
+
 		updateProgress(loaded, total, stage = null) {
 			this.progress.loaded = loaded
 			this.progress.total = total
 			this.progress.percentage = total > 0 ? Math.round((loaded / total) * 100) : 0
-			
+
 			if (stage) {
 				this.progress.stage = stage
 			}
-			
+
 			// Calculate estimated time remaining
 			if (loaded > 0 && total > 0) {
 				const elapsed = Date.now() - this.progress.startTime
@@ -322,7 +364,7 @@ export default {
 				this.progress.estimatedTime = Math.round(remaining / 1000) // in seconds
 			}
 		},
-		
+
 		formatBytes(bytes) {
 			if (bytes === 0) return '0 B'
 			const k = 1024
@@ -330,33 +372,33 @@ export default {
 			const i = Math.floor(Math.log(bytes) / Math.log(k))
 			return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
 		},
-		
+
 		getStageText(stage) {
 			const stageTexts = {
-				'initializing': this.t('threedviewer', 'Initializing...'),
-				'downloading': this.t('threedviewer', 'Downloading model...'),
-				'downloaded': this.t('threedviewer', 'Download complete'),
-				'parsing': this.t('threedviewer', 'Parsing 3D model...'),
-				'processing': this.t('threedviewer', 'Processing geometry...'),
-				'complete': this.t('threedviewer', 'Loading complete'),
-				'retrying': this.t('threedviewer', 'Retrying...'),
-				'error': this.t('threedviewer', 'Error occurred')
+				initializing: this.t('threedviewer', 'Initializing...'),
+				downloading: this.t('threedviewer', 'Downloading model...'),
+				downloaded: this.t('threedviewer', 'Download complete'),
+				parsing: this.t('threedviewer', 'Parsing 3D model...'),
+				processing: this.t('threedviewer', 'Processing geometry...'),
+				complete: this.t('threedviewer', 'Loading complete'),
+				retrying: this.t('threedviewer', 'Retrying...'),
+				error: this.t('threedviewer', 'Error occurred'),
 			}
 			return stageTexts[stage] || this.t('threedviewer', 'Loading...')
 		},
-		
+
 		async retryLoad() {
 			if (this.retryCount < this.maxRetries) {
 				this.retryCount++
 				this.updateProgress(0, 0, 'retrying')
-				this.progress.message = this.t('threedviewer', 'Retry attempt {count} of {max}', { 
-					count: this.retryCount, 
-					max: this.maxRetries 
+				this.progress.message = this.t('threedviewer', 'Retry attempt {count} of {max}', {
+					count: this.retryCount,
+					max: this.maxRetries,
 				})
-				
+
 				// Wait a bit before retrying
 				await new Promise(resolve => setTimeout(resolve, 1000 * this.retryCount))
-				
+
 				// Retry loading the model
 				if (this.currentFileId) {
 					await this.loadModel(this.currentFileId)
@@ -365,7 +407,7 @@ export default {
 				this.showErrorState()
 			}
 		},
-		
+
 		showErrorState() {
 			this.loading = false
 			this.hideSkeletonLoading()
@@ -376,19 +418,19 @@ export default {
 				stage: 'error',
 				percentage: 0,
 				estimatedTime: null,
-				startTime: Date.now()
+				startTime: Date.now(),
 			}
 		},
-		
+
 		// Enhanced error handling system
 		categorizeError(error) {
 			const message = error.message || error.toString()
 			const lowerMessage = message.toLowerCase()
-			
+
 			// Network errors
-			if (lowerMessage.includes('network') || lowerMessage.includes('fetch') || 
-				lowerMessage.includes('timeout') || lowerMessage.includes('connection') ||
-				lowerMessage.includes('http') || error.name === 'TypeError') {
+			if (lowerMessage.includes('network') || lowerMessage.includes('fetch')
+				|| lowerMessage.includes('timeout') || lowerMessage.includes('connection')
+				|| lowerMessage.includes('http') || error.name === 'TypeError') {
 				return {
 					type: 'network',
 					message: this.t('threedviewer', 'Network error occurred'),
@@ -396,16 +438,16 @@ export default {
 					suggestions: [
 						this.t('threedviewer', 'Check your internet connection'),
 						this.t('threedviewer', 'Try refreshing the page'),
-						this.t('threedviewer', 'Check if the file is accessible')
+						this.t('threedviewer', 'Check if the file is accessible'),
 					],
 					canRetry: true,
-					errorCode: 'NETWORK_ERROR'
+					errorCode: 'NETWORK_ERROR',
 				}
 			}
-			
+
 			// Format errors
-			if (lowerMessage.includes('unsupported') || lowerMessage.includes('format') ||
-				lowerMessage.includes('extension') || lowerMessage.includes('mime')) {
+			if (lowerMessage.includes('unsupported') || lowerMessage.includes('format')
+				|| lowerMessage.includes('extension') || lowerMessage.includes('mime')) {
 				return {
 					type: 'format',
 					message: this.t('threedviewer', 'Unsupported file format'),
@@ -413,16 +455,16 @@ export default {
 					suggestions: [
 						this.t('threedviewer', 'Try converting to GLB or GLTF format'),
 						this.t('threedviewer', 'Check if the file is a valid 3D model'),
-						this.t('threedviewer', 'Supported formats: GLB, GLTF, OBJ, STL, PLY, FBX, 3MF, 3DS, DAE, VRML')
+						this.t('threedviewer', 'Supported formats: GLB, GLTF, OBJ, STL, PLY, FBX, 3MF, 3DS, DAE, VRML'),
 					],
 					canRetry: false,
-					errorCode: 'FORMAT_ERROR'
+					errorCode: 'FORMAT_ERROR',
 				}
 			}
-			
+
 			// Parsing errors
-			if (lowerMessage.includes('parse') || lowerMessage.includes('invalid') ||
-				lowerMessage.includes('corrupt') || lowerMessage.includes('malformed')) {
+			if (lowerMessage.includes('parse') || lowerMessage.includes('invalid')
+				|| lowerMessage.includes('corrupt') || lowerMessage.includes('malformed')) {
 				return {
 					type: 'parsing',
 					message: this.t('threedviewer', 'File parsing error'),
@@ -430,16 +472,16 @@ export default {
 					suggestions: [
 						this.t('threedviewer', 'The file may be corrupted'),
 						this.t('threedviewer', 'Try re-exporting the 3D model'),
-						this.t('threedviewer', 'Check if the file is complete')
+						this.t('threedviewer', 'Check if the file is complete'),
 					],
 					canRetry: true,
-					errorCode: 'PARSING_ERROR'
+					errorCode: 'PARSING_ERROR',
 				}
 			}
-			
+
 			// Memory errors
-			if (lowerMessage.includes('memory') || lowerMessage.includes('out of memory') ||
-				lowerMessage.includes('too large') || lowerMessage.includes('size')) {
+			if (lowerMessage.includes('memory') || lowerMessage.includes('out of memory')
+				|| lowerMessage.includes('too large') || lowerMessage.includes('size')) {
 				return {
 					type: 'memory',
 					message: this.t('threedviewer', 'File too large or memory error'),
@@ -447,13 +489,13 @@ export default {
 					suggestions: [
 						this.t('threedviewer', 'Try reducing the file size'),
 						this.t('threedviewer', 'Simplify the 3D model geometry'),
-						this.t('threedviewer', 'Close other browser tabs to free memory')
+						this.t('threedviewer', 'Close other browser tabs to free memory'),
 					],
 					canRetry: false,
-					errorCode: 'MEMORY_ERROR'
+					errorCode: 'MEMORY_ERROR',
 				}
 			}
-			
+
 			// Abort errors
 			if (error.name === 'AbortError' || lowerMessage.includes('abort')) {
 				return {
@@ -462,10 +504,10 @@ export default {
 					details: message,
 					suggestions: [],
 					canRetry: true,
-					errorCode: 'ABORT_ERROR'
+					errorCode: 'ABORT_ERROR',
 				}
 			}
-			
+
 			// Unknown errors
 			return {
 				type: 'unknown',
@@ -474,18 +516,18 @@ export default {
 				suggestions: [
 					this.t('threedviewer', 'Try refreshing the page'),
 					this.t('threedviewer', 'Check the browser console for more details'),
-					this.t('threedviewer', 'Contact support if the problem persists')
+					this.t('threedviewer', 'Contact support if the problem persists'),
 				],
 				canRetry: true,
-				errorCode: 'UNKNOWN_ERROR'
+				errorCode: 'UNKNOWN_ERROR',
 			}
 		},
-		
+
 		handleError(error, context = {}) {
-			
+
 			// Categorize the error
 			this.errorState = this.categorizeError(error)
-			
+
 			// Add context-specific information
 			if (context.fileId) {
 				this.errorState.fileId = context.fileId
@@ -493,7 +535,7 @@ export default {
 			if (context.filename) {
 				this.errorState.filename = context.filename
 			}
-			
+
 			// Update progress with error information
 			this.progress = {
 				loaded: 0,
@@ -502,9 +544,9 @@ export default {
 				stage: 'error',
 				percentage: 0,
 				estimatedTime: null,
-				startTime: Date.now()
+				startTime: Date.now(),
 			}
-			
+
 			// Emit error event with enhanced information
 			const payload = {
 				message: this.errorState.message,
@@ -514,24 +556,24 @@ export default {
 				errorCode: this.errorState.errorCode,
 				canRetry: this.errorState.canRetry,
 				originalError: error,
-				context: context
+				context,
 			}
-			
+
 			this.$emit('error', payload)
 			this.dispatchViewerEvent('error', payload)
-			
+
 			// Show error state
 			this.showErrorState()
 		},
-		
+
 		getErrorSuggestions() {
 			return this.errorState.suggestions || []
 		},
-		
+
 		canRetryError() {
 			return this.errorState.canRetry !== false
 		},
-		
+
 		dismissError() {
 			// Clear error state and reset to initial state
 			this.errorState = {
@@ -540,7 +582,7 @@ export default {
 				details: null,
 				suggestions: [],
 				canRetry: true,
-				errorCode: null
+				errorCode: null,
 			}
 			this.progress = {
 				loaded: 0,
@@ -549,54 +591,54 @@ export default {
 				stage: 'init',
 				percentage: 0,
 				estimatedTime: null,
-				startTime: null
+				startTime: null,
 			}
 		},
-		
+
 		// Advanced features - Measurement tools
 		toggleMeasurementMode() {
 			this.measurementMode = !this.measurementMode
 			this.annotationMode = false
 			this.comparisonMode = false
-			
+
 			if (this.measurementMode) {
 				this.setupMeasurementMode()
 			} else {
 				this.clearMeasurements()
 			}
 		},
-		
+
 		setupMeasurementMode() {
 			// Add click listener for measurement points
 			this.renderer.domElement.addEventListener('click', this.onMeasurementClick)
 			this.renderer.domElement.style.cursor = 'crosshair'
 		},
-		
+
 		onMeasurementClick(event) {
 			if (!this.measurementMode) return
-			
+
 			// Get mouse position
 			const rect = this.renderer.domElement.getBoundingClientRect()
 			const mouse = new THREE.Vector2()
 			mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
 			mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
-			
+
 			// Raycast to find intersection point
 			const raycaster = new THREE.Raycaster()
 			raycaster.setFromCamera(mouse, this.camera)
-			
+
 			// Find intersection with model
 			const intersects = raycaster.intersectObjects(this.scene.children, true)
-			
+
 			if (intersects.length > 0) {
 				const point = intersects[0].point
 				this.addMeasurementPoint(point)
 			}
 		},
-		
+
 		addMeasurementPoint(point) {
 			this.measurementPoints.push(point.clone())
-			
+
 			// Create visual marker
 			const geometry = new THREE.SphereGeometry(0.02, 8, 8)
 			const material = new THREE.MeshBasicMaterial({ color: 0xff0000 })
@@ -604,65 +646,65 @@ export default {
 			marker.position.copy(point)
 			this.scene.add(marker)
 			this.measurementLines.push(marker)
-			
+
 			// If we have 2 points, create a measurement line
 			if (this.measurementPoints.length === 2) {
 				this.createMeasurementLine()
 			}
 		},
-		
+
 		createMeasurementLine() {
 			const point1 = this.measurementPoints[0]
 			const point2 = this.measurementPoints[1]
-			
+
 			// Create line geometry
 			const geometry = new THREE.BufferGeometry().setFromPoints([point1, point2])
 			const material = new THREE.LineBasicMaterial({ color: 0x00ff00, linewidth: 2 })
 			const line = new THREE.Line(geometry, material)
 			this.scene.add(line)
 			this.measurementLines.push(line)
-			
+
 			// Calculate distance
 			const distance = point1.distanceTo(point2)
-			
+
 			// Create distance label
 			const midPoint = new THREE.Vector3()
 			midPoint.addVectors(point1, point2).multiplyScalar(0.5)
-			
+
 			this.createMeasurementLabel(midPoint, `${distance.toFixed(3)} units`)
-			
+
 			// Reset for next measurement
 			this.measurementPoints = []
 		},
-		
+
 		createMeasurementLabel(position, text) {
 			// Create canvas for text
 			const canvas = document.createElement('canvas')
 			const context = canvas.getContext('2d')
 			canvas.width = 256
 			canvas.height = 64
-			
+
 			// Draw background
 			context.fillStyle = 'rgba(0, 0, 0, 0.8)'
 			context.fillRect(0, 0, 256, 64)
-			
+
 			// Draw text
 			context.fillStyle = 'white'
 			context.font = '16px Arial'
 			context.textAlign = 'center'
 			context.fillText(text, 128, 35)
-			
+
 			// Create texture and sprite
 			const texture = new THREE.CanvasTexture(canvas)
 			const spriteMaterial = new THREE.SpriteMaterial({ map: texture })
 			const sprite = new THREE.Sprite(spriteMaterial)
 			sprite.position.copy(position)
 			sprite.scale.set(0.5, 0.2, 1)
-			
+
 			this.scene.add(sprite)
 			this.measurementLabels.push(sprite)
 		},
-		
+
 		clearMeasurements() {
 			// Remove all measurement objects
 			this.measurementLines.forEach(obj => {
@@ -671,50 +713,50 @@ export default {
 			this.measurementLabels.forEach(obj => {
 				this.scene.remove(obj)
 			})
-			
+
 			// Clear arrays
 			this.measurementPoints = []
 			this.measurementLines = []
 			this.measurementLabels = []
-			
+
 			// Remove event listener
 			this.renderer.domElement.removeEventListener('click', this.onMeasurementClick)
 			this.renderer.domElement.style.cursor = 'default'
 		},
-		
+
 		// Annotation system
 		toggleAnnotationMode() {
 			this.annotationMode = !this.annotationMode
 			this.measurementMode = false
 			this.comparisonMode = false
-			
+
 			if (this.annotationMode) {
 				this.setupAnnotationMode()
 			} else {
 				this.clearAnnotations()
 			}
 		},
-		
+
 		setupAnnotationMode() {
 			this.renderer.domElement.addEventListener('click', this.onAnnotationClick)
 			this.renderer.domElement.style.cursor = 'pointer'
 		},
-		
+
 		onAnnotationClick(event) {
 			if (!this.annotationMode) return
-			
+
 			// Get mouse position
 			const rect = this.renderer.domElement.getBoundingClientRect()
 			const mouse = new THREE.Vector2()
 			mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
 			mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
-			
+
 			// Raycast to find intersection point
 			const raycaster = new THREE.Raycaster()
 			raycaster.setFromCamera(mouse, this.camera)
-			
+
 			const intersects = raycaster.intersectObjects(this.scene.children, true)
-			
+
 			if (intersects.length > 0) {
 				const point = intersects[0].point
 				const text = prompt('Enter annotation text:')
@@ -723,7 +765,7 @@ export default {
 				}
 			}
 		},
-		
+
 		addAnnotation(position, text) {
 			// Create annotation marker
 			const geometry = new THREE.SphereGeometry(0.03, 8, 8)
@@ -731,35 +773,35 @@ export default {
 			const marker = new THREE.Mesh(geometry, material)
 			marker.position.copy(position)
 			this.scene.add(marker)
-			
+
 			// Create text label
 			this.createAnnotationLabel(position, text)
-			
+
 			// Store annotation
 			this.annotations.push({
 				position: position.clone(),
-				text: text,
-				marker: marker
+				text,
+				marker,
 			})
 		},
-		
+
 		createAnnotationLabel(position, text) {
 			// Create canvas for text
 			const canvas = document.createElement('canvas')
 			const context = canvas.getContext('2d')
 			canvas.width = 256
 			canvas.height = 64
-			
+
 			// Draw background
 			context.fillStyle = 'rgba(255, 255, 0, 0.8)'
 			context.fillRect(0, 0, 256, 64)
-			
+
 			// Draw text
 			context.fillStyle = 'black'
 			context.font = '14px Arial'
 			context.textAlign = 'center'
 			context.fillText(text, 128, 35)
-			
+
 			// Create texture and sprite
 			const texture = new THREE.CanvasTexture(canvas)
 			const spriteMaterial = new THREE.SpriteMaterial({ map: texture })
@@ -767,47 +809,47 @@ export default {
 			sprite.position.copy(position)
 			sprite.position.y += 0.1 // Offset above the marker
 			sprite.scale.set(0.6, 0.3, 1)
-			
+
 			this.scene.add(sprite)
 		},
-		
+
 		clearAnnotations() {
 			// Remove all annotation objects
 			this.annotations.forEach(annotation => {
 				this.scene.remove(annotation.marker)
 			})
-			
+
 			// Clear array
 			this.annotations = []
-			
+
 			// Remove event listener
 			this.renderer.domElement.removeEventListener('click', this.onAnnotationClick)
 			this.renderer.domElement.style.cursor = 'default'
 		},
-		
+
 		// Model comparison
 		toggleComparisonMode() {
 			this.comparisonMode = !this.comparisonMode
 			this.measurementMode = false
 			this.annotationMode = false
-			
+
 			if (this.comparisonMode) {
 				this.setupComparisonMode()
 			} else {
 				this.clearComparison()
 			}
 		},
-		
+
 		setupComparisonMode() {
 			// Open file picker for comparison model
 			this.openComparisonFilePicker()
 		},
-		
+
 		openComparisonFilePicker() {
 			// Open Nextcloud file picker for comparison model
 			this.openNextcloudFilePicker()
 		},
-		
+
 		openNextcloudFilePicker() {
 			// Create a modal for file selection
 			const modal = document.createElement('div')
@@ -831,7 +873,7 @@ export default {
 					</div>
 				</div>
 			`
-			
+
 			// Add styles
 			const style = document.createElement('style')
 			style.textContent = `
@@ -939,25 +981,24 @@ export default {
 				}
 			`
 			document.head.appendChild(style)
-			
+
 			document.body.appendChild(modal)
-			
+
 			// Load 3D files from Nextcloud
 			this.loadNextcloudFiles(modal)
 		},
-		
+
 		async loadNextcloudFiles(modal) {
 			try {
 				const fileList = modal.querySelector('.file-list')
 				const supportedExtensions = ['glb', 'gltf', 'obj', 'stl', 'ply', 'fbx', '3mf', '3ds', 'dae', 'x3d', 'vrml', 'wrl']
-				
-				
+
 				// Try multiple API endpoints to find 3D files
 				let files = []
-				
+
 				// Method 1: Try to get files from the current directory context
 				try {
-					
+
 					// Use Nextcloud's internal file listing if available
 					if (window.OCA && window.OCA.Files && window.OCA.Files.fileList) {
 						const fileList = window.OCA.Files.fileList
@@ -970,83 +1011,89 @@ export default {
 					}
 				} catch (e) {
 				}
-				
+
 				// Method 2: Try to get files from the 3D viewer OCS API
 				if (files.length === 0) {
 					try {
 						const response = await fetch('/ocs/v2.php/apps/threedviewer/api/files', {
 							headers: {
 								'OCS-APIRequest': 'true',
-								'Accept': 'application/json',
-								'X-Requested-With': 'XMLHttpRequest'
-							}
+								Accept: 'application/json',
+								'X-Requested-With': 'XMLHttpRequest',
+							},
 						})
-						
+
 						if (response.ok) {
 							const data = await response.json()
-							
+
 							if (data.ocs && data.ocs.data && data.ocs.data.files) {
 								files = data.ocs.data.files.map(file => ({
 									id: file.id,
 									name: file.name,
 									size: file.size,
-									path: file.path
+									path: file.path,
 								}))
 							}
 						}
 					} catch (e) {
 					}
 				}
-				
+
 				// Method 3: Fallback - create some dummy files for testing
 				if (files.length === 0) {
-					
+
 					// Create some dummy files for testing
 					files = [
 						{ id: 'dummy1', name: 'test-model.glb', size: 1024000 },
 						{ id: 'dummy2', name: 'sample.obj', size: 512000 },
-						{ id: 'dummy3', name: 'example.stl', size: 256000 }
+						{ id: 'dummy3', name: 'example.stl', size: 256000 },
 					]
-					
+
 				}
-				
+
 				fileList.innerHTML = ''
-				
+
 				files.forEach(file => {
 					const fileItem = document.createElement('div')
 					fileItem.className = 'file-item'
-					
+
 					// Get appropriate icon based on file type
 					const extension = file.name.split('.').pop().toLowerCase()
 					const iconMap = {
-						'glb': '📦', 'gltf': '📦',
-						'obj': '🔺', 'stl': '🔺',
-						'ply': '📐', 'fbx': '🎬',
-						'3mf': '🏭', '3ds': '🎮',
-						'dae': '🎨', 'x3d': '🌐',
-						'vrml': '🌐', 'wrl': '🌐'
+						glb: '📦',
+						gltf: '📦',
+						obj: '🔺',
+						stl: '🔺',
+						ply: '📐',
+						fbx: '🎬',
+						'3mf': '🏭',
+						'3ds': '🎮',
+						dae: '🎨',
+						x3d: '🌐',
+						vrml: '🌐',
+						wrl: '🌐',
 					}
-					
+
 					fileItem.innerHTML = `
 						<div class="file-icon">${iconMap[extension] || '📦'}</div>
 						<div class="file-name">${file.name}</div>
 						<div class="file-size">${this.formatFileSize(file.size || 0)}</div>
 					`
-					
+
 					fileItem.addEventListener('click', () => {
 						this.loadComparisonModelFromNextcloud(file)
 						modal.remove()
 					})
-					
+
 					fileList.appendChild(fileItem)
 				})
-				
+
 			} catch (error) {
 				const fileList = modal.querySelector('.file-list')
 				fileList.innerHTML = `<div class="loading">${this.t('threedviewer', 'Error loading files')}</div>`
 			}
 		},
-		
+
 		formatFileSize(bytes) {
 			if (bytes === 0) return '0 B'
 			const k = 1024
@@ -1054,10 +1101,10 @@ export default {
 			const i = Math.floor(Math.log(bytes) / Math.log(k))
 			return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
 		},
-		
+
 		async loadComparisonModelFromNextcloud(file) {
 			try {
-				
+
 				this.loading = true
 				this.progress = {
 					loaded: 0,
@@ -1066,95 +1113,95 @@ export default {
 					stage: 'loading',
 					percentage: 0,
 					estimatedTime: null,
-					startTime: Date.now()
+					startTime: Date.now(),
 				}
-				
+
 				let arrayBuffer
-				
+
 				// Handle dummy files for testing
 				if (String(file.id).startsWith('dummy')) {
-					
+
 					// Create a simple test model (a cube)
 					const geometry = new THREE.BoxGeometry(1, 1, 1)
 					const material = new THREE.MeshStandardMaterial({ color: 0x00ff00 })
 					const cube = new THREE.Mesh(geometry, material)
-					
+
 					// Position the test cube
 					cube.position.set(3, 0, 0) // To the right of the original model
-					
+
 					// Store reference to comparison model
 					this.comparisonModel = cube
 					this.scene.add(cube)
-					
+
 					// Add visual indicator
 					this.addComparisonIndicator(cube, file.name)
-					
+
 					// Update camera to show both models
 					this.fitBothModelsToView()
-					
+
 					return
 				}
-				
+
 				// Get file content from Nextcloud using 3D viewer OCS API
 				const fileUrl = `/ocs/v2.php/apps/threedviewer/api/file/${file.id}`
-				
+
 				const response = await fetch(fileUrl, {
 					method: 'GET',
 					headers: {
-						'Accept': 'application/octet-stream',
+						Accept: 'application/octet-stream',
 						'X-Requested-With': 'XMLHttpRequest',
-						'OCS-APIRequest': 'true'
+						'OCS-APIRequest': 'true',
 					},
-					credentials: 'same-origin'
+					credentials: 'same-origin',
 				})
-				
+
 				if (!response.ok) {
 					throw new Error(`Failed to load file: ${response.statusText}`)
 				}
-				
+
 				arrayBuffer = await response.arrayBuffer()
-				
+
 				// Get file extension
 				const extension = file.name.split('.').pop().toLowerCase()
-				
+
 				// Load the comparison model
 				const result = await loadModelByExtension(extension, arrayBuffer, {
-					THREE: THREE,
+					THREE,
 					scene: this.scene,
 					applyWireframe: this.applyWireframe,
 					ensurePlaceholderRemoved: this.ensurePlaceholderRemoved,
 					wireframe: this.wireframe,
-					fileId: file.id
+					fileId: file.id,
 				})
-				
+
 				if (result && result.object3D) {
 					// Position the comparison model to the right
 					const boundingBox = new THREE.Box3().setFromObject(result.object3D)
 					const size = boundingBox.getSize(new THREE.Vector3())
 					const center = boundingBox.getCenter(new THREE.Vector3())
-					
+
 					// Move comparison model to the right side
 					result.object3D.position.x = size.x + 2 // Offset to the right
 					result.object3D.position.sub(center)
-					
+
 					// Store reference to comparison model
 					this.comparisonModel = result.object3D
-					
+
 					// Add visual indicator
 					this.addComparisonIndicator(result.object3D, file.name)
-					
+
 					// Update camera to show both models
 					this.fitBothModelsToView()
-					
+
 				}
-				
+
 			} catch (error) {
 				this.handleError(error, { context: 'comparison', filename: file.name })
 			} finally {
 				this.loading = false
 			}
 		},
-		
+
 		async loadComparisonModel(file) {
 			try {
 				this.loading = true
@@ -1165,53 +1212,53 @@ export default {
 					stage: 'loading',
 					percentage: 0,
 					estimatedTime: null,
-					startTime: Date.now()
+					startTime: Date.now(),
 				}
-				
+
 				// Read file as ArrayBuffer
 				const arrayBuffer = await this.readFileAsArrayBuffer(file)
-				
+
 				// Get file extension
 				const extension = file.name.split('.').pop().toLowerCase()
-				
+
 				// Load the comparison model
 				const result = await loadModelByExtension(extension, arrayBuffer, {
-					THREE: THREE,
+					THREE,
 					scene: this.scene,
 					applyWireframe: this.applyWireframe,
 					ensurePlaceholderRemoved: this.ensurePlaceholderRemoved,
 					wireframe: this.wireframe,
-					fileId: 'comparison'
+					fileId: 'comparison',
 				})
-				
+
 				if (result && result.object3D) {
 					// Position the comparison model to the right
 					const boundingBox = new THREE.Box3().setFromObject(result.object3D)
 					const size = boundingBox.getSize(new THREE.Vector3())
 					const center = boundingBox.getCenter(new THREE.Vector3())
-					
+
 					// Move comparison model to the right side
 					result.object3D.position.x = size.x + 2 // Offset to the right
 					result.object3D.position.sub(center)
-					
+
 					// Store reference to comparison model
 					this.comparisonModel = result.object3D
-					
+
 					// Add visual indicator
 					this.addComparisonIndicator(result.object3D, file.name)
-					
+
 					// Update camera to show both models
 					this.fitBothModelsToView()
-					
+
 				}
-				
+
 			} catch (error) {
 				this.handleError(error, { context: 'comparison' })
 			} finally {
 				this.loading = false
 			}
 		},
-		
+
 		readFileAsArrayBuffer(file) {
 			return new Promise((resolve, reject) => {
 				const reader = new FileReader()
@@ -1220,106 +1267,106 @@ export default {
 				reader.readAsArrayBuffer(file)
 			})
 		},
-		
+
 		addComparisonIndicator(model, filename) {
 			// Create a label above the comparison model
 			const canvas = document.createElement('canvas')
 			const ctx = canvas.getContext('2d')
 			canvas.width = 256
 			canvas.height = 64
-			
+
 			// Draw background
 			ctx.fillStyle = 'rgba(0, 100, 200, 0.8)'
 			ctx.fillRect(0, 0, 256, 64)
-			
+
 			// Draw text
 			ctx.fillStyle = 'white'
 			ctx.font = '14px Arial'
 			ctx.textAlign = 'center'
 			ctx.fillText('Comparison Model', 128, 25)
 			ctx.fillText(filename, 128, 45)
-			
+
 			// Create texture and sprite
 			const texture = new THREE.CanvasTexture(canvas)
 			const spriteMaterial = new THREE.SpriteMaterial({ map: texture })
 			const sprite = new THREE.Sprite(spriteMaterial)
-			
+
 			// Position above the model
 			const boundingBox = new THREE.Box3().setFromObject(model)
 			const size = boundingBox.getSize(new THREE.Vector3())
 			sprite.position.copy(model.position)
 			sprite.position.y += size.y / 2 + 1
 			sprite.scale.set(2, 0.5, 1)
-			
+
 			this.scene.add(sprite)
 			this.comparisonIndicator = sprite
 		},
-		
+
 		fitBothModelsToView() {
 			if (!this.modelRoot && !this.comparisonModel) return
-			
+
 			// Create a bounding box that includes both models
 			const boundingBox = new THREE.Box3()
-			
+
 			if (this.modelRoot) {
 				boundingBox.union(new THREE.Box3().setFromObject(this.modelRoot))
 			}
-			
+
 			if (this.comparisonModel) {
 				boundingBox.union(new THREE.Box3().setFromObject(this.comparisonModel))
 			}
-			
+
 			// Calculate center and size
 			const center = boundingBox.getCenter(new THREE.Vector3())
 			const size = boundingBox.getSize(new THREE.Vector3())
-			
+
 			// Center both models at origin (only if not already centered)
 			const tolerance = 0.1
 			const isAlreadyCentered = Math.abs(center.x) < tolerance && Math.abs(center.z) < tolerance
-			
-				if (!isAlreadyCentered) {
-					if (this.modelRoot) {
-						this.modelRoot.position.sub(center)
-					}
-					if (this.comparisonModel) {
-						this.comparisonModel.position.sub(center)
-					}
+
+			if (!isAlreadyCentered) {
+				if (this.modelRoot) {
+					this.modelRoot.position.sub(center)
 				}
-			
+				if (this.comparisonModel) {
+					this.comparisonModel.position.sub(center)
+				}
+			}
+
 			// Calculate distance needed to fit both models
 			const maxDim = Math.max(size.x, size.y, size.z)
 			const distance = maxDim * 2
-			
+
 			// Position camera to look at origin with better distance
 			const cameraDistance = Math.max(distance * 1.5, 30) // Ensure minimum distance
 			this.camera.position.set(cameraDistance, cameraDistance * 0.3, cameraDistance * 0.7)
 			this.camera.lookAt(0, 0, 0)
-			
-				// Update controls target to origin
-				if (this.controls) {
-					this.controls.target.set(0, 0, 0)
-					this.controls.update()
-					
-					// Force the camera to look at origin immediately
-					this.camera.lookAt(0, 0, 0)
-				}
-			
+
+			// Update controls target to origin
+			if (this.controls) {
+				this.controls.target.set(0, 0, 0)
+				this.controls.update()
+
+				// Force the camera to look at origin immediately
+				this.camera.lookAt(0, 0, 0)
+			}
+
 			// Update grid size for comparison mode
 			this.updateGridForComparison()
 		},
-		
+
 		toggleOriginalModel() {
 			if (this.modelRoot) {
 				this.modelRoot.visible = !this.modelRoot.visible
 			}
 		},
-		
+
 		toggleComparisonModel() {
 			if (this.comparisonModel) {
 				this.comparisonModel.visible = !this.comparisonModel.visible
 			}
 		},
-		
+
 		clearComparison() {
 			if (this.comparisonModel) {
 				this.scene.remove(this.comparisonModel)
@@ -1330,138 +1377,138 @@ export default {
 				this.comparisonIndicator = null
 			}
 		},
-		
+
 		clearAllAdvancedFeatures() {
 			this.clearMeasurements()
 			this.clearAnnotations()
 			this.clearComparison()
-			
+
 			// Reset all modes
 			this.measurementMode = false
 			this.annotationMode = false
 			this.comparisonMode = false
-			
+
 			// Reset cursor
 			this.renderer.domElement.style.cursor = 'default'
 		},
-		
+
 		// Performance optimizations
 		setPerformanceMode(mode) {
 			this.performanceMode = mode
 			this.applyPerformanceSettings()
 		},
-		
+
 		applyPerformanceSettings() {
 			if (!this.renderer) return
-			
+
 			switch (this.performanceMode) {
-				case 'high':
+			case 'high':
+				this.renderer.setPixelRatio(window.devicePixelRatio)
+				this.renderer.antialias = true
+				this.renderer.shadowMap.enabled = true
+				this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
+				break
+			case 'medium':
+				this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
+				this.renderer.antialias = true
+				this.renderer.shadowMap.enabled = true
+				this.renderer.shadowMap.type = THREE.BasicShadowMap
+				break
+			case 'low':
+				this.renderer.setPixelRatio(1)
+				this.renderer.antialias = false
+				this.renderer.shadowMap.enabled = false
+				break
+			case 'auto':
+			default:
+				// Auto-detect based on device capabilities
+				const isMobile = this.isMobileDevice()
+				if (isMobile) {
+					this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
+					this.renderer.antialias = false
+					this.renderer.shadowMap.enabled = false
+				} else {
 					this.renderer.setPixelRatio(window.devicePixelRatio)
 					this.renderer.antialias = true
 					this.renderer.shadowMap.enabled = true
 					this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
-					break
-				case 'medium':
-					this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
-					this.renderer.antialias = true
-					this.renderer.shadowMap.enabled = true
-					this.renderer.shadowMap.type = THREE.BasicShadowMap
-					break
-				case 'low':
-					this.renderer.setPixelRatio(1)
-					this.renderer.antialias = false
-					this.renderer.shadowMap.enabled = false
-					break
-				case 'auto':
-				default:
-					// Auto-detect based on device capabilities
-					const isMobile = this.isMobileDevice()
-					if (isMobile) {
-						this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
-						this.renderer.antialias = false
-						this.renderer.shadowMap.enabled = false
-					} else {
-						this.renderer.setPixelRatio(window.devicePixelRatio)
-						this.renderer.antialias = true
-						this.renderer.shadowMap.enabled = true
-						this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
-					}
-					break
+				}
+				break
 			}
 		},
-		
+
 		setupLODSystem() {
 			// Create LOD levels for the model
 			if (!this.modelRoot) return
-			
+
 			this.lodLevels = []
-			
+
 			// Traverse the model and create LOD levels
 			this.modelRoot.traverse((child) => {
 				if (child.isMesh && child.geometry) {
 					const lod = new THREE.LOD()
-					
+
 					// High detail (original)
 					lod.addLevel(child.clone(), 0)
-					
+
 					// Medium detail (simplified)
 					const mediumGeometry = this.simplifyGeometry(child.geometry, 0.5)
 					const mediumMesh = new THREE.Mesh(mediumGeometry, child.material)
 					lod.addLevel(mediumMesh, 10)
-					
+
 					// Low detail (very simplified)
 					const lowGeometry = this.simplifyGeometry(child.geometry, 0.2)
 					const lowMesh = new THREE.Mesh(lowGeometry, child.material)
 					lod.addLevel(lowMesh, 25)
-					
+
 					// Replace original mesh with LOD
 					child.parent.add(lod)
 					child.parent.remove(child)
-					
+
 					this.lodLevels.push(lod)
 				}
 			})
 		},
-		
+
 		simplifyGeometry(geometry, ratio) {
 			// Simple geometry simplification by reducing vertices
 			const positions = geometry.attributes.position.array
 			const indices = geometry.index ? geometry.index.array : null
-			
+
 			if (!indices) {
 				// If no indices, create simplified version by skipping vertices
 				const newPositions = []
 				const step = Math.max(1, Math.floor(positions.length / (positions.length * ratio)))
-				
+
 				for (let i = 0; i < positions.length; i += step * 3) {
 					if (i + 2 < positions.length) {
 						newPositions.push(positions[i], positions[i + 1], positions[i + 2])
 					}
 				}
-				
+
 				const newGeometry = new THREE.BufferGeometry()
 				newGeometry.setAttribute('position', new THREE.Float32BufferAttribute(newPositions, 3))
 				return newGeometry
 			}
-			
+
 			// With indices, we can do better simplification
 			const newIndices = []
 			const step = Math.max(1, Math.floor(indices.length * ratio))
-			
+
 			for (let i = 0; i < indices.length; i += step) {
 				if (i + 2 < indices.length) {
 					newIndices.push(indices[i], indices[i + 1], indices[i + 2])
 				}
 			}
-			
+
 			const newGeometry = geometry.clone()
 			newGeometry.setIndex(newIndices)
 			return newGeometry
 		},
-		
+
 		setupFrustumCulling() {
 			if (!this.camera) return
-			
+
 			// Enable frustum culling for all meshes
 			this.scene.traverse((child) => {
 				if (child.isMesh) {
@@ -1469,50 +1516,50 @@ export default {
 				}
 			})
 		},
-		
+
 		setupGeometryInstancing() {
 			// Group similar geometries for instancing
 			const geometryGroups = new Map()
-			
+
 			this.scene.traverse((child) => {
 				if (child.isMesh && child.geometry) {
 					const key = child.geometry.uuid + '_' + (child.material ? child.material.uuid : 'default')
-					
+
 					if (!geometryGroups.has(key)) {
 						geometryGroups.set(key, {
 							geometry: child.geometry,
 							material: child.material,
-							instances: []
+							instances: [],
 						})
 					}
-					
+
 					geometryGroups.get(key).instances.push({
 						position: child.position.clone(),
 						rotation: child.rotation.clone(),
-						scale: child.scale.clone()
+						scale: child.scale.clone(),
 					})
 				}
 			})
-			
+
 			// Create instanced meshes for groups with multiple instances
 			geometryGroups.forEach((group, key) => {
 				if (group.instances.length > 1) {
 					const instancedMesh = new THREE.InstancedMesh(
 						group.geometry,
 						group.material,
-						group.instances.length
+						group.instances.length,
 					)
-					
+
 					// Set instance matrices
 					group.instances.forEach((instance, index) => {
 						const matrix = new THREE.Matrix4()
 						matrix.compose(instance.position, instance.rotation, instance.scale)
 						instancedMesh.setMatrixAt(index, matrix)
 					})
-					
+
 					// Add to scene
 					this.scene.add(instancedMesh)
-					
+
 					// Remove original meshes
 					group.instances.forEach(() => {
 						// This would need more complex logic to find and remove original meshes
@@ -1520,39 +1567,39 @@ export default {
 				}
 			})
 		},
-		
+
 		updatePerformanceStats() {
 			if (!this.renderer) return
-			
+
 			const now = performance.now()
 			if (now - this.performanceStats.lastUpdate < 1000) return // Update every second
-			
+
 			// Get renderer info
 			const info = this.renderer.info
-			
+
 			this.performanceStats.triangles = info.render.triangles
 			this.performanceStats.drawCalls = info.render.calls
 			this.performanceStats.lastUpdate = now
-			
+
 			// Calculate FPS (simplified)
 			this.performanceStats.fps = Math.round(1000 / (now - this.performanceStats.lastUpdate))
 		},
-		
+
 		optimizeForMobile() {
 			if (!this.isMobile) return
-			
+
 			// Reduce quality for mobile
 			this.setPerformanceMode('low')
-			
+
 			// Disable expensive features
 			this.frustumCulling = true
 			this.geometryInstancing = false
-			
+
 			// Reduce shadow quality
 			if (this.renderer.shadowMap) {
 				this.renderer.shadowMap.enabled = false
 			}
-			
+
 			// Reduce texture quality
 			this.scene.traverse((child) => {
 				if (child.material && child.material.map) {
@@ -1561,24 +1608,24 @@ export default {
 				}
 			})
 		},
-		
+
 		togglePerformanceMode() {
 			const modes = ['auto', 'high', 'medium', 'low']
 			const currentIndex = modes.indexOf(this.performanceMode)
 			const nextIndex = (currentIndex + 1) % modes.length
 			this.setPerformanceMode(modes[nextIndex])
 		},
-		
+
 		getPerformanceModeText() {
 			switch (this.performanceMode) {
-				case 'high': return this.t('threedviewer', 'High')
-				case 'medium': return this.t('threedviewer', 'Medium')
-				case 'low': return this.t('threedviewer', 'Low')
-				case 'auto':
-				default: return this.t('threedviewer', 'Auto')
+			case 'high': return this.t('threedviewer', 'High')
+			case 'medium': return this.t('threedviewer', 'Medium')
+			case 'low': return this.t('threedviewer', 'Low')
+			case 'auto':
+			default: return this.t('threedviewer', 'Auto')
 			}
 		},
-		
+
 		// Camera control enhancements
 		toggleAutoRotate() {
 			this.autoRotate = !this.autoRotate
@@ -1587,95 +1634,95 @@ export default {
 				this.controls.autoRotateSpeed = this.autoRotateSpeed
 			}
 		},
-		
+
 		setAutoRotateSpeed(speed) {
 			this.autoRotateSpeed = Math.max(0.1, Math.min(10, speed))
 			if (this.controls) {
 				this.controls.autoRotateSpeed = this.autoRotateSpeed
 			}
 		},
-		
+
 		initAnimationPresets() {
 			this.animationPresets = [
 				{
 					name: 'front',
 					label: this.t('threedviewer', 'Front View'),
 					position: { x: 0, y: 0, z: 5 },
-					target: { x: 0, y: 0, z: 0 }
+					target: { x: 0, y: 0, z: 0 },
 				},
 				{
 					name: 'back',
 					label: this.t('threedviewer', 'Back View'),
 					position: { x: 0, y: 0, z: -5 },
-					target: { x: 0, y: 0, z: 0 }
+					target: { x: 0, y: 0, z: 0 },
 				},
 				{
 					name: 'left',
 					label: this.t('threedviewer', 'Left View'),
 					position: { x: -5, y: 0, z: 0 },
-					target: { x: 0, y: 0, z: 0 }
+					target: { x: 0, y: 0, z: 0 },
 				},
 				{
 					name: 'right',
 					label: this.t('threedviewer', 'Right View'),
 					position: { x: 5, y: 0, z: 0 },
-					target: { x: 0, y: 0, z: 0 }
+					target: { x: 0, y: 0, z: 0 },
 				},
 				{
 					name: 'top',
 					label: this.t('threedviewer', 'Top View'),
 					position: { x: 0, y: 5, z: 0 },
-					target: { x: 0, y: 0, z: 0 }
+					target: { x: 0, y: 0, z: 0 },
 				},
 				{
 					name: 'bottom',
 					label: this.t('threedviewer', 'Bottom View'),
 					position: { x: 0, y: -5, z: 0 },
-					target: { x: 0, y: 0, z: 0 }
+					target: { x: 0, y: 0, z: 0 },
 				},
 				{
 					name: 'isometric',
 					label: this.t('threedviewer', 'Isometric View'),
 					position: { x: 3, y: 3, z: 3 },
-					target: { x: 0, y: 0, z: 0 }
+					target: { x: 0, y: 0, z: 0 },
 				},
 				{
 					name: 'orbit',
 					label: this.t('threedviewer', 'Orbit View'),
 					position: { x: 4, y: 2, z: 4 },
-					target: { x: 0, y: 0, z: 0 }
-				}
+					target: { x: 0, y: 0, z: 0 },
+				},
 			]
 		},
-		
+
 		async animateToPreset(presetName, duration = 1000) {
 			const preset = this.animationPresets.find(p => p.name === presetName)
 			if (!preset || !this.controls) return
-			
+
 			this.isAnimating = true
 			this.currentPreset = presetName
-			
+
 			const startPosition = this.camera.position.clone()
 			const startTarget = this.controls.target.clone()
 			const endPosition = new THREE.Vector3(preset.position.x, preset.position.y, preset.position.z)
 			const endTarget = new THREE.Vector3(preset.target.x, preset.target.y, preset.target.z)
-			
+
 			const startTime = Date.now()
-			
+
 			const animate = () => {
 				const elapsed = Date.now() - startTime
 				const progress = Math.min(elapsed / duration, 1)
-				
+
 				// Easing function (ease-in-out)
-				const easeProgress = progress < 0.5 
-					? 2 * progress * progress 
+				const easeProgress = progress < 0.5
+					? 2 * progress * progress
 					: 1 - Math.pow(-2 * progress + 2, 3) / 2
-				
+
 				// Interpolate position and target
 				this.camera.position.lerpVectors(startPosition, endPosition, easeProgress)
 				this.controls.target.lerpVectors(startTarget, endTarget, easeProgress)
 				this.controls.update()
-				
+
 				if (progress < 1) {
 					requestAnimationFrame(animate)
 				} else {
@@ -1683,94 +1730,94 @@ export default {
 					this.currentPreset = null
 				}
 			}
-			
+
 			animate()
 		},
-		
+
 		smoothZoom(targetDistance, duration = 500) {
 			if (!this.controls) return
-			
+
 			const startDistance = this.camera.position.distanceTo(this.controls.target)
 			const startTime = Date.now()
-			
+
 			const animate = () => {
 				const elapsed = Date.now() - startTime
 				const progress = Math.min(elapsed / duration, 1)
-				
-				const easeProgress = progress < 0.5 
-					? 2 * progress * progress 
+
+				const easeProgress = progress < 0.5
+					? 2 * progress * progress
 					: 1 - Math.pow(-2 * progress + 2, 3) / 2
-				
+
 				const currentDistance = startDistance + (targetDistance - startDistance) * easeProgress
 				const direction = this.camera.position.clone().sub(this.controls.target).normalize()
 				this.camera.position.copy(this.controls.target).add(direction.multiplyScalar(currentDistance))
 				this.controls.update()
-				
+
 				if (progress < 1) {
 					requestAnimationFrame(animate)
 				}
 			}
-			
+
 			animate()
 		},
-		
+
 		fitToView(padding = 1.2) {
 			if (!this.modelRoot || !this.controls) return
-			
+
 			const box = new THREE.Box3().setFromObject(this.modelRoot)
 			const size = box.getSize(new THREE.Vector3())
 			const center = box.getCenter(new THREE.Vector3())
-			
+
 			const maxDim = Math.max(size.x, size.y, size.z)
 			const fov = this.camera.fov * (Math.PI / 180)
 			const distance = Math.abs(maxDim / Math.sin(fov / 2)) * padding
-			
+
 			// Animate to fit
 			this.animateToPreset({
 				name: 'fit',
 				position: { x: center.x, y: center.y, z: center.z + distance },
-				target: { x: center.x, y: center.y, z: center.z }
+				target: { x: center.x, y: center.y, z: center.z },
 			}, 1000)
 		},
-		
+
 		// Theme and accessibility enhancements
 		applyTheme() {
 			const isDark = this.isDarkMode()
 			this.updateSceneTheme(isDark)
 			this.updateUITheme(isDark)
 		},
-		
+
 		isDarkMode() {
 			// Check multiple sources for dark mode
 			if (this.$root?.$ncTheme?.isDark !== undefined) {
 				return this.$root.$ncTheme.isDark
 			}
-			
+
 			// Check CSS custom properties
 			const root = document.documentElement
 			const computedStyle = getComputedStyle(root)
 			const colorScheme = computedStyle.getPropertyValue('color-scheme').trim()
 			if (colorScheme === 'dark') return true
-			
+
 			// Check system preference
 			if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
 				return true
 			}
-			
+
 			// Check Nextcloud theme
 			if (typeof OC !== 'undefined' && OC.theme && OC.theme.isDark) {
 				return OC.theme.isDark
 			}
-			
+
 			return false
 		},
-		
+
 		updateSceneTheme(isDark) {
 			if (!this.scene) return
-			
+
 			// Update background color
 			this.scene.background = new THREE.Color(isDark ? 0x1e1e1e : 0xf5f5f5)
-			
+
 			// Update lighting for better contrast in dark mode
 			if (this.scene.children) {
 				this.scene.children.forEach(child => {
@@ -1782,7 +1829,7 @@ export default {
 				})
 			}
 		},
-		
+
 		updateUITheme(isDark) {
 			// Add theme class to container
 			const container = this.$refs.container
@@ -1791,40 +1838,40 @@ export default {
 				container.classList.toggle('light-theme', !isDark)
 			}
 		},
-		
+
 		async init() {
 			const container = this.$refs.container
 			const width = container.clientWidth || 800
 			const height = container.clientHeight || 600
 			this.scene = new THREE.Scene()
 			this.scene.background = new THREE.Color(this.$root?.$ncTheme?.isDark ? 0x1e1e1e : 0xf5f5f5)
-			
+
 			// Mobile-optimized camera settings
 			this.isMobile = this.isMobileDevice()
 			const fov = this.isMobile ? 75 : 60 // Wider FOV for mobile
 			this.camera = new THREE.PerspectiveCamera(fov, width / height, 0.1, 1000)
 			this.camera.position.set(2, 2, 2)
-			
+
 			// Apply dark mode theme
 			this.applyTheme()
-			
+
 			// Mobile-optimized renderer settings
-			this.renderer = new THREE.WebGLRenderer({ 
+			this.renderer = new THREE.WebGLRenderer({
 				antialias: !this.isMobile, // Disable antialiasing on mobile for performance
-				powerPreference: this.isMobile ? "low-power" : "high-performance"
+				powerPreference: this.isMobile ? 'low-power' : 'high-performance',
 			})
-			
+
 			// Optimize pixel ratio for mobile
 			const pixelRatio = this.isMobile ? Math.min(window.devicePixelRatio, 1.5) : window.devicePixelRatio
 			this.renderer.setPixelRatio(pixelRatio)
 			this.renderer.setSize(width, height)
-			
+
 			// Mobile-specific renderer optimizations
 			if (this.isMobile) {
 				this.renderer.shadowMap.enabled = false // Disable shadows on mobile
 				this.renderer.outputColorSpace = THREE.SRGBColorSpace
 			}
-			
+
 			container.appendChild(this.renderer.domElement)
 			const ambient = new THREE.AmbientLight(0xffffff, 0.7)
 			const dir = new THREE.DirectionalLight(0xffffff, 0.8)
@@ -1845,21 +1892,21 @@ export default {
 				const mod = await import(/* webpackChunkName: "orbit-controls" */ 'three/examples/jsm/controls/OrbitControls.js')
 				const OrbitControls = mod.OrbitControls || mod.default
 				this.controls = new OrbitControls(this.camera, this.renderer.domElement)
-				
+
 				// Basic controls setup
 				this.controls.enableDamping = true
 				this.controls.dampingFactor = 0.05
 				this.controls.screenSpacePanning = false
-				
+
 				// Prevent models from going out of view
 				this.controls.minDistance = 5
 				this.controls.maxDistance = 100
 				this.controls.maxPolarAngle = Math.PI * 0.8 // Prevent going too far below
 				this.controls.minPolarAngle = Math.PI * 0.1 // Prevent going too far above
-				
+
 				this.controls.update()
 				this.controls.addEventListener('end', this.onControlsEnd)
-				
+
 				// Monitor camera target to prevent off-center viewing
 				this.controls.addEventListener('change', () => {
 					if (this.modelRoot) {
@@ -1871,25 +1918,25 @@ export default {
 						}
 					}
 				})
-				
+
 				// Setup mobile-specific controls
 				this.setupMobileControls()
-				
+
 				// Initialize animation presets
 				this.initAnimationPresets()
-				
+
 			} catch (e) {
 				// If dynamic import fails, continue without controls (rare)
 			}
 			// Apply performance optimizations
 			this.applyPerformanceSettings()
 			this.setupFrustumCulling()
-			
+
 			// Mobile-specific optimizations
 			if (this.isMobile) {
 				this.optimizeForMobile()
 			}
-			
+
 			window.addEventListener('resize', this.onWindowResize)
 			this.initialCameraPos = this.camera.position.clone()
 			this.loading = false
@@ -1903,87 +1950,87 @@ export default {
 				this.cube.rotation.y += 0.015
 			}
 			this.controls?.update()
-			
+
 			// Update performance stats
 			this.updatePerformanceStats()
-			
+
 			// Debug rendering
 			if (this.modelRoot && this.modelRoot.children.length > 0) {
 			}
-			
+
 			this.renderer?.render(this.scene, this.camera)
 		},
-		
+
 		createNextcloudDemoScene() {
-			
+
 			// Create a 3D "Nextcloud" demo scene
 			const demoGroup = new THREE.Group()
-			
+
 			// Create a stylized 3D "N" for Nextcloud
 			const nGeometry = new THREE.BoxGeometry(0.1, 1.2, 0.1)
-			const nMaterial = new THREE.MeshLambertMaterial({ 
+			const nMaterial = new THREE.MeshLambertMaterial({
 				color: 0x0082c9, // Nextcloud blue
 				transparent: false,
-				opacity: 1.0
+				opacity: 1.0,
 			})
-			
+
 			// Left vertical bar
 			const leftBar = new THREE.Mesh(nGeometry, nMaterial)
 			leftBar.position.set(-0.6, 0, 0)
 			demoGroup.add(leftBar)
-			
+
 			// Right vertical bar
 			const rightBar = new THREE.Mesh(nGeometry, nMaterial)
 			rightBar.position.set(0.6, 0, 0)
 			demoGroup.add(rightBar)
-			
+
 			// Diagonal bar
 			const diagonalGeometry = new THREE.BoxGeometry(0.1, 0.1, 0.8)
 			const diagonal = new THREE.Mesh(diagonalGeometry, nMaterial)
 			diagonal.position.set(0, 0, 0)
 			diagonal.rotation.z = Math.PI / 4
 			demoGroup.add(diagonal)
-			
+
 			// Add a cloud icon above the "N"
 			const cloudGeometry = new THREE.SphereGeometry(0.2, 16, 16)
 			const cloudMaterial = new THREE.MeshLambertMaterial({ color: 0x0082c9 })
-			
+
 			// Create cloud shape by combining spheres
 			const cloudGroup = new THREE.Group()
-			
+
 			// Main cloud body
 			const mainCloud = new THREE.Mesh(cloudGeometry, cloudMaterial)
 			mainCloud.position.set(0, 0.8, 0)
 			cloudGroup.add(mainCloud)
-			
+
 			// Cloud parts
 			const cloudPart1 = new THREE.Mesh(cloudGeometry, cloudMaterial)
 			cloudPart1.position.set(-0.15, 0.9, 0)
 			cloudPart1.scale.set(0.7, 0.7, 0.7)
 			cloudGroup.add(cloudPart1)
-			
+
 			const cloudPart2 = new THREE.Mesh(cloudGeometry, cloudMaterial)
 			cloudPart2.position.set(0.15, 0.9, 0)
 			cloudPart2.scale.set(0.7, 0.7, 0.7)
 			cloudGroup.add(cloudPart2)
-			
+
 			const cloudPart3 = new THREE.Mesh(cloudGeometry, cloudMaterial)
 			cloudPart3.position.set(-0.3, 0.7, 0)
 			cloudPart3.scale.set(0.5, 0.5, 0.5)
 			cloudGroup.add(cloudPart3)
-			
+
 			const cloudPart4 = new THREE.Mesh(cloudGeometry, cloudMaterial)
 			cloudPart4.position.set(0.3, 0.7, 0)
 			cloudPart4.scale.set(0.5, 0.5, 0.5)
 			cloudGroup.add(cloudPart4)
-			
+
 			cloudGroup.position.set(0, 0, 0)
 			demoGroup.add(cloudGroup)
-			
+
 			// Add decorative elements around the "N"
 			const decorationGeometry = new THREE.BoxGeometry(0.05, 0.05, 0.05)
 			const decorationMaterial = new THREE.MeshLambertMaterial({ color: 0x0082c9 })
-			
+
 			// Add a few decorative elements around the "N" (reduced from 12 to 6)
 			for (let i = 0; i < 6; i++) {
 				const decoration = new THREE.Mesh(decorationGeometry, decorationMaterial)
@@ -1992,51 +2039,51 @@ export default {
 				decoration.position.set(
 					Math.cos(angle) * radius,
 					Math.sin(angle) * 0.2 + 0.1,
-					Math.sin(angle) * 0.1
+					Math.sin(angle) * 0.1,
 				)
 				decoration.rotation.set(angle, 0, 0)
 				demoGroup.add(decoration)
 			}
-			
+
 			// Add a base platform
 			const baseGeometry = new THREE.CylinderGeometry(1.2, 1.2, 0.1, 16)
-			const baseMaterial = new THREE.MeshLambertMaterial({ 
+			const baseMaterial = new THREE.MeshLambertMaterial({
 				color: 0x004d7a, // Darker blue
 				transparent: false,
-				opacity: 1.0
+				opacity: 1.0,
 			})
 			const base = new THREE.Mesh(baseGeometry, baseMaterial)
 			base.position.set(0, -0.7, 0)
 			demoGroup.add(base)
-			
+
 			// Hide skeleton loading before showing demo scene
 			this.hideSkeletonLoading()
-			
+
 			// Add the demo group to the scene
 			this.scene.add(demoGroup)
 			this.modelRoot = demoGroup
 			this.model = demoGroup
-			
+
 			// Update grid size for demo scene
 			this.updateGridSize(demoGroup)
-			
+
 			// Position camera to view the demo scene
 			this.camera.position.set(3, 2, 3)
 			this.camera.lookAt(0, 0, 0)
-			
+
 		},
-		
+
 		async loadModel(fileId) {
 			this.cancelOngoingLoad()
 			this.loading = true
-			this.progress = { 
-				loaded: 0, 
-				total: 0, 
+			this.progress = {
+				loaded: 0,
+				total: 0,
 				message: null,
 				stage: 'initializing',
 				percentage: 0,
 				estimatedTime: null,
-				startTime: Date.now()
+				startTime: Date.now(),
 			}
 			this.currentFileId = fileId
 			this.baselineCameraPos = null
@@ -2044,26 +2091,26 @@ export default {
 			this.aborting = false
 			this.abortedEmitted = false
 			this.abortController = new AbortController()
-			
+
 			// Show skeleton loading for better UX
 			this.showSkeletonLoading()
-			
+
 			// Announce load start early (before fetch) for external listeners / tests
 			const startPayload = { fileId }
 			this.$emit('load-start', startPayload)
 			this.dispatchViewerEvent('load-start', startPayload)
 			try {
 				// Try to load the actual file using Nextcloud's file serving API
-				
+
 				// Get filename from URL parameters or context
 				let actualFilename = `file-${fileId}`
 				const urlParams = new URLSearchParams(window.location.search)
 				const filenameParam = urlParams.get('filename')
-				
+
 				if (filenameParam) {
 					actualFilename = filenameParam
 				}
-				
+
 				// Try to get filename from Nextcloud context
 				if (window.OCA && window.OCA.Files && window.OCA.Files.fileList) {
 					const fileList = window.OCA.Files.fileList
@@ -2074,8 +2121,7 @@ export default {
 						}
 					}
 				}
-				
-				
+
 				// Try multiple approaches to load the file
 				const loadMethods = [
 					// Method 1: Try the custom API endpoint
@@ -2083,29 +2129,29 @@ export default {
 						const url = `/apps/threedviewer/api/file/${fileId}`
 						const res = await fetch(url, {
 							headers: {
-								'Accept': 'application/octet-stream',
-								'X-Requested-With': 'XMLHttpRequest'
+								Accept: 'application/octet-stream',
+								'X-Requested-With': 'XMLHttpRequest',
 							},
 							credentials: 'same-origin',
-							signal: this.abortController.signal
+							signal: this.abortController.signal,
 						})
 						return res.ok ? res : null
 					},
-					
+
 					// Method 2: Try OCS API
 					async () => {
 						const url = `/ocs/v2.php/apps/threedviewer/file/${fileId}`
 						const res = await fetch(url, {
 							headers: {
-								'Accept': 'application/octet-stream',
-								'X-Requested-With': 'XMLHttpRequest'
+								Accept: 'application/octet-stream',
+								'X-Requested-With': 'XMLHttpRequest',
 							},
 							credentials: 'same-origin',
-							signal: this.abortController.signal
+							signal: this.abortController.signal,
 						})
 						return res.ok ? res : null
 					},
-					
+
 					// Method 3: Try Nextcloud's file download API
 					async () => {
 						const urlParams = new URLSearchParams(window.location.search)
@@ -2113,15 +2159,15 @@ export default {
 						const url = `/index.php/apps/files/ajax/download.php?dir=${encodeURIComponent(dirParam || '/')}&files=${encodeURIComponent(actualFilename)}`
 						const res = await fetch(url, {
 							headers: {
-								'Accept': 'application/octet-stream',
-								'X-Requested-With': 'XMLHttpRequest'
+								Accept: 'application/octet-stream',
+								'X-Requested-With': 'XMLHttpRequest',
 							},
 							credentials: 'same-origin',
-							signal: this.abortController.signal
+							signal: this.abortController.signal,
 						})
 						return res.ok ? res : null
 					},
-					
+
 					// Method 4: Try DAV API with current user
 					async () => {
 						const currentUser = OC.currentUser?.uid || 'admin'
@@ -2131,16 +2177,16 @@ export default {
 						const url = `/remote.php/dav/files/${currentUser}${baseDir}/${encodeURIComponent(actualFilename)}`
 						const res = await fetch(url, {
 							headers: {
-								'Accept': 'application/octet-stream',
-								'X-Requested-With': 'XMLHttpRequest'
+								Accept: 'application/octet-stream',
+								'X-Requested-With': 'XMLHttpRequest',
 							},
 							credentials: 'same-origin',
-							signal: this.abortController.signal
+							signal: this.abortController.signal,
 						})
 						return res.ok ? res : null
-					}
+					},
 				]
-				
+
 				let fileLoaded = false
 				for (const loadMethod of loadMethods) {
 					try {
@@ -2149,122 +2195,121 @@ export default {
 							// Load the actual file
 							const arrayBuffer = await res.arrayBuffer()
 							const ext = actualFilename.split('.').pop().toLowerCase()
-							
+
 							// Hide skeleton loading and show parsing progress
 							this.hideSkeletonLoading()
 							this.updateProgress(0, 100, 'parsing')
-							
+
 							// Load the model using the appropriate loader
-				const { object3D } = await loadModelByExtension(ext, arrayBuffer, {
-					THREE,
-					scene: this.scene,
-					renderer: this.renderer,
-					applyWireframe: (enabled) => this.applyWireframe(enabled),
-					ensurePlaceholderRemoved: () => this.ensurePlaceholderRemoved(),
-					hasDraco: this.hasDraco,
-					hasKtx2: this.hasKtx2,
-					wireframe: this.wireframe,
-					fileId: this.fileId,
-				})
-							
-				if (this.aborting) throw new DOMException('Aborted', 'AbortError')
-				this.modelRoot = object3D
-				this.scene.add(this.modelRoot)
-				this.fitCameraToObject(this.modelRoot)
-				this.baselineCameraPos = this.camera.position.clone()
-				this.baselineTarget = this.controls.target.clone()
-				this.applySavedCamera(fileId)
-							
+							const { object3D } = await loadModelByExtension(ext, arrayBuffer, {
+								THREE,
+								scene: this.scene,
+								renderer: this.renderer,
+								applyWireframe: (enabled) => this.applyWireframe(enabled),
+								ensurePlaceholderRemoved: () => this.ensurePlaceholderRemoved(),
+								hasDraco: this.hasDraco,
+								hasKtx2: this.hasKtx2,
+								wireframe: this.wireframe,
+								fileId: this.fileId,
+							})
+
+							if (this.aborting) throw new DOMException('Aborted', 'AbortError')
+							this.modelRoot = object3D
+							this.scene.add(this.modelRoot)
+							this.fitCameraToObject(this.modelRoot)
+							this.baselineCameraPos = this.camera.position.clone()
+							this.baselineTarget = this.controls.target.clone()
+							this.applySavedCamera(fileId)
+
 							// Clear loading state
 							this.loading = false
 							this.progress = { loaded: 0, total: 0, message: null }
-							
+
 							const payload = { fileId, filename: actualFilename }
-				this.$emit('model-loaded', payload)
-				this.dispatchViewerEvent('model-loaded', payload)
-							
+							this.$emit('model-loaded', payload)
+							this.dispatchViewerEvent('model-loaded', payload)
+
 							fileLoaded = true
 							break
 						}
-			} catch (e) {
+					} catch (e) {
 					}
 				}
-				
+
 				if (fileLoaded) {
 					return
 				}
-				
+
 				// If file loading failed, create demo scene
-				
+
 				// Create a 3D "Nextcloud" demo scene
 				const demoGroup = new THREE.Group()
-				
+
 				// Create a stylized 3D "N" for Nextcloud
 				const nGeometry = new THREE.BoxGeometry(0.1, 1.2, 0.1)
-				const nMaterial = new THREE.MeshLambertMaterial({ 
+				const nMaterial = new THREE.MeshLambertMaterial({
 					color: 0x0082c9, // Nextcloud blue
 					transparent: false,
-					opacity: 1.0
+					opacity: 1.0,
 				})
-				
+
 				// Left vertical bar
 				const leftBar = new THREE.Mesh(nGeometry, nMaterial)
 				leftBar.position.set(-0.6, 0, 0)
 				demoGroup.add(leftBar)
-				
+
 				// Right vertical bar
 				const rightBar = new THREE.Mesh(nGeometry, nMaterial)
 				rightBar.position.set(0.6, 0, 0)
 				demoGroup.add(rightBar)
-				
+
 				// Diagonal bar
 				const diagonalGeometry = new THREE.BoxGeometry(0.1, 0.1, 0.8)
 				const diagonal = new THREE.Mesh(diagonalGeometry, nMaterial)
 				diagonal.position.set(0, 0, 0)
 				diagonal.rotation.z = Math.PI / 4
 				demoGroup.add(diagonal)
-				
-				
+
 				// Add a cloud icon above the text
 				const cloudGeometry = new THREE.SphereGeometry(0.3, 16, 16)
 				const cloudMaterial = new THREE.MeshLambertMaterial({ color: 0x0082c9 })
-				
+
 				// Create cloud shape by combining spheres
 				const cloudGroup = new THREE.Group()
-				
+
 				// Main cloud body
 				const mainCloud = new THREE.Mesh(cloudGeometry, cloudMaterial)
 				mainCloud.position.set(0, 0.8, 0)
 				cloudGroup.add(mainCloud)
-				
+
 				// Cloud parts
 				const cloudPart1 = new THREE.Mesh(cloudGeometry, cloudMaterial)
 				cloudPart1.position.set(-0.2, 0.9, 0)
 				cloudPart1.scale.set(0.8, 0.8, 0.8)
 				cloudGroup.add(cloudPart1)
-				
+
 				const cloudPart2 = new THREE.Mesh(cloudGeometry, cloudMaterial)
 				cloudPart2.position.set(0.2, 0.9, 0)
 				cloudPart2.scale.set(0.8, 0.8, 0.8)
 				cloudGroup.add(cloudPart2)
-				
+
 				const cloudPart3 = new THREE.Mesh(cloudGeometry, cloudMaterial)
 				cloudPart3.position.set(-0.4, 0.7, 0)
 				cloudPart3.scale.set(0.6, 0.6, 0.6)
 				cloudGroup.add(cloudPart3)
-				
+
 				const cloudPart4 = new THREE.Mesh(cloudGeometry, cloudMaterial)
 				cloudPart4.position.set(0.4, 0.7, 0)
 				cloudPart4.scale.set(0.6, 0.6, 0.6)
 				cloudGroup.add(cloudPart4)
-				
+
 				cloudGroup.position.set(0, 0, 0)
 				demoGroup.add(cloudGroup)
-				
+
 				// Add decorative elements around the "N"
 				const decorationGeometry = new THREE.BoxGeometry(0.05, 0.05, 0.05)
 				const decorationMaterial = new THREE.MeshLambertMaterial({ color: 0x0082c9 })
-				
+
 				// Add a few decorative elements around the "N" (reduced from 12 to 6)
 				for (let i = 0; i < 6; i++) {
 					const decoration = new THREE.Mesh(decorationGeometry, decorationMaterial)
@@ -2273,26 +2318,26 @@ export default {
 					decoration.position.set(
 						Math.cos(angle) * radius,
 						Math.sin(angle) * 0.2 + 0.1,
-						Math.sin(angle) * 0.1
+						Math.sin(angle) * 0.1,
 					)
 					decoration.rotation.set(angle, 0, 0)
 					demoGroup.add(decoration)
 				}
-				
+
 				// Add a base platform
 				const baseGeometry = new THREE.CylinderGeometry(1.2, 1.2, 0.1, 16)
-				const baseMaterial = new THREE.MeshLambertMaterial({ 
+				const baseMaterial = new THREE.MeshLambertMaterial({
 					color: 0x004d7a, // Darker blue
 					transparent: false,
-					opacity: 1.0
+					opacity: 1.0,
 				})
 				const base = new THREE.Mesh(baseGeometry, baseMaterial)
 				base.position.set(0, -0.7, 0)
 				demoGroup.add(base)
-				
+
 				// Hide skeleton loading before showing demo scene
 				this.hideSkeletonLoading()
-				
+
 				// Add the demo group to the scene
 				if (this.modelRoot) {
 					this.modelRoot.add(demoGroup)
@@ -2303,49 +2348,49 @@ export default {
 					this.modelRoot.add(demoGroup)
 					this.model = demoGroup
 				}
-				
+
 				// Update grid size for demo scene
 				this.updateGridSize(demoGroup)
-				
+
 				// Ensure the demo group is visible
 				demoGroup.visible = true
 				demoGroup.position.set(0, 0, 0)
-				
+
 				// Add lighting
 				const ambientLight = new THREE.AmbientLight(0x404040, 0.6)
 				this.scene.add(ambientLight)
-				
+
 				const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8)
 				directionalLight.position.set(5, 5, 5)
 				this.scene.add(directionalLight)
-				
+
 				// Position camera to view the car - closer and more direct
 				this.camera.position.set(3, 2, 3)
 				this.camera.lookAt(0, 0, 0)
-				
+
 				// Update camera controls target
 				if (this.controls) {
 					this.controls.target.set(0, 0, 0)
 					this.controls.update()
 				}
-				
+
 				// Force camera update
 				this.camera.updateProjectionMatrix()
-				
+
 				// Fit the view to the demo scene
 				this.fitToView()
-				
+
 				// Force a render to make sure objects are visible
 				if (this.renderer && this.scene && this.camera) {
 					this.renderer.render(this.scene, this.camera)
 				}
-				
+
 				// Test cube removed for cleaner demo scene
-				
+
 				// Show a message about the demo
-				
+
 				// Skip the rest of the loading process
-				return
+
 			} catch (e) {
 				// Use enhanced error handling
 				this.handleError(e, { fileId, filename: `file-${fileId}` })
@@ -2397,77 +2442,77 @@ export default {
 			box.getCenter(center)
 			const maxDim = Math.max(size.x, size.y, size.z)
 			const fov = this.camera.fov * (Math.PI / 180)
-			let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2)) * 1.4
-			
+			const cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2)) * 1.4
+
 			// Only center the model if it's not already centered (within a small tolerance)
 			const tolerance = 0.1
 			const isAlreadyCentered = Math.abs(center.x) < tolerance && Math.abs(center.z) < tolerance
-			
-				if (!isAlreadyCentered) {
-					// Center the model at origin by translating it
-					obj.position.sub(center)
-				}
-			
+
+			if (!isAlreadyCentered) {
+				// Center the model at origin by translating it
+				obj.position.sub(center)
+			}
+
 			// Set camera position to look at origin with better distance
 			const cameraDistance = Math.max(cameraZ * 2, 20) // Ensure minimum distance
 			this.camera.position.set(cameraDistance, cameraDistance * 0.5, cameraDistance)
 			this.camera.lookAt(0, 0, 0)
-			
-				// Update controls target to origin
-				this.controls.target.set(0, 0, 0)
-				this.controls.update()
-				
-				// Force the camera to look at origin immediately
-				this.camera.lookAt(0, 0, 0)
-			
+
+			// Update controls target to origin
+			this.controls.target.set(0, 0, 0)
+			this.controls.update()
+
+			// Force the camera to look at origin immediately
+			this.camera.lookAt(0, 0, 0)
+
 			if (!this.baselineCameraPos || !this.baselineTarget) {
 				this.baselineCameraPos = this.camera.position.clone()
 				this.baselineTarget = this.controls.target.clone()
 			}
-			
+
 			// Update grid size based on model
 			this.updateGridSize(obj)
 		},
-		
+
 		updateGridSize(model) {
 			if (!this.grid || !model) return
-			
+
 			// Calculate bounding box of the model
 			const box = new THREE.Box3().setFromObject(model)
 			if (box.isEmpty()) return
-			
+
 			const size = box.getSize(new THREE.Vector3())
 			const center = box.getCenter(new THREE.Vector3())
-			
+
 			// Use X and Z dimensions for grid (ignore Y for height)
 			const maxDim = Math.max(size.x, size.z)
-			
+
 			// Make grid much larger and more visible for debugging
 			let gridSize, divisions
-			
+
 			// Force a large, visible grid regardless of model size
 			gridSize = Math.max(50, Math.ceil(maxDim * 3)) // Much larger grid
 			divisions = Math.max(20, Math.ceil(gridSize / 2)) // More divisions for visibility
-			
+
 			// Ensure grid size is even for better centering
 			if (gridSize % 2 !== 0) {
 				gridSize += 1
 			}
-			
+
 			// Remove old grid
 			this.scene.remove(this.grid)
 			this.grid.geometry.dispose()
-			
+
 			// Create new grid with appropriate size
 			this.grid = new THREE.GridHelper(gridSize, divisions)
-			
+
 			// Make grid much more visible and prominent
 			if (this.grid.material) {
 				this.grid.material.opacity = 1.0
 				this.grid.material.transparent = false
 				this.grid.material.color.setHex(0x00ff00) // Bright green color
 			}
-			
+
 			// Position the grid at the model's ground level (bottom of bounding box)
 			// This ensures the grid is at the bottom of the model
 			const groundLevel = center.y - (size.y / 2)
@@ -2475,10 +2520,10 @@ export default {
 			const gridOffset = -0.1
 			const finalGridY = groundLevel + gridOffset
 			this.grid.position.set(0, finalGridY, 0)
-			
+
 			this.scene.add(this.grid)
 			this.grid.visible = this.showGrid
-			
+
 			// Force grid to be visible and positioned correctly after a short delay
 			setTimeout(() => {
 				if (this.grid) {
@@ -2491,32 +2536,32 @@ export default {
 					}
 				}
 			}, 100)
-			
+
 		},
-		
+
 		updateGridForComparison() {
 			if (!this.grid) return
-			
+
 			// Calculate bounding box that includes both models
 			const boundingBox = new THREE.Box3()
-			
+
 			if (this.modelRoot) {
 				boundingBox.union(new THREE.Box3().setFromObject(this.modelRoot))
 			}
-			
+
 			if (this.comparisonModel) {
 				boundingBox.union(new THREE.Box3().setFromObject(this.comparisonModel))
 			}
-			
+
 			if (boundingBox.isEmpty()) return
-			
+
 			const size = boundingBox.getSize(new THREE.Vector3())
 			const center = boundingBox.getCenter(new THREE.Vector3())
 			const maxDim = Math.max(size.x, size.z) // Use X and Z dimensions for grid
-			
+
 			// More intelligent grid sizing for comparison
 			let gridSize, divisions
-			
+
 			if (maxDim < 5) {
 				// Very small models - use smaller grid with more divisions
 				gridSize = Math.max(5, Math.ceil(maxDim * 2))
@@ -2534,29 +2579,29 @@ export default {
 				gridSize = Math.max(50, Math.ceil(maxDim * 1.1))
 				divisions = Math.max(10, Math.ceil(gridSize / 5))
 			}
-			
+
 			// Ensure grid size is even for better centering
 			if (gridSize % 2 !== 0) {
 				gridSize += 1
 			}
-			
+
 			// Remove old grid
 			this.scene.remove(this.grid)
 			this.grid.geometry.dispose()
-			
+
 			// Create new grid with appropriate size
 			this.grid = new THREE.GridHelper(gridSize, divisions)
-			
+
 			// Position the grid at the ground level of both models
 			// This ensures the grid is at the bottom of the models
 			const groundLevel = center.y - size.y / 2
 			// Add a small offset to position the grid slightly below the models for better visual effect
 			const gridOffset = -0.1
 			this.grid.position.set(0, groundLevel + gridOffset, 0)
-			
+
 			this.scene.add(this.grid)
 			this.grid.visible = this.showGrid
-			
+
 		},
 		applyWireframe(enabled) {
 			if (!this.modelRoot) return
@@ -2624,7 +2669,7 @@ export default {
 				this.renderer.dispose()
 				if (this.renderer.domElement?.parentNode) this.renderer.domElement.parentNode.removeChild(this.renderer.domElement)
 			}
-			;['cube', 'grid', 'axes', 'modelRoot'].forEach(key => {
+			['cube', 'grid', 'axes', 'modelRoot'].forEach(key => {
 				if (this[key]) {
 					this.scene?.remove(this[key])
 					if (this[key].geometry) this[key].geometry.dispose()
@@ -2639,7 +2684,7 @@ export default {
 			try {
 				const el = this.$refs.container
 				if (el) {
-					el.dispatchEvent(new CustomEvent(`threedviewer:${type}` , { detail, bubbles: true, composed: true }))
+					el.dispatchEvent(new CustomEvent(`threedviewer:${type}`, { detail, bubbles: true, composed: true }))
 				}
 			} catch (_) {}
 		},
@@ -2648,14 +2693,14 @@ export default {
 </script>
 
 <style scoped>
-.three-viewer { 
-	position: relative; 
-	width: 100%; 
-	height: calc(100vh - 120px); 
-	min-height: 400px; 
-	outline: none; 
-	display: flex; 
-	align-items: center; 
+.three-viewer {
+	position: relative;
+	width: 100%;
+	height: calc(100vh - 120px);
+	min-height: 400px;
+	outline: none;
+	display: flex;
+	align-items: center;
 	justify-content: center;
 	touch-action: none; /* Prevent default touch behaviors */
 	-webkit-touch-callout: none; /* Disable iOS callout */
@@ -2663,35 +2708,35 @@ export default {
 	user-select: none;
 }
 
-.loading { 
-	position: absolute; 
-	top: 50%; 
-	left: 50%; 
-	transform: translate(-50%, -50%); 
-	font-size: 0.95rem; 
+.loading {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	font-size: 0.95rem;
 	color: var(--color-text-light, #555);
 	pointer-events: none; /* Prevent interaction with loading text */
 }
 
-.loading-actions { 
-	margin-top: 0.5rem; 
-	text-align: center; 
+.loading-actions {
+	margin-top: 0.5rem;
+	text-align: center;
 }
 
-.cancel-btn { 
-	cursor: pointer; 
-	font-size: 0.75rem; 
-	padding: 4px 10px; 
-	border-radius: 4px; 
-	background: var(--color-primary, #0d47a1); 
-	color: #fff; 
+.cancel-btn {
+	cursor: pointer;
+	font-size: 0.75rem;
+	padding: 4px 10px;
+	border-radius: 4px;
+	background: var(--color-primary, #0d47a1);
+	color: #fff;
 	border: none;
 	touch-action: manipulation; /* Optimize touch response */
 }
 
-.cancel-btn[disabled] { 
-	opacity: 0.6; 
-	cursor: default; 
+.cancel-btn[disabled] {
+	opacity: 0.6;
+	cursor: default;
 }
 
 /* Mobile-specific styles */
@@ -2700,12 +2745,12 @@ export default {
 		height: calc(100vh - 80px); /* Reduce height on mobile */
 		min-height: 300px;
 	}
-	
+
 	.loading {
 		font-size: 0.85rem;
 		padding: 0 20px;
 	}
-	
+
 	.cancel-btn {
 		font-size: 0.8rem;
 		padding: 6px 12px;
@@ -2857,7 +2902,6 @@ export default {
 	min-height: 44px;
 }
 
-
 /* Comparison controls */
 .comparison-controls {
 	position: absolute;
@@ -2982,7 +3026,7 @@ export default {
 	.comparison-controls.mobile .btn-text {
 		display: none; /* Hide text on very small screens, show only icons */
 	}
-	
+
 	.comparison-controls.mobile .comparison-btn {
 		padding: 8px;
 		min-width: 44px;
@@ -3018,7 +3062,7 @@ export default {
 	.comparison-btn {
 		border: 2px solid currentColor;
 	}
-	
+
 	.comparison-controls {
 		border: 2px solid rgba(255, 255, 255, 0.5);
 	}
@@ -3029,11 +3073,11 @@ export default {
 	.comparison-btn::before {
 		display: none;
 	}
-	
+
 	.comparison-btn:hover {
 		transform: none;
 	}
-	
+
 	.comparison-controls {
 		transition: none;
 	}
@@ -3141,11 +3185,11 @@ export default {
 	.tb {
 		border: 2px solid currentColor;
 	}
-	
+
 	.progress-bar {
 		border: 2px solid currentColor;
 	}
-	
+
 	.mobile-hints {
 		border: 2px solid white;
 	}
@@ -3156,15 +3200,15 @@ export default {
 	.loading-spinner {
 		animation: none;
 	}
-	
+
 	.tb:hover {
 		transform: none;
 	}
-	
+
 	.retry-btn:hover {
 		transform: none;
 	}
-	
+
 	.mobile-hints {
 		animation: none;
 	}
@@ -3349,4 +3393,3 @@ export default {
 	border: 0;
 }
 </style>
-

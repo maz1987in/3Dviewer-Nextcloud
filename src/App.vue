@@ -25,12 +25,12 @@
 				@toggle-measurement="onToggleMeasurement"
 				@toggle-annotation="onToggleAnnotation"
 				@toggle-comparison="onToggleComparison"
-				@toggle-performance="onTogglePerformance"
-			/>
+				@toggle-performance="onTogglePerformance" />
 			<ThreeViewer
 				:file-id="fileId"
 				:filename="filename"
 				:dir="dir"
+				ref="viewer"
 				:show-grid="grid"
 				:show-axes="axes"
 				:wireframe="wireframe"
@@ -40,9 +40,7 @@
 				:comparison-mode="comparisonMode"
 				:performance-mode="performanceMode"
 				@model-loaded="onModelLoaded"
-				@error="onError"
-				ref="viewer"
-			/>
+				@error="onError" />
 		</div>
 	</NcAppContent>
 </template>
@@ -92,6 +90,12 @@ export default {
 			_prefsLoaded: false,
 		}
 	},
+	watch: {
+		grid() { this.savePrefs() },
+		axes() { this.savePrefs() },
+		wireframe() { this.savePrefs() },
+		background() { this.savePrefs() },
+	},
 	created() {
 		this.loadPrefs()
 	},
@@ -100,12 +104,6 @@ export default {
 		if (!this.fileId && typeof window !== 'undefined' && window.__TEST_FILE_ID) {
 			this.fileId = Number(window.__TEST_FILE_ID)
 		}
-	},
-	watch: {
-		grid() { this.savePrefs() },
-		axes() { this.savePrefs() },
-		wireframe() { this.savePrefs() },
-		background() { this.savePrefs() },
 	},
 	methods: {
 		parseFileId() {
@@ -167,7 +165,7 @@ export default {
 				this.$refs.viewer?.animateToPreset?.(presetName)
 			}
 		},
-		
+
 		// Advanced features event handlers
 		onToggleMeasurement() {
 			this.measurementMode = !this.measurementMode
@@ -175,21 +173,21 @@ export default {
 			this.comparisonMode = false
 			this.$refs.viewer?.toggleMeasurementMode?.()
 		},
-		
+
 		onToggleAnnotation() {
 			this.annotationMode = !this.annotationMode
 			this.measurementMode = false
 			this.comparisonMode = false
 			this.$refs.viewer?.toggleAnnotationMode?.()
 		},
-		
+
 		onToggleComparison() {
 			this.comparisonMode = !this.comparisonMode
 			this.measurementMode = false
 			this.annotationMode = false
 			this.$refs.viewer?.toggleComparisonMode?.()
 		},
-		
+
 		onTogglePerformance() {
 			const modes = ['auto', 'high', 'medium', 'low']
 			const currentIndex = modes.indexOf(this.performanceMode)
@@ -216,30 +214,30 @@ export default {
 		},
 		pushToast({ type = 'info', title, message, timeout = null }) {
 			const id = Date.now() + Math.random()
-			
+
 			// Set different default timeouts based on toast type
 			let defaultTimeout
 			switch (type) {
-				case 'success':
-					defaultTimeout = 4000 // 4 seconds for success messages
-					break
-				case 'error':
-					defaultTimeout = 8000 // 8 seconds for error messages (longer for reading)
-					break
-				case 'info':
-				default:
-					defaultTimeout = 5000 // 5 seconds for info messages
-					break
+			case 'success':
+				defaultTimeout = 4000 // 4 seconds for success messages
+				break
+			case 'error':
+				defaultTimeout = 8000 // 8 seconds for error messages (longer for reading)
+				break
+			case 'info':
+			default:
+				defaultTimeout = 5000 // 5 seconds for info messages
+				break
 			}
-			
-			this.toasts.push({ 
-				id, 
-				type, 
-				title, 
-				message, 
+
+			this.toasts.push({
+				id,
+				type,
+				title,
+				message,
 				timeout: timeout !== null ? timeout : defaultTimeout,
 				progress: 0,
-				paused: false
+				paused: false,
 			})
 		},
 		dismissToast(id) {

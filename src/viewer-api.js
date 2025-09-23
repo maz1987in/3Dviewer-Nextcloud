@@ -20,19 +20,19 @@ function createViewerComponent() {
 			const fileInfo = this.$attrs.fileinfo || this.$attrs.file || this.$attrs
 			const fileId = fileInfo?.fileid || fileInfo?.id || fileInfo?.fileId
 			const fileName = fileInfo?.name || fileInfo?.filename || fileInfo?.basename || ''
-			
+
 			// Viewer API component mounted
-			
+
 			if (!fileId) {
 				this.$el.innerHTML = '<div style="padding: 20px; text-align: center; color: red;">No file ID available</div>'
 				return
 			}
-			
+
 			if (!isSupported(fileName)) {
 				this.$el.innerHTML = '<div style="padding: 20px; text-align: center; color: red;">Unsupported file type</div>'
 				return
 			}
-			
+
 			// Create and mount the ViewerModal component
 			this.mountViewerModal(fileId, fileInfo)
 		},
@@ -41,14 +41,14 @@ function createViewerComponent() {
 				try {
 					// Import the ViewerModal component
 					const ViewerModalComponent = ViewerModal
-					
+
 					// Create a new Vue instance for the modal
 					const modalInstance = new Vue({
 						render: h => h(ViewerModalComponent, {
 							props: {
-								fileId: fileId,
+								fileId,
 								file: fileInfo,
-								attr: fileInfo
+								attr: fileInfo,
 							},
 							on: {
 								'model-loaded': (meta) => {
@@ -56,21 +56,21 @@ function createViewerComponent() {
 									// Emit event to parent if needed
 									this.$emit('model-loaded', meta)
 								},
-								'error': (error) => {
+								error: (error) => {
 									// Emit event to parent if needed
 									this.$emit('error', error)
-								}
-							}
-						})
+								},
+							},
+						}),
 					})
-					
+
 					// Mount the modal to our container
 					modalInstance.$mount()
 					this.$el.appendChild(modalInstance.$el)
-					
+
 					// Store reference for cleanup
 					this.modalInstance = modalInstance
-					
+
 				} catch (error) {
 					this.$el.innerHTML = `
 						<div style="padding: 20px; text-align: center; color: red;">
@@ -79,7 +79,7 @@ function createViewerComponent() {
 						</div>
 					`
 				}
-			}
+			},
 		},
 		beforeDestroy() {
 			// Cleanup modal instance
@@ -87,7 +87,7 @@ function createViewerComponent() {
 				this.modalInstance.$destroy()
 				this.modalInstance = null
 			}
-		}
+		},
 	}
 }
 
@@ -96,8 +96,7 @@ export function registerViewerHandler() {
 	if (!window.OCA || !OCA.Viewer || typeof OCA.Viewer.registerHandler !== 'function') {
 		return false
 	}
-	
-	
+
 	try {
 		OCA.Viewer.registerHandler({
 			id: 'threedviewer-handler',
@@ -123,16 +122,16 @@ export function registerViewerHandler() {
 				'application/x-ply',
 				'application/x-fbx',
 				'application/x-3mf',
-				'application/x-3ds'
+				'application/x-3ds',
 			],
 			canView: (mime, file, attr) => {
 				// Get file information
 				const name = (file && (file.name || file.basename)) || (attr && attr.filename) || ''
 				const fileMime = mime || (file && file.mimetype) || (attr && attr.mimetype) || ''
-				
+
 				// Check if file is supported by extension
 				const isSupportedByExt = isSupported(name)
-				
+
 				// Check by MIME type (more comprehensive list)
 				const supportedMimes = [
 					'model/gltf-binary',
@@ -151,19 +150,19 @@ export function registerViewerHandler() {
 					'application/x-ply',
 					'application/x-fbx',
 					'application/x-3mf',
-					'application/x-3ds'
+					'application/x-3ds',
 				]
 				const isSupportedByMime = supportedMimes.includes(fileMime)
-				
+
 				const canView = isSupportedByExt || isSupportedByMime
-				
+
 				return canView
 			},
-			component: createViewerComponent()
+			component: createViewerComponent(),
 		})
-		
+
 		return true
-		
+
 	} catch (error) {
 		return false
 	}
@@ -174,8 +173,7 @@ export function registerViewerHandlerLegacy() {
 	if (!window.OCA || !OCA.Viewer || typeof OCA.Viewer.registerHandler !== 'function') {
 		return false
 	}
-	
-	
+
 	try {
 		OCA.Viewer.registerHandler({
 			id: 'threedviewer-legacy',
@@ -184,7 +182,7 @@ export function registerViewerHandlerLegacy() {
 			canView: (mime, file, attr) => {
 				const name = (file && (file.name || file.basename)) || (attr && attr.filename) || ''
 				const fileMime = mime || (file && file.mimetype) || (attr && attr.mimetype) || ''
-				
+
 				const isSupportedByExt = isSupported(name)
 				const isSupportedByMime = [
 					'model/gltf-binary',
@@ -203,11 +201,11 @@ export function registerViewerHandlerLegacy() {
 					'application/x-ply',
 					'application/x-fbx',
 					'application/x-3mf',
-					'application/x-3ds'
+					'application/x-3ds',
 				].includes(fileMime)
-				
+
 				const canView = isSupportedByExt || isSupportedByMime
-				
+
 				return canView
 			},
 			component: {
@@ -217,8 +215,7 @@ export function registerViewerHandlerLegacy() {
 					const fileId = fileInfo?.fileid || fileInfo?.id || fileInfo?.fileId
 					const fileName = fileInfo?.name || fileInfo?.filename || fileInfo?.basename || ''
 					const fileDir = fileInfo?.dir || fileInfo?.path || '/'
-					
-					
+
 					if (fileId && isSupported(fileName)) {
 						// Try to use the modal component first
 						try {
@@ -226,15 +223,15 @@ export function registerViewerHandlerLegacy() {
 								const ModalComponent = Vue.extend(ViewerModal.default)
 								const modalInstance = new ModalComponent({
 									propsData: {
-										fileId: fileId,
+										fileId,
 										file: fileInfo,
-										attr: fileInfo
-									}
+										attr: fileInfo,
+									},
 								})
-								
+
 								modalInstance.$mount()
 								this.$el.appendChild(modalInstance.$el)
-								
+
 							}).catch(error => {
 								// Fallback to new tab
 								const viewerUrl = OC.generateUrl(`/apps/${APP_ID}/?fileId=${fileId}&filename=${encodeURIComponent(fileName)}&dir=${encodeURIComponent(fileDir)}`)
@@ -248,12 +245,12 @@ export function registerViewerHandlerLegacy() {
 					} else {
 						this.$el.innerHTML = '<div style="padding: 20px; text-align: center;">Unsupported file type</div>'
 					}
-				}
-			}
+				},
+			},
 		})
-		
+
 		return true
-		
+
 	} catch (error) {
 		return false
 	}
@@ -261,12 +258,12 @@ export function registerViewerHandlerLegacy() {
 
 // Auto-register when module loads
 export function initViewerAPI() {
-	
+
 	// Try immediate registration first
 	if (registerViewerHandler()) {
 		return
 	}
-	
+
 	// Wait for DOM to be ready
 	if (document.readyState === 'loading') {
 		document.addEventListener('DOMContentLoaded', () => {
@@ -285,7 +282,7 @@ export function initViewerAPI() {
 			}
 		}, 500)
 	}
-	
+
 	// Also try registration on window load as final fallback
 	window.addEventListener('load', () => {
 		setTimeout(() => {
