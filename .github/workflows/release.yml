@@ -64,6 +64,8 @@ jobs:
             --exclude "scripts/" \
             --exclude "vendor-bin/" \
             --exclude "dist/" \
+            --exclude "threedviewer-app/" \
+            --exclude "threedviewer-*/" \
             --exclude "*.map"
           zip -r "${APP_DIR}.zip" "$APP_DIR"
           echo "ARTIFACT=${APP_DIR}.zip" >> $GITHUB_ENV
