@@ -32,7 +32,7 @@
 
 .fileActionsMenu .action-view3d,
 .fileActionsMenu .action-view3d-extension {
-	background-image: url('../img/3d-icon.svg');
+	background-image: url('../img/file-3d.svg');
 	background-size: 16px 16px;
 	background-repeat: no-repeat;
 	background-position: center;
@@ -45,7 +45,7 @@
 
 /* 3D icon for file actions */
 .icon-3d {
-	background-image: url('../img/3d-icon.svg');
+	background-image: url('../img/file-3d.svg');
 	background-size: 16px 16px;
 	background-repeat: no-repeat;
 	background-position: center;

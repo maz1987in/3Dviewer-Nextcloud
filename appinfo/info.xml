@@ -8,6 +8,7 @@
 	<version>1.0.0</version>
 	<licence>agpl</licence>
 	<author mail="maz1987in@gmail.com" homepage="https://github.com/maz1987in">Mazin Al Saadi</author>
+	<donation title="Donate to the developers with PayPal" type="paypal">https://www.paypal.com/ncp/payment/KZCB3XTCHGKZC</donation>
 	<namespace>ThreeDViewer</namespace>
 	<category>multimedia</category>
 	<bugs>https://github.com/maz1987in/3Dviewer-Nextcloud/issues</bugs>
@@ -19,9 +20,6 @@
 		<script>js/threedviewer-files.mjs</script>
 		<script>js/threedviewer-viewer.mjs</script>
 	</scripts>
-	<styles>
-		<style>css/file-icons.css</style>
-	</styles>
 	<routes>
 		<route name="threedviewer.asset.serve" url="/asset/{type}/{filename}" verb="GET" controller="AssetController" action="serveAsset">
 			<param name="type" default="" />
@@ -39,7 +37,7 @@
 	<navigations>
 		<navigation>
 			<id>threedviewer</id>
-			<name>Three D Viewer</name>
+			<name>3D Viewer</name>
 			<route>threedviewer.page.index</route>
 			<icon>app.svg</icon>
 			<type>link</type>
