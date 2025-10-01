@@ -9,4 +9,6 @@ Util::addStyle(OCA\ThreeDViewer\AppInfo\Application::APP_ID, OCA\ThreeDViewer\Ap
 
 ?>
 
-<div id="threedviewer"></div>
+<div id="threedviewer" 
+	 data-file-id="<?php p($_['fileId'] ?? ''); ?>" 
+	 data-dir="<?php p($_GET['dir'] ?? ''); ?>"></div>

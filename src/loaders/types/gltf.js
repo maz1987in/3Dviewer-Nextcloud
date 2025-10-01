@@ -1,3 +1,4 @@
+/* global THREE */
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { BaseLoader } from '../BaseLoader.js'
 
@@ -18,7 +19,7 @@ class GltfLoader extends BaseLoader {
 	 * @return {Promise<object>} Load result
 	 */
 	async loadModel(arrayBuffer, context) {
-		const { THREE, renderer, hasDraco, hasKtx2, hasMeshopt } = context
+		const { renderer, hasDraco, hasKtx2, hasMeshopt } = context
 
 		// Create loader
 		this.loader = new GLTFLoader()
@@ -105,15 +106,5 @@ class GltfLoader extends BaseLoader {
 
 }
 
-// Create loader instance
-const gltfLoader = new GltfLoader()
+export { GltfLoader }
 
-/**
- * Load GLTF/GLB model (legacy function for compatibility)
- * @param {ArrayBuffer} arrayBuffer - File data
- * @param {object} context - Loading context
- * @return {Promise<object>} Load result
- */
-export default async function loadGltf(arrayBuffer, context) {
-	return gltfLoader.load(arrayBuffer, context)
-}

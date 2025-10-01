@@ -129,13 +129,166 @@ Works out of the box. No initial configuration required.
    - Verify the 3D viewer opens
    - Test basic navigation (zoom, rotate, pan)
 
-### 2. Configure MIME Types
+### 2. **✅ AUTOMATIC: MIME Types Register on App Enable**
 
-The app registers supported MIME types automatically. If needed, run:
+> **✅ NO MANUAL SETUP REQUIRED!** MIME types are registered automatically when you enable the app.
+
+When you enable the threedviewer app, a repair step automatically:
+
+1. ✅ Registers all 3D model MIME types in Nextcloud's database
+2. ✅ Creates `/config/mimetypemapping.json` with extension mappings  
+3. ✅ Creates `/config/mimetypealiases.json` for icon support
+4. ✅ Regenerates JavaScript MIME type mappings
+
+#### Enable the App
 
 ```bash
-php occ app:repair threedviewer
+# Enable app (MIME types register automatically during this step)
+php occ app:enable threedviewer
 ```
+
+**Expected output:**
+```
+threedviewer enabled
+...
+Register 3D model MIME types and create config files (threedviewer)
+  ✓ Registered: .glb => model/gltf-binary
+  ✓ Registered: .gltf => model/gltf+json
+  ✓ Registered: .obj => model/obj
+  ✓ Registered: .stl => model/stl
+  ✓ Registered: .ply => model/ply
+  ✓ Registered: .dae => model/vnd.collada+xml
+  ✓ Registered: .3mf => model/3mf
+  ✓ Updated: /path/to/config/mimetypemapping.json
+  ✓ Updated: /path/to/config/mimetypealiases.json
+  ✓ Regenerated JavaScript MIME type mappings
+...done. MIME types registered successfully.
+NOTE: Existing files may need to be rescanned with: php occ files:scan --all
+```
+
+#### Rescan Existing Files (if applicable)
+
+If you **already have 3D model files** uploaded before installing the app, rescan them to update their MIME types:
+
+```bash
+# Rescan all users
+php occ files:scan --all
+
+# Or rescan specific user
+php occ files:scan username
+
+# Or rescan specific directory
+php occ files:scan username --path="/3D Models"
+```
+
+> **Note**: New files uploaded after enabling the app will automatically get the correct MIME types. Only files uploaded **before** the app was enabled need rescanning.
+
+#### Verification
+
+Check that MIME types were registered:
+
+```bash
+# Verify config files exist
+ls -la /path/to/nextcloud/config/mimetype*.json
+
+# Should show:
+# mimetypemapping.json
+# mimetypealiases.json
+```
+
+Upload a test 3D file and verify its MIME type:
+
+```bash
+php occ files:scan --verbose username --path="/test.glb"
+
+# Expected: Shows file was scanned
+# Check database to confirm MIME type:
+```
+
+```sql
+SELECT f.name, m.mimetype 
+FROM oc_filecache f 
+JOIN oc_mimetypes m ON f.mimetype = m.id 
+WHERE f.name LIKE '%.glb' 
+LIMIT 1;
+
+-- Expected result:
+-- test.glb | model/gltf-binary
+```
+
+#### Supported MIME Types (Registered Automatically)
+
+| Extension | MIME Type | Format Name |
+|-----------|-----------|-------------|
+| `.glb` | `model/gltf-binary` | GLTF Binary |
+| `.gltf` | `model/gltf+json` | GLTF JSON |
+| `.obj` | `model/obj` | Wavefront OBJ |
+| `.stl` | `model/stl` | Stereolithography |
+| `.ply` | `model/ply` | Polygon File Format |
+| `.dae` | `model/vnd.collada+xml` | COLLADA |
+| `.3mf` | `model/3mf` | 3D Manufacturing Format |
+| `.fbx` | `model/x.fbx` | Autodesk FBX |
+| `.3ds` | `application/x-3ds` | 3D Studio |
+| `.mtl` | `text/plain` | Material Library |
+
+> **Implementation Note**: The automatic MIME type registration is based on the proven solution from [WARP-LAB/files_3dmodelviewer](https://github.com/WARP-LAB/files_3dmodelviewer), which has been successfully used in production.
+
+#### Legacy Manual Setup (Not Needed)
+
+The following manual setup options are **no longer required** but are documented for reference:
+
+<details>
+<summary>Click to view legacy manual setup instructions</summary>
+
+**Option A: Use Automated Script**
+
+```bash
+cd /path/to/nextcloud/apps/threedviewer
+chmod +x scripts/register-mime-types.sh
+./scripts/register-mime-types.sh
+```
+
+**Option B: Create MIME Type Mapping File Manually**
+
+```bash
+cat > /path/to/nextcloud/config/mimetypemapping.json <<'EOF'
+{
+  "glb": ["model/gltf-binary"],
+  "gltf": ["model/gltf+json"],
+  "obj": ["model/obj"],
+  "stl": ["model/stl"],
+  "ply": ["model/ply"],
+  "dae": ["model/vnd.collada+xml"],
+  "3mf": ["model/3mf"],
+  "fbx": ["model/x.fbx"],
+  "3ds": ["application/x-3ds"],
+  "mtl": ["text/plain"]
+}
+EOF
+
+php occ maintenance:mimetype:update-db
+php occ files:scan --all
+```
+
+**Option C: Add to config.php**
+
+```php
+// Edit /path/to/nextcloud/config/config.php
+'mimetypealiases' => array(
+    'glb' => 'model/gltf-binary',
+    'gltf' => 'model/gltf+json',
+    'obj' => 'model/obj',
+    'stl' => 'model/stl',
+    'ply' => 'model/ply',
+    'dae' => 'model/vnd.collada+xml',
+    '3mf' => 'model/3mf',
+    'fbx' => 'model/x.fbx',
+    '3ds' => 'application/x-3ds',
+    'mtl' => 'text/plain',
+),
+```
+
+</details>
 
 ### 3. Decoder Files (DRACO/Basis)
 
@@ -181,6 +334,27 @@ ls -la /path/to/nextcloud/apps/threedviewer/basis/
 ## 🚨 Troubleshooting
 
 ### Common Issues
+
+**❌ 3D files download instead of opening in viewer** (MOST COMMON):
+
+**Cause**: MIME types not registered correctly in Nextcloud.
+
+**Solution**:
+1. Verify you completed **Step 2** in Post-Installation Setup (MIME type registration)
+2. Check if `config/mimetypemapping.json` exists with 3D model mappings
+3. Run: `php occ maintenance:mimetype:update-db`
+4. Rescan existing files: `php occ files:scan --all`
+5. Verify MIME type is correct:
+   ```bash
+   # Check specific file
+   php occ files:scan --verbose username --path="/file.glb"
+   # Should show: model/gltf-binary (NOT application/octet-stream)
+   ```
+6. Clear browser cache and reload Nextcloud Files app
+7. Open browser console (F12) and check for handler registration:
+   ```
+   [ThreeDViewer] Handler registered with Viewer {mimes: Array(11)}
+   ```
 
 **App not appearing in Apps list**:
 - Check file permissions

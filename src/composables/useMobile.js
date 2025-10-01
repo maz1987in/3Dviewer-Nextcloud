@@ -6,7 +6,6 @@
 import { ref, computed, readonly } from 'vue'
 import * as THREE from 'three'
 import { logError } from '../utils/error-handler.js'
-import { VIEWER_CONFIG } from '../config/viewer-config.js'
 
 export function useMobile() {
 	// Mobile state
@@ -203,7 +202,6 @@ export function useMobile() {
 				)
 
 				if (lastTouchDistance.value > 0) {
-					const scale = distance / lastTouchDistance.value
 					const centerX = (touch1.clientX + touch2.clientX) / 2
 					const centerY = (touch1.clientY + touch2.clientY) / 2
 
@@ -211,7 +209,6 @@ export function useMobile() {
 					gestureDelta.value.copy(gestureCurrentPos.value).sub(gestureStartPos.value)
 
 					logError('useMobile', 'Touch move - pinch', {
-						scale,
 						distance,
 						centerX,
 						centerY,
@@ -321,7 +318,6 @@ export function useMobile() {
 
 				if (lastTouchDistance > 0) {
 					const delta = lastTouchDistance - distance
-					const scale = 1 + delta * 0.01
 
 					// Apply zoom
 					if (controls) {

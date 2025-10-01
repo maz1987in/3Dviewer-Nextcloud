@@ -7,6 +7,8 @@ namespace OCA\ThreeDViewer\Controller;
 use OCA\ThreeDViewer\Service\ModelFileSupport;
 use OCA\ThreeDViewer\Service\ResponseBuilder;
 use OCP\AppFramework\Http;
+use OCP\AppFramework\Http\Attribute\FrontpageRoute;
+use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\Http\StreamResponse;
@@ -35,7 +37,9 @@ class FileController extends BaseController {
     /**
      * Test endpoint to verify routing is working
      */
+    #[NoAdminRequired]
     #[NoCSRFRequired]
+    #[FrontpageRoute(verb: 'GET', url: '/api/test')]
     public function test(): JSONResponse {
         return new JSONResponse(['status' => 'ok', 'message' => 'FileController is working']);
     }
@@ -43,7 +47,9 @@ class FileController extends BaseController {
     /**
      * Serve a 3D file by ID using Nextcloud filesystem API
      */
+    #[NoAdminRequired]
     #[NoCSRFRequired]
+    #[FrontpageRoute(verb: 'GET', url: '/api/file/{fileId}')]
     public function serveFile(int $fileId): StreamResponse|JSONResponse {
         try {
             // Validate file ID
@@ -102,7 +108,9 @@ class FileController extends BaseController {
     /**
      * List 3D files in user's folder
      */
+    #[NoAdminRequired]
     #[NoCSRFRequired]
+    #[FrontpageRoute(verb: 'GET', url: '/api/files')]
     public function listFiles(): JSONResponse {
         try {
             // Check authentication

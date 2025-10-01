@@ -210,3 +210,7 @@ The dynamic grid system automatically adapts to your model:
 ---
 
 For troubleshooting specific issues, see the [Troubleshooting](TROUBLESHOOTING.md) guide.
+
+## 🖼️ Icons (Thumbnails coming later)
+
+For now, the Files app shows a custom 3D file icon for supported formats (GLB, GLTF, OBJ, STL, PLY, FBX, 3MF, 3DS). Thumbnail generation is currently disabled and may be reintroduced in a future release.

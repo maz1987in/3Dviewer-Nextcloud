@@ -18,11 +18,30 @@ const loaders = {
 }
 
 export async function loadModelByExtension(ext, arrayBuffer, context) {
-	const key = (ext || '').toLowerCase()
-	const importer = loaders[key]
-	if (!importer) throw new Error(`Unsupported extension: ${ext}`)
-	const mod = await importer()
-	return mod.default(arrayBuffer, context)
+	console.log('[loader registry] loading extension:', ext)
+	const importer = loaders[ext]
+	if (importer) {
+		try {
+			const mod = await importer()
+			console.log('[loader registry] imported module:', mod)
+			console.log('[loader registry] module keys:', Object.keys(mod))
+			for (const key in mod) {
+				console.log(`[loader registry] module['${key}']:`, mod[key])
+			}
+
+			const LoaderClass = mod.default || Object.values(mod).find(e => typeof e === 'function' && e.prototype?.loadModel)
+			console.log('[loader registry] found loader class:', LoaderClass)
+
+			if (LoaderClass && typeof LoaderClass === 'function' && LoaderClass.prototype.loadModel) {
+				const loaderInstance = new LoaderClass()
+				return loaderInstance.loadModel(arrayBuffer, context)
+			}
+		} catch (e) {
+			console.error('[loader registry] error loading model', e)
+			return Promise.reject(e)
+		}
+	}
+	return Promise.reject(new Error(`No loader found for extension ${ext}`))
 }
 
 export function isSupportedExtension(ext) {

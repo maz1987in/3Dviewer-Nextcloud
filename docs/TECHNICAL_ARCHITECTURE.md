@@ -44,7 +44,7 @@ The 3D Viewer is a Nextcloud application that provides 3D model viewing capabili
 - **`FileController`**: App routes for authenticated streaming/listing (`/file/{id}`, `/files`)
 - **`PublicFileController`**: Public share streaming (`/public/file/{token}/{id}`, sibling MTL)
 - **`AssetController`**: Serves decoder and asset files
-- **`ThumbnailController` / `PageController`**: Present in codebase; feature exposure may vary
+- **`PageController`**: Frontpage route returning the app shell
 
 #### Services
 - **`FileService`**: File operations and validation

@@ -1,7 +1,9 @@
+/* global Vue */
+import { generateUrl } from '@nextcloud/router'
 // Nextcloud Viewer API integration for 3D models
 // This replaces the click-based approach with proper API integration
 
-import ViewerModal from './components/ViewerModal.vue'
+import ViewerModal from '../../components/ViewerModal.vue'
 
 const APP_ID = 'threedviewer'
 const supportedExt = ['glb', 'gltf', 'obj', 'stl', 'ply', 'fbx', '3mf', '3ds']
@@ -113,16 +115,10 @@ export function registerViewerHandler() {
 				'model/vrml',
 				'model/x3d',
 				'model/collada+xml',
-				'application/x-collada',
-				'application/octet-stream',
-				'application/gltf-binary',
-				'application/gltf+json',
-				'application/x-obj',
-				'application/x-stl',
-				'application/x-ply',
-				'application/x-fbx',
-				'application/x-3mf',
-				'application/x-3ds',
+				// Additional mime types actually produced by our mimetypemapping.json or common variants
+				'model/vnd.collada+xml', // dae mapping in appinfo/mimetypemapping.json
+				'model/x3d+xml', // x3d mapping in appinfo/mimetypemapping.json
+				'application/octet-stream', // used for fbx / 3ds by current mapping (extension gate in canView)
 			],
 			canView: (mime, file, attr) => {
 				// Get file information
@@ -142,21 +138,20 @@ export function registerViewerHandler() {
 					'model/fbx',
 					'model/3mf',
 					'model/3ds',
-					'application/octet-stream',
-					'application/gltf-binary',
-					'application/gltf+json',
-					'application/x-obj',
-					'application/x-stl',
-					'application/x-ply',
-					'application/x-fbx',
-					'application/x-3mf',
-					'application/x-3ds',
+					'model/vrml',
+					'model/x3d',
+					'model/collada+xml',
 				]
 				const isSupportedByMime = supportedMimes.includes(fileMime)
 
-				const canView = isSupportedByExt || isSupportedByMime
-
-				return canView
+				// If mime is generic octet-stream, only allow if extension is a known generic-mapped 3D format (fbx/3ds/3mf)
+				if (fileMime === 'application/octet-stream') {
+					const ext = (name.split('.').pop() || '').toLowerCase()
+					if (!['fbx', '3ds', '3mf'].includes(ext)) {
+						return false
+					}
+				}
+				return isSupportedByExt || isSupportedByMime
 			},
 			component: createViewerComponent(),
 		})
@@ -184,7 +179,7 @@ export function registerViewerHandlerLegacy() {
 				const fileMime = mime || (file && file.mimetype) || (attr && attr.mimetype) || ''
 
 				const isSupportedByExt = isSupported(name)
-				const isSupportedByMime = [
+				const supportedMimes = [
 					'model/gltf-binary',
 					'model/gltf+json',
 					'model/ply',
@@ -193,16 +188,22 @@ export function registerViewerHandlerLegacy() {
 					'model/fbx',
 					'model/3mf',
 					'model/3ds',
-					'application/octet-stream',
-					'application/gltf-binary',
-					'application/gltf+json',
-					'application/x-obj',
-					'application/x-stl',
-					'application/x-ply',
-					'application/x-fbx',
-					'application/x-3mf',
-					'application/x-3ds',
-				].includes(fileMime)
+					'model/vrml',
+					'model/x3d',
+					'model/collada+xml',
+					'model/vnd.collada+xml',
+					'model/x3d+xml',
+				]
+				const isSupportedByMime = supportedMimes.includes(fileMime)
+
+				// Determine extension from available file info
+				const filename = name || (file && (file.name || file.basename)) || ''
+				const ext = filename.includes('.') ? filename.split('.').pop().toLowerCase() : ''
+
+				// Guard generic mime: only treat application/octet-stream as viewable if extension is explicitly supported (fbx/3ds)
+				if (fileMime === 'application/octet-stream' && !['fbx', '3ds'].includes(ext)) {
+					return false
+				}
 
 				const canView = isSupportedByExt || isSupportedByMime
 
@@ -219,7 +220,7 @@ export function registerViewerHandlerLegacy() {
 					if (fileId && isSupported(fileName)) {
 						// Try to use the modal component first
 						try {
-							import('./components/ViewerModal.vue').then(ViewerModal => {
+							import('../../components/ViewerModal.vue').then(ViewerModal => {
 								const ModalComponent = Vue.extend(ViewerModal.default)
 								const modalInstance = new ModalComponent({
 									propsData: {
@@ -232,14 +233,14 @@ export function registerViewerHandlerLegacy() {
 								modalInstance.$mount()
 								this.$el.appendChild(modalInstance.$el)
 
-							}).catch(error => {
+							}).catch(() => {
 								// Fallback to new tab
-								const viewerUrl = OC.generateUrl(`/apps/${APP_ID}/?fileId=${fileId}&filename=${encodeURIComponent(fileName)}&dir=${encodeURIComponent(fileDir)}`)
+								const viewerUrl = generateUrl(`/apps/${APP_ID}/?fileId=${fileId}&filename=${encodeURIComponent(fileName)}&dir=${encodeURIComponent(fileDir)}`)
 								window.open(viewerUrl, '_blank', 'noopener,noreferrer')
 							})
 						} catch (error) {
 							// Fallback to new tab
-							const viewerUrl = OC.generateUrl(`/apps/${APP_ID}/?fileId=${fileId}&filename=${encodeURIComponent(fileName)}&dir=${encodeURIComponent(fileDir)}`)
+							const viewerUrl = generateUrl(`/apps/${APP_ID}/?fileId=${fileId}&filename=${encodeURIComponent(fileName)}&dir=${encodeURIComponent(fileDir)}`)
 							window.open(viewerUrl, '_blank', 'noopener,noreferrer')
 						}
 					} else {

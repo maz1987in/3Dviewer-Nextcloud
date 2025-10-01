@@ -49,15 +49,7 @@
 import ToastContainer from './components/ToastContainer.vue'
 import ThreeViewer from './components/ThreeViewer.vue'
 import ViewerToolbar from './components/ViewerToolbar.vue'
-
-// Attempt to import NcAppContent (Nextcloud UI component); provide minimal fallback if unavailable (e.g., in Playwright data URL harness)
-let NcAppContent
-try {
-	// eslint-disable-next-line import/no-unresolved
-	NcAppContent = (await import('@nextcloud/vue/dist/Components/NcAppContent.js')).default
-} catch (e) {
-	NcAppContent = { name: 'NcAppContentStub', functional: true, render(h, ctx) { return h('div', { class: 'nc-app-content-stub' }, ctx.children) } }
-}
+import { NcAppContent } from '@nextcloud/vue'
 
 export default {
 	name: 'App',
@@ -107,6 +99,13 @@ export default {
 	},
 	methods: {
 		parseFileId() {
+			// First try data attribute from template (RESTful route: /apps/threedviewer/{fileId})
+			const appRoot = document.getElementById('threedviewer')
+			if (appRoot && appRoot.dataset.fileId) {
+				return Number(appRoot.dataset.fileId)
+			}
+			
+			// Fallback: Try query params (legacy: /apps/threedviewer/?fileId=123)
 			const params = new URLSearchParams(window.location.search)
 			const id = params.get('fileId')
 			return id ? Number(id) : null
@@ -116,6 +115,13 @@ export default {
 			return params.get('filename') || null
 		},
 		parseDir() {
+			// First try data attribute from template
+			const appRoot = document.getElementById('threedviewer')
+			if (appRoot && appRoot.dataset.dir) {
+				return appRoot.dataset.dir || null
+			}
+			
+			// Fallback: Try query params
 			const params = new URLSearchParams(window.location.search)
 			return params.get('dir') || null
 		},
@@ -243,9 +249,9 @@ export default {
 		dismissToast(id) {
 			this.toasts = this.toasts.filter(t => t.id !== id)
 		},
-		tSuccessTitle() { return t('threedviewer', 'Model loaded') },
-		tLoadedMessage(name) { return t('threedviewer', 'Loaded {file}', { file: name }) },
-		tErrorTitle() { return t('threedviewer', 'Error loading model') },
+		tSuccessTitle() { return this.t('threedviewer', 'Model loaded') },
+		tLoadedMessage(name) { return this.t('threedviewer', 'Loaded {file}', { file: name }) },
+		tErrorTitle() { return this.t('threedviewer', 'Error loading model') },
 	},
 }
 </script>

@@ -314,7 +314,6 @@ export function useComparison() {
 			// Position indicator above the model
 			const box = new THREE.Box3().setFromObject(model)
 			const size = box.getSize(new THREE.Vector3())
-			const center = box.getCenter(new THREE.Vector3())
 
 			// Position indicator relative to model's center
 			indicator.position.set(0, size.y / 2 + 0.2, 0)
@@ -372,23 +371,12 @@ export function useComparison() {
 			// Position models side by side
 			// Keep original model at its current position
 			// Move comparison model to the right
-			const originalX = model2.position.x
 			model2.position.x = offset
-			model2.position.y = model2.position.y // Keep original Y position
-			model2.position.z = model2.position.z // Keep original Z position
 
 			// Force update the matrix to ensure position changes take effect
 			model2.updateMatrixWorld(true)
 
 			// Model positioning applied
-
-			// Verify the positioning worked
-			const model1WorldPos = model1.getWorldPosition(new THREE.Vector3())
-			const model2WorldPos = model2.getWorldPosition(new THREE.Vector3())
-
-			// Keep both models at the same ground level (Y=0)
-			// Don't adjust Y positions - let them stay at their natural positions
-			// This prevents the models from moving up/down
 
 			// Use the provided fit function to fit camera to both models
 			fitFunction(model1, model2)

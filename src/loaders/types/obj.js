@@ -1,6 +1,6 @@
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js'
 import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js'
-import { BaseLoader, MaterialLoaderMixin } from '../BaseLoader.js'
+import { BaseLoader } from '../BaseLoader.js'
 
 /**
  * OBJ loader class with MTL material support
@@ -20,7 +20,7 @@ class ObjLoader extends BaseLoader {
 	 * @return {Promise<object>} Load result
 	 */
 	async loadModel(arrayBuffer, context) {
-		const { THREE, fileId } = context
+		const { fileId } = context
 
 		// Decode the OBJ file content
 		const objText = this.decodeText(arrayBuffer)

@@ -1,154 +1,104 @@
-# Documentation Index
+# ThreeDViewer Documentation Index
 
-Welcome to the 3D Viewer for Nextcloud documentation. This index provides quick access to all available documentation.
+Complete documentation for the 3D Model Viewer Nextcloud app.
 
-## 📖 Getting Started
+## � Quick Start
 
-### For Users
-- **[Installation Guide](INSTALLATION.md)** - How to install and set up the 3D viewer
-- **[User Guide](USER_GUIDE.md)** - How to use all the features of the 3D viewer
+- [Installation Guide](INSTALLATION.md) - How to install the app
+- [User Guide](USER_GUIDE.md) - End-user documentation
+- [Developer Guide](DEVELOPER_GUIDE.md) - Development setup and workflow
 
-### For Administrators
-- **[Installation Guide](INSTALLATION.md)** - Server installation and configuration
-- **[Troubleshooting](TROUBLESHOOTING.md)** - Common issues and solutions
-- **[Technical Architecture](TECHNICAL_ARCHITECTURE.md)** - System requirements and architecture
+## 🏗️ Architecture & Design
 
-### For Developers
-- **[Developer Guide](DEVELOPER_GUIDE.md)** - Development setup and contribution guidelines
-- **[API Reference](API_REFERENCE.md)** - Complete API documentation
-- **[Technical Architecture](TECHNICAL_ARCHITECTURE.md)** - System design and implementation details
+- [Technical Architecture](TECHNICAL_ARCHITECTURE.md) - System architecture overview
+- [Multi-File Loading Architecture](MULTI_FILE_LOADING_ARCHITECTURE.md) - Detailed diagrams for multi-file model loading
+- [API Reference](API_REFERENCE.md) - Backend API endpoints
 
-## 🎯 Quick Reference
+## 🔧 Implementation Guides
 
-### Installation
-```bash
-# Install from App Store (recommended)
-# Or install manually:
-git clone https://github.com/your-username/3Dviewer-Nextcloud.git
-cd 3Dviewer-Nextcloud
-composer install
-npm install
-npm run build
-```
+### Core Features
+- [MIME Type Setup](MIME_TYPE_SETUP.md) - File type registration
+- [MIME Type Lifecycle](MIME_TYPE_LIFECYCLE.md) - Install/uninstall flow
+- [Model File Support Analysis](MODEL_FILE_SUPPORT_ANALYSIS.md) - Supported formats
 
-### Basic Usage
-1. Upload 3D files to Nextcloud Files
-2. Click on any supported 3D file
-3. Use mouse/touch controls to navigate
-4. Use toolbar for additional features
+### Advanced Features  
+- [Advanced Viewer Wiring](ADVANCED_VIEWER_WIRING.md) - Standalone app integration
+- [Model Loading Implementation](MODEL_LOADING_IMPLEMENTATION.md) - Three.js model loading
+- [Multi-File Loading](MULTI_FILE_LOADING.md) - OBJ+MTL, GLTF+bins support
 
-### Supported Formats
-- **GLB/GLTF**: Full support with materials and animations
-- **OBJ + MTL**: Full support with material files
-- **STL**: Full support for 3D printing
-- **PLY**: Full support for point clouds
-- **FBX**: Full support with animations
-- **3MF/3DS**: Full support
-- **VRML/X3D**: Basic support
+## 🐛 Troubleshooting & Fixes
 
-## 🔧 Development
+- [Troubleshooting Guide](TROUBLESHOOTING.md) - Common issues and solutions
+- [MIME Type Fix Summary](MIME_TYPE_FIX_SUMMARY.md) - MIME registration fixes
+- [API Endpoint Fix](API_ENDPOINT_FIX.md) - 404 error resolution
+- [Inline File Serving Fix](INLINE_FILE_SERVING_FIX.md) - Download dialog → inline display
+- [Translation Navigation Fixes](TRANSLATION_NAVIGATION_FIXES.md) - i18n and nav fixes
 
-### Project Structure
-```
-3Dviewer-Nextcloud/
-├── src/                    # Frontend Vue.js application
-├── lib/                   # Backend PHP classes
-├── tests/                 # Test suites
-├── docs/                  # Documentation
-└── templates/            # PHP templates
-```
+## 📋 Change Logs & Summaries
 
-### Key Components
-- **ThreeViewer.vue**: Main 3D viewer component
-- **ApiController.php**: API endpoints
-- **FileService.php**: File operations
-- **ModelFileSupport.php**: Format support
+- [Cleanup Summary](CLEANUP_SUMMARY.md) - Legacy code removal (15 files, 1.7 MB)
+- [Multi-File Loading Summary](MULTI_FILE_LOADING_SUMMARY.md) - Phase 1 completion status
+- [Code Audit: Unused Files](CODE_AUDIT_UNUSED_FILES.md) - Dead code identification
 
-### Testing
-```bash
-# Run all tests
-npm run test:all
+## 🔍 Deep Dives
 
-# PHP unit tests
-composer test:unit
+- [Fixes 2025-10-01](FIXES_2025_10_01.md) - Recent bug fixes and improvements
 
-# Frontend smoke tests
-npm run test:smoke
-```
+## 📊 Project Status (October 1, 2025)
 
-## 📊 Performance
+### ✅ Completed
+- MIME type lifecycle (install/uninstall)
+- Legacy file cleanup (15 files removed)
+- Advanced viewer wiring (RESTful routing)
+- Translation system (l10n integration)
+- Navigation entry (app icon in menu)
+- Model loading infrastructure (both viewers)
+- API endpoint fixes (404 errors resolved)
+- Auto-fit camera implementation
+- **Multi-file loading infrastructure (Phase 1)** ← NEW
 
-### Bundle Size Limits
-| Bundle | Raw (bytes) | Gzip (bytes) |
-|--------|------------:|-------------:|
-| `threedviewer-main.mjs` | 950,000 | 260,000 |
-| `gltf-*.chunk.mjs` | 120,000 | 40,000 |
-| `FBXLoader-*.chunk.mjs` | 120,000 | 50,000 |
+### 🔄 In Progress
+- Multi-file loading integration (Phase 2)
+- Testing with real 3D files
 
-### Optimization Features
-- Dynamic imports for loaders
-- Code splitting by feature
-- DRACO/KTX2 compression support
-- Abortable loading for large files
+### ⏳ Pending
+- Loading states and progress indicators
+- Toolbar feature testing
+- Advanced features (annotations, measurements)
+- Format-specific testing (COLLADA, FBX)
+- Performance optimization
 
-## 🛠️ Troubleshooting
+## 🗂️ Document Organization
 
-### Common Issues
-- **Viewer not loading**: Check browser console, verify file permissions
-- **Models not displaying**: Check file format, verify file integrity
-- **Performance issues**: Check file size, close other tabs, optimize model
-- **Camera issues**: Use reset view, check controls, verify positioning
+### By Topic
+- **Setup**: INSTALLATION.md, MIME_TYPE_SETUP.md
+- **Architecture**: TECHNICAL_ARCHITECTURE.md, MULTI_FILE_LOADING_ARCHITECTURE.md
+- **Implementation**: MODEL_LOADING_IMPLEMENTATION.md, MULTI_FILE_LOADING.md
+- **Fixes**: API_ENDPOINT_FIX.md, TRANSLATION_NAVIGATION_FIXES.md, MIME_TYPE_FIX_SUMMARY.md
+- **Reference**: API_REFERENCE.md, USER_GUIDE.md, DEVELOPER_GUIDE.md
 
-### Debug Tools
-- Browser DevTools (Console, Network, Performance tabs)
-- Nextcloud logs (`/path/to/nextcloud/data/nextcloud.log`)
-- Performance monitoring (FPS, memory usage)
+### By Audience
+- **Users**: USER_GUIDE.md, INSTALLATION.md
+- **Developers**: DEVELOPER_GUIDE.md, TECHNICAL_ARCHITECTURE.md, API_REFERENCE.md
+- **Contributors**: All implementation and fix documents
 
-## 🤝 Contributing
+## 🔗 External Resources
 
-### How to Contribute
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Submit a pull request
+- [Nextcloud App Development](https://docs.nextcloud.com/server/latest/developer_manual/app_development/)
+- [Three.js Documentation](https://threejs.org/docs/)
+- [WARP-LAB files_3dmodelviewer](https://github.com/WARP-LAB/files_3dmodelviewer) - Reference implementation
 
-### Code Style
-- PHP: PSR-12 standards
-- JavaScript: ESLint configuration
-- Vue: Vue.js style guide
+## 📝 Document Templates
 
-### Testing Requirements
-- All tests must pass
-- Code coverage must be maintained
-- Bundle size limits must be respected
-
-## 📞 Support
-
-### Getting Help
-- **Documentation**: Check this index and individual guides
-- **Issues**: [GitHub Issues](https://github.com/your-username/3Dviewer-Nextcloud/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/your-username/3Dviewer-Nextcloud/discussions)
-
-### Reporting Issues
-When reporting issues, include:
-- Nextcloud version
-- PHP version
-- Browser version
-- Error messages
-- Steps to reproduce
-
-## 📄 License
-
-This project is licensed under the AGPL-3.0 License. See [LICENSE](../LICENSE) for details.
-
-## 🙏 Acknowledgments
-
-- [Three.js](https://threejs.org/) for 3D rendering
-- [Vue.js](https://vuejs.org/) for the frontend framework
-- [Nextcloud](https://nextcloud.com/) for the platform
-- Contributors and the open-source community
+When creating new documentation:
+1. Include date and status at top
+2. Use clear section headings
+3. Add code examples where appropriate
+4. Reference related documents
+5. Update this index
 
 ---
 
-**Need help?** Start with the [Installation Guide](INSTALLATION.md) for setup, or the [User Guide](USER_GUIDE.md) for usage instructions.
+**Last Updated**: October 1, 2025  
+**Total Documents**: 21  
+**Latest Addition**: MULTI_FILE_LOADING_ARCHITECTURE.md, MULTI_FILE_LOADING_SUMMARY.md

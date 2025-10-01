@@ -433,13 +433,13 @@ export default {
 				const userId = window.OC?.getCurrentUser?.()?.uid || 'admin'
 				const dir = props.dir || 'Models'
 
-				// First try: Use the custom API endpoint
+				// First try: Use the API endpoint
 				try {
-					response = await fetch(`/apps/threedviewer/file/${fileId}`)
+					response = await fetch(`/apps/threedviewer/api/file/${fileId}`)
 					if (response.ok) {
-						// Success with custom API
+						// Success with API
 					} else {
-						throw new Error(`Custom API failed: ${response.status}`)
+						throw new Error(`API failed: ${response.status}`)
 					}
 				} catch (e) {
 					// Fallback: Use Nextcloud Files API

@@ -2,7 +2,139 @@
 
 This guide helps you diagnose and resolve common issues with the 3D Viewer for Nextcloud application.
 
-## 🚨 Common Issues
+## 🚨 Most Common Issues
+
+### ❌ 3D Files Download Instead of Opening in Viewer
+
+**This is the #1 most common issue!** If clicking a 3D file downloads it instead of opening the viewer, your MIME types are not configured correctly.
+
+#### Symptoms
+- Clicking `.glb`, `.gltf`, `.obj`, `.stl` files triggers download dialog
+- Browser downloads file instead of opening viewer
+- No viewer window appears
+
+#### Root Cause
+Nextcloud doesn't recognize 3D model file extensions and treats them as generic `application/octet-stream` instead of their proper MIME types like `model/gltf-binary`, `model/obj`, etc.
+
+#### Solution
+
+**Step 1: Register MIME Types**
+
+**Option A - Create mapping file** (recommended):
+```bash
+# Create /path/to/nextcloud/config/mimetypemapping.json
+cat > /path/to/nextcloud/config/mimetypemapping.json <<'EOF'
+{
+  "glb": ["model/gltf-binary"],
+  "gltf": ["model/gltf+json"],
+  "obj": ["model/obj"],
+  "stl": ["model/stl"],
+  "ply": ["model/ply"],
+  "dae": ["model/vnd.collada+xml"],
+  "3mf": ["model/3mf"],
+  "fbx": ["model/x.fbx"],
+  "3ds": ["application/x-3ds"],
+  "mtl": ["text/plain"]
+}
+EOF
+```
+
+**Option B - Edit config.php**:
+```php
+// Add to /path/to/nextcloud/config/config.php
+'mimetypealiases' => array(
+    'glb' => 'model/gltf-binary',
+    'gltf' => 'model/gltf+json',
+    'obj' => 'model/obj',
+    'stl' => 'model/stl',
+    'ply' => 'model/ply',
+    'dae' => 'model/vnd.collada+xml',
+    '3mf' => 'model/3mf',
+    'fbx' => 'model/x.fbx',
+    '3ds' => 'application/x-3ds',
+    'mtl' => 'text/plain',
+),
+```
+
+**Step 2: Update MIME Type Database**
+
+```bash
+# This inserts the MIME types into Nextcloud's database
+php occ maintenance:mimetype:update-db
+```
+
+**Step 3: Rescan Existing Files** (if you already uploaded 3D models)
+
+```bash
+# Rescan all users
+php occ files:scan --all
+
+# Or rescan specific user
+php occ files:scan admin
+
+# Or rescan specific directory
+php occ files:scan admin --path="/3D Models"
+```
+
+**Step 4: Verify MIME Types**
+
+```bash
+# Check a specific file's MIME type
+php occ files:scan --verbose admin --path="/models/test.glb"
+
+# Expected output:
+# Starting scan for user 1 out of 1 (admin)
+# +---------+-------+--------------+
+# | Folders | Files | Updated      |
+# +---------+-------+--------------+
+# | 0       | 1     | 1            |
+# +---------+-------+--------------+
+
+# Then verify in database (optional):
+docker exec -it nextcloud-threedviewer mariadb -u nextcloud -pnextcloud nextcloud -e "
+SELECT f.name, f.path, m.mimetype 
+FROM oc_filecache f 
+JOIN oc_mimetypes m ON f.mimetype = m.id 
+WHERE f.name LIKE '%.glb' OR f.name LIKE '%.gltf' 
+LIMIT 5;
+"
+
+# Should show:
+# +---------------------+---------------------------+--------------------+
+# | name                | path                      | mimetype           |
+# +---------------------+---------------------------+--------------------+
+# | test.glb            | files/models/test.glb     | model/gltf-binary  |
+# | model.gltf          | files/models/model.gltf   | model/gltf+json    |
+# +---------------------+---------------------------+--------------------+
+```
+
+**Step 5: Clear Browser Cache and Test**
+
+```bash
+# In your browser:
+# 1. Open Developer Tools (F12)
+# 2. Right-click refresh button → "Empty Cache and Hard Reload"
+# 3. Go to Nextcloud Files app
+# 4. Click a 3D model file
+# 5. Check console for:
+#    "[ThreeDViewer] Handler registered with Viewer"
+#    "[INFO] viewer: Opening viewer for file"
+```
+
+#### Verification Checklist
+
+✅ **MIME types registered**: `/config/mimetypemapping.json` exists with 3D model mappings  
+✅ **Database updated**: `php occ maintenance:mimetype:update-db` ran successfully  
+✅ **Files rescanned**: `php occ files:scan` ran on directories with 3D models  
+✅ **MIME types correct**: Database shows `model/gltf-binary` not `application/octet-stream`  
+✅ **Browser cache cleared**: Hard refresh performed  
+✅ **Handler registered**: Console shows "Handler registered with Viewer {mimes: Array(11)}"  
+
+If all checks pass and files still download, see [Viewer Not Loading](#viewer-not-loading) below.
+
+---
+
+## 🔧 Other Common Issues
 
 ### Viewer Not Loading
 

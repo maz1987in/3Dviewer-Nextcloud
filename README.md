@@ -13,12 +13,49 @@ A comprehensive 3D model viewer application for Nextcloud that supports multiple
 
 ## 🚀 Quick Start
 
-1. **Install the app** from the Nextcloud App Store or manually
-2. **Upload 3D files** to your Nextcloud Files
-3. **Click on any 3D file** to open the viewer
-4. **Navigate** using mouse/touch controls
+### Installation
 
-## ✨ Features
+1. **Install the app** from the Nextcloud App Store or manually ([Installation Guide](docs/INSTALLATION.md))
+2. **✅ Enable the app** - MIME types register automatically!
+   
+   ```bash
+   # Enable app (MIME types are registered automatically during this step)
+   php occ app:enable threedviewer
+   ```
+   
+   The repair step automatically:
+   - ✅ Registers all 3D model MIME types in database
+   - ✅ Creates `/config/mimetypemapping.json` with extension mappings
+   - ✅ Creates `/config/mimetypealiases.json` for icon support
+   - ✅ Regenerates JavaScript MIME type mappings
+
+3. **(Optional) Rescan existing 3D files** - If you uploaded 3D files before installing the app:
+   
+   ```bash
+   php occ files:scan --all
+   ```
+
+4. **Upload 3D files** to your Nextcloud Files
+5. **Click on any 3D file** to open the viewer
+6. **Navigate** using mouse/touch controls
+
+### Uninstalling
+
+To completely remove the app:
+
+```bash
+php occ app:remove threedviewer
+```
+
+The uninstall repair step automatically:
+- ✅ Removes MIME type entries from config files
+- ✅ Resets database MIME types to `application/octet-stream`
+- ✅ Regenerates JavaScript mappings
+- ✅ Cleans up (icons remain for compatibility)
+
+You can reinstall anytime and MIME types will be re-registered automatically!
+
+### Usage
 
 - **Multi-format Support**: GLB, GLTF, OBJ (+ MTL), STL, PLY, FBX, 3MF, 3DS, VRML, X3D
 - **Dynamic Grid System**: Automatically adapts to model size and position

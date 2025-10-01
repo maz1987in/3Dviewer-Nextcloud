@@ -3,7 +3,7 @@
  * Handles camera setup, controls, animations, and view management
  */
 
-import { ref, computed, readonly, watch } from 'vue'
+import { ref, readonly } from 'vue'
 import * as THREE from 'three'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
 import { logError } from '../utils/error-handler.js'
@@ -545,7 +545,7 @@ export function useCamera() {
 	/**
 	 * Setup custom camera controls (mouse events)
 	 * @param {HTMLElement} domElement - DOM element to attach events to
-	 * @param measurementHandler
+	 * @param {Function} measurementHandler - Callback for measurement clicks
 	 */
 	const setupCustomControls = (domElement, measurementHandler = null) => {
 		if (!domElement || !camera.value) return

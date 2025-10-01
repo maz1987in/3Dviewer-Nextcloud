@@ -1,0 +1,84 @@
+version: "3.8"
+
+services:
+  db:
+    image: mariadb:11
+    container_name: mariadb-threedviewer
+    command: ["--transaction-isolation=READ-COMMITTED", "--binlog-format=ROW"]
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DB_PASSWORD:-nextcloud}
+      MARIADB_DATABASE: ${DB_NAME:-nextcloud}
+      MARIADB_USER: ${DB_USER:-nextcloud}
+      MARIADB_PASSWORD: ${DB_PASSWORD:-nextcloud}
+    volumes:
+      - db-data:/var/lib/mysql
+
+  nextcloud:
+    image: nextcloud:${NC_VERSION:-30}-apache
+    container_name: nextcloud-threedviewer
+    restart: unless-stopped
+    depends_on:
+      - db
+    ports:
+      - "${NC_PORT:-8080}:80"
+    environment:
+      MYSQL_HOST: db
+      MYSQL_DATABASE: ${DB_NAME:-nextcloud}
+      MYSQL_USER: ${DB_USER:-nextcloud}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-nextcloud}
+      NEXTCLOUD_ADMIN_USER: ${ADMIN_USER:-admin}
+      NEXTCLOUD_ADMIN_PASSWORD: ${ADMIN_PASS:-admin}
+    volumes:
+      - nextcloud-main:/var/www/html
+      - ./:/var/www/html/custom_apps/threedviewer:rw
+
+  nc-init:
+    image: nextcloud:${NC_VERSION:-30}-apache
+    container_name: nc-init-threedviewer
+    depends_on:
+      - nextcloud
+    environment:
+      TRUSTED_DOMAIN: ${TRUSTED_DOMAIN:-}
+      # replicate DB and admin credentials for unattended install fallback
+      MYSQL_HOST: db
+      MYSQL_DATABASE: ${DB_NAME:-nextcloud}
+      MYSQL_USER: ${DB_USER:-nextcloud}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-nextcloud}
+      NEXTCLOUD_ADMIN_USER: ${ADMIN_USER:-admin}
+      NEXTCLOUD_ADMIN_PASSWORD: ${ADMIN_PASS:-admin}
+    volumes:
+      - nextcloud-main:/var/www/html
+      - ./:/var/www/html/custom_apps/threedviewer:rw
+    entrypoint: /bin/bash -lc
+    command: >-
+      set -e
+      && echo "[nc-init] Waiting for Nextcloud..."
+      && until curl -sf http://nextcloud/status.php > /dev/null; do sleep 2; done
+      && cd /var/www/html
+      && if ! php occ status 2>/dev/null | grep -q "installed: true"; then \
+           echo "[nc-init] Running unattended install"; \
+           php occ maintenance:install \
+             --database "mysql" \
+             --database-name "$MYSQL_DATABASE" \
+             --database-user "$MYSQL_USER" \
+             --database-pass "$MYSQL_PASSWORD" \
+             --database-host "$MYSQL_HOST" \
+             --admin-user "$NEXTCLOUD_ADMIN_USER" \
+             --admin-pass "$NEXTCLOUD_ADMIN_PASSWORD"; \
+         else \
+           echo "[nc-init] Instance already installed"; \
+         fi
+      && php occ app:enable threedviewer || true
+      && if [ -n "$TRUSTED_DOMAIN" ]; then \
+           php occ config:system:set trusted_domains 1 --value="$TRUSTED_DOMAIN" || true; \
+           php occ config:system:set overwriteprotocol --value=https || true; \
+           php occ config:system:set overwrite.cli.url --value="https://$TRUSTED_DOMAIN" || true; \
+           php occ config:system:set overwritehost --value="$TRUSTED_DOMAIN" || true; \
+         fi
+      && echo "[nc-init] Done."
+    restart: "no"
+
+volumes:
+  db-data:
+  nextcloud-main:

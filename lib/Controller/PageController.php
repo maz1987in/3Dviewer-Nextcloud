@@ -26,4 +26,22 @@ class PageController extends Controller {
 			'index',
 		);
 	}
+
+	/**
+	 * Viewer page for specific file
+	 * URL: /apps/threedviewer/{fileId}?dir=/optional/path
+	 */
+	#[NoCSRFRequired]
+	#[NoAdminRequired]
+	#[OpenAPI(OpenAPI::SCOPE_IGNORE)]
+	#[FrontpageRoute(verb: 'GET', url: '/{fileId}')]
+	public function viewer(string $fileId): TemplateResponse {
+		return new TemplateResponse(
+			Application::APP_ID,
+			'index',
+			[
+				'fileId' => $fileId,
+			]
+		);
+	}
 }

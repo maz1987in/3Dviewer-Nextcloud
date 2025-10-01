@@ -6,7 +6,6 @@
 import { ref, computed, readonly } from 'vue'
 import * as THREE from 'three'
 import { logError } from '../utils/error-handler.js'
-import { VIEWER_CONFIG } from '../config/viewer-config.js'
 
 export function usePerformance() {
 	// Performance state
@@ -295,7 +294,6 @@ export function usePerformance() {
 	const simplifyGeometry = (geometry, ratio) => {
 		if (!geometry.attributes.position) return
 
-		const positions = geometry.attributes.position.array
 		const indices = geometry.index ? geometry.index.array : null
 
 		if (indices && ratio < 0.8) {
@@ -308,6 +306,7 @@ export function usePerformance() {
 			}
 
 			geometry.setIndex(newIndices)
+			geometry.index.needsUpdate = true
 		}
 	}
 

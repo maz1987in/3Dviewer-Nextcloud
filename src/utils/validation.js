@@ -1,3 +1,4 @@
+/* global THREE */
 /**
  * Validation utilities for input validation and data checking
  */
@@ -245,6 +246,7 @@ export function validateUrl(url, context = 'URL') {
 	}
 
 	try {
+		// eslint-disable-next-line no-new
 		new URL(url)
 	} catch (error) {
 		throw new Error(`${context} is not a valid URL: ${url}`)

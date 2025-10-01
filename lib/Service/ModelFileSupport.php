@@ -15,10 +15,12 @@ use OCP\Files\NotFoundException;
  *  - Supported extension allow-list
  *  - Content type mapping
  *  - Sibling MTL resolution
+ *
+ * NOTE: This list MUST stay synchronized with RegisterThreeDMimeTypes::EXT_MIME_MAP
  */
 class ModelFileSupport {
     /** @var list<string> */
-    private array $supported = ['glb','gltf','obj','stl','ply','mtl','fbx','3mf','3ds'];
+    private array $supported = ['glb','gltf','obj','stl','ply','dae','mtl','fbx','3mf','3ds'];
 
     /** @return list<string> */
     public function getSupportedExtensions(): array {
@@ -36,6 +38,7 @@ class ModelFileSupport {
             'obj' => 'model/obj',
             'stl' => 'model/stl',
             'ply' => 'model/ply',
+            'dae' => 'model/vnd.collada+xml', // COLLADA format
             'mtl' => 'text/plain',
             'fbx' => 'application/octet-stream', // No well-standardized registered model MIME; using generic
             '3mf' => 'model/3mf',

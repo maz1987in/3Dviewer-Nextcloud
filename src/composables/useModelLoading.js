@@ -7,7 +7,7 @@ import { ref, computed, readonly } from 'vue'
 import { loadModelByExtension, isSupportedExtension } from '../loaders/registry.js'
 import { logError, createErrorState } from '../utils/error-handler.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
-import { LOADING_STAGES, ERROR_TYPES } from '../constants/index.js'
+import { LOADING_STAGES } from '../constants/index.js'
 
 export function useModelLoading() {
 	// Loading state

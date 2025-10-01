@@ -1,3 +1,4 @@
+/* global THREE */
 /**
  * UI controls and toolbar management composable
  * Handles UI state, toolbar interactions, and user interface controls

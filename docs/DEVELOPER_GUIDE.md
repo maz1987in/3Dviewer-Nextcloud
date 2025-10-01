@@ -68,8 +68,8 @@ lib/
 │   ├── ShareFileService.php
 │   └── ResponseBuilder.php
 ├── Repair/
-│   ├── RegisterThreeDMimeTypes.php
-│   └── CleanupThreeDMimeTypes.php
+│   ├── RegisterThreeDMimeTypes.php     # Install: Register MIME types
+│   └── UnregisterThreeDMimeTypes.php   # Uninstall: Clean up MIME types
 └── AppInfo/
     └── Application.php
 ```
