@@ -1,52 +1,71 @@
-// DAE (Collada) loader
 import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js'
+import { BaseLoader } from '../BaseLoader.js'
 
-export default async function loadDAE(arrayBuffer, context) {
-	const { THREE, scene, applyWireframe, ensurePlaceholderRemoved } = context
+/**
+ * DAE (Collada) loader class
+ */
+class DaeLoader extends BaseLoader {
 
-	// Convert ArrayBuffer to text for XML parsing
-	const text = new TextDecoder('utf-8').decode(arrayBuffer)
+	constructor() {
+		super('DAELoader', ['dae'])
+		this.loader = null
+	}
 
-	return new Promise((resolve, reject) => {
-		const loader = new ColladaLoader()
+	/**
+	 * Load DAE model
+	 * @param {ArrayBuffer} arrayBuffer - File data
+	 * @param {object} context - Loading context
+	 * @return {Promise<object>} Load result
+	 */
+	async loadModel(arrayBuffer, context) {
+		// Convert ArrayBuffer to text for XML parsing
+		const text = this.decodeText(arrayBuffer)
 
-		try {
-			// Parse the DAE content
-			const collada = loader.parse(text)
+		// Create Collada loader
+		this.loader = new ColladaLoader()
 
-			// Get the scene from the parsed DAE
-			const daeScene = collada.scene
+		// Parse the DAE content
+		const collada = this.loader.parse(text)
 
-			if (!daeScene) {
-				throw new Error('No scene found in DAE file')
-			}
+		// Get the scene from the parsed DAE
+		const daeScene = collada.scene
 
-			// Apply wireframe if needed
-			applyWireframe(daeScene)
-
-			// Remove any placeholder objects
-			ensurePlaceholderRemoved()
-
-			// Add the scene to the main scene
-			scene.add(daeScene)
-
-			// Calculate bounding box for camera positioning
-			const box = new THREE.Box3().setFromObject(daeScene)
-			const center = box.getCenter(new THREE.Vector3())
-			const size = box.getSize(new THREE.Vector3())
-
-			// Center the model
-			daeScene.position.sub(center)
-
-			resolve({
-				object3D: daeScene,
-				boundingBox: box,
-				center,
-				size,
-				animations: collada.animations || [],
-			})
-		} catch (error) {
-			reject(new Error(`Failed to load DAE file: ${error.message}`))
+		if (!daeScene) {
+			throw new Error('No scene found in DAE file')
 		}
-	})
+
+		this.logInfo('DAE model loaded successfully', {
+			animations: collada.animations?.length || 0,
+		})
+
+		// Process the result
+		const result = this.processModel(daeScene, context)
+
+		// Add animations if available
+		if (collada.animations && collada.animations.length > 0) {
+			result.animations = collada.animations
+		}
+
+		return result
+	}
+
+	/**
+	 * Decode ArrayBuffer to text
+	 * @param {ArrayBuffer} arrayBuffer - File data
+	 * @return {string} Decoded text
+	 */
+	decodeText(arrayBuffer) {
+		const textDecoder = new TextDecoder('utf-8', { fatal: false })
+		const text = textDecoder.decode(arrayBuffer)
+
+		if (!text || text.trim().length === 0) {
+			throw new Error('Empty or invalid DAE file content')
+		}
+
+		return text
+	}
+
 }
+
+// Export the class as default so the registry can instantiate it
+export default DaeLoader

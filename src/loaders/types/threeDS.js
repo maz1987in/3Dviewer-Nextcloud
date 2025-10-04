@@ -1,40 +1,44 @@
 import { TDSLoader } from 'three/examples/jsm/loaders/TDSLoader.js'
+import { BaseLoader } from '../BaseLoader.js'
 
-export default async function loadThreeDS(arrayBuffer, context) {
-	const { THREE, applyWireframe, ensurePlaceholderRemoved, wireframe } = context
+/**
+ * 3DS loader class
+ */
+class ThreeDSLoader extends BaseLoader {
 
-	try {
+	constructor() {
+		super('ThreeDSLoader', ['3ds'])
+		this.loader = null
+	}
+
+	/**
+	 * Load 3DS model
+	 * @param {ArrayBuffer} arrayBuffer - File data
+	 * @param {object} context - Loading context
+	 * @return {Promise<object>} Load result
+	 */
+	async loadModel(arrayBuffer, context) {
+		const { THREE } = context
+
 		// Create 3DS loader
-		const loader = new TDSLoader()
+		this.loader = new TDSLoader()
 
 		// Parse the 3DS file directly from arrayBuffer
-		const object3D = loader.parse(arrayBuffer)
+		const object3D = this.loader.parse(arrayBuffer)
 
 		if (!object3D || object3D.children.length === 0) {
 			throw new Error('No valid geometry found in 3DS file')
 		}
 
-		// Remove placeholder objects
-		ensurePlaceholderRemoved()
+		this.logInfo('3DS model loaded successfully', {
+			children: object3D.children.length,
+		})
 
-		// Apply wireframe if needed
-		applyWireframe(wireframe)
-
-		// Calculate bounding box for camera positioning
-		const box = new THREE.Box3().setFromObject(object3D)
-		const center = box.getCenter(new THREE.Vector3())
-		const size = box.getSize(new THREE.Vector3())
-
-		// Center the model
-		object3D.position.sub(center)
-
-		return {
-			object3D,
-			boundingBox: box,
-			center,
-			size,
-		}
-	} catch (error) {
-		throw new Error(`Failed to load 3DS file: ${error.message}`)
+		// Process the result
+		return this.processModel(object3D, context)
 	}
+
 }
+
+// Export the class as default so the registry can instantiate it
+export default ThreeDSLoader

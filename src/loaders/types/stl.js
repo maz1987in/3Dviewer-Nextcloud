@@ -49,15 +49,5 @@ class StlLoader extends BaseLoader {
 
 }
 
-// Create loader instance
-const stlLoader = new StlLoader()
-
-/**
- * Load STL model (legacy function for compatibility)
- * @param {ArrayBuffer} arrayBuffer - File data
- * @param {object} context - Loading context
- * @return {Promise<object>} Load result
- */
-export default async function loadStl(arrayBuffer, context) {
-	return stlLoader.load(arrayBuffer, context)
-}
+// Export the class as default so the registry can instantiate it
+export default StlLoader

@@ -27,8 +27,8 @@ const SUPPORTED_MIMES = [
 
 // Mode 1: Register simple viewer handler with Viewer API (modal preview)
 // Note: Script may load multiple times (Files app + direct access)
-// Viewer API handles duplicate registration internally
-if (OCA.Viewer) {
+// Check if handler is already registered to prevent duplicate registration warnings
+if (OCA.Viewer && !OCA.Viewer.handlers?.threedviewer) {
 	OCA.Viewer.registerHandler({
 		id: 'threedviewer',
 		group: '3d-models',

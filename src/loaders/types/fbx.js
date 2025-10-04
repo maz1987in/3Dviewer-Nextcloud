@@ -1,40 +1,44 @@
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js'
+import { BaseLoader } from '../BaseLoader.js'
 
-export default async function loadFbx(arrayBuffer, context) {
-	const { THREE, applyWireframe, ensurePlaceholderRemoved, wireframe } = context
+/**
+ * FBX loader class
+ */
+class FbxLoader extends BaseLoader {
 
-	try {
+	constructor() {
+		super('FBXLoader', ['fbx'])
+		this.loader = null
+	}
+
+	/**
+	 * Load FBX model
+	 * @param {ArrayBuffer} arrayBuffer - File data
+	 * @param {object} context - Loading context
+	 * @return {Promise<object>} Load result
+	 */
+	async loadModel(arrayBuffer, context) {
+		const { THREE } = context
+
 		// Create FBX loader
-		const loader = new FBXLoader()
+		this.loader = new FBXLoader()
 
 		// Parse the FBX file directly from arrayBuffer
-		const object3D = loader.parse(arrayBuffer)
+		const object3D = this.loader.parse(arrayBuffer)
 
 		if (!object3D || object3D.children.length === 0) {
 			throw new Error('No valid geometry found in FBX file')
 		}
 
-		// Remove placeholder objects
-		ensurePlaceholderRemoved()
+		this.logInfo('FBX model loaded successfully', {
+			children: object3D.children.length,
+		})
 
-		// Apply wireframe if needed
-		applyWireframe(wireframe)
-
-		// Calculate bounding box for camera positioning
-		const box = new THREE.Box3().setFromObject(object3D)
-		const center = box.getCenter(new THREE.Vector3())
-		const size = box.getSize(new THREE.Vector3())
-
-		// Center the model
-		object3D.position.sub(center)
-
-		return {
-			object3D,
-			boundingBox: box,
-			center,
-			size,
-		}
-	} catch (error) {
-		throw new Error(`Failed to load FBX file: ${error.message}`)
+		// Process the result
+		return this.processModel(object3D, context)
 	}
+
 }
+
+// Export the class as default so the registry can instantiate it
+export default FbxLoader

@@ -126,15 +126,5 @@ class ObjLoader extends BaseLoader {
 
 }
 
-// Create loader instance
-const objLoader = new ObjLoader()
-
-/**
- * Load OBJ model (legacy function for compatibility)
- * @param {ArrayBuffer} arrayBuffer - File data
- * @param {object} context - Loading context
- * @return {Promise<object>} Load result
- */
-export default async function loadObj(arrayBuffer, context) {
-	return objLoader.load(arrayBuffer, context)
-}
+// Export the class as default so the registry can instantiate it
+export default ObjLoader
