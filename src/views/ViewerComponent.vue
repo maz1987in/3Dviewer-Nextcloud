@@ -22,6 +22,7 @@
 
 <script>
 import { NcProgressBar } from '@nextcloud/vue'
+import { loadModelWithDependencies } from '../loaders/multiFileHelpers.js'
 
 export default {
 	name: 'ViewerComponent',
@@ -264,25 +265,28 @@ export default {
 					davPath: this.davPath,
 				})
 
-		// Check if this is a multi-file format
-		const isMultiFile = ['obj', 'gltf'].includes(extension)
+				// Extract directory path from filename for multi-file loading
+				const dirPath = this.filename.substring(0, this.filename.lastIndexOf('/'))
+
+				// Check if this is a multi-file format
+				const isMultiFile = ['obj', 'gltf'].includes(extension)
 		
 		if (isMultiFile) {
 			console.info('[ThreeDViewer] Multi-file format detected, loading with dependencies...')
 			
 			try {
 				// Load model with dependencies for multi-file formats
-				const result = await loadModelWithDependencies({
-					fileId: this.fileid,
-					filename: this.filename,
-					extension: extension,
-					dirPath: dirPath
-				})
+				const result = await loadModelWithDependencies(
+					this.fileid,
+					this.filename,
+					extension,
+					dirPath
+				)
 				
 				console.info('[ThreeDViewer] Multi-file loading successful:', result)
 				
 				// Process the result and load the model
-				await this.loadModelWithFiles(result.mainFile, result.additionalFiles)
+				await this.loadModelWithFiles(result, THREE)
 				return
 				
 			} catch (error) {
@@ -374,9 +378,8 @@ export default {
 			// Get max dimension
 			const maxDim = Math.max(size.x, size.y, size.z)
 			
-			// Calculate camera distance (using FOV and model size)
-			const fov = this.camera.fov * (Math.PI / 180)
-			const cameraDistance = Math.abs(maxDim / Math.sin(fov / 2)) * 1.2 // 1.2 = padding factor
+			// Calculate reasonable camera distance for optimal viewing
+			const cameraDistance = Math.min(maxDim * 2, 200) // Max 200 units distance
 			
 			// Position camera
 			this.camera.position.set(

@@ -49,6 +49,9 @@ export async function getFileIdByPath(filePath) {
 		
 		const files = await response.json()
 		
+		console.info('[MultiFileHelpers] Files in directory:', files.map(f => f.name))
+		console.info('[MultiFileHelpers] Looking for file:', filename)
+		
 		// Find the file by name
 		const file = files.find(f => f.name === filename)
 		return file ? file.id : null
@@ -300,8 +303,36 @@ export async function loadModelWithDependencies(fileId, filename, extension, dir
 	}
 	
 	const arrayBuffer = await response.arrayBuffer()
-	const blob = new Blob([arrayBuffer])
-	const mainFile = new File([blob], filename)
+	
+	// Determine MIME type based on extension
+	const getMimeType = (ext) => {
+		const mimeTypes = {
+			'obj': 'model/obj',
+			'gltf': 'model/gltf+json',
+			'glb': 'model/gltf-binary',
+			'mtl': 'model/mtl',
+			'stl': 'model/stl',
+			'ply': 'model/ply',
+			'fbx': 'model/x.fbx',
+			'3mf': 'model/3mf',
+			'3ds': 'model/3ds',
+			'dae': 'model/dae',
+			'x3d': 'model/x3d',
+			'wrl': 'model/vrml',
+			'vrml': 'model/vrml'
+		}
+		return mimeTypes[ext] || 'application/octet-stream'
+	}
+	
+	const blob = new Blob([arrayBuffer], { type: getMimeType(extension) })
+	const mainFile = new File([blob], filename, { type: getMimeType(extension) })
+	
+	console.info('[MultiFileHelpers] Created main file:', {
+		name: mainFile.name,
+		size: mainFile.size,
+		type: mainFile.type,
+		lastModified: mainFile.lastModified
+	})
 	
 	// Fetch dependencies based on format
 	let dependencies = []
@@ -317,9 +348,17 @@ export async function loadModelWithDependencies(fileId, filename, extension, dir
 	
 	console.info('[MultiFileHelpers] Loaded dependencies:', dependencies.length)
 	
-	return {
+	const result = {
 		mainFile,
 		dependencies,
 		allFiles: [mainFile, ...dependencies],
 	}
+	
+	console.info('[MultiFileHelpers] Returning result:', {
+		mainFile: { name: result.mainFile.name, size: result.mainFile.size, type: result.mainFile.type },
+		dependencies: result.dependencies.map(f => ({ name: f.name, size: f.size, type: f.type })),
+		allFilesCount: result.allFiles.length
+	})
+	
+	return result
 }
