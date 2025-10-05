@@ -7,6 +7,7 @@ namespace OCA\ThreeDViewer\Service;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\Http\StreamResponse;
+use OCP\AppFramework\Http\ContentSecurityPolicy;
 use OCP\Files\File;
 use OCA\ThreeDViewer\Service\ModelFileSupport;
 
@@ -63,6 +64,9 @@ class ResponseBuilder {
         $response->addHeader('Cache-Control', 'no-store');
         $response->addHeader('X-Content-Type-Options', 'nosniff');
         $response->addHeader('X-Frame-Options', 'SAMEORIGIN');
+        
+        // Add CSP headers for 3D viewer compatibility
+        $this->addCspHeaders($response);
     }
 
     /**
@@ -218,6 +222,24 @@ class ResponseBuilder {
         $response->addHeader('X-Frame-Options', 'SAMEORIGIN');
         $response->addHeader('X-XSS-Protection', '1; mode=block');
         $response->addHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    }
+
+    /**
+     * Add Content Security Policy headers for 3D viewer
+     * @param JSONResponse|StreamResponse $response - Response to modify
+     */
+    public function addCspHeaders($response): void {
+        $csp = new ContentSecurityPolicy();
+        
+        // Allow blob URLs for GLTF texture loading and WebGL contexts
+        $csp->addAllowedConnectDomain('blob:');
+        $csp->addAllowedImageDomain('blob:');
+        $csp->addAllowedImageDomain('data:');
+        
+        // Allow workers with blob URLs
+        $csp->addAllowedChildSrcDomain('blob:');
+        
+        $response->setContentSecurityPolicy($csp);
     }
 
     /**

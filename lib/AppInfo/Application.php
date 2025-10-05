@@ -11,6 +11,7 @@ use OCP\AppFramework\Bootstrap\IRegistrationContext;
 use OCP\AppFramework\Http\Events\BeforeTemplateRenderedEvent;
 use OCA\ThreeDViewer\Listener\LoadViewerListener;
 use OCA\ThreeDViewer\Listener\LoadFilesListener;
+use OCA\ThreeDViewer\Listener\CspListener;
 
 class Application extends App implements IBootstrap {
 	public const APP_ID = 'threedviewer';
@@ -29,6 +30,9 @@ class Application extends App implements IBootstrap {
 		// Register listener to load our script on every page (Files app context)
 		// This ensures our viewer handler is registered before Files app renders
 		$context->registerEventListener(BeforeTemplateRenderedEvent::class, LoadFilesListener::class);
+		
+		// Register CSP listener to allow blob URLs for 3D viewer
+		$context->registerEventListener(BeforeTemplateRenderedEvent::class, CspListener::class);
 	}
 
 	public function boot(IBootContext $context): void {

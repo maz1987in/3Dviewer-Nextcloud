@@ -1,10 +1,19 @@
 <template>
-	<div class="threedviewer-wrapper">
+	<div class="threedviewer-wrapper" :class="{ 'showing-progress': loadingProgress.show }">
 		<canvas ref="canvas" class="threedviewer-canvas" />
-		<div v-if="loading" class="threedviewer-loading">
-			<div class="icon-loading" />
-			<p>{{ t('threedviewer', 'Loading 3D model...') }}</p>
+		
+		<!-- Progress bar for loading states -->
+		<div v-if="loadingProgress.show" class="threedviewer-progress">
+			<p>{{ loadingProgress.message }}</p>
+			<NcProgressBar 
+				:value="loadingProgress.value" 
+				:max="100"
+				:size="'small'"
+				:indeterminate="loadingProgress.indeterminate"
+			/>
+			<p v-if="loadingProgress.details">{{ loadingProgress.details }}</p>
 		</div>
+		
 		<div v-if="error" class="threedviewer-error">
 			<p>{{ error }}</p>
 		</div>
@@ -12,8 +21,14 @@
 </template>
 
 <script>
+import { NcProgressBar } from '@nextcloud/vue'
+
 export default {
 	name: 'ViewerComponent',
+	
+	components: {
+		NcProgressBar,
+	},
 	
 	props: {
 		// Viewer passes these props automatically
@@ -41,12 +56,18 @@ export default {
 
 	data() {
 		return {
-			loading: true,
 			error: null,
 			scene: null,
 			camera: null,
 			renderer: null,
 			controls: null,
+			loadingProgress: {
+				show: false,
+				value: 0,
+				message: '',
+				details: '',
+				indeterminate: true,
+			},
 		}
 	},
 
@@ -57,6 +78,9 @@ export default {
 			davPath: this.davPath,
 		})
 		
+		// Immediately signal that we're handling loading
+		this.$emit('update:loaded', false)
+		
 		this.initViewer()
 	},
 
@@ -65,13 +89,27 @@ export default {
 	},
 
 	methods: {
+		updateProgress(show, value = 0, message = '', details = '', indeterminate = true) {
+			this.loadingProgress = {
+				show,
+				value,
+				message,
+				details,
+				indeterminate,
+			}
+		},
+
 		async initViewer() {
 			try {
+				this.updateProgress(true, 0, this.t('threedviewer', 'Initializing 3D viewer...'), '', true)
+
 				// Import Three.js dynamically
+				this.updateProgress(true, 10, this.t('threedviewer', 'Loading 3D engine...'), '', true)
 				const THREE = await import(/* webpackChunkName: "three" */ 'three')
 				const { OrbitControls } = await import(/* webpackChunkName: "OrbitControls" */ 'three/examples/jsm/controls/OrbitControls.js')
 
 				// Setup scene
+				this.updateProgress(true, 20, this.t('threedviewer', 'Setting up 3D scene...'), '', true)
 				this.scene = new THREE.Scene()
 				this.scene.background = new THREE.Color(0xf0f0f0)
 
@@ -93,6 +131,7 @@ export default {
 				this.controls.enableDamping = true
 
 				// Add lights
+				this.updateProgress(true, 30, this.t('threedviewer', 'Setting up lighting...'), '', true)
 				const ambientLight = new THREE.AmbientLight(0x404040, 2)
 				this.scene.add(ambientLight)
 
@@ -101,20 +140,21 @@ export default {
 				this.scene.add(directionalLight)
 
 				// Load model
+				this.updateProgress(true, 40, this.t('threedviewer', 'Loading 3D model...'), '', true)
 				await this.loadModel(THREE)
 
 				// Start animation loop
+				this.updateProgress(true, 90, this.t('threedviewer', 'Finalizing...'), '', true)
 				this.animate()
-
-				this.loading = false
 				
-				// Tell Viewer we're done loading
+				// Hide progress and tell Viewer we're done loading
+				this.updateProgress(false)
 				this.$emit('update:loaded', true)
 
 			} catch (err) {
 				console.error('[ThreeDViewer] Error initializing viewer:', err)
 				this.error = this.t('threedviewer', 'Failed to load 3D model: {error}', { error: err.message })
-				this.loading = false
+				this.updateProgress(false)
 				this.$emit('error', err)
 			}
 		},
@@ -146,6 +186,7 @@ export default {
 				}
 
 				// Fetch model data from ApiController endpoint
+				this.updateProgress(true, 50, this.t('threedviewer', 'Downloading model...'), this.filename, true)
 				// Note: Using /api/file/{fileId} (not /file/{fileId})
 				const response = await fetch(`/apps/threedviewer/api/file/${this.fileid}`)
 				
@@ -158,6 +199,7 @@ export default {
 				console.info('[ThreeDViewer] Downloaded model data:', arrayBuffer.byteLength, 'bytes')
 
 				// Dynamically load the appropriate loader from registry
+				this.updateProgress(true, 60, this.t('threedviewer', 'Loading 3D loader...'), '', true)
 				const { loadModelByExtension } = await import(/* webpackChunkName: "loader-registry" */ '../loaders/registry.js')
 				
 				// Prepare context for loader
@@ -184,13 +226,16 @@ export default {
 				}
 
 				// Load model using registry
+				this.updateProgress(true, 70, this.t('threedviewer', 'Parsing 3D model...'), extension.toUpperCase(), true)
 				const result = await loadModelByExtension(extension, arrayBuffer, context)
 				
 				if (result && result.object3D) {
 					// Add loaded model to scene
+					this.updateProgress(true, 80, this.t('threedviewer', 'Adding model to scene...'), '', true)
 					this.scene.add(result.object3D)
 					
 					// Auto-fit camera to model
+					this.updateProgress(true, 85, this.t('threedviewer', 'Positioning camera...'), '', true)
 					this.fitCameraToModel(result.object3D, THREE)
 					
 					console.info('[ThreeDViewer] Model loaded successfully')
@@ -296,7 +341,15 @@ export default {
 	display: block;
 }
 
-.threedviewer-loading,
+.threedviewer-progress {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	text-align: center;
+	min-width: 300px;
+}
+
 .threedviewer-error {
 	position: absolute;
 	top: 50%;
@@ -305,9 +358,9 @@ export default {
 	text-align: center;
 }
 
-.threedviewer-loading .icon-loading {
-	width: 44px;
-	height: 44px;
-	margin: 0 auto 20px;
+/* Hide Nextcloud Viewer's loading spinner when our progress bar is showing */
+.showing-progress .icon-loading,
+.showing-progress [class*="loading"] {
+	display: none !important;
 }
 </style>
