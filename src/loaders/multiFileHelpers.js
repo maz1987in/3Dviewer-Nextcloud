@@ -27,6 +27,39 @@ export async function fetchFileFromUrl(url, name, defaultType = 'application/oct
 }
 
 /**
+ * Gets file ID by path using the file listing API
+ * @param {string} filePath - Path to the file
+ * @returns {Promise<number|null>} File ID or null if not found
+ */
+export async function getFileIdByPath(filePath) {
+	try {
+		// Get the directory path and filename
+		const pathParts = filePath.split('/')
+		const filename = pathParts.pop()
+		const dirPath = pathParts.join('/') || '/'
+		
+		// List files in the directory
+		const listUrl = `/apps/threedviewer/api/files/list?path=${encodeURIComponent(dirPath)}`
+		const response = await fetch(listUrl)
+		
+		if (!response.ok) {
+			console.warn('[MultiFileHelpers] Failed to list files:', response.status, response.statusText)
+			return null
+		}
+		
+		const files = await response.json()
+		
+		// Find the file by name
+		const file = files.find(f => f.name === filename)
+		return file ? file.id : null
+		
+	} catch (error) {
+		console.warn('[MultiFileHelpers] Error getting file ID for path:', filePath, error)
+		return null
+	}
+}
+
+/**
  * Parse OBJ file content to find referenced MTL files
  * @param {string} objContent - Text content of OBJ file
  * @returns {string[]} - Array of MTL filenames
@@ -109,37 +142,48 @@ export async function fetchObjDependencies(objContent, baseFilename, fileId, dir
 			// Construct relative path
 			const mtlPath = dirPath ? `${dirPath}/${mtlFilename}` : mtlFilename
 			
-			// Fetch via our API (would need to implement file-by-path endpoint)
-			// For now, construct URL relative to OBJ location
-			const url = `/apps/threedviewer/api/file/by-path?path=${encodeURIComponent(mtlPath)}`
+			// Use the file listing API to get file ID, then fetch by ID
+			const fileId = await getFileIdByPath(mtlPath)
 			
-			const file = await fetchFileFromUrl(url, mtlFilename, 'model/mtl')
-			console.info('[MultiFileHelpers] Fetched MTL:', mtlFilename)
+			if (fileId) {
+				const url = `/apps/threedviewer/api/file/${fileId}`
+				const file = await fetchFileFromUrl(url, mtlFilename, 'model/mtl')
+				console.info('[MultiFileHelpers] Fetched MTL:', mtlFilename)
+				
+				// Parse textures from MTL
+				const mtlText = await file.text()
+				const textureFiles = parseMtlTextureFiles(mtlText)
 			
-			// Parse textures from MTL
-			const mtlText = await file.text()
-			const textureFiles = parseMtlTextureFiles(mtlText)
+				// Fetch textures using file listing approach
+				const texturePromises = textureFiles.map(async (texFilename) => {
+					try {
+						const texPath = dirPath ? `${dirPath}/${texFilename}` : texFilename
+						const fileId = await getFileIdByPath(texPath)
+						
+						if (fileId) {
+							const texUrl = `/apps/threedviewer/api/file/${fileId}`
+							const texFile = await fetchFileFromUrl(texUrl, texFilename)
+							console.info('[MultiFileHelpers] Fetched texture:', texFilename)
+							return texFile
+						} else {
+							console.warn('[MultiFileHelpers] Could not find file ID for texture:', texFilename)
+							return null
+						}
+					} catch (err) {
+						console.warn('[MultiFileHelpers] Failed to fetch texture:', texFilename, err)
+						return null
+					}
+				})
 			
-			// Fetch textures
-			const texturePromises = textureFiles.map(async (texFilename) => {
-				try {
-					const texPath = dirPath ? `${dirPath}/${texFilename}` : texFilename
-					const texUrl = `/apps/threedviewer/api/file/by-path?path=${encodeURIComponent(texPath)}`
-					
-					const texFile = await fetchFileFromUrl(texUrl, texFilename)
-					console.info('[MultiFileHelpers] Fetched texture:', texFilename)
-					return texFile
-				} catch (err) {
-					console.warn('[MultiFileHelpers] Failed to fetch texture:', texFilename, err)
-					return null
-				}
-			})
-			
-			const textures = (await Promise.allSettled(texturePromises))
-				.filter(r => r.status === 'fulfilled' && r.value)
-				.map(r => r.value)
-			
-			return [file, ...textures]
+				const textures = (await Promise.allSettled(texturePromises))
+					.filter(r => r.status === 'fulfilled' && r.value)
+					.map(r => r.value)
+				
+				return [file, ...textures]
+			} else {
+				console.warn('[MultiFileHelpers] Could not find file ID for MTL:', mtlFilename)
+				return []
+			}
 			
 		} catch (err) {
 			console.warn('[MultiFileHelpers] Failed to fetch MTL:', mtlFilename, err)
@@ -174,30 +218,44 @@ export async function fetchGltfDependencies(gltfContent, baseFilename, fileId, d
 		
 		console.info('[MultiFileHelpers] GLTF dependencies:', deps)
 		
-		// Fetch buffers
+		// Fetch buffers using file listing approach
 		const bufferPromises = deps.buffers.map(async (bufferUri) => {
 			try {
+				// Use the file listing API to get file ID, then fetch by ID
 				const bufferPath = dirPath ? `${dirPath}/${bufferUri}` : bufferUri
-				const url = `/apps/threedviewer/api/file/by-path?path=${encodeURIComponent(bufferPath)}`
+				const fileId = await getFileIdByPath(bufferPath)
 				
-				const file = await fetchFileFromUrl(url, bufferUri, 'application/octet-stream')
-				console.info('[MultiFileHelpers] Fetched buffer:', bufferUri)
-				return file
+				if (fileId) {
+					const url = `/apps/threedviewer/api/file/${fileId}`
+					const file = await fetchFileFromUrl(url, bufferUri, 'application/octet-stream')
+					console.info('[MultiFileHelpers] Fetched buffer:', bufferUri)
+					return file
+				} else {
+					console.warn('[MultiFileHelpers] Could not find file ID for buffer:', bufferUri)
+					return null
+				}
 			} catch (err) {
 				console.warn('[MultiFileHelpers] Failed to fetch buffer:', bufferUri, err)
 				return null
 			}
 		})
 		
-		// Fetch images
+		// Fetch images using file listing approach
 		const imagePromises = deps.images.map(async (imageUri) => {
 			try {
+				// Use the file listing API to get file ID, then fetch by ID
 				const imagePath = dirPath ? `${dirPath}/${imageUri}` : imageUri
-				const url = `/apps/threedviewer/api/file/by-path?path=${encodeURIComponent(imagePath)}`
+				const fileId = await getFileIdByPath(imagePath)
 				
-				const file = await fetchFileFromUrl(url, imageUri)
-				console.info('[MultiFileHelpers] Fetched image:', imageUri)
-				return file
+				if (fileId) {
+					const url = `/apps/threedviewer/api/file/${fileId}`
+					const file = await fetchFileFromUrl(url, imageUri)
+					console.info('[MultiFileHelpers] Fetched image:', imageUri)
+					return file
+				} else {
+					console.warn('[MultiFileHelpers] Could not find file ID for image:', imageUri)
+					return null
+				}
 			} catch (err) {
 				console.warn('[MultiFileHelpers] Failed to fetch image:', imageUri, err)
 				return null

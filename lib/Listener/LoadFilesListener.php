@@ -26,8 +26,8 @@ class LoadFilesListener implements IEventListener {
 			return;
 		}
 
-		// Only load in user/public context, not admin
-		if (!$event->isLoggedIn() && !$event->isPublic()) {
+		// Only load in user context (skip for admin pages)
+		if (!$event->isLoggedIn()) {
 			return;
 		}
 

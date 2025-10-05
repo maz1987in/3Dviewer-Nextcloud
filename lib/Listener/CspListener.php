@@ -34,6 +34,7 @@ class CspListener implements IEventListener {
 		
 		// Allow blob URLs for GLTF texture loading and WebGL contexts
 		$csp->addAllowedConnectDomain('blob:');
+		$csp->addAllowedConnectDomain('data:');  // Allow data URIs for embedded GLTF buffers
 		$csp->addAllowedImageDomain('blob:');
 		$csp->addAllowedImageDomain('data:');
 		

@@ -20,7 +20,7 @@ use OCP\Files\NotFoundException;
  */
 class ModelFileSupport {
     /** @var list<string> */
-    private array $supported = ['glb','gltf','obj','stl','ply','dae','mtl','fbx','3mf','3ds'];
+    private array $supported = ['glb','gltf','obj','stl','ply','dae','mtl','fbx','3mf','3ds','bin','png','jpg','jpeg','tga','bmp','webp'];
 
     /** @return list<string> */
     public function getSupportedExtensions(): array {
@@ -43,6 +43,12 @@ class ModelFileSupport {
             'fbx' => 'application/octet-stream', // No well-standardized registered model MIME; using generic
             '3mf' => 'model/3mf',
             '3ds' => 'application/octet-stream', // Legacy 3D Studio format
+            'bin' => 'application/octet-stream', // Binary data for GLTF buffers
+            'png' => 'image/png',
+            'jpg', 'jpeg' => 'image/jpeg',
+            'tga' => 'image/x-tga',
+            'bmp' => 'image/bmp',
+            'webp' => 'image/webp',
             default => 'application/octet-stream',
         };
     }

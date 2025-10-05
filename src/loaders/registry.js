@@ -18,19 +18,12 @@ const loaders = {
 }
 
 export async function loadModelByExtension(ext, arrayBuffer, context) {
-	console.log('[loader registry] loading extension:', ext)
+	console.info('[loader registry] loading extension:', ext)
 	const importer = loaders[ext]
 	if (importer) {
 		try {
 			const mod = await importer()
-			console.log('[loader registry] imported module:', mod)
-			console.log('[loader registry] module keys:', Object.keys(mod))
-			for (const key in mod) {
-				console.log(`[loader registry] module['${key}']:`, mod[key])
-			}
-
 			const LoaderClass = mod.default || Object.values(mod).find(e => typeof e === 'function' && e.prototype?.loadModel)
-			console.log('[loader registry] found loader class:', LoaderClass)
 
 			if (LoaderClass && typeof LoaderClass === 'function' && LoaderClass.prototype.loadModel) {
 				const loaderInstance = new LoaderClass()

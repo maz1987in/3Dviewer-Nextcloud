@@ -74,8 +74,13 @@ class FileController extends BaseController {
                 return $this->responseBuilder->createBadRequestResponse('Not a file');
             }
 
-            // Validate file
-            $this->validateFile($file);
+            // Validate file (skip validation for dependency files like bin, png, jpg, etc.)
+            $extension = strtolower($file->getExtension());
+            $dependencyExtensions = ['bin', 'png', 'jpg', 'jpeg', 'tga', 'bmp', 'webp'];
+            
+            if (!in_array($extension, $dependencyExtensions)) {
+                $this->validateFile($file);
+            }
             
             // Check file size
             if (!$this->isFileSizeAcceptable($file)) {
@@ -110,7 +115,7 @@ class FileController extends BaseController {
      */
     #[NoAdminRequired]
     #[NoCSRFRequired]
-    #[FrontpageRoute(verb: 'GET', url: '/api/files')]
+    #[FrontpageRoute(verb: 'GET', url: '/api/files/list')]
     public function listFiles(): JSONResponse {
         try {
             // Check authentication
@@ -120,9 +125,17 @@ class FileController extends BaseController {
             }
 
             $userFolder = $this->rootFolder->getUserFolder($user->getUID());
+            
+            // Check if a specific path is requested
+            $path = $this->request->getParam('path');
+            if ($path) {
+                // List files in specific directory
+                return $this->listFilesInDirectory($userFolder, $path);
+            }
+            
             $files = [];
 
-            // Recursively find all 3D files
+            // Recursively find all 3D files (original behavior)
             $this->find3DFiles($userFolder, $files);
 
             // Log file listing
@@ -163,6 +176,47 @@ class FileController extends BaseController {
             } elseif ($node instanceof \OCP\Files\Folder) {
                 $this->find3DFiles($node, $files);
             }
+        }
+    }
+
+    /**
+     * List files in a specific directory
+     */
+    private function listFilesInDirectory($userFolder, string $path): JSONResponse {
+        try {
+            // Normalize path (remove leading slash if present)
+            $normalizedPath = ltrim($path, '/');
+            
+            // Get the directory
+            $directory = $userFolder->get($normalizedPath);
+            
+            if (!$directory instanceof \OCP\Files\Folder) {
+                return new JSONResponse(['error' => 'Path is not a directory'], Http::STATUS_BAD_REQUEST);
+            }
+            
+            $files = [];
+            foreach ($directory->getDirectoryListing() as $node) {
+                $files[] = [
+                    'id' => $node->getId(),
+                    'name' => $node->getName(),
+                    'path' => $node->getPath(),
+                    'size' => $node->getSize(),
+                    'mtime' => $node->getMTime(),
+                    'isFile' => $node instanceof \OCP\Files\File,
+                    'isFolder' => $node instanceof \OCP\Files\Folder
+                ];
+            }
+            
+            return new JSONResponse($files);
+            
+        } catch (\OCP\Files\NotFoundException $e) {
+            return new JSONResponse(['error' => 'Directory not found: ' . $path], Http::STATUS_NOT_FOUND);
+        } catch (\Exception $e) {
+            $this->logger->error('Error listing directory: ' . $e->getMessage(), [
+                'path' => $path,
+                'exception' => $e
+            ]);
+            return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_INTERNAL_SERVER_ERROR);
         }
     }
 }

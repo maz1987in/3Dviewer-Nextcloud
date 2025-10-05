@@ -33,7 +33,7 @@
 		<route name="threedviewer.file.serve" url="/file/{fileId}" verb="GET" controller="FileController" action="serveFile">
 			<param name="fileId" default="" />
 		</route>
-		<route name="threedviewer.files.list" url="/files" verb="GET" controller="FileController" action="listFiles" />
+		<route name="threedviewer.files.list" url="/api/files/list" verb="GET" controller="FileController" action="listFiles" />
 	</routes>
 	<repair-steps>
 		<install>

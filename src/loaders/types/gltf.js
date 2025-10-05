@@ -19,7 +19,7 @@ class GltfLoader extends BaseLoader {
 	 * @return {Promise<object>} Load result
 	 */
 	async loadModel(arrayBuffer, context) {
-		const { renderer, hasDraco, hasKtx2, hasMeshopt } = context
+		const { renderer, hasDraco, hasKtx2, hasMeshopt, additionalFiles } = context
 
 		// Create loader
 		this.loader = new GLTFLoader()
@@ -27,11 +27,84 @@ class GltfLoader extends BaseLoader {
 		// Configure decoders
 		await this.configureDecoders(renderer, hasDraco, hasKtx2, hasMeshopt)
 
+		// Set up resource manager for multi-file loading
+		if (additionalFiles && additionalFiles.length > 0) {
+			await this.setupResourceManager(additionalFiles)
+		}
+
 		// Parse the model
 		const gltf = await this.parseModel(arrayBuffer)
 
 		// Process the result
 		return this.processModel(gltf.scene, context)
+	}
+
+	/**
+	 * Set up resource manager for multi-file loading
+	 * @param {Array<File>} additionalFiles - Array of dependency files
+	 */
+	async setupResourceManager(additionalFiles) {
+		try {
+			// Create a custom resource manager that serves files from our additional files
+			const resourceMap = new Map()
+			
+			// Map filename to File object
+			for (const file of additionalFiles) {
+				resourceMap.set(file.name, file)
+				this.logInfo('Added resource to map:', file.name)
+			}
+
+			// Override the GLTFLoader's load method to use our resource map
+			const originalLoad = this.loader.load.bind(this.loader)
+			this.loader.load = (url, onLoad, onProgress, onError) => {
+				// Check if this URL matches one of our additional files
+				const filename = url.split('/').pop()
+				if (resourceMap.has(filename)) {
+					const file = resourceMap.get(filename)
+					
+					// For binary files, we need to provide the ArrayBuffer directly
+					// Create a mock response that the GLTF loader expects
+					file.arrayBuffer().then(arrayBuffer => {
+						this.logInfo('Providing binary data for:', filename, {
+							size: arrayBuffer.byteLength,
+							type: file.type
+						})
+						
+						// Create a mock XMLHttpRequest response
+						const mockResponse = {
+							response: arrayBuffer,
+							status: 200,
+							statusText: 'OK',
+							responseType: 'arraybuffer'
+						}
+						
+						// Call the onLoad callback with the mock response
+						if (onLoad) {
+							onLoad(mockResponse)
+						}
+					}).catch(error => {
+						this.logError('Failed to convert file to ArrayBuffer', { 
+							filename, 
+							error: error.message 
+						})
+						if (onError) {
+							onError(error)
+						}
+					})
+				} else {
+					// Fall back to original load method for embedded resources
+					originalLoad(url, onLoad, onProgress, onError)
+				}
+			}
+
+			this.logInfo('Resource manager setup complete', { 
+				resources: additionalFiles.length 
+			})
+		} catch (error) {
+			this.logWarning('Failed to setup resource manager', { 
+				error: error.message 
+			})
+		}
 	}
 
 	/**

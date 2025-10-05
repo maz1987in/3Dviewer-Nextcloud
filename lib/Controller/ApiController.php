@@ -92,54 +92,6 @@ class ApiController extends OCSController {
 		return $response;
 	}
 
-	/**
-	 * Get file by path (for multi-file models like OBJ+MTL+textures)
-	 *
-	 * @param string $path File path relative to user root (e.g., "/models/texture.jpg")
-	 * @return StreamResponse|DataResponse
-	 *
-	 * 200: File content returned
-	 * 404: File not found
-	 */
-	#[NoAdminRequired]
-	#[ApiRoute(verb: 'GET', url: '/api/file/by-path')]
-	public function getFileByPath(string $path): StreamResponse|DataResponse {
-		$user = $this->userSession->getUser();
-		if (!$user) {
-			return new DataResponse(['error' => 'User not authenticated'], Http::STATUS_UNAUTHORIZED);
-		}
-
-		$userFolder = $this->rootFolder->getUserFolder($user->getUID());
-		
-		try {
-			// Normalize path (remove leading slash if present)
-			$normalizedPath = ltrim($path, '/');
-			
-			// Get the file
-			$file = $userFolder->get($normalizedPath);
-			
-			if (!$file->isReadable()) {
-				return new DataResponse(['error' => 'File not readable'], Http::STATUS_FORBIDDEN);
-			}
-
-			$stream = $file->fopen('r');
-			if ($stream === false) {
-				return new DataResponse(['error' => 'Failed to open file'], Http::STATUS_INTERNAL_SERVER_ERROR);
-			}
-
-			$response = new StreamResponse($stream);
-			$response->addHeader('Content-Type', $file->getMimeType());
-			$response->addHeader('Content-Length', (string)$file->getSize());
-			$response->addHeader('Content-Disposition', 'inline; filename="' . addslashes($file->getName()) . '"');
-			$response->addHeader('Cache-Control', 'public, max-age=3600');
-			
-			return $response;
-		} catch (\OCP\Files\NotFoundException $e) {
-			return new DataResponse(['error' => 'File not found: ' . $path], Http::STATUS_NOT_FOUND);
-		} catch (\Exception $e) {
-			return new DataResponse(['error' => $e->getMessage()], Http::STATUS_INTERNAL_SERVER_ERROR);
-		}
-	}
 
 	/**
 	 * List 3D files

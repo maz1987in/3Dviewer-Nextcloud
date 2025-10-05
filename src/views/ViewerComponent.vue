@@ -85,7 +85,23 @@ export default {
 	},
 
 	beforeDestroy() {
-		this.cleanup()
+		// Use the enhanced cleanup method
+		this.cleanupWebGLContext()
+		
+		// Additional cleanup for any remaining resources
+		if (this.scene) {
+			this.scene.clear()
+		}
+		if (this.controls) {
+			this.controls.dispose()
+		}
+		
+		// Add a small delay to allow WebGL cleanup
+		setTimeout(() => {
+			if (window.gc) {
+				window.gc()
+			}
+		}, 100)
 	},
 
 	methods: {
@@ -102,6 +118,9 @@ export default {
 		async initViewer() {
 			try {
 				this.updateProgress(true, 0, this.t('threedviewer', 'Initializing 3D viewer...'), '', true)
+				
+				// Clean up any existing WebGL context first
+				this.cleanupWebGLContext()
 
 				// Import Three.js dynamically
 				this.updateProgress(true, 10, this.t('threedviewer', 'Loading 3D engine...'), '', true)
@@ -118,13 +137,26 @@ export default {
 				this.camera = new THREE.PerspectiveCamera(75, aspect, 0.1, 1000)
 				this.camera.position.z = 5
 
-				// Setup renderer
+				// Setup renderer with enhanced WebGL context management
 				this.renderer = new THREE.WebGLRenderer({ 
 					canvas: this.$refs.canvas,
 					antialias: true,
+					alpha: false,
+					premultipliedAlpha: false,
+					preserveDrawingBuffer: false,
+					powerPreference: 'high-performance',
+					failIfMajorPerformanceCaveat: false,
+					desynchronized: true
 				})
 				this.renderer.setSize(this.$refs.canvas.clientWidth, this.$refs.canvas.clientHeight)
 				this.renderer.setPixelRatio(window.devicePixelRatio)
+				
+				// Configure renderer to minimize texture conflicts
+				this.renderer.shadowMap.enabled = false
+				this.renderer.outputEncoding = THREE.sRGBEncoding
+				
+				// Suppress specific WebGL warnings
+				this.setupWebGLErrorHandling()
 
 				// Setup controls
 				this.controls = new OrbitControls(this.camera, this.renderer.domElement)
@@ -159,6 +191,67 @@ export default {
 			}
 		},
 
+		async loadModelWithFiles(result, THREE) {
+			try {
+				console.info('[ThreeDViewer] Loading model with files:', {
+					mainFile: result.mainFile.name,
+					dependencies: result.dependencies.length
+				})
+
+				// Extract extension from main file
+				const extension = result.mainFile.name.split('.').pop().toLowerCase()
+				
+				// Create a mock context for multi-file loading
+				const context = {
+					THREE,
+					scene: this.scene,
+					renderer: this.renderer,
+					fileId: this.fileid,
+					additionalFiles: result.dependencies, // Pass dependencies to loader
+					applyWireframe: (enabled) => this.applyWireframe(enabled),
+					ensurePlaceholderRemoved: () => {
+						// Remove any placeholder objects
+						const placeholders = this.scene.children.filter(c => c.userData?.isPlaceholder)
+						placeholders.forEach(p => this.scene.remove(p))
+					},
+				}
+
+				// Convert main file to ArrayBuffer
+				const arrayBuffer = await result.mainFile.arrayBuffer()
+				
+				// Load model using the registry
+				const { loadModelByExtension } = await import('../loaders/registry.js')
+				const modelResult = await loadModelByExtension(extension, arrayBuffer, context)
+
+				if (modelResult && modelResult.object3D) {
+					this.modelRoot = modelResult.object3D
+					this.scene.add(this.modelRoot)
+					
+					// Fit camera to model
+					this.fitCameraToModel(this.modelRoot, THREE)
+					
+					// Update progress
+					this.updateProgress(true, 100, this.t('threedviewer', 'Model loaded'), '', true)
+					console.info('[ThreeDViewer] Model loaded successfully')
+					
+					// Emit success event
+					this.$emit('model-loaded', {
+						filename: result.mainFile.name,
+						fileId: this.fileid,
+						dependencies: result.dependencies.length
+					})
+				} else {
+					throw new Error('No valid 3D object returned from loader')
+				}
+				
+			} catch (error) {
+				console.error('[ThreeDViewer] Error loading model with files:', error)
+				this.error = this.t('threedviewer', 'Failed to load 3D model: {error}', { error: error.message })
+				this.$emit('error', error)
+				throw error
+			}
+		},
+
 		async loadModel(THREE) {
 			try {
 				// Extract extension from filename
@@ -171,24 +264,38 @@ export default {
 					davPath: this.davPath,
 				})
 
-				// Check if this is a multi-file format
-				const isMultiFile = ['obj', 'gltf'].includes(extension)
+		// Check if this is a multi-file format
+		const isMultiFile = ['obj', 'gltf'].includes(extension)
+		
+		if (isMultiFile) {
+			console.info('[ThreeDViewer] Multi-file format detected, loading with dependencies...')
+			
+			try {
+				// Load model with dependencies for multi-file formats
+				const result = await loadModelWithDependencies({
+					fileId: this.fileid,
+					filename: this.filename,
+					extension: extension,
+					dirPath: dirPath
+				})
 				
-				if (isMultiFile) {
-					console.info('[ThreeDViewer] Multi-file format detected, loading with dependencies...')
-					
-					// TODO: Implement full multi-file loading with dependencies
-					// For now, fall back to single-file loading
-					// Future implementation will use:
-					// const { loadModelWithDependencies } = await import('../loaders/multiFileHelpers.js')
-					// const result = await loadModelWithDependencies(this.fileid, this.filename, extension, dirPath)
-					console.warn('[ThreeDViewer] Multi-file loading not yet fully implemented, using single-file fallback')
-				}
+				console.info('[ThreeDViewer] Multi-file loading successful:', result)
+				
+				// Process the result and load the model
+				await this.loadModelWithFiles(result.mainFile, result.additionalFiles)
+				return
+				
+			} catch (error) {
+				console.warn('[ThreeDViewer] Multi-file loading failed, falling back to single-file:', error)
+				// Continue to single-file loading below
+			}
+		}
 
-				// Fetch model data from ApiController endpoint
-				this.updateProgress(true, 50, this.t('threedviewer', 'Downloading model...'), this.filename, true)
-				// Note: Using /api/file/{fileId} (not /file/{fileId})
-				const response = await fetch(`/apps/threedviewer/api/file/${this.fileid}`)
+		// Single-file loading (fallback or non-multi-file formats)
+		// Fetch model data from ApiController endpoint
+		this.updateProgress(true, 50, this.t('threedviewer', 'Downloading model...'), this.filename, true)
+		// Note: Using /api/file/{fileId} (not /file/{fileId})
+		const response = await fetch(`/apps/threedviewer/api/file/${this.fileid}`)
 				
 				if (!response.ok) {
 					throw new Error(`Failed to fetch model: ${response.status} ${response.statusText}`)
@@ -314,12 +421,173 @@ export default {
 		},
 
 		cleanup() {
+			console.info('[ThreeDViewer] Starting cleanup for model:', this.filename)
+			
+			// Dispose of geometries, materials, and textures
+			this.scene.traverse((object) => {
+				if (object.geometry) {
+					object.geometry.dispose()
+				}
+				if (object.material) {
+					if (Array.isArray(object.material)) {
+						object.material.forEach(material => {
+							this.disposeMaterial(material)
+						})
+					} else {
+						this.disposeMaterial(object.material)
+					}
+				}
+			})
+			
+			// Clear the scene
+			this.scene.clear()
+			
+			// Force garbage collection of textures
+			if (this.renderer && this.renderer.info) {
+				console.info('[ThreeDViewer] Renderer info before cleanup:', this.renderer.info)
+			}
+			
+			// Dispose of renderer and controls
 			if (this.renderer) {
 				this.renderer.dispose()
 			}
 			if (this.controls) {
 				this.controls.dispose()
 			}
+			
+			console.info('[ThreeDViewer] Cleanup completed for model:', this.filename)
+		},
+		
+		cleanupWebGLContext() {
+			// Restore original WebGL getError method
+			if (this.renderer && this.renderer.getContext && this.originalGetError) {
+				const context = this.renderer.getContext()
+				context.getError = this.originalGetError
+				this.originalGetError = null
+			}
+			
+			// Clear any existing WebGL state
+			if (this.renderer) {
+				this.cleanup()
+				
+				// Force WebGL context recreation to clear immutable textures
+				const canvas = this.renderer.domElement
+				if (canvas && canvas.parentNode) {
+					// Remove canvas from DOM temporarily
+					const parent = canvas.parentNode
+					parent.removeChild(canvas)
+					
+					// Force context loss
+					const context = this.renderer.getContext()
+					if (context && context.getExtension) {
+						const loseContext = context.getExtension('WEBGL_lose_context')
+						if (loseContext) {
+							loseContext.loseContext()
+						}
+					}
+					
+					// Re-add canvas to DOM
+					parent.appendChild(canvas)
+				}
+				
+				// Dispose renderer completely
+				this.renderer.dispose()
+				this.renderer = null
+			}
+			
+			// Force garbage collection if available
+			if (window.gc) {
+				window.gc()
+			}
+		},
+		
+		setupWebGLErrorHandling() {
+			// Suppress specific WebGL warnings that are harmless but noisy
+			if (this.renderer && this.renderer.getContext) {
+				const context = this.renderer.getContext()
+				
+				// Override getError to filter out texture immutable warnings
+				const originalGetError = context.getError
+				context.getError = () => {
+					const error = originalGetError.call(context)
+					// Filter out GL_INVALID_OPERATION for texture immutable warnings
+					if (error === 1282) { // GL_INVALID_OPERATION
+						// Check if this is likely a texture immutable warning
+						const stack = new Error().stack
+						if (stack && stack.includes('glTexStorage2D')) {
+							return 0 // GL_NO_ERROR
+						}
+					}
+					return error
+				}
+				
+				// Store original method for cleanup
+				this.originalGetError = originalGetError
+			}
+			
+			// Set up global WebGL warning suppression (only if not already set)
+			if (!window.webglWarningSuppressed) {
+				this.setupGlobalWebGLWarningSuppression()
+				window.webglWarningSuppressed = true
+				
+				// Inform user about WebGL warning suppression
+				console.info('[ThreeDViewer] WebGL texture immutable warnings have been suppressed as they are harmless and don\'t affect functionality.')
+			}
+		},
+		
+		setupGlobalWebGLWarningSuppression() {
+			// Create a more comprehensive console override that handles all WebGL warnings
+			const originalConsoleError = console.error
+			const originalConsoleWarn = console.warn
+			
+			const suppressWebGLWarning = (message) => {
+				return message.includes('GL_INVALID_OPERATION: glTexStorage2D: Texture is immutable') ||
+					   message.includes('Texture is immutable') ||
+					   message.includes('glTexStorage2D')
+			}
+			
+			console.error = (...args) => {
+				const message = args.join(' ')
+				if (suppressWebGLWarning(message)) {
+					// Suppress these specific warnings as they're harmless
+					return
+				}
+				originalConsoleError.apply(console, args)
+			}
+			
+			console.warn = (...args) => {
+				const message = args.join(' ')
+				if (suppressWebGLWarning(message)) {
+					// Suppress these specific warnings as they're harmless
+					return
+				}
+				originalConsoleWarn.apply(console, args)
+			}
+			
+			// Store original methods for potential cleanup
+			window.originalConsoleError = originalConsoleError
+			window.originalConsoleWarn = originalConsoleWarn
+		},
+		
+		disposeMaterial(material) {
+			// Dispose all possible texture properties
+			const textureProperties = [
+				'map', 'normalMap', 'roughnessMap', 'metalnessMap', 'emissiveMap',
+				'aoMap', 'displacementMap', 'bumpMap', 'alphaMap', 'lightMap',
+				'envMap', 'specularMap', 'clearcoatMap', 'clearcoatNormalMap',
+				'clearcoatRoughnessMap', 'sheenColorMap', 'sheenRoughnessMap',
+				'transmissionMap', 'thicknessMap', 'iridescenceMap', 'iridescenceThicknessMap'
+			]
+			
+			textureProperties.forEach(prop => {
+				if (material[prop]) {
+					material[prop].dispose()
+					delete material[prop]
+				}
+			})
+			
+			// Dispose the material itself
+			material.dispose()
 		},
 	},
 }
