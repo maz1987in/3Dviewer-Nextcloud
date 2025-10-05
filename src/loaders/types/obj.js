@@ -20,7 +20,7 @@ class ObjLoader extends BaseLoader {
 	 * @return {Promise<object>} Load result
 	 */
 	async loadModel(arrayBuffer, context) {
-		console.info('[OBJ Loader] Loading OBJ model with multi-file support')
+		// Load OBJ model with multi-file support
 		
 		const { fileId, additionalFiles, THREE } = context
 
@@ -34,21 +34,10 @@ class ObjLoader extends BaseLoader {
 		this.objLoader = new OBJLoader()
 
 		// Load MTL materials if referenced
-		console.info('[OBJ Loader] MTL loading check:', {
-			mtlName,
-			hasAdditionalFiles: !!additionalFiles,
-			additionalFilesCount: additionalFiles ? additionalFiles.length : 0,
-			fileId
-		})
 		
 		if (mtlName && additionalFiles && additionalFiles.length > 0) {
 			// Use pre-fetched dependencies from multi-file loading
-			console.info('[OBJ Loader] Using pre-fetched dependencies for MTL loading')
 			await this.loadMtlMaterialsFromDependencies(mtlName, additionalFiles, THREE)
-		} else if (mtlName && fileId) {
-			// Fallback to old API approach for single-file loading
-			console.info('[OBJ Loader] Using legacy API for MTL loading')
-			await this.loadMtlMaterials(mtlName, fileId)
 		}
 
 		// Parse the OBJ content
@@ -58,18 +47,7 @@ class ObjLoader extends BaseLoader {
 			throw new Error('No valid geometry found in OBJ file')
 		}
 
-		// Debug the parsed OBJ before material assignment
-		console.info('[OBJ Loader] OBJ parsed, checking children before material assignment:', {
-			childrenCount: object3D.children.length,
-			children: object3D.children.map(child => ({
-				type: child.type,
-				name: child.name,
-				hasGeometry: !!child.geometry,
-				hasMaterial: !!child.material,
-				materialType: child.material ? child.material.type : 'none',
-				geometryVertices: child.geometry ? child.geometry.attributes?.position?.count : 'no geometry'
-			}))
-		})
+		// OBJ parsed successfully
 
 		this.logInfo('OBJ model parsed successfully', {
 			children: object3D.children.length,
@@ -77,83 +55,16 @@ class ObjLoader extends BaseLoader {
 			usingPreFetched: !!(mtlName && additionalFiles && additionalFiles.length > 0),
 		})
 
-		// Force apply our custom material with texture to all children
-		console.info('[OBJ Loader] Force applying custom material with texture to all children...')
-		
-		// Create a custom material with the loaded texture
-		let customMaterial = null
-		if (this.objLoader.materials && this.objLoader.materials.materials && this.objLoader.materials.materials.default) {
-			customMaterial = this.objLoader.materials.materials.default
-			console.info('[OBJ Loader] Using custom material with texture from MTL processing')
-		} else {
-			// Create a new material with the texture
-			customMaterial = new THREE.MeshLambertMaterial({
-				color: 0xffffff,
-				side: THREE.DoubleSide
-			})
-			console.info('[OBJ Loader] Created new custom material')
-		}
-		
-		for (const child of object3D.children) {
-			console.info('[OBJ Loader] Processing child:', {
-				name: child.name,
-				type: child.type,
-				hasGeometry: !!child.geometry,
-				hasMaterial: !!child.material,
-				geometryVertices: child.geometry ? child.geometry.attributes?.position?.count : 'no geometry'
-			})
-			
-			if (child.geometry) {
-				// Force apply our custom material to all children
-				child.material = customMaterial
-				console.info('[OBJ Loader] Applied custom material to child:', {
-					childName: child.name,
-					materialType: customMaterial.type,
-					hasTexture: !!customMaterial.map
-				})
-			}
-		}
+		// MTL materials applied automatically by OBJLoader
 
-		// Debug the loaded object
-		console.info('[OBJ Loader] OBJ object loaded:', {
-			type: object3D.type,
-			childrenCount: object3D.children.length,
-			children: object3D.children.map(child => ({
-				type: child.type,
-				name: child.name,
-				geometry: child.geometry ? {
-					type: child.geometry.type,
-					vertices: child.geometry.attributes ? child.geometry.attributes.position?.count : 'unknown',
-					faces: child.geometry.index ? child.geometry.index.count / 3 : 'no index',
-					hasUV: !!child.geometry.attributes.uv,
-					hasNormal: !!child.geometry.attributes.normal
-				} : 'no geometry',
-				material: child.material ? {
-					type: child.material.type,
-					hasMap: !!child.material.map,
-					mapType: child.material.map ? child.material.map.type : 'no map',
-					color: child.material.color ? child.material.color.getHexString() : 'no color',
-					visible: child.material.visible,
-					side: child.material.side
-				} : 'no material',
-				visible: child.visible,
-				position: child.position,
-				scale: child.scale,
-				rotation: child.rotation
-			}))
-		})
+		// Object loaded successfully
 
 		// Calculate bounding box and scale the model if it's too large
-		console.info('[OBJ Loader] Calculating model bounds and scaling if necessary...')
 		const box = new THREE.Box3().setFromObject(object3D)
 		const size = box.getSize(new THREE.Vector3())
 		const center = box.getCenter(new THREE.Vector3())
 		
-		console.info('[OBJ Loader] Model bounds:', {
-			size: { x: size.x, y: size.y, z: size.z },
-			center: { x: center.x, y: center.y, z: center.z },
-			maxDimension: Math.max(size.x, size.y, size.z)
-		})
+		// Model bounds calculated
 		
 		// If the model is too large, scale it down
 		const maxDimension = Math.max(size.x, size.y, size.z)
@@ -197,6 +108,140 @@ class ObjLoader extends BaseLoader {
 	}
 
 	/**
+	 * Manually parse MTL content since Three.js MTLLoader is failing
+	 */
+	parseMtlManually(mtlText, THREE) {
+		// Parse MTL manually
+		
+		const materials = {}
+		const lines = mtlText.split('\n')
+		let currentMaterial = null
+		
+		for (const line of lines) {
+			const trimmedLine = line.trim()
+			if (!trimmedLine || trimmedLine.startsWith('#')) continue
+			
+			const parts = trimmedLine.split(/\s+/)
+			const command = parts[0]
+			
+			if (command === 'newmtl') {
+				// Create new material
+				const materialName = parts[1]
+				currentMaterial = new THREE.MeshLambertMaterial({
+					color: 0xffffff,
+					side: THREE.DoubleSide,
+					transparent: false,
+					opacity: 1.0
+				})
+				materials[materialName] = currentMaterial
+			} else if (currentMaterial && command === 'map_Kd') {
+				// Set diffuse texture
+				const texturePath = parts[1]
+				currentMaterial.map = texturePath // Store texture path for later loading
+			} else if (currentMaterial && command === 'Kd') {
+				// Set diffuse color
+				const r = parseFloat(parts[1]) || 1.0
+				const g = parseFloat(parts[2]) || 1.0
+				const b = parseFloat(parts[3]) || 1.0
+				currentMaterial.color.setRGB(r, g, b)
+			} else if (currentMaterial && command === 'Ka') {
+				// Set ambient color
+				const r = parseFloat(parts[1]) || 0.2
+				const g = parseFloat(parts[2]) || 0.2
+				const b = parseFloat(parts[3]) || 0.2
+				// Note: Three.js doesn't have separate ambient color, using it as base color influence
+			} else if (currentMaterial && command === 'Ks') {
+				// Set specular color
+				const r = parseFloat(parts[1]) || 1.0
+				const g = parseFloat(parts[2]) || 1.0
+				const b = parseFloat(parts[3]) || 1.0
+				// Note: Three.js Lambert material doesn't support specular, but we can store it
+			} else if (currentMaterial && command === 'Ns') {
+				// Set shininess
+				const shininess = parseFloat(parts[1]) || 0.0
+				// Note: Three.js Lambert material doesn't support shininess
+			} else if (currentMaterial && command === 'Tr') {
+				// Set transparency
+				const transparency = parseFloat(parts[1]) || 1.0
+				currentMaterial.transparent = transparency < 1.0
+				currentMaterial.opacity = transparency
+			} else if (currentMaterial && command === 'illum') {
+				// Set illumination model
+				const illum = parseInt(parts[1]) || 2
+				// Note: Three.js doesn't directly support illumination models
+			}
+		}
+		
+		// Manual MTL parsing completed
+		
+		// Return in the same format as MTLLoader with create method
+		return {
+			materials: materials,
+			preload: () => {
+				// Preload function placeholder
+			},
+			setMaterials: (objLoader) => {
+				// Set materials function placeholder
+			},
+			create: (materialName) => {
+				// Create method that OBJLoader expects
+				return materials[materialName] || null
+			}
+		}
+	}
+
+	/**
+	 * Set up custom texture loader for native MTLLoader materials
+	 * @param {Object} materials - Materials object from MTLLoader
+	 * @param {Array} additionalFiles - Pre-fetched dependency files
+	 * @param {Object} THREE - Three.js library instance
+	 */
+	setupCustomTextureLoader(materials, additionalFiles, THREE) {
+		// Create a custom texture loader that uses pre-fetched files
+		const customTextureLoader = this.createTextureLoader(additionalFiles)
+		
+		// Override the texture loading for native materials
+		for (const [materialName, material] of Object.entries(materials.materials)) {
+			// If material has texture paths (strings), load them from dependencies
+			if (material.map && typeof material.map === 'string') {
+				this.loadTextureFromDependencies(material.map, customTextureLoader, additionalFiles, THREE)
+					.then(texture => {
+						if (texture) {
+							material.map = texture
+						}
+					})
+					.catch(error => {
+						console.warn('[OBJ Loader] Failed to load diffuse texture for native material:', materialName, error)
+					})
+			}
+			
+			if (material.normalMap && typeof material.normalMap === 'string') {
+				this.loadTextureFromDependencies(material.normalMap, customTextureLoader, additionalFiles, THREE)
+					.then(texture => {
+						if (texture) {
+							material.normalMap = texture
+						}
+					})
+					.catch(error => {
+						console.warn('[OBJ Loader] Failed to load normal texture for native material:', materialName, error)
+					})
+			}
+			
+			if (material.specularMap && typeof material.specularMap === 'string') {
+				this.loadTextureFromDependencies(material.specularMap, customTextureLoader, additionalFiles, THREE)
+					.then(texture => {
+						if (texture) {
+							material.specularMap = texture
+						}
+					})
+					.catch(error => {
+						console.warn('[OBJ Loader] Failed to load specular texture for native material:', materialName, error)
+					})
+			}
+		}
+	}
+
+	/**
 	 * Find MTL file reference in OBJ text
 	 * @param {string} objText - OBJ file content
 	 * @return {string|null} MTL file name
@@ -208,13 +253,12 @@ class ObjLoader extends BaseLoader {
 			if (trimmedLine.toLowerCase().startsWith('mtllib ')) {
 				const mtlName = trimmedLine.split(/\s+/)[1]?.trim()
 				if (mtlName) {
-					console.info('[OBJ Loader] Found MTL reference:', { mtlName, line: trimmedLine })
-					this.logInfo('Found MTL reference', { mtlName })
+					// Found MTL reference
 					return mtlName
 				}
 			}
 		}
-		console.info('[OBJ Loader] No MTL reference found in OBJ file')
+		// No MTL reference found
 		return null
 	}
 
@@ -226,11 +270,7 @@ class ObjLoader extends BaseLoader {
 	 */
 	async loadMtlMaterialsFromDependencies(mtlName, additionalFiles, THREE) {
 		try {
-			console.info('[OBJ Loader] Searching for MTL file:', {
-				mtlName,
-				totalFiles: additionalFiles.length,
-				sampleFileNames: additionalFiles.slice(0, 5).map(f => f.name.split('/').pop())
-			})
+			// Search for MTL file in dependencies
 			
 			// Find the MTL file in the pre-fetched dependencies
 			const mtlFile = additionalFiles.find(file => {
@@ -239,86 +279,93 @@ class ObjLoader extends BaseLoader {
 				return fileName === mtlName || file.name.endsWith(mtlName)
 			})
 			
-			console.info('[OBJ Loader] MTL file search result:', {
-				found: !!mtlFile,
-				mtlFileName: mtlFile ? mtlFile.name : null
-			})
+			// MTL file found
 
 			if (mtlFile) {
 				// Convert the MTL file to text
 				const mtlText = await this.fileToText(mtlFile)
 				
 				if (mtlText && mtlText.trim().length > 0) {
-					console.info('[OBJ Loader] MTL file content loaded, setting up materials...')
-					
 					try {
 						this.mtlLoader = new MTLLoader()
-						
-						// Set up texture loading using pre-fetched dependencies
 						this.mtlLoader.setPath('')
 						
-						console.info('[OBJ Loader] Parsing MTL content...')
-						console.info('[OBJ Loader] MTL content preview:', {
-							fullText: mtlText,
-							lines: mtlText.split('\n').length,
-							firstLines: mtlText.split('\n').slice(0, 10),
-							allLines: mtlText.split('\n').map((line, index) => `${index + 1}: ${line}`)
-						})
-						
-						const materials = this.mtlLoader.parse(mtlText, '')
-						
-						console.info('[OBJ Loader] MTL parsed, materials:', {
-							materialCount: materials.materials ? Object.keys(materials.materials).length : 0,
-							materialNames: materials.materials ? Object.keys(materials.materials) : [],
-							materialsObject: materials,
-							materialsType: typeof materials,
-							materialsKeys: Object.keys(materials || {}),
-							hasMaterialsProperty: 'materials' in materials
-						})
-						
-						// Manually load textures for each material using pre-fetched dependencies
-						if (materials.materials) {
-							const textureLoader = this.createTextureLoader(additionalFiles)
+						// Try native Three.js MTLLoader first
+						let materials
+						try {
+							console.info('[OBJ Loader] Attempting native MTLLoader...')
+							materials = this.mtlLoader.parse(mtlText, '')
 							
-							for (const [materialName, material] of Object.entries(materials.materials)) {
-								console.info('[OBJ Loader] Processing material:', materialName)
-								
-								// Handle map (diffuse texture)
-								if (material.map) {
-									console.info('[OBJ Loader] Loading diffuse texture for material:', materialName, material.map)
-									try {
-										const texture = await this.loadTextureFromDependencies(material.map, textureLoader, additionalFiles, THREE)
-										if (texture) {
-											material.map = texture
-											console.info('[OBJ Loader] Diffuse texture loaded successfully for:', materialName)
-										}
-									} catch (error) {
-										console.warn('[OBJ Loader] Failed to load diffuse texture for:', materialName, error)
-									}
-								}
-								
-								// Handle normal map
-								if (material.normalMap) {
-									console.info('[OBJ Loader] Loading normal map for material:', materialName, material.normalMap)
-									try {
-										const texture = await this.loadTextureFromDependencies(material.normalMap, textureLoader, additionalFiles, THREE)
-										if (texture) {
-											material.normalMap = texture
-											console.info('[OBJ Loader] Normal map loaded successfully for:', materialName)
-										}
-									} catch (error) {
-										console.warn('[OBJ Loader] Failed to load normal map for:', materialName, error)
-									}
-								}
-								
-								// Handle other texture types as needed
-								// You can add more texture types here (specularMap, bumpMap, etc.)
+							// Check if native loader actually created materials
+							if (!materials || !materials.materials || Object.keys(materials.materials).length === 0) {
+								console.warn('[OBJ Loader] Native MTLLoader returned no materials, falling back to manual parser')
+								materials = this.parseMtlManually(mtlText, THREE)
+							} else {
+								console.info('[OBJ Loader] Native MTLLoader successful:', Object.keys(materials.materials).length, 'materials')
+								// Set up custom texture loader for native materials
+								this.setupCustomTextureLoader(materials, additionalFiles, THREE)
 							}
+						} catch (error) {
+							console.warn('[OBJ Loader] Native MTLLoader failed, falling back to manual parser:', error.message)
+							materials = this.parseMtlManually(mtlText, THREE)
+						}
+						
+						// MTL parsed successfully
+						
+						// Load textures for materials (only for manual parser - native parser handles this in setupCustomTextureLoader)
+						if (materials.materials && Object.keys(materials.materials).length > 0) {
+							// Check if this was parsed manually (textures are strings) or natively (textures are already loaded or will be loaded async)
+							const firstMaterial = Object.values(materials.materials)[0]
+							const isManualParser = firstMaterial.map && typeof firstMaterial.map === 'string'
+							
+							if (isManualParser) {
+								// Processing materials with textures from manual parser
+								const customTextureLoader = this.createTextureLoader(additionalFiles)
+								
+								// Load textures for each material synchronously
+								for (const [materialName, material] of Object.entries(materials.materials)) {
+									// Handle diffuse texture (map_Kd) - stored as string path in manual parser
+									if (material.map && typeof material.map === 'string') {
+										try {
+											const texture = await this.loadTextureFromDependencies(material.map, customTextureLoader, additionalFiles, THREE)
+											if (texture) {
+												material.map = texture
+											}
+										} catch (error) {
+											console.warn('[OBJ Loader] Failed to load diffuse texture for:', materialName, error)
+										}
+									}
+									
+									// Handle normal map (bump map)
+									if (material.normalMap && typeof material.normalMap === 'string') {
+										try {
+											const texture = await this.loadTextureFromDependencies(material.normalMap, customTextureLoader, additionalFiles, THREE)
+											if (texture) {
+												material.normalMap = texture
+											}
+										} catch (error) {
+											console.warn('[OBJ Loader] Failed to load normal map for:', materialName, error)
+										}
+									}
+									
+									// Handle specular map
+									if (material.specularMap && typeof material.specularMap === 'string') {
+										try {
+											const texture = await this.loadTextureFromDependencies(material.specularMap, customTextureLoader, additionalFiles, THREE)
+											if (texture) {
+												material.specularMap = texture
+											}
+										} catch (error) {
+											console.warn('[OBJ Loader] Failed to load specular map for:', materialName, error)
+										}
+									}
+								}
+							}
+							// For native parser, textures are loaded asynchronously in setupCustomTextureLoader
 						}
 						
 						// Check if materials were actually created
 						if (!materials.materials || Object.keys(materials.materials).length === 0) {
-							console.warn('[OBJ Loader] No materials found in MTL file, creating default material')
 							
 							// Create a default material with the texture if available
 							const defaultMaterial = new THREE.MeshLambertMaterial({
@@ -328,31 +375,36 @@ class ObjLoader extends BaseLoader {
 								opacity: 1.0
 							})
 							
-							console.info('[OBJ Loader] Created default material:', {
-								type: defaultMaterial.type,
-								color: defaultMaterial.color.getHexString(),
-								side: defaultMaterial.side,
-								transparent: defaultMaterial.transparent
-							})
+							// Created default material
 							
-							// Try to load the texture manually
+							// Try to load the first available texture for the default material
 							const textureLoader = this.createTextureLoader(additionalFiles)
-							const textureFile = additionalFiles.find(file => {
+							const textureFiles = additionalFiles.filter(file => {
 								const fileName = file.name.split('/').pop()
-								return fileName === 'Tile_+186_+162_0.jpg' || fileName.endsWith('_0.jpg')
+								return fileName.endsWith('.jpg') || fileName.endsWith('.png')
 							})
 							
-							if (textureFile) {
-								console.info('[OBJ Loader] Loading texture for default material:', textureFile.name)
-							try {
-								const texture = await this.loadTextureFromDependencies('Tile_+186_+162_0.jpg', textureLoader, additionalFiles, THREE)
-								if (texture) {
-									defaultMaterial.map = texture
-									console.info('[OBJ Loader] Default material texture loaded successfully')
+							if (textureFiles.length > 0) {
+								// Use the first texture file found - prefer files that match the OBJ name
+								const objBaseName = mtlName.replace('./', '').replace('.mtl', '')
+								let textureFile = textureFiles.find(file => {
+									const fileName = file.name.split('/').pop()
+									return fileName.includes(objBaseName)
+								})
+								
+								// If no matching texture found, use the first available
+								if (!textureFile) {
+									textureFile = textureFiles[0]
 								}
-							} catch (error) {
-								console.warn('[OBJ Loader] Failed to load texture for default material:', error)
-							}
+								
+								try {
+									const texture = await this.loadTextureFromDependencies(textureFile.name, textureLoader, additionalFiles, THREE)
+									if (texture) {
+										defaultMaterial.map = texture
+									}
+								} catch (error) {
+									console.warn('[OBJ Loader] Failed to load texture for default material:', error)
+								}
 							}
 							
 							// Create a materials object with the default material
@@ -361,13 +413,9 @@ class ObjLoader extends BaseLoader {
 							}
 						}
 						
-						console.info('[OBJ Loader] Preloading materials...')
+						// Preload and set materials
 						materials.preload()
-						
-						console.info('[OBJ Loader] Setting materials on OBJ loader...')
 						this.objLoader.setMaterials(materials)
-						
-						console.info('[OBJ Loader] MTL materials setup completed successfully')
 						
 						this.logInfo('MTL materials loaded from dependencies', { 
 							mtlName,
@@ -457,12 +505,12 @@ class ObjLoader extends BaseLoader {
 	async loadTextureFromDependencies(texturePath, textureLoader, additionalFiles, THREE) {
 		return new Promise((resolve, reject) => {
 			try {
-				console.info('[OBJ Loader] Loading texture from dependencies:', texturePath)
+				// Loading texture from dependencies
 				
 				textureLoader.load(
 					texturePath,
 					(image) => {
-						console.info('[OBJ Loader] Texture loaded successfully:', texturePath)
+						// Texture loaded successfully
 						
 						// Create THREE.js texture from the loaded image with proper settings
 						const texture = new THREE.Texture(image)
@@ -481,23 +529,12 @@ class ObjLoader extends BaseLoader {
 						texture.format = THREE.RGBAFormat
 						texture.type = THREE.UnsignedByteType
 						
-						console.info('[OBJ Loader] Texture created with properties:', {
-							width: texture.image.width,
-							height: texture.image.height,
-							format: texture.format,
-							type: texture.type,
-							flipY: texture.flipY,
-							wrapS: texture.wrapS,
-							wrapT: texture.wrapT,
-							minFilter: texture.minFilter,
-							magFilter: texture.magFilter,
-							anisotropy: texture.anisotropy
-						})
+						// Texture created with proper properties
 						
 						resolve(texture)
 					},
 					(progress) => {
-						console.info('[OBJ Loader] Texture loading progress:', texturePath, progress)
+						// Texture loading progress (optional)
 					},
 					(error) => {
 						console.warn('[OBJ Loader] Texture loading failed:', texturePath, error)
@@ -518,22 +555,13 @@ class ObjLoader extends BaseLoader {
 	 */
 	async fileToText(file) {
 		try {
-			console.info('[OBJ Loader] Converting file to text:', {
-				fileName: file.name,
-				fileSize: file.size,
-				fileType: file.type
-			})
+		// Converting file to text
 			
 			const arrayBuffer = await file.arrayBuffer()
 			const textDecoder = new TextDecoder('utf-8', { fatal: false })
 			const text = textDecoder.decode(arrayBuffer)
 			
-			console.info('[OBJ Loader] File converted to text:', {
-				fileName: file.name,
-				textLength: text.length,
-				firstChars: text.substring(0, 200),
-				isEmpty: text.trim().length === 0
-			})
+			// File converted to text successfully
 			
 			return text
 		} catch (error) {
@@ -543,43 +571,6 @@ class ObjLoader extends BaseLoader {
 				error: error.message 
 			})
 			return ''
-		}
-	}
-
-	/**
-	 * Load MTL materials (legacy method for single-file loading)
-	 * @param {string} mtlName - MTL file name
-	 * @param {number} fileId - File ID for API request
-	 */
-	async loadMtlMaterials(mtlName, fileId) {
-		try {
-			const mtlUrl = `/apps/threedviewer/api/file/${fileId}/mtl/${encodeURIComponent(mtlName)}`
-
-			const response = await fetch(mtlUrl, {
-				headers: { Accept: 'text/plain' },
-				signal: this.abortController?.signal || AbortSignal.timeout(10000),
-			})
-
-			if (response.ok) {
-				const mtlText = await response.text()
-				if (mtlText && mtlText.trim().length > 0) {
-					this.mtlLoader = new MTLLoader()
-					const materials = this.mtlLoader.parse(mtlText, '')
-					materials.preload()
-					this.objLoader.setMaterials(materials)
-					this.logInfo('MTL materials loaded successfully', { mtlName })
-				}
-			} else {
-				this.logWarning('MTL file not found or error loading', {
-					mtlName,
-					status: response.status,
-				})
-			}
-		} catch (error) {
-			this.logWarning('Failed to load MTL materials', {
-				mtlName,
-				error: error.message,
-			})
 		}
 	}
 
