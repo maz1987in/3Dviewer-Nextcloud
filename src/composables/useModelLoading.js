@@ -4,6 +4,7 @@
  */
 
 import { ref, computed } from 'vue'
+import * as THREE from 'three'
 import { loadModelByExtension, isSupportedExtension } from '../loaders/registry.js'
 import { loadModelWithDependencies } from '../loaders/multiFileHelpers.js'
 import { logError, createErrorState } from '../utils/error-handler.js'
@@ -250,6 +251,7 @@ export function useModelLoading() {
 
 			// Prepare loading context
 			const loadingContext = {
+				THREE,  // Pass THREE.js to loaders
 				...context,
 				abortController: abortController.value,
 				fileExtension: extension,

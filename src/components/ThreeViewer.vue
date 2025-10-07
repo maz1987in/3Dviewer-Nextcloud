@@ -534,11 +534,14 @@ export default {
 				gridSize = 20
 				divisions = 20
 			} else if (maxDim < 100) {
-				gridSize = 50
-				divisions = 25
-			} else {
 				gridSize = 100
+				divisions = 25
+			} else if (maxDim < 500) {
+				gridSize = Math.ceil(maxDim * 1.5) // 1.5x model size
 				divisions = 50
+			} else {
+				gridSize = Math.ceil(maxDim * 2) // 2x model size for very large models
+				divisions = 100
 			}
 
 			// Calculate grid position at the bottom of the model
