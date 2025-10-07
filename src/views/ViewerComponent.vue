@@ -13,11 +13,22 @@
 			/>
 			<p v-if="loadingProgress.details">{{ loadingProgress.details }}</p>
 		</div>
+		
+		<!-- Open in full viewer button -->
+		<NcButton
+			v-if="hasLoaded"
+			type="primary"
+			class="open-in-app-button"
+			:href="fullViewerUrl"
+			@click="openInFullViewer">
+			{{ t('threedviewer', 'Open in 3D Viewer') }} ↗
+		</NcButton>
 	</div>
 </template>
 
 <script>
-import { NcProgressBar } from '@nextcloud/vue'
+import { NcProgressBar, NcButton } from '@nextcloud/vue'
+import { generateUrl } from '@nextcloud/router'
 import { loadModelWithDependencies } from '../loaders/multiFileHelpers.js'
 import { useScene } from '../composables/useScene.js'
 import { useCamera } from '../composables/useCamera.js'
@@ -27,6 +38,7 @@ export default {
 	
 	components: {
 		NcProgressBar,
+		NcButton,
 	},
 	
 	// Setup function - integrates composables with Options API
@@ -190,6 +202,19 @@ export default {
 		}, 100)
 	},
 
+	computed: {
+		/**
+		 * Generate URL to open model in full 3D viewer app
+		 */
+		fullViewerUrl() {
+			const dir = this.filename.substring(0, this.filename.lastIndexOf('/'))
+			return generateUrl('/apps/threedviewer') + 
+				`?fileId=${this.fileid}` +
+				`&filename=${encodeURIComponent(this.filename)}` +
+				`&dir=${encodeURIComponent(dir)}`
+		},
+	},
+
 	methods: {
 		/**
 		 * Called by Viewer app when this file becomes active/visible
@@ -243,6 +268,13 @@ export default {
 				details,
 				indeterminate,
 			}
+		},
+
+		/**
+		 * Open the model in the full 3D Viewer app (new tab)
+		 */
+		openInFullViewer() {
+			window.open(this.fullViewerUrl, '_blank', 'noopener,noreferrer')
 		},
 
 		async initViewer() {
@@ -598,13 +630,11 @@ export default {
 		},
 
 		fitCameraToModel(object, THREE) {
-			// Use fallback logic for now - composable version modifies object position
-			// which causes centering issues. TODO: Fix composable to not modify object
 			const box = new THREE.Box3().setFromObject(object)
 			const size = box.getSize(new THREE.Vector3())
 			const center = box.getCenter(new THREE.Vector3())
 			const maxDim = Math.max(size.x, size.y, size.z)
-			const cameraDistance = Math.min(maxDim * 2, 200)
+			const cameraDistance = Math.max(maxDim * 2, 20)
 			
 			this.camera.position.set(
 				center.x + cameraDistance * 0.5,
@@ -845,6 +875,19 @@ export default {
 	color: #ffffff;
 	font-weight: 500;
 	margin: 8px 0;
+}
+
+/* Open in full viewer button */
+.open-in-app-button {
+	position: absolute !important;
+	top: 16px;
+	right: 16px;
+	z-index: 1000;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.open-in-app-button:hover {
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
 /* Hide Nextcloud Viewer's loading spinner when our progress bar is showing */

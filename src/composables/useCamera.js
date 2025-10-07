@@ -115,19 +115,8 @@ export function useCamera() {
 
 			controls.value = new OrbitControls(camera.value, renderer.domElement)
 
-			// DISABLE controls initially to prevent interference with camera positioning
-			controls.value.enabled = false
-
-			// Basic controls setup
+			// Basic controls setup (keep it simple like ViewerComponent)
 			controls.value.enableDamping = true
-			controls.value.dampingFactor = 0.05
-			controls.value.screenSpacePanning = false
-
-			// Prevent models from going out of view
-			controls.value.minDistance = VIEWER_CONFIG.camera.minDistance
-			controls.value.maxDistance = VIEWER_CONFIG.camera.maxDistance
-			controls.value.maxPolarAngle = VIEWER_CONFIG.camera.maxPolarAngle
-			controls.value.minPolarAngle = VIEWER_CONFIG.camera.minPolarAngle
 
 			controls.value.update()
 
@@ -213,117 +202,48 @@ export function useCamera() {
 			const box = new THREE.Box3().setFromObject(obj)
 			if (box.isEmpty()) return
 
-			const center = box.getCenter(new THREE.Vector3())
 			const size = box.getSize(new THREE.Vector3())
+			const center = box.getCenter(new THREE.Vector3())
 			const maxDim = Math.max(size.x, size.y, size.z)
-
-			// Get the world position of the object and add the center offset
-			const worldPosition = new THREE.Vector3()
-			obj.getWorldPosition(worldPosition)
-			const worldCenter = center.clone().add(worldPosition)
-
-			// Update model center for camera controls
-			modelCenter.value.copy(worldCenter)
-
-			const fov = camera.value.fov * (Math.PI / 180)
-			let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2)) * 1.4
-
-			// Camera calculation completed
-
-			// Validate cameraZ to prevent NaN
-			if (!isFinite(cameraZ) || cameraZ <= 0) {
-				cameraZ = maxDim * 2 // Fallback to 2x the max dimension
-			}
-
-			// Only center the model if it's not already centered (within a small tolerance)
-			const tolerance = 0.1
-			const isAlreadyCentered = Math.abs(center.x) < tolerance
-                               && Math.abs(center.y) < tolerance
-                               && Math.abs(center.z) < tolerance
-
-			if (!isAlreadyCentered) {
-				obj.position.sub(center)
-			}
-
-			// Set camera position to look at origin with better distance
-			let cameraDistance = Math.max(cameraZ * 2, 20)
-
-			// Validate cameraDistance to prevent NaN
-			if (!isFinite(cameraDistance) || cameraDistance <= 0) {
-				cameraDistance = 50 // Fallback distance
-			}
-
-			// Validate camera before setting position
-			if (!camera.value) {
-				return
-			}
-
-			// Setting camera position
-
-			// Update controls target to world center
-			controls.value.target.copy(worldCenter)
-
-			// Update controls first
-			controls.value.update()
-
-			// Set camera position relative to world center
+			
+			// Simple distance calculation - use maxDim * 2 with reasonable bounds
+			const cameraDistance = Math.max(maxDim * 2, 20)
+			
+			console.info('[useCamera] Fitting camera to object:', {
+				size: { x: size.x.toFixed(2), y: size.y.toFixed(2), z: size.z.toFixed(2) },
+				center: { x: center.x.toFixed(2), y: center.y.toFixed(2), z: center.z.toFixed(2) },
+				maxDim: maxDim.toFixed(2),
+				cameraDistance: cameraDistance.toFixed(2),
+			})
+			
+			// Set camera position
 			camera.value.position.set(
-				worldCenter.x + cameraDistance,
-				worldCenter.y + cameraDistance * 0.5,
-				worldCenter.z + cameraDistance,
+				center.x + cameraDistance * 0.5,
+				center.y + cameraDistance * 0.5,
+				center.z + cameraDistance
 			)
-			camera.value.lookAt(worldCenter)
-
-			// Calculate initial rotation values based on camera position
-			const direction = new THREE.Vector3()
-			direction.subVectors(camera.value.position, worldCenter).normalize()
-
-			// Calculate rotationY (horizontal rotation)
-			rotationY.value = Math.atan2(direction.x, direction.z)
-
-			// Calculate rotationX (vertical rotation)
-			const horizontalDistance = Math.sqrt(direction.x * direction.x + direction.z * direction.z)
-			rotationX.value = Math.atan2(direction.y, horizontalDistance)
-
-			// Update distance to match actual distance
-			distance.value = camera.value.position.distanceTo(worldCenter)
-
-			// Initial rotation calculated
-
-			// Ensure the camera position is valid before proceeding
-			if (!isFinite(camera.value.position.x) || !isFinite(camera.value.position.y) || !isFinite(camera.value.position.z)) {
-				camera.value.position.set(23.35, 11.68, 23.35)
+			
+			// Look at center
+			camera.value.lookAt(center)
+			
+			// Update controls target and controls
+			if (controls.value) {
+				controls.value.target.copy(center)
+				controls.value.update()
+				// Enable controls after camera is positioned
+				controls.value.enabled = true
 			}
-
-			// Set the controls' internal position state to match
-			if (controls.value.object) {
-				controls.value.object.position.copy(camera.value.position)
-			}
-
-			// Also update the controls' internal state
-			if (controls.value.object && controls.value.object !== camera.value) {
-				controls.value.object.position.copy(camera.value.position)
-				controls.value.object.lookAt(0, 0, 0)
-			}
-
-			// Mark that we've manually positioned the camera
-			manuallyPositioned.value = true
-
-			// Set a timeout to allow manual positioning to stabilize
-			setTimeout(() => {
-				// Only allow manual positioning to be reset if camera is still valid
-				if (camera.value
-              && isFinite(camera.value.position.x)
-              && isFinite(camera.value.position.y)
-              && isFinite(camera.value.position.z)) {
-					manuallyPositioned.value = false
-
-					// Re-enable controls after stabilization
-					if (controls.value) {
-						controls.value.enabled = true
-					}
-				}
-			}, 1000) // Wait 1 second for stabilization
+			
+			// Update camera near/far planes
+			camera.value.near = cameraDistance / 100
+			camera.value.far = cameraDistance * 100
+			camera.value.updateProjectionMatrix()
+			
+			// Update model center for camera controls
+			modelCenter.value.copy(center)
+			
+			// Update distance value
+			distance.value = camera.value.position.distanceTo(center)
 
 			// Verify the position was set correctly
 
@@ -531,14 +451,9 @@ export function useCamera() {
 	 * Update controls
 	 */
 	const updateControls = () => {
-		if (controls.value && !manuallyPositioned.value && controls.value.enabled) {
-			// Only update controls if they are enabled, camera position is valid (not NaN) and we haven't manually positioned it
-			if (camera.value
-          && isFinite(camera.value.position.x)
-          && isFinite(camera.value.position.y)
-          && isFinite(camera.value.position.z)) {
-				controls.value.update()
-			}
+		// Always update controls if they exist (same as ViewerComponent)
+		if (controls.value) {
+			controls.value.update()
 		}
 	}
 
@@ -594,7 +509,7 @@ export function useCamera() {
 			// Wheel event handled
 
 			distance.value += event.deltaY * 0.05 // Much more sensitive zoom
-			distance.value = Math.max(2, Math.min(200, distance.value)) // Wider zoom range
+			distance.value = Math.max(1, distance.value) // Only prevent going too close, no max limit
 
 			// Distance updated
 

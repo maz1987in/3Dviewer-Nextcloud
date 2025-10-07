@@ -305,15 +305,15 @@ export default {
 				// Setup controls
 				await camera.setupControls(renderer.value)
 
-				// Setup custom controls for interaction
-				if (renderer.value && renderer.value.domElement) {
-					camera.setupCustomControls(renderer.value.domElement, (event, camera) => {
-						// Handle measurement clicks
-						measurement.handleClick(event, camera)
-						// Handle annotation clicks
-						annotation.handleClick(event, camera)
-					})
-				}
+				// Setup custom controls for interaction (disabled - using OrbitControls instead)
+				// if (renderer.value && renderer.value.domElement) {
+				// 	camera.setupCustomControls(renderer.value.domElement, (event, camera) => {
+				// 		// Handle measurement clicks
+				// 		measurement.handleClick(event, camera)
+				// 		// Handle annotation clicks
+				// 		annotation.handleClick(event, camera)
+				// 	})
+				// }
 
 				// Initialize measurement system
 				measurement.init(scene.value)
