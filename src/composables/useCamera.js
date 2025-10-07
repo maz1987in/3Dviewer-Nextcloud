@@ -117,6 +117,11 @@ export function useCamera() {
 
 			// Basic controls setup (keep it simple like ViewerComponent)
 			controls.value.enableDamping = true
+			controls.value.enableZoom = true  // Ensure zoom is enabled
+			controls.value.enableRotate = true  // Ensure rotation is enabled
+			controls.value.enablePan = true  // Ensure panning is enabled
+			controls.value.zoomSpeed = 1.0  // Normal zoom speed
+			controls.value.rotateSpeed = 1.0  // Normal rotation speed
 
 			controls.value.update()
 
@@ -163,6 +168,9 @@ export function useCamera() {
 	 */
 	const onControlsChange = () => {
 		if (!controls.value || !camera.value || manuallyPositioned.value) return
+		
+		// Skip checks during auto-rotate to allow zoom to work
+		if (autoRotateEnabled.value) return
 
 		// Check if camera target is off-center and reset if needed
 		const target = controls.value.target
@@ -244,6 +252,10 @@ export function useCamera() {
 			
 			// Update distance value
 			distance.value = camera.value.position.distanceTo(center)
+			
+			// Save this as the baseline position for reset
+			baselineCameraPos.value = camera.value.position.clone()
+			baselineTarget.value = controls.value.target.clone()
 
 			// Verify the position was set correctly
 
@@ -631,7 +643,11 @@ export function useCamera() {
 	 */
 	const toggleAutoRotate = () => {
 		autoRotateEnabled.value = !autoRotateEnabled.value
-		// Auto-rotate toggled
+		// Enable OrbitControls' built-in auto-rotate
+		if (controls.value) {
+			controls.value.autoRotate = autoRotateEnabled.value
+			controls.value.autoRotateSpeed = autoRotateSpeed.value
+		}
 	}
 
 	/**
@@ -640,6 +656,10 @@ export function useCamera() {
 	 */
 	const setAutoRotateSpeed = (speed) => {
 		autoRotateSpeed.value = speed
+		// Update OrbitControls' auto-rotate speed
+		if (controls.value) {
+			controls.value.autoRotateSpeed = speed
+		}
 		// Auto-rotate speed set
 	}
 
