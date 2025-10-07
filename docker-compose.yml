@@ -63,7 +63,7 @@ services:
 
           # Ensure dirs. and ownership
           mkdir -p /var/www/html/data /var/www/html/config /var/www/html/custom_apps
-          chown -R www-data:www-data /var/www/html
+          chown -R www-data:www-data /var/www/html 2>/dev/null || true
 
           # Detect install state
           installed=false
@@ -118,7 +118,7 @@ services:
             log 'Nextcloud not yet installed; finish via http://localhost:8080 (admin/admin), then restart container for post-install config.'
           fi
 
-          chown -R www-data:www-data /var/www/html
+          chown -R www-data:www-data /var/www/html 2>/dev/null || true
           log 'Starting Apache...'
           exec /entrypoint.sh apache2-foreground
     healthcheck:

@@ -213,10 +213,12 @@ export default {
 			}
 			this.pushToast({ type: 'success', title: this.tSuccessTitle(), message: this.tLoadedMessage(meta.filename) })
 		},
-		onError(msg) {
-			this.lastError = msg
-			// Viewer error handled
-			this.pushToast({ type: 'error', title: this.tErrorTitle(), message: msg })
+		onError(error) {
+			// Extract message from error object or use as string
+			const message = error?.message || error || 'Unknown error occurred'
+			this.lastError = message
+			// Viewer error handled - show detailed error message in toast
+			this.pushToast({ type: 'error', title: this.tErrorTitle(), message })
 		},
 		pushToast({ type = 'info', title, message, timeout = null }) {
 			const id = Date.now() + Math.random()

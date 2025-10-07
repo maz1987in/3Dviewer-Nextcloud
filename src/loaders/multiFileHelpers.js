@@ -33,10 +33,20 @@ export async function fetchFileFromUrl(url, name, defaultType = 'application/oct
  */
 export async function getFileIdByPath(filePath) {
 	try {
+		// Validate input
+		if (!filePath || filePath.trim().length === 0) {
+			return null
+		}
+		
 		// Get the directory path and filename
 		const pathParts = filePath.split('/')
 		const filename = pathParts.pop()
 		const dirPath = pathParts.join('/') || '/'
+		
+		// Validate filename after splitting
+		if (!filename || filename.trim().length === 0) {
+			return null
+		}
 		
 		// List files in the directory
 		const listUrl = `/apps/threedviewer/api/files/list?path=${encodeURIComponent(dirPath)}`
@@ -94,7 +104,7 @@ export function parseMtlTextureFiles(mtlContent) {
 		const normalized = fullPath.replace(/\\/g, '/')
 		const basename = normalized.split('/').pop()
 		return basename
-	})
+	}).filter(name => name && name.length > 0) // Filter out empty or undefined names
 	
 	return [...new Set(filenames)]
 }

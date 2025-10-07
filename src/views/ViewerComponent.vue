@@ -13,10 +13,6 @@
 			/>
 			<p v-if="loadingProgress.details">{{ loadingProgress.details }}</p>
 		</div>
-		
-		<div v-if="error" class="threedviewer-error">
-			<p>{{ error }}</p>
-		</div>
 	</div>
 </template>
 
@@ -83,7 +79,6 @@ export default {
 
 	data() {
 		return {
-			error: null,
 			scene: null,
 			camera: null,
 			renderer: null,
@@ -113,10 +108,17 @@ export default {
 				this.loadingCancelled = false
 				this.$emit('update:loaded', false)
 				this.initViewer()
+			} else if (newActive && !oldActive && this.hasLoaded) {
+				// Component became active but already loaded - ensure progress is hidden
+				console.info('[ThreeDViewer] Instance activated, already loaded:', this.filename)
+				this.isActive = true
+				this.updateProgress(false)
+				this.$emit('update:loaded', true)
 			} else if (!newActive && oldActive) {
 				// Component became inactive - cancel loading if in progress
 				console.info('[ThreeDViewer] Instance deactivated, cancelling load:', this.filename)
 				this.loadingCancelled = true
+				this.isActive = false
 			}
 		},
 		// Watch for file changes when navigating in Viewer
@@ -194,7 +196,7 @@ export default {
 		 * This is when we should actually load the model
 		 */
 		update() {
-			if (!this.isActive) {
+			if (!this.isActive && !this.hasLoaded) {
 				console.info('[ThreeDViewer] Instance activated, starting load:', this.filename)
 				this.isActive = true
 				this.loadingCancelled = false
@@ -204,6 +206,12 @@ export default {
 				
 				// Start loading this file
 				this.initViewer()
+			} else if (!this.isActive && this.hasLoaded) {
+				// Already loaded, just mark as active and hide any lingering progress
+				console.info('[ThreeDViewer] Instance activated, already loaded:', this.filename)
+				this.isActive = true
+				this.updateProgress(false)
+				this.$emit('update:loaded', true)
 			}
 		},
 
@@ -245,13 +253,13 @@ export default {
 					return
 				}
 
-				this.updateProgress(true, 0, this.t('threedviewer', 'Initializing 3D viewer...'), '', true)
+				this.updateProgress(true, 0, this.t('threedviewer', 'Initializing 3D viewer...'), '', false)
 				
 				// Clean up any existing WebGL context first
 				this.cleanupWebGLContext()
 
 				// Import Three.js dynamically
-				this.updateProgress(true, 10, this.t('threedviewer', 'Loading 3D engine...'), '', true)
+				this.updateProgress(true, 10, this.t('threedviewer', 'Loading 3D engine...'), '', false)
 				
 				// Check cancellation before heavy imports
 				if (this.loadingCancelled) {
@@ -271,7 +279,7 @@ export default {
 			}
 
 			// Setup scene - manually create for now (composable expects container without canvas)
-			this.updateProgress(true, 20, this.t('threedviewer', 'Setting up 3D scene...'), '', true)
+			this.updateProgress(true, 20, this.t('threedviewer', 'Setting up 3D scene...'), '', false)
 			
 			// Create scene
 			this.scene = new THREE.Scene()
@@ -303,7 +311,7 @@ export default {
 			this.setupWebGLErrorHandling()
 
 			// Setup camera and controls using composable
-			this.updateProgress(true, 25, this.t('threedviewer', 'Setting up camera...'), '', true)
+			this.updateProgress(true, 25, this.t('threedviewer', 'Setting up camera...'), '', false)
 			
 			const aspect = this.$refs.canvas.clientWidth / this.$refs.canvas.clientHeight
 			this.camera = new THREE.PerspectiveCamera(75, aspect, 0.1, 1000)
@@ -320,14 +328,14 @@ export default {
 			this.cameraComposable.controls.value = this.controls
 
 			// Add lights using composable
-			this.updateProgress(true, 30, this.t('threedviewer', 'Setting up lighting...'), '', true)
-			
 			// Check cancellation before creating lights
 			if (this.loadingCancelled) {
 				console.debug('[ThreeDViewer] Loading cancelled before lighting')
 				this.updateProgress(false)
 				return
 			}
+			
+			this.updateProgress(true, 30, this.t('threedviewer', 'Setting up lighting...'), '', false)
 			
 			// Use composable for lighting setup
 			this.sceneComposable.setupLighting({
@@ -340,7 +348,9 @@ export default {
 			})
 
 			// Load model
-			this.updateProgress(true, 40, this.t('threedviewer', 'Loading 3D model...'), '', true)				// Check cancellation before heavy model loading
+			this.updateProgress(true, 40, this.t('threedviewer', 'Loading 3D model...'), '', false)
+			
+			// Check cancellation before heavy model loading
 				if (this.loadingCancelled) {
 					console.debug('[ThreeDViewer] Loading cancelled before model download')
 					this.updateProgress(false)
@@ -357,7 +367,7 @@ export default {
 				}
 
 				// Start animation loop
-				this.updateProgress(true, 90, this.t('threedviewer', 'Finalizing...'), '', true)
+				this.updateProgress(true, 95, this.t('threedviewer', 'Finalizing...'), '', false)
 				this.animate()
 				
 				// Mark as loaded
@@ -376,7 +386,6 @@ export default {
 				}
 
 				console.error('[ThreeDViewer] Error initializing viewer:', err)
-				this.error = this.t('threedviewer', 'Failed to load 3D model: {error}', { error: err.message })
 				this.updateProgress(false)
 				this.$emit('error', err)
 			}
@@ -422,7 +431,7 @@ export default {
 					this.fitCameraToModel(this.modelRoot, THREE)
 					
 					// Update progress
-					this.updateProgress(true, 100, this.t('threedviewer', 'Model loaded'), '', true)
+					this.updateProgress(true, 100, this.t('threedviewer', 'Model loaded'), '', false)
 					console.info('[ThreeDViewer] Model loaded successfully')
 					
 					// Emit success event
@@ -437,7 +446,6 @@ export default {
 				
 			} catch (error) {
 				console.error('[ThreeDViewer] Error loading model with files:', error)
-				this.error = this.t('threedviewer', 'Failed to load 3D model: {error}', { error: error.message })
 				this.$emit('error', error)
 				throw error
 			}
@@ -487,7 +495,7 @@ export default {
 
 		// Single-file loading (fallback or non-multi-file formats)
 		// Fetch model data from ApiController endpoint
-		this.updateProgress(true, 50, this.t('threedviewer', 'Downloading model...'), this.filename, true)
+		this.updateProgress(true, 0, this.t('threedviewer', 'Downloading model...'), this.filename, false)
 		// Note: Using /api/file/{fileId} (not /file/{fileId})
 		const response = await fetch(`/apps/threedviewer/api/file/${this.fileid}`)
 				
@@ -495,12 +503,47 @@ export default {
 					throw new Error(`Failed to fetch model: ${response.status} ${response.statusText}`)
 				}
 
-				// Get array buffer
-				const arrayBuffer = await response.arrayBuffer()
+				// Get array buffer with progress tracking
+				const contentLength = response.headers.get('content-length')
+				const total = contentLength ? parseInt(contentLength, 10) : 0
+				
+				if (total > 0 && response.body) {
+					// Track download progress
+					const reader = response.body.getReader()
+					const chunks = []
+					let receivedLength = 0
+					
+					while (true) {
+						const { done, value } = await reader.read()
+						
+						if (done) break
+						
+						chunks.push(value)
+						receivedLength += value.length
+						
+						// Update progress (0-50% for download)
+						const downloadProgress = Math.round((receivedLength / total) * 50)
+						this.updateProgress(true, downloadProgress, this.t('threedviewer', 'Downloading model...'), `${Math.round(receivedLength / 1024 / 1024 * 10) / 10} MB / ${Math.round(total / 1024 / 1024 * 10) / 10} MB`, false)
+					}
+					
+					// Combine chunks into array buffer
+					const chunksAll = new Uint8Array(receivedLength)
+					let position = 0
+					for (const chunk of chunks) {
+						chunksAll.set(chunk, position)
+						position += chunk.length
+					}
+					
+					var arrayBuffer = chunksAll.buffer
+				} else {
+					// Fallback if content-length not available
+					var arrayBuffer = await response.arrayBuffer()
+				}
+				
 				console.info('[ThreeDViewer] Downloaded model data:', arrayBuffer.byteLength, 'bytes')
 
 				// Dynamically load the appropriate loader from registry
-				this.updateProgress(true, 60, this.t('threedviewer', 'Loading 3D loader...'), '', true)
+				this.updateProgress(true, 50, this.t('threedviewer', 'Loading 3D loader...'), '', false)
 				const { loadModelByExtension } = await import(/* webpackChunkName: "loader-registry" */ '../loaders/registry.js')
 				
 				// Prepare context for loader
@@ -527,16 +570,16 @@ export default {
 				}
 
 				// Load model using registry
-				this.updateProgress(true, 70, this.t('threedviewer', 'Parsing 3D model...'), extension.toUpperCase(), true)
+				this.updateProgress(true, 60, this.t('threedviewer', 'Parsing 3D model...'), extension.toUpperCase(), false)
 				const result = await loadModelByExtension(extension, arrayBuffer, context)
 				
 				if (result && result.object3D) {
 					// Add loaded model to scene
-					this.updateProgress(true, 80, this.t('threedviewer', 'Adding model to scene...'), '', true)
+					this.updateProgress(true, 80, this.t('threedviewer', 'Adding model to scene...'), '', false)
 					this.scene.add(result.object3D)
 					
 					// Auto-fit camera to model
-					this.updateProgress(true, 85, this.t('threedviewer', 'Positioning camera...'), '', true)
+					this.updateProgress(true, 90, this.t('threedviewer', 'Positioning camera...'), '', false)
 					this.fitCameraToModel(result.object3D, THREE)
 					
 					console.info('[ThreeDViewer] Model loaded successfully')
@@ -546,16 +589,11 @@ export default {
 
 			} catch (err) {
 				console.error('[ThreeDViewer] Error loading model:', err)
-				// Fall back to placeholder cube on error
-				console.warn('[ThreeDViewer] Falling back to placeholder cube')
-				const geometry = new THREE.BoxGeometry(1, 1, 1)
-				const material = new THREE.MeshStandardMaterial({ color: 0xff6b6b })
-				const cube = new THREE.Mesh(geometry, material)
-				cube.userData.isPlaceholder = true
-				this.scene.add(cube)
+				this.updateProgress(false)
+				this.$emit('error', err)
 				
-				// Re-throw to show error message
-				throw err
+				// Don't re-throw - we've handled it by showing the error
+				return
 			}
 		},
 
@@ -803,12 +841,10 @@ export default {
 	min-width: 300px;
 }
 
-.threedviewer-error {
-	position: absolute;
-	top: 50%;
-	left: 50%;
-	transform: translate(-50%, -50%);
-	text-align: center;
+.threedviewer-progress p {
+	color: #ffffff;
+	font-weight: 500;
+	margin: 8px 0;
 }
 
 /* Hide Nextcloud Viewer's loading spinner when our progress bar is showing */
