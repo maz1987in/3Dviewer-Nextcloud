@@ -53,6 +53,17 @@ export default {
 			type: [String, Number],
 			required: true,
 		},
+		// Viewer passes this to indicate if this instance is active
+		active: {
+			type: Boolean,
+			default: false,
+		},
+		// Optional: Viewer passes this for multi-file navigation
+		files: {
+			type: Array,
+			required: false,
+			default: () => [],
+		},
 	},
 
 	data() {
@@ -69,7 +80,45 @@ export default {
 				details: '',
 				indeterminate: true,
 			},
+			isActive: false, // Track if this instance is the active one
+			hasLoaded: false, // Track if model has been loaded
+			loadingCancelled: false, // Flag to cancel ongoing loads
 		}
+	},
+
+	watch: {
+		// Watch for active prop changes from Viewer
+		active(newActive, oldActive) {
+			console.info('[ThreeDViewer] Active prop changed:', { newActive, oldActive, filename: this.filename })
+			
+			if (newActive && !oldActive && !this.hasLoaded) {
+				// Component became active - start loading
+				console.info('[ThreeDViewer] Instance activated via prop, starting load:', this.filename)
+				this.isActive = true
+				this.loadingCancelled = false
+				this.$emit('update:loaded', false)
+				this.initViewer()
+			} else if (!newActive && oldActive) {
+				// Component became inactive - cancel loading if in progress
+				console.info('[ThreeDViewer] Instance deactivated, cancelling load:', this.filename)
+				this.loadingCancelled = true
+			}
+		},
+		// Watch for file changes when navigating in Viewer
+		fileid(newId, oldId) {
+			if (newId && newId !== oldId) {
+				console.info('[ThreeDViewer] File changed, reloading viewer')
+				this.hasLoaded = false
+				this.loadingCancelled = false
+				this.initViewer()
+			}
+		},
+		// Watch files prop to suppress Viewer warning
+		files(newFiles) {
+			if (newFiles && newFiles.length > 0) {
+				console.debug('[ThreeDViewer] Files list updated:', newFiles.length, 'files')
+			}
+		},
 	},
 
 	mounted() {
@@ -77,15 +126,26 @@ export default {
 			filename: this.filename,
 			mime: this.mime,
 			davPath: this.davPath,
+			active: this.active,
 		})
 		
-		// Immediately signal that we're handling loading
-		this.$emit('update:loaded', false)
-		
-		this.initViewer()
+		// Check if we're already active on mount (initial file)
+		if (this.active) {
+			console.info('[ThreeDViewer] Instance is active on mount, starting load:', this.filename)
+			this.isActive = true
+			this.$emit('update:loaded', false)
+			this.initViewer()
+		} else {
+			// Wait for active prop to change
+			this.isActive = false
+			console.debug('[ThreeDViewer] Instance created, waiting for active prop from Viewer')
+		}
 	},
 
 	beforeDestroy() {
+		// Cancel any ongoing loading
+		this.loadingCancelled = true
+		
 		// Use the enhanced cleanup method
 		this.cleanupWebGLContext()
 		
@@ -106,6 +166,44 @@ export default {
 	},
 
 	methods: {
+		/**
+		 * Called by Viewer app when this file becomes active/visible
+		 * This is when we should actually load the model
+		 */
+		update() {
+			if (!this.isActive) {
+				console.info('[ThreeDViewer] Instance activated, starting load:', this.filename)
+				this.isActive = true
+				this.loadingCancelled = false
+				
+				// Signal that we're handling loading
+				this.$emit('update:loaded', false)
+				
+				// Start loading this file
+				this.initViewer()
+			}
+		},
+
+		/**
+		 * Called by Viewer app to update the files list
+		 * This is part of the Viewer API contract for multi-file navigation
+		 * MUST return the fileList for Viewer to know which files are available
+		 */
+		files(fileList) {
+			console.debug('[ThreeDViewer] Files method called with', fileList?.length || 0, 'files')
+			
+			// IMPORTANT: Must return the fileList for Viewer to call update()
+			// If we don't return it, Viewer thinks there are no files and skips activation
+			if (fileList && fileList.length > 0) {
+				console.debug('[ThreeDViewer] Returning file list with', fileList.length, 'files')
+				return fileList
+			}
+			
+			// Return empty array if no files provided
+			console.debug('[ThreeDViewer] No files provided, returning empty array')
+			return []
+		},
+
 		updateProgress(show, value = 0, message = '', details = '', indeterminate = true) {
 			this.loadingProgress = {
 				show,
@@ -118,6 +216,12 @@ export default {
 
 		async initViewer() {
 			try {
+				// Check if loading was cancelled before starting
+				if (this.loadingCancelled) {
+					console.debug('[ThreeDViewer] Loading cancelled before init')
+					return
+				}
+
 				this.updateProgress(true, 0, this.t('threedviewer', 'Initializing 3D viewer...'), '', true)
 				
 				// Clean up any existing WebGL context first
@@ -125,8 +229,23 @@ export default {
 
 				// Import Three.js dynamically
 				this.updateProgress(true, 10, this.t('threedviewer', 'Loading 3D engine...'), '', true)
+				
+				// Check cancellation before heavy imports
+				if (this.loadingCancelled) {
+					console.debug('[ThreeDViewer] Loading cancelled during imports')
+					this.updateProgress(false)
+					return
+				}
+
 				const THREE = await import(/* webpackChunkName: "three" */ 'three')
 				const { OrbitControls } = await import(/* webpackChunkName: "OrbitControls" */ 'three/examples/jsm/controls/OrbitControls.js')
+
+				// Check cancellation after imports
+				if (this.loadingCancelled) {
+					console.debug('[ThreeDViewer] Loading cancelled after imports')
+					this.updateProgress(false)
+					return
+				}
 
 				// Setup scene
 				this.updateProgress(true, 20, this.t('threedviewer', 'Setting up 3D scene...'), '', true)
@@ -165,6 +284,14 @@ export default {
 
 				// Add lights
 				this.updateProgress(true, 30, this.t('threedviewer', 'Setting up lighting...'), '', true)
+				
+				// Check cancellation before creating lights
+				if (this.loadingCancelled) {
+					console.debug('[ThreeDViewer] Loading cancelled before lighting')
+					this.updateProgress(false)
+					return
+				}
+
 				const ambientLight = new THREE.AmbientLight(0x404040, 2)
 				this.scene.add(ambientLight)
 
@@ -174,17 +301,42 @@ export default {
 
 				// Load model
 				this.updateProgress(true, 40, this.t('threedviewer', 'Loading 3D model...'), '', true)
+				
+				// Check cancellation before heavy model loading
+				if (this.loadingCancelled) {
+					console.debug('[ThreeDViewer] Loading cancelled before model download')
+					this.updateProgress(false)
+					return
+				}
+
 				await this.loadModel(THREE)
+
+				// Check cancellation after model load
+				if (this.loadingCancelled) {
+					console.debug('[ThreeDViewer] Loading cancelled after model load')
+					this.updateProgress(false)
+					return
+				}
 
 				// Start animation loop
 				this.updateProgress(true, 90, this.t('threedviewer', 'Finalizing...'), '', true)
 				this.animate()
+				
+				// Mark as loaded
+				this.hasLoaded = true
 				
 				// Hide progress and tell Viewer we're done loading
 				this.updateProgress(false)
 				this.$emit('update:loaded', true)
 
 			} catch (err) {
+				// Don't show errors if loading was cancelled
+				if (this.loadingCancelled) {
+					console.debug('[ThreeDViewer] Loading cancelled, ignoring error')
+					this.updateProgress(false)
+					return
+				}
+
 				console.error('[ThreeDViewer] Error initializing viewer:', err)
 				this.error = this.t('threedviewer', 'Failed to load 3D model: {error}', { error: err.message })
 				this.updateProgress(false)
