@@ -41,6 +41,10 @@ class PlyLoader extends BaseLoader {
 
 		// Create mesh
 		const mesh = this.createMesh(geometry, material)
+		
+		// PLY files are often exported with Z-up coordinate system
+		// Rotate to Y-up (Three.js standard) by rotating -90° around X-axis
+		mesh.rotation.x = -Math.PI / 2
 
 		this.logInfo('PLY model loaded successfully', {
 			vertices: geometry.attributes.position.count,

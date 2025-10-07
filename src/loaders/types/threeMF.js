@@ -41,6 +41,10 @@ class ThreeMfLoader extends BaseLoader {
 			if (!object || !object.children || object.children.length === 0) {
 				throw new Error('3MF file contains no valid 3D models')
 			}
+			
+			// 3MF format uses Z-up coordinate system (3D printing standard)
+			// Rotate to Y-up (Three.js standard) by rotating -90° around X-axis
+			object.rotation.x = -Math.PI / 2
 
 			return this.processModel(object, { fileId, filename })
 		} catch (error) {

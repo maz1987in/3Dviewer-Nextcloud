@@ -29,6 +29,10 @@ class ThreeDSLoader extends BaseLoader {
 		if (!object3D || object3D.children.length === 0) {
 			throw new Error('No valid geometry found in 3DS file')
 		}
+		
+		// 3DS format uses Z-up coordinate system
+		// Rotate to Y-up (Three.js standard) by rotating -90° around X-axis
+		object3D.rotation.x = -Math.PI / 2
 
 		this.logInfo('3DS model loaded successfully', {
 			children: object3D.children.length,

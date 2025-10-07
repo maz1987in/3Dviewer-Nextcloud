@@ -19,8 +19,7 @@
 			v-if="hasLoaded"
 			type="primary"
 			class="open-in-app-button"
-			:href="fullViewerUrl"
-			@click="openInFullViewer">
+			@click.prevent="openInFullViewer">
 			{{ t('threedviewer', 'Open in 3D Viewer') }} ↗
 		</NcButton>
 	</div>
