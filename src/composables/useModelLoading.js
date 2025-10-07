@@ -3,8 +3,9 @@
  * Handles model loading, file processing, and error management
  */
 
-import { ref, computed, readonly } from 'vue'
+import { ref, computed } from 'vue'
 import { loadModelByExtension, isSupportedExtension } from '../loaders/registry.js'
+import { loadModelWithDependencies } from '../loaders/multiFileHelpers.js'
 import { logError, createErrorState } from '../utils/error-handler.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
 import { LOADING_STAGES } from '../constants/index.js'
@@ -76,6 +77,153 @@ export function useModelLoading() {
 			})
 		} catch (error) {
 			logError('useModelLoading', 'Failed to initialize decoders', error)
+		}
+	}
+
+	/**
+	 * Load model from file ID with multi-file support
+	 * @param {number} fileId - File ID
+	 * @param {string} filename - File name
+	 * @param {object} context - Loading context
+	 * @return {Promise<object>} Load result
+	 */
+	const loadModelFromFileId = async (fileId, filename, context) => {
+		try {
+			const extension = filename.split('.').pop().toLowerCase()
+
+			if (!isSupportedExtension(extension)) {
+				throw new Error(`Unsupported file extension: ${extension}`)
+			}
+
+			loading.value = true
+			error.value = null
+			errorState.value = null
+			progress.value = { loaded: 0, total: 0, message: 'Initializing...' }
+
+			// Extract directory path for multi-file loading
+			const dirPath = filename.substring(0, filename.lastIndexOf('/'))
+
+			// Check if this is a multi-file format
+			const isMultiFile = ['obj', 'gltf'].includes(extension)
+
+			if (isMultiFile) {
+				logError('useModelLoading', 'Multi-file format detected', { extension, fileId })
+
+				try {
+					// Update progress
+					progress.value = { loaded: 0, total: 0, message: 'Loading dependencies...' }
+
+					// Load model with dependencies
+					const result = await loadModelWithDependencies(fileId, filename, extension, dirPath)
+
+					logError('useModelLoading', 'Multi-file loading successful', {
+						mainFile: result.mainFile.name,
+						dependencies: result.dependencies.length,
+					})
+
+					// Update progress
+					progress.value = { loaded: 50, total: 100, message: 'Processing model...' }
+
+					// Convert main file to ArrayBuffer
+					const arrayBuffer = await result.mainFile.arrayBuffer()
+
+					// Prepare context with additional files
+					const loadingContext = {
+						...context,
+						fileId,
+						additionalFiles: result.dependencies,
+						abortController: abortController.value,
+						fileExtension: extension,
+						updateProgress,
+						hasDraco: hasDraco.value,
+						hasKtx2: hasKtx2.value,
+						hasMeshopt: hasMeshopt.value,
+					}
+
+					// Load the model with dependencies
+					const modelResult = await loadModelByExtension(extension, arrayBuffer, loadingContext)
+
+					if (modelResult && modelResult.object3D) {
+						modelRoot.value = modelResult.object3D
+						currentFileId.value = fileId
+
+						// Clear loading state
+						loading.value = false
+						progress.value = { loaded: 100, total: 100, message: 'Complete' }
+
+						logError('useModelLoading', 'Multi-file model loaded successfully', {
+							fileId,
+							extension,
+							children: modelResult.object3D.children.length,
+							dependencies: result.dependencies.length,
+						})
+
+						return modelResult
+					} else {
+						throw new Error('No valid 3D object returned from loader')
+					}
+				} catch (multiFileError) {
+					logError('useModelLoading', 'Multi-file loading failed, falling back to single-file', multiFileError, 'warn')
+					// Fall through to single-file loading
+				}
+			}
+
+			// Single-file loading (fallback or non-multi-file formats)
+			progress.value = { loaded: 0, total: 0, message: 'Downloading model...' }
+
+			const response = await fetch(`/apps/threedviewer/api/file/${fileId}`, {
+				signal: abortController.value?.signal,
+				headers: {
+					Accept: 'application/octet-stream',
+					'X-Requested-With': 'XMLHttpRequest',
+				},
+				credentials: 'same-origin',
+			})
+
+			if (!response.ok) {
+				throw new Error(`Failed to fetch model: ${response.status} ${response.statusText}`)
+			}
+
+			const arrayBuffer = await response.arrayBuffer()
+
+			progress.value = { loaded: arrayBuffer.byteLength, total: arrayBuffer.byteLength, message: 'Parsing model...' }
+
+			// Prepare context
+			const loadingContext = {
+				...context,
+				fileId,
+				abortController: abortController.value,
+				fileExtension: extension,
+				updateProgress,
+				hasDraco: hasDraco.value,
+				hasKtx2: hasKtx2.value,
+				hasMeshopt: hasMeshopt.value,
+			}
+
+			// Load the model
+			const result = await loadModelByExtension(extension, arrayBuffer, loadingContext)
+
+			if (result && result.object3D) {
+				modelRoot.value = result.object3D
+				currentFileId.value = fileId
+
+				// Clear loading state
+				loading.value = false
+				progress.value = { loaded: arrayBuffer.byteLength, total: arrayBuffer.byteLength, message: 'Complete' }
+
+				logError('useModelLoading', 'Model loaded successfully', {
+					fileId,
+					extension,
+					children: result.object3D.children.length,
+				})
+
+				return result
+			} else {
+				throw new Error('No valid 3D object returned from loader')
+			}
+		} catch (error) {
+			handleLoadError(error, filename)
+			throw error
 		}
 	}
 
@@ -377,20 +525,20 @@ export function useModelLoading() {
 	}
 
 	return {
-		// State
-		loading: readonly(loading),
-		progress: readonly(progress),
-		error: readonly(error),
-		errorState: readonly(errorState),
-		modelRoot: readonly(modelRoot),
-		currentFileId: readonly(currentFileId),
-		retryCount: readonly(retryCount),
-		maxRetries: readonly(maxRetries),
-		hasDraco: readonly(hasDraco),
-		hasKtx2: readonly(hasKtx2),
-		hasMeshopt: readonly(hasMeshopt),
+		// State (mutable refs - consumer can modify these)
+		loading,
+		progress,
+		error,
+		errorState,
+		modelRoot,
+		currentFileId,
+		retryCount,
+		maxRetries,
+		hasDraco,
+		hasKtx2,
+		hasMeshopt,
 
-		// Computed
+		// Computed (already readonly by nature)
 		isLoading,
 		hasError,
 		canRetry,
@@ -400,6 +548,7 @@ export function useModelLoading() {
 		initDecoders,
 		loadModel,
 		loadModelFromFile,
+		loadModelFromFileId,
 		loadModelFromUrl,
 		readFileAsArrayBuffer,
 		updateProgress,

@@ -27,15 +27,28 @@ const SUPPORTED_MIMES = [
 
 // Mode 1: Register simple viewer handler with Viewer API (modal preview)
 // Note: Script may load multiple times (Files app + direct access)
-// Check if handler is already registered to prevent duplicate registration warnings
-if (OCA.Viewer && !OCA.Viewer.handlers?.threedviewer) {
-	OCA.Viewer.registerHandler({
-		id: 'threedviewer',
-		group: '3d-models',
-		mimes: SUPPORTED_MIMES,
-		component: () => import(/* webpackChunkName: "threedviewer-viewer" */ './views/ViewerComponent.vue'),
-		canCompare: false,
-	})
+// Use a global flag to prevent duplicate registration
+if (OCA.Viewer && !window.__THREEDVIEWER_REGISTERED__) {
+	try {
+		OCA.Viewer.registerHandler({
+			id: 'threedviewer',
+			group: '3d-models',
+			mimes: SUPPORTED_MIMES,
+			component: () => import(/* webpackChunkName: "threedviewer-viewer" */ './views/ViewerComponent.vue'),
+			canCompare: false,
+		})
+		// Mark as registered to prevent duplicate attempts
+		window.__THREEDVIEWER_REGISTERED__ = true
+		console.info('[ThreeDViewer] Handler registered successfully')
+	} catch (error) {
+		// Handler already registered or other error
+		if (error.message && error.message.includes('already registered')) {
+			console.debug('[ThreeDViewer] Handler already registered, skipping')
+			window.__THREEDVIEWER_REGISTERED__ = true
+		} else {
+			console.error('[ThreeDViewer] Failed to register handler:', error)
+		}
+	}
 }
 
 // Mode 2: Mount advanced viewer app when #threedviewer div exists (standalone page)

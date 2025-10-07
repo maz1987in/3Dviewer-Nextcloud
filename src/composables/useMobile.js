@@ -485,22 +485,22 @@ export function useMobile() {
 	}
 
 	return {
-		// State
-		isMobile: readonly(isMobile),
-		isTouchDevice: readonly(isTouchDevice),
-		orientation: readonly(orientation),
-		screenSize: readonly(screenSize),
-		touchCount: readonly(touchCount),
-		isPinching: readonly(isPinching),
-		isRotating: readonly(isRotating),
-		isPanning: readonly(isPanning),
-		gestureStartPos: readonly(gestureStartPos),
-		gestureCurrentPos: readonly(gestureCurrentPos),
-		gestureDelta: readonly(gestureDelta),
-		gestureVelocity: readonly(gestureVelocity),
-		mobileHintsVisible: readonly(mobileHintsVisible),
-		mobileControlsEnabled: readonly(mobileControlsEnabled),
-		hapticFeedback: readonly(hapticFeedback),
+		// State - these are mutable by event listeners, so don't use readonly
+		isMobile,
+		isTouchDevice,
+		orientation,
+		screenSize,
+		touchCount,
+		isPinching,
+		isRotating,
+		isPanning,
+		gestureStartPos,
+		gestureCurrentPos,
+		gestureDelta,
+		gestureVelocity,
+		mobileHintsVisible,
+		mobileControlsEnabled,
+		hapticFeedback,
 
 		// Computed
 		isMobileDevice,

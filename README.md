@@ -58,6 +58,7 @@ You can reinstall anytime and MIME types will be re-registered automatically!
 ### Usage
 
 - **Multi-format Support**: GLB, GLTF, OBJ (+ MTL), STL, PLY, FBX, 3MF, 3DS, VRML, X3D
+- **Multi-file Models**: Full support for OBJ+MTL+textures and GLTF+bins+images ✅
 - **Dynamic Grid System**: Automatically adapts to model size and position
 - **Model Comparison**: Side-by-side model viewing with synchronized controls
 - **Real-time Streaming**: Secure file streaming with authentication

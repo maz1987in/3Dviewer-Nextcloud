@@ -47,8 +47,17 @@ class ObjLoader extends BaseLoader {
 			throw new Error('No valid geometry found in OBJ file')
 		}
 
-		// OBJ parsed successfully
-
+		// Safety net: Assign default materials to any meshes that somehow ended up with null materials
+		object3D.traverse((node) => {
+			if (node.isMesh && !node.material) {
+				node.material = new THREE.MeshLambertMaterial({
+					color: 0xcccccc,
+					side: THREE.DoubleSide
+				})
+				console.warn(`[OBJ Loader] Mesh "${node.name}" had null material, assigned default`)
+			}
+		})
+		
 		this.logInfo('OBJ model parsed successfully', {
 			children: object3D.children.length,
 			hasMaterials: !!mtlName,
@@ -131,13 +140,17 @@ class ObjLoader extends BaseLoader {
 					color: 0xffffff,
 					side: THREE.DoubleSide,
 					transparent: false,
-					opacity: 1.0
+					opacity: 1.0,
+					map: null, // Explicitly initialize to null
+					normalMap: null,
+					specularMap: null
 				})
 				materials[materialName] = currentMaterial
 			} else if (currentMaterial && command === 'map_Kd') {
-				// Set diffuse texture
-				const texturePath = parts[1]
-				currentMaterial.map = texturePath // Store texture path for later loading
+				// Store texture path for later loading, but keep material.map as null
+				// Never set material.map to a string - it must be null or THREE.Texture
+				currentMaterial._mapPath = parts[1] // Temporary storage for path
+				currentMaterial.map = null // Keep as null until texture loads
 			} else if (currentMaterial && command === 'Kd') {
 				// Set diffuse color
 				const r = parseFloat(parts[1]) || 1.0
@@ -175,7 +188,7 @@ class ObjLoader extends BaseLoader {
 		// Manual MTL parsing completed
 		
 		// Return in the same format as MTLLoader with create method
-		return {
+		const materialsWrapper = {
 			materials: materials,
 			preload: () => {
 				// Preload function placeholder
@@ -185,9 +198,30 @@ class ObjLoader extends BaseLoader {
 			},
 			create: (materialName) => {
 				// Create method that OBJLoader expects
-				return materials[materialName] || null
+				// Handle empty or whitespace-only material names (malformed OBJ files)
+				const trimmedName = materialName?.trim() || ''
+				if (!trimmedName) {
+					const firstMaterialName = Object.keys(materials)[0]
+					if (firstMaterialName) {
+						console.warn(`[OBJ Loader] Empty material name in OBJ file, using "${firstMaterialName}" as fallback`)
+						return materials[firstMaterialName]
+					}
+				}
+				
+				const material = materials[trimmedName]
+				if (!material) {
+					// Material name not found - could be typo in OBJ file
+					const firstMaterialName = Object.keys(materials)[0]
+					if (firstMaterialName) {
+						console.warn(`[OBJ Loader] Material "${trimmedName}" not found, using "${firstMaterialName}" as fallback`)
+						return materials[firstMaterialName]
+					}
+				}
+				return material || null
 			}
 		}
+		
+		return materialsWrapper
 	}
 
 	/**
@@ -206,36 +240,36 @@ class ObjLoader extends BaseLoader {
 			if (material.map && typeof material.map === 'string') {
 				this.loadTextureFromDependencies(material.map, customTextureLoader, additionalFiles, THREE)
 					.then(texture => {
-						if (texture) {
-							material.map = texture
-						}
+						// Always set to texture or null, never leave as string
+						material.map = texture || null
 					})
 					.catch(error => {
 						console.warn('[OBJ Loader] Failed to load diffuse texture for native material:', materialName, error)
+						material.map = null
 					})
 			}
 			
 			if (material.normalMap && typeof material.normalMap === 'string') {
 				this.loadTextureFromDependencies(material.normalMap, customTextureLoader, additionalFiles, THREE)
 					.then(texture => {
-						if (texture) {
-							material.normalMap = texture
-						}
+						// Always set to texture or null, never leave as string
+						material.normalMap = texture || null
 					})
 					.catch(error => {
 						console.warn('[OBJ Loader] Failed to load normal texture for native material:', materialName, error)
+						material.normalMap = null
 					})
 			}
 			
 			if (material.specularMap && typeof material.specularMap === 'string') {
 				this.loadTextureFromDependencies(material.specularMap, customTextureLoader, additionalFiles, THREE)
 					.then(texture => {
-						if (texture) {
-							material.specularMap = texture
-						}
+						// Always set to texture or null, never leave as string
+						material.specularMap = texture || null
 					})
 					.catch(error => {
 						console.warn('[OBJ Loader] Failed to load specular texture for native material:', materialName, error)
+						material.specularMap = null
 					})
 			}
 		}
@@ -314,9 +348,9 @@ class ObjLoader extends BaseLoader {
 						
 						// Load textures for materials (only for manual parser - native parser handles this in setupCustomTextureLoader)
 						if (materials.materials && Object.keys(materials.materials).length > 0) {
-							// Check if this was parsed manually (textures are strings) or natively (textures are already loaded or will be loaded async)
-							const firstMaterial = Object.values(materials.materials)[0]
-							const isManualParser = firstMaterial.map && typeof firstMaterial.map === 'string'
+							// Check if this was parsed manually (has _mapPath property) or natively (textures are already loaded or will be loaded async)
+							// Need to check ALL materials, not just the first one - some materials might not have textures
+							const isManualParser = Object.values(materials.materials).some(mat => mat._mapPath !== undefined)
 							
 							if (isManualParser) {
 								// Processing materials with textures from manual parser
@@ -324,39 +358,42 @@ class ObjLoader extends BaseLoader {
 								
 								// Load textures for each material synchronously
 								for (const [materialName, material] of Object.entries(materials.materials)) {
-									// Handle diffuse texture (map_Kd) - stored as string path in manual parser
-									if (material.map && typeof material.map === 'string') {
+									// Handle diffuse texture (map_Kd) - path stored in _mapPath
+									if (material._mapPath) {
 										try {
-											const texture = await this.loadTextureFromDependencies(material.map, customTextureLoader, additionalFiles, THREE)
-											if (texture) {
-												material.map = texture
-											}
+											const texture = await this.loadTextureFromDependencies(material._mapPath, customTextureLoader, additionalFiles, THREE)
+											material.map = texture || null
+											delete material._mapPath // Clean up temporary property
 										} catch (error) {
 											console.warn('[OBJ Loader] Failed to load diffuse texture for:', materialName, error)
+											material.map = null
+											delete material._mapPath
 										}
 									}
 									
 									// Handle normal map (bump map)
-									if (material.normalMap && typeof material.normalMap === 'string') {
+									if (material._normalMapPath) {
 										try {
-											const texture = await this.loadTextureFromDependencies(material.normalMap, customTextureLoader, additionalFiles, THREE)
-											if (texture) {
-												material.normalMap = texture
-											}
+											const texture = await this.loadTextureFromDependencies(material._normalMapPath, customTextureLoader, additionalFiles, THREE)
+											material.normalMap = texture || null
+											delete material._normalMapPath
 										} catch (error) {
 											console.warn('[OBJ Loader] Failed to load normal map for:', materialName, error)
+											material.normalMap = null
+											delete material._normalMapPath
 										}
 									}
 									
 									// Handle specular map
-									if (material.specularMap && typeof material.specularMap === 'string') {
+									if (material._specularMapPath) {
 										try {
-											const texture = await this.loadTextureFromDependencies(material.specularMap, customTextureLoader, additionalFiles, THREE)
-											if (texture) {
-												material.specularMap = texture
-											}
+											const texture = await this.loadTextureFromDependencies(material._specularMapPath, customTextureLoader, additionalFiles, THREE)
+											material.specularMap = texture || null
+											delete material._specularMapPath
 										} catch (error) {
 											console.warn('[OBJ Loader] Failed to load specular map for:', materialName, error)
+											material.specularMap = null
+											delete material._specularMapPath
 										}
 									}
 								}
@@ -450,16 +487,35 @@ class ObjLoader extends BaseLoader {
 	createTextureLoader(additionalFiles) {
 		return {
 			load: (url, onLoad, onProgress, onError) => {
-				console.info('[OBJ Loader] Texture loader called for:', url)
+				// Try to find texture with original path first (preserves directory structure)
+				// Fall back to basename only if not found (handles flat file storage)
+				const normalizedUrl = url.replace(/\\/g, '/') // Convert backslashes
+				const basename = normalizedUrl.split('/').pop()
 				
-				// Find the texture file in pre-fetched dependencies
-				const textureFile = additionalFiles.find(file => {
-					const fileName = file.name.split('/').pop()
-					return fileName === url || file.name.endsWith(url)
+				// Try exact match first (case-insensitive)
+				let textureFile = additionalFiles.find(file => {
+					const filePath = file.name.replace(/\\/g, '/')
+					return filePath.toLowerCase() === normalizedUrl.toLowerCase()
 				})
+				
+				// Fall back to basename match if full path not found
+				if (!textureFile) {
+					textureFile = additionalFiles.find(file => {
+						const fileName = file.name.split('/').pop()
+						return fileName.toLowerCase() === basename.toLowerCase()
+					})
+				}
 
 				if (textureFile) {
-					console.info('[OBJ Loader] Texture found in dependencies:', textureFile.name)
+					// Check if texture format is supported by browsers
+					const extension = textureFile.name.split('.').pop().toLowerCase()
+					const unsupportedFormats = ['tif', 'tiff', 'tga', 'dds']
+					
+					if (unsupportedFormats.includes(extension)) {
+						console.warn(`[OBJ Loader] Texture format .${extension} is not supported by browsers, skipping:`, url)
+						onLoad(null) // Signal "no texture" so loading can continue
+						return
+					}
 					
 					// Create a blob URL from the pre-fetched file
 					const blob = new Blob([textureFile], { type: textureFile.type })
@@ -468,27 +524,23 @@ class ObjLoader extends BaseLoader {
 					// Use the standard Image loader with the blob URL
 					const image = new Image()
 					image.onload = () => {
-						console.info('[OBJ Loader] Texture loaded successfully:', url)
 						onLoad(image)
 						URL.revokeObjectURL(blobUrl) // Clean up
 					}
 					image.onerror = () => {
-						console.error('[OBJ Loader] Texture failed to load:', url)
-						onError(new Error(`Failed to load texture: ${url}`))
+						console.warn('[OBJ Loader] Texture failed to load:', url)
+						onLoad(null) // Allow loading to continue without texture
 						URL.revokeObjectURL(blobUrl) // Clean up
 					}
 					image.src = blobUrl
 				} else {
 					// Texture not found in dependencies
-					console.warn('[OBJ Loader] Texture not found in dependencies:', {
-						url,
-						sampleAvailableFiles: additionalFiles.slice(0, 10).map(f => f.name.split('/').pop())
-					})
 					this.logWarning('Texture not found in pre-fetched dependencies', { 
 						url,
+						normalizedUrl,
 						availableFiles: additionalFiles.map(f => f.name.split('/').pop())
 					})
-					if (onError) onError(new Error(`Texture not found: ${url}`))
+					onLoad(null) // Allow loading to continue without texture
 				}
 			}
 		}
@@ -505,18 +557,20 @@ class ObjLoader extends BaseLoader {
 	async loadTextureFromDependencies(texturePath, textureLoader, additionalFiles, THREE) {
 		return new Promise((resolve, reject) => {
 			try {
-				// Loading texture from dependencies
-				
 				textureLoader.load(
 					texturePath,
 					(image) => {
-						// Texture loaded successfully
+						// Check if image is null (texture unavailable/unsupported)
+						if (!image) {
+							resolve(null)
+							return
+						}
 						
 						// Create THREE.js texture from the loaded image with proper settings
 						const texture = new THREE.Texture(image)
 						texture.needsUpdate = true
 						
-						// Configure texture properties based on the Medium article best practices
+						// Configure texture properties based on best practices
 						texture.flipY = false // OBJ files typically use different Y orientation
 						texture.wrapS = THREE.RepeatWrapping
 						texture.wrapT = THREE.RepeatWrapping
@@ -528,8 +582,6 @@ class ObjLoader extends BaseLoader {
 						// Ensure proper format and type
 						texture.format = THREE.RGBAFormat
 						texture.type = THREE.UnsignedByteType
-						
-						// Texture created with proper properties
 						
 						resolve(texture)
 					},

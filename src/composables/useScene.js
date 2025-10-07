@@ -3,7 +3,7 @@
  * Handles Three.js scene setup, lighting, helpers, and scene management
  */
 
-import { ref, computed, readonly } from 'vue'
+import { ref, computed } from 'vue'
 import * as THREE from 'three'
 import { logError } from '../utils/error-handler.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
@@ -486,19 +486,19 @@ export function useScene() {
 		logError('useScene', 'Scene disposed')
 	}
 
-	return {
-		// State
-		scene: readonly(scene),
-		renderer: readonly(renderer),
-		grid: readonly(grid),
-		axes: readonly(axes),
-		lights: readonly(lights),
-		helpers: readonly(helpers),
-		backgroundColor: readonly(backgroundColor),
-		fog: readonly(fog),
-		shadows: readonly(shadows),
-		antialias: readonly(antialias),
-		fps: readonly(fps),
+	const composableReturn = {
+		// State - these are mutable by the composable's own methods, so don't use readonly
+		scene,
+		renderer,
+		grid,
+		axes,
+		lights,
+		helpers,
+		backgroundColor,
+		fog,
+		shadows,
+		antialias,
+		fps,
 
 		// Computed
 		isSceneReady,
@@ -523,4 +523,6 @@ export function useScene() {
 		getSceneStats,
 		dispose,
 	}
+	
+	return composableReturn
 }

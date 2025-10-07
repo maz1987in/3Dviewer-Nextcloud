@@ -10,6 +10,18 @@ This directory contains comprehensive documentation for the 3D Viewer Nextcloud 
 - [**Developer Guide**](DEVELOPER_GUIDE.md)
 - [**API Reference**](API_REFERENCE.md)
 
+### Migration Documentation 🚀
+Start here: [**Composables Migration Summary**](COMPOSABLES_MIGRATION_SUMMARY.md) - Executive overview & decision record
+
+**Planning Phase**:
+- [**Composables Migration Plan**](COMPOSABLES_MIGRATION_PLAN.md) - Detailed strategy & 4-phase roadmap
+- [**Composables Issues Analysis**](COMPOSABLES_ISSUES_ANALYSIS.md) - Technical analysis of composable quality
+- [**Composables Architecture Diagram**](COMPOSABLES_ARCHITECTURE_DIAGRAM.md) - Visual architecture diagrams
+
+**Implementation Phase**:
+- [**Composables Migration Quickstart**](COMPOSABLES_MIGRATION_QUICKSTART.md) - Step-by-step implementation guide
+- [**Composables Migration Checklist**](COMPOSABLES_MIGRATION_CHECKLIST.md) - Detailed task checklist
+
 ## 🚀 Quick Start
 
 1. **Installation**: See [Installation Guide](INSTALLATION.md)

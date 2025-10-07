@@ -47,16 +47,19 @@ export async function getFileIdByPath(filePath) {
 			return null
 		}
 		
-		const files = await response.json()
-		
-		console.info('[MultiFileHelpers] Files in directory:', files.map(f => f.name))
-		console.info('[MultiFileHelpers] Looking for file:', filename)
-		
-		// Find the file by name
-		const file = files.find(f => f.name === filename)
-		return file ? file.id : null
-		
-	} catch (error) {
+	const files = await response.json()
+	
+	console.info('[MultiFileHelpers] Files in directory:', files.map(f => f.name))
+	console.info('[MultiFileHelpers] Looking for file:', filename)
+	
+	// Find the file by name (case-insensitive to handle Windows/Linux differences)
+	const file = files.find(f => f.name.toLowerCase() === filename.toLowerCase())
+	
+	if (!file) {
+		console.warn('[MultiFileHelpers] File not found:', filename, 'Available files:', files.map(f => f.name))
+	}
+	
+	return file ? file.id : null	} catch (error) {
 		console.warn('[MultiFileHelpers] Error getting file ID for path:', filePath, error)
 		return null
 	}
@@ -81,7 +84,19 @@ export function parseObjMaterialFiles(objContent) {
 export function parseMtlTextureFiles(mtlContent) {
 	// Match lines like: map_Kd texture.jpg, map_Ka ambient.png, etc.
 	const matches = [...mtlContent.matchAll(/^\s*map_[A-Za-z0-9_]+[^\S\r\n]+(.*?)$/gm)]
-	return [...new Set(matches.map(capture => capture[1].trim()))]
+	
+	// Extract basenames only (strip directory paths and normalize separators)
+	// OBJ/MTL files often reference textures in subdirectories (e.g., 'images\texture.jpg')
+	// but Nextcloud stores all files flat in the same directory
+	const filenames = matches.map(capture => {
+		const fullPath = capture[1].trim()
+		// Normalize both forward and backward slashes, then get basename
+		const normalized = fullPath.replace(/\\/g, '/')
+		const basename = normalized.split('/').pop()
+		return basename
+	})
+	
+	return [...new Set(filenames)]
 }
 
 /**

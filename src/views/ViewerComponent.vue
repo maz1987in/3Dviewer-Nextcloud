@@ -23,12 +23,27 @@
 <script>
 import { NcProgressBar } from '@nextcloud/vue'
 import { loadModelWithDependencies } from '../loaders/multiFileHelpers.js'
+import { useScene } from '../composables/useScene.js'
+import { useCamera } from '../composables/useCamera.js'
 
 export default {
 	name: 'ViewerComponent',
 	
 	components: {
 		NcProgressBar,
+	},
+	
+	// Setup function - integrates composables with Options API
+	setup() {
+		// Initialize composables
+		const sceneComposable = useScene()
+		const cameraComposable = useCamera()
+		
+		// Return composables for use in Options API methods
+		return {
+			sceneComposable,
+			cameraComposable,
+		}
 	},
 	
 	props: {
@@ -149,6 +164,14 @@ export default {
 		// Use the enhanced cleanup method
 		this.cleanupWebGLContext()
 		
+		// Cleanup composables (hybrid integration)
+		if (this.sceneComposable && typeof this.sceneComposable.dispose === 'function') {
+			this.sceneComposable.dispose()
+		}
+		if (this.cameraComposable && typeof this.cameraComposable.dispose === 'function') {
+			this.cameraComposable.dispose()
+		}
+		
 		// Additional cleanup for any remaining resources
 		if (this.scene) {
 			this.scene.clear()
@@ -237,72 +260,87 @@ export default {
 					return
 				}
 
-				const THREE = await import(/* webpackChunkName: "three" */ 'three')
-				const { OrbitControls } = await import(/* webpackChunkName: "OrbitControls" */ 'three/examples/jsm/controls/OrbitControls.js')
+			const THREE = await import(/* webpackChunkName: "three" */ 'three')
+			const { OrbitControls } = await import(/* webpackChunkName: "OrbitControls" */ 'three/examples/jsm/controls/OrbitControls.js')
 
-				// Check cancellation after imports
-				if (this.loadingCancelled) {
-					console.debug('[ThreeDViewer] Loading cancelled after imports')
-					this.updateProgress(false)
-					return
-				}
+			// Check cancellation after imports
+			if (this.loadingCancelled) {
+				console.debug('[ThreeDViewer] Loading cancelled after imports')
+				this.updateProgress(false)
+				return
+			}
 
-				// Setup scene
-				this.updateProgress(true, 20, this.t('threedviewer', 'Setting up 3D scene...'), '', true)
-				this.scene = new THREE.Scene()
-				this.scene.background = new THREE.Color(0xf0f0f0)
+			// Setup scene - manually create for now (composable expects container without canvas)
+			this.updateProgress(true, 20, this.t('threedviewer', 'Setting up 3D scene...'), '', true)
+			
+			// Create scene
+			this.scene = new THREE.Scene()
+			this.scene.background = new THREE.Color(0xf0f0f0)
+			
+			// Store in composable for state management
+			this.sceneComposable.scene.value = this.scene
+			
+			// Create renderer
+			this.renderer = new THREE.WebGLRenderer({ 
+				canvas: this.$refs.canvas,
+				antialias: true,
+				alpha: false,
+				premultipliedAlpha: false,
+				preserveDrawingBuffer: false,
+				powerPreference: 'high-performance',
+				failIfMajorPerformanceCaveat: false,
+				desynchronized: true
+			})
+			this.renderer.setSize(this.$refs.canvas.clientWidth, this.$refs.canvas.clientHeight)
+			this.renderer.setPixelRatio(window.devicePixelRatio)
+			this.renderer.shadowMap.enabled = false
+			this.renderer.outputEncoding = THREE.sRGBEncoding
+			
+			// Store in composable
+			this.sceneComposable.renderer.value = this.renderer
+			
+			// Suppress specific WebGL warnings
+			this.setupWebGLErrorHandling()
 
-				// Setup camera
-				const aspect = this.$refs.canvas.clientWidth / this.$refs.canvas.clientHeight
-				this.camera = new THREE.PerspectiveCamera(75, aspect, 0.1, 1000)
-				this.camera.position.z = 5
+			// Setup camera and controls using composable
+			this.updateProgress(true, 25, this.t('threedviewer', 'Setting up camera...'), '', true)
+			
+			const aspect = this.$refs.canvas.clientWidth / this.$refs.canvas.clientHeight
+			this.camera = new THREE.PerspectiveCamera(75, aspect, 0.1, 1000)
+			this.camera.position.z = 5
+			
+			// Store in composable
+			this.cameraComposable.camera.value = this.camera
+			
+			// Setup controls
+			this.controls = new OrbitControls(this.camera, this.renderer.domElement)
+			this.controls.enableDamping = true
+			
+			// Store in composable
+			this.cameraComposable.controls.value = this.controls
 
-				// Setup renderer with enhanced WebGL context management
-				this.renderer = new THREE.WebGLRenderer({ 
-					canvas: this.$refs.canvas,
-					antialias: true,
-					alpha: false,
-					premultipliedAlpha: false,
-					preserveDrawingBuffer: false,
-					powerPreference: 'high-performance',
-					failIfMajorPerformanceCaveat: false,
-					desynchronized: true
-				})
-				this.renderer.setSize(this.$refs.canvas.clientWidth, this.$refs.canvas.clientHeight)
-				this.renderer.setPixelRatio(window.devicePixelRatio)
-				
-				// Configure renderer to minimize texture conflicts
-				this.renderer.shadowMap.enabled = false
-				this.renderer.outputEncoding = THREE.sRGBEncoding
-				
-				// Suppress specific WebGL warnings
-				this.setupWebGLErrorHandling()
+			// Add lights using composable
+			this.updateProgress(true, 30, this.t('threedviewer', 'Setting up lighting...'), '', true)
+			
+			// Check cancellation before creating lights
+			if (this.loadingCancelled) {
+				console.debug('[ThreeDViewer] Loading cancelled before lighting')
+				this.updateProgress(false)
+				return
+			}
+			
+			// Use composable for lighting setup
+			this.sceneComposable.setupLighting({
+				ambientColor: 0x404040,
+				ambientIntensity: 2,
+				directionalColor: 0xffffff,
+				directionalIntensity: 1,
+				directionalPosition: { x: 1, y: 1, z: 1 },
+				directionalShadows: false, // Match our original settings
+			})
 
-				// Setup controls
-				this.controls = new OrbitControls(this.camera, this.renderer.domElement)
-				this.controls.enableDamping = true
-
-				// Add lights
-				this.updateProgress(true, 30, this.t('threedviewer', 'Setting up lighting...'), '', true)
-				
-				// Check cancellation before creating lights
-				if (this.loadingCancelled) {
-					console.debug('[ThreeDViewer] Loading cancelled before lighting')
-					this.updateProgress(false)
-					return
-				}
-
-				const ambientLight = new THREE.AmbientLight(0x404040, 2)
-				this.scene.add(ambientLight)
-
-				const directionalLight = new THREE.DirectionalLight(0xffffff, 1)
-				directionalLight.position.set(1, 1, 1)
-				this.scene.add(directionalLight)
-
-				// Load model
-				this.updateProgress(true, 40, this.t('threedviewer', 'Loading 3D model...'), '', true)
-				
-				// Check cancellation before heavy model loading
+			// Load model
+			this.updateProgress(true, 40, this.t('threedviewer', 'Loading 3D model...'), '', true)				// Check cancellation before heavy model loading
 				if (this.loadingCancelled) {
 					console.debug('[ThreeDViewer] Loading cancelled before model download')
 					this.updateProgress(false)
@@ -522,34 +560,26 @@ export default {
 		},
 
 		fitCameraToModel(object, THREE) {
-			// Calculate bounding box
+			// Use fallback logic for now - composable version modifies object position
+			// which causes centering issues. TODO: Fix composable to not modify object
 			const box = new THREE.Box3().setFromObject(object)
 			const size = box.getSize(new THREE.Vector3())
 			const center = box.getCenter(new THREE.Vector3())
-			
-			// Get max dimension
 			const maxDim = Math.max(size.x, size.y, size.z)
+			const cameraDistance = Math.min(maxDim * 2, 200)
 			
-			// Calculate reasonable camera distance for optimal viewing
-			const cameraDistance = Math.min(maxDim * 2, 200) // Max 200 units distance
-			
-			// Position camera
 			this.camera.position.set(
 				center.x + cameraDistance * 0.5,
 				center.y + cameraDistance * 0.5,
 				center.z + cameraDistance
 			)
-			
-			// Point camera at center
 			this.camera.lookAt(center)
 			
-			// Update controls target
 			if (this.controls) {
 				this.controls.target.copy(center)
 				this.controls.update()
 			}
 			
-			// Update near/far planes
 			this.camera.near = cameraDistance / 100
 			this.camera.far = cameraDistance * 100
 			this.camera.updateProjectionMatrix()
@@ -561,21 +591,21 @@ export default {
 			})
 		},
 
-		animate() {
-			if (!this.renderer || !this.scene || !this.camera) {
-				return
-			}
+	animate() {
+		if (!this.renderer || !this.scene || !this.camera) {
+			return
+		}
 
-			requestAnimationFrame(this.animate)
-			
-			if (this.controls) {
-				this.controls.update()
-			}
+		requestAnimationFrame(this.animate)
+		
+		if (this.controls) {
+			this.controls.update()
+		}
 
-			this.renderer.render(this.scene, this.camera)
-		},
+		this.renderer.render(this.scene, this.camera)
+	},
 
-		cleanup() {
+	cleanup() {
 			console.info('[ThreeDViewer] Starting cleanup for model:', this.filename)
 			
 			// Dispose of geometries, materials, and textures

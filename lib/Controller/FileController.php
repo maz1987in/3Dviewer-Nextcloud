@@ -76,7 +76,7 @@ class FileController extends BaseController {
 
             // Validate file (skip validation for dependency files like bin, png, jpg, etc.)
             $extension = strtolower($file->getExtension());
-            $dependencyExtensions = ['bin', 'png', 'jpg', 'jpeg', 'tga', 'bmp', 'webp'];
+            $dependencyExtensions = ['bin', 'png', 'jpg', 'jpeg', 'tif', 'tiff', 'tga', 'bmp', 'webp'];
             
             if (!in_array($extension, $dependencyExtensions)) {
                 $this->validateFile($file);

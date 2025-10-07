@@ -3,7 +3,7 @@
  * Handles camera setup, controls, animations, and view management
  */
 
-import { ref, readonly } from 'vue'
+import { ref } from 'vue'
 import * as THREE from 'three'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
 import { logError } from '../utils/error-handler.js'
@@ -746,14 +746,14 @@ export function useCamera() {
 	}
 
 	return {
-		// State
-		camera: readonly(camera),
-		controls: readonly(controls),
-		isAnimating: readonly(isAnimating),
-		autoRotate: readonly(autoRotateEnabled),
-		autoRotateSpeed: readonly(autoRotateSpeed),
-		isMobile: readonly(isMobile),
-		animationPresets: readonly(animationPresets),
+		// State - these are mutable by the composable's own methods, so don't use readonly
+		camera,
+		controls,
+		isAnimating,
+		autoRotate: autoRotateEnabled,
+		autoRotateSpeed,
+		isMobile,
+		animationPresets,
 
 		// Methods
 		initCamera,
