@@ -72,7 +72,7 @@ class ObjLoader extends BaseLoader {
 		// Object loaded successfully
 
 		// Calculate bounding box and scale the model if it's too large
-		const { size, maxDimension } = getBoundingInfo(object3D)
+		const { size, center, maxDimension } = getBoundingInfo(object3D)
 		
 		// Model bounds calculated
 		
