@@ -7,7 +7,8 @@ import { ref, computed } from 'vue'
 import * as THREE from 'three'
 import { loadModelByExtension, isSupportedExtension } from '../loaders/registry.js'
 import { loadModelWithDependencies } from '../loaders/multiFileHelpers.js'
-import { logError, createErrorState } from '../utils/error-handler.js'
+import { createErrorState } from '../utils/error-handler.js'
+import { logger } from '../utils/logger.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
 import { LOADING_STAGES } from '../constants/index.js'
 
@@ -71,13 +72,13 @@ export function useModelLoading() {
 				hasMeshopt.value = false
 			}
 
-			logError('useModelLoading', 'Decoders initialized', {
+			logger.info('useModelLoading', 'Decoders initialized', {
 				draco: hasDraco.value,
 				ktx2: hasKtx2.value,
 				meshopt: hasMeshopt.value,
 			})
 		} catch (error) {
-			logError('useModelLoading', 'Failed to initialize decoders', error)
+			logger.error('useModelLoading', 'Failed to initialize decoders', error)
 		}
 	}
 
@@ -110,8 +111,8 @@ export function useModelLoading() {
 			// Check if this is a multi-file format
 			const isMultiFile = ['obj', 'gltf'].includes(extension)
 
-			if (isMultiFile) {
-				logError('useModelLoading', 'Multi-file format detected', { extension, fileId })
+		if (isMultiFile) {
+			logger.info('useModelLoading', 'Multi-file format detected', { extension, fileId })
 
 				try {
 					// Update progress
@@ -120,7 +121,7 @@ export function useModelLoading() {
 					// Load model with dependencies
 					const result = await loadModelWithDependencies(fileId, filename, extension, dirPath)
 
-					logError('useModelLoading', 'Multi-file loading successful', {
+					logger.info('useModelLoading', 'Multi-file loading successful', {
 						mainFile: result.mainFile.name,
 						dependencies: result.dependencies.length,
 					})
@@ -155,7 +156,7 @@ export function useModelLoading() {
 						loading.value = false
 						progress.value = { loaded: 100, total: 100, message: 'Complete' }
 
-						logError('useModelLoading', 'Multi-file model loaded successfully', {
+						logger.info('useModelLoading', 'Multi-file model loaded successfully', {
 							fileId,
 							extension,
 							children: modelResult.object3D.children.length,
@@ -167,7 +168,7 @@ export function useModelLoading() {
 						throw new Error('No valid 3D object returned from loader')
 					}
 				} catch (multiFileError) {
-					logError('useModelLoading', 'Multi-file loading failed, falling back to single-file', multiFileError, 'warn')
+					logger.warn('useModelLoading', 'Multi-file loading failed, falling back to single-file', multiFileError)
 					// Fall through to single-file loading
 				}
 			}
@@ -254,7 +255,7 @@ export function useModelLoading() {
 			loading.value = false
 			progress.value = { loaded: receivedLength, total: receivedLength, message: 'Complete' }
 
-				logError('useModelLoading', 'Model loaded successfully', {
+				logger.info('useModelLoading', 'Model loaded successfully', {
 					fileId,
 					extension,
 					children: result.object3D.children.length,
@@ -314,7 +315,7 @@ export function useModelLoading() {
 				loading.value = false
 				progress.value = { loaded: arrayBuffer.byteLength, total: arrayBuffer.byteLength, message: 'Complete' }
 
-				logError('useModelLoading', 'Model loaded successfully', {
+				logger.info('useModelLoading', 'Model loaded successfully', {
 					fileId: currentFileId.value,
 					extension,
 					children: result.object3D.children.length,
@@ -409,7 +410,7 @@ export function useModelLoading() {
 		progress.value = { loaded, total, message: stage }
 
 		if (stage) {
-			logError('useModelLoading', 'Progress update', {
+			logger.info('useModelLoading', 'Progress update', {
 				loaded,
 				total,
 				stage,
@@ -427,7 +428,7 @@ export function useModelLoading() {
 		// Don't treat abort as an error
 		if (error.name === 'AbortError' || error.message?.includes('aborted')) {
 			loading.value = false
-			logError('useModelLoading', 'Load cancelled by user', { filename }, 'info')
+			logger.info('useModelLoading', 'Load cancelled by user', { filename })
 			return
 		}
 
@@ -435,7 +436,7 @@ export function useModelLoading() {
 		error.value = error
 		errorState.value = createErrorState(error, (key) => key) // Simple translation function
 
-		logError('useModelLoading', 'Model loading failed', error, 'error', {
+		logger.info('useModelLoading', 'Model loading failed', error, 'error', {
 			filename,
 			retryCount: retryCount.value,
 			maxRetries: maxRetries.value,
@@ -456,7 +457,7 @@ export function useModelLoading() {
 		error.value = null
 		errorState.value = null
 
-		logError('useModelLoading', 'Retrying model load', {
+		logger.info('useModelLoading', 'Retrying model load', {
 			attempt: retryCount.value,
 			maxRetries: maxRetries.value,
 		})
@@ -479,8 +480,8 @@ export function useModelLoading() {
 		}
 
 		loading.value = false
-		progress.value = { loaded: 0, total: 0, message: null }
-		logError('useModelLoading', 'Load cancelled')
+	progress.value = { loaded: 0, total: 0, message: null }
+	logger.info('useModelLoading', 'Load cancelled')
 		// Test harness hook
 		if (typeof window !== 'undefined') {
 			window.__ABORTED = true
@@ -509,7 +510,7 @@ export function useModelLoading() {
 		currentFileId.value = null
 		clearError()
 
-		logError('useModelLoading', 'Model cleared')
+		logger.info('useModelLoading', 'Model cleared')
 	}
 
 	/**

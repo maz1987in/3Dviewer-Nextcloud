@@ -6,7 +6,7 @@
 import { ref, computed, readonly } from 'vue'
 import * as THREE from 'three'
 import { loadModelByExtension, isSupportedExtension } from '../loaders/registry.js'
-import { logError } from '../utils/error-handler.js'
+import { logger } from '../utils/logger.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
 import { disposeObject } from '../utils/three-utils.js'
 
@@ -40,7 +40,7 @@ export function useComparison() {
 			clearComparison()
 		}
 
-		logError('useComparison', 'Comparison mode toggled', { enabled: comparisonMode.value })
+		logger.info('useComparison', 'Comparison mode toggled', { enabled: comparisonMode.value })
 	}
 
 	/**
@@ -48,8 +48,8 @@ export function useComparison() {
 	 */
 	const setupComparisonMode = () => {
 		// This would typically open a file picker or modal
-		// The actual implementation depends on the UI framework
-		logError('useComparison', 'Comparison mode setup')
+	// The actual implementation depends on the UI framework
+	logger.info('useComparison', 'Comparison mode setup')
 	}
 
 	/**
@@ -91,7 +91,7 @@ export function useComparison() {
 						}
 					}
 				} catch (e) {
-					logError('useComparison', 'OCS API failed', e)
+					logger.info('useComparison', 'OCS API failed', e)
 				}
 			}
 
@@ -101,16 +101,16 @@ export function useComparison() {
 					{ id: 'dummy1', name: 'Sample Model 1.glb', size: 1024000, path: '/dummy/path1' },
 					{ id: 'dummy2', name: 'Sample Model 2.obj', size: 2048000, path: '/dummy/path2' },
 					{ id: 'dummy3', name: 'Sample Model 3.stl', size: 512000, path: '/dummy/path3' },
-				]
-				logError('useComparison', 'No files found via API, created dummy files for testing')
-			}
+			]
+			logger.info('useComparison', 'No files found via API, created dummy files for testing')
+		}
 
-			comparisonFiles.value = files
-			logError('useComparison', 'Comparison files loaded', { count: files.length })
+		comparisonFiles.value = files
+		logger.info('useComparison', 'Comparison files loaded', { count: files.length })
 
 			return files
 		} catch (error) {
-			logError('useComparison', 'Failed to load comparison files', error)
+			logger.error('useComparison', 'Failed to load comparison files', error)
 			throw error
 		}
 	}
@@ -126,7 +126,7 @@ export function useComparison() {
 			loadingComparison.value = true
 			comparisonError.value = null
 
-			logError('useComparison', 'Loading comparison model from Nextcloud', file)
+			logger.info('useComparison', 'Loading comparison model from Nextcloud', file, 'info')
 			// Loading comparison model
 
 			// Skip dummy files
@@ -167,7 +167,7 @@ export function useComparison() {
 						break
 					}
 				} catch (e) {
-					logError('useComparison', `API endpoint failed: ${endpoint}`, e)
+					logger.info('useComparison', `API endpoint failed: ${endpoint}`, e)
 				}
 			}
 
@@ -178,8 +178,8 @@ export function useComparison() {
 			const arrayBuffer = await response.arrayBuffer()
 			const extension = file.name.split('.').pop().toLowerCase()
 
-			logError('useComparison', 'Successfully loaded file from', usedEndpoint)
-			logError('useComparison', 'Detected file extension', extension)
+		logger.info('useComparison', 'Successfully loaded file from', usedEndpoint, 'info')
+		logger.info('useComparison', 'Detected file extension', extension, 'info')
 
 			// Load the model using the appropriate loader
 			const result = await loadModelByExtension(extension, arrayBuffer, {
@@ -204,16 +204,16 @@ export function useComparison() {
 					// Context or scene not available for comparison indicator
 				}
 
-				// Comparison model positioned
+			// Comparison model positioned
 
-				logError('useComparison', 'Comparison model loaded successfully')
-				return result
-			} else {
-				throw new Error('No valid 3D object returned from loader')
-			}
-		} catch (error) {
-			comparisonError.value = error
-			logError('useComparison', 'Error loading comparison model from Nextcloud', error)
+			logger.info('useComparison', 'Comparison model loaded successfully')
+			return result
+		} else {
+			throw new Error('No valid 3D object returned from loader')
+		}
+	} catch (error) {
+		comparisonError.value = error
+		logger.error('useComparison', 'Error loading comparison model from Nextcloud', error)
 			throw error
 		} finally {
 			loadingComparison.value = false
@@ -248,21 +248,21 @@ export function useComparison() {
 			if (result && result.object3D) {
 				comparisonModel.value = result.object3D
 
-				// Add comparison indicator with proper error handling
-				if (context && context.scene) {
-					addComparisonIndicator(result.object3D, file.name, context.scene)
-				} else {
-					// Context or scene not available for comparison indicator
-				}
-
-				logError('useComparison', 'Comparison model loaded successfully')
-				return result
+			// Add comparison indicator with proper error handling
+			if (context && context.scene) {
+				addComparisonIndicator(result.object3D, file.name, context.scene)
 			} else {
-				throw new Error('No valid 3D object returned from loader')
+				// Context or scene not available for comparison indicator
 			}
-		} catch (error) {
-			comparisonError.value = error
-			logError('useComparison', 'Error loading comparison model', error)
+
+			logger.info('useComparison', 'Comparison model loaded successfully')
+			return result
+		} else {
+			throw new Error('No valid 3D object returned from loader')
+		}
+	} catch (error) {
+		comparisonError.value = error
+		logger.error('useComparison', 'Error loading comparison model', error)
 			throw error
 		} finally {
 			loadingComparison.value = false
@@ -322,14 +322,14 @@ export function useComparison() {
 			model.add(indicator)
 			comparisonIndicator.value = indicator
 
-			logError('useComparison', 'Comparison indicator added', {
+			logger.info('useComparison', 'Comparison indicator added', {
 				filename,
 				modelPosition: model.position,
 				indicatorPosition: indicator.position,
 			})
 		} catch (error) {
 			// Error adding comparison indicator
-			logError('useComparison', 'Failed to add comparison indicator', error)
+			logger.error('useComparison', 'Failed to add comparison indicator', error)
 		}
 	}
 
@@ -382,7 +382,7 @@ export function useComparison() {
 			// Use the provided fit function to fit camera to both models
 			fitFunction(model1, model2)
 
-			logError('useComparison', 'Both models fitted to view', {
+			logger.info('useComparison', 'Both models fitted to view', {
 				offset,
 				model1Pos: { x: model1.position.x, y: model1.position.y, z: model1.position.z },
 				model2Pos: { x: model2.position.x, y: model2.position.y, z: model2.position.z },
@@ -390,7 +390,7 @@ export function useComparison() {
 				model2Visible: model2.visible,
 			})
 		} catch (error) {
-			logError('useComparison', 'Failed to fit both models to view', error)
+			logger.error('useComparison', 'Failed to fit both models to view', error)
 		}
 	}
 
@@ -400,8 +400,8 @@ export function useComparison() {
 	 */
 	const toggleOriginalModel = (model) => {
 		if (model) {
-			model.visible = !model.visible
-			logError('useComparison', 'Original model visibility toggled', { visible: model.visible })
+		model.visible = !model.visible
+		logger.info('useComparison', 'Original model visibility toggled', { visible: model.visible })
 		}
 	}
 
@@ -411,7 +411,7 @@ export function useComparison() {
 	const toggleComparisonModel = () => {
 		if (comparisonModel.value) {
 			comparisonModel.value.visible = !comparisonModel.value.visible
-			logError('useComparison', 'Comparison model visibility toggled', {
+			logger.info('useComparison', 'Comparison model visibility toggled', {
 				visible: comparisonModel.value.visible,
 			})
 		}
@@ -434,7 +434,7 @@ export function useComparison() {
 		comparisonError.value = null
 		selectedComparisonFile.value = null
 
-		logError('useComparison', 'Comparison cleared')
+		logger.info('useComparison', 'Comparison cleared')
 	}
 
 	/**

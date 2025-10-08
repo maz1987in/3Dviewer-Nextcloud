@@ -6,7 +6,7 @@
 import { ref } from 'vue'
 import * as THREE from 'three'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
-import { logError } from '../utils/error-handler.js'
+import { logger } from '../utils/logger.js'
 
 export function useCamera() {
 	// Camera and controls state
@@ -97,9 +97,9 @@ export function useCamera() {
 
 			initialCameraPos.value = camera.value.position.clone()
 
-			logError('useCamera', 'Camera initialized', { fov, width, height, mobile })
+			logger.info('useCamera', 'Camera initialized', { fov, width, height, mobile })
 		} catch (error) {
-			logError('useCamera', 'Failed to initialize camera', error)
+			logger.error('useCamera', 'Failed to initialize camera', error)
 			throw error
 		}
 	}
@@ -136,12 +136,12 @@ export function useCamera() {
 
 			// Setup mobile-specific controls
 			if (isMobile.value) {
-				setupMobileControls()
-			}
+			setupMobileControls()
+		}
 
-			logError('useCamera', 'Controls initialized successfully')
-		} catch (error) {
-			logError('useCamera', 'Failed to setup controls', error)
+		logger.info('useCamera', 'Controls initialized successfully')
+	} catch (error) {
+		logger.error('useCamera', 'Failed to setup controls', error)
 			throw error
 		}
 	}
@@ -160,7 +160,7 @@ export function useCamera() {
 			TWO: THREE.TOUCH.DOLLY_PAN,
 		}
 
-		logError('useCamera', 'Mobile controls configured')
+		logger.info('useCamera', 'Mobile controls configured')
 	}
 
 	/**
@@ -177,7 +177,7 @@ export function useCamera() {
 		const threshold = VIEWER_CONFIG.camera.targetResetThreshold
 
 		if (Math.abs(target.x) > threshold || Math.abs(target.z) > threshold) {
-			logError('useCamera', 'Camera target drifted off-center, resetting to origin', {
+			logger.warn('useCamera', 'Camera target drifted off-center, resetting to origin', {
 				target: { x: target.x, y: target.y, z: target.z },
 				threshold,
 			})
@@ -261,13 +261,13 @@ export function useCamera() {
 
 			// Camera fitted to object successfully
 
-			logError('useCamera', 'Camera fitted to object', {
-				center: { x: center.x, y: center.y, z: center.z },
-				size: { x: size.x, y: size.y, z: size.z },
-				cameraDistance,
-			})
-		} catch (error) {
-			logError('useCamera', 'Failed to fit camera to object', error)
+		logger.info('useCamera', 'Camera fitted to object', {
+			center: { x: center.x, y: center.y, z: center.z },
+			size: { x: size.x, y: size.y, z: size.z },
+			cameraDistance,
+		})
+	} catch (error) {
+		logger.error('useCamera', 'Failed to fit camera to object', error)
 		}
 	}
 
@@ -312,13 +312,13 @@ export function useCamera() {
 			// Force the camera to look at origin immediately
 			camera.value.lookAt(0, 0, 0)
 
-			logError('useCamera', 'Camera fitted to both models', {
-				center: { x: center.x, y: center.y, z: center.z },
-				size: { x: size.x, y: size.y, z: size.z },
-				cameraDistance,
-			})
-		} catch (error) {
-			logError('useCamera', 'Failed to fit camera to both models', error)
+		logger.info('useCamera', 'Camera fitted to both models', {
+			center: { x: center.x, y: center.y, z: center.z },
+			size: { x: size.x, y: size.y, z: size.z },
+			cameraDistance,
+		})
+	} catch (error) {
+		logger.error('useCamera', 'Failed to fit camera to both models', error)
 		}
 	}
 
@@ -334,13 +334,13 @@ export function useCamera() {
 				controls.value.target.copy(baselineTarget.value)
 			} else if (initialCameraPos.value) {
 				camera.value.position.copy(initialCameraPos.value)
-				controls.value.target.copy(initialTarget.value)
-			}
+			controls.value.target.copy(initialTarget.value)
+		}
 
-			controls.value.update()
-			logError('useCamera', 'View reset to baseline/initial position')
-		} catch (error) {
-			logError('useCamera', 'Failed to reset view', error)
+	controls.value.update()
+	logger.info('useCamera', 'View reset to baseline/initial position')
+	} catch (error) {
+		logger.error('useCamera', 'Failed to reset view', error)
 		}
 	}
 
@@ -365,9 +365,9 @@ export function useCamera() {
 			camera.value.position.copy(controls.value.target).add(direction.multiplyScalar(distance))
 			controls.value.update()
 
-			logError('useCamera', 'Camera fitted to view', { distance, padding })
-		} catch (error) {
-			logError('useCamera', 'Failed to fit to view', error)
+		logger.info('useCamera', 'Camera fitted to view', { distance, padding })
+	} catch (error) {
+		logger.error('useCamera', 'Failed to fit to view', error)
 		}
 	}
 
@@ -407,8 +407,8 @@ export function useCamera() {
 			if (progress < 1) {
 				requestAnimationFrame(animate)
 			} else {
-				isAnimating.value = false
-				logError('useCamera', 'Preset animation completed', { preset: presetName })
+			isAnimating.value = false
+			logger.info('useCamera', 'Preset animation completed', { preset: presetName })
 			}
 		}
 
@@ -454,9 +454,9 @@ export function useCamera() {
 	const onWindowResize = (width, height) => {
 		if (!camera.value) return
 
-		camera.value.aspect = width / height
-		camera.value.updateProjectionMatrix()
-		logError('useCamera', 'Camera updated for resize', { width, height })
+	camera.value.aspect = width / height
+	camera.value.updateProjectionMatrix()
+	logger.info('useCamera', 'Camera updated for resize', { width, height })
 	}
 
 	/**
@@ -604,7 +604,7 @@ export function useCamera() {
 					}
 				})
 
-				// Auto-rotate functionality
+				// Custom auto-rotate functionality (uses manual camera positioning instead of OrbitControls.autoRotate)
 				if (autoRotateEnabled.value && !isMouseDown.value) {
 					rotationY.value += autoRotateSpeed.value * 0.01
 
@@ -643,11 +643,7 @@ export function useCamera() {
 	 */
 	const toggleAutoRotate = () => {
 		autoRotateEnabled.value = !autoRotateEnabled.value
-		// Enable OrbitControls' built-in auto-rotate
-		if (controls.value) {
-			controls.value.autoRotate = autoRotateEnabled.value
-			controls.value.autoRotateSpeed = autoRotateSpeed.value
-		}
+		logger.info('useCamera', 'Auto-rotate toggled', { enabled: autoRotateEnabled.value })
 	}
 
 	/**
@@ -656,11 +652,7 @@ export function useCamera() {
 	 */
 	const setAutoRotateSpeed = (speed) => {
 		autoRotateSpeed.value = speed
-		// Update OrbitControls' auto-rotate speed
-		if (controls.value) {
-			controls.value.autoRotateSpeed = speed
-		}
-		// Auto-rotate speed set
+		logger.info('useCamera', 'Auto-rotate speed set', { speed })
 	}
 
 	/**
@@ -677,7 +669,7 @@ export function useCamera() {
 		baselineCameraPos.value = null
 		baselineTarget.value = null
 
-		logError('useCamera', 'Camera and controls disposed')
+		logger.info('useCamera', 'Camera and controls disposed')
 	}
 
 	return {

@@ -6,7 +6,7 @@
 import { ref, computed } from 'vue'
 import * as THREE from 'three'
 import { setWireframeMode, createGridHelper, createAxesHelper, disposeObject } from '../utils/three-utils.js'
-import { logError } from '../utils/error-handler.js'
+import { logger } from '../utils/logger.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
 
 export function useScene() {
@@ -83,7 +83,7 @@ export function useScene() {
 			// Setup helpers
 			setupHelpers(options.helpers)
 
-			logError('useScene', 'Scene initialized', {
+			logger.info('useScene', 'Scene initialized', {
 				width,
 				height,
 				backgroundColor: backgroundColor.value,
@@ -91,7 +91,7 @@ export function useScene() {
 				antialias: antialias.value,
 			})
 		} catch (error) {
-			logError('useScene', 'Failed to initialize scene', error)
+			logger.error('useScene', 'Failed to initialize scene', error)
 			throw error
 		}
 	}
@@ -170,7 +170,7 @@ export function useScene() {
 			lights.value.push(hemisphereLight)
 		}
 
-		logError('useScene', 'Lighting setup complete', {
+		logger.info('useScene', 'Lighting setup complete', {
 			lightCount: lights.value.length,
 			shadows: directionalLight.castShadow,
 		})
@@ -230,7 +230,7 @@ export function useScene() {
 			})
 		}
 
-		logError('useScene', 'Helpers setup complete', {
+		logger.info('useScene', 'Helpers setup complete', {
 			helperCount: helpers.value.length,
 			hasGrid: !!grid.value,
 			hasAxes: !!axes.value,
@@ -289,14 +289,14 @@ export function useScene() {
 
 			scene.value.add(grid.value)
 
-			logError('useScene', 'Grid size updated', {
+			logger.info('useScene', 'Grid size updated', {
 				gridSize,
 				divisions,
 				maxDim,
 				groundLevel: grid.value.position.y,
 			})
 		} catch (error) {
-			logError('useScene', 'Failed to update grid size', error)
+			logger.error('useScene', 'Failed to update grid size', error)
 		}
 	}
 
@@ -313,8 +313,8 @@ export function useScene() {
 			scene.value.background = background
 		}
 
-		backgroundColor.value = background
-		logError('useScene', 'Background set', { background })
+	backgroundColor.value = background
+	logger.info('useScene', 'Background set', { background })
 	}
 
 	/**
@@ -331,7 +331,7 @@ export function useScene() {
 		scene.value.fog = new THREE.Fog(color, near, far)
 		fog.value = scene.value.fog
 
-		logError('useScene', 'Fog added', { color, near, far })
+		logger.info('useScene', 'Fog added', { color, near, far })
 	}
 
 	/**
@@ -343,7 +343,7 @@ export function useScene() {
 		scene.value.fog = null
 		fog.value = null
 
-		logError('useScene', 'Fog removed')
+		logger.info('useScene', 'Fog removed')
 	}
 
 	/**
@@ -354,7 +354,7 @@ export function useScene() {
 		if (!scene.value || !object) return
 
 		scene.value.add(object)
-		logError('useScene', 'Object added to scene', {
+		logger.info('useScene', 'Object added to scene', {
 			type: object.constructor.name,
 			children: object.children.length,
 		})
@@ -368,7 +368,7 @@ export function useScene() {
 		if (!scene.value || !object) return
 
 		scene.value.remove(object)
-		logError('useScene', 'Object removed from scene', {
+		logger.info('useScene', 'Object removed from scene', {
 			type: object.constructor.name,
 		})
 	}
@@ -381,8 +381,8 @@ export function useScene() {
 	const onWindowResize = (width, height) => {
 		if (!renderer.value) return
 
-		renderer.value.setSize(width, height)
-		logError('useScene', 'Scene resized', { width, height })
+	renderer.value.setSize(width, height)
+	logger.info('useScene', 'Scene resized', { width, height })
 	}
 
 	/**
@@ -473,7 +473,7 @@ export function useScene() {
 		backgroundColor.value = null
 		fog.value = null
 
-		logError('useScene', 'Scene disposed')
+		logger.info('useScene', 'Scene disposed')
 	}
 
 	const composableReturn = {

@@ -245,7 +245,7 @@ import { useModelLoading } from '../composables/useModelLoading.js'
 import { useComparison } from '../composables/useComparison.js'
 import { useMeasurement } from '../composables/useMeasurement.js'
 import { useAnnotation } from '../composables/useAnnotation.js'
-import { logError } from '../utils/error-handler.js'
+import { logger } from '../utils/logger.js'
 
 export default {
 	name: 'ThreeViewerRefactored',
@@ -357,10 +357,10 @@ export default {
 			// Setup event listeners
 			setupEventListeners()
 
-			logError('ThreeViewer', 'Initialization complete')
+			logger.info('ThreeViewer', 'Initialization complete')
 		} catch (error) {
 			initializing.value = false // Hide loading on error too
-			logError('ThreeViewer', 'Initialization failed', error)
+			logger.error('ThreeViewer', 'Initialization failed', error)
 			emit('error', error)
 		}
 	}
@@ -395,7 +395,7 @@ export default {
 			// Setup grid and axes
 			setupHelpers()
 
-			logError('ThreeViewer', 'Scene setup complete')
+			logger.info('ThreeViewer', 'Scene setup complete')
 		}
 
 		const setupLighting = () => {
@@ -454,7 +454,7 @@ export default {
 				
 				const extension = filename.split('.').pop().toLowerCase()
 
-				logError('ThreeViewer', 'Loading model', {
+				logger.info('ThreeViewer', 'Loading model', {
 					fileId,
 					filename,
 					fullPath,
@@ -484,7 +484,7 @@ export default {
 					updateGridSize(modelRoot.value)
 
 					emit('model-loaded', { fileId, filename })
-					logError('ThreeViewer', 'Model loaded successfully')
+					logger.info('ThreeViewer', 'Model loaded successfully')
 				} else {
 					// Fallback to demo scene if model loading failed
 					createDemoScene(fileId)
@@ -492,7 +492,7 @@ export default {
 			} catch (error) {
 				// Don't log error if it was a user-initiated cancellation
 				if (error.name !== 'AbortError') {
-					logError('ThreeViewer', 'Failed to load model', error)
+					logger.error('ThreeViewer', 'Failed to load model', error)
 					emit('error', error)
 				}
 			}
@@ -515,7 +515,7 @@ export default {
 			updateGridSize(modelRoot.value)
 
 			emit('model-loaded', { fileId, filename: 'demo.glb' })
-			logError('ThreeViewer', 'Demo scene created')
+			logger.info('ThreeViewer', 'Demo scene created')
 		}
 
 		const updateGridSize = (obj) => {
@@ -560,7 +560,7 @@ export default {
 
 			scene.value.add(grid.value)
 
-			logError('ThreeViewer', 'Grid size updated', {
+			logger.info('ThreeViewer', 'Grid size updated', {
 				gridSize,
 				divisions,
 				maxDim,
@@ -633,7 +633,7 @@ export default {
 			try {
 				await modelLoading.retryLoad(() => loadModel(props.fileId))
 			} catch (error) {
-				logError('ThreeViewer', 'Retry failed', error)
+				logger.error('ThreeViewer', 'Retry failed', error)
 			}
 		}
 
@@ -716,7 +716,7 @@ export default {
 				comparison.toggleComparisonMode()
 				emit('toggle-comparison')
 			} catch (error) {
-				logError('ThreeViewer', 'Failed to toggle comparison mode', error)
+				logger.error('ThreeViewer', 'Failed to toggle comparison mode', error)
 			}
 		}
 
@@ -724,7 +724,7 @@ export default {
 			try {
 				await comparison.loadNextcloudFiles()
 			} catch (error) {
-				logError('ThreeViewer', 'Failed to load comparison files', error)
+				logger.error('ThreeViewer', 'Failed to load comparison files', error)
 			}
 		}
 
@@ -754,7 +754,7 @@ export default {
 					}
 				}
 			} catch (error) {
-				logError('ThreeViewer', 'Failed to load comparison model', error)
+				logger.error('ThreeViewer', 'Failed to load comparison model', error)
 			}
 		}
 

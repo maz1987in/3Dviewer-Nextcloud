@@ -5,7 +5,7 @@
 
 import { ref, computed, readonly } from 'vue'
 import * as THREE from 'three'
-import { logError } from '../utils/error-handler.js'
+import { logger } from '../utils/logger.js'
 import { average } from '../utils/mathHelpers.js'
 
 export function usePerformance() {
@@ -70,7 +70,7 @@ export function usePerformance() {
 		// Start performance monitoring
 		startPerformanceMonitoring()
 
-		logError('usePerformance', 'Performance monitoring initialized', {
+		logger.info('usePerformance', 'Performance monitoring initialized', {
 			mode: performanceMode.value,
 			targetFPS: targetFPS.value,
 		})
@@ -123,7 +123,7 @@ export function usePerformance() {
 			break
 		}
 
-		logError('usePerformance', 'Performance mode set', { mode, settings: getCurrentSettings() })
+		logger.info('usePerformance', 'Performance mode set', { mode, settings: getCurrentSettings() })
 	}
 
 	/**
@@ -138,15 +138,15 @@ export function usePerformance() {
 
 		// Set antialias
 		if (renderer.antialias !== antialias.value) {
-			// Note: antialias can't be changed after renderer creation
-			logError('usePerformance', 'Antialias setting requires renderer recreation')
+		// Note: antialias can't be changed after renderer creation
+		logger.warn('usePerformance', 'Antialias setting requires renderer recreation')
 		}
 
 		// Set shadows
 		renderer.shadowMap.enabled = shadows.value
 		renderer.shadowMap.type = shadows.value ? THREE.PCFSoftShadowMap : THREE.BasicShadowMap
 
-		logError('usePerformance', 'Performance settings applied', {
+		logger.info('usePerformance', 'Performance settings applied', {
 			pixelRatio: renderer.getPixelRatio(),
 			shadows: renderer.shadowMap.enabled,
 		})
@@ -160,7 +160,7 @@ export function usePerformance() {
 		frameCount.value = 0
 		performanceHistory.value = []
 
-		logError('usePerformance', 'Performance monitoring started')
+		logger.info('usePerformance', 'Performance monitoring started')
 	}
 
 	/**
@@ -244,14 +244,14 @@ export function usePerformance() {
 			// Performance is below threshold, apply optimizations
 			if (pixelRatio.value > 0.5) {
 				pixelRatio.value = Math.max(0.5, pixelRatio.value - 0.1)
-				renderer.setPixelRatio(pixelRatio.value)
-				logError('usePerformance', 'Auto-optimization: Reduced pixel ratio', { pixelRatio: pixelRatio.value })
+			renderer.setPixelRatio(pixelRatio.value)
+			logger.warn('usePerformance', 'Auto-optimization: Reduced pixel ratio', { pixelRatio: pixelRatio.value })
 			}
 
 			if (shadows.value && currentFPS.value < 20) {
 				shadows.value = false
-				renderer.shadowMap.enabled = false
-				logError('usePerformance', 'Auto-optimization: Disabled shadows')
+			renderer.shadowMap.enabled = false
+			logger.warn('usePerformance', 'Auto-optimization: Disabled shadows')
 			}
 
 			if (lodEnabled.value) {
@@ -282,8 +282,8 @@ export function usePerformance() {
 			}
 		})
 
-		if (optimizedCount > 0) {
-			logError('usePerformance', 'LOD optimization applied', { optimizedCount })
+	if (optimizedCount > 0) {
+		logger.info('usePerformance', 'LOD optimization applied', { optimizedCount })
 		}
 	}
 
@@ -390,7 +390,7 @@ export function usePerformance() {
 		currentFPS.value = 0
 		frameTime.value = 0
 
-		logError('usePerformance', 'Performance monitoring reset')
+		logger.info('usePerformance', 'Performance monitoring reset')
 	}
 
 	/**
@@ -398,16 +398,16 @@ export function usePerformance() {
 	 * @param {number} threshold - FPS threshold for auto-optimization
 	 */
 	const setOptimizationThreshold = (threshold) => {
-		optimizationThreshold.value = Math.max(10, Math.min(120, threshold))
-		logError('usePerformance', 'Optimization threshold set', { threshold: optimizationThreshold.value })
+	optimizationThreshold.value = Math.max(10, Math.min(120, threshold))
+	logger.info('usePerformance', 'Optimization threshold set', { threshold: optimizationThreshold.value })
 	}
 
 	/**
 	 * Toggle auto-optimization
 	 */
 	const toggleAutoOptimization = () => {
-		autoOptimize.value = !autoOptimize.value
-		logError('usePerformance', 'Auto-optimization toggled', { enabled: autoOptimize.value })
+	autoOptimize.value = !autoOptimize.value
+	logger.info('usePerformance', 'Auto-optimization toggled', { enabled: autoOptimize.value })
 	}
 
 	/**
@@ -461,7 +461,7 @@ export function usePerformance() {
 		frameCount.value = 0
 		lastTime.value = 0
 
-		logError('usePerformance', 'Performance resources disposed')
+		logger.info('usePerformance', 'Performance resources disposed')
 	}
 
 	return {
