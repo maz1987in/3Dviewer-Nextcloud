@@ -96,6 +96,9 @@ export function useModelLoading() {
 				throw new Error(`Unsupported file extension: ${extension}`)
 			}
 
+			// Create abort controller for this load operation
+			abortController.value = new AbortController()
+
 			loading.value = true
 			error.value = null
 			errorState.value = null
@@ -169,48 +172,87 @@ export function useModelLoading() {
 				}
 			}
 
-			// Single-file loading (fallback or non-multi-file formats)
-			progress.value = { loaded: 0, total: 0, message: 'Downloading model...' }
+		// Single-file loading (fallback or non-multi-file formats)
+		progress.value = { loaded: 0, total: 0, message: 'Downloading model...' }
 
-			const response = await fetch(`/apps/threedviewer/api/file/${fileId}`, {
-				signal: abortController.value?.signal,
-				headers: {
-					Accept: 'application/octet-stream',
-					'X-Requested-With': 'XMLHttpRequest',
-				},
-				credentials: 'same-origin',
-			})
+		const response = await fetch(`/apps/threedviewer/api/file/${fileId}`, {
+			signal: abortController.value?.signal,
+			headers: {
+				Accept: 'application/octet-stream',
+				'X-Requested-With': 'XMLHttpRequest',
+			},
+			credentials: 'same-origin',
+		})
 
-			if (!response.ok) {
-				throw new Error(`Failed to fetch model: ${response.status} ${response.statusText}`)
+		if (!response.ok) {
+			throw new Error(`Failed to fetch model: ${response.status} ${response.statusText}`)
+		}
+
+		// Get content length for progress tracking
+		const contentLength = parseInt(response.headers.get('content-length') || '0', 10)
+		
+		// Stream the response with progress tracking
+		const reader = response.body.getReader()
+		const chunks = []
+		let receivedLength = 0
+
+		while (true) {
+			const { done, value } = await reader.read()
+			
+			if (done) break
+			
+			chunks.push(value)
+			receivedLength += value.length
+			
+			// Update progress
+			if (contentLength > 0) {
+				progress.value = { 
+					loaded: receivedLength, 
+					total: contentLength, 
+					message: 'Downloading model...' 
+				}
+			} else {
+				// If no content-length, just show bytes downloaded
+				progress.value = { 
+					loaded: receivedLength, 
+					total: 0, 
+					message: 'Downloading model...' 
+				}
 			}
+		}
 
-			const arrayBuffer = await response.arrayBuffer()
+		// Combine chunks into single ArrayBuffer
+		const arrayBuffer = new Uint8Array(receivedLength)
+		let position = 0
+		for (const chunk of chunks) {
+			arrayBuffer.set(chunk, position)
+			position += chunk.length
+		}
 
-			progress.value = { loaded: arrayBuffer.byteLength, total: arrayBuffer.byteLength, message: 'Parsing model...' }
+		progress.value = { loaded: receivedLength, total: receivedLength, message: 'Parsing model...' }
+		
+		// Prepare context
+		const loadingContext = {
+			...context,
+			fileId,
+			abortController: abortController.value,
+			fileExtension: extension,
+			updateProgress,
+			hasDraco: hasDraco.value,
+			hasKtx2: hasKtx2.value,
+			hasMeshopt: hasMeshopt.value,
+		}
 
-			// Prepare context
-			const loadingContext = {
-				...context,
-				fileId,
-				abortController: abortController.value,
-				fileExtension: extension,
-				updateProgress,
-				hasDraco: hasDraco.value,
-				hasKtx2: hasKtx2.value,
-				hasMeshopt: hasMeshopt.value,
-			}
+		// Load the model (pass .buffer to get ArrayBuffer from Uint8Array)
+		const result = await loadModelByExtension(extension, arrayBuffer.buffer, loadingContext)
 
-			// Load the model
-			const result = await loadModelByExtension(extension, arrayBuffer, loadingContext)
+		if (result && result.object3D) {
+			modelRoot.value = result.object3D
+			currentFileId.value = fileId
 
-			if (result && result.object3D) {
-				modelRoot.value = result.object3D
-				currentFileId.value = fileId
-
-				// Clear loading state
-				loading.value = false
-				progress.value = { loaded: arrayBuffer.byteLength, total: arrayBuffer.byteLength, message: 'Complete' }
+			// Clear loading state
+			loading.value = false
+			progress.value = { loaded: receivedLength, total: receivedLength, message: 'Complete' }
 
 				logError('useModelLoading', 'Model loaded successfully', {
 					fileId,
@@ -382,6 +424,13 @@ export function useModelLoading() {
 	 * @param {string} filename - File name
 	 */
 	const handleLoadError = (error, filename) => {
+		// Don't treat abort as an error
+		if (error.name === 'AbortError' || error.message?.includes('aborted')) {
+			loading.value = false
+			logError('useModelLoading', 'Load cancelled by user', { filename }, 'info')
+			return
+		}
+
 		loading.value = false
 		error.value = error
 		errorState.value = createErrorState(error, (key) => key) // Simple translation function

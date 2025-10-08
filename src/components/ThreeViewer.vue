@@ -9,7 +9,6 @@
 			aria-live="polite"
 			:class="{ 'mobile': isMobile }">
 			<div class="loading-content">
-				<div class="loading-spinner" :class="{ 'mobile': isMobile }" />
 				<div class="loading-text">
 					<div class="loading-stage">
 						{{ getStageText(progress.stage) }}
@@ -20,39 +19,32 @@
 						<span v-else-if="progress.loaded > 0">{{ formatFileSize(progress.loaded) }}</span>
 						<span v-else>{{ t('threedviewer', 'Loading 3D scene…') }}</span>
 					</div>
+					<!-- Show percentage when available -->
 					<div v-if="progressPercentage > 0" class="loading-percentage">
 						{{ progressPercentage }}%
 					</div>
 				</div>
-				<div v-if="progress.total > 0"
-					class="progress-bar"
+				<!-- Nextcloud-style progress bar -->
+				<NcProgressBar 
+					:value="progressPercentage" 
+					:max="100"
+					size="medium"
 					:aria-label="t('threedviewer','Model load progress')"
-					role="progressbar"
-					:aria-valuemin="0"
-					:aria-valuemax="progress.total"
-					:aria-valuenow="progress.loaded"
-					:class="{ 'mobile': isMobile }">
-					<div class="progress-bar__fill" :style="{ width: Math.min(100, progressPercentage) + '%' }" />
-					<div class="progress-bar__label">
-						{{ progressPercentage }}%
-					</div>
-				</div>
+				/>
 				<div class="loading-actions" :class="{ 'mobile': isMobile }">
-					<button v-if="progress.stage !== 'error'"
-						type="button"
-						class="cancel-btn"
+					<NcButton
+						v-if="progress.stage !== 'error'"
+						type="error"
 						:disabled="aborting"
-						:class="{ 'mobile': isMobile }"
 						@click="cancelLoad">
 						{{ aborting ? t('threedviewer','Canceling…') : t('threedviewer','Cancel loading') }}
-					</button>
-					<button v-if="progress.stage === 'error'"
-						type="button"
-						class="retry-btn"
-						:class="{ 'mobile': isMobile }"
+					</NcButton>
+					<NcButton
+						v-if="progress.stage === 'error'"
+						type="primary"
 						@click="retryLoad">
 						{{ t('threedviewer','Retry') }}
-					</button>
+					</NcButton>
 				</div>
 			</div>
 		</div>
@@ -80,19 +72,16 @@
 					</ul>
 				</div>
 				<div class="error-actions">
-					<button v-if="canRetry"
-						type="button"
-						class="retry-btn"
-						:class="{ 'mobile': isMobile }"
+					<NcButton v-if="canRetry"
+						type="primary"
 						@click="retryLoad">
 						{{ t('threedviewer','Retry') }}
-					</button>
-					<button type="button"
-						class="dismiss-btn"
-						:class="{ 'mobile': isMobile }"
+					</NcButton>
+					<NcButton
+						type="secondary"
 						@click="clearError">
 						{{ t('threedviewer','Dismiss') }}
-					</button>
+					</NcButton>
 				</div>
 			</div>
 		</div>
@@ -233,16 +222,20 @@
 <script>
 import { ref, onMounted, onBeforeUnmount, watch, computed } from 'vue'
 import * as THREE from 'three'
+import { NcProgressBar, NcButton } from '@nextcloud/vue'
 import { useCamera } from '../composables/useCamera.js'
 import { useModelLoading } from '../composables/useModelLoading.js'
 import { useComparison } from '../composables/useComparison.js'
 import { useMeasurement } from '../composables/useMeasurement.js'
 import { useAnnotation } from '../composables/useAnnotation.js'
-import { loadModelWithDependencies } from '../loaders/multiFileHelpers.js'
 import { logError } from '../utils/error-handler.js'
 
 export default {
 	name: 'ThreeViewerRefactored',
+	components: {
+		NcProgressBar,
+		NcButton,
+	},
 	props: {
 		fileId: { type: [Number, String], default: null },
 		filename: { type: String, default: null },
@@ -266,6 +259,7 @@ export default {
 		const axes = ref(null)
 		const modelRoot = ref(null)
 		const aborting = ref(false)
+		const initializing = ref(true) // Show loading during initial setup
 
 		// Composables
 		const camera = useCamera()
@@ -276,10 +270,15 @@ export default {
 
 		// Computed properties
 		const isMobile = computed(() => camera.isMobile.value)
-		const isLoading = computed(() => modelLoading.isLoading.value)
+		const isLoading = computed(() => initializing.value || modelLoading.isLoading.value)
 		const hasError = computed(() => modelLoading.hasError.value)
 		const canRetry = computed(() => modelLoading.canRetry.value)
-		const progress = computed(() => modelLoading.progress.value)
+		const progress = computed(() => {
+			if (initializing.value && !modelLoading.isLoading.value) {
+				return { loaded: 0, total: 0, message: 'Initializing viewer...' }
+			}
+			return modelLoading.progress.value
+		})
 		const progressPercentage = computed(() => modelLoading.progressPercentage.value)
 		const errorState = computed(() => modelLoading.errorState.value)
 		const isComparisonMode = computed(() => comparison.comparisonMode.value)
@@ -322,29 +321,31 @@ export default {
 				// Initialize annotation system
 				annotation.init(scene.value)
 
-				// Load model if fileId provided
-				if (props.fileId) {
-					await loadModel(props.fileId)
-				}
-
-				// Start animation loop
-				animate()
-
-				// Setup event listeners
-				setupEventListeners()
-
-				logError('ThreeViewer', 'Initialization complete')
-			} catch (error) {
-				logError('ThreeViewer', 'Initialization failed', error)
-				emit('error', error)
+			// Load model if fileId provided
+			if (props.fileId) {
+				await loadModel(props.fileId)
 			}
+
+			// Initialization complete - hide loading indicator
+			initializing.value = false
+
+			// Start animation loop
+			animate()
+
+			// Setup event listeners
+			setupEventListeners()
+
+			logError('ThreeViewer', 'Initialization complete')
+		} catch (error) {
+			initializing.value = false // Hide loading on error too
+			logError('ThreeViewer', 'Initialization failed', error)
+			emit('error', error)
 		}
+	}
 
-		const setupScene = async () => {
-			// Create scene
-			scene.value = new THREE.Scene()
-
-			// Ensure container has proper dimensions
+	const setupScene = async () => {
+		// Create scene
+		scene.value = new THREE.Scene()			// Ensure container has proper dimensions
 			const containerWidth = container.value.clientWidth || container.value.offsetWidth || 800
 			const containerHeight = container.value.clientHeight || container.value.offsetHeight || 600
 
@@ -431,37 +432,21 @@ export default {
 				
 				const extension = filename.split('.').pop().toLowerCase()
 
-				// Props received and processed
-
 				logError('ThreeViewer', 'Loading model', {
 					fileId,
 					filename,
 					fullPath,
-				dirPath,
-				extension,
-				userId: window.OC?.getCurrentUser?.()?.uid || 'admin',
-				propsFilename: props.filename,
-			})
+					dirPath,
+					extension,
+					userId: window.OC?.getCurrentUser?.()?.uid || 'admin',
+					propsFilename: props.filename,
+				})
 
-			// Use multi-file loading to support textures and dependencies
-			const result = await loadModelWithDependencies(
-				fileId,
-				filename,
-				extension,
-				dirPath
-			)
-
-			if (!result || !result.mainFile) {
-				throw new Error('Failed to load model file')
-			}				// Convert File to ArrayBuffer
-				const arrayBuffer = await result.mainFile.arrayBuffer()
-
-				// Use the model loading composable to load the actual model with dependencies
-				const loadedModel = await modelLoading.loadModel(arrayBuffer, extension, {
+				// Use the model loading composable which has proper progress tracking
+				const loadedModel = await modelLoading.loadModelFromFileId(fileId, fullPath, {
 					fileId,
 					filename,
 					dir: dirPath,
-					additionalFiles: result.dependencies || [],
 					THREE,
 				})
 
@@ -469,8 +454,6 @@ export default {
 					// Add the loaded model to the scene
 					modelRoot.value = loadedModel.object3D
 					scene.value.add(modelRoot.value)
-
-					// Model added to scene successfully
 
 					// Fit camera to object
 					camera.fitCameraToObject(modelRoot.value)
@@ -485,8 +468,11 @@ export default {
 					createDemoScene(fileId)
 				}
 			} catch (error) {
-				logError('ThreeViewer', 'Failed to load model', error)
-				emit('error', error)
+				// Don't log error if it was a user-initiated cancellation
+				if (error.name !== 'AbortError') {
+					logError('ThreeViewer', 'Failed to load model', error)
+					emit('error', error)
+				}
 			}
 		}
 
@@ -596,8 +582,12 @@ export default {
 
 		// Loading methods
 		const cancelLoad = () => {
-			modelLoading.cancelLoad()
 			aborting.value = true
+			modelLoading.cancelLoad()
+			// Reset aborting state after a short delay
+			setTimeout(() => {
+				aborting.value = false
+			}, 500)
 		}
 
 		const retryLoad = async () => {
@@ -817,6 +807,7 @@ export default {
 			axes,
 			modelRoot,
 			aborting,
+			initializing,
 
 			// Computed
 			isMobile,
@@ -897,6 +888,38 @@ export default {
 .loading-content {
 	text-align: center;
 	color: white;
+	max-width: 500px;
+	padding: 20px;
+}
+
+.loading-text {
+	margin-bottom: 20px;
+}
+
+.loading-stage {
+	font-size: 18px;
+	font-weight: bold;
+	margin-bottom: 10px;
+}
+
+.loading-details {
+	font-size: 14px;
+	opacity: 0.9;
+	margin-bottom: 5px;
+}
+
+.loading-percentage {
+	font-size: 24px;
+	font-weight: bold;
+	margin-top: 10px;
+	color: var(--color-primary-element);
+}
+
+.loading-actions {
+	margin-top: 20px;
+	display: flex;
+	gap: 10px;
+	justify-content: center;
 }
 
 .loading-spinner {

@@ -54,14 +54,18 @@ if (OCA.Viewer && !window.__THREEDVIEWER_REGISTERED__) {
 // Mode 2: Mount advanced viewer app when #threedviewer div exists (standalone page)
 const appRoot = document.getElementById('threedviewer')
 if (appRoot) {
-	const fileId = appRoot.dataset.fileId
-	const dir = appRoot.dataset.dir
+	if (!window.__THREEDVIEWER_APP_MOUNTED__) {
+		window.__THREEDVIEWER_APP_MOUNTED__ = true
+		console.info('[ThreeDViewer] Mounting app...')
+		
+		const fileId = appRoot.dataset.fileId
+		const dir = appRoot.dataset.dir
 
-	// Dynamically import Vue and App component
-	Promise.all([
-		import('vue'),
-		import('./App.vue'),
-	]).then(([{ default: Vue }, { default: App }]) => {
+		// Dynamically import Vue and App component
+		Promise.all([
+			import('vue'),
+			import('./App.vue'),
+		]).then(([{ default: Vue }, { default: App }]) => {
 		// Add global mixin for translation functions
 		Vue.mixin({
 			methods: {
@@ -82,4 +86,7 @@ if (appRoot) {
 	}).catch(err => {
 		console.error('Failed to mount advanced viewer:', err)
 	})
+	} else {
+		console.warn('[ThreeDViewer] App already mounted, skipping duplicate mount')
+	}
 }
