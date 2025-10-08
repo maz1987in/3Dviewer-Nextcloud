@@ -1,4 +1,5 @@
 import { BaseLoader } from '../BaseLoader.js'
+import { decodeTextFromBuffer } from '../../utils/fileHelpers.js'
 
 /**
  * VRML loader class
@@ -18,7 +19,7 @@ class VrmlLoader extends BaseLoader {
 	 */
 	async loadModel(arrayBuffer, context) {
 		// Convert ArrayBuffer to text for parsing
-		const text = this.decodeText(arrayBuffer)
+		const text = decodeTextFromBuffer(arrayBuffer)
 
 		// Check if it looks like a VRML file
 		if (!text.toLowerCase().includes('vrml') && !text.toLowerCase().includes('#vrml')) {
@@ -61,22 +62,6 @@ class VrmlLoader extends BaseLoader {
 				reject(new Error(`Failed to load VRML file: ${error.message}`))
 			}
 		})
-	}
-
-	/**
-	 * Decode ArrayBuffer to text
-	 * @param {ArrayBuffer} arrayBuffer - File data
-	 * @return {string} Decoded text
-	 */
-	decodeText(arrayBuffer) {
-		const textDecoder = new TextDecoder('utf-8', { fatal: false })
-		const text = textDecoder.decode(arrayBuffer)
-
-		if (!text || text.trim().length === 0) {
-			throw new Error('Empty or invalid VRML file')
-		}
-
-		return text
 	}
 
 }

@@ -174,19 +174,68 @@ export function disposeObject(object3D) {
  * @param {object} options - Grid options
  * @return {THREE.GridHelper} Grid helper
  */
-export function createGridHelper(size, divisions, options = {}) {
-	const grid = new THREE.GridHelper(size, divisions)
+/**
+ * Create a grid helper with consistent styling
+ * @param {number} size - Grid size
+ * @param {number} divisions - Number of divisions
+ * @param {object} options - Grid options
+ * @return {THREE.GridHelper} Grid helper
+ */
+export function createGridHelper(size = 10, divisions = 10, options = {}) {
+	const {
+		colorCenterLine = 0x444444,
+		colorGrid = 0x888888,
+		visible = true,
+	} = options
 
-	if (options.color) {
-		grid.material.color.setHex(options.color)
-	}
-	if (options.opacity !== undefined) {
-		grid.material.opacity = options.opacity
-		grid.material.transparent = options.opacity < 1
-	}
+	const grid = new THREE.GridHelper(size, divisions, colorCenterLine, colorGrid)
+	grid.visible = visible
+	grid.userData.isHelper = true
 
 	return grid
 }
+
+/**
+ * Get comprehensive bounding box information for an object
+ * @param {THREE.Object3D} object3D - Object to analyze
+ * @param {THREE.Box3} [existingBox] - Optional existing Box3 to reuse
+ * @return {object} Bounding box information
+ */
+export function getBoundingInfo(object3D, existingBox = null) {
+	const box = existingBox || new THREE.Box3()
+	box.setFromObject(object3D)
+	
+	const size = new THREE.Vector3()
+	const center = new THREE.Vector3()
+	
+	box.getSize(size)
+	box.getCenter(center)
+	
+	const maxDimension = Math.max(size.x, size.y, size.z)
+	const minDimension = Math.min(size.x, size.y, size.z)
+	const volume = size.x * size.y * size.z
+	const diagonalLength = size.length()
+	
+	return {
+		box,
+		size,
+		center,
+		maxDimension,
+		minDimension,
+		volume,
+		diagonalLength,
+		isEmpty: box.isEmpty(),
+		min: box.min.clone(),
+		max: box.max.clone(),
+	}
+}
+
+/**
+ * Create axes helper with consistent styling
+ * @param {number} size - Axes size
+ * @param {object} options - Axes options
+ * @return {THREE.AxesHelper} Axes helper
+ */
 
 /**
  * Create axes helper with consistent styling

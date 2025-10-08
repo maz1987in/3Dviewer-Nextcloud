@@ -460,18 +460,7 @@ export function useScene() {
 
 		// Dispose of scene objects
 		if (scene.value) {
-			scene.value.traverse((child) => {
-				if (child.geometry) {
-					child.geometry.dispose()
-				}
-				if (child.material) {
-					if (Array.isArray(child.material)) {
-						child.material.forEach(material => material.dispose())
-					} else {
-						child.material.dispose()
-					}
-				}
-			})
+			disposeObject(scene.value)
 			scene.value = null
 		}
 

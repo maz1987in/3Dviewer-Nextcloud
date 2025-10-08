@@ -1,4 +1,5 @@
 import { BaseLoader } from '../BaseLoader.js'
+import { decodeTextFromBuffer } from '../../utils/fileHelpers.js'
 
 /**
  * X3D loader class - Basic implementation since X3DLoader is not available in Three.js
@@ -20,7 +21,7 @@ class X3dLoader extends BaseLoader {
 		const { THREE } = context
 
 		// Convert ArrayBuffer to text for basic validation
-		const text = this.decodeText(arrayBuffer)
+		const text = decodeTextFromBuffer(arrayBuffer)
 
 		// Check if it looks like an X3D file
 		if (!text.toLowerCase().includes('x3d') && !text.toLowerCase().includes('<?xml')) {
@@ -67,23 +68,6 @@ class X3dLoader extends BaseLoader {
 		return this.processModel(group, context)
 	}
 
-	/**
-	 * Decode ArrayBuffer to text
-	 * @param {ArrayBuffer} arrayBuffer - File data
-	 * @return {string} Decoded text
-	 */
-	decodeText(arrayBuffer) {
-		const textDecoder = new TextDecoder('utf-8', { fatal: false })
-		const text = textDecoder.decode(arrayBuffer)
-
-		if (!text || text.trim().length === 0) {
-			throw new Error('Empty or invalid X3D file')
-		}
-
-		return text
-	}
-
 }
 
-// Export the class as default so the registry can instantiate it
 export default X3dLoader

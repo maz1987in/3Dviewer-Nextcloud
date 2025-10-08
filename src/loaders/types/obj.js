@@ -3,6 +3,7 @@ import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js'
 import { BaseLoader } from '../BaseLoader.js'
 import { logger } from '../../utils/logger.js'
 import { findFileByName, decodeTextFromBuffer } from '../../utils/fileHelpers.js'
+import { getBoundingInfo } from '../../utils/three-utils.js'
 
 /**
  * OBJ loader class with MTL material support
@@ -27,7 +28,7 @@ class ObjLoader extends BaseLoader {
 		const { fileId, additionalFiles, THREE } = context
 
 		// Decode the OBJ file content
-		const objText = this.decodeText(arrayBuffer)
+		const objText = decodeTextFromBuffer(arrayBuffer)
 
 		// Look for MTL file reference
 		const mtlName = this.findMtlReference(objText)
@@ -71,14 +72,11 @@ class ObjLoader extends BaseLoader {
 		// Object loaded successfully
 
 		// Calculate bounding box and scale the model if it's too large
-		const box = new THREE.Box3().setFromObject(object3D)
-		const size = box.getSize(new THREE.Vector3())
-		const center = box.getCenter(new THREE.Vector3())
+		const { size, maxDimension } = getBoundingInfo(object3D)
 		
 		// Model bounds calculated
 		
 		// If the model is too large, scale it down
-		const maxDimension = Math.max(size.x, size.y, size.z)
 		if (maxDimension > 1000) {
 			const scaleFactor = 1000 / maxDimension
 			object3D.scale.setScalar(scaleFactor)
@@ -612,8 +610,7 @@ class ObjLoader extends BaseLoader {
 		// Converting file to text
 			
 			const arrayBuffer = await file.arrayBuffer()
-			const textDecoder = new TextDecoder('utf-8', { fatal: false })
-			const text = textDecoder.decode(arrayBuffer)
+			const text = decodeTextFromBuffer(arrayBuffer)
 			
 			// File converted to text successfully
 			

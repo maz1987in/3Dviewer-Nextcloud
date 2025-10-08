@@ -440,11 +440,7 @@ export default {
 					fileId: this.fileid,
 					additionalFiles: result.dependencies, // Pass dependencies to loader
 					applyWireframe: (enabled) => this.applyWireframe(enabled),
-					ensurePlaceholderRemoved: () => {
-						// Remove any placeholder objects
-						const placeholders = this.scene.children.filter(c => c.userData?.isPlaceholder)
-						placeholders.forEach(p => this.scene.remove(p))
-					},
+					ensurePlaceholderRemoved: () => removePlaceholders(this.scene),
 				}
 
 				// Convert main file to ArrayBuffer
@@ -591,11 +587,7 @@ export default {
 							}
 						})
 					},
-					ensurePlaceholderRemoved: () => {
-						// Remove any placeholder objects
-						const placeholders = this.scene.children.filter(c => c.userData?.isPlaceholder)
-						placeholders.forEach(p => this.scene.remove(p))
-					},
+					ensurePlaceholderRemoved: () => removePlaceholders(this.scene),
 					hasDraco: true, // DRACO decoders available
 					hasKtx2: true,  // KTX2 transcoders available
 				}

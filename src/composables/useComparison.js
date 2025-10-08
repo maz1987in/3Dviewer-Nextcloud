@@ -8,6 +8,7 @@ import * as THREE from 'three'
 import { loadModelByExtension, isSupportedExtension } from '../loaders/registry.js'
 import { logError } from '../utils/error-handler.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
+import { disposeObject } from '../utils/three-utils.js'
 
 export function useComparison() {
 	// Comparison state
@@ -422,19 +423,7 @@ export function useComparison() {
 	const clearComparison = () => {
 		if (comparisonModel.value) {
 			// Dispose of the comparison model
-			comparisonModel.value.traverse((child) => {
-				if (child.geometry) {
-					child.geometry.dispose()
-				}
-				if (child.material) {
-					if (Array.isArray(child.material)) {
-						child.material.forEach(material => material.dispose())
-					} else {
-						child.material.dispose()
-					}
-				}
-			})
-
+			disposeObject(comparisonModel.value)
 			comparisonModel.value = null
 		}
 

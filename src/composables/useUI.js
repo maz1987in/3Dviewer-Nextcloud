@@ -7,6 +7,7 @@
 import { ref, computed, readonly } from 'vue'
 import { logError } from '../utils/error-handler.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
+import { disposeObject } from '../utils/three-utils.js'
 
 export function useUI() {
 	// UI state
@@ -391,18 +392,7 @@ export function useUI() {
 	 */
 	const dispose = () => {
 		if (skeletonGroup.value) {
-			skeletonGroup.value.traverse((child) => {
-				if (child.geometry) {
-					child.geometry.dispose()
-				}
-				if (child.material) {
-					if (Array.isArray(child.material)) {
-						child.material.forEach(material => material.dispose())
-					} else {
-						child.material.dispose()
-					}
-				}
-			})
+			disposeObject(skeletonGroup.value)
 			skeletonGroup.value = null
 		}
 

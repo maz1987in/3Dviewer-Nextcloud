@@ -1,5 +1,6 @@
 import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js'
 import { BaseLoader } from '../BaseLoader.js'
+import { decodeTextFromBuffer } from '../../utils/fileHelpers.js'
 
 /**
  * DAE (Collada) loader class
@@ -19,7 +20,7 @@ class DaeLoader extends BaseLoader {
 	 */
 	async loadModel(arrayBuffer, context) {
 		// Convert ArrayBuffer to text for XML parsing
-		const text = this.decodeText(arrayBuffer)
+		const text = decodeTextFromBuffer(arrayBuffer)
 
 		// Create Collada loader
 		this.loader = new ColladaLoader()
@@ -52,23 +53,6 @@ class DaeLoader extends BaseLoader {
 
 		return result
 	}
-
-	/**
-	 * Decode ArrayBuffer to text
-	 * @param {ArrayBuffer} arrayBuffer - File data
-	 * @return {string} Decoded text
-	 */
-	decodeText(arrayBuffer) {
-		const textDecoder = new TextDecoder('utf-8', { fatal: false })
-		const text = textDecoder.decode(arrayBuffer)
-
-		if (!text || text.trim().length === 0) {
-			throw new Error('Empty or invalid DAE file content')
-		}
-
-		return text
-	}
-
 }
 
 // Export the class as default so the registry can instantiate it

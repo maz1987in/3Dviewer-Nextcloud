@@ -502,19 +502,7 @@ export function useModelLoading() {
 	const clearModel = () => {
 		if (modelRoot.value) {
 			// Dispose of the model
-			modelRoot.value.traverse((child) => {
-				if (child.geometry) {
-					child.geometry.dispose()
-				}
-				if (child.material) {
-					if (Array.isArray(child.material)) {
-						child.material.forEach(material => material.dispose())
-					} else {
-						child.material.dispose()
-					}
-				}
-			})
-
+			disposeObject(modelRoot.value)
 			modelRoot.value = null
 		}
 
