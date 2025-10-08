@@ -238,6 +238,7 @@ import { useModelLoading } from '../composables/useModelLoading.js'
 import { useComparison } from '../composables/useComparison.js'
 import { useMeasurement } from '../composables/useMeasurement.js'
 import { useAnnotation } from '../composables/useAnnotation.js'
+import { loadModelWithDependencies } from '../loaders/multiFileHelpers.js'
 import { logError } from '../utils/error-handler.js'
 
 export default {
@@ -413,7 +414,21 @@ export default {
 		const loadModel = async (fileId) => {
 			try {
 				// Get the filename from props or URL
-				const filename = props.filename ? decodeURIComponent(props.filename) : 'model.glb'
+				const fullPath = props.filename ? decodeURIComponent(props.filename) : 'model.glb'
+				
+				// Extract directory and filename
+				// fullPath might be like "/3d_test/capsule/capsule.obj" or just "model.obj"
+				const pathParts = fullPath.split('/').filter(p => p) // Remove empty strings
+				const filename = pathParts.pop() // Get the actual filename
+				
+				// Reconstruct directory path with leading slash if it was present
+				let dirPath
+				if (fullPath.startsWith('/')) {
+					dirPath = '/' + pathParts.join('/')
+				} else {
+					dirPath = pathParts.join('/') || (props.dir || 'Models')
+				}
+				
 				const extension = filename.split('.').pop().toLowerCase()
 
 				// Props received and processed
@@ -421,55 +436,33 @@ export default {
 				logError('ThreeViewer', 'Loading model', {
 					fileId,
 					filename,
-					dir: props.dir,
-					userId: window.OC?.getCurrentUser?.()?.uid || 'admin',
-					propsFilename: props.filename,
-					decodedFilename: props.filename ? decodeURIComponent(props.filename) : 'N/A',
-				})
+					fullPath,
+				dirPath,
+				extension,
+				userId: window.OC?.getCurrentUser?.()?.uid || 'admin',
+				propsFilename: props.filename,
+			})
 
-				// Try multiple approaches to fetch the model
-				let response
-				let error
-				const userId = window.OC?.getCurrentUser?.()?.uid || 'admin'
-				const dir = props.dir || 'Models'
+			// Use multi-file loading to support textures and dependencies
+			const result = await loadModelWithDependencies(
+				fileId,
+				filename,
+				extension,
+				dirPath
+			)
 
-				// First try: Use the API endpoint
-				try {
-					response = await fetch(`/apps/threedviewer/api/file/${fileId}`)
-					if (response.ok) {
-						// Success with API
-					} else {
-						throw new Error(`API failed: ${response.status}`)
-					}
-				} catch (e) {
-					// Fallback: Use Nextcloud Files API
-					try {
-						response = await fetch(`/remote.php/dav/files/${userId}/${dir}/${filename}`)
-						if (!response.ok) {
-							throw new Error(`Files API failed: ${response.status}`)
-						}
-					} catch (e2) {
-						// Final fallback: Try direct file access
-						response = await fetch(`/remote.php/dav/files/${userId}/${filename}`)
-						if (!response.ok) {
-							throw new Error(`All methods failed: Custom API (${e.message}), Files API (${e2.message}), Direct access (${response.status})`)
-						}
-					}
-				}
+			if (!result || !result.mainFile) {
+				throw new Error('Failed to load model file')
+			}				// Convert File to ArrayBuffer
+				const arrayBuffer = await result.mainFile.arrayBuffer()
 
-				if (!response.ok) {
-					const errorText = await response.text()
-					throw new Error(`Failed to fetch model: ${response.status} ${response.statusText} - ${errorText}`)
-				}
-
-				// Get the array buffer
-				const arrayBuffer = await response.arrayBuffer()
-
-				// Use the model loading composable to load the actual model
+				// Use the model loading composable to load the actual model with dependencies
 				const loadedModel = await modelLoading.loadModel(arrayBuffer, extension, {
 					fileId,
 					filename,
-					dir: props.dir,
+					dir: dirPath,
+					additionalFiles: result.dependencies || [],
+					THREE,
 				})
 
 				if (loadedModel && loadedModel.object3D) {
