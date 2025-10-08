@@ -6,6 +6,7 @@
 import { ref, computed } from 'vue'
 import * as THREE from 'three'
 import { logError } from '../utils/error-handler.js'
+import { calculateModelScale, createTextTexture } from '../utils/modelScaleUtils.js'
 
 export function useAnnotation() {
 	// Annotation state
@@ -49,46 +50,7 @@ export function useAnnotation() {
 	// Calculate and update model scale based on bounding box
 	const updateModelScale = () => {
 		if (!sceneRef.value) return
-
-		try {
-			// Find all meshes in the scene (excluding annotation elements)
-			const meshes = []
-			sceneRef.value.traverse((child) => {
-				if (child.isMesh && 
-					child.name !== 'annotationPoint' && 
-					child.name !== 'annotationText' &&
-					child.name !== 'measurementPoint' &&
-					child.name !== 'measurementLine') {
-					meshes.push(child)
-				}
-			})
-
-			if (meshes.length === 0) {
-				modelScale.value = 1
-				return
-			}
-
-			// Calculate bounding box
-			const box = new THREE.Box3()
-			meshes.forEach(mesh => {
-				const meshBox = new THREE.Box3().setFromObject(mesh)
-				box.union(meshBox)
-			})
-
-			// Get the size of the bounding box
-			const size = new THREE.Vector3()
-			box.getSize(size)
-
-			// Use the maximum dimension as reference
-			const maxDimension = Math.max(size.x, size.y, size.z)
-
-			// Scale annotations proportionally (1% of model size, min 0.5, max 10)
-			modelScale.value = Math.max(0.5, Math.min(10, maxDimension * 0.01))
-
-		} catch (error) {
-			logError('useAnnotation', 'Failed to update model scale', error)
-			modelScale.value = 1
-		}
+		modelScale.value = calculateModelScale(sceneRef.value)
 	}
 
 	// Toggle annotation mode
@@ -198,24 +160,17 @@ export function useAnnotation() {
 	// Create text for annotation
 	const createAnnotationText = (annotation) => {
 		try {
-			// Create a higher resolution canvas for better text quality
-			const canvas = document.createElement('canvas')
-			const context = canvas.getContext('2d')
-			canvas.width = 512 // Increased from 256
-			canvas.height = 128 // Increased from 64
+			// Create text texture using shared utility
+			const texture = createTextTexture(annotation.text, {
+				width: 512,
+				height: 128,
+				textColor: '#ff0000',
+				bgColor: 'rgba(0, 0, 0, 0.8)',
+				fontSize: 48,
+				fontFamily: 'Arial',
+			})
 
-			// Draw text on canvas with larger font
-			context.fillStyle = 'rgba(0, 0, 0, 0.8)'
-			context.fillRect(0, 0, canvas.width, canvas.height)
-			context.fillStyle = '#ff0000'
-			context.font = 'bold 48px Arial' // Increased from 20px to 48px
-			context.textAlign = 'center'
-			context.textBaseline = 'middle'
-			context.fillText(annotation.text, canvas.width / 2, canvas.height / 2)
-
-			// Create texture from canvas
-			const texture = new THREE.CanvasTexture(canvas)
-			texture.needsUpdate = true
+			if (!texture) return null
 
 			// Scale text MUCH larger - make it 3-5x bigger than before
 			const textWidth = modelScale.value * 30 // Increased from 10 to 30
@@ -263,24 +218,20 @@ export function useAnnotation() {
 			const textMesh = annotation.textMesh
 
 			if (textMesh) {
-				// Recreate the text texture with high resolution
-				const canvas = document.createElement('canvas')
-				const context = canvas.getContext('2d')
-				canvas.width = 1024 // High resolution for better quality
-				canvas.height = 256
+				// Create text texture using shared utility
+				const texture = createTextTexture(newText, {
+					width: 1024,
+					height: 256,
+					textColor: '#ff0000',
+					bgColor: 'rgba(0, 0, 0, 0.8)',
+					fontSize: 80,
+					fontFamily: 'Arial',
+				})
 
-				context.fillStyle = 'rgba(0, 0, 0, 0.8)'
-				context.fillRect(0, 0, canvas.width, canvas.height)
-				context.fillStyle = '#ff0000'
-				context.font = 'bold 80px Arial' // Large font for readability
-				context.textAlign = 'center'
-				context.textBaseline = 'middle'
-				context.fillText(newText, canvas.width / 2, canvas.height / 2)
-
-				const texture = new THREE.CanvasTexture(canvas)
-				texture.needsUpdate = true
-				textMesh.material.map = texture
-				textMesh.material.needsUpdate = true
+				if (texture) {
+					textMesh.material.map = texture
+					textMesh.material.needsUpdate = true
+				}
 			}
 		}
 	}

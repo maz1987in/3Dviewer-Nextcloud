@@ -1,6 +1,7 @@
 import { ref, computed } from 'vue'
 import * as THREE from 'three'
 import { logError } from '../utils/error-handler.js'
+import { calculateModelScale, createTextTexture } from '../utils/modelScaleUtils.js'
 
 // Unit conversion factors (1 Three.js unit = ? real units)
 const UNIT_SCALES = {
@@ -65,46 +66,7 @@ export function useMeasurement() {
 	// Calculate and update visual scale based on model bounding box
 	const updateVisualScale = () => {
 		if (!sceneRef.value) return
-
-		try {
-			// Find all meshes in the scene (excluding measurement/annotation elements)
-			const meshes = []
-			sceneRef.value.traverse((child) => {
-				if (child.isMesh && 
-					child.name !== 'annotationPoint' && 
-					child.name !== 'annotationText' &&
-					child.name !== 'measurementPoint' &&
-					!child.name.startsWith('measurementLine')) {
-					meshes.push(child)
-				}
-			})
-
-			if (meshes.length === 0) {
-				visualScale.value = 1
-				return
-			}
-
-			// Calculate bounding box
-			const box = new THREE.Box3()
-			meshes.forEach(mesh => {
-				const meshBox = new THREE.Box3().setFromObject(mesh)
-				box.union(meshBox)
-			})
-
-			// Get the size of the bounding box
-			const size = new THREE.Vector3()
-			box.getSize(size)
-
-			// Use the maximum dimension as reference
-			const maxDimension = Math.max(size.x, size.y, size.z)
-
-			// Scale visualization proportionally (1% of model size, min 0.5, max 10)
-			visualScale.value = Math.max(0.5, Math.min(10, maxDimension * 0.01))
-
-		} catch (error) {
-			logError('useMeasurement', 'Failed to update visual scale', error)
-			visualScale.value = 1
-		}
+		visualScale.value = calculateModelScale(sceneRef.value)
 	}
 
 	// Toggle measurement mode
@@ -169,28 +131,23 @@ export function useMeasurement() {
 				if (index < textMeshes.value.length) {
 					const textMesh = textMeshes.value[index]
 					
-					// Recreate the text texture with high resolution
-					const canvas = document.createElement('canvas')
-					const context = canvas.getContext('2d')
-					canvas.width = 512
-					canvas.height = 128
-
-					// Draw text on canvas with larger font
-					context.fillStyle = 'rgba(0, 0, 0, 0.8)'
-					context.fillRect(0, 0, canvas.width, canvas.height)
-					context.fillStyle = '#00ff00'
-					context.font = 'bold 48px Arial'
-					context.textAlign = 'center'
-					context.textBaseline = 'middle'
 					// Use formatted value with current unit
 					const displayText = measurement.formatted || `${measurement.distance.toFixed(2)} units`
-					context.fillText(displayText, canvas.width / 2, canvas.height / 2)
+					
+					// Create text texture using shared utility
+					const texture = createTextTexture(displayText, {
+						width: 512,
+						height: 128,
+						textColor: '#00ff00',
+						bgColor: 'rgba(0, 0, 0, 0.8)',
+						fontSize: 48,
+						fontFamily: 'Arial',
+					})
 
-					// Update texture
-					const texture = new THREE.CanvasTexture(canvas)
-					texture.needsUpdate = true
-					textMesh.material.map = texture
-					textMesh.material.needsUpdate = true
+					if (texture) {
+						textMesh.material.map = texture
+						textMesh.material.needsUpdate = true
+					}
 				}
 			})
 		} catch (error) {
@@ -369,26 +326,20 @@ export function useMeasurement() {
 	// Create distance text
 	const createDistanceText = (measurement) => {
 		try {
-			// Create a higher resolution canvas for better text quality
-			const canvas = document.createElement('canvas')
-			const context = canvas.getContext('2d')
-			canvas.width = 512 // Increased from 256
-			canvas.height = 128 // Increased from 64
-
-			// Draw text on canvas with larger font
-			context.fillStyle = 'rgba(0, 0, 0, 0.8)'
-			context.fillRect(0, 0, canvas.width, canvas.height)
-			context.fillStyle = '#00ff00'
-			context.font = 'bold 48px Arial' // Increased from 24px to 48px
-			context.textAlign = 'center'
-			context.textBaseline = 'middle'
 			// Use formatted value if available, otherwise show raw distance with units
 			const displayText = measurement.formatted || `${measurement.distance.toFixed(2)} units`
-			context.fillText(displayText, canvas.width / 2, canvas.height / 2)
+			
+			// Create text texture using shared utility
+			const texture = createTextTexture(displayText, {
+				width: 512,
+				height: 128,
+				textColor: '#00ff00',
+				bgColor: 'rgba(0, 0, 0, 0.8)',
+				fontSize: 48,
+				fontFamily: 'Arial',
+			})
 
-			// Create texture from canvas
-			const texture = new THREE.CanvasTexture(canvas)
-			texture.needsUpdate = true
+			if (!texture) return
 
 			// Scale text MUCH larger - make it 3-5x bigger than before
 			const textWidth = visualScale.value * 30 // Increased from 10 to 30
