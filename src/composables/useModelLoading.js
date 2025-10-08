@@ -479,6 +479,7 @@ export function useModelLoading() {
 		}
 
 		loading.value = false
+		progress.value = { loaded: 0, total: 0, message: null }
 		logError('useModelLoading', 'Load cancelled')
 		// Test harness hook
 		if (typeof window !== 'undefined') {
@@ -569,7 +570,6 @@ export function useModelLoading() {
 			[LOADING_STAGES.COMPLETE]: 'Complete',
 			[LOADING_STAGES.RETRYING]: 'Retrying...',
 			[LOADING_STAGES.ERROR]: 'Error',
-			[LOADING_STAGES.CANCELED]: 'Canceled',
 		}
 
 		return stageTexts[stage] || stage

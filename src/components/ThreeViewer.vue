@@ -124,27 +124,38 @@
 		<div v-if="measurementActive && measurements.length > 0" class="measurement-overlay" :class="{ 'mobile': isMobile }">
 			<div class="measurement-header">
 				<h3>{{ t('threedviewer', 'Measurements') }}</h3>
-				<button type="button"
-					class="clear-measurements-btn"
-					:class="{ 'mobile': isMobile }"
-					@click="measurement.clearAllMeasurements">
-					{{ t('threedviewer', 'Clear All') }}
-				</button>
+				<div class="measurement-controls">
+					<select v-model="currentUnitModel" 
+						class="unit-selector"
+						@change="handleUnitChange">
+						<option v-for="unit in availableUnits" 
+							:key="unit.value" 
+							:value="unit.value">
+							{{ unit.label }}
+						</option>
+					</select>
+					<button type="button"
+						class="clear-measurements-btn"
+						:class="{ 'mobile': isMobile }"
+						@click="measurement.clearAllMeasurements">
+						{{ t('threedviewer', 'Clear All') }}
+					</button>
+				</div>
 			</div>
 			<div class="measurement-list">
-				<div v-for="(measurement, index) in measurements" :key="measurement.id" class="measurement-item">
+				<div v-for="(m, index) in measurements" :key="m.id" class="measurement-item">
 					<div class="measurement-info">
 						<span class="measurement-label">{{ t('threedviewer', 'Measurement') }} {{ index + 1 }}</span>
-						<span class="measurement-distance">{{ measurement.distance.toFixed(2) }} units</span>
+						<span class="measurement-distance">{{ m.formatted || (m.distance.toFixed(2) + ' units') }}</span>
 					</div>
 					<div class="measurement-details">
 						<div class="measurement-point">
 							<span class="point-label">{{ t('threedviewer', 'Point 1') }}:</span>
-							<span class="point-coords">({{ measurement.point1.x.toFixed(2) }}, {{ measurement.point1.y.toFixed(2) }}, {{ measurement.point1.z.toFixed(2) }})</span>
+							<span class="point-coords">({{ m.point1.x.toFixed(2) }}, {{ m.point1.y.toFixed(2) }}, {{ m.point1.z.toFixed(2) }})</span>
 						</div>
 						<div class="measurement-point">
 							<span class="point-label">{{ t('threedviewer', 'Point 2') }}:</span>
-							<span class="point-coords">({{ measurement.point2.x.toFixed(2) }}, {{ measurement.point2.y.toFixed(2) }}, {{ measurement.point2.z.toFixed(2) }})</span>
+							<span class="point-coords">({{ m.point2.x.toFixed(2) }}, {{ m.point2.y.toFixed(2) }}, {{ m.point2.z.toFixed(2) }})</span>
 						</div>
 					</div>
 				</div>
@@ -283,6 +294,11 @@ export default {
 		const errorState = computed(() => modelLoading.errorState.value)
 		const isComparisonMode = computed(() => comparison.comparisonMode.value)
 		const hasComparisonModel = computed(() => comparison.comparisonModel.value !== null)
+		const availableUnits = computed(() => measurement.getAvailableUnits())
+		const currentUnitModel = computed({
+			get: () => measurement.currentUnit.value,
+			set: (value) => { measurement.currentUnit.value = value },
+		})
 
 		// Methods
 		const init = async () => {
@@ -559,6 +575,11 @@ export default {
 
 		const setupEventListeners = () => {
 			window.addEventListener('resize', onWindowResize)
+			
+			// Add click handler for measurement and annotation
+			if (renderer.value && renderer.value.domElement) {
+				renderer.value.domElement.addEventListener('click', onCanvasClick)
+			}
 		}
 
 		const onWindowResize = () => {
@@ -567,6 +588,18 @@ export default {
 
 			camera.onWindowResize(width, height)
 			renderer.value.setSize(width, height)
+		}
+
+		const onCanvasClick = (event) => {
+			// Handle measurement clicks
+			if (measurement.isActive.value) {
+				measurement.handleClick(event, camera.camera.value)
+			}
+			
+			// Handle annotation clicks
+			if (annotation.isActive.value) {
+				annotation.handleClick(event, camera.camera.value)
+			}
 		}
 
 		// Comparison methods
@@ -625,6 +658,10 @@ export default {
 		// Advanced feature methods
 		const toggleMeasurementMode = () => {
 			measurement.toggleMeasurement()
+		}
+
+		const handleUnitChange = () => {
+			measurement.setUnit(currentUnitModel.value)
 		}
 
 		const toggleAnnotationMode = () => {
@@ -788,6 +825,11 @@ export default {
 		onBeforeUnmount(() => {
 			// Cleanup
 			window.removeEventListener('resize', onWindowResize)
+			
+			// Remove canvas click listener
+			if (renderer.value && renderer.value.domElement) {
+				renderer.value.domElement.removeEventListener('click', onCanvasClick)
+			}
 
 			if (renderer.value) {
 				renderer.value.dispose()
@@ -819,6 +861,8 @@ export default {
 			errorState,
 			isComparisonMode,
 			hasComparisonModel,
+			availableUnits,
+			currentUnitModel,
 
 			// Measurement
 			measurement,
@@ -850,6 +894,7 @@ export default {
 			resetView,
 			fitToView,
 			toggleMeasurementMode,
+			handleUnitChange,
 			toggleAnnotationMode,
 			deleteAnnotation,
 			updateAnnotationText,
@@ -1209,6 +1254,26 @@ export default {
 	margin: 0;
 	font-size: 16px;
 	color: #00ff00;
+}
+
+.measurement-controls {
+	display: flex;
+	gap: 10px;
+	align-items: center;
+}
+
+.unit-selector {
+	background: #2a2a2a;
+	color: #00ff00;
+	border: 1px solid #00ff00;
+	padding: 5px 10px;
+	border-radius: 4px;
+	font-size: 12px;
+	cursor: pointer;
+}
+
+.unit-selector:hover {
+	background: #3a3a3a;
 }
 
 .clear-measurements-btn {

@@ -2,12 +2,26 @@ import { ref, computed } from 'vue'
 import * as THREE from 'three'
 import { logError } from '../utils/error-handler.js'
 
+// Unit conversion factors (1 Three.js unit = ? real units)
+const UNIT_SCALES = {
+	millimeters: { factor: 1, suffix: 'mm', label: 'Millimeters' },
+	centimeters: { factor: 10, suffix: 'cm', label: 'Centimeters' },
+	meters: { factor: 1000, suffix: 'm', label: 'Meters' },
+	inches: { factor: 25.4, suffix: 'in', label: 'Inches' },
+	feet: { factor: 304.8, suffix: 'ft', label: 'Feet' },
+	units: { factor: 1, suffix: 'units', label: 'Generic Units' },
+}
+
 export function useMeasurement() {
 	// Measurement state
 	const isActive = ref(false)
 	const points = ref([])
 	const measurements = ref([])
 	const currentMeasurement = ref(null)
+	
+	// Unit configuration
+	const currentUnit = ref('millimeters') // Default to millimeters (common for 3D models)
+	const modelScale = ref(1) // Scale factor: 1 Three.js unit = modelScale real units
 
 	// Raycasting setup
 	const raycaster = ref(new THREE.Raycaster())
@@ -51,6 +65,54 @@ export function useMeasurement() {
 			clearCurrentMeasurement()
 		}
 		// Measurement mode toggled
+	}
+	
+	// Convert distance to real-world units
+	const convertDistance = (threeJsDistance) => {
+		const unitConfig = UNIT_SCALES[currentUnit.value] || UNIT_SCALES.units
+		// Assume 1 Three.js unit = modelScale millimeters (default 1mm)
+		// Then convert from millimeters to target unit by dividing by the factor
+		const distanceInMM = threeJsDistance * modelScale.value
+		const realDistance = distanceInMM / unitConfig.factor
+		return {
+			value: realDistance,
+			formatted: `${realDistance.toFixed(2)} ${unitConfig.suffix}`,
+			unit: currentUnit.value,
+			suffix: unitConfig.suffix,
+		}
+	}
+	
+	// Set measurement unit
+	const setUnit = (unit) => {
+		if (UNIT_SCALES[unit]) {
+			currentUnit.value = unit
+			// Recalculate all existing measurements
+			measurements.value = measurements.value.map(m => ({
+				...m,
+				...convertDistance(m.distance),
+			}))
+		}
+	}
+	
+	// Set model scale (how many real units = 1 Three.js unit)
+	const setModelScale = (scale) => {
+		if (scale > 0) {
+			modelScale.value = scale
+			// Recalculate all existing measurements
+			measurements.value = measurements.value.map(m => ({
+				...m,
+				...convertDistance(m.distance),
+			}))
+		}
+	}
+	
+	// Get available units
+	const getAvailableUnits = () => {
+		return Object.entries(UNIT_SCALES).map(([key, config]) => ({
+			value: key,
+			label: config.label,
+			suffix: config.suffix,
+		}))
 	}
 
 	// Handle mouse click for point selection
@@ -118,16 +180,35 @@ export function useMeasurement() {
 	const createPointIndicator = (point) => {
 		if (!measurementGroup.value) return
 
-		// Create a small sphere at the point
-		const geometry = new THREE.SphereGeometry(0.1, 8, 6)
+		// Calculate appropriate size based on camera distance or model bounds
+		// For now, use a larger fixed size that scales with the model
+		const pointSize = 2.0 // Increased from 0.1 to 2.0 for better visibility
+
+		// Create a small sphere at the point with higher detail
+		const geometry = new THREE.SphereGeometry(pointSize, 16, 12)
 		const material = new THREE.MeshBasicMaterial({
-			color: 0xff0000,
+			color: 0xffff00, // Changed to bright yellow for better visibility
 			transparent: true,
-			opacity: 0.8,
+			opacity: 0.9,
+			depthTest: false, // Always render on top
 		})
 		const sphere = new THREE.Mesh(geometry, material)
 		sphere.position.copy(point)
 		sphere.name = `measurementPoint_${points.value.length}`
+		sphere.renderOrder = 999 // Render on top of other objects
+
+		// Add a glowing outline ring for extra visibility
+		const ringGeometry = new THREE.RingGeometry(pointSize * 1.2, pointSize * 1.5, 16)
+		const ringMaterial = new THREE.MeshBasicMaterial({
+			color: 0xff00ff, // Bright magenta ring
+			transparent: true,
+			opacity: 0.6,
+			side: THREE.DoubleSide,
+			depthTest: false,
+		})
+		const ring = new THREE.Mesh(ringGeometry, ringMaterial)
+		ring.renderOrder = 998
+		sphere.add(ring)
 
 		measurementGroup.value.add(sphere)
 		pointMeshes.value.push(sphere)
@@ -140,15 +221,19 @@ export function useMeasurement() {
 		const point1 = points.value[points.value.length - 2]
 		const point2 = points.value[points.value.length - 1]
 
-		// Calculate distance
+		// Calculate distance in Three.js units
 		const distance = point1.distanceTo(point2)
+		
+		// Convert to real-world units
+		const converted = convertDistance(distance)
 
 		// Create measurement object
 		const measurement = {
 			id: Date.now(),
 			point1: point1.clone(),
 			point2: point2.clone(),
-			distance,
+			distance, // Raw Three.js distance
+			...converted, // Add value, formatted, unit, suffix
 			midpoint: new THREE.Vector3().addVectors(point1, point2).multiplyScalar(0.5),
 		}
 
@@ -176,16 +261,30 @@ export function useMeasurement() {
 			measurement.point2,
 		])
 
-		const material = new THREE.LineBasicMaterial({
+		// Use a thicker, more visible line with tube geometry for WebGL
+		// Note: linewidth doesn't work in WebGL, so we create a cylinder instead
+		const direction = new THREE.Vector3().subVectors(measurement.point2, measurement.point1)
+		const distance = direction.length()
+		const cylinderGeometry = new THREE.CylinderGeometry(0.3, 0.3, distance, 8)
+		const cylinderMaterial = new THREE.MeshBasicMaterial({
 			color: 0x00ff00,
-			linewidth: 2,
+			transparent: true,
+			opacity: 0.8,
+			depthTest: false,
 		})
+		const cylinder = new THREE.Mesh(cylinderGeometry, cylinderMaterial)
+		
+		// Position and orient the cylinder
+		cylinder.position.copy(measurement.point1).add(direction.multiplyScalar(0.5))
+		cylinder.quaternion.setFromUnitVectors(
+			new THREE.Vector3(0, 1, 0),
+			direction.normalize()
+		)
+		cylinder.renderOrder = 997
+		cylinder.name = `measurementLine_${measurement.id}`
 
-		const line = new THREE.Line(geometry, material)
-		line.name = `measurementLine_${measurement.id}`
-
-		measurementGroup.value.add(line)
-		lineMeshes.value.push(line)
+		measurementGroup.value.add(cylinder)
+		lineMeshes.value.push(cylinder)
 	}
 
 	// Create distance text
@@ -265,10 +364,14 @@ export function useMeasurement() {
 			active: isActive.value,
 			pointCount: points.value.length,
 			measurementCount: measurements.value.length,
+			currentUnit: currentUnit.value,
+			modelScale: modelScale.value,
 			measurements: measurements.value.map(m => ({
 				id: m.id,
 				distance: m.distance,
-				formattedDistance: `${m.distance.toFixed(3)} units`,
+				formattedDistance: m.formatted || `${m.distance.toFixed(3)} units`,
+				value: m.value,
+				unit: m.unit,
 			})),
 		}
 	}
@@ -279,6 +382,8 @@ export function useMeasurement() {
 		points,
 		measurements,
 		currentMeasurement,
+		currentUnit,
+		modelScale,
 
 		// Computed
 		hasPoints,
@@ -294,5 +399,9 @@ export function useMeasurement() {
 		clearCurrentMeasurement,
 		clearAllMeasurements,
 		getMeasurementSummary,
+		convertDistance,
+		setUnit,
+		setModelScale,
+		getAvailableUnits,
 	}
 }
