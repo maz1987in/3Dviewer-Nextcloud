@@ -22,6 +22,7 @@ export function useMeasurement() {
 	// Unit configuration
 	const currentUnit = ref('millimeters') // Default to millimeters (common for 3D models)
 	const modelScale = ref(1) // Scale factor: 1 Three.js unit = modelScale real units
+	const visualScale = ref(1) // Visual scale for markers based on model size
 
 	// Raycasting setup
 	const raycaster = ref(new THREE.Raycaster())
@@ -52,9 +53,57 @@ export function useMeasurement() {
 			measurementGroup.value.name = 'measurementGroup'
 			scene.add(measurementGroup.value)
 
+			// Calculate initial visual scale
+			updateVisualScale()
+
 			// Measurement system initialized
 		} catch (error) {
 			logError('useMeasurement', 'Failed to initialize measurement system', error)
+		}
+	}
+
+	// Calculate and update visual scale based on model bounding box
+	const updateVisualScale = () => {
+		if (!sceneRef.value) return
+
+		try {
+			// Find all meshes in the scene (excluding measurement/annotation elements)
+			const meshes = []
+			sceneRef.value.traverse((child) => {
+				if (child.isMesh && 
+					child.name !== 'annotationPoint' && 
+					child.name !== 'annotationText' &&
+					child.name !== 'measurementPoint' &&
+					!child.name.startsWith('measurementLine')) {
+					meshes.push(child)
+				}
+			})
+
+			if (meshes.length === 0) {
+				visualScale.value = 1
+				return
+			}
+
+			// Calculate bounding box
+			const box = new THREE.Box3()
+			meshes.forEach(mesh => {
+				const meshBox = new THREE.Box3().setFromObject(mesh)
+				box.union(meshBox)
+			})
+
+			// Get the size of the bounding box
+			const size = new THREE.Vector3()
+			box.getSize(size)
+
+			// Use the maximum dimension as reference
+			const maxDimension = Math.max(size.x, size.y, size.z)
+
+			// Scale visualization proportionally (1% of model size, min 0.5, max 10)
+			visualScale.value = Math.max(0.5, Math.min(10, maxDimension * 0.01))
+
+		} catch (error) {
+			logError('useMeasurement', 'Failed to update visual scale', error)
+			visualScale.value = 1
 		}
 	}
 
@@ -91,6 +140,8 @@ export function useMeasurement() {
 				...m,
 				...convertDistance(m.distance),
 			}))
+			// Update all text labels on 3D objects
+			updateAllTextLabels()
 		}
 	}
 	
@@ -103,6 +154,47 @@ export function useMeasurement() {
 				...m,
 				...convertDistance(m.distance),
 			}))
+			// Update all text labels on 3D objects
+			updateAllTextLabels()
+		}
+	}
+	
+	// Update all text labels on 3D objects with current measurement values
+	const updateAllTextLabels = () => {
+		if (!measurementGroup.value || textMeshes.value.length === 0) return
+
+		try {
+			// Update each text mesh with corresponding measurement
+			measurements.value.forEach((measurement, index) => {
+				if (index < textMeshes.value.length) {
+					const textMesh = textMeshes.value[index]
+					
+					// Recreate the text texture with high resolution
+					const canvas = document.createElement('canvas')
+					const context = canvas.getContext('2d')
+					canvas.width = 512
+					canvas.height = 128
+
+					// Draw text on canvas with larger font
+					context.fillStyle = 'rgba(0, 0, 0, 0.8)'
+					context.fillRect(0, 0, canvas.width, canvas.height)
+					context.fillStyle = '#00ff00'
+					context.font = 'bold 48px Arial'
+					context.textAlign = 'center'
+					context.textBaseline = 'middle'
+					// Use formatted value with current unit
+					const displayText = measurement.formatted || `${measurement.distance.toFixed(2)} units`
+					context.fillText(displayText, canvas.width / 2, canvas.height / 2)
+
+					// Update texture
+					const texture = new THREE.CanvasTexture(canvas)
+					texture.needsUpdate = true
+					textMesh.material.map = texture
+					textMesh.material.needsUpdate = true
+				}
+			})
+		} catch (error) {
+			logError('useMeasurement', 'Failed to update text labels', error)
 		}
 	}
 	
@@ -180,9 +272,8 @@ export function useMeasurement() {
 	const createPointIndicator = (point) => {
 		if (!measurementGroup.value) return
 
-		// Calculate appropriate size based on camera distance or model bounds
-		// For now, use a larger fixed size that scales with the model
-		const pointSize = 2.0 // Increased from 0.1 to 2.0 for better visibility
+		// Calculate size based on model scale
+		const pointSize = visualScale.value * 2 // Scale with model size
 
 		// Create a small sphere at the point with higher detail
 		const geometry = new THREE.SphereGeometry(pointSize, 16, 12)
@@ -196,19 +287,6 @@ export function useMeasurement() {
 		sphere.position.copy(point)
 		sphere.name = `measurementPoint_${points.value.length}`
 		sphere.renderOrder = 999 // Render on top of other objects
-
-		// Add a glowing outline ring for extra visibility
-		const ringGeometry = new THREE.RingGeometry(pointSize * 1.2, pointSize * 1.5, 16)
-		const ringMaterial = new THREE.MeshBasicMaterial({
-			color: 0xff00ff, // Bright magenta ring
-			transparent: true,
-			opacity: 0.6,
-			side: THREE.DoubleSide,
-			depthTest: false,
-		})
-		const ring = new THREE.Mesh(ringGeometry, ringMaterial)
-		ring.renderOrder = 998
-		sphere.add(ring)
 
 		measurementGroup.value.add(sphere)
 		pointMeshes.value.push(sphere)
@@ -265,7 +343,8 @@ export function useMeasurement() {
 		// Note: linewidth doesn't work in WebGL, so we create a cylinder instead
 		const direction = new THREE.Vector3().subVectors(measurement.point2, measurement.point1)
 		const distance = direction.length()
-		const cylinderGeometry = new THREE.CylinderGeometry(0.3, 0.3, distance, 8)
+		const lineRadius = visualScale.value * 0.3 // Scale line thickness with model
+		const cylinderGeometry = new THREE.CylinderGeometry(lineRadius, lineRadius, distance, 8)
 		const cylinderMaterial = new THREE.MeshBasicMaterial({
 			color: 0x00ff00,
 			transparent: true,
@@ -290,33 +369,42 @@ export function useMeasurement() {
 	// Create distance text
 	const createDistanceText = (measurement) => {
 		try {
-			// Create a simple plane with text texture
+			// Create a higher resolution canvas for better text quality
 			const canvas = document.createElement('canvas')
 			const context = canvas.getContext('2d')
-			canvas.width = 256
-			canvas.height = 64
+			canvas.width = 512 // Increased from 256
+			canvas.height = 128 // Increased from 64
 
-			// Draw text on canvas
+			// Draw text on canvas with larger font
 			context.fillStyle = 'rgba(0, 0, 0, 0.8)'
 			context.fillRect(0, 0, canvas.width, canvas.height)
 			context.fillStyle = '#00ff00'
-			context.font = 'bold 24px Arial'
+			context.font = 'bold 48px Arial' // Increased from 24px to 48px
 			context.textAlign = 'center'
 			context.textBaseline = 'middle'
-			context.fillText(`${measurement.distance.toFixed(2)} units`, canvas.width / 2, canvas.height / 2)
+			// Use formatted value if available, otherwise show raw distance with units
+			const displayText = measurement.formatted || `${measurement.distance.toFixed(2)} units`
+			context.fillText(displayText, canvas.width / 2, canvas.height / 2)
 
 			// Create texture from canvas
 			const texture = new THREE.CanvasTexture(canvas)
 			texture.needsUpdate = true
 
+			// Scale text MUCH larger - make it 3-5x bigger than before
+			const textWidth = visualScale.value * 30 // Increased from 10 to 30
+			const textHeight = visualScale.value * 7.5 // Increased from 2.5 to 7.5
+			
 			// Create plane geometry
-			const geometry = new THREE.PlaneGeometry(2, 0.5)
+			const geometry = new THREE.PlaneGeometry(textWidth, textHeight)
 			const material = new THREE.MeshBasicMaterial({
 				map: texture,
 				transparent: true,
 				alphaTest: 0.1,
+				depthTest: false, // Always render on top
+				side: THREE.DoubleSide, // Render on both sides
 			})
 			const textMesh = new THREE.Mesh(geometry, material)
+			textMesh.renderOrder = 996 // Render on top but behind points and lines
 
 			// Position text at midpoint
 			textMesh.position.copy(measurement.midpoint)
@@ -338,6 +426,57 @@ export function useMeasurement() {
 	const clearCurrentMeasurement = () => {
 		points.value = []
 		currentMeasurement.value = null
+	}
+
+	// Delete a single measurement
+	const deleteMeasurement = (measurementId) => {
+		const index = measurements.value.findIndex(m => m.id === measurementId)
+		if (index !== -1) {
+			// Remove visual elements for this measurement
+			if (measurementGroup.value) {
+				// Find and remove point meshes (2 per measurement)
+				// Note: Each measurement has 2 points, but we need to be careful not to delete
+				// points that might be shared with other measurements
+				// For safety, we'll remove line and text, but keep point cleanup simple
+				
+				// Remove line mesh
+				if (index < lineMeshes.value.length) {
+					const lineMesh = lineMeshes.value[index]
+					if (lineMesh) {
+						measurementGroup.value.remove(lineMesh)
+						lineMeshes.value.splice(index, 1)
+					}
+				}
+				
+				// Remove text mesh
+				if (index < textMeshes.value.length) {
+					const textMesh = textMeshes.value[index]
+					if (textMesh) {
+						measurementGroup.value.remove(textMesh)
+						textMeshes.value.splice(index, 1)
+					}
+				}
+				
+				// Remove point meshes for this measurement (2 points per measurement)
+				// Points are stored sequentially: measurement 0 = points 0,1; measurement 1 = points 2,3; etc.
+				const pointStartIndex = index * 2
+				for (let i = 0; i < 2; i++) {
+					const pointIndex = pointStartIndex
+					if (pointIndex < pointMeshes.value.length) {
+						const pointMesh = pointMeshes.value[pointIndex]
+						if (pointMesh) {
+							measurementGroup.value.remove(pointMesh)
+						}
+						pointMeshes.value.splice(pointIndex, 1)
+					}
+				}
+			}
+
+			// Remove from measurements array
+			measurements.value.splice(index, 1)
+
+			// Measurement deleted
+		}
 	}
 
 	// Clear all measurements
@@ -384,6 +523,7 @@ export function useMeasurement() {
 		currentMeasurement,
 		currentUnit,
 		modelScale,
+		visualScale,
 
 		// Computed
 		hasPoints,
@@ -392,11 +532,13 @@ export function useMeasurement() {
 
 		// Methods
 		init,
+		updateVisualScale,
 		toggleMeasurement,
 		handleClick,
 		addMeasurementPoint,
 		createMeasurement,
 		clearCurrentMeasurement,
+		deleteMeasurement,
 		clearAllMeasurements,
 		getMeasurementSummary,
 		convertDistance,

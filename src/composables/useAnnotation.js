@@ -16,6 +16,7 @@ export function useAnnotation() {
 	const textMeshes = ref([])
 	const pointMeshes = ref([])
 	const sceneRef = ref(null)
+	const modelScale = ref(1) // Scale factor based on model size
 
 	// Raycaster for 3D interaction
 	const raycaster = ref(new THREE.Raycaster())
@@ -36,9 +37,57 @@ export function useAnnotation() {
 			annotationGroup.value.name = 'annotationGroup'
 			scene.add(annotationGroup.value)
 
+			// Calculate initial model scale
+			updateModelScale()
+
 			// Annotation system initialized
 		} catch (error) {
 			logError('useAnnotation', 'Failed to initialize annotation system', error)
+		}
+	}
+
+	// Calculate and update model scale based on bounding box
+	const updateModelScale = () => {
+		if (!sceneRef.value) return
+
+		try {
+			// Find all meshes in the scene (excluding annotation elements)
+			const meshes = []
+			sceneRef.value.traverse((child) => {
+				if (child.isMesh && 
+					child.name !== 'annotationPoint' && 
+					child.name !== 'annotationText' &&
+					child.name !== 'measurementPoint' &&
+					child.name !== 'measurementLine') {
+					meshes.push(child)
+				}
+			})
+
+			if (meshes.length === 0) {
+				modelScale.value = 1
+				return
+			}
+
+			// Calculate bounding box
+			const box = new THREE.Box3()
+			meshes.forEach(mesh => {
+				const meshBox = new THREE.Box3().setFromObject(mesh)
+				box.union(meshBox)
+			})
+
+			// Get the size of the bounding box
+			const size = new THREE.Vector3()
+			box.getSize(size)
+
+			// Use the maximum dimension as reference
+			const maxDimension = Math.max(size.x, size.y, size.z)
+
+			// Scale annotations proportionally (1% of model size, min 0.5, max 10)
+			modelScale.value = Math.max(0.5, Math.min(10, maxDimension * 0.01))
+
+		} catch (error) {
+			logError('useAnnotation', 'Failed to update model scale', error)
+			modelScale.value = 1
 		}
 	}
 
@@ -125,12 +174,20 @@ export function useAnnotation() {
 	const createAnnotationPoint = (annotation) => {
 		if (!annotationGroup.value) return null
 
-		const geometry = new THREE.SphereGeometry(0.1, 16, 16)
-		const material = new THREE.MeshBasicMaterial({ color: 0xff0000 })
+		// Scale the point based on model size
+		const pointSize = modelScale.value * 2 // Base size multiplied by model scale
+		const geometry = new THREE.SphereGeometry(pointSize, 16, 16)
+		const material = new THREE.MeshBasicMaterial({ 
+			color: 0xff0000,
+			transparent: true,
+			opacity: 0.9,
+			depthTest: false, // Always render on top
+		})
 		const sphere = new THREE.Mesh(geometry, material)
 
 		sphere.position.copy(annotation.point)
 		sphere.name = 'annotationPoint'
+		sphere.renderOrder = 999 // Render on top
 
 		annotationGroup.value.add(sphere)
 		pointMeshes.value.push(sphere)
@@ -141,17 +198,17 @@ export function useAnnotation() {
 	// Create text for annotation
 	const createAnnotationText = (annotation) => {
 		try {
-			// Create a simple plane with text texture
+			// Create a higher resolution canvas for better text quality
 			const canvas = document.createElement('canvas')
 			const context = canvas.getContext('2d')
-			canvas.width = 256
-			canvas.height = 64
+			canvas.width = 512 // Increased from 256
+			canvas.height = 128 // Increased from 64
 
-			// Draw text on canvas
+			// Draw text on canvas with larger font
 			context.fillStyle = 'rgba(0, 0, 0, 0.8)'
 			context.fillRect(0, 0, canvas.width, canvas.height)
 			context.fillStyle = '#ff0000'
-			context.font = 'bold 20px Arial'
+			context.font = 'bold 48px Arial' // Increased from 20px to 48px
 			context.textAlign = 'center'
 			context.textBaseline = 'middle'
 			context.fillText(annotation.text, canvas.width / 2, canvas.height / 2)
@@ -160,19 +217,26 @@ export function useAnnotation() {
 			const texture = new THREE.CanvasTexture(canvas)
 			texture.needsUpdate = true
 
+			// Scale text MUCH larger - make it 3-5x bigger than before
+			const textWidth = modelScale.value * 30 // Increased from 10 to 30
+			const textHeight = modelScale.value * 7.5 // Increased from 2.5 to 7.5
+			
 			// Create plane geometry
-			const geometry = new THREE.PlaneGeometry(1.5, 0.4)
+			const geometry = new THREE.PlaneGeometry(textWidth, textHeight)
 			const material = new THREE.MeshBasicMaterial({
 				map: texture,
 				transparent: true,
 				alphaTest: 0.1,
+				depthTest: false, // Always render on top
+				side: THREE.DoubleSide, // Render on both sides
 			})
 			const textMesh = new THREE.Mesh(geometry, material)
 
-			// Position text above the point
+			// Position text above the point (scaled offset)
 			textMesh.position.copy(annotation.point)
-			textMesh.position.y += 0.5
+			textMesh.position.y += modelScale.value * 5 // Increased offset for larger text
 			textMesh.name = 'annotationText'
+			textMesh.renderOrder = 997 // Render on top but behind points
 
 			// Make text face camera (simplified - just point towards origin)
 			textMesh.lookAt(0, 0, 0)
@@ -195,22 +259,20 @@ export function useAnnotation() {
 		if (annotation) {
 			annotation.text = newText
 
-			// Update visual text
-			const textMesh = textMeshes.value.find(mesh =>
-				mesh.position.distanceTo(annotation.point) < 0.1,
-			)
+			// Update visual text mesh using stored reference
+			const textMesh = annotation.textMesh
 
 			if (textMesh) {
-				// Recreate the text texture
+				// Recreate the text texture with high resolution
 				const canvas = document.createElement('canvas')
 				const context = canvas.getContext('2d')
-				canvas.width = 256
-				canvas.height = 64
+				canvas.width = 1024 // High resolution for better quality
+				canvas.height = 256
 
 				context.fillStyle = 'rgba(0, 0, 0, 0.8)'
 				context.fillRect(0, 0, canvas.width, canvas.height)
 				context.fillStyle = '#ff0000'
-				context.font = 'bold 20px Arial'
+				context.font = 'bold 80px Arial' // Large font for readability
 				context.textAlign = 'center'
 				context.textBaseline = 'middle'
 				context.fillText(newText, canvas.width / 2, canvas.height / 2)
@@ -308,6 +370,7 @@ export function useAnnotation() {
 		isActive,
 		annotations,
 		currentAnnotation,
+		modelScale,
 
 		// Computed
 		hasAnnotations,
@@ -315,6 +378,7 @@ export function useAnnotation() {
 
 		// Methods
 		init,
+		updateModelScale,
 		toggleAnnotation,
 		handleClick,
 		addAnnotationPoint,

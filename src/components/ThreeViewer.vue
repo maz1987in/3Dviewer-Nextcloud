@@ -146,9 +146,15 @@
 				<div v-for="(m, index) in measurements" :key="m.id" class="measurement-item">
 					<div class="measurement-info">
 						<span class="measurement-label">{{ t('threedviewer', 'Measurement') }} {{ index + 1 }}</span>
-						<span class="measurement-distance">{{ m.formatted || (m.distance.toFixed(2) + ' units') }}</span>
+						<button type="button"
+							class="delete-measurement-btn"
+							:class="{ 'mobile': isMobile }"
+							@click="deleteMeasurement(m.id)">
+							{{ t('threedviewer', 'Delete') }}
+						</button>
 					</div>
 					<div class="measurement-details">
+						<span class="measurement-distance">{{ m.formatted || (m.distance.toFixed(2) + ' units') }}</span>
 						<div class="measurement-point">
 							<span class="point-label">{{ t('threedviewer', 'Point 1') }}:</span>
 							<span class="point-coords">({{ m.point1.x.toFixed(2) }}, {{ m.point1.y.toFixed(2) }}, {{ m.point1.z.toFixed(2) }})</span>
@@ -657,6 +663,12 @@ export default {
 
 		// Advanced feature methods
 		const toggleMeasurementMode = () => {
+			// If turning measurement ON, turn annotation OFF
+			if (!measurement.isActive.value) {
+				if (annotation.isActive.value) {
+					annotation.toggleAnnotation()
+				}
+			}
 			measurement.toggleMeasurement()
 		}
 
@@ -664,7 +676,17 @@ export default {
 			measurement.setUnit(currentUnitModel.value)
 		}
 
+		const deleteMeasurement = (measurementId) => {
+			measurement.deleteMeasurement(measurementId)
+		}
+
 		const toggleAnnotationMode = () => {
+			// If turning annotation ON, turn measurement OFF
+			if (!annotation.isActive.value) {
+				if (measurement.isActive.value) {
+					measurement.toggleMeasurement()
+				}
+			}
 			annotation.toggleAnnotation()
 			emit('toggle-annotation')
 		}
@@ -895,6 +917,7 @@ export default {
 			fitToView,
 			toggleMeasurementMode,
 			handleUnitChange,
+			deleteMeasurement,
 			toggleAnnotationMode,
 			deleteAnnotation,
 			updateAnnotationText,
@@ -1227,7 +1250,7 @@ export default {
 /* Measurement overlay styles */
 .measurement-overlay {
 	position: absolute;
-	top: 20px;
+	top: 80px; /* Moved down to avoid toolbar overlap */
 	right: 20px;
 	background: rgba(0, 0, 0, 0.8);
 	border: 1px solid #00ff00;
@@ -1316,6 +1339,20 @@ export default {
 	color: #00ff00;
 }
 
+.delete-measurement-btn {
+	background: #ff4444;
+	color: white;
+	border: none;
+	padding: 3px 8px;
+	border-radius: 3px;
+	cursor: pointer;
+	font-size: 11px;
+}
+
+.delete-measurement-btn:hover {
+	background: #ff6666;
+}
+
 .measurement-distance {
 	font-size: 16px;
 	font-weight: bold;
@@ -1347,7 +1384,7 @@ export default {
 
 @media (max-width: 768px) {
 	.measurement-overlay {
-		top: 10px;
+		top: 70px; /* Moved down on mobile to avoid toolbar */
 		right: 10px;
 		left: 10px;
 		max-width: none;
@@ -1369,7 +1406,7 @@ export default {
 /* Annotation overlay styles */
 .annotation-overlay {
 	position: absolute;
-	top: 20px;
+	top: 80px; /* Moved down to avoid toolbar overlap, aligned with measurement panel */
 	left: 20px;
 	background: rgba(0, 0, 0, 0.8);
 	border: 1px solid #ff0000;
@@ -1497,7 +1534,7 @@ export default {
 
 @media (max-width: 768px) {
 	.annotation-overlay {
-		top: 10px;
+		top: 70px; /* Moved down on mobile to avoid toolbar, aligned with measurement panel */
 		left: 10px;
 		right: 10px;
 		max-width: none;
