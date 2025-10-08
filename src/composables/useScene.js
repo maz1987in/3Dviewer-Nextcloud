@@ -5,6 +5,7 @@
 
 import { ref, computed } from 'vue'
 import * as THREE from 'three'
+import { setWireframeMode, createGridHelper, createAxesHelper, disposeObject } from '../utils/three-utils.js'
 import { logError } from '../utils/error-handler.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
 

@@ -29,6 +29,7 @@
 import { NcProgressBar, NcButton } from '@nextcloud/vue'
 import { generateUrl } from '@nextcloud/router'
 import { loadModelWithDependencies } from '../loaders/multiFileHelpers.js'
+import { removePlaceholders } from '../utils/scene-helpers.js'
 import { useScene } from '../composables/useScene.js'
 import { useCamera } from '../composables/useCamera.js'
 
