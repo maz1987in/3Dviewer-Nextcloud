@@ -1,6 +1,8 @@
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js'
 import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js'
 import { BaseLoader } from '../BaseLoader.js'
+import { logger } from '../../utils/logger.js'
+import { findFileByName, decodeTextFromBuffer } from '../../utils/fileHelpers.js'
 
 /**
  * OBJ loader class with MTL material support
@@ -54,7 +56,7 @@ class ObjLoader extends BaseLoader {
 					color: 0xcccccc,
 					side: THREE.DoubleSide
 				})
-				console.warn(`[OBJ Loader] Mesh "${node.name}" had null material, assigned default`)
+				logger.warn('OBJLoader', ` Mesh "${node.name}" had null material, assigned default`)
 			}
 		})
 		
@@ -80,14 +82,14 @@ class ObjLoader extends BaseLoader {
 		if (maxDimension > 1000) {
 			const scaleFactor = 1000 / maxDimension
 			object3D.scale.setScalar(scaleFactor)
-			console.info('[OBJ Loader] Model scaled down by factor:', scaleFactor)
+			logger.info('OBJLoader', ' Model scaled down by factor:', scaleFactor)
 		}
 		
 		// Model processing complete
-		console.info('[OBJ Loader] Model processing completed successfully')
+		logger.info('OBJLoader', ' Model processing completed successfully')
 		
 		// Add camera positioning information to the context for the viewer
-		console.info('[OBJ Loader] Adding camera positioning hints to context...')
+		logger.info('OBJLoader', ' Adding camera positioning hints to context...')
 		if (!context.cameraHints) context.cameraHints = {}
 		context.cameraHints.modelBounds = {
 			size: { x: size.x, y: size.y, z: size.z },
@@ -203,7 +205,7 @@ class ObjLoader extends BaseLoader {
 				if (!trimmedName) {
 					const firstMaterialName = Object.keys(materials)[0]
 					if (firstMaterialName) {
-						console.warn(`[OBJ Loader] Empty material name in OBJ file, using "${firstMaterialName}" as fallback`)
+						logger.warn('OBJLoader', ` Empty material name in OBJ file, using "${firstMaterialName}" as fallback`)
 						return materials[firstMaterialName]
 					}
 				}
@@ -213,7 +215,7 @@ class ObjLoader extends BaseLoader {
 					// Material name not found - could be typo in OBJ file
 					const firstMaterialName = Object.keys(materials)[0]
 					if (firstMaterialName) {
-						console.warn(`[OBJ Loader] Material "${trimmedName}" not found, using "${firstMaterialName}" as fallback`)
+						logger.warn('OBJLoader', ` Material "${trimmedName}" not found, using "${firstMaterialName}" as fallback`)
 						return materials[firstMaterialName]
 					}
 				}
@@ -244,7 +246,7 @@ class ObjLoader extends BaseLoader {
 						material.map = texture || null
 					})
 					.catch(error => {
-						console.warn('[OBJ Loader] Failed to load diffuse texture for native material:', materialName, error)
+						logger.warn('OBJLoader', ' Failed to load diffuse texture for native material:', materialName, error)
 						material.map = null
 					})
 			}
@@ -256,7 +258,7 @@ class ObjLoader extends BaseLoader {
 						material.normalMap = texture || null
 					})
 					.catch(error => {
-						console.warn('[OBJ Loader] Failed to load normal texture for native material:', materialName, error)
+						logger.warn('OBJLoader', ' Failed to load normal texture for native material:', materialName, error)
 						material.normalMap = null
 					})
 			}
@@ -268,7 +270,7 @@ class ObjLoader extends BaseLoader {
 						material.specularMap = texture || null
 					})
 					.catch(error => {
-						console.warn('[OBJ Loader] Failed to load specular texture for native material:', materialName, error)
+						logger.warn('OBJLoader', ' Failed to load specular texture for native material:', materialName, error)
 						material.specularMap = null
 					})
 			}
@@ -281,7 +283,7 @@ class ObjLoader extends BaseLoader {
 	 * @return {string|null} MTL file name
 	 */
 	findMtlReference(objText) {
-		console.info('[OBJ Loader] Searching for MTL reference in OBJ file...')
+		logger.info('OBJLoader', ' Searching for MTL reference in OBJ file...')
 		for (const line of objText.split(/\r?\n/)) {
 			const trimmedLine = line.trim()
 			if (trimmedLine.toLowerCase().startsWith('mtllib ')) {
@@ -327,20 +329,20 @@ class ObjLoader extends BaseLoader {
 						// Try native Three.js MTLLoader first
 						let materials
 						try {
-							console.info('[OBJ Loader] Attempting native MTLLoader...')
+							logger.info('OBJLoader', ' Attempting native MTLLoader...')
 							materials = this.mtlLoader.parse(mtlText, '')
 							
 							// Check if native loader actually created materials
 							if (!materials || !materials.materials || Object.keys(materials.materials).length === 0) {
-								console.warn('[OBJ Loader] Native MTLLoader returned no materials, falling back to manual parser')
+								logger.warn('OBJLoader', ' Native MTLLoader returned no materials, falling back to manual parser')
 								materials = this.parseMtlManually(mtlText, THREE)
 							} else {
-								console.info('[OBJ Loader] Native MTLLoader successful:', Object.keys(materials.materials).length, 'materials')
+								logger.info('OBJLoader', ' Native MTLLoader successful:', Object.keys(materials.materials).length, 'materials')
 								// Set up custom texture loader for native materials
 								this.setupCustomTextureLoader(materials, additionalFiles, THREE)
 							}
 						} catch (error) {
-							console.warn('[OBJ Loader] Native MTLLoader failed, falling back to manual parser:', error.message)
+							logger.warn('OBJLoader', ' Native MTLLoader failed, falling back to manual parser:', error.message)
 							materials = this.parseMtlManually(mtlText, THREE)
 						}
 						
@@ -365,7 +367,7 @@ class ObjLoader extends BaseLoader {
 											material.map = texture || null
 											delete material._mapPath // Clean up temporary property
 										} catch (error) {
-											console.warn('[OBJ Loader] Failed to load diffuse texture for:', materialName, error)
+											logger.warn('OBJLoader', ' Failed to load diffuse texture for:', materialName, error)
 											material.map = null
 											delete material._mapPath
 										}
@@ -378,7 +380,7 @@ class ObjLoader extends BaseLoader {
 											material.normalMap = texture || null
 											delete material._normalMapPath
 										} catch (error) {
-											console.warn('[OBJ Loader] Failed to load normal map for:', materialName, error)
+											logger.warn('OBJLoader', ' Failed to load normal map for:', materialName, error)
 											material.normalMap = null
 											delete material._normalMapPath
 										}
@@ -391,7 +393,7 @@ class ObjLoader extends BaseLoader {
 											material.specularMap = texture || null
 											delete material._specularMapPath
 										} catch (error) {
-											console.warn('[OBJ Loader] Failed to load specular map for:', materialName, error)
+											logger.warn('OBJLoader', ' Failed to load specular map for:', materialName, error)
 											material.specularMap = null
 											delete material._specularMapPath
 										}
@@ -440,7 +442,7 @@ class ObjLoader extends BaseLoader {
 										defaultMaterial.map = texture
 									}
 								} catch (error) {
-									console.warn('[OBJ Loader] Failed to load texture for default material:', error)
+									logger.warn('OBJLoader', ' Failed to load texture for default material:', error)
 								}
 							}
 							
@@ -459,7 +461,7 @@ class ObjLoader extends BaseLoader {
 							dependenciesCount: additionalFiles.length 
 						})
 					} catch (parseError) {
-						console.error('[OBJ Loader] Error during MTL parsing/setup:', parseError)
+						logger.error('OBJLoader', ' Error during MTL parsing/setup:', parseError)
 						throw parseError
 					}
 				} else {
@@ -512,7 +514,7 @@ class ObjLoader extends BaseLoader {
 					const unsupportedFormats = ['tif', 'tiff', 'tga', 'dds']
 					
 					if (unsupportedFormats.includes(extension)) {
-						console.warn(`[OBJ Loader] Texture format .${extension} is not supported by browsers, skipping:`, url)
+						logger.warn('OBJLoader', ` Texture format .${extension} is not supported by browsers, skipping:`, url)
 						onLoad(null) // Signal "no texture" so loading can continue
 						return
 					}
@@ -528,7 +530,7 @@ class ObjLoader extends BaseLoader {
 						URL.revokeObjectURL(blobUrl) // Clean up
 					}
 					image.onerror = () => {
-						console.warn('[OBJ Loader] Texture failed to load:', url)
+						logger.warn('OBJLoader', ' Texture failed to load:', url)
 						onLoad(null) // Allow loading to continue without texture
 						URL.revokeObjectURL(blobUrl) // Clean up
 					}
@@ -589,12 +591,12 @@ class ObjLoader extends BaseLoader {
 						// Texture loading progress (optional)
 					},
 					(error) => {
-						console.warn('[OBJ Loader] Texture loading failed:', texturePath, error)
+						logger.warn('OBJLoader', ' Texture loading failed:', texturePath, error)
 						resolve(null) // Return null instead of rejecting to allow graceful fallback
 					}
 				)
 			} catch (error) {
-				console.error('[OBJ Loader] Error in loadTextureFromDependencies:', error)
+				logger.error('OBJLoader', ' Error in loadTextureFromDependencies:', error)
 				resolve(null)
 			}
 		})
@@ -617,7 +619,7 @@ class ObjLoader extends BaseLoader {
 			
 			return text
 		} catch (error) {
-			console.error('[OBJ Loader] Failed to convert file to text:', error)
+			logger.error('OBJLoader', ' Failed to convert file to text:', error)
 			this.logWarning('Failed to convert file to text', { 
 				fileName: file.name, 
 				error: error.message 

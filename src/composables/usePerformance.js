@@ -6,6 +6,7 @@
 import { ref, computed, readonly } from 'vue'
 import * as THREE from 'three'
 import { logError } from '../utils/error-handler.js'
+import { average } from '../utils/mathHelpers.js'
 
 export function usePerformance() {
 	// Performance state
@@ -358,13 +359,8 @@ export function usePerformance() {
 	 * @return {object} Performance statistics
 	 */
 	const getPerformanceStats = () => {
-		const avgFPS = performanceHistory.value.length > 0
-			? performanceHistory.value.reduce((sum, entry) => sum + entry.fps, 0) / performanceHistory.value.length
-			: 0
-
-		const avgFrameTime = performanceHistory.value.length > 0
-			? performanceHistory.value.reduce((sum, entry) => sum + entry.frameTime, 0) / performanceHistory.value.length
-			: 0
+		const avgFPS = average(performanceHistory.value, 'fps')
+		const avgFrameTime = average(performanceHistory.value, 'frameTime')
 
 		return {
 			current: {

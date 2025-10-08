@@ -2,6 +2,8 @@
 // Each loader module exports a default async function (arrayBuffer, context) returning { object3D }
 // context: { THREE, scene, renderer, applyWireframe(enabled), ensurePlaceholderRemoved(), hasDraco, hasKtx2, wireframe }
 
+import { logger } from '../utils/logger.js'
+
 const loaders = {
 	gltf: () => import('./types/gltf.js'),
 	glb: () => import('./types/gltf.js'),
@@ -18,7 +20,7 @@ const loaders = {
 }
 
 export async function loadModelByExtension(ext, arrayBuffer, context) {
-	console.info('[loader registry] loading extension:', ext)
+	logger.info('LoaderRegistry', 'loading extension:', ext)
 	const importer = loaders[ext]
 	if (importer) {
 		try {
@@ -30,7 +32,7 @@ export async function loadModelByExtension(ext, arrayBuffer, context) {
 				return loaderInstance.loadModel(arrayBuffer, context)
 			}
 		} catch (e) {
-			console.error('[loader registry] error loading model', e)
+			logger.error('LoaderRegistry', 'error loading model', e)
 			return Promise.reject(e)
 		}
 	}

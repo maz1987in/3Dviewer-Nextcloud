@@ -6,6 +6,9 @@
  * Inspired by WARP-LAB/files_3dmodelviewer approach
  */
 
+import { logger } from '../utils/logger.js'
+import { findFileByName } from '../utils/fileHelpers.js'
+
 /**
  * Fetch a file from URL and return as File object
  * @param {string} url - URL to fetch from
@@ -53,24 +56,24 @@ export async function getFileIdByPath(filePath) {
 		const response = await fetch(listUrl)
 		
 		if (!response.ok) {
-			console.warn('[MultiFileHelpers] Failed to list files:', response.status, response.statusText)
+			logger.warn('MultiFileHelpers', ' Failed to list files:', response.status, response.statusText)
 			return null
 		}
 		
 	const files = await response.json()
 	
-	console.info('[MultiFileHelpers] Files in directory:', files.map(f => f.name))
-	console.info('[MultiFileHelpers] Looking for file:', filename)
+	logger.info('MultiFileHelpers', ' Files in directory:', files.map(f => f.name))
+	logger.info('MultiFileHelpers', ' Looking for file:', filename)
 	
 	// Find the file by name (case-insensitive to handle Windows/Linux differences)
 	const file = files.find(f => f.name.toLowerCase() === filename.toLowerCase())
 	
 	if (!file) {
-		console.warn('[MultiFileHelpers] File not found:', filename, 'Available files:', files.map(f => f.name))
+		logger.warn('MultiFileHelpers', ' File not found:', filename, 'Available files:', files.map(f => f.name))
 	}
 	
 	return file ? file.id : null	} catch (error) {
-		console.warn('[MultiFileHelpers] Error getting file ID for path:', filePath, error)
+		logger.warn('MultiFileHelpers', ' Error getting file ID for path:', filePath, error)
 		return null
 	}
 }
@@ -158,11 +161,11 @@ export async function fetchObjDependencies(objContent, baseFilename, fileId, dir
 	const mtlFiles = parseObjMaterialFiles(objContent)
 	
 	if (mtlFiles.length === 0) {
-		console.info('[MultiFileHelpers] No MTL files referenced in OBJ')
+		logger.info('MultiFileHelpers', ' No MTL files referenced in OBJ')
 		return dependencies
 	}
 	
-	console.info('[MultiFileHelpers] Found MTL files:', mtlFiles)
+	logger.info('MultiFileHelpers', ' Found MTL files:', mtlFiles)
 	
 	// Fetch all MTL files
 	const mtlPromises = mtlFiles.map(async (mtlFilename) => {
@@ -176,7 +179,7 @@ export async function fetchObjDependencies(objContent, baseFilename, fileId, dir
 			if (fileId) {
 				const url = `/apps/threedviewer/api/file/${fileId}`
 				const file = await fetchFileFromUrl(url, mtlFilename, 'model/mtl')
-				console.info('[MultiFileHelpers] Fetched MTL:', mtlFilename)
+				logger.info('MultiFileHelpers', ' Fetched MTL:', mtlFilename)
 				
 				// Parse textures from MTL
 				const mtlText = await file.text()
@@ -191,14 +194,14 @@ export async function fetchObjDependencies(objContent, baseFilename, fileId, dir
 						if (fileId) {
 							const texUrl = `/apps/threedviewer/api/file/${fileId}`
 							const texFile = await fetchFileFromUrl(texUrl, texFilename)
-							console.info('[MultiFileHelpers] Fetched texture:', texFilename)
+							logger.info('MultiFileHelpers', ' Fetched texture:', texFilename)
 							return texFile
 						} else {
-							console.warn('[MultiFileHelpers] Could not find file ID for texture:', texFilename)
+							logger.warn('MultiFileHelpers', ' Could not find file ID for texture:', texFilename)
 							return null
 						}
 					} catch (err) {
-						console.warn('[MultiFileHelpers] Failed to fetch texture:', texFilename, err)
+						logger.warn('MultiFileHelpers', ' Failed to fetch texture:', texFilename, err)
 						return null
 					}
 				})
@@ -209,12 +212,12 @@ export async function fetchObjDependencies(objContent, baseFilename, fileId, dir
 				
 				return [file, ...textures]
 			} else {
-				console.warn('[MultiFileHelpers] Could not find file ID for MTL:', mtlFilename)
+				logger.warn('MultiFileHelpers', ' Could not find file ID for MTL:', mtlFilename)
 				return []
 			}
 			
 		} catch (err) {
-			console.warn('[MultiFileHelpers] Failed to fetch MTL:', mtlFilename, err)
+			logger.warn('MultiFileHelpers', ' Failed to fetch MTL:', mtlFilename, err)
 			return []
 		}
 	})
@@ -244,7 +247,7 @@ export async function fetchGltfDependencies(gltfContent, baseFilename, fileId, d
 		const gltfJson = JSON.parse(gltfContent)
 		const deps = parseGltfDependencies(gltfJson)
 		
-		console.info('[MultiFileHelpers] GLTF dependencies:', deps)
+		logger.info('MultiFileHelpers', ' GLTF dependencies:', deps)
 		
 		// Fetch buffers using file listing approach
 		const bufferPromises = deps.buffers.map(async (bufferUri) => {
@@ -256,14 +259,14 @@ export async function fetchGltfDependencies(gltfContent, baseFilename, fileId, d
 				if (fileId) {
 					const url = `/apps/threedviewer/api/file/${fileId}`
 					const file = await fetchFileFromUrl(url, bufferUri, 'application/octet-stream')
-					console.info('[MultiFileHelpers] Fetched buffer:', bufferUri)
+					logger.info('MultiFileHelpers', ' Fetched buffer:', bufferUri)
 					return file
 				} else {
-					console.warn('[MultiFileHelpers] Could not find file ID for buffer:', bufferUri)
+					logger.warn('MultiFileHelpers', ' Could not find file ID for buffer:', bufferUri)
 					return null
 				}
 			} catch (err) {
-				console.warn('[MultiFileHelpers] Failed to fetch buffer:', bufferUri, err)
+				logger.warn('MultiFileHelpers', ' Failed to fetch buffer:', bufferUri, err)
 				return null
 			}
 		})
@@ -278,14 +281,14 @@ export async function fetchGltfDependencies(gltfContent, baseFilename, fileId, d
 				if (fileId) {
 					const url = `/apps/threedviewer/api/file/${fileId}`
 					const file = await fetchFileFromUrl(url, imageUri)
-					console.info('[MultiFileHelpers] Fetched image:', imageUri)
+					logger.info('MultiFileHelpers', ' Fetched image:', imageUri)
 					return file
 				} else {
-					console.warn('[MultiFileHelpers] Could not find file ID for image:', imageUri)
+					logger.warn('MultiFileHelpers', ' Could not find file ID for image:', imageUri)
 					return null
 				}
 			} catch (err) {
-				console.warn('[MultiFileHelpers] Failed to fetch image:', imageUri, err)
+				logger.warn('MultiFileHelpers', ' Failed to fetch image:', imageUri, err)
 				return null
 			}
 		})
@@ -313,7 +316,7 @@ export async function fetchGltfDependencies(gltfContent, baseFilename, fileId, d
  * @returns {Promise<object>} - Object with { mainFile: File, dependencies: File[] }
  */
 export async function loadModelWithDependencies(fileId, filename, extension, dirPath) {
-	console.info('[MultiFileHelpers] Loading model with dependencies:', {
+	logger.info('MultiFileHelpers', ' Loading model with dependencies:', {
 		fileId,
 		filename,
 		extension,
@@ -352,7 +355,7 @@ export async function loadModelWithDependencies(fileId, filename, extension, dir
 	const blob = new Blob([arrayBuffer], { type: getMimeType(extension) })
 	const mainFile = new File([blob], filename, { type: getMimeType(extension) })
 	
-	console.info('[MultiFileHelpers] Created main file:', {
+	logger.info('MultiFileHelpers', ' Created main file:', {
 		name: mainFile.name,
 		size: mainFile.size,
 		type: mainFile.type,
@@ -371,7 +374,7 @@ export async function loadModelWithDependencies(fileId, filename, extension, dir
 	}
 	// GLB, STL, PLY, etc. are single-file formats - no dependencies
 	
-	console.info('[MultiFileHelpers] Loaded dependencies:', dependencies.length)
+	logger.info('MultiFileHelpers', ' Loaded dependencies:', dependencies.length)
 	
 	const result = {
 		mainFile,
@@ -379,7 +382,7 @@ export async function loadModelWithDependencies(fileId, filename, extension, dir
 		allFiles: [mainFile, ...dependencies],
 	}
 	
-	console.info('[MultiFileHelpers] Returning result:', {
+	logger.info('MultiFileHelpers', ' Returning result:', {
 		mainFile: { name: result.mainFile.name, size: result.mainFile.size, type: result.mainFile.type },
 		dependencies: result.dependencies.map(f => ({ name: f.name, size: f.size, type: f.type })),
 		allFilesCount: result.allFiles.length
