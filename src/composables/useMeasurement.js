@@ -1,7 +1,13 @@
 import { ref, computed } from 'vue'
 import * as THREE from 'three'
 import { logError } from '../utils/error-handler.js'
-import { calculateModelScale, createTextTexture } from '../utils/modelScaleUtils.js'
+import { 
+	calculateModelScale, 
+	createTextTexture, 
+	createMarkerSphere, 
+	createTextMesh,
+	raycastIntersection 
+} from '../utils/modelScaleUtils.js'
 
 // Unit conversion factors (1 Three.js unit = ? real units)
 const UNIT_SCALES = {
@@ -24,10 +30,6 @@ export function useMeasurement() {
 	const currentUnit = ref('millimeters') // Default to millimeters (common for 3D models)
 	const modelScale = ref(1) // Scale factor: 1 Three.js unit = modelScale real units
 	const visualScale = ref(1) // Visual scale for markers based on model size
-
-	// Raycasting setup
-	const raycaster = ref(new THREE.Raycaster())
-	const mouse = ref(new THREE.Vector2())
 
 	// Scene reference
 	const sceneRef = ref(null)
@@ -177,32 +179,13 @@ export function useMeasurement() {
 		}
 
 		try {
-			// Calculate mouse position in normalized device coordinates
-			const rect = event.target.getBoundingClientRect()
-			mouse.value.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
-			mouse.value.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
-
-			// Mouse coordinates processed
-
-			// Update raycaster
-			raycaster.value.setFromCamera(mouse.value, camera)
-
-			// Find intersections with the model (excluding measurement objects)
-			const intersectableObjects = []
-			sceneRef.value.traverse((child) => {
-				if (child.isMesh && child.name !== 'measurementGroup' && child.visible) {
-					intersectableObjects.push(child)
-				}
+			// Use shared raycasting utility with custom filter
+			const point = raycastIntersection(event, camera, sceneRef.value, {
+				filterMesh: (mesh) => mesh.isMesh && mesh.name !== 'measurementGroup' && mesh.visible,
+				recursive: true,
 			})
 
-			// Intersectable objects found
-
-			const intersects = raycaster.value.intersectObjects(intersectableObjects, true)
-
-			// Intersections found
-
-			if (intersects.length > 0) {
-				const point = intersects[0].point
+			if (point) {
 				addMeasurementPoint(point)
 			}
 		} catch (error) {
@@ -229,24 +212,20 @@ export function useMeasurement() {
 	const createPointIndicator = (point) => {
 		if (!measurementGroup.value) return
 
-		// Calculate size based on model scale
-		const pointSize = visualScale.value * 2 // Scale with model size
-
-		// Create a small sphere at the point with higher detail
-		const geometry = new THREE.SphereGeometry(pointSize, 16, 12)
-		const material = new THREE.MeshBasicMaterial({
-			color: 0xffff00, // Changed to bright yellow for better visibility
-			transparent: true,
+		// Use shared marker sphere utility
+		const sphere = createMarkerSphere(point, {
+			scale: visualScale.value,
+			color: 0xffff00, // Bright yellow for measurements
+			sizeMultiplier: 2,
 			opacity: 0.9,
-			depthTest: false, // Always render on top
+			renderOrder: 999,
+			name: `measurementPoint_${points.value.length}`,
 		})
-		const sphere = new THREE.Mesh(geometry, material)
-		sphere.position.copy(point)
-		sphere.name = `measurementPoint_${points.value.length}`
-		sphere.renderOrder = 999 // Render on top of other objects
 
-		measurementGroup.value.add(sphere)
-		pointMeshes.value.push(sphere)
+		if (sphere) {
+			measurementGroup.value.add(sphere)
+			pointMeshes.value.push(sphere)
+		}
 	}
 
 	// Create measurement between two points
@@ -329,43 +308,25 @@ export function useMeasurement() {
 			// Use formatted value if available, otherwise show raw distance with units
 			const displayText = measurement.formatted || `${measurement.distance.toFixed(2)} units`
 			
-			// Create text texture using shared utility
-			const texture = createTextTexture(displayText, {
-				width: 512,
-				height: 128,
+			// Use shared text mesh utility
+			const textMesh = createTextMesh(displayText, measurement.midpoint, {
+				scale: visualScale.value,
+				widthMultiplier: 30,
+				heightMultiplier: 7.5,
+				yOffset: 0, // No offset for measurements (at midpoint)
 				textColor: '#00ff00',
 				bgColor: 'rgba(0, 0, 0, 0.8)',
 				fontSize: 48,
-				fontFamily: 'Arial',
+				canvasWidth: 512,
+				canvasHeight: 128,
+				renderOrder: 996,
+				name: 'measurementText',
 			})
 
-			if (!texture) return
-
-			// Scale text MUCH larger - make it 3-5x bigger than before
-			const textWidth = visualScale.value * 30 // Increased from 10 to 30
-			const textHeight = visualScale.value * 7.5 // Increased from 2.5 to 7.5
-			
-			// Create plane geometry
-			const geometry = new THREE.PlaneGeometry(textWidth, textHeight)
-			const material = new THREE.MeshBasicMaterial({
-				map: texture,
-				transparent: true,
-				alphaTest: 0.1,
-				depthTest: false, // Always render on top
-				side: THREE.DoubleSide, // Render on both sides
-			})
-			const textMesh = new THREE.Mesh(geometry, material)
-			textMesh.renderOrder = 996 // Render on top but behind points and lines
-
-			// Position text at midpoint
-			textMesh.position.copy(measurement.midpoint)
-
-			// Make text face camera (simplified - just point towards origin)
-			textMesh.lookAt(0, 0, 0)
-
-			// Add to measurement group
-			measurementGroup.value.add(textMesh)
-			textMeshes.value.push(textMesh)
+			if (textMesh) {
+				measurementGroup.value.add(textMesh)
+				textMeshes.value.push(textMesh)
+			}
 
 			// Distance calculated
 		} catch (error) {

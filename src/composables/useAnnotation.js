@@ -6,7 +6,13 @@
 import { ref, computed } from 'vue'
 import * as THREE from 'three'
 import { logError } from '../utils/error-handler.js'
-import { calculateModelScale, createTextTexture } from '../utils/modelScaleUtils.js'
+import { 
+	calculateModelScale, 
+	createTextTexture, 
+	createMarkerSphere, 
+	createTextMesh,
+	raycastIntersection 
+} from '../utils/modelScaleUtils.js'
 
 export function useAnnotation() {
 	// Annotation state
@@ -18,10 +24,6 @@ export function useAnnotation() {
 	const pointMeshes = ref([])
 	const sceneRef = ref(null)
 	const modelScale = ref(1) // Scale factor based on model size
-
-	// Raycaster for 3D interaction
-	const raycaster = ref(new THREE.Raycaster())
-	const mouse = ref(new THREE.Vector2())
 
 	// Computed properties
 	const hasAnnotations = computed(() => annotations.value.length > 0)
@@ -72,33 +74,13 @@ export function useAnnotation() {
 		}
 
 		try {
-			// Get mouse coordinates
-			const rect = event.target.getBoundingClientRect()
-			mouse.value.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
-			mouse.value.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
-
-			// Mouse coordinates processed
-
-			// Update raycaster
-			raycaster.value.setFromCamera(mouse.value, camera)
-
-			// Find intersectable objects (exclude annotation elements)
-			const intersectableObjects = []
-			sceneRef.value.traverse((child) => {
-				if (child.isMesh && child.name !== 'annotationPoint' && child.name !== 'annotationText') {
-					intersectableObjects.push(child)
-				}
+			// Use shared raycasting utility with custom filter
+			const point = raycastIntersection(event, camera, sceneRef.value, {
+				filterMesh: (mesh) => mesh.isMesh && mesh.name !== 'annotationPoint' && mesh.name !== 'annotationText',
+				recursive: false,
 			})
 
-			// Intersectable objects found
-
-			// Perform raycasting
-			const intersects = raycaster.value.intersectObjects(intersectableObjects, false)
-
-			// Intersections found
-
-			if (intersects.length > 0) {
-				const point = intersects[0].point.clone()
+			if (point) {
 				addAnnotationPoint(point)
 			}
 		} catch (error) {
@@ -136,23 +118,20 @@ export function useAnnotation() {
 	const createAnnotationPoint = (annotation) => {
 		if (!annotationGroup.value) return null
 
-		// Scale the point based on model size
-		const pointSize = modelScale.value * 2 // Base size multiplied by model scale
-		const geometry = new THREE.SphereGeometry(pointSize, 16, 16)
-		const material = new THREE.MeshBasicMaterial({ 
-			color: 0xff0000,
-			transparent: true,
+		// Use shared marker sphere utility
+		const sphere = createMarkerSphere(annotation.point, {
+			scale: modelScale.value,
+			color: 0xff0000, // Red for annotations
+			sizeMultiplier: 2,
 			opacity: 0.9,
-			depthTest: false, // Always render on top
+			renderOrder: 999,
+			name: 'annotationPoint',
 		})
-		const sphere = new THREE.Mesh(geometry, material)
 
-		sphere.position.copy(annotation.point)
-		sphere.name = 'annotationPoint'
-		sphere.renderOrder = 999 // Render on top
-
-		annotationGroup.value.add(sphere)
-		pointMeshes.value.push(sphere)
+		if (sphere) {
+			annotationGroup.value.add(sphere)
+			pointMeshes.value.push(sphere)
+		}
 
 		return sphere
 	}
@@ -160,45 +139,25 @@ export function useAnnotation() {
 	// Create text for annotation
 	const createAnnotationText = (annotation) => {
 		try {
-			// Create text texture using shared utility
-			const texture = createTextTexture(annotation.text, {
-				width: 512,
-				height: 128,
+			// Use shared text mesh utility
+			const textMesh = createTextMesh(annotation.text, annotation.point, {
+				scale: modelScale.value,
+				widthMultiplier: 30,
+				heightMultiplier: 7.5,
+				yOffset: 5, // Position above the point
 				textColor: '#ff0000',
 				bgColor: 'rgba(0, 0, 0, 0.8)',
 				fontSize: 48,
-				fontFamily: 'Arial',
+				canvasWidth: 512,
+				canvasHeight: 128,
+				renderOrder: 997,
+				name: 'annotationText',
 			})
 
-			if (!texture) return null
-
-			// Scale text MUCH larger - make it 3-5x bigger than before
-			const textWidth = modelScale.value * 30 // Increased from 10 to 30
-			const textHeight = modelScale.value * 7.5 // Increased from 2.5 to 7.5
-			
-			// Create plane geometry
-			const geometry = new THREE.PlaneGeometry(textWidth, textHeight)
-			const material = new THREE.MeshBasicMaterial({
-				map: texture,
-				transparent: true,
-				alphaTest: 0.1,
-				depthTest: false, // Always render on top
-				side: THREE.DoubleSide, // Render on both sides
-			})
-			const textMesh = new THREE.Mesh(geometry, material)
-
-			// Position text above the point (scaled offset)
-			textMesh.position.copy(annotation.point)
-			textMesh.position.y += modelScale.value * 5 // Increased offset for larger text
-			textMesh.name = 'annotationText'
-			textMesh.renderOrder = 997 // Render on top but behind points
-
-			// Make text face camera (simplified - just point towards origin)
-			textMesh.lookAt(0, 0, 0)
-
-			// Add to annotation group
-			annotationGroup.value.add(textMesh)
-			textMeshes.value.push(textMesh)
+			if (textMesh) {
+				annotationGroup.value.add(textMesh)
+				textMeshes.value.push(textMesh)
+			}
 
 			// Annotation text created
 			return textMesh

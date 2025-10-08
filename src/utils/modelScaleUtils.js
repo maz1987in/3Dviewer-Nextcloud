@@ -144,3 +144,183 @@ export function createTextTexture(text, options = {}) {
 		return null
 	}
 }
+
+/**
+ * Create a marker sphere for annotations or measurements
+ * Shared function for consistent point markers across the app
+ * 
+ * @param {THREE.Vector3} position - Position for the marker
+ * @param {Object} options - Configuration options
+ * @param {number} options.scale - Visual scale factor (default: 1)
+ * @param {number} options.color - Sphere color as hex (default: 0xffff00 yellow)
+ * @param {number} options.sizeMultiplier - Size multiplier (default: 2)
+ * @param {number} options.opacity - Material opacity (default: 0.9)
+ * @param {number} options.renderOrder - Render order (default: 999)
+ * @param {string} options.name - Mesh name (default: 'markerSphere')
+ * @returns {THREE.Mesh} Sphere mesh ready to add to scene
+ */
+export function createMarkerSphere(position, options = {}) {
+	const {
+		scale = 1,
+		color = 0xffff00,
+		sizeMultiplier = 2,
+		opacity = 0.9,
+		renderOrder = 999,
+		name = 'markerSphere',
+	} = options
+
+	try {
+		const pointSize = scale * sizeMultiplier
+		const geometry = new THREE.SphereGeometry(pointSize, 16, 16)
+		const material = new THREE.MeshBasicMaterial({
+			color,
+			transparent: true,
+			opacity,
+			depthTest: false, // Always render on top
+		})
+		const sphere = new THREE.Mesh(geometry, material)
+
+		sphere.position.copy(position)
+		sphere.name = name
+		sphere.renderOrder = renderOrder
+
+		return sphere
+
+	} catch (error) {
+		logError('modelScaleUtils', 'Failed to create marker sphere', error)
+		return null
+	}
+}
+
+/**
+ * Create a text label mesh with texture
+ * Shared function for creating 3D text labels
+ * 
+ * @param {string} text - Text to display
+ * @param {THREE.Vector3} position - Position for the label
+ * @param {Object} options - Configuration options
+ * @param {number} options.scale - Visual scale factor (default: 1)
+ * @param {number} options.widthMultiplier - Width multiplier (default: 30)
+ * @param {number} options.heightMultiplier - Height multiplier (default: 7.5)
+ * @param {number} options.yOffset - Y-axis offset multiplier (default: 0)
+ * @param {string} options.textColor - Text color (default: '#ffffff')
+ * @param {string} options.bgColor - Background color (default: 'rgba(0, 0, 0, 0.8)')
+ * @param {number} options.fontSize - Font size in pixels (default: 48)
+ * @param {number} options.canvasWidth - Canvas width (default: 512)
+ * @param {number} options.canvasHeight - Canvas height (default: 128)
+ * @param {number} options.renderOrder - Render order (default: 997)
+ * @param {string} options.name - Mesh name (default: 'textLabel')
+ * @returns {THREE.Mesh} Text mesh ready to add to scene
+ */
+export function createTextMesh(text, position, options = {}) {
+	const {
+		scale = 1,
+		widthMultiplier = 30,
+		heightMultiplier = 7.5,
+		yOffset = 0,
+		textColor = '#ffffff',
+		bgColor = 'rgba(0, 0, 0, 0.8)',
+		fontSize = 48,
+		canvasWidth = 512,
+		canvasHeight = 128,
+		renderOrder = 997,
+		name = 'textLabel',
+	} = options
+
+	try {
+		// Create text texture
+		const texture = createTextTexture(text, {
+			width: canvasWidth,
+			height: canvasHeight,
+			textColor,
+			bgColor,
+			fontSize,
+		})
+
+		if (!texture) return null
+
+		// Calculate dimensions
+		const textWidth = scale * widthMultiplier
+		const textHeight = scale * heightMultiplier
+
+		// Create plane geometry
+		const geometry = new THREE.PlaneGeometry(textWidth, textHeight)
+		const material = new THREE.MeshBasicMaterial({
+			map: texture,
+			transparent: true,
+			alphaTest: 0.1,
+			depthTest: false,
+			side: THREE.DoubleSide,
+		})
+		const textMesh = new THREE.Mesh(geometry, material)
+
+		// Position text
+		textMesh.position.copy(position)
+		if (yOffset !== 0) {
+			textMesh.position.y += scale * yOffset
+		}
+		textMesh.name = name
+		textMesh.renderOrder = renderOrder
+
+		// Make text face camera (simplified - point towards origin)
+		textMesh.lookAt(0, 0, 0)
+
+		return textMesh
+
+	} catch (error) {
+		logError('modelScaleUtils', 'Failed to create text mesh', error)
+		return null
+	}
+}
+
+/**
+ * Perform raycasting to find 3D intersection point from mouse click
+ * Shared function for consistent raycasting across annotations and measurements
+ * 
+ * @param {MouseEvent} event - Mouse click event
+ * @param {THREE.Camera} camera - Camera for raycasting
+ * @param {THREE.Scene} scene - Scene to raycast against
+ * @param {Object} options - Configuration options
+ * @param {Function} options.filterMesh - Optional filter function (mesh => boolean)
+ * @param {boolean} options.recursive - Recursive intersection (default: true)
+ * @returns {THREE.Vector3|null} Intersection point or null if no intersection
+ */
+export function raycastIntersection(event, camera, scene, options = {}) {
+	const {
+		filterMesh = (mesh) => mesh.isMesh && mesh.visible,
+		recursive = true,
+	} = options
+
+	try {
+		// Calculate mouse position in normalized device coordinates
+		const rect = event.target.getBoundingClientRect()
+		const mouseX = ((event.clientX - rect.left) / rect.width) * 2 - 1
+		const mouseY = -((event.clientY - rect.top) / rect.height) * 2 + 1
+		const mouse = new THREE.Vector2(mouseX, mouseY)
+
+		// Create raycaster
+		const raycaster = new THREE.Raycaster()
+		raycaster.setFromCamera(mouse, camera)
+
+		// Find intersectable objects
+		const intersectableObjects = []
+		scene.traverse((child) => {
+			if (filterMesh(child)) {
+				intersectableObjects.push(child)
+			}
+		})
+
+		// Perform raycasting
+		const intersects = raycaster.intersectObjects(intersectableObjects, recursive)
+
+		if (intersects.length > 0) {
+			return intersects[0].point.clone()
+		}
+
+		return null
+
+	} catch (error) {
+		logError('modelScaleUtils', 'Failed to perform raycasting', error)
+		return null
+	}
+}
