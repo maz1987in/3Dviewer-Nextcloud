@@ -8,6 +8,7 @@
 
 import { logger } from '../utils/logger.js'
 import { findFileByName } from '../utils/fileHelpers.js'
+import { getFulfilledValues } from '../utils/arrayHelpers.js'
 
 /**
  * Fetch a file from URL and return as File object
@@ -206,9 +207,7 @@ export async function fetchObjDependencies(objContent, baseFilename, fileId, dir
 					}
 				})
 			
-				const textures = (await Promise.allSettled(texturePromises))
-					.filter(r => r.status === 'fulfilled' && r.value)
-					.map(r => r.value)
+				const textures = getFulfilledValues(await Promise.allSettled(texturePromises))
 				
 				return [file, ...textures]
 			} else {
@@ -223,9 +222,7 @@ export async function fetchObjDependencies(objContent, baseFilename, fileId, dir
 	})
 	
 	const results = await Promise.allSettled(mtlPromises)
-	const allFiles = results
-		.filter(r => r.status === 'fulfilled')
-		.flatMap(r => r.value)
+	const allFiles = getFulfilledValues(results, false).flatMap(r => r)
 	
 	return allFiles
 }
@@ -294,9 +291,7 @@ export async function fetchGltfDependencies(gltfContent, baseFilename, fileId, d
 		})
 		
 		const results = await Promise.allSettled([...bufferPromises, ...imagePromises])
-		dependencies.push(...results
-			.filter(r => r.status === 'fulfilled' && r.value)
-			.map(r => r.value))
+		dependencies.push(...getFulfilledValues(results))
 			
 	} catch (err) {
 		console.error('[MultiFileHelpers] Error parsing GLTF:', err)
