@@ -206,22 +206,23 @@ export function useCamera() {
 		if (!camera.value || !controls.value || !obj) return
 
 		try {
-			const box = new THREE.Box3().setFromObject(obj)
-			if (box.isEmpty()) return
+		const box = new THREE.Box3().setFromObject(obj)
+		if (box.isEmpty()) return
 
-			const size = box.getSize(new THREE.Vector3())
-			const center = box.getCenter(new THREE.Vector3())
-			const maxDim = Math.max(size.x, size.y, size.z)
-			
-			// Simple distance calculation - use maxDim * 2 with reasonable bounds
-			const cameraDistance = Math.max(maxDim * 2, 20)
-			
-			// Set camera position
-			camera.value.position.set(
-				center.x + cameraDistance * 0.5,
-				center.y + cameraDistance * 0.5,
-				center.z + cameraDistance
-			)
+		const size = box.getSize(new THREE.Vector3())
+		const center = box.getCenter(new THREE.Vector3())
+		const maxDim = Math.max(size.x, size.y, size.z)
+		
+		// Calculate optimal camera distance based on FOV and model size
+		const fov = camera.value.fov * (Math.PI / 180) // Convert to radians
+		const cameraDistance = Math.abs(maxDim / Math.sin(fov / 2)) * 0.75 // 0.75 fits better than 1.2
+		
+		// Set camera position at a good angle (offset from center)
+		camera.value.position.set(
+			center.x + cameraDistance * 0.5,
+			center.y + cameraDistance * 0.5,
+			center.z + cameraDistance
+		)
 			
 			// Look at center
 			camera.value.lookAt(center)

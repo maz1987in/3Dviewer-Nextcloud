@@ -671,10 +671,13 @@ export default {
 					return
 				}
 
-				const size = box.getSize(new THREE.Vector3())
-				const center = box.getCenter(new THREE.Vector3())
-				const maxDim = Math.max(size.x, size.y, size.z)
-				const cameraDistance = Math.max(maxDim * 2, 20)
+			const size = box.getSize(new THREE.Vector3())
+			const center = box.getCenter(new THREE.Vector3())
+			const maxDim = Math.max(size.x, size.y, size.z)
+			
+			// Calculate optimal camera distance based on FOV and model size
+			const fov = this.camera.fov * (Math.PI / 180) // Convert to radians
+			const cameraDistance = Math.abs(maxDim / Math.sin(fov / 2)) * 0.75 // 0.75 fits better than 1.2
 
 				// Validate calculated values
 				if (!isFinite(cameraDistance) || !isFinite(center.x) || !isFinite(center.y) || !isFinite(center.z)) {
