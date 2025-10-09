@@ -5,6 +5,8 @@
 
 import { ref, computed, readonly } from 'vue'
 import * as THREE from 'three'
+import { getFilePickerBuilder, FilePickerType } from '@nextcloud/dialogs'
+import { translate as t } from '@nextcloud/l10n'
 import { loadModelByExtension, isSupportedExtension } from '../loaders/registry.js'
 import { logger } from '../utils/logger.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
@@ -15,8 +17,6 @@ export function useComparison() {
 	const comparisonMode = ref(false)
 	const comparisonModel = ref(null)
 	const comparisonIndicator = ref(null)
-	const comparisonFiles = ref([])
-	const selectedComparisonFile = ref(null)
 
 	// File loading state
 	const loadingComparison = ref(false)
@@ -25,7 +25,6 @@ export function useComparison() {
 	// Computed properties
 	const isComparisonMode = computed(() => comparisonMode.value)
 	const hasComparisonModel = computed(() => comparisonModel.value !== null)
-	const canCompare = computed(() => comparisonFiles.value.length > 0)
 	const isComparisonLoading = computed(() => loadingComparison.value)
 
 	/**
@@ -53,70 +52,140 @@ export function useComparison() {
 	}
 
 	/**
-	 * Load comparison files from Nextcloud
-	 * @param {Function} modal - Modal function for file selection
-	 * @return {Promise<Array>} List of available files
+	 * Open native Nextcloud file picker to select comparison model
+	 * @return {Promise<string>} Selected file path
 	 */
-	const loadNextcloudFiles = async (modal) => {
+		const openFilePicker = async () => {
 		try {
-			let files = []
-
-			// Try to get files from current context first
-			if (window.OCA && window.OCA.Files && window.OCA.Files.fileList) {
-				const fileList = window.OCA.Files.fileList
-				if (fileList.files) {
-					files = fileList.files.filter(file =>
-						isSupportedExtension(file.name.split('.').pop().toLowerCase()),
-					)
-				}
-			}
-
-			// If no files found, try API methods
-			if (files.length === 0) {
-				// Try 3D viewer OCS API
-				try {
-					const response = await fetch('/ocs/v2.php/apps/threedviewer/api/files', {
-						headers: {
-							Accept: 'application/json',
-							'OCS-APIRequest': 'true',
-							'X-Requested-With': 'XMLHttpRequest',
-						},
-						credentials: 'same-origin',
-					})
-
-					if (response.ok) {
-						const data = await response.json()
-						if (data.ocs && data.ocs.data && data.ocs.data.files) {
-							files = data.ocs.data.files
-						}
-					}
-				} catch (e) {
-					logger.info('useComparison', 'OCS API failed', e)
-				}
-			}
-
-			// If still no files, create dummy files for testing
-			if (files.length === 0) {
-				files = [
-					{ id: 'dummy1', name: 'Sample Model 1.glb', size: 1024000, path: '/dummy/path1' },
-					{ id: 'dummy2', name: 'Sample Model 2.obj', size: 2048000, path: '/dummy/path2' },
-					{ id: 'dummy3', name: 'Sample Model 3.stl', size: 512000, path: '/dummy/path3' },
+			// Supported 3D model mime types
+			const mimeTypes = [
+				'model/gltf-binary',
+				'model/gltf+json',
+				'model/obj',
+				'model/stl',
+				'model/x.fbx',
+				'model/vnd.collada+xml',
+				'model/x-ply',
+				'application/x-3ds',
+				'application/x-3mf',
+				'model/x3d+xml',
+				'model/vrml',
 			]
-			logger.info('useComparison', 'No files found via API, created dummy files for testing')
-		}
 
-		comparisonFiles.value = files
-		logger.info('useComparison', 'Comparison files loaded', { count: files.length })
+			logger.info('useComparison', 'Opening native file picker with mime types', { mimeTypes })
 
-			return files
+			const picker = getFilePickerBuilder(t('threedviewer', 'Select 3D Model to Compare'))
+				.setMultiSelect(false)
+				.setMimeTypeFilter(mimeTypes)
+				.setType(FilePickerType.Choose)
+				.allowDirectories(false)
+				.build()
+
+			logger.info('useComparison', 'File picker built, calling pick()')
+			const path = await picker.pick()
+			logger.info('useComparison', 'File selected from picker', { path })
+			
+			return path
 		} catch (error) {
-			logger.error('useComparison', 'Failed to load comparison files', error)
+			logger.error('useComparison', 'File picker error details', { 
+				message: error.message, 
+				name: error.name,
+				stack: error.stack 
+			})
+			
+			if (error.message === 'User canceled the picker' || error.message === 'FilePicker: No nodes selected') {
+				logger.info('useComparison', 'File picker cancelled by user')
+			} else {
+				logger.error('useComparison', 'Failed to open file picker', error)
+			}
 			throw error
 		}
 	}
 
 	/**
-	 * Load comparison model from Nextcloud
+	 * Load comparison model from Nextcloud file path
+	 * @param {string} filePath - File path from file picker
+	 * @param {object} context - Loading context
+	 * @return {Promise<object>} Load result
+	 */
+	const loadComparisonModelFromPath = async (filePath, context) => {
+		try {
+			loadingComparison.value = true
+			comparisonError.value = null
+
+			logger.info('useComparison', 'Loading comparison model from path', { filePath })
+
+			// Extract filename from path
+			const filename = filePath.split('/').pop()
+			const extension = filename.split('.').pop().toLowerCase()
+
+			// Get file info from path using Nextcloud API
+			const response = await fetch(`/apps/threedviewer/api/files/info?path=${encodeURIComponent(filePath)}`, {
+				headers: {
+					'X-Requested-With': 'XMLHttpRequest',
+				},
+				credentials: 'same-origin',
+			})
+
+			if (!response.ok) {
+				throw new Error(`Failed to get file info: ${response.status}`)
+			}
+
+			const fileInfo = await response.json()
+			const fileId = fileInfo.id || fileInfo.fileid
+
+			// Download the file
+			const fileResponse = await fetch(`/apps/threedviewer/api/file/${fileId}`, {
+				headers: {
+					Accept: 'application/octet-stream',
+					'X-Requested-With': 'XMLHttpRequest',
+				},
+				credentials: 'same-origin',
+				signal: context.abortController?.signal,
+			})
+
+			if (!fileResponse.ok) {
+				throw new Error(`Failed to load file: ${fileResponse.status}`)
+			}
+
+			const arrayBuffer = await fileResponse.arrayBuffer()
+
+			// Load the model using the appropriate loader
+			const result = await loadModelByExtension(extension, arrayBuffer, {
+				...context,
+				fileId,
+				filename,
+				THREE: context.THREE,
+				scene: context.scene,
+				applyWireframe: context.applyWireframe,
+				ensurePlaceholderRemoved: context.ensurePlaceholderRemoved,
+				wireframe: context.wireframe,
+			})
+
+			if (result && result.object3D) {
+				comparisonModel.value = result.object3D
+
+				// Add comparison indicator with proper error handling
+				if (context && context.scene) {
+					addComparisonIndicator(result.object3D, filename, context.scene)
+				}
+
+				logger.info('useComparison', 'Comparison model loaded successfully from path')
+				return result
+			} else {
+				throw new Error('No valid 3D object returned from loader')
+			}
+		} catch (error) {
+			comparisonError.value = error
+			logger.error('useComparison', 'Error loading comparison model from path', error)
+			throw error
+		} finally {
+			loadingComparison.value = false
+		}
+	}
+
+	/**
+	 * Load comparison model from Nextcloud (legacy method for backward compatibility)
 	 * @param {object} file - File object
 	 * @param {object} context - Loading context
 	 * @return {Promise<object>} Load result
@@ -432,7 +501,6 @@ export function useComparison() {
 		}
 
 		comparisonError.value = null
-		selectedComparisonFile.value = null
 
 		logger.info('useComparison', 'Comparison cleared')
 	}
@@ -460,21 +528,19 @@ export function useComparison() {
 		comparisonMode: readonly(comparisonMode),
 		comparisonModel: readonly(comparisonModel),
 		comparisonIndicator: readonly(comparisonIndicator),
-		comparisonFiles: readonly(comparisonFiles),
-		selectedComparisonFile: readonly(selectedComparisonFile),
 		loadingComparison: readonly(loadingComparison),
 		comparisonError: readonly(comparisonError),
 
 		// Computed
 		isComparisonMode,
 		hasComparisonModel,
-		canCompare,
 		isComparisonLoading,
 
 		// Methods
 		toggleComparisonMode,
 		setupComparisonMode,
-		loadNextcloudFiles,
+		openFilePicker,
+		loadComparisonModelFromPath,
 		loadComparisonModelFromNextcloud,
 		loadComparisonModel,
 		addComparisonIndicator,

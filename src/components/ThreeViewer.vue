@@ -240,34 +240,6 @@
 			</div>
 		</div>
 
-		<!-- Comparison file selection modal -->
-		<div v-if="isComparisonMode && comparisonFiles.length > 0 && !hasComparisonModel" class="comparison-modal" :class="{ 'mobile': isMobile }">
-			<div class="comparison-modal-content">
-				<div class="comparison-header">
-					<h3>{{ t('threedviewer', 'Select Model to Compare') }}</h3>
-					<button type="button"
-						class="close-comparison-btn"
-						:class="{ 'mobile': isMobile }"
-						@click="toggleComparisonMode">
-						{{ t('threedviewer', 'Close') }}
-					</button>
-				</div>
-				<div class="comparison-file-list">
-					<div v-for="file in comparisonFiles"
-						:key="file.id"
-						class="comparison-file-item"
-						@click="selectComparisonFile(file)">
-						<div class="file-info">
-							<span class="file-name">{{ file.name }}</span>
-							<span class="file-size">{{ formatFileSize(file.size) }}</span>
-						</div>
-						<div class="file-extension">
-							{{ file.name.split('.').pop().toUpperCase() }}
-						</div>
-					</div>
-				</div>
-			</div>
-		</div>
 	</div>
 </template>
 
@@ -794,55 +766,49 @@ export default {
 		const toggleComparisonMode = async () => {
 			try {
 				if (!comparison.isComparisonMode.value) {
-					// Entering comparison mode - load available files
-					await loadComparisonFiles()
+					// Entering comparison mode - open native file picker
+					comparison.toggleComparisonMode()
+					emit('toggle-comparison')
+					
+					try {
+						const filePath = await comparison.openFilePicker()
+						
+						// Load the selected model
+						const context = {
+							THREE,
+							scene: scene.value,
+							abortController: new AbortController(),
+							applyWireframe: props.wireframe,
+							ensurePlaceholderRemoved: () => {},
+							wireframe: props.wireframe,
+						}
+
+						await comparison.loadComparisonModelFromPath(filePath, context)
+
+						// Add the comparison model to the scene
+						if (comparison.comparisonModel.value) {
+							scene.value.add(comparison.comparisonModel.value)
+
+							// Fit both models to view
+							if (modelRoot.value && comparison.comparisonModel.value) {
+								fitBothModelsToView()
+							}
+						}
+					} catch (error) {
+						// User cancelled or error occurred
+						logger.error('ThreeViewer', 'Failed to load comparison model', error)
+						// Exit comparison mode if picker was cancelled
+						comparison.toggleComparisonMode()
+						emit('toggle-comparison')
+					}
 				} else {
 					// Exiting comparison mode - clear comparison
 					comparison.clearComparison()
+					comparison.toggleComparisonMode()
+					emit('toggle-comparison')
 				}
-
-				comparison.toggleComparisonMode()
-				emit('toggle-comparison')
 			} catch (error) {
 				logger.error('ThreeViewer', 'Failed to toggle comparison mode', error)
-			}
-		}
-
-		const loadComparisonFiles = async () => {
-			try {
-				await comparison.loadNextcloudFiles()
-			} catch (error) {
-				logger.error('ThreeViewer', 'Failed to load comparison files', error)
-			}
-		}
-
-		const selectComparisonFile = async (file) => {
-			try {
-				// Selecting comparison file
-
-				// Load the comparison model
-				const context = {
-					THREE,
-					scene: scene.value,
-					abortController: new AbortController(),
-					applyWireframe: props.wireframe,
-					ensurePlaceholderRemoved: () => {},
-					wireframe: props.wireframe,
-				}
-
-				await comparison.loadComparisonModelFromNextcloud(file, context)
-
-				// Add the comparison model to the scene
-				if (comparison.comparisonModel.value) {
-					scene.value.add(comparison.comparisonModel.value)
-
-					// Fit both models to view
-					if (modelRoot.value && comparison.comparisonModel.value) {
-						fitBothModelsToView()
-					}
-				}
-			} catch (error) {
-				logger.error('ThreeViewer', 'Failed to load comparison model', error)
 			}
 		}
 
@@ -1017,7 +983,6 @@ export default {
 			annotationCount: annotation.annotationCount,
 
 			// Comparison
-			comparisonFiles: comparison.comparisonFiles,
 			isComparisonLoading: comparison.isComparisonLoading,
 
 		// Performance
@@ -1048,8 +1013,6 @@ export default {
 			updateAnnotationText,
 			clearAllAnnotations,
 			toggleComparisonMode,
-			loadComparisonFiles,
-			selectComparisonFile,
 			setPerformanceMode,
 		}
 	},
@@ -1789,129 +1752,6 @@ export default {
 	.clear-annotations-btn {
 	width: 100%;
 		padding: 8px;
-	}
-}
-
-/* Comparison modal styles */
-.comparison-modal {
-	position: fixed;
-	top: 0;
-	left: 0;
-	right: 0;
-	bottom: 0;
-	background: rgba(0, 0, 0, 0.8);
-	display: flex;
-	justify-content: center;
-	align-items: center;
-	z-index: 1000;
-}
-
-.comparison-modal-content {
-	background: #2a2a2a;
-	border: 1px solid #444;
-	border-radius: 8px;
-	padding: 20px;
-	max-width: 500px;
-	max-height: 80vh;
-	overflow-y: auto;
-	width: 90%;
-}
-
-.comparison-header {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	margin-bottom: 20px;
-	padding-bottom: 15px;
-	border-bottom: 1px solid #444;
-}
-
-.comparison-header h3 {
-	margin: 0;
-	color: #fff;
-	font-size: 18px;
-}
-
-.close-comparison-btn {
-	background: #ff4444;
-	color: white;
-	border: none;
-	padding: 8px 16px;
-	border-radius: 4px;
-	cursor: pointer;
-	font-size: 14px;
-}
-
-.close-comparison-btn:hover {
-	background: #ff6666;
-}
-
-.comparison-file-list {
-	display: flex;
-	flex-direction: column;
-	gap: 10px;
-}
-
-.comparison-file-item {
-	background: #333;
-	border: 1px solid #555;
-	border-radius: 6px;
-	padding: 15px;
-	cursor: pointer;
-	transition: all 0.2s ease;
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-}
-
-.comparison-file-item:hover {
-	background: #444;
-	border-color: #666;
-	transform: translateY(-2px);
-}
-
-.file-info {
-	display: flex;
-	flex-direction: column;
-	gap: 5px;
-	flex: 1;
-}
-
-.file-name {
-	color: #fff;
-	font-weight: bold;
-	font-size: 14px;
-}
-
-.file-size {
-	color: #aaa;
-	font-size: 12px;
-}
-
-.file-extension {
-	background: #007acc;
-	color: white;
-	padding: 4px 8px;
-	border-radius: 4px;
-	font-size: 11px;
-	font-weight: bold;
-}
-
-@media (max-width: 768px) {
-	.comparison-modal-content {
-		width: 95%;
-		padding: 15px;
-	}
-
-	.comparison-header {
-		flex-direction: column;
-		gap: 10px;
-		align-items: stretch;
-	}
-
-	.close-comparison-btn {
-		width: 100%;
-		padding: 10px;
 	}
 }
 </style>
