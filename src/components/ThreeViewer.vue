@@ -313,6 +313,7 @@ export default {
 		const modelRoot = ref(null)
 		const aborting = ref(false)
 		const initializing = ref(true) // Show loading during initial setup
+		const animationFrameId = ref(null) // Track animation frame for cleanup
 
 		// Composables
 		const camera = useCamera()
@@ -346,10 +347,6 @@ export default {
 		// Methods
 		const init = async () => {
 			try {
-				// Test harness hook: mark load start when initialization begins
-				if (typeof window !== 'undefined') {
-					window.__LOAD_STARTED = true
-				}
 				// Initialize decoders
 				await modelLoading.initDecoders()
 
@@ -364,16 +361,6 @@ export default {
 				// Setup controls
 				await camera.setupControls(renderer.value)
 
-				// Setup custom controls for interaction (disabled - using OrbitControls instead)
-				// if (renderer.value && renderer.value.domElement) {
-				// 	camera.setupCustomControls(renderer.value.domElement, (event, camera) => {
-				// 		// Handle measurement clicks
-				// 		measurement.handleClick(event, camera)
-				// 		// Handle annotation clicks
-				// 		annotation.handleClick(event, camera)
-				// 	})
-				// }
-
 			// Initialize measurement system
 			measurement.init(scene.value)
 
@@ -387,16 +374,12 @@ export default {
 		performance.setPerformanceMode(props.performanceMode, renderer.value)
 		
 		// Log performance monitoring status
-		logger.info('ThreeViewer', '✅ Performance monitoring initialized', {
+		logger.info('ThreeViewer', 'Performance monitoring initialized', {
 			mode: props.performanceMode,
 			monitoring: 'ACTIVE',
 			fps: 'Tracking started',
-			overlay: 'Visible in top-left corner'
+			overlay: 'Visible in bottom-left corner'
 		})
-		
-		console.log('🚀 [ThreeViewer] Performance Monitoring ACTIVE')
-		console.log('📊 Performance mode:', props.performanceMode)
-		console.log('👀 Look for stats overlay in top-left corner!')
 
 	// Load model if fileId provided
 	if (props.fileId) {
@@ -419,35 +402,32 @@ export default {
 	}
 
 	const setupScene = async () => {
-		// Create scene
-		scene.value = new THREE.Scene()
-		
-		// Background will be set via props or remain null (transparent)
-		scene.value.background = props.background ? new THREE.Color(props.background) : null
-		
-		// Ensure container has proper dimensions
-		const containerWidth = container.value.clientWidth || container.value.offsetWidth || 800
-		const containerHeight = container.value.clientHeight || container.value.offsetHeight || 600
+		try {
+			// Create scene
+			scene.value = new THREE.Scene()
+			
+			// Background will be set via props or remain null (transparent)
+			scene.value.background = props.background ? new THREE.Color(props.background) : null
+			
+			// Ensure container has proper dimensions
+			const containerWidth = container.value.clientWidth || container.value.offsetWidth || 800
+			const containerHeight = container.value.clientHeight || container.value.offsetHeight || 600
 
-		// Container dimensions checked
+			// Create renderer
+			renderer.value = new THREE.WebGLRenderer({
+				antialias: true,
+				alpha: true,
+				powerPreference: 'high-performance',
+			})
 
-		// Create renderer
-		renderer.value = new THREE.WebGLRenderer({
-			antialias: true,
-			alpha: true,
-			powerPreference: 'high-performance',
-		})
-
-		// Set initial size - this will set pixel ratio to window.devicePixelRatio by default
-		// but initPerformance() will immediately override it with the detected optimal ratio
-		renderer.value.setSize(containerWidth, containerHeight)
-		// Note: pixel ratio will be overridden by initPerformance() based on auto-detection
-		renderer.value.shadowMap.enabled = true
-		renderer.value.shadowMap.type = THREE.PCFSoftShadowMap
+			// Set initial size - this will set pixel ratio to window.devicePixelRatio by default
+			// but initPerformance() will immediately override it with the detected optimal ratio
+			renderer.value.setSize(containerWidth, containerHeight)
+			// Note: pixel ratio will be overridden by initPerformance() based on auto-detection
+			renderer.value.shadowMap.enabled = true
+			renderer.value.shadowMap.type = THREE.PCFSoftShadowMap
 
 			container.value.appendChild(renderer.value.domElement)
-
-			// Renderer setup completed
 
 			// Setup lighting
 			setupLighting()
@@ -456,7 +436,11 @@ export default {
 			setupHelpers()
 
 			logger.info('ThreeViewer', 'Scene setup complete')
+		} catch (error) {
+			logger.error('ThreeViewer', 'Failed to setup scene', error)
+			throw error
 		}
+	}
 
 		const setupLighting = () => {
 			// Ambient light - increased intensity to match ViewerComponent
@@ -494,6 +478,10 @@ export default {
 			}
 		}
 
+		/**
+		 * Load a 3D model from file ID
+		 * @param {string|number} fileId - Nextcloud file ID
+		 */
 		const loadModel = async (fileId) => {
 			try {
 				// Get the filename from props or URL
@@ -559,78 +547,104 @@ export default {
 		}
 
 		const createDemoScene = (fileId) => {
-			// Create a simple demo scene
-			const geometry = new THREE.BoxGeometry(1, 1, 1)
-			const material = new THREE.MeshLambertMaterial({ color: 0x00ff00 })
-			const cube = new THREE.Mesh(geometry, material)
+			try {
+				// Create a simple demo scene
+				const geometry = new THREE.BoxGeometry(1, 1, 1)
+				const material = new THREE.MeshLambertMaterial({ color: 0x00ff00 })
+				const cube = new THREE.Mesh(geometry, material)
 
-			modelRoot.value = new THREE.Group()
-			modelRoot.value.add(cube)
-			scene.value.add(modelRoot.value)
+				modelRoot.value = new THREE.Group()
+				modelRoot.value.add(cube)
+				scene.value.add(modelRoot.value)
 
-			// Fit camera to object
-			camera.fitCameraToObject(modelRoot.value)
+				// Fit camera to object
+				camera.fitCameraToObject(modelRoot.value)
 
-			// Update grid size
-			updateGridSize(modelRoot.value)
+				// Update grid size
+				updateGridSize(modelRoot.value)
 
-			emit('model-loaded', { fileId, filename: 'demo.glb' })
-			logger.info('ThreeViewer', 'Demo scene created')
+				emit('model-loaded', { fileId, filename: 'demo.glb' })
+				logger.info('ThreeViewer', 'Demo scene created')
+			} catch (error) {
+				logger.error('ThreeViewer', 'Failed to create demo scene', error)
+				emit('error', error)
+			}
 		}
 
+		/**
+		 * Dynamically update grid size based on model dimensions
+		 * @param {THREE.Object3D} obj - 3D object to fit grid to
+		 */
 		const updateGridSize = (obj) => {
 			if (!grid.value || !obj) return
 
-			const box = new THREE.Box3().setFromObject(obj)
-			const size = box.getSize(new THREE.Vector3())
-			const center = box.getCenter(new THREE.Vector3())
-			const maxDim = Math.max(size.x, size.y, size.z)
+			try {
+				const box = new THREE.Box3().setFromObject(obj)
+				
+				// Validate bounding box
+				if (box.isEmpty()) {
+					logger.warn('ThreeViewer', 'Cannot update grid: model bounding box is empty')
+					return
+				}
 
-			// Dynamic grid sizing based on model size
-			let gridSize, divisions
-			if (maxDim < 5) {
-				gridSize = 10
-				divisions = 10
-			} else if (maxDim < 20) {
-				gridSize = 20
-				divisions = 20
-			} else if (maxDim < 100) {
-				gridSize = 100
-				divisions = 25
-			} else if (maxDim < 500) {
-				gridSize = Math.ceil(maxDim * 1.5) // 1.5x model size
-				divisions = 50
-			} else {
-				gridSize = Math.ceil(maxDim * 2) // 2x model size for very large models
-				divisions = 100
+				const size = box.getSize(new THREE.Vector3())
+				const center = box.getCenter(new THREE.Vector3())
+				const maxDim = Math.max(size.x, size.y, size.z)
+
+				// Dynamic grid sizing based on model size
+				let gridSize, divisions
+				if (maxDim < 5) {
+					gridSize = 10
+					divisions = 10
+				} else if (maxDim < 20) {
+					gridSize = 20
+					divisions = 20
+				} else if (maxDim < 100) {
+					gridSize = 100
+					divisions = 25
+				} else if (maxDim < 500) {
+					gridSize = Math.ceil(maxDim * 1.5) // 1.5x model size
+					divisions = 50
+				} else {
+					gridSize = Math.ceil(maxDim * 2) // 2x model size for very large models
+					divisions = 100
+				}
+
+				// Calculate grid position at the bottom of the model
+				const gridY = center.y - (size.y / 2) - 0.1 // Slightly below the bottom of the model
+
+				// Validate grid position to prevent NaN
+				if (!isFinite(gridY) || !isFinite(center.x) || !isFinite(center.z)) {
+					logger.error('ThreeViewer', 'Invalid grid position calculated', { gridY, center })
+					return
+				}
+
+				// Update grid
+				scene.value.remove(grid.value)
+				grid.value = new THREE.GridHelper(gridSize, divisions)
+				grid.value.material.color.setHex(0x00ff00)
+				grid.value.material.opacity = 1.0
+				grid.value.material.transparent = false
+
+				// Position grid at the bottom of the model
+				grid.value.position.set(center.x, gridY, center.z)
+
+				scene.value.add(grid.value)
+
+				logger.info('ThreeViewer', 'Grid size updated', {
+					gridSize,
+					divisions,
+					maxDim,
+					modelCenter: { x: center.x, y: center.y, z: center.z },
+					gridPosition: { x: center.x, y: gridY, z: center.z },
+				})
+			} catch (error) {
+				logger.error('ThreeViewer', 'Failed to update grid size', error)
 			}
-
-			// Calculate grid position at the bottom of the model
-			const gridY = center.y - (size.y / 2) - 0.1 // Slightly below the bottom of the model
-
-			// Update grid
-			scene.value.remove(grid.value)
-			grid.value = new THREE.GridHelper(gridSize, divisions)
-			grid.value.material.color.setHex(0x00ff00)
-			grid.value.material.opacity = 1.0
-			grid.value.material.transparent = false
-
-			// Position grid at the bottom of the model
-			grid.value.position.set(center.x, gridY, center.z)
-
-			scene.value.add(grid.value)
-
-			logger.info('ThreeViewer', 'Grid size updated', {
-				gridSize,
-				divisions,
-				maxDim,
-				modelCenter: { x: center.x, y: center.y, z: center.z },
-				gridPosition: { x: center.x, y: gridY, z: center.z },
-			})
 		}
 
 	const animate = () => {
-		requestAnimationFrame(animate)
+		animationFrameId.value = requestAnimationFrame(animate)
 
 		// Update controls
 		camera.updateControls()
@@ -638,7 +652,7 @@ export default {
 		// Render scene
 		camera.render(renderer.value, scene.value)
 
-		// Update performance metrics after rendering
+		// Update performance metrics after rendering (throttled)
 		if (performance && typeof performance.updatePerformanceMetrics === 'function') {
 			performance.updatePerformanceMetrics(renderer.value, scene.value)
 		}
@@ -659,20 +673,14 @@ export default {
 
 		camera.onWindowResize(width, height)
 		
-		// Important: Preserve the current pixel ratio during resize
-		// setSize() by default resets pixel ratio to window.devicePixelRatio
-		const currentPixelRatio = renderer.value.getPixelRatio()
-		console.log('🔄 [onWindowResize] Before setSize:', {
+		// Preserve pixel ratio by using setSize with updateStyle=false
+		// This prevents setSize from resetting pixel ratio to window.devicePixelRatio
+		renderer.value.setSize(width, height, false)
+		
+		logger.info('ThreeViewer', 'Window resized', {
 			width,
 			height,
-			currentPixelRatio,
-			drawingBufferWidth: renderer.value.getContext().drawingBufferWidth
-		})
-		renderer.value.setSize(width, height)
-		renderer.value.setPixelRatio(currentPixelRatio)
-		console.log('✅ [onWindowResize] After restore:', {
-			restoredPixelRatio: renderer.value.getPixelRatio(),
-			drawingBufferWidth: renderer.value.getContext().drawingBufferWidth
+			pixelRatio: renderer.value.getPixelRatio(),
 		})
 	}
 
@@ -838,8 +846,17 @@ export default {
 			}
 		}
 
+		/**
+		 * Fit both original and comparison models to camera view
+		 * Positions models side by side and adjusts camera to show both
+		 */
 		const fitBothModelsToView = () => {
-			if (modelRoot.value && comparison.comparisonModel.value) {
+			if (!modelRoot.value || !comparison.comparisonModel.value) {
+				logger.warn('ThreeViewer', 'Cannot fit both models: one or both models missing')
+				return
+			}
+
+			try {
 				// First position the models side by side
 				comparison.fitBothModelsToView(modelRoot.value, comparison.comparisonModel.value, (model1, model2) => {
 					// After positioning, fit camera to the combined bounding box
@@ -863,8 +880,6 @@ export default {
 					)
 					camera.camera.value.lookAt(center)
 
-					// Both models fitted to view
-
 					// Force a render to update the view
 					if (renderer.value && scene.value) {
 						renderer.value.render(scene.value, camera.camera.value)
@@ -875,6 +890,8 @@ export default {
 						camera.controls.value.enabled = true
 					}
 				})
+			} catch (error) {
+				logger.error('ThreeViewer', 'Failed to fit both models to view', error)
 			}
 		}
 
@@ -922,8 +939,9 @@ export default {
 		}
 	})		// Lifecycle
 		onMounted(() => {
-			// Expose minimal test hook for Playwright to control loading
+			// Test hooks for Playwright/testing
 			if (typeof window !== 'undefined') {
+				window.__LOAD_STARTED = true
 				window.__THREEDVIEWER_VIEWER = Object.assign({}, window.__THREEDVIEWER_VIEWER, {
 					cancelLoad,
 					retryLoad,
@@ -933,11 +951,17 @@ export default {
 		})
 
 		onBeforeUnmount(() => {
-			// Cleanup
+			// Cancel animation loop
+			if (animationFrameId.value !== null) {
+				cancelAnimationFrame(animationFrameId.value)
+				animationFrameId.value = null
+			}
+
+			// Cleanup event listeners
 			window.removeEventListener('resize', onWindowResize)
 			
-			// Remove canvas click listener
-			if (renderer.value && renderer.value.domElement) {
+			// Remove canvas click listener - check domElement exists
+			if (renderer.value?.domElement) {
 				renderer.value.domElement.removeEventListener('click', onCanvasClick)
 			}
 
@@ -1033,6 +1057,14 @@ export default {
 </script>
 
 <style scoped>
+/* CSS Variables for consistent spacing */
+:root {
+	--overlay-top-spacing: 80px;
+	--overlay-side-spacing: 20px;
+	--overlay-mobile-top-spacing: 70px;
+	--overlay-mobile-side-spacing: 10px;
+}
+
 .three-viewer {
 	position: relative;
 	width: 100%;
@@ -1457,8 +1489,8 @@ export default {
 /* Measurement overlay styles */
 .measurement-overlay {
 	position: absolute;
-	top: 80px; /* Moved down to avoid toolbar overlap */
-	right: 20px;
+	top: var(--overlay-top-spacing);
+	right: var(--overlay-side-spacing);
 	background: rgba(0, 0, 0, 0.8);
 	border: 1px solid #00ff00;
 	border-radius: 8px;
@@ -1591,9 +1623,9 @@ export default {
 
 @media (max-width: 768px) {
 	.measurement-overlay {
-		top: 70px; /* Moved down on mobile to avoid toolbar */
-		right: 10px;
-		left: 10px;
+		top: var(--overlay-mobile-top-spacing);
+		right: var(--overlay-mobile-side-spacing);
+		left: var(--overlay-mobile-side-spacing);
 		max-width: none;
 		max-height: 300px;
 	}
@@ -1613,8 +1645,8 @@ export default {
 /* Annotation overlay styles */
 .annotation-overlay {
 	position: absolute;
-	top: 80px; /* Moved down to avoid toolbar overlap, aligned with measurement panel */
-	left: 20px;
+	top: var(--overlay-top-spacing);
+	left: var(--overlay-side-spacing);
 	background: rgba(0, 0, 0, 0.8);
 	border: 1px solid #ff0000;
 	border-radius: 8px;
@@ -1741,9 +1773,9 @@ export default {
 
 @media (max-width: 768px) {
 	.annotation-overlay {
-		top: 70px; /* Moved down on mobile to avoid toolbar, aligned with measurement panel */
-		left: 10px;
-		right: 10px;
+		top: var(--overlay-mobile-top-spacing);
+		left: var(--overlay-mobile-side-spacing);
+		right: var(--overlay-mobile-side-spacing);
 		max-width: none;
 		max-height: 300px;
 	}
