@@ -82,9 +82,11 @@ class FbxLoader extends BaseLoader {
 						}
 					})
 					
-					// Ensure material is visible and double-sided
+					// Ensure material is visible and opaque
 					mat.side = THREE.DoubleSide
 					mat.visible = true
+					mat.opacity = 1.0  // Force full opacity (FBX files sometimes have 0 opacity)
+					mat.transparent = false  // Disable transparency unless explicitly needed
 					mat.needsUpdate = true
 					
 					logger.info('FBXLoader', 'Processed material', {

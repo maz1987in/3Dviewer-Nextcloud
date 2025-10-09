@@ -316,45 +316,46 @@ async function fetchFbxDependencies(baseFilename, fileId, dirPath) {
 		// Common texture extensions used by FBX
 		const textureExtensions = ['png', 'jpg', 'jpeg', 'tga', 'tif', 'tiff', 'bmp']
 		
-		// Extract just the filename from the full path
-		const filenameOnly = baseFilename.split('/').pop()
-		// Search for texture files in the same directory
-		const baseName = filenameOnly.replace(/\.fbx$/i, '')
-		const texturePromises = []
+		// List all files in the directory
+		const listUrl = `/apps/threedviewer/api/files/list?path=${encodeURIComponent(dirPath)}`
+		const response = await fetch(listUrl)
 		
-		// Common texture naming patterns
-		const texturePatterns = [
-			'texture',           // Generic texture.png
-			'diffuse',          // diffuse.png
-			'albedo',           // albedo.png
-			'color',            // color.png
-			'base',             // base.png
-			baseName,           // modelname.png
-		]
-		
-		// Try to find textures with common naming patterns
-		for (const pattern of texturePatterns) {
-			for (const ext of textureExtensions) {
-				const textureName = `${pattern}.${ext}`
-				const texturePath = `${dirPath}/${textureName}`
-				
-				texturePromises.push(
-					getFileIdByPath(texturePath)
-						.then(async (textureFileId) => {
-							if (textureFileId) {
-								const response = await fetch(`/apps/threedviewer/api/file/${textureFileId}`)
-								if (response.ok) {
-									const arrayBuffer = await response.arrayBuffer()
-									const blob = new Blob([arrayBuffer], { type: `image/${ext}` })
-									return new File([blob], textureName, { type: `image/${ext}` })
-								}
-							}
-							return null
-						})
-						.catch(() => null)
-				)
-			}
+		if (!response.ok) {
+			logger.warn('FBXDependencies', 'Failed to list directory files', { dirPath, status: response.status })
+			return dependencies
 		}
+		
+		const allFiles = await response.json()
+		
+		// Filter for image files based on extension
+		const imageFiles = allFiles.filter(file => {
+			const ext = file.name.split('.').pop().toLowerCase()
+			return textureExtensions.includes(ext)
+		})
+		
+		logger.info('FBXDependencies', 'Found potential texture files', {
+			count: imageFiles.length,
+			files: imageFiles.map(f => f.name),
+		})
+		
+		// Fetch all image files
+		const texturePromises = imageFiles.map(async (file) => {
+			try {
+				const url = `/apps/threedviewer/api/file/${file.id}`
+				const response = await fetch(url)
+				if (response.ok) {
+					const arrayBuffer = await response.arrayBuffer()
+					const ext = file.name.split('.').pop().toLowerCase()
+					const mimeType = `image/${ext === 'jpg' ? 'jpeg' : ext}`
+					const blob = new Blob([arrayBuffer], { type: mimeType })
+					return new File([blob], file.name, { type: mimeType })
+				}
+				return null
+			} catch (err) {
+				logger.warn('FBXDependencies', 'Failed to fetch texture', { filename: file.name, error: err })
+				return null
+			}
+		})
 		
 		const results = await Promise.allSettled(texturePromises)
 		dependencies.push(...getFulfilledValues(results))
