@@ -60,9 +60,9 @@ class FbxLoader extends BaseLoader {
 		throw new Error('No valid geometry found in FBX file')
 	}
 
-	// Remove texture maps and ensure materials are visible
+	// Ensure materials are visible and count textures
 	let meshCount = 0
-	let texturesRemovedCount = 0
+	let texturesKeptCount = 0
 	object3D.traverse((child) => {
 		if (child.isMesh) {
 			meshCount++
@@ -70,15 +70,13 @@ class FbxLoader extends BaseLoader {
 				const materials = Array.isArray(child.material) ? child.material : [child.material]
 				
 				materials.forEach((mat, idx) => {
-					// Remove ALL texture maps since we don't have the actual textures
-					// Leaving placeholder URLs can cause rendering issues
+					// Count textures for logging
 					const textureProps = ['map', 'normalMap', 'bumpMap', 'specularMap', 'emissiveMap', 
 										   'aoMap', 'roughnessMap', 'metalnessMap', 'alphaMap', 'lightMap']
 					
 					textureProps.forEach(prop => {
 						if (mat[prop]) {
-							mat[prop] = null
-							texturesRemovedCount++
+							texturesKeptCount++
 						}
 					})
 					
@@ -96,6 +94,7 @@ class FbxLoader extends BaseLoader {
 						color: mat.color ? { r: mat.color.r.toFixed(2), g: mat.color.g.toFixed(2), b: mat.color.b.toFixed(2) } : null,
 						opacity: mat.opacity,
 						transparent: mat.transparent,
+						hasMap: !!mat.map,
 					})
 				})
 			} else {
@@ -111,7 +110,7 @@ class FbxLoader extends BaseLoader {
 		}
 	})
 	
-	logger.info('FBXLoader', `Processed ${meshCount} meshes, removed ${texturesRemovedCount} texture references`)
+	logger.info('FBXLoader', `Processed ${meshCount} meshes with ${texturesKeptCount} textures`)
 
 		this.logInfo('FBX model loaded successfully', {
 			children: object3D.children.length,
