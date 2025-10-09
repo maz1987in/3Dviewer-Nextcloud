@@ -195,7 +195,7 @@ export default {
 		},
 
 		onTogglePerformance() {
-			const modes = ['auto', 'high', 'medium', 'low']
+			const modes = ['auto', 'balanced', 'high', 'ultra', 'low']
 			const currentIndex = modes.indexOf(this.performanceMode)
 			const nextIndex = (currentIndex + 1) % modes.length
 			this.performanceMode = modes[nextIndex]

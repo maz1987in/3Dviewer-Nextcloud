@@ -3,14 +3,14 @@
  * Handles performance monitoring, optimization, and quality settings
  */
 
-import { ref, computed, readonly } from 'vue'
+import { ref, computed } from 'vue'
 import * as THREE from 'three'
 import { logger } from '../utils/logger.js'
 import { average } from '../utils/mathHelpers.js'
 
 export function usePerformance() {
 	// Performance state
-	const performanceMode = ref('balanced')
+	const performanceMode = ref('auto')  // Default to auto mode for smart detection
 	const targetFPS = ref(60)
 	const currentFPS = ref(0)
 	const frameTime = ref(0)
@@ -58,29 +58,131 @@ export function usePerformance() {
 	const performanceScore = computed(() => calculatePerformanceScore())
 
 	/**
+	 * Detect browser capabilities and recommend performance mode
+	 * @param {THREE.WebGLRenderer} renderer - WebGL renderer
+	 * @returns {string} Recommended performance mode
+	 */
+	const detectBrowserCapabilities = (renderer) => {
+		let score = 0
+		const capabilities = {}
+
+		if (renderer) {
+			// Check WebGL capabilities
+			const gl = renderer.getContext()
+			capabilities.webglVersion = renderer.capabilities.isWebGL2 ? 2 : 1
+			capabilities.maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE)
+			capabilities.maxVertexUniforms = gl.getParameter(gl.MAX_VERTEX_UNIFORM_VECTORS)
+			
+			// WebGL 2 support adds points
+			if (capabilities.webglVersion === 2) score += 20
+			
+			// Large texture support
+			if (capabilities.maxTextureSize >= 8192) score += 15
+			if (capabilities.maxTextureSize >= 16384) score += 10
+		}
+
+		// Check device pixel ratio (indicator of high-DPI display)
+		capabilities.devicePixelRatio = window.devicePixelRatio || 1
+		if (capabilities.devicePixelRatio >= 2) score += 15
+
+		// Check available memory (if supported)
+		if (navigator.deviceMemory) {
+			capabilities.deviceMemory = navigator.deviceMemory
+			if (capabilities.deviceMemory >= 8) score += 20
+			else if (capabilities.deviceMemory >= 4) score += 10
+		} else {
+			// Assume reasonable memory if not available
+			score += 10
+		}
+
+		// Check CPU cores
+		if (navigator.hardwareConcurrency) {
+			capabilities.cpuCores = navigator.hardwareConcurrency
+			if (capabilities.cpuCores >= 8) score += 15
+			else if (capabilities.cpuCores >= 4) score += 10
+			else if (capabilities.cpuCores >= 2) score += 5
+		} else {
+			score += 5
+		}
+
+		// Check if we're on mobile (reduce score)
+		const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+		if (isMobile) {
+			score -= 20
+			capabilities.isMobile = true
+		}
+
+	// Determine recommended mode based on score
+	let recommendedMode = 'balanced' // default
+	if (score >= 55) {
+		recommendedMode = 'high' // Good system with WebGL2 + 4GB+ RAM
+	} else if (score >= 40) {
+		recommendedMode = 'balanced' // Mid-range
+	} else if (score >= 25) {
+		recommendedMode = 'balanced' // Lower mid-range  
+	} else {
+		recommendedMode = 'low' // Low-end or mobile
+	}
+
+	logger.info('usePerformance', 'Browser capabilities detected', {
+		capabilities,
+		score,
+		recommendedMode,
+	})
+
+	return recommendedMode
+}	/**
 	 * Initialize performance monitoring
 	 * @param {THREE.WebGLRenderer} renderer - WebGL renderer
 	 */
 	const initPerformance = (renderer) => {
 		if (!renderer) return
 
-		// Set initial performance settings
-		applyPerformanceSettings(renderer)
+		// If in auto mode, detect browser capabilities and set appropriate initial quality
+		if (performanceMode.value === 'auto') {
+			const recommendedMode = detectBrowserCapabilities(renderer)
+			logger.info('usePerformance', 'Auto mode: applying recommended settings', { recommendedMode })
+			
+			switch (recommendedMode) {
+			case 'low':
+				pixelRatio.value = 0.75
+				antialias.value = false
+				shadows.value = false
+				break
+			case 'balanced':
+				pixelRatio.value = 1
+				antialias.value = true
+				shadows.value = true
+				break
+			case 'high':
+				pixelRatio.value = 1.5
+				antialias.value = true
+				shadows.value = true
+				occlusionCulling.value = true
+				break
+			}
+			
+			// Disable auto-optimization in auto mode since we already detected optimal settings
+			autoOptimize.value = false
+		}
 
-		// Start performance monitoring
+		// Set initial performance settings
+		applyPerformanceSettings(renderer)		// Start performance monitoring
 		startPerformanceMonitoring()
 
 		logger.info('usePerformance', 'Performance monitoring initialized', {
 			mode: performanceMode.value,
 			targetFPS: targetFPS.value,
+			pixelRatio: pixelRatio.value,
 		})
 	}
 
 	/**
 	 * Set performance mode
-	 * @param {string} mode - Performance mode ('low', 'balanced', 'high', 'ultra')
+	 * @param {string} mode - Performance mode ('low', 'balanced', 'high', 'ultra', 'auto')
+	 * @param {THREE.WebGLRenderer} [renderer] - Optional renderer for auto mode detection
 	 */
-	const setPerformanceMode = (mode) => {
+	const setPerformanceMode = (mode, renderer = null) => {
 		performanceMode.value = mode
 
 		// Apply mode-specific settings
@@ -93,6 +195,7 @@ export function usePerformance() {
 			frustumCulling.value = true
 			occlusionCulling.value = false
 			targetFPS.value = 30
+			autoOptimize.value = false
 			break
 		case 'balanced':
 			antialias.value = true
@@ -102,6 +205,7 @@ export function usePerformance() {
 			frustumCulling.value = true
 			occlusionCulling.value = false
 			targetFPS.value = 60
+			autoOptimize.value = false
 			break
 		case 'high':
 			antialias.value = true
@@ -111,6 +215,7 @@ export function usePerformance() {
 			frustumCulling.value = true
 			occlusionCulling.value = true
 			targetFPS.value = 60
+			autoOptimize.value = false
 			break
 		case 'ultra':
 			antialias.value = true
@@ -120,10 +225,54 @@ export function usePerformance() {
 			frustumCulling.value = true
 			occlusionCulling.value = true
 			targetFPS.value = 120
+			autoOptimize.value = false
+			break
+		case 'auto':
+		default:
+			// Auto mode: detect browser capabilities if renderer available
+			if (renderer) {
+				const recommendedMode = detectBrowserCapabilities(renderer)
+				logger.info('usePerformance', 'Auto mode: applying recommended settings', { recommendedMode })
+				
+				switch (recommendedMode) {
+				case 'low':
+					pixelRatio.value = 0.75
+					antialias.value = false
+					shadows.value = false
+					break
+				case 'balanced':
+					pixelRatio.value = 1
+					antialias.value = true
+					shadows.value = true
+					break
+				case 'high':
+					pixelRatio.value = 1.5
+					antialias.value = true
+					shadows.value = true
+					occlusionCulling.value = true
+					break
+				}
+			} else {
+				// Fallback to balanced if no renderer provided
+				logger.warn('usePerformance', 'Auto mode without renderer: using balanced defaults')
+				antialias.value = true
+				shadows.value = true
+				pixelRatio.value = 1
+			}
+			
+			lodEnabled.value = true
+			frustumCulling.value = true
+			targetFPS.value = 60
+			autoOptimize.value = false // Disable auto-optimization (detection already chose optimal settings)
 			break
 		}
 
-		logger.info('usePerformance', 'Performance mode set', { mode, settings: getCurrentSettings() })
+		// Apply the new settings to the renderer if provided
+		if (renderer) {
+			applyPerformanceSettings(renderer)
+		}
+
+		logger.info('usePerformance', 'Performance mode set', { mode, pixelRatio: pixelRatio.value, settings: getCurrentSettings() })
 	}
 
 	/**
@@ -133,13 +282,27 @@ export function usePerformance() {
 	const applyPerformanceSettings = (renderer) => {
 		if (!renderer) return
 
+		// Calculate final pixel ratio
+		const finalPixelRatio = Math.min(pixelRatio.value, maxPixelRatio.value)
+		
+		// Store current size before changing pixel ratio
+		const currentSize = renderer.getSize(new THREE.Vector2())
+		const oldPixelRatio = renderer.getPixelRatio()
+
 		// Set pixel ratio
-		renderer.setPixelRatio(Math.min(pixelRatio.value, maxPixelRatio.value))
+		renderer.setPixelRatio(finalPixelRatio)
+
+		// Force renderer to resize with new pixel ratio
+		// This is critical: setPixelRatio alone doesn't update the drawing buffer
+		// We must call setSize to recreate the buffer with the new resolution
+		if (oldPixelRatio !== finalPixelRatio) {
+			renderer.setSize(currentSize.x, currentSize.y, false)
+		}
 
 		// Set antialias
 		if (renderer.antialias !== antialias.value) {
-		// Note: antialias can't be changed after renderer creation
-		logger.warn('usePerformance', 'Antialias setting requires renderer recreation')
+			// Note: antialias can't be changed after renderer creation
+			logger.warn('usePerformance', 'Antialias setting requires renderer recreation')
 		}
 
 		// Set shadows
@@ -465,27 +628,27 @@ export function usePerformance() {
 	}
 
 	return {
-		// State
-		performanceMode: readonly(performanceMode),
-		targetFPS: readonly(targetFPS),
-		currentFPS: readonly(currentFPS),
-		frameTime: readonly(frameTime),
-		memoryUsage: readonly(memoryUsage),
-		drawCalls: readonly(drawCalls),
-		triangles: readonly(triangles),
-		antialias: readonly(antialias),
-		shadows: readonly(shadows),
-		pixelRatio: readonly(pixelRatio),
-		maxPixelRatio: readonly(maxPixelRatio),
-		lodEnabled: readonly(lodEnabled),
-		frustumCulling: readonly(frustumCulling),
-		occlusionCulling: readonly(occlusionCulling),
-		autoOptimize: readonly(autoOptimize),
-		optimizationThreshold: readonly(optimizationThreshold),
-		maxTriangles: readonly(maxTriangles),
-		maxDrawCalls: readonly(maxDrawCalls),
-		maxMemoryUsage: readonly(maxMemoryUsage),
-		performanceHistory: readonly(performanceHistory),
+		// State (readonly wrappers removed for Vue 2.7 compatibility)
+		performanceMode,
+		targetFPS,
+		currentFPS,
+		frameTime,
+		memoryUsage,
+		drawCalls,
+		triangles,
+		antialias,
+		shadows,
+		pixelRatio,
+		maxPixelRatio,
+		lodEnabled,
+		frustumCulling,
+		occlusionCulling,
+		autoOptimize,
+		optimizationThreshold,
+		maxTriangles,
+		maxDrawCalls,
+		maxMemoryUsage,
+		performanceHistory,
 
 		// Computed
 		currentPerformanceMode,

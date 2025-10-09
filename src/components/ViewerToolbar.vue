@@ -182,9 +182,10 @@ export default {
 
 		getPerformanceModeText() {
 			switch (this.performanceMode) {
-			case 'high': return this.t('threedviewer', 'High')
-			case 'medium': return this.t('threedviewer', 'Medium')
 			case 'low': return this.t('threedviewer', 'Low')
+			case 'balanced': return this.t('threedviewer', 'Balanced')
+			case 'high': return this.t('threedviewer', 'High')
+			case 'ultra': return this.t('threedviewer', 'Ultra')
 			case 'auto':
 			default: return this.t('threedviewer', 'Auto')
 			}

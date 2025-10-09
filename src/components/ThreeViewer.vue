@@ -104,7 +104,42 @@
 			</div>
 		</div>
 
-		<!-- Mobile gesture hints -->
+	<!-- Performance Stats Overlay (Dev/Debug) -->
+	<div v-if="performance && currentFPS > 0" class="performance-stats">
+		<div class="stats-header">
+			<span class="stats-icon">📊</span>
+			<span class="stats-title">Performance</span>
+			<span class="stats-mode" :class="'mode-' + currentPerformanceMode">{{ currentPerformanceMode }}</span>
+		</div>
+		<div class="stats-grid">
+			<div class="stat-item">
+				<span class="stat-label">FPS:</span>
+				<span class="stat-value" :class="{ 'good': currentFPS >= 60, 'warning': currentFPS >= 30 && currentFPS < 60, 'poor': currentFPS < 30 }">
+					{{ currentFPS }}
+				</span>
+			</div>
+			<div class="stat-item">
+				<span class="stat-label">Frame:</span>
+				<span class="stat-value">{{ currentFrameTime?.toFixed(1) }}ms</span>
+			</div>
+			<div class="stat-item">
+				<span class="stat-label">Memory:</span>
+				<span class="stat-value">{{ currentMemoryUsage?.toFixed(1) }}MB</span>
+			</div>
+			<div class="stat-item">
+				<span class="stat-label">Quality:</span>
+				<span class="stat-value">{{ currentPixelRatio?.toFixed(2) }}x</span>
+			</div>
+			<div class="stat-item">
+				<span class="stat-label">Draws:</span>
+				<span class="stat-value">{{ currentDrawCalls }}</span>
+			</div>
+			<div class="stat-item">
+				<span class="stat-label">Triangles:</span>
+				<span class="stat-value">{{ (currentTriangles / 1000).toFixed(1) }}K</span>
+			</div>
+		</div>
+	</div>		<!-- Mobile gesture hints -->
 		<div v-if="isMobile && !isLoading && modelRoot" class="mobile-hints">
 			<div class="hint-item">
 				<span class="hint-icon">👆</span>
@@ -245,6 +280,7 @@ import { useModelLoading } from '../composables/useModelLoading.js'
 import { useComparison } from '../composables/useComparison.js'
 import { useMeasurement } from '../composables/useMeasurement.js'
 import { useAnnotation } from '../composables/useAnnotation.js'
+import { usePerformance } from '../composables/usePerformance.js'
 import { logger } from '../utils/logger.js'
 
 export default {
@@ -284,6 +320,7 @@ export default {
 		const comparison = useComparison()
 		const measurement = useMeasurement()
 		const annotation = useAnnotation()
+		const performance = usePerformance()
 
 		// Computed properties
 		const isMobile = computed(() => camera.isMobile.value)
@@ -337,24 +374,40 @@ export default {
 				// 	})
 				// }
 
-				// Initialize measurement system
-				measurement.init(scene.value)
+			// Initialize measurement system
+			measurement.init(scene.value)
 
-				// Initialize annotation system
-				annotation.init(scene.value)
+			// Initialize annotation system
+			annotation.init(scene.value)
 
-			// Load model if fileId provided
-			if (props.fileId) {
-				await loadModel(props.fileId)
-			}
+		// Initialize performance monitoring
+		performance.initPerformance(renderer.value)
+		
+		// Set initial performance mode (pass renderer for auto mode detection)
+		performance.setPerformanceMode(props.performanceMode, renderer.value)
+		
+		// Log performance monitoring status
+		logger.info('ThreeViewer', '✅ Performance monitoring initialized', {
+			mode: props.performanceMode,
+			monitoring: 'ACTIVE',
+			fps: 'Tracking started',
+			overlay: 'Visible in top-left corner'
+		})
+		
+		console.log('🚀 [ThreeViewer] Performance Monitoring ACTIVE')
+		console.log('📊 Performance mode:', props.performanceMode)
+		console.log('👀 Look for stats overlay in top-left corner!')
 
-			// Initialization complete - hide loading indicator
-			initializing.value = false
+	// Load model if fileId provided
+	if (props.fileId) {
+		await loadModel(props.fileId)
+	}
+	
+	// Initialization complete - hide loading indicator
+	initializing.value = false
 
-			// Start animation loop
-			animate()
-
-			// Setup event listeners
+	// Start animation loop
+	animate()			// Setup event listeners
 			setupEventListeners()
 
 			logger.info('ThreeViewer', 'Initialization complete')
@@ -385,10 +438,12 @@ export default {
 			powerPreference: 'high-performance',
 		})
 
-			renderer.value.setSize(containerWidth, containerHeight)
-			renderer.value.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-			renderer.value.shadowMap.enabled = true
-			renderer.value.shadowMap.type = THREE.PCFSoftShadowMap
+		// Set initial size - this will set pixel ratio to window.devicePixelRatio by default
+		// but initPerformance() will immediately override it with the detected optimal ratio
+		renderer.value.setSize(containerWidth, containerHeight)
+		// Note: pixel ratio will be overridden by initPerformance() based on auto-detection
+		renderer.value.shadowMap.enabled = true
+		renderer.value.shadowMap.type = THREE.PCFSoftShadowMap
 
 			container.value.appendChild(renderer.value.domElement)
 
@@ -582,6 +637,11 @@ export default {
 
 		// Render scene
 		camera.render(renderer.value, scene.value)
+
+		// Update performance metrics after rendering
+		if (performance && typeof performance.updatePerformanceMetrics === 'function') {
+			performance.updatePerformanceMetrics(renderer.value, scene.value)
+		}
 	}
 
 		const setupEventListeners = () => {
@@ -593,15 +653,30 @@ export default {
 			}
 		}
 
-		const onWindowResize = () => {
-			const width = container.value.clientWidth
-			const height = container.value.clientHeight
+	const onWindowResize = () => {
+		const width = container.value.clientWidth
+		const height = container.value.clientHeight
 
-			camera.onWindowResize(width, height)
-			renderer.value.setSize(width, height)
-		}
+		camera.onWindowResize(width, height)
+		
+		// Important: Preserve the current pixel ratio during resize
+		// setSize() by default resets pixel ratio to window.devicePixelRatio
+		const currentPixelRatio = renderer.value.getPixelRatio()
+		console.log('🔄 [onWindowResize] Before setSize:', {
+			width,
+			height,
+			currentPixelRatio,
+			drawingBufferWidth: renderer.value.getContext().drawingBufferWidth
+		})
+		renderer.value.setSize(width, height)
+		renderer.value.setPixelRatio(currentPixelRatio)
+		console.log('✅ [onWindowResize] After restore:', {
+			restoredPixelRatio: renderer.value.getPixelRatio(),
+			drawingBufferWidth: renderer.value.getContext().drawingBufferWidth
+		})
+	}
 
-		const onCanvasClick = (event) => {
+	const onCanvasClick = (event) => {
 			// Handle measurement clicks
 			if (measurement.isActive.value) {
 				measurement.handleClick(event, camera.camera.value)
@@ -803,11 +878,12 @@ export default {
 			}
 		}
 
-		const setPerformanceMode = (mode) => {
-			// TODO: Implement performance mode functionality
+	const setPerformanceMode = (mode) => {
+		if (performance && typeof performance.setPerformanceMode === 'function') {
+			performance.setPerformanceMode(mode)
+			logger.info('ThreeViewer', 'Performance mode set', { mode })
 		}
-
-		// Watchers
+	}		// Watchers
 		watch(() => props.showGrid, (val) => {
 			if (grid.value) {
 				grid.value.visible = val
@@ -837,7 +913,14 @@ export default {
 			}
 		})
 
-		// Lifecycle
+	watch(() => props.performanceMode, (mode) => {
+		if (performance && typeof performance.setPerformanceMode === 'function') {
+			// Pass renderer to enable smart detection for auto mode
+			// setPerformanceMode already calls applyPerformanceSettings internally
+			performance.setPerformanceMode(mode, renderer.value)
+			logger.info('ThreeViewer', 'Performance mode changed', { mode })
+		}
+	})		// Lifecycle
 		onMounted(() => {
 			// Expose minimal test hook for Playwright to control loading
 			if (typeof window !== 'undefined') {
@@ -858,18 +941,23 @@ export default {
 				renderer.value.domElement.removeEventListener('click', onCanvasClick)
 			}
 
-			if (renderer.value) {
-				renderer.value.dispose()
-			}
+		if (renderer.value) {
+			renderer.value.dispose()
+		}
 
-			camera.dispose()
-			modelLoading.clearModel()
-			comparison.clearComparison()
-		})
+		camera.dispose()
+		modelLoading.clearModel()
+		comparison.clearComparison()
+		
+		// Dispose performance monitoring
+		if (performance && typeof performance.dispose === 'function') {
+			performance.dispose()
+		}
+	})
 
-		return {
-			// Refs
-			container,
+	return {
+		// Refs
+		container,
 			scene,
 			renderer,
 			grid,
@@ -908,7 +996,15 @@ export default {
 			comparisonFiles: comparison.comparisonFiles,
 			isComparisonLoading: comparison.isComparisonLoading,
 
-			// Methods
+		// Performance
+		performance,
+		currentFPS: performance.currentFPS,
+		currentFrameTime: performance.currentFrameTime,
+		currentMemoryUsage: performance.currentMemoryUsage,
+		currentDrawCalls: performance.currentDrawCalls,
+		currentTriangles: performance.currentTriangles,
+		currentPerformanceMode: performance.currentPerformanceMode,
+		currentPixelRatio: performance.currentPixelRatio,			// Methods
 			toggleOriginalModel,
 			toggleComparisonModel,
 			fitBothModelsToView,
@@ -1020,6 +1116,112 @@ export default {
 	padding: 20px;
 	border-radius: 8px;
 	z-index: 1001;
+}
+
+/* Performance Stats Overlay */
+.performance-stats {
+	position: absolute;
+	bottom: 10px;
+	left: 10px;
+	background: rgba(0, 0, 0, 0.85);
+	color: #fff;
+	padding: 12px;
+	border-radius: 8px;
+	font-family: 'Monaco', 'Courier New', monospace;
+	font-size: 12px;
+	z-index: 900;
+	min-width: 180px;
+	backdrop-filter: blur(10px);
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.stats-header {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 10px;
+	padding-bottom: 8px;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.stats-icon {
+	font-size: 16px;
+}
+
+.stats-title {
+	font-weight: bold;
+	font-size: 13px;
+	flex: 1;
+}
+
+.stats-mode {
+	font-size: 10px;
+	padding: 2px 6px;
+	border-radius: 4px;
+	font-weight: bold;
+	text-transform: uppercase;
+}
+
+.stats-mode.mode-low {
+	background: rgba(255, 193, 7, 0.3);
+	color: #ffc107;
+}
+
+.stats-mode.mode-balanced {
+	background: rgba(76, 175, 80, 0.3);
+	color: #4caf50;
+}
+
+.stats-mode.mode-high {
+	background: rgba(33, 150, 243, 0.3);
+	color: #2196f3;
+}
+
+.stats-mode.mode-ultra {
+	background: rgba(156, 39, 176, 0.3);
+	color: #9c27b0;
+}
+
+.stats-mode.mode-auto {
+	background: rgba(158, 158, 158, 0.3);
+	color: #9e9e9e;
+}
+
+.stats-grid {
+	display: grid;
+	grid-template-columns: 1fr;
+	gap: 6px;
+}
+
+.stat-item {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 2px 0;
+}
+
+.stat-label {
+	color: rgba(255, 255, 255, 0.7);
+	font-size: 11px;
+}
+
+.stat-value {
+	font-weight: bold;
+	font-size: 12px;
+	color: #fff;
+}
+
+.stat-value.good {
+	color: #4caf50;
+}
+
+.stat-value.warning {
+	color: #ffc107;
+}
+
+.stat-value.poor {
+	color: #f44336;
 }
 
 .comparison-controls {
