@@ -117,6 +117,7 @@ export function useCamera() {
 
 			// Basic controls setup (keep it simple like ViewerComponent)
 			controls.value.enableDamping = true
+			//controls.value.dampingFactor = 0.05  // Smooth damping for desktop
 			controls.value.enableZoom = true  // Ensure zoom is enabled
 			controls.value.enableRotate = true  // Ensure rotation is enabled
 			controls.value.enablePan = true  // Ensure panning is enabled
@@ -202,8 +203,6 @@ export function useCamera() {
 	 * @param {THREE.Object3D} obj - Object to fit camera to
 	 */
 	const fitCameraToObject = (obj) => {
-		// Fitting camera to object
-
 		if (!camera.value || !controls.value || !obj) return
 
 		try {
@@ -216,13 +215,6 @@ export function useCamera() {
 			
 			// Simple distance calculation - use maxDim * 2 with reasonable bounds
 			const cameraDistance = Math.max(maxDim * 2, 20)
-			
-			console.info('[useCamera] Fitting camera to object:', {
-				size: { x: size.x.toFixed(2), y: size.y.toFixed(2), z: size.z.toFixed(2) },
-				center: { x: center.x.toFixed(2), y: center.y.toFixed(2), z: center.z.toFixed(2) },
-				maxDim: maxDim.toFixed(2),
-				cameraDistance: cameraDistance.toFixed(2),
-			})
 			
 			// Set camera position
 			camera.value.position.set(
@@ -569,41 +561,6 @@ export function useCamera() {
 	const render = (renderer, scene) => {
 		if (renderer && scene && camera.value) {
 			try {
-				// Clean up any invalid geometries in the scene before rendering
-				scene.traverse((child) => {
-					if (child.geometry) {
-						// Check for invalid geometry attributes
-						if (!child.geometry.attributes || !child.geometry.attributes.position) {
-							child.geometry.dispose()
-							child.geometry = null
-							return
-						}
-
-						// Check for null bounding sphere
-						try {
-							if (!child.geometry.boundingSphere) {
-								child.geometry.computeBoundingSphere()
-							}
-							if (child.geometry.boundingSphere && child.geometry.boundingSphere.center === null) {
-								child.geometry.dispose()
-								child.geometry = null
-								return
-							}
-						} catch (error) {
-							child.geometry.dispose()
-							child.geometry = null
-							return
-						}
-					}
-
-					if (child.material) {
-						if (!child.material.isMaterial) {
-							child.material.dispose()
-							child.material = null
-						}
-					}
-				})
-
 				// Custom auto-rotate functionality (uses manual camera positioning instead of OrbitControls.autoRotate)
 				if (autoRotateEnabled.value && !isMouseDown.value) {
 					rotationY.value += autoRotateSpeed.value * 0.01
@@ -617,23 +574,9 @@ export function useCamera() {
 					camera.value.lookAt(modelCenter.value)
 				}
 
-				// Check if camera position becomes NaN and fix it
-				if (!isFinite(camera.value.position.x) || !isFinite(camera.value.position.y) || !isFinite(camera.value.position.z)) {
-					// Fix the camera position
-					camera.value.position.set(23.35, 11.68, 23.35)
-					camera.value.lookAt(0, 0, 0)
-
-					// Update controls if they exist and disable them temporarily
-					if (controls.value && controls.value.object) {
-						controls.value.object.position.copy(camera.value.position)
-						controls.value.target.set(0, 0, 0)
-						controls.value.enabled = false // Disable controls if they cause NaN
-					}
-				}
-
 				renderer.render(scene, camera.value)
 			} catch (error) {
-				// Render error handled
+				console.error('[useCamera] Render error:', error)
 			}
 		}
 	}

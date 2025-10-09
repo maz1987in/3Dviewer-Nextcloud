@@ -108,8 +108,8 @@ export function useModelLoading() {
 			// Extract directory path for multi-file loading
 			const dirPath = filename.substring(0, filename.lastIndexOf('/'))
 
-			// Check if this is a multi-file format
-			const isMultiFile = ['obj', 'gltf'].includes(extension)
+		// Check if this is a multi-file format
+		const isMultiFile = ['obj', 'gltf', 'fbx'].includes(extension)
 
 		if (isMultiFile) {
 			logger.info('useModelLoading', 'Multi-file format detected', { extension, fileId })

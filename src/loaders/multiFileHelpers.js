@@ -301,6 +301,77 @@ export async function fetchGltfDependencies(gltfContent, baseFilename, fileId, d
 }
 
 /**
+ * Fetch FBX dependencies (texture files)
+ * FBX files often reference external textures
+ * 
+ * @param {string} baseFilename - Base filename of the FBX (e.g., "model.fbx")
+ * @param {number} fileId - File ID of the main FBX file
+ * @param {string} dirPath - Directory path (e.g., "/models")
+ * @returns {Promise<Array<File>>} - Array of File objects (textures)
+ */
+async function fetchFbxDependencies(baseFilename, fileId, dirPath) {
+	const dependencies = []
+	
+	try {
+		// Common texture extensions used by FBX
+		const textureExtensions = ['png', 'jpg', 'jpeg', 'tga', 'tif', 'tiff', 'bmp']
+		
+		// Extract just the filename from the full path
+		const filenameOnly = baseFilename.split('/').pop()
+		// Search for texture files in the same directory
+		const baseName = filenameOnly.replace(/\.fbx$/i, '')
+		const texturePromises = []
+		
+		// Common texture naming patterns
+		const texturePatterns = [
+			'texture',           // Generic texture.png
+			'diffuse',          // diffuse.png
+			'albedo',           // albedo.png
+			'color',            // color.png
+			'base',             // base.png
+			baseName,           // modelname.png
+		]
+		
+		// Try to find textures with common naming patterns
+		for (const pattern of texturePatterns) {
+			for (const ext of textureExtensions) {
+				const textureName = `${pattern}.${ext}`
+				const texturePath = `${dirPath}/${textureName}`
+				
+				texturePromises.push(
+					getFileIdByPath(texturePath)
+						.then(async (textureFileId) => {
+							if (textureFileId) {
+								const response = await fetch(`/apps/threedviewer/api/file/${textureFileId}`)
+								if (response.ok) {
+									const arrayBuffer = await response.arrayBuffer()
+									const blob = new Blob([arrayBuffer], { type: `image/${ext}` })
+									return new File([blob], textureName, { type: `image/${ext}` })
+								}
+							}
+							return null
+						})
+						.catch(() => null)
+				)
+			}
+		}
+		
+		const results = await Promise.allSettled(texturePromises)
+		dependencies.push(...getFulfilledValues(results))
+		
+		logger.info('FBXDependencies', 'Found textures in directory', {
+			count: dependencies.length,
+			files: dependencies.map(f => f.name),
+		})
+		
+	} catch (err) {
+		logger.error('FBXDependencies', 'Error fetching FBX dependencies', err)
+	}
+	
+	return dependencies
+}
+
+/**
  * Load model with all dependencies
  * Main entry point for multi-file loading
  * 
@@ -366,6 +437,8 @@ export async function loadModelWithDependencies(fileId, filename, extension, dir
 	} else if (extension === 'gltf') {
 		const gltfText = await mainFile.text()
 		dependencies = await fetchGltfDependencies(gltfText, filename, fileId, dirPath)
+	} else if (extension === 'fbx') {
+		dependencies = await fetchFbxDependencies(filename, fileId, dirPath)
 	}
 	// GLB, STL, PLY, etc. are single-file formats - no dependencies
 	

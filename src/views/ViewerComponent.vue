@@ -494,8 +494,8 @@ export default {
 				// Extract directory path from filename for multi-file loading
 				const dirPath = this.filename.substring(0, this.filename.lastIndexOf('/'))
 
-				// Check if this is a multi-file format
-				const isMultiFile = ['obj', 'gltf'].includes(extension)
+			// Check if this is a multi-file format
+			const isMultiFile = ['obj', 'gltf', 'fbx'].includes(extension)
 		
 		if (isMultiFile) {
 			console.info('[ThreeDViewer] Multi-file format detected, loading with dependencies...')

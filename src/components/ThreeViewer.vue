@@ -367,18 +367,23 @@ export default {
 
 	const setupScene = async () => {
 		// Create scene
-		scene.value = new THREE.Scene()			// Ensure container has proper dimensions
-			const containerWidth = container.value.clientWidth || container.value.offsetWidth || 800
-			const containerHeight = container.value.clientHeight || container.value.offsetHeight || 600
+		scene.value = new THREE.Scene()
+		
+		// Background will be set via props or remain null (transparent)
+		scene.value.background = props.background ? new THREE.Color(props.background) : null
+		
+		// Ensure container has proper dimensions
+		const containerWidth = container.value.clientWidth || container.value.offsetWidth || 800
+		const containerHeight = container.value.clientHeight || container.value.offsetHeight || 600
 
-			// Container dimensions checked
+		// Container dimensions checked
 
-			// Create renderer
-			renderer.value = new THREE.WebGLRenderer({
-				antialias: true,
-				alpha: true,
-				powerPreference: 'high-performance',
-			})
+		// Create renderer
+		renderer.value = new THREE.WebGLRenderer({
+			antialias: true,
+			alpha: true,
+			powerPreference: 'high-performance',
+		})
 
 			renderer.value.setSize(containerWidth, containerHeight)
 			renderer.value.setPixelRatio(Math.min(window.devicePixelRatio, 2))
@@ -399,12 +404,12 @@ export default {
 		}
 
 		const setupLighting = () => {
-			// Ambient light
-			const ambientLight = new THREE.AmbientLight(0x404040, 0.6)
+			// Ambient light - increased intensity to match ViewerComponent
+			const ambientLight = new THREE.AmbientLight(0x404040, 2.0)
 			scene.value.add(ambientLight)
 
-			// Directional light
-			const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8)
+			// Directional light - increased intensity to match ViewerComponent
+			const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0)
 			directionalLight.position.set(10, 10, 5)
 			directionalLight.castShadow = true
 			directionalLight.shadow.mapSize.width = 2048
@@ -569,15 +574,15 @@ export default {
 			})
 		}
 
-		const animate = () => {
-			requestAnimationFrame(animate)
+	const animate = () => {
+		requestAnimationFrame(animate)
 
-			// Update controls
-			camera.updateControls()
+		// Update controls
+		camera.updateControls()
 
-			// Render scene
-			camera.render(renderer.value, scene.value)
-		}
+		// Render scene
+		camera.render(renderer.value, scene.value)
+	}
 
 		const setupEventListeners = () => {
 			window.addEventListener('resize', onWindowResize)
