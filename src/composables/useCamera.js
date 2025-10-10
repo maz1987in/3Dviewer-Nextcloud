@@ -19,6 +19,11 @@ export function useCamera() {
 	const initialTarget = ref(new THREE.Vector3(0, 0, 0))
 	const manuallyPositioned = ref(false)
 
+	// Camera projection state
+	const cameraType = ref(VIEWER_CONFIG.camera.defaultProjection || 'perspective')
+	const perspectiveCamera = ref(null)
+	const orthographicCamera = ref(null)
+
 	// Custom camera controls state
 	const isMouseDown = ref(false)
 	const mouseX = ref(0)
@@ -80,6 +85,32 @@ export function useCamera() {
 	])
 
 	/**
+	 * Initialize orthographic camera
+	 * @param {number} width - Viewport width
+	 * @param {number} height - Viewport height
+	 * @return {THREE.OrthographicCamera} Orthographic camera
+	 */
+	const initOrthographicCamera = (width, height) => {
+		const aspect = width / height
+		const frustumSize = VIEWER_CONFIG.camera.orthographic.frustumSize
+		
+		const orthoCamera = new THREE.OrthographicCamera(
+			frustumSize * aspect / -2,
+			frustumSize * aspect / 2,
+			frustumSize / 2,
+			frustumSize / -2,
+			VIEWER_CONFIG.camera.near,
+			VIEWER_CONFIG.camera.far
+		)
+		
+		orthoCamera.zoom = VIEWER_CONFIG.camera.orthographic.zoom
+		orthoCamera.position.set(2, 2, 2)
+		orthoCamera.updateProjectionMatrix()
+		
+		return orthoCamera
+	}
+
+	/**
 	 * Initialize camera with appropriate settings
 	 * @param {number} width - Viewport width
 	 * @param {number} height - Viewport height
@@ -90,11 +121,19 @@ export function useCamera() {
 			isMobile.value = mobile
 			const fov = mobile ? 75 : VIEWER_CONFIG.camera.fov
 
-			camera.value = new THREE.PerspectiveCamera(fov, width / height, VIEWER_CONFIG.camera.near, VIEWER_CONFIG.camera.far)
-			camera.value.position.set(2, 2, 2)
+			// Create perspective camera
+			perspectiveCamera.value = new THREE.PerspectiveCamera(fov, width / height, VIEWER_CONFIG.camera.near, VIEWER_CONFIG.camera.far)
+			perspectiveCamera.value.position.set(2, 2, 2)
+			
+			// Create orthographic camera
+			orthographicCamera.value = initOrthographicCamera(width, height)
+			orthographicCamera.value.position.copy(perspectiveCamera.value.position)
+			
+			// Set active camera based on type
+			camera.value = cameraType.value === 'orthographic' ? orthographicCamera.value : perspectiveCamera.value
 			initialCameraPos.value = camera.value.position.clone()
 
-			logger.info('useCamera', 'Camera initialized', { fov, width, height, mobile })
+			logger.info('useCamera', 'Camera initialized', { fov, width, height, mobile, type: cameraType.value })
 		} catch (error) {
 			logger.error('useCamera', 'Failed to initialize camera', error)
 			throw error
@@ -224,9 +263,15 @@ export function useCamera() {
 			const center = box.getCenter(new THREE.Vector3())
 			const maxDim = Math.max(size.x, size.y, size.z)
 			
-			// Calculate optimal camera distance based on FOV and model size
-			const fov = camera.value.fov * (Math.PI / 180)
-			const cameraDistance = Math.abs(maxDim / Math.sin(fov / 2)) * 0.75
+			// Calculate optimal camera distance based on camera type
+			let cameraDistance
+			if (cameraType.value === 'perspective' && perspectiveCamera.value) {
+				const fov = perspectiveCamera.value.fov * (Math.PI / 180)
+				cameraDistance = Math.abs(maxDim / Math.sin(fov / 2)) * 0.75
+			} else {
+				// For orthographic, use a fixed distance relationship
+				cameraDistance = maxDim * 2
+			}
 			
 			// Set camera position at a good angle (offset from center)
 			camera.value.position.set(
@@ -248,6 +293,12 @@ export function useCamera() {
 			// Update camera near/far planes
 			camera.value.near = cameraDistance / 100
 			camera.value.far = cameraDistance * 100
+			
+			// Handle orthographic zoom
+			if (cameraType.value === 'orthographic' && orthographicCamera.value) {
+				orthographicCamera.value.zoom = VIEWER_CONFIG.camera.orthographic.frustumSize / maxDim
+			}
+			
 			camera.value.updateProjectionMatrix()
 			
 			// Update model center for camera controls
@@ -264,6 +315,7 @@ export function useCamera() {
 				center: { x: center.x, y: center.y, z: center.z },
 				size: { x: size.x, y: size.y, z: size.z },
 				cameraDistance,
+				type: cameraType.value,
 			})
 		} catch (error) {
 			logger.error('useCamera', 'Failed to fit camera to object', error)
@@ -366,14 +418,25 @@ export function useCamera() {
 
 			const size = box.getSize(new THREE.Vector3())
 			const maxDim = Math.max(size.x, size.y, size.z)
-			const fov = camera.value.fov * (Math.PI / 180)
-			const distance = Math.abs(maxDim / Math.sin(fov / 2)) * padding
+			
+			let distance
+			if (cameraType.value === 'perspective' && perspectiveCamera.value) {
+				const fov = perspectiveCamera.value.fov * (Math.PI / 180)
+				distance = Math.abs(maxDim / Math.sin(fov / 2)) * padding
+			} else {
+				// For orthographic, adjust zoom instead
+				distance = maxDim * padding
+				if (orthographicCamera.value) {
+					orthographicCamera.value.zoom = VIEWER_CONFIG.camera.orthographic.frustumSize / (maxDim * padding)
+					orthographicCamera.value.updateProjectionMatrix()
+				}
+			}
 
 			const direction = camera.value.position.clone().sub(controls.value.target).normalize()
 			camera.value.position.copy(controls.value.target).add(direction.multiplyScalar(distance))
 			controls.value.update()
 
-			logger.info('useCamera', 'Camera fitted to view', { distance, padding })
+			logger.info('useCamera', 'Camera fitted to view', { distance, padding, type: cameraType.value })
 		} catch (error) {
 			logger.error('useCamera', 'Failed to fit to view', error)
 		}
@@ -465,9 +528,24 @@ export function useCamera() {
 	const onWindowResize = (width, height) => {
 		if (!camera.value) return
 
-		camera.value.aspect = width / height
-		camera.value.updateProjectionMatrix()
-		logger.info('useCamera', 'Camera updated for resize', { width, height })
+		const aspect = width / height
+
+		// Update both cameras
+		if (perspectiveCamera.value) {
+			perspectiveCamera.value.aspect = aspect
+			perspectiveCamera.value.updateProjectionMatrix()
+		}
+
+		if (orthographicCamera.value) {
+			const frustumSize = VIEWER_CONFIG.camera.orthographic.frustumSize
+			orthographicCamera.value.left = frustumSize * aspect / -2
+			orthographicCamera.value.right = frustumSize * aspect / 2
+			orthographicCamera.value.top = frustumSize / 2
+			orthographicCamera.value.bottom = frustumSize / -2
+			orthographicCamera.value.updateProjectionMatrix()
+		}
+
+		logger.info('useCamera', 'Camera updated for resize', { width, height, type: cameraType.value })
 	}
 
 	/**
@@ -630,6 +708,63 @@ export function useCamera() {
 	}
 
 	/**
+	 * Toggle camera projection between perspective and orthographic
+	 */
+	const toggleCameraProjection = () => {
+		if (!perspectiveCamera.value || !orthographicCamera.value || !controls.value) {
+			logger.warn('useCamera', 'Cannot toggle projection: cameras or controls not initialized')
+			return
+		}
+
+		try {
+			const currentCamera = camera.value
+			const currentPosition = currentCamera.position.clone()
+			const currentTarget = controls.value.target.clone()
+			const currentZoom = currentCamera.zoom || 1
+
+			// Switch camera type
+			const newType = cameraType.value === 'perspective' ? 'orthographic' : 'perspective'
+			const newCamera = newType === 'orthographic' ? orthographicCamera.value : perspectiveCamera.value
+
+			// Transfer position and target
+			newCamera.position.copy(currentPosition)
+			newCamera.lookAt(currentTarget)
+
+			// Handle zoom translation between camera types
+			if (newType === 'orthographic' && cameraType.value === 'perspective') {
+				// Perspective to Orthographic: Calculate appropriate zoom based on distance
+				const distance = currentPosition.distanceTo(currentTarget)
+				const fov = perspectiveCamera.value.fov * (Math.PI / 180)
+				const frustumHeight = 2 * Math.tan(fov / 2) * distance
+				newCamera.zoom = VIEWER_CONFIG.camera.orthographic.frustumSize / frustumHeight
+			} else if (newType === 'perspective' && cameraType.value === 'orthographic') {
+				// Orthographic to Perspective: Just reset zoom to 1
+				newCamera.zoom = 1
+			}
+
+			// Update projection matrix
+			newCamera.updateProjectionMatrix()
+
+			// Update active camera
+			camera.value = newCamera
+			cameraType.value = newType
+
+			// Update controls to use new camera
+			controls.value.object = newCamera
+			controls.value.target.copy(currentTarget)
+			controls.value.update()
+
+			logger.info('useCamera', 'Camera projection toggled', { 
+				from: cameraType.value === 'perspective' ? 'orthographic' : 'perspective',
+				to: newType,
+				zoom: newCamera.zoom 
+			})
+		} catch (error) {
+			logger.error('useCamera', 'Failed to toggle camera projection', error)
+		}
+	}
+
+	/**
 	 * Dispose of camera and controls
 	 */
 	const dispose = () => {
@@ -642,6 +777,8 @@ export function useCamera() {
 		}
 
 		camera.value = null
+		perspectiveCamera.value = null
+		orthographicCamera.value = null
 		initialCameraPos.value = null
 		baselineCameraPos.value = null
 		baselineTarget.value = null
@@ -658,6 +795,9 @@ export function useCamera() {
 		autoRotateSpeed,
 		isMobile,
 		animationPresets,
+		cameraType,
+		perspectiveCamera,
+		orthographicCamera,
 
 		// Methods
 		initCamera,
@@ -677,6 +817,7 @@ export function useCamera() {
 		updateControls,
 		render,
 		cancelAnimations,
+		toggleCameraProjection,
 		dispose,
 	}
 }

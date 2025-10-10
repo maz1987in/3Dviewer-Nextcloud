@@ -21,6 +21,7 @@
 			<SlideOutToolPanel
 				ref="toolsPanel"
 				:auto-rotate="autoRotate"
+				:camera-type="cameraType"
 				:current-preset="currentPreset"
 				:presets="animationPresets"
 				:grid="grid"
@@ -34,6 +35,7 @@
 				@reset-view="onReset"
 				@fit-to-view="onFitToView"
 				@toggle-auto-rotate="onToggleAutoRotate"
+				@toggle-projection="onToggleProjection"
 				@change-preset="onChangePreset"
 				@toggle-grid="grid = !grid"
 				@toggle-axes="axes = !axes"
@@ -94,6 +96,7 @@ export default {
 			wireframe: false,
 			background: '#f5f5f5',
 			autoRotate: false,
+			cameraType: 'perspective',
 			animationPresets: [],
 			currentPreset: '',
 			lastError: null,
@@ -201,6 +204,13 @@ export default {
 		onToggleAutoRotate() {
 			this.autoRotate = !this.autoRotate
 			this.$refs.viewer?.toggleAutoRotate?.()
+		},
+		onToggleProjection() {
+			this.$refs.viewer?.toggleCameraProjection?.()
+			// Update camera type from viewer
+			if (this.$refs.viewer?.cameraType) {
+				this.cameraType = this.$refs.viewer.cameraType
+			}
 		},
 		onChangePreset(presetName) {
 			if (presetName) {

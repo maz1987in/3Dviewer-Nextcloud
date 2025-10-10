@@ -210,17 +210,35 @@ Handle Texture.JPG vs texture.jpg mismatches.
 
 
 
-## ✅ Recently Completed (October 2025)## 📝 Quick Reference
+## ✅ Recently Completed (October 2025)
 
+- [x] **Camera Projection Toggle** (October 10, 2025) - Perspective ↔ Orthographic switching
+  - Toggle button in SlideOutToolPanel (VIEW section)
+  - Smooth camera state preservation during switch
+  - Proper zoom translation between projection modes
+  - OrbitControls update and window resize handling
+- [x] **Performance Monitoring System** - Full integration with auto-detection
+- [x] **Browser Capability Detection** - Smart quality mode selection
+- [x] **Performance Overlay** - Real-time FPS/memory/quality stats
+- [x] **5 Quality Modes** - Low, Balanced, High, Ultra, Auto
+- [x] **Auto-Optimizer Fix** - Disabled in auto mode to trust detection
+- [x] **Pixel Ratio Supersampling** - 1.5x rendering for high mode
+- [x] **Documentation Cleanup** - Consolidated performance docs
+- [x] **Code Cleanup** - Removed debug console.logs
+- [x] **Multi-File Loading** - OBJ+MTL, GLTF+dependencies support
+- [x] **Measurement Tool** - Distance, angles, professional UI
+- [x] **KTX2 Compression** - Compressed texture support
+- [x] **DRACO Compression** - Compressed geometry support
+- [x] **Case-Insensitive Matching** - Robust filename handling
 
+---
 
-- [x] **Performance Monitoring System** - Full integration with auto-detection**Main TODO Doc**: `IMPROVEMENTS_TODO.md` (detailed breakdown)  
+## 📝 Quick Reference
 
-- [x] **Browser Capability Detection** - Smart quality mode selection**Multi-File Docs**: `docs/MULTI_FILE_LOADING_COMPLETE.md`  
-
-- [x] **Performance Overlay** - Real-time FPS/memory/quality stats**Architecture**: `docs/TECHNICAL_ARCHITECTURE.md`  
-
-- [x] **5 Quality Modes** - Low, Balanced, High, Ultra, Auto**Test Plan**: `TEST_CHECKLIST.md`
+**Main TODO Doc**: `IMPROVEMENTS_TODO.md` (detailed breakdown)  
+**Multi-File Docs**: `docs/MULTI_FILE_LOADING_COMPLETE.md`  
+**Architecture**: `docs/TECHNICAL_ARCHITECTURE.md`  
+**Test Plan**: `TEST_CHECKLIST.md`
 
 - [x] **Auto-Optimizer Fix** - Disabled in auto mode to trust detection
 

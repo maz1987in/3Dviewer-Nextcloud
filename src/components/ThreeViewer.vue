@@ -274,7 +274,7 @@ export default {
 		comparisonMode: { type: Boolean, default: false },
 		performanceMode: { type: String, default: 'auto' },
 	},
-	emits: ['model-loaded', 'error', 'view-reset', 'fit-to-view', 'toggle-auto-rotate', 'change-preset', 'toggle-grid', 'axes-toggle', 'wireframe-toggle', 'background-change', 'toggle-measurement', 'toggle-annotation', 'toggle-comparison', 'toggle-performance', 'dismiss', 'push-toast', 'loading-state-changed', 'fps-updated'],
+	emits: ['model-loaded', 'error', 'view-reset', 'fit-to-view', 'toggle-auto-rotate', 'toggle-projection', 'change-preset', 'toggle-grid', 'axes-toggle', 'wireframe-toggle', 'background-change', 'toggle-measurement', 'toggle-annotation', 'toggle-comparison', 'toggle-performance', 'dismiss', 'push-toast', 'loading-state-changed', 'fps-updated'],
 	setup(props, { emit }) {
 		// Refs
 		const container = ref(null)
@@ -1114,6 +1114,9 @@ export default {
 		currentPixelRatio: performance.currentPixelRatio,
 		showPerformanceStats,
 		
+		// Camera
+		cameraType: camera.cameraType,
+		
 		// Methods
 			toggleOriginalModel,
 			toggleComparisonModel,
@@ -1124,6 +1127,7 @@ export default {
 			getStageText,
 			formatFileSize,
 			toggleAutoRotate: camera.toggleAutoRotate,
+			toggleCameraProjection: camera.toggleCameraProjection,
 			resetView,
 			fitToView,
 			toggleMeasurementMode,

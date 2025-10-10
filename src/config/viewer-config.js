@@ -52,6 +52,12 @@ export const CAMERA_SETTINGS = {
 	fov: 75,
 	near: 0.1,
 	far: 1000,
+	// Orthographic camera settings
+	orthographic: {
+		zoom: 1,
+		frustumSize: 10,  // Controls the viewing volume size
+	},
+	defaultProjection: 'perspective', // 'perspective' or 'orthographic'
 	position: {
 		x: 5,
 		y: 5,
