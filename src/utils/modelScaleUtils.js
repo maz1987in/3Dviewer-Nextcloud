@@ -273,9 +273,69 @@ export function createTextMesh(text, position, options = {}) {
 	}
 }
 
+// Raycasting cache to avoid repeated scene traversal
+const raycasterCache = new Map()
+const raycaster = new THREE.Raycaster() // Reuse raycaster instance
+const mouse = new THREE.Vector2() // Reuse mouse vector
+
+/**
+ * Clear raycasting cache (call when scene changes significantly)
+ * @param {string} sceneId - Scene identifier (optional)
+ */
+export function clearRaycastCache(sceneId = null) {
+	if (sceneId) {
+		raycasterCache.delete(sceneId)
+	} else {
+		raycasterCache.clear()
+	}
+}
+
+/**
+ * Get cached intersectable objects for a scene
+ * @param {THREE.Scene} scene - Scene to cache objects for
+ * @param {Function} filterMesh - Filter function for meshes
+ * @param {string} cacheKey - Cache key for this filter combination
+ * @returns {THREE.Object3D[]} Array of intersectable objects
+ */
+function getCachedIntersectableObjects(scene, filterMesh, cacheKey) {
+	// Check cache first
+	if (raycasterCache.has(cacheKey)) {
+		const cached = raycasterCache.get(cacheKey)
+		const now = Date.now()
+		
+		// Cache is valid for 5 seconds or until scene changes
+		if (now - cached.timestamp < 5000 && cached.scene === scene) {
+			return cached.objects
+		}
+	}
+
+	// Build cache
+	const intersectableObjects = []
+	scene.traverse((child) => {
+		// Early exit conditions for better performance
+		if (!child.isMesh || !child.visible || !child.geometry || !child.material) {
+			return
+		}
+		
+		// Apply custom filter
+		if (filterMesh(child)) {
+			intersectableObjects.push(child)
+		}
+	})
+
+	// Cache the result
+	raycasterCache.set(cacheKey, {
+		objects: intersectableObjects,
+		scene,
+		timestamp: Date.now(),
+	})
+
+	return intersectableObjects
+}
+
 /**
  * Perform raycasting to find 3D intersection point from mouse click
- * Shared function for consistent raycasting across annotations and measurements
+ * Optimized version with caching and early exit conditions
  * 
  * @param {MouseEvent} event - Mouse click event
  * @param {THREE.Camera} camera - Camera for raycasting
@@ -283,32 +343,51 @@ export function createTextMesh(text, position, options = {}) {
  * @param {Object} options - Configuration options
  * @param {Function} options.filterMesh - Optional filter function (mesh => boolean)
  * @param {boolean} options.recursive - Recursive intersection (default: true)
+ * @param {boolean} options.useCache - Whether to use object caching (default: true)
+ * @param {number} options.maxDistance - Maximum raycast distance (default: 1000)
  * @returns {THREE.Vector3|null} Intersection point or null if no intersection
  */
 export function raycastIntersection(event, camera, scene, options = {}) {
 	const {
 		filterMesh = (mesh) => mesh.isMesh && mesh.visible,
 		recursive = true,
+		useCache = true,
+		maxDistance = 1000,
 	} = options
 
 	try {
+		// Early exit if no scene or camera
+		if (!scene || !camera) {
+			return null
+		}
+
 		// Calculate mouse position in normalized device coordinates
 		const rect = event.target.getBoundingClientRect()
-		const mouseX = ((event.clientX - rect.left) / rect.width) * 2 - 1
-		const mouseY = -((event.clientY - rect.top) / rect.height) * 2 + 1
-		const mouse = new THREE.Vector2(mouseX, mouseY)
+		mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
+		mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
 
-		// Create raycaster
-		const raycaster = new THREE.Raycaster()
+		// Set up raycaster with distance limit for performance
 		raycaster.setFromCamera(mouse, camera)
+		raycaster.far = maxDistance
 
-		// Find intersectable objects
-		const intersectableObjects = []
-		scene.traverse((child) => {
-			if (filterMesh(child)) {
-				intersectableObjects.push(child)
-			}
-		})
+		// Get intersectable objects (cached if enabled)
+		let intersectableObjects
+		if (useCache) {
+			const cacheKey = `${scene.id || 'default'}_${filterMesh.toString().slice(0, 50)}`
+			intersectableObjects = getCachedIntersectableObjects(scene, filterMesh, cacheKey)
+		} else {
+			intersectableObjects = []
+			scene.traverse((child) => {
+				if (child.isMesh && child.visible && child.geometry && child.material && filterMesh(child)) {
+					intersectableObjects.push(child)
+				}
+			})
+		}
+
+		// Early exit if no objects to test
+		if (intersectableObjects.length === 0) {
+			return null
+		}
 
 		// Perform raycasting
 		const intersects = raycaster.intersectObjects(intersectableObjects, recursive)

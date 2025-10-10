@@ -538,6 +538,22 @@ export function useComparison() {
 		return `${Math.round(size * 100) / 100} ${units[unitIndex]}`
 	}
 
+	/**
+	 * Dispose of comparison resources
+	 */
+	const dispose = () => {
+		// Clear comparison
+		clearComparison()
+		
+		// Abort any ongoing operations
+		if (abortController.value) {
+			abortController.value.abort()
+			abortController.value = null
+		}
+
+		logger.info('useComparison', 'Comparison resources disposed')
+	}
+
 	return {
 		// State
 		comparisonMode: readonly(comparisonMode),
@@ -564,5 +580,6 @@ export function useComparison() {
 		toggleComparisonModel,
 		clearComparison,
 		formatFileSize,
+		dispose,
 	}
 }

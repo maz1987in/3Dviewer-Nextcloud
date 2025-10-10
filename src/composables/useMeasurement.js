@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue'
+import { ref, computed, readonly } from 'vue'
 import * as THREE from 'three'
 import { logError } from '../utils/error-handler.js'
 import { 
@@ -443,15 +443,33 @@ export function useMeasurement() {
 		}
 	}
 
+	/**
+	 * Dispose of measurement resources
+	 */
+	const dispose = () => {
+		// Clear all measurements and points
+		points.value = []
+		measurements.value = []
+		currentMeasurement.value = null
+		isActive.value = false
+		
+		// Clear visual elements
+		pointMeshes.value = []
+		lineMeshes.value = []
+		textMeshes.value = []
+
+		logger.info('useMeasurement', 'Measurement resources disposed')
+	}
+
 	return {
 		// State
-		isActive,
-		points,
-		measurements,
-		currentMeasurement,
-		currentUnit,
-		modelScale,
-		visualScale,
+		isActive: readonly(isActive),
+		points: readonly(points),
+		measurements: readonly(measurements),
+		currentMeasurement: readonly(currentMeasurement),
+		currentUnit: readonly(currentUnit),
+		modelScale: readonly(modelScale),
+		visualScale: readonly(visualScale),
 
 		// Computed
 		hasPoints,
@@ -473,5 +491,6 @@ export function useMeasurement() {
 		setUnit,
 		setModelScale,
 		getAvailableUnits,
+		dispose,
 	}
 }

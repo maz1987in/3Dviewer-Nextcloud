@@ -6,6 +6,7 @@
 import { ref, computed, readonly } from 'vue'
 import * as THREE from 'three'
 import { logger } from '../utils/logger.js'
+import { throttle } from '../utils/mathHelpers.js'
 
 export function useMobile() {
 	// Mobile state
@@ -98,10 +99,13 @@ export function useMobile() {
 			logger.info('useMobile', 'Orientation changed', { orientation: orientation.value })
 		}
 
+		// Throttle orientation updates to prevent excessive calls during window dragging
+		const throttledUpdateOrientation = throttle(updateOrientation, 150)
+
 		updateOrientation()
-		eventListeners.value.orientationChange = updateOrientation
-		window.addEventListener('orientationchange', updateOrientation)
-		window.addEventListener('resize', updateOrientation)
+		eventListeners.value.orientationChange = throttledUpdateOrientation
+		window.addEventListener('orientationchange', throttledUpdateOrientation)
+		window.addEventListener('resize', throttledUpdateOrientation)
 	}
 
 	/**
@@ -116,9 +120,12 @@ export function useMobile() {
 			logger.info('useMobile', 'Screen size updated', screenSize.value)
 		}
 
+		// Throttle screen size updates to prevent excessive calls during window dragging
+		const throttledUpdateScreenSize = throttle(updateScreenSize, 150)
+
 		updateScreenSize()
-		eventListeners.value.resize = updateScreenSize
-		window.addEventListener('resize', updateScreenSize)
+		eventListeners.value.resize = throttledUpdateScreenSize
+		window.addEventListener('resize', throttledUpdateScreenSize)
 	}
 
 	/**

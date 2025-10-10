@@ -3,7 +3,7 @@
  * Handles 3D annotation creation, management, and interaction
  */
 
-import { ref, computed } from 'vue'
+import { ref, computed, readonly } from 'vue'
 import * as THREE from 'three'
 import { logError } from '../utils/error-handler.js'
 import { 
@@ -267,12 +267,25 @@ export function useAnnotation() {
 		}
 	}
 
+	/**
+	 * Dispose of annotation resources
+	 */
+	const dispose = () => {
+		// Clear all annotations
+		annotations.value = []
+		currentAnnotation.value = null
+		isActive.value = false
+		modelScale.value = 1
+
+		logger.info('useAnnotation', 'Annotation resources disposed')
+	}
+
 	return {
 		// State
-		isActive,
-		annotations,
-		currentAnnotation,
-		modelScale,
+		isActive: readonly(isActive),
+		annotations: readonly(annotations),
+		currentAnnotation: readonly(currentAnnotation),
+		modelScale: readonly(modelScale),
 
 		// Computed
 		hasAnnotations,
@@ -288,5 +301,6 @@ export function useAnnotation() {
 		deleteAnnotation,
 		clearAllAnnotations,
 		getAnnotationSummary,
+		dispose,
 	}
 }

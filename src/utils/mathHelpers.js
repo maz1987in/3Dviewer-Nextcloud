@@ -150,3 +150,46 @@ export function max(array, property = null) {
 		return Math.max(...array)
 	}
 }
+
+/**
+ * Throttle a function to limit how often it can be called
+ * @param {Function} func - Function to throttle
+ * @param {number} delay - Delay in milliseconds
+ * @returns {Function} Throttled function
+ */
+export function throttle(func, delay) {
+	let timeoutId = null
+	let lastExecTime = 0
+
+	return function (...args) {
+		const currentTime = Date.now()
+
+		if (currentTime - lastExecTime > delay) {
+			func.apply(this, args)
+			lastExecTime = currentTime
+		} else {
+			clearTimeout(timeoutId)
+			timeoutId = setTimeout(() => {
+				func.apply(this, args)
+				lastExecTime = Date.now()
+			}, delay - (currentTime - lastExecTime))
+		}
+	}
+}
+
+/**
+ * Debounce a function to delay its execution until after a period of inactivity
+ * @param {Function} func - Function to debounce
+ * @param {number} delay - Delay in milliseconds
+ * @returns {Function} Debounced function
+ */
+export function debounce(func, delay) {
+	let timeoutId = null
+
+	return function (...args) {
+		clearTimeout(timeoutId)
+		timeoutId = setTimeout(() => {
+			func.apply(this, args)
+		}, delay)
+	}
+}

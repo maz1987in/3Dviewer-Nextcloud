@@ -244,7 +244,7 @@
 </template>
 
 <script>
-import { ref, onMounted, onBeforeUnmount, watch, computed } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch, computed, nextTick } from 'vue'
 import * as THREE from 'three'
 import { NcProgressBar, NcButton } from '@nextcloud/vue'
 import { useCamera } from '../composables/useCamera.js'

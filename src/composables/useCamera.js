@@ -7,6 +7,7 @@ import { ref } from 'vue'
 import * as THREE from 'three'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
 import { logger } from '../utils/logger.js'
+import { throttle } from '../utils/mathHelpers.js'
 
 export function useCamera() {
 	// Camera and controls state
@@ -33,6 +34,7 @@ export function useCamera() {
 
 	// Animation state
 	const isAnimating = ref(false)
+	const animationFrameId = ref(null)
 
 	// Mobile state
 	const isMobile = ref(false)
@@ -411,9 +413,10 @@ export function useCamera() {
 			controls.value.update()
 
 			if (progress < 1) {
-				requestAnimationFrame(animate)
+				animationFrameId.value = requestAnimationFrame(animate)
 			} else {
 				isAnimating.value = false
+				animationFrameId.value = null
 				logger.info('useCamera', 'Preset animation completed', { preset: presetName })
 			}
 		}
@@ -445,7 +448,9 @@ export function useCamera() {
 			controls.value.update()
 
 			if (progress < 1) {
-				requestAnimationFrame(animate)
+				animationFrameId.value = requestAnimationFrame(animate)
+			} else {
+				animationFrameId.value = null
 			}
 		}
 
@@ -464,6 +469,12 @@ export function useCamera() {
 		camera.value.updateProjectionMatrix()
 		logger.info('useCamera', 'Camera updated for resize', { width, height })
 	}
+
+	/**
+	 * Throttled version of window resize handler
+	 * Limits resize updates to prevent excessive camera matrix recalculations
+	 */
+	const throttledResize = throttle(onWindowResize, 100)
 
 	/**
 	 * Update controls
@@ -607,9 +618,24 @@ export function useCamera() {
 	}
 
 	/**
+	 * Cancel ongoing animations
+	 */
+	const cancelAnimations = () => {
+		if (animationFrameId.value) {
+			cancelAnimationFrame(animationFrameId.value)
+			animationFrameId.value = null
+		}
+		isAnimating.value = false
+		logger.info('useCamera', 'Animations cancelled')
+	}
+
+	/**
 	 * Dispose of camera and controls
 	 */
 	const dispose = () => {
+		// Cancel any ongoing animations
+		cancelAnimations()
+
 		if (controls.value) {
 			controls.value.dispose()
 			controls.value = null
@@ -647,8 +673,10 @@ export function useCamera() {
 		animateToPreset,
 		smoothZoom,
 		onWindowResize,
+		throttledResize,
 		updateControls,
 		render,
+		cancelAnimations,
 		dispose,
 	}
 }

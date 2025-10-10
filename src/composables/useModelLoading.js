@@ -16,7 +16,16 @@ import { disposeObject } from '../utils/three-utils.js'
 export function useModelLoading() {
 	// Loading state
 	const loading = ref(false)
-	const progress = ref({ loaded: 0, total: 0, message: null })
+	const progress = ref({ 
+		loaded: 0, 
+		total: 0, 
+		message: null, 
+		stage: null,
+		percentage: 0,
+		estimatedTimeRemaining: null,
+		speed: 0,
+		startTime: null
+	})
 	const retryCount = ref(0)
 	const maxRetries = ref(VIEWER_CONFIG.limits.maxRetries)
 
@@ -121,7 +130,7 @@ export function useModelLoading() {
 			loading.value = true
 			error.value = null
 			errorState.value = null
-			progress.value = { loaded: 0, total: 0, message: 'Initializing...' }
+			updateProgress(0, 0, LOADING_STAGES.INITIALIZING, 'Initializing model loading...')
 
 			// Extract directory path for multi-file loading
 			const dirPath = filename.substring(0, filename.lastIndexOf('/'))
@@ -134,7 +143,7 @@ export function useModelLoading() {
 
 				try {
 					// Update progress
-					progress.value = { loaded: 0, total: 0, message: 'Loading dependencies...' }
+					updateProgress(0, 0, LOADING_STAGES.DOWNLOADING, 'Loading model dependencies...')
 
 					// Load model with dependencies
 					const result = await loadModelWithDependencies(fileId, filename, extension, dirPath)
@@ -145,7 +154,7 @@ export function useModelLoading() {
 					})
 
 					// Update progress
-					progress.value = { loaded: 50, total: 100, message: 'Processing model...' }
+					updateProgress(50, 100, LOADING_STAGES.PROCESSING, 'Processing model data...')
 
 					// Convert main file to ArrayBuffer
 					const arrayBuffer = await result.mainFile.arrayBuffer()
@@ -172,7 +181,7 @@ export function useModelLoading() {
 
 						// Clear loading state
 						loading.value = false
-						progress.value = { loaded: 100, total: 100, message: 'Complete' }
+						updateProgress(100, 100, LOADING_STAGES.COMPLETE, 'Model loaded successfully')
 
 						logger.info('useModelLoading', 'Multi-file model loaded successfully', {
 							fileId,
@@ -419,20 +428,56 @@ export function useModelLoading() {
 	}
 
 	/**
-	 * Update loading progress
+	 * Update loading progress with enhanced tracking
 	 * @param {number} loaded - Bytes loaded
 	 * @param {number} total - Total bytes
 	 * @param {string} stage - Loading stage
+	 * @param {string} message - Detailed message
 	 */
-	const updateProgress = (loaded, total, stage = null) => {
-		progress.value = { loaded, total, message: stage }
+	const updateProgress = (loaded, total, stage = null, message = null) => {
+		const now = Date.now()
+		const currentProgress = progress.value
+		
+		// Initialize start time on first progress update
+		if (!currentProgress.startTime) {
+			currentProgress.startTime = now
+		}
+		
+		// Calculate percentage
+		const percentage = total > 0 ? Math.round((loaded / total) * 100) : 0
+		
+		// Calculate speed (bytes per second)
+		const elapsed = (now - currentProgress.startTime) / 1000
+		const speed = elapsed > 0 ? loaded / elapsed : 0
+		
+		// Calculate estimated time remaining
+		let estimatedTimeRemaining = null
+		if (total > 0 && speed > 0 && loaded < total) {
+			const remainingBytes = total - loaded
+			estimatedTimeRemaining = Math.round(remainingBytes / speed)
+		}
+		
+		// Update progress with enhanced information
+		progress.value = {
+			loaded,
+			total,
+			message: message || stage,
+			stage,
+			percentage,
+			estimatedTimeRemaining,
+			speed,
+			startTime: currentProgress.startTime
+		}
 
-		if (stage) {
+		// Log progress updates (throttled to avoid spam)
+		if (stage && (percentage % 10 === 0 || percentage === 100 || stage !== currentProgress.stage)) {
 			logger.info('useModelLoading', 'Progress update', {
 				loaded,
 				total,
 				stage,
-				percentage: Math.round((loaded / total) * 100),
+				percentage,
+				speed: Math.round(speed / 1024), // KB/s
+				estimatedTimeRemaining,
 			})
 		}
 	}
@@ -583,6 +628,84 @@ export function useModelLoading() {
 		return stageTexts[stage] || stage
 	}
 
+	/**
+	 * Format estimated time remaining in human-readable format
+	 * @param {number} seconds - Time in seconds
+	 * @return {string} Formatted time string
+	 */
+	const formatTimeRemaining = (seconds) => {
+		if (!seconds || seconds <= 0) return null
+		
+		if (seconds < 60) {
+			return `${Math.round(seconds)}s`
+		} else if (seconds < 3600) {
+			const minutes = Math.round(seconds / 60)
+			return `${minutes}m`
+		} else {
+			const hours = Math.round(seconds / 3600)
+			return `${hours}h`
+		}
+	}
+
+	/**
+	 * Format download speed in human-readable format
+	 * @param {number} bytesPerSecond - Speed in bytes per second
+	 * @return {string} Formatted speed string
+	 */
+	const formatSpeed = (bytesPerSecond) => {
+		if (!bytesPerSecond || bytesPerSecond <= 0) return '0 B/s'
+		
+		const units = ['B/s', 'KB/s', 'MB/s', 'GB/s']
+		let size = bytesPerSecond
+		let unitIndex = 0
+		
+		while (size >= 1024 && unitIndex < units.length - 1) {
+			size /= 1024
+			unitIndex++
+		}
+		
+		return `${Math.round(size * 100) / 100} ${units[unitIndex]}`
+	}
+
+	/**
+	 * Get enhanced progress information for UI display
+	 * @return {object} Enhanced progress information
+	 */
+	const getEnhancedProgressInfo = () => {
+		const current = progress.value
+		return {
+			percentage: current.percentage,
+			loaded: formatFileSize(current.loaded),
+			total: current.total > 0 ? formatFileSize(current.total) : 'Unknown',
+			speed: formatSpeed(current.speed),
+			timeRemaining: formatTimeRemaining(current.estimatedTimeRemaining),
+			stage: getStageText(current.stage),
+			message: current.message,
+			elapsed: current.startTime ? Math.round((Date.now() - current.startTime) / 1000) : 0
+		}
+	}
+
+	/**
+	 * Dispose of model loading resources
+	 */
+	const dispose = () => {
+		// Cancel any ongoing load operations
+		cancelLoad()
+		
+		// Clear the current model
+		clearModel()
+		
+		// Clear error state
+		clearError()
+		
+		// Reset loading state
+		loading.value = false
+		progress.value = { loaded: 0, total: 0, message: '' }
+		retryCount.value = 0
+
+		logger.info('useModelLoading', 'Model loading resources disposed')
+	}
+
 	return {
 		// State (mutable refs - consumer can modify these)
 		loading,
@@ -619,5 +742,9 @@ export function useModelLoading() {
 		getFileSizeCategory,
 		formatFileSize,
 		getStageText,
+		formatTimeRemaining,
+		formatSpeed,
+		getEnhancedProgressInfo,
+		dispose,
 	}
 }

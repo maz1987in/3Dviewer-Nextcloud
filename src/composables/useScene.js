@@ -7,6 +7,8 @@ import { ref, computed } from 'vue'
 import * as THREE from 'three'
 import { applyWireframe, createGridHelper, createAxesHelper, disposeObject } from '../utils/three-utils.js'
 import { logger } from '../utils/logger.js'
+import { throttle } from '../utils/mathHelpers.js'
+import { clearRaycastCache } from '../utils/modelScaleUtils.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
 
 export function useScene() {
@@ -366,6 +368,10 @@ export function useScene() {
 		}
 
 		scene.value.add(object)
+		
+		// Clear raycast cache since scene structure changed
+		clearRaycastCache()
+		
 		logger.info('useScene', 'Object added to scene', {
 			type: object.constructor.name,
 			children: object.children.length,
@@ -380,6 +386,10 @@ export function useScene() {
 		if (!scene.value || !object) return
 
 		scene.value.remove(object)
+		
+		// Clear raycast cache since scene structure changed
+		clearRaycastCache()
+		
 		logger.info('useScene', 'Object removed from scene', {
 			type: object.constructor.name,
 		})
@@ -396,6 +406,12 @@ export function useScene() {
 		renderer.value.setSize(width, height)
 		logger.info('useScene', 'Scene resized', { width, height })
 	}
+
+	/**
+	 * Throttled version of window resize handler
+	 * Limits resize updates to prevent excessive re-renders during window dragging
+	 */
+	const throttledResize = throttle(onWindowResize, 100)
 
 	/**
 	 * Render the scene
@@ -485,6 +501,9 @@ export function useScene() {
 		backgroundColor.value = null
 		fog.value = null
 
+		// Clear raycast cache when disposing scene
+		clearRaycastCache()
+
 		logger.info('useScene', 'Scene disposed')
 	}
 
@@ -521,6 +540,7 @@ export function useScene() {
 		addObject,
 		removeObject,
 		onWindowResize,
+		throttledResize,
 		render,
 		getSceneStats,
 		dispose,
