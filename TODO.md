@@ -126,15 +126,13 @@
 
 
 
----### 5. Progressive Texture Loading
+---
 
-Show model immediately, load textures after.
+### 5. Improved Error Handling
 
-### 5. Improved Error Handling- **Effort**: 3-4h
+**Enhancement**: Better user feedback for loading failures  
 
-**Enhancement**: Better user feedback for loading failures  - **Benefit**: Better perceived performance
-
-**Effort**: 2-3h- **UX**: Model visible in < 1 second
+**Effort**: 2-3h
 
 
 
@@ -212,6 +210,17 @@ Handle Texture.JPG vs texture.jpg mismatches.
 
 ## ✅ Recently Completed (October 2025)
 
+- [x] **Progressive Texture Loading + Subdirectory Support** (October 10, 2025) - Instant geometry display with background texture loading
+  - Model geometry visible in <1 second with placeholder colors
+  - Textures load asynchronously in background (non-blocking)
+  - Materials auto-update as textures finish loading
+  - Visual progress indicator in bottom-right corner
+  - Batch loading (3 textures at a time) prevents system overload
+  - 100ms delay between batches for smooth loading
+  - Automatic subdirectory search for textures (Texture/, textures/, etc.)
+  - Added 3DS and DAE multi-file format support
+  - LoadingManager URL modifier for 3DS external textures
+  - Dramatically improved UX and perceived performance
 - [x] **Dependency Caching System** (October 10, 2025) - IndexedDB caching for MTL/textures
   - Persistent cache across sessions using IndexedDB
   - Smart file size limits (10MB per file, 100MB total)
