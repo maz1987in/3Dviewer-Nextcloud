@@ -369,6 +369,7 @@ import { usePerformance } from '../composables/usePerformance.js'
 import { useExport } from '../composables/useExport.js'
 import { useModelStats } from '../composables/useModelStats.js'
 import { logger } from '../utils/logger.js'
+import { initCache, clearExpired, clearAll, getCacheStats } from '../utils/dependencyCache.js'
 
 export default {
 	name: 'ThreeViewerRefactored',
@@ -952,6 +953,31 @@ export default {
 	}
 
 	/**
+	 * Clear dependency cache
+	 */
+	const handleClearCache = async () => {
+		try {
+			logger.info('ThreeViewer', 'Clearing dependency cache')
+			await clearAll()
+			const stats = await getCacheStats()
+			logger.info('ThreeViewer', 'Cache cleared', stats)
+			
+			emit('push-toast', {
+				type: 'success',
+				title: 'Cache Cleared',
+				message: 'Dependency cache has been cleared successfully'
+			})
+		} catch (error) {
+			logger.error('ThreeViewer', 'Failed to clear cache', error)
+			emit('push-toast', {
+				type: 'error',
+				title: 'Clear Cache Failed',
+				message: error.message || 'Failed to clear cache'
+			})
+		}
+	}
+
+	/**
 	 * Handle model export
 	 * @param {string} format - Export format (glb, stl, obj)
 	 */
@@ -1212,7 +1238,17 @@ export default {
 	})
 
 	// Lifecycle
-	onMounted(() => {
+	onMounted(async () => {
+		// Initialize dependency cache
+		try {
+			await initCache()
+			await clearExpired()
+			const stats = await getCacheStats()
+			logger.info('ThreeViewer', 'Cache initialized', stats)
+		} catch (error) {
+			logger.warn('ThreeViewer', 'Cache init failed, continuing without cache', error)
+		}
+
 		// Test hooks for Playwright/testing
 		if (typeof window !== 'undefined') {
 			window.__LOAD_STARTED = true
@@ -1343,6 +1379,7 @@ export default {
 		togglePerformanceStats,
 		toggleModelStats,
 		handleExport,
+		handleClearCache,
 		hasModel: computed(() => modelRoot.value !== null),
 	}
 	},

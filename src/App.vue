@@ -49,6 +49,7 @@
 				@toggle-stats="onToggleStats"
 				@take-screenshot="onTakeScreenshot"
 				@export-model="onExportModel"
+				@clear-cache="onClearCache"
 				@toggle-help="onToggleHelp" />
 			
 			<!-- 3D Viewer -->
@@ -260,7 +261,12 @@ export default {
 		this.$refs.viewer?.handleExport?.(format)
 	},
 
-		onBackgroundChange(val) {
+	onClearCache() {
+		// Clear dependency cache
+		this.$refs.viewer?.handleClearCache?.()
+	},
+
+	onBackgroundChange(val) {
 			this.background = val
 		},
 		onTakeScreenshot() {

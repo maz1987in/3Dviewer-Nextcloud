@@ -9,25 +9,76 @@
 import { logger } from '../utils/logger.js'
 import { findFileByName } from '../utils/fileHelpers.js'
 import { getFulfilledValues } from '../utils/arrayHelpers.js'
+import { VIEWER_CONFIG } from '../config/viewer-config.js'
+import { 
+	getCached, 
+	setCached, 
+	generateCacheKey, 
+	isCacheAvailable 
+} from '../utils/dependencyCache.js'
 
 /**
  * Fetch a file from URL and return as File object
  * @param {string} url - URL to fetch from
  * @param {string} name - Filename for the File object
  * @param {string} defaultType - Default MIME type if not detected
+ * @param {object} options - Additional options
+ * @param {boolean} options.useCache - Whether to use cache (default: true)
+ * @param {number} options.fileId - File ID for caching
  * @returns {Promise<File>}
  */
-export async function fetchFileFromUrl(url, name, defaultType = 'application/octet-stream') {
+export async function fetchFileFromUrl(url, name, defaultType = 'application/octet-stream', options = {}) {
+	const { useCache = true, fileId = null } = options
+
+	// Try cache first if enabled and fileId is available
+	if (useCache && fileId && isCacheAvailable()) {
+		try {
+			const cacheKey = generateCacheKey(fileId, name)
+			const cached = await getCached(cacheKey)
+
+			if (cached && !cached.expired) {
+				logger.info('MultiFileHelpers', 'Using cached dependency', { name, cacheHit: true })
+				return new File([cached.data], name, { type: cached.mimeType })
+			}
+		} catch (error) {
+			logger.warn('MultiFileHelpers', 'Cache read failed, fetching from network', error)
+		}
+	}
+
+	// Fetch from network
+	logger.info('MultiFileHelpers', 'Fetching from network', { name, cacheHit: false })
 	const response = await fetch(url)
 	
 	if (!response.ok) {
 		throw new Error(`${url} ${response.status} ${response.statusText}`)
 	}
 	
-	const data = await response.blob()
-	return new File([data], name, {
-		type: data.type || defaultType,
-	})
+	const arrayBuffer = await response.arrayBuffer()
+	const mimeType = response.headers.get('content-type') || defaultType
+	const sizeMB = arrayBuffer.byteLength / (1024 * 1024)
+
+	// Store in cache (skip if file is too large to prevent memory issues)
+	const maxFileSizeMB = VIEWER_CONFIG.cache?.maxFileSizeMB || 10
+	if (useCache && fileId && isCacheAvailable() && sizeMB <= maxFileSizeMB) {
+		try {
+			const cacheKey = generateCacheKey(fileId, name)
+			await setCached(cacheKey, {
+				fileId,
+				filename: name,
+				data: arrayBuffer,
+				mimeType,
+				size: arrayBuffer.byteLength,
+			})
+			logger.info('MultiFileHelpers', 'Dependency cached', { name, sizeMB: sizeMB.toFixed(2) })
+		} catch (error) {
+			logger.warn('MultiFileHelpers', 'Cache write failed, continuing', error)
+		}
+	} else if (sizeMB > maxFileSizeMB) {
+		logger.info('MultiFileHelpers', 'File too large to cache, skipping', { name, sizeMB: sizeMB.toFixed(2) })
+	}
+
+	const blob = new Blob([arrayBuffer], { type: mimeType })
+	return new File([blob], name, { type: mimeType })
 }
 
 /**
@@ -179,7 +230,7 @@ export async function fetchObjDependencies(objContent, baseFilename, fileId, dir
 			
 			if (fileId) {
 				const url = `/apps/threedviewer/api/file/${fileId}`
-				const file = await fetchFileFromUrl(url, mtlFilename, 'model/mtl')
+				const file = await fetchFileFromUrl(url, mtlFilename, 'model/mtl', { fileId })
 				logger.info('MultiFileHelpers', ' Fetched MTL:', mtlFilename)
 				
 				// Parse textures from MTL
@@ -194,7 +245,7 @@ export async function fetchObjDependencies(objContent, baseFilename, fileId, dir
 						
 						if (fileId) {
 							const texUrl = `/apps/threedviewer/api/file/${fileId}`
-							const texFile = await fetchFileFromUrl(texUrl, texFilename)
+							const texFile = await fetchFileFromUrl(texUrl, texFilename, 'application/octet-stream', { fileId })
 							logger.info('MultiFileHelpers', ' Fetched texture:', texFilename)
 							return texFile
 						} else {
@@ -255,7 +306,7 @@ export async function fetchGltfDependencies(gltfContent, baseFilename, fileId, d
 				
 				if (fileId) {
 					const url = `/apps/threedviewer/api/file/${fileId}`
-					const file = await fetchFileFromUrl(url, bufferUri, 'application/octet-stream')
+					const file = await fetchFileFromUrl(url, bufferUri, 'application/octet-stream', { fileId })
 					logger.info('MultiFileHelpers', ' Fetched buffer:', bufferUri)
 					return file
 				} else {
@@ -277,7 +328,7 @@ export async function fetchGltfDependencies(gltfContent, baseFilename, fileId, d
 				
 				if (fileId) {
 					const url = `/apps/threedviewer/api/file/${fileId}`
-					const file = await fetchFileFromUrl(url, imageUri)
+					const file = await fetchFileFromUrl(url, imageUri, 'application/octet-stream', { fileId })
 					logger.info('MultiFileHelpers', ' Fetched image:', imageUri)
 					return file
 				} else {

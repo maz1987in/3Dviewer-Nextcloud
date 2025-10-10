@@ -210,6 +210,19 @@ export const COMPARISON_SETTINGS = {
 }
 
 /**
+ * Cache settings
+ */
+export const CACHE_SETTINGS = {
+	enabled: true,
+	expirationDays: 7,
+	maxSizeMB: 100,  // Maximum total cache size
+	maxFileSizeMB: 10,  // Maximum individual file size to cache
+	autoCleanup: true,
+	dbName: '3DViewerCache',
+	dbVersion: 1,
+}
+
+/**
  * File size categories and limits
  */
 export const FILE_SIZE_CATEGORIES = {
@@ -411,6 +424,7 @@ export const VIEWER_CONFIG = {
 	error: ERROR_SETTINGS,
 	theme: THEME_SETTINGS,
 	comparison: COMPARISON_SETTINGS,
+	cache: CACHE_SETTINGS,
 	fileSizeCategories: FILE_SIZE_CATEGORIES,
 	supportedFormats: SUPPORTED_FORMATS,
 	limits: {

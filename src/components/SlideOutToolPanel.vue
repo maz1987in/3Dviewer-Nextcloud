@@ -189,6 +189,10 @@
 									<option value="obj">{{ t('threedviewer', 'OBJ (Universal)') }}</option>
 								</select>
 							</div>
+							<button class="tool-btn" @click="emit('clear-cache')">
+								<span class="tool-icon">🗑️</span>
+								<span class="tool-label">{{ t('threedviewer', 'Clear Cache') }}</span>
+							</button>
 							<button class="tool-btn" @click="emit('toggle-help')">
 								<span class="tool-icon">ⓘ</span>
 								<span class="tool-label">{{ t('threedviewer', 'Help') }}</span>
@@ -255,6 +259,7 @@ export default {
 		'toggle-stats',
 		'take-screenshot',
 		'export-model',
+		'clear-cache',
 		'toggle-help',
 	],
 	
