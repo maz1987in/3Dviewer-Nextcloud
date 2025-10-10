@@ -12,117 +12,33 @@
 
 
 
-## 🎯 High Priority## 🔥 Current Sprint (Next Actions)
+## 🎯 High Priority
 
+### 1. Comprehensive Multi-File Testing ⏳
 
+**Priority**: HIGH | **Effort**: 2-3h
 
-### 1. Fix Auto-Rotate + Zoom Interaction### 1. Integrate Multi-File Loading into ThreeViewer.vue ⏳
-
-**Issue**: Mouse wheel zoom doesn't work when auto-rotate is enabled  **Priority**: HIGH | **Effort**: 3-4h
-
-**Status**: ⏳ In Progress  
-
-**Files**: `src/components/ThreeViewer.vue`, `src/composables/useControls.js`The advanced viewer needs multi-file support to match ViewerComponent.vue functionality.
-
-
-
-**Details**:**Action Items**:
-
-- Auto-rotate OFF → Zoom works ✅- [ ] Update `src/composables/useModelLoading.js`
-
-- Auto-rotate ON → Zoom broken ❌- [ ] Add `loadModelWithDependencies()` integration  
-
-- Wheel events are received, OrbitControls settings correct- [ ] Pass `additionalFiles` to loaders
-
-- See: `docs/archived/TODO_AUTO_ROTATE_ZOOM.md` for investigation notes- [ ] Test OBJ+MTL and GLTF+bins
-
-
-
----**Files**: 
-
-```
-
-### 2. Export Functionalitysrc/composables/useModelLoading.js
-
-**Feature**: Multi-format model export (GLB, STL, OBJ)  src/components/ThreeViewer.vue
-
-**Priority**: ⭐⭐⭐ HIGH  ```
-
-**Effort**: 4-6h
-
----
+Need real-world test files to validate implementation.
 
 **Action Items**:
-
-- [ ] Add export button to toolbar### 2. Comprehensive Multi-File Testing ⏳
-
-- [ ] Implement GLB export (preferred format)**Priority**: HIGH | **Effort**: 2-3h
-
-- [ ] Implement STL export (3D printing)
-
-- [ ] Implement OBJ export (compatibility)Need real-world test files to validate implementation.
-
-- [ ] Handle materials/textures export
-
-- [ ] Add download trigger with proper filename**Action Items**:
-
 - [ ] Create test fixtures (OBJ+MTL+textures, GLTF+bins)
-
----- [ ] Test edge cases (missing files, case sensitivity)
-
+- [ ] Test edge cases (missing files, case sensitivity)
 - [ ] Add Playwright tests
+- [ ] Document test results
 
-### 3. Camera Projection Toggle- [ ] Document test results
-
-**Feature**: Switch between Perspective and Orthographic cameras  
-
-**Priority**: ⭐⭐⭐ HIGH  **Test Directory**: `tests/fixtures/multi-file/`
-
-**Effort**: 2-3h (Quick win!)
+**Test Directory**: `tests/fixtures/multi-file/`
 
 ---
 
-**Action Items**:
+## 🔧 Medium Priority
 
-- [ ] Add camera projection toggle button### 3. Error Handling & UX Improvements ⏳
+### 2. Dependency Caching
 
-- [ ] Switch between PerspectiveCamera and OrthographicCamera**Priority**: HIGH | **Effort**: 2h
+Cache MTL/textures to avoid re-downloading.
 
-- [ ] Preserve camera position/zoom on switch
-
-- [ ] Update OrbitControls for orthographic modeBetter feedback when dependencies fail to load.
-
-- [ ] Professional UI feedback
-
-**Action Items**:
-
----- [ ] Add specific error messages for missing deps
-
-- [ ] Show warning toast for partial failures
-
-## 🔧 Medium Priority- [ ] Add "Missing Materials" UI indicator
-
-- [ ] Improve loading progress display
-
-### 4. Model Statistics Panel
-
-**Enhancement**: Expand current basic stats  ---
-
-**Effort**: 2-3h
-
-## 🚀 Backlog (Medium Priority)
-
-**Add**:
-
-- Total vertices count### 4. Dependency Caching
-
-- Materials count with namesCache MTL/textures to avoid re-downloading.
-
-- Texture count and memory usage- **Effort**: 4-5h
-
-- Bounding box dimensions- **Tech**: IndexedDB or localStorage
-
-- File size- **Benefit**: Faster loads, less bandwidth
+- **Effort**: 4-5h
+- **Tech**: IndexedDB or localStorage
+- **Benefit**: Faster loads, less bandwidth
 
 
 
@@ -196,6 +112,13 @@ Support compressed textures.
 
 ## ✅ Recently Completed (October 2025)
 
+- [x] **Auto-Rotate + Zoom Fix** (October 10, 2025) - Fixed zoom not working during auto-rotate
+  - Disabled OrbitControls rotation/pan when auto-rotate is ON (keeps zoom enabled)
+  - Synchronized distance value with OrbitControls zoom changes in render loop
+  - Auto-rotate now respects zoom changes and updates rotation radius dynamically
+  - Smooth interaction: model rotates automatically while user can zoom in/out
+  - No conflicts or jittery behavior between auto-rotate and zoom
+  - Fixed critical UX issue affecting core viewer functionality
 - [x] **Improved Error Handling** (October 10, 2025) - User-visible warnings for missing textures/dependencies
   - Warning toasts appear when textures or dependencies fail to load
   - Shows exact count and names of missing files
