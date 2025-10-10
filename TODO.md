@@ -212,6 +212,14 @@ Handle Texture.JPG vs texture.jpg mismatches.
 
 ## ✅ Recently Completed (October 2025)
 
+- [x] **Enhanced Model Statistics Panel** (October 10, 2025) - Comprehensive model information display
+  - Statistics panel on left side with detailed model info
+  - Geometry stats: Vertices, faces, meshes count
+  - Materials list with names and types (first 10 shown)
+  - Texture count and memory usage in MB
+  - Bounding box dimensions (X, Y, Z) and volume
+  - File size and format display
+  - Auto-analysis on model load
 - [x] **Multi-Format Export Functionality** (October 10, 2025) - Export models as GLB, STL, or OBJ
   - Export dropdown in SlideOutToolPanel (SETTINGS section)
   - GLB export with embedded textures and materials (recommended)
