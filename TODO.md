@@ -128,33 +128,19 @@
 
 ---
 
-### 5. Improved Error Handling
+### 5. KTX2 Texture Compression
 
-**Enhancement**: Better user feedback for loading failures  
+Support compressed textures.
 
-**Effort**: 2-3h
+- **Effort**: 3-4h
+- **Benefit**: Reduced memory, faster loading
+- **Note**: Decoder assets already available
 
+---
 
+### 6. Theme Customization
 
-**Action Items**:### 6. KTX2 Texture Compression
-
-- [ ] Specific error messages per failure typeSupport compressed textures.
-
-- [ ] Retry mechanism for network errors- **Effort**: 3-4h
-
-- [ ] Progressive error recovery (load partial model)- **Benefit**: Reduced memory, faster loading
-
-- [ ] User-friendly error descriptions- **Note**: Decoder assets already available
-
-
-
----### 7. Case-Insensitive Filename Matching
-
-Handle Texture.JPG vs texture.jpg mismatches.
-
-### 6. Theme Customization- **Effort**: 1-2h
-
-**Enhancement**: Extend current CSS-based theme support  - **Priority**: Quick win!
+**Enhancement**: Extend current CSS-based theme support
 
 **Effort**: 3-4h
 
@@ -210,6 +196,14 @@ Handle Texture.JPG vs texture.jpg mismatches.
 
 ## ✅ Recently Completed (October 2025)
 
+- [x] **Improved Error Handling** (October 10, 2025) - User-visible warnings for missing textures/dependencies
+  - Warning toasts appear when textures or dependencies fail to load
+  - Shows exact count and names of missing files
+  - Model still displays with available textures (partial load success)
+  - 8-second timeout for warning toasts (longer than info)
+  - New orange/amber warning toast type with proper styling
+  - Detailed console logs for debugging
+  - Non-blocking - user can interact immediately
 - [x] **Progressive Texture Loading + Subdirectory Support** (October 10, 2025) - Instant geometry display with background texture loading
   - Model geometry visible in <1 second with placeholder colors
   - Textures load asynchronously in background (non-blocking)
