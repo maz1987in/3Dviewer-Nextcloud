@@ -154,12 +154,21 @@ export function useCamera() {
 			// Basic controls setup (keep it simple like ViewerComponent)
 			controls.value.enableDamping = true
 			controls.value.enableZoom = true
-			controls.value.enableRotate = true
-			controls.value.enablePan = true
+			// Enable rotate/pan only if auto-rotate is not active
+			controls.value.enableRotate = !autoRotateEnabled.value
+			controls.value.enablePan = !autoRotateEnabled.value
 			controls.value.zoomSpeed = 1.0
 			controls.value.rotateSpeed = 1.0
 
 			controls.value.update()
+			
+			// Log control states for debugging
+			logger.info('useCamera', 'OrbitControls initialized', {
+				enableZoom: controls.value.enableZoom,
+				enableRotate: controls.value.enableRotate,
+				enablePan: controls.value.enablePan,
+				autoRotateActive: autoRotateEnabled.value,
+			})
 
 			// Monitor camera target to prevent off-center viewing
 			controls.value.addEventListener('change', onControlsChange)
@@ -650,29 +659,44 @@ export function useCamera() {
 		}
 	}
 
-	/**
-	 * Render the scene
-	 * @param {THREE.WebGLRenderer} renderer - WebGL renderer
-	 * @param {THREE.Scene} scene - Three.js scene
-	 */
-	const render = (renderer, scene) => {
-		if (renderer && scene && camera.value) {
-			try {
+		/**
+		 * Render the scene
+		 * @param {THREE.WebGLRenderer} renderer - WebGL renderer
+		 * @param {THREE.Scene} scene - Three.js scene
+		 */
+		const render = (renderer, scene) => {
+			if (renderer && scene && camera.value) {
+				try {
+				// Update OrbitControls before rendering (processes zoom changes)
+				if (controls.value) {
+					controls.value.update()
+				}
+				
+				// Update distance from OrbitControls if auto-rotate is enabled
+				// This allows zoom to work during auto-rotate
+				if (autoRotateEnabled.value && controls.value) {
+					const currentDistance = camera.value.position.distanceTo(modelCenter.value)
+					if (Math.abs(currentDistance - distance.value) > 0.1) {
+						// Distance changed by OrbitControls zoom - update our tracked distance
+						distance.value = currentDistance
+					}
+				}
+				
 				// Custom auto-rotate functionality (uses manual camera positioning instead of OrbitControls.autoRotate)
 				if (autoRotateEnabled.value && !isMouseDown.value) {
-					rotationY.value += autoRotateSpeed.value * 0.01
+						rotationY.value += autoRotateSpeed.value * 0.01
 
-					// Update camera position based on current rotation around model center
-					const x = modelCenter.value.x + Math.sin(rotationY.value) * Math.cos(rotationX.value) * distance.value
-					const y = modelCenter.value.y + Math.sin(rotationX.value) * distance.value
-					const z = modelCenter.value.z + Math.cos(rotationY.value) * Math.cos(rotationX.value) * distance.value
+						// Update camera position based on current rotation around model center
+						const x = modelCenter.value.x + Math.sin(rotationY.value) * Math.cos(rotationX.value) * distance.value
+						const y = modelCenter.value.y + Math.sin(rotationX.value) * distance.value
+						const z = modelCenter.value.z + Math.cos(rotationY.value) * Math.cos(rotationX.value) * distance.value
 
-					camera.value.position.set(x, y, z)
-					camera.value.lookAt(modelCenter.value)
-				}
+						camera.value.position.set(x, y, z)
+						camera.value.lookAt(modelCenter.value)
+					}
 
-				renderer.render(scene, camera.value)
-			} catch (error) {
+					renderer.render(scene, camera.value)
+				} catch (error) {
 				console.error('[useCamera] Render error:', error)
 			}
 		}
@@ -683,6 +707,24 @@ export function useCamera() {
 	 */
 	const toggleAutoRotate = () => {
 		autoRotateEnabled.value = !autoRotateEnabled.value
+		
+		// Update OrbitControls settings based on auto-rotate state
+		if (controls.value) {
+			if (autoRotateEnabled.value) {
+				// Disable rotation and pan when auto-rotating, but keep zoom enabled
+				controls.value.enableRotate = false
+				controls.value.enablePan = false
+				controls.value.enableZoom = true  // Keep zoom working!
+				logger.info('useCamera', 'Auto-rotate enabled - OrbitControls rotation/pan disabled, zoom active')
+			} else {
+				// Re-enable all controls when auto-rotate is off
+				controls.value.enableRotate = true
+				controls.value.enablePan = true
+				controls.value.enableZoom = true
+				logger.info('useCamera', 'Auto-rotate disabled - OrbitControls fully re-enabled')
+			}
+		}
+		
 		logger.info('useCamera', 'Auto-rotate toggled', { enabled: autoRotateEnabled.value })
 	}
 
