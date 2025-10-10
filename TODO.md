@@ -212,6 +212,13 @@ Handle Texture.JPG vs texture.jpg mismatches.
 
 ## ✅ Recently Completed (October 2025)
 
+- [x] **Multi-Format Export Functionality** (October 10, 2025) - Export models as GLB, STL, or OBJ
+  - Export dropdown in SlideOutToolPanel (SETTINGS section)
+  - GLB export with embedded textures and materials (recommended)
+  - STL export for 3D printing (geometry only)
+  - OBJ export for universal compatibility
+  - Visual progress overlay with animated stages
+  - Smart filename extraction and toast notifications
 - [x] **Camera Projection Toggle** (October 10, 2025) - Perspective ↔ Orthographic switching
   - Toggle button in SlideOutToolPanel (VIEW section)
   - Smooth camera state preservation during switch
