@@ -136,7 +136,7 @@ export function useModelLoading() {
 			const dirPath = filename.substring(0, filename.lastIndexOf('/'))
 
 			// Check if this is a multi-file format
-			const isMultiFile = ['obj', 'gltf', 'fbx'].includes(extension)
+			const isMultiFile = ['obj', 'gltf', 'fbx', '3ds', 'dae'].includes(extension)
 
 			if (isMultiFile) {
 			logger.info('useModelLoading', 'Multi-file format detected', { extension, fileId })
@@ -170,6 +170,7 @@ export function useModelLoading() {
 						hasDraco: hasDraco.value,
 						hasKtx2: hasKtx2.value,
 						hasMeshopt: hasMeshopt.value,
+						progressive: true, // Enable progressive texture loading
 					}
 
 					// Load the model with dependencies

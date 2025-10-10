@@ -217,6 +217,17 @@
 			</div>
 		</div>
 
+	<!-- Texture Loading Indicator (Bottom-Right) -->
+	<div v-if="loadingTextures && textureProgress.total > 0" class="texture-progress-indicator">
+		<span class="texture-icon">🖼️</span>
+		<span class="texture-status">
+			{{ t('threedviewer', 'Loading textures') }}... {{ textureProgress.loaded }}/{{ textureProgress.total }}
+		</span>
+		<div class="mini-progress-bar">
+			<div class="progress-fill" :style="{ width: (textureProgress.loaded / textureProgress.total * 100) + '%' }"></div>
+		</div>
+	</div>
+
 	<!-- Performance Stats Overlay (Dev/Debug) -->
 	<div v-if="showPerformanceStats && performance && currentFPS > 0" class="performance-stats">
 		<div class="stats-header">
@@ -368,6 +379,7 @@ import { useAnnotation } from '../composables/useAnnotation.js'
 import { usePerformance } from '../composables/usePerformance.js'
 import { useExport } from '../composables/useExport.js'
 import { useModelStats } from '../composables/useModelStats.js'
+import { useProgressiveTextures } from '../composables/useProgressiveTextures.js'
 import { logger } from '../utils/logger.js'
 import { initCache, clearExpired, clearAll, getCacheStats } from '../utils/dependencyCache.js'
 
@@ -413,6 +425,7 @@ export default {
 		const performance = usePerformance()
 		const exportComposable = useExport()
 		const modelStatsComposable = useModelStats()
+		const progressiveTexturesComposable = useProgressiveTextures()
 
 		// Computed properties
 		const isMobile = computed(() => camera.isMobile.value)
@@ -1354,6 +1367,10 @@ export default {
 		modelStats: modelStatsComposable.modelStats,
 		showModelStats: modelStatsComposable.showStats,
 		
+		// Progressive textures
+		loadingTextures: progressiveTexturesComposable.loadingTextures,
+		textureProgress: progressiveTexturesComposable.textureProgress,
+		
 		// Methods
 			toggleOriginalModel,
 			toggleComparisonModel,
@@ -1719,6 +1736,59 @@ export default {
 	padding: 20px;
 	border-radius: 8px;
 	z-index: 1001;
+}
+
+/* Texture Progress Indicator */
+.texture-progress-indicator {
+	position: absolute;
+	bottom: 10px;
+	right: 10px;
+	background: rgba(0, 0, 0, 0.85);
+	color: white;
+	padding: 12px 16px;
+	border-radius: 8px;
+	font-size: 12px;
+	z-index: 250;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	border: 1px solid rgba(255, 255, 255, 0.2);
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+	backdrop-filter: blur(10px);
+	min-width: 200px;
+}
+
+.texture-icon {
+	font-size: 16px;
+	line-height: 1;
+}
+
+.texture-status {
+	flex: 1;
+	font-size: 11px;
+	color: rgba(255, 255, 255, 0.9);
+}
+
+.mini-progress-bar {
+	width: 80px;
+	height: 4px;
+	background: rgba(255, 255, 255, 0.2);
+	border-radius: 2px;
+	overflow: hidden;
+}
+
+.progress-fill {
+	height: 100%;
+	background: var(--color-primary-element, #4287f5);
+	transition: width 0.3s ease;
+	border-radius: 2px;
+}
+
+.texture-progress-indicator.mobile {
+	bottom: 60px;
+	right: 10px;
+	left: 10px;
+	font-size: 11px;
 }
 
 /* Performance Stats Overlay */

@@ -223,6 +223,16 @@ export const CACHE_SETTINGS = {
 }
 
 /**
+ * Progressive loading settings
+ */
+export const PROGRESSIVE_LOADING_SETTINGS = {
+	enabled: true,
+	textureBatchSize: 3,  // Load 3 textures at a time
+	textureDelay: 100,    // 100ms delay between batches
+	showProgress: true,   // Show texture loading indicator
+}
+
+/**
  * File size categories and limits
  */
 export const FILE_SIZE_CATEGORIES = {
@@ -425,6 +435,7 @@ export const VIEWER_CONFIG = {
 	theme: THEME_SETTINGS,
 	comparison: COMPARISON_SETTINGS,
 	cache: CACHE_SETTINGS,
+	progressiveLoading: PROGRESSIVE_LOADING_SETTINGS,
 	fileSizeCategories: FILE_SIZE_CATEGORIES,
 	supportedFormats: SUPPORTED_FORMATS,
 	limits: {

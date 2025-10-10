@@ -118,7 +118,34 @@ export async function getFileIdByPath(filePath) {
 	logger.info('MultiFileHelpers', ' Looking for file:', filename)
 	
 	// Find the file by name (case-insensitive to handle Windows/Linux differences)
-	const file = files.find(f => f.name.toLowerCase() === filename.toLowerCase())
+	let file = files.find(f => f.name.toLowerCase() === filename.toLowerCase())
+	
+	// If not found in root, search in subdirectories (like "Texture", "textures", "images", etc.)
+	if (!file) {
+		// Filter for directories - check isFolder field or other directory indicators
+		const subdirs = files.filter(f => f.isFolder === true || f.type === 'directory' || f.type === 'dir' || f.mime === 'httpd/unix-directory')
+		logger.info('MultiFileHelpers', ' File not in root, checking subdirectories:', subdirs.map(d => d.name))
+		
+		for (const subdir of subdirs) {
+			try {
+				const subdirPath = `${dirPath}/${subdir.name}`
+				const subdirListUrl = `/apps/threedviewer/api/files/list?path=${encodeURIComponent(subdirPath)}`
+				const subdirResponse = await fetch(subdirListUrl)
+				
+				if (subdirResponse.ok) {
+					const subdirFiles = await subdirResponse.json()
+					file = subdirFiles.find(f => f.name.toLowerCase() === filename.toLowerCase())
+					
+					if (file) {
+						logger.info('MultiFileHelpers', ' Found file in subdirectory:', subdir.name, '/', filename)
+						break
+					}
+				}
+			} catch (subdirError) {
+				logger.warn('MultiFileHelpers', ' Error searching subdirectory:', subdir.name, subdirError)
+			}
+		}
+	}
 	
 	if (!file) {
 		logger.warn('MultiFileHelpers', ' File not found:', filename, 'Available files:', files.map(f => f.name))
@@ -490,6 +517,10 @@ export async function loadModelWithDependencies(fileId, filename, extension, dir
 		const gltfText = await mainFile.text()
 		dependencies = await fetchGltfDependencies(gltfText, filename, fileId, dirPath)
 	} else if (extension === 'fbx') {
+		dependencies = await fetchFbxDependencies(filename, fileId, dirPath)
+	} else if (extension === '3ds' || extension === 'dae') {
+		// 3DS and DAE files can reference external textures
+		// Fetch all texture files in the directory (similar to FBX)
 		dependencies = await fetchFbxDependencies(filename, fileId, dirPath)
 	}
 	// GLB, STL, PLY, etc. are single-file formats - no dependencies

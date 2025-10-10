@@ -258,3 +258,70 @@ export function createBoundingBoxHelper(object3D, options = {}) {
 	const helper = new THREE.Box3Helper(box, options.color || 0x00ff00)
 	return helper
 }
+
+/**
+ * Create placeholder material for progressive loading
+ * @param {THREE.Material} originalMaterial - Original material
+ * @return {THREE.Material} Placeholder material
+ */
+export function createPlaceholderMaterial(originalMaterial) {
+	if (!originalMaterial) {
+		return createStandardMaterial({ color: 0xcccccc })
+	}
+
+	const placeholder = originalMaterial.clone()
+
+	// Remove all texture maps
+	placeholder.map = null
+	placeholder.normalMap = null
+	placeholder.specularMap = null
+	placeholder.emissiveMap = null
+	placeholder.bumpMap = null
+	placeholder.roughnessMap = null
+	placeholder.metalnessMap = null
+	placeholder.alphaMap = null
+	placeholder.aoMap = null
+
+	// Use material color or default gray
+	if (!placeholder.color || placeholder.color.getHex() === 0x000000) {
+		placeholder.color.setHex(0xcccccc)
+	}
+
+	// Increase roughness for better visibility without textures
+	if (placeholder.roughness !== undefined) {
+		placeholder.roughness = 0.8
+	}
+
+	// Ensure material updates
+	placeholder.needsUpdate = true
+
+	return placeholder
+}
+
+/**
+ * Apply texture to material progressively
+ * @param {THREE.Material} material - Target material
+ * @param {string} propertyName - Texture property ('map', 'normalMap', etc.)
+ * @param {THREE.Texture} texture - Loaded texture
+ */
+export function applyTextureToMaterial(material, propertyName, texture) {
+	if (!material || !propertyName || !texture) {
+		return
+	}
+
+	material[propertyName] = texture
+	material.needsUpdate = true
+
+	// Adjust material properties when texture is applied
+	if (propertyName === 'map') {
+		// Reduce roughness when diffuse map is applied (for more realistic look)
+		if (material.roughness !== undefined && material.roughness > 0.5) {
+			material.roughness = 0.5
+		}
+	}
+
+	logger.info('three-utils', 'Texture applied to material', {
+		propertyName,
+		materialName: material.name || 'unnamed',
+	})
+}

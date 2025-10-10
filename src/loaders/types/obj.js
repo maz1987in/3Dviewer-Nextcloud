@@ -25,7 +25,7 @@ class ObjLoader extends BaseLoader {
 	async loadModel(arrayBuffer, context) {
 		// Load OBJ model with multi-file support
 		
-		const { fileId, additionalFiles, THREE } = context
+		const { fileId, additionalFiles, THREE, progressive = false } = context
 
 		// Decode the OBJ file content
 		const objText = decodeTextFromBuffer(arrayBuffer)
@@ -40,7 +40,7 @@ class ObjLoader extends BaseLoader {
 		
 		if (mtlName && additionalFiles && additionalFiles.length > 0) {
 			// Use pre-fetched dependencies from multi-file loading
-			await this.loadMtlMaterialsFromDependencies(mtlName, additionalFiles, THREE)
+			await this.loadMtlMaterialsFromDependencies(mtlName, additionalFiles, THREE, progressive)
 		}
 
 		// Parse the OBJ content
@@ -302,7 +302,7 @@ class ObjLoader extends BaseLoader {
 	 * @param {Array} additionalFiles - Pre-fetched dependency files
 	 * @param {Object} THREE - Three.js library instance
 	 */
-	async loadMtlMaterialsFromDependencies(mtlName, additionalFiles, THREE) {
+	async loadMtlMaterialsFromDependencies(mtlName, additionalFiles, THREE, progressive = false) {
 		try {
 			// Search for MTL file in dependencies
 			
@@ -356,44 +356,90 @@ class ObjLoader extends BaseLoader {
 								// Processing materials with textures from manual parser
 								const customTextureLoader = this.createTextureLoader(additionalFiles)
 								
-								// Load textures for each material synchronously
-								for (const [materialName, material] of Object.entries(materials.materials)) {
-									// Handle diffuse texture (map_Kd) - path stored in _mapPath
-									if (material._mapPath) {
-										try {
-											const texture = await this.loadTextureFromDependencies(material._mapPath, customTextureLoader, additionalFiles, THREE)
-											material.map = texture || null
-											delete material._mapPath // Clean up temporary property
-										} catch (error) {
-											logger.warn('OBJLoader', ' Failed to load diffuse texture for:', materialName, error)
-											material.map = null
+								if (progressive) {
+									// Progressive mode: Set placeholders, textures will load in background
+									for (const [materialName, material] of Object.entries(materials.materials)) {
+										// Set placeholder color if texture paths exist
+										if (material._mapPath || material._normalMapPath || material._specularMapPath) {
+											// Keep color or use default gray
+											if (!material.color || material.color.getHex() === 0x000000) {
+												material.color.setHex(0xcccccc)
+											}
+										}
+										
+										// Load textures in background (non-blocking)
+										if (material._mapPath) {
+											this.loadTextureFromDependencies(material._mapPath, customTextureLoader, additionalFiles, THREE)
+												.then(texture => {
+													material.map = texture || null
+													material.needsUpdate = true
+												})
+												.catch(error => logger.warn('OBJLoader', 'Progressive texture load failed:', materialName, error))
 											delete material._mapPath
 										}
-									}
-									
-									// Handle normal map (bump map)
-									if (material._normalMapPath) {
-										try {
-											const texture = await this.loadTextureFromDependencies(material._normalMapPath, customTextureLoader, additionalFiles, THREE)
-											material.normalMap = texture || null
+										
+										if (material._normalMapPath) {
+											this.loadTextureFromDependencies(material._normalMapPath, customTextureLoader, additionalFiles, THREE)
+												.then(texture => {
+													material.normalMap = texture || null
+													material.needsUpdate = true
+												})
+												.catch(error => logger.warn('OBJLoader', 'Progressive normal map load failed:', materialName, error))
 											delete material._normalMapPath
-										} catch (error) {
-											logger.warn('OBJLoader', ' Failed to load normal map for:', materialName, error)
-											material.normalMap = null
-											delete material._normalMapPath
+										}
+										
+										if (material._specularMapPath) {
+											this.loadTextureFromDependencies(material._specularMapPath, customTextureLoader, additionalFiles, THREE)
+												.then(texture => {
+													material.specularMap = texture || null
+													material.needsUpdate = true
+												})
+												.catch(error => logger.warn('OBJLoader', 'Progressive specular map load failed:', materialName, error))
+											delete material._specularMapPath
 										}
 									}
 									
-									// Handle specular map
-									if (material._specularMapPath) {
-										try {
-											const texture = await this.loadTextureFromDependencies(material._specularMapPath, customTextureLoader, additionalFiles, THREE)
-											material.specularMap = texture || null
-											delete material._specularMapPath
-										} catch (error) {
-											logger.warn('OBJLoader', ' Failed to load specular map for:', materialName, error)
-											material.specularMap = null
-											delete material._specularMapPath
+									logger.info('OBJLoader', 'Progressive texture loading initiated for manual parser materials')
+								} else {
+									// Synchronous mode: Load textures before displaying (original behavior)
+									for (const [materialName, material] of Object.entries(materials.materials)) {
+										// Handle diffuse texture (map_Kd) - path stored in _mapPath
+										if (material._mapPath) {
+											try {
+												const texture = await this.loadTextureFromDependencies(material._mapPath, customTextureLoader, additionalFiles, THREE)
+												material.map = texture || null
+												delete material._mapPath // Clean up temporary property
+											} catch (error) {
+												logger.warn('OBJLoader', ' Failed to load diffuse texture for:', materialName, error)
+												material.map = null
+												delete material._mapPath
+											}
+										}
+										
+										// Handle normal map (bump map)
+										if (material._normalMapPath) {
+											try {
+												const texture = await this.loadTextureFromDependencies(material._normalMapPath, customTextureLoader, additionalFiles, THREE)
+												material.normalMap = texture || null
+												delete material._normalMapPath
+											} catch (error) {
+												logger.warn('OBJLoader', ' Failed to load normal map for:', materialName, error)
+												material.normalMap = null
+												delete material._normalMapPath
+											}
+										}
+										
+										// Handle specular map
+										if (material._specularMapPath) {
+											try {
+												const texture = await this.loadTextureFromDependencies(material._specularMapPath, customTextureLoader, additionalFiles, THREE)
+												material.specularMap = texture || null
+												delete material._specularMapPath
+											} catch (error) {
+												logger.warn('OBJLoader', ' Failed to load specular map for:', materialName, error)
+												material.specularMap = null
+												delete material._specularMapPath
+											}
 										}
 									}
 								}
@@ -434,13 +480,28 @@ class ObjLoader extends BaseLoader {
 									textureFile = textureFiles[0]
 								}
 								
-								try {
-									const texture = await this.loadTextureFromDependencies(textureFile.name, textureLoader, additionalFiles, THREE)
-									if (texture) {
-										defaultMaterial.map = texture
+								if (progressive) {
+									// Progressive mode: Load texture in background
+									this.loadTextureFromDependencies(textureFile.name, textureLoader, additionalFiles, THREE)
+										.then(texture => {
+											if (texture) {
+												defaultMaterial.map = texture
+												defaultMaterial.needsUpdate = true
+											}
+										})
+										.catch(error => logger.warn('OBJLoader', 'Progressive default texture load failed:', error))
+									
+									logger.info('OBJLoader', 'Progressive texture loading for default material')
+								} else {
+									// Synchronous mode: Wait for texture
+									try {
+										const texture = await this.loadTextureFromDependencies(textureFile.name, textureLoader, additionalFiles, THREE)
+										if (texture) {
+											defaultMaterial.map = texture
+										}
+									} catch (error) {
+										logger.warn('OBJLoader', ' Failed to load texture for default material:', error)
 									}
-								} catch (error) {
-									logger.warn('OBJLoader', ' Failed to load texture for default material:', error)
 								}
 							}
 							
