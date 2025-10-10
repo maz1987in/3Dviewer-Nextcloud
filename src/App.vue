@@ -31,6 +31,7 @@
 				:measurement-mode="measurementMode"
 				:annotation-mode="annotationMode"
 				:comparison-mode="comparisonMode"
+				:model-loaded="modelLoaded"
 				:is-mobile="isMobile"
 				@reset-view="onReset"
 				@fit-to-view="onFitToView"
@@ -46,6 +47,7 @@
 				@toggle-comparison="onToggleComparison"
 				@toggle-performance="onTogglePerformance"
 				@take-screenshot="onTakeScreenshot"
+				@export-model="onExportModel"
 				@toggle-help="onToggleHelp" />
 			
 			<!-- 3D Viewer -->
@@ -101,6 +103,7 @@ export default {
 			currentPreset: '',
 			lastError: null,
 			modelMeta: null,
+			modelLoaded: false,
 			// Advanced features
 			measurementMode: false,
 			annotationMode: false,
@@ -245,6 +248,12 @@ export default {
 		// Toggle the performance stats overlay visibility
 		this.$refs.viewer?.togglePerformanceStats?.()
 	},
+	
+	onExportModel(format) {
+		// Trigger export on the viewer
+		this.$refs.viewer?.handleExport?.(format)
+	},
+
 		onBackgroundChange(val) {
 			this.background = val
 		},
@@ -280,6 +289,7 @@ export default {
 			this.modelMeta = meta
 			this.lastError = null
 			this.isLoading = false
+			this.modelLoaded = true
 			// Sync animation presets from viewer
 			if (this.$refs.viewer?.animationPresets) {
 				this.animationPresets = this.$refs.viewer.animationPresets

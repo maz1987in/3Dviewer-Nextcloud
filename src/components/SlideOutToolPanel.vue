@@ -171,6 +171,18 @@
 								<span class="tool-icon">📷</span>
 								<span class="tool-label">{{ t('threedviewer', 'Screenshot') }}</span>
 							</button>
+							<div class="tool-group">
+								<label class="tool-label-small">{{ t('threedviewer', 'Export Model') }}</label>
+								<select ref="exportSelect"
+									:disabled="!modelLoaded"
+									class="export-select"
+									@change="handleExportChange($event.target.value)">
+									<option value="">{{ t('threedviewer', 'Select format...') }}</option>
+									<option value="glb">{{ t('threedviewer', 'GLB (Recommended)') }}</option>
+									<option value="stl">{{ t('threedviewer', 'STL (3D Printing)') }}</option>
+									<option value="obj">{{ t('threedviewer', 'OBJ (Universal)') }}</option>
+								</select>
+							</div>
 							<button class="tool-btn" @click="emit('toggle-help')">
 								<span class="tool-icon">ⓘ</span>
 								<span class="tool-label">{{ t('threedviewer', 'Help') }}</span>
@@ -212,6 +224,7 @@ export default {
 		measurementMode: { type: Boolean, default: false },
 		annotationMode: { type: Boolean, default: false },
 		comparisonMode: { type: Boolean, default: false },
+		modelLoaded: { type: Boolean, default: false },
 		
 		// Mobile detection
 		isMobile: { type: Boolean, default: false },
@@ -234,11 +247,13 @@ export default {
 		'toggle-comparison',
 		'toggle-performance',
 		'take-screenshot',
+		'export-model',
 		'toggle-help',
 	],
 	
 	setup(props, { emit }) {
 		const isOpen = ref(false)
+		const exportSelect = ref(null)
 		
 		// Section collapse states (all open by default)
 		const sections = ref({
@@ -339,13 +354,28 @@ export default {
 			window.removeEventListener('keydown', handleKeyPress)
 		})
 		
+		/**
+		 * Handle export format selection
+		 */
+		const handleExportChange = (format) => {
+			if (format) {
+				emit('export-model', format)
+				// Reset select after emitting
+				if (exportSelect.value) {
+					exportSelect.value.value = ''
+				}
+			}
+		}
+		
 		return {
 			t,
 			isOpen,
 			sections,
+			exportSelect,
 			togglePanel,
 			closePanel,
 			toggleSection,
+			handleExportChange,
 			emit,
 		}
 	},
@@ -549,33 +579,62 @@ export default {
 /* Tool Groups */
 .tool-group {
 	padding: 12px 16px;
-	background: rgba(0, 0, 0, 0.2);
+	background: var(--color-main-background);
+	border: 1px solid var(--color-border);
 	border-radius: 6px;
 	margin-bottom: 6px;
+	transition: all 0.2s ease;
+}
+
+.tool-group:hover {
+	background: var(--color-background-hover);
+	border-color: var(--color-primary-element);
 }
 
 .tool-label-small {
 	display: block;
 	font-size: 12px;
-	color: rgba(255, 255, 255, 0.7);
+	color: var(--color-text-maxcontrast);
 	margin-bottom: 8px;
 	font-weight: 500;
 }
 
-.preset-select {
+.preset-select,
+.export-select {
 	width: 100%;
 	padding: 8px 12px;
-	background: rgba(255, 255, 255, 0.1);
-	border: 1px solid rgba(255, 255, 255, 0.2);
+	background: var(--color-background-dark);
+	border: 1px solid var(--color-border);
 	border-radius: 4px;
-	color: #ffffff;
+	color: var(--color-main-text);
 	font-size: 13px;
 	cursor: pointer;
+	transition: all 0.2s ease;
 }
 
-.preset-select:focus {
+.preset-select:hover,
+.export-select:hover:not(:disabled) {
+	background: var(--color-background-hover);
+	border-color: var(--color-primary-element);
+}
+
+.preset-select:focus,
+.export-select:focus {
 	outline: none;
-	border-color: #4287f5;
+	border-color: var(--color-primary-element);
+	box-shadow: 0 0 0 2px rgba(var(--color-primary-element-rgb), 0.2);
+}
+
+.export-select:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+	background: var(--color-background-dark);
+}
+
+.preset-select option,
+.export-select option {
+	background: var(--color-main-background);
+	color: var(--color-main-text);
 }
 
 .color-picker-wrapper {

@@ -49,6 +49,29 @@
 			</div>
 		</div>
 
+		<!-- Export progress overlay -->
+		<div v-if="isExporting"
+			class="export-progress-overlay"
+			:class="{ 'mobile': isMobile }">
+			<div class="export-progress-content">
+				<div class="export-icon">
+					📦
+				</div>
+				<div class="export-stage">
+					{{ exportProgress.stage || 'Preparing export...' }}
+				</div>
+				<div class="export-percentage">
+					{{ exportProgress.percentage }}%
+				</div>
+				<NcProgressBar 
+					:value="exportProgress.percentage" 
+					:max="100"
+					size="medium"
+					:aria-label="t('threedviewer','Export progress')"
+				/>
+			</div>
+		</div>
+
 		<!-- Error display -->
 		<div v-if="hasError && errorState" class="error-display" :class="{ 'mobile': isMobile }">
 			<div class="error-content">
@@ -253,6 +276,7 @@ import { useComparison } from '../composables/useComparison.js'
 import { useMeasurement } from '../composables/useMeasurement.js'
 import { useAnnotation } from '../composables/useAnnotation.js'
 import { usePerformance } from '../composables/usePerformance.js'
+import { useExport } from '../composables/useExport.js'
 import { logger } from '../utils/logger.js'
 
 export default {
@@ -295,6 +319,7 @@ export default {
 		const measurement = useMeasurement()
 		const annotation = useAnnotation()
 		const performance = usePerformance()
+		const exportComposable = useExport()
 
 		// Computed properties
 		const isMobile = computed(() => camera.isMobile.value)
@@ -822,6 +847,70 @@ export default {
 		logger.info('ThreeViewer', 'Performance stats toggled', { visible: showPerformanceStats.value })
 	}
 
+	/**
+	 * Handle model export
+	 * @param {string} format - Export format (glb, stl, obj)
+	 */
+	const handleExport = async (format) => {
+		if (!modelRoot.value) {
+			logger.warn('ThreeViewer', 'No model loaded for export')
+			emit('push-toast', { 
+				type: 'error', 
+				title: 'Export Failed',
+				message: 'No model loaded to export' 
+			})
+			return
+		}
+
+		try {
+			logger.info('ThreeViewer', 'Starting export', { format })
+
+			// Extract filename from props or use default
+			const baseFilename = props.filename 
+				? props.filename.split('/').pop().split('.')[0] 
+				: 'model'
+
+			// Export based on format
+			switch (format.toLowerCase()) {
+				case 'glb':
+					await exportComposable.exportAsGLB(modelRoot.value, baseFilename)
+					emit('push-toast', { 
+						type: 'success', 
+						title: 'Export Successful',
+						message: `Model exported as ${baseFilename}.glb` 
+					})
+					break
+				case 'stl':
+					await exportComposable.exportAsSTL(modelRoot.value, baseFilename)
+					emit('push-toast', { 
+						type: 'success', 
+						title: 'Export Successful',
+						message: `Model exported as ${baseFilename}.stl` 
+					})
+					break
+				case 'obj':
+					await exportComposable.exportAsOBJ(modelRoot.value, baseFilename)
+					emit('push-toast', { 
+						type: 'success', 
+						title: 'Export Successful',
+						message: `Model exported as ${baseFilename}.obj` 
+					})
+					break
+				default:
+					throw new Error(`Unsupported export format: ${format}`)
+			}
+
+			logger.info('ThreeViewer', 'Export completed successfully', { format, filename: baseFilename })
+		} catch (error) {
+			logger.error('ThreeViewer', 'Export failed', error)
+			emit('push-toast', { 
+				type: 'error', 
+				title: 'Export Failed',
+				message: error.message || 'Failed to export model' 
+			})
+		}
+	}
+
 		const deleteAnnotation = (annotationId) => {
 			annotation.deleteAnnotation(annotationId)
 		}
@@ -1117,6 +1206,10 @@ export default {
 		// Camera
 		cameraType: camera.cameraType,
 		
+		// Export state
+		isExporting: exportComposable.exporting,
+		exportProgress: exportComposable.exportProgress,
+		
 		// Methods
 			toggleOriginalModel,
 			toggleComparisonModel,
@@ -1140,6 +1233,8 @@ export default {
 		toggleComparisonMode,
 		setPerformanceMode,
 		togglePerformanceStats,
+		handleExport,
+		hasModel: computed(() => modelRoot.value !== null),
 	}
 	},
 }
@@ -1245,6 +1340,74 @@ export default {
 @keyframes spin {
 	0% { transform: rotate(0deg); }
 	100% { transform: rotate(360deg); }
+}
+
+/* Export progress overlay */
+.export-progress-overlay {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: rgba(0, 0, 0, 0.85);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 1500;
+	backdrop-filter: blur(4px);
+}
+
+.export-progress-content {
+	text-align: center;
+	color: white;
+	max-width: 400px;
+	padding: 30px;
+	background: rgba(0, 0, 0, 0.7);
+	border-radius: 12px;
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.export-icon {
+	font-size: 48px;
+	margin-bottom: 16px;
+	animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+	0%, 100% { transform: scale(1); opacity: 1; }
+	50% { transform: scale(1.1); opacity: 0.8; }
+}
+
+.export-stage {
+	font-size: 16px;
+	font-weight: 500;
+	margin-bottom: 12px;
+	color: #ffffff;
+}
+
+.export-percentage {
+	font-size: 28px;
+	font-weight: bold;
+	margin-bottom: 16px;
+	color: var(--color-primary-element, #4287f5);
+}
+
+.export-progress-overlay.mobile .export-progress-content {
+	max-width: 90%;
+	padding: 20px;
+}
+
+.export-progress-overlay.mobile .export-icon {
+	font-size: 36px;
+}
+
+.export-progress-overlay.mobile .export-stage {
+	font-size: 14px;
+}
+
+.export-progress-overlay.mobile .export-percentage {
+	font-size: 24px;
 }
 
 .error-display {
