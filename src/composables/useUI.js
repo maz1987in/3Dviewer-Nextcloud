@@ -1,10 +1,10 @@
-/* global THREE */
 /**
  * UI controls and toolbar management composable
  * Handles UI state, toolbar interactions, and user interface controls
  */
 
 import { ref, computed, readonly } from 'vue'
+import * as THREE from 'three'
 import { logger } from '../utils/logger.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
 import { disposeObject } from '../utils/three-utils.js'
@@ -60,15 +60,15 @@ export function useUI() {
 		performanceMode.value = options.performanceMode ?? 'balanced'
 		isMobile.value = options.isMobile ?? false
 
-	logger.info('useUI', 'UI initialized', {
-		showGrid: showGrid.value,
-		showAxes: showAxes.value,
-		wireframe: wireframe.value,
-		background: background.value,
-		autoRotate: autoRotate.value,
-		performanceMode: performanceMode.value,
-		isMobile: isMobile.value,
-	})
+		logger.info('useUI', 'UI initialized', {
+			showGrid: showGrid.value,
+			showAxes: showAxes.value,
+			wireframe: wireframe.value,
+			background: background.value,
+			autoRotate: autoRotate.value,
+			performanceMode: performanceMode.value,
+			isMobile: isMobile.value,
+		})
 	}
 
 	/**
@@ -328,15 +328,15 @@ export function useUI() {
 		return
 	}
 
-		// Apply preset values
-		showGrid.value = preset.showGrid
-		showAxes.value = preset.showAxes
-		wireframe.value = preset.wireframe
-		background.value = preset.background
-		autoRotate.value = preset.autoRotate
-		performanceMode.value = preset.performanceMode
+	// Apply preset values
+	showGrid.value = preset.showGrid
+	showAxes.value = preset.showAxes
+	wireframe.value = preset.wireframe
+	background.value = preset.background
+	autoRotate.value = preset.autoRotate
+	performanceMode.value = preset.performanceMode
 
-		// Apply to context objects
+	// Apply to context objects
 		if (context.grid) {
 			context.grid.visible = showGrid.value
 		}

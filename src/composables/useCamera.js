@@ -31,8 +31,6 @@ export function useCamera() {
 	const autoRotateEnabled = ref(false)
 	const autoRotateSpeed = ref(0.5)
 
-	// Track when manuallyPositioned changes
-
 	// Animation state
 	const isAnimating = ref(false)
 
@@ -92,9 +90,6 @@ export function useCamera() {
 
 			camera.value = new THREE.PerspectiveCamera(fov, width / height, VIEWER_CONFIG.camera.near, VIEWER_CONFIG.camera.far)
 			camera.value.position.set(2, 2, 2)
-
-			// Camera created successfully
-
 			initialCameraPos.value = camera.value.position.clone()
 
 			logger.info('useCamera', 'Camera initialized', { fov, width, height, mobile })
@@ -117,12 +112,11 @@ export function useCamera() {
 
 			// Basic controls setup (keep it simple like ViewerComponent)
 			controls.value.enableDamping = true
-			//controls.value.dampingFactor = 0.05  // Smooth damping for desktop
-			controls.value.enableZoom = true  // Ensure zoom is enabled
-			controls.value.enableRotate = true  // Ensure rotation is enabled
-			controls.value.enablePan = true  // Ensure panning is enabled
-			controls.value.zoomSpeed = 1.0  // Normal zoom speed
-			controls.value.rotateSpeed = 1.0  // Normal rotation speed
+			controls.value.enableZoom = true
+			controls.value.enableRotate = true
+			controls.value.enablePan = true
+			controls.value.zoomSpeed = 1.0
+			controls.value.rotateSpeed = 1.0
 
 			controls.value.update()
 
@@ -137,12 +131,12 @@ export function useCamera() {
 
 			// Setup mobile-specific controls
 			if (isMobile.value) {
-			setupMobileControls()
-		}
+				setupMobileControls()
+			}
 
-		logger.info('useCamera', 'Controls initialized successfully')
-	} catch (error) {
-		logger.error('useCamera', 'Failed to setup controls', error)
+			logger.info('useCamera', 'Controls initialized successfully')
+		} catch (error) {
+			logger.error('useCamera', 'Failed to setup controls', error)
 			throw error
 		}
 	}
@@ -170,7 +164,6 @@ export function useCamera() {
 	const onControlsChange = () => {
 		if (!controls.value || !camera.value || manuallyPositioned.value) return
 		
-		// Skip checks during auto-rotate to allow zoom to work
 		if (autoRotateEnabled.value) return
 
 		// Check if camera target is off-center and reset if needed
@@ -201,28 +194,44 @@ export function useCamera() {
 	/**
 	 * Fit camera to an object
 	 * @param {THREE.Object3D} obj - Object to fit camera to
+	 * @throws {Error} If camera or controls not initialized
 	 */
 	const fitCameraToObject = (obj) => {
-		if (!camera.value || !controls.value || !obj) return
+		// Input validation
+		if (!camera.value) {
+			logger.error('useCamera', 'Camera not initialized')
+			throw new Error('Camera must be initialized before fitting to object')
+		}
+		if (!controls.value) {
+			logger.error('useCamera', 'Controls not initialized')
+			throw new Error('Controls must be initialized before fitting to object')
+		}
+		if (!obj) {
+			logger.warn('useCamera', 'No object provided to fit camera to')
+			return
+		}
 
 		try {
-		const box = new THREE.Box3().setFromObject(obj)
-		if (box.isEmpty()) return
+			const box = new THREE.Box3().setFromObject(obj)
+			if (box.isEmpty()) {
+				logger.warn('useCamera', 'Object has empty bounding box, cannot fit camera')
+				return
+			}
 
-		const size = box.getSize(new THREE.Vector3())
-		const center = box.getCenter(new THREE.Vector3())
-		const maxDim = Math.max(size.x, size.y, size.z)
-		
-		// Calculate optimal camera distance based on FOV and model size
-		const fov = camera.value.fov * (Math.PI / 180) // Convert to radians
-		const cameraDistance = Math.abs(maxDim / Math.sin(fov / 2)) * 0.75 // 0.75 fits better than 1.2
-		
-		// Set camera position at a good angle (offset from center)
-		camera.value.position.set(
-			center.x + cameraDistance * 0.5,
-			center.y + cameraDistance * 0.5,
-			center.z + cameraDistance
-		)
+			const size = box.getSize(new THREE.Vector3())
+			const center = box.getCenter(new THREE.Vector3())
+			const maxDim = Math.max(size.x, size.y, size.z)
+			
+			// Calculate optimal camera distance based on FOV and model size
+			const fov = camera.value.fov * (Math.PI / 180)
+			const cameraDistance = Math.abs(maxDim / Math.sin(fov / 2)) * 0.75
+			
+			// Set camera position at a good angle (offset from center)
+			camera.value.position.set(
+				center.x + cameraDistance * 0.5,
+				center.y + cameraDistance * 0.5,
+				center.z + cameraDistance
+			)
 			
 			// Look at center
 			camera.value.lookAt(center)
@@ -231,7 +240,6 @@ export function useCamera() {
 			if (controls.value) {
 				controls.value.target.copy(center)
 				controls.value.update()
-				// Enable controls after camera is positioned
 				controls.value.enabled = true
 			}
 			
@@ -250,17 +258,13 @@ export function useCamera() {
 			baselineCameraPos.value = camera.value.position.clone()
 			baselineTarget.value = controls.value.target.clone()
 
-			// Verify the position was set correctly
-
-			// Camera fitted to object successfully
-
-		logger.info('useCamera', 'Camera fitted to object', {
-			center: { x: center.x, y: center.y, z: center.z },
-			size: { x: size.x, y: size.y, z: size.z },
-			cameraDistance,
-		})
-	} catch (error) {
-		logger.error('useCamera', 'Failed to fit camera to object', error)
+			logger.info('useCamera', 'Camera fitted to object', {
+				center: { x: center.x, y: center.y, z: center.z },
+				size: { x: size.x, y: size.y, z: size.z },
+				cameraDistance,
+			})
+		} catch (error) {
+			logger.error('useCamera', 'Failed to fit camera to object', error)
 		}
 	}
 
@@ -268,9 +272,18 @@ export function useCamera() {
 	 * Fit camera to view both models (comparison mode)
 	 * @param {THREE.Object3D} model1 - First model
 	 * @param {THREE.Object3D} model2 - Second model
+	 * @throws {Error} If camera or controls not initialized, or if models are invalid
 	 */
 	const fitBothModelsToView = (model1, model2) => {
-		if (!camera.value || !controls.value || !model1 || !model2) return
+		// Input validation
+		if (!camera.value || !controls.value) {
+			logger.error('useCamera', 'Camera or controls not initialized')
+			throw new Error('Camera and controls must be initialized')
+		}
+		if (!model1 || !model2) {
+			logger.error('useCamera', 'Both models must be provided for comparison view')
+			throw new Error('Both models are required for comparison view')
+		}
 
 		try {
 			const box1 = new THREE.Box3().setFromObject(model1)
@@ -284,8 +297,8 @@ export function useCamera() {
 			// Center both models at origin
 			const tolerance = 0.1
 			const isAlreadyCentered = Math.abs(center.x) < tolerance
-                               && Math.abs(center.y) < tolerance
-                               && Math.abs(center.z) < tolerance
+				&& Math.abs(center.y) < tolerance
+				&& Math.abs(center.z) < tolerance
 
 			if (!isAlreadyCentered) {
 				model1.position.sub(center)
@@ -305,13 +318,13 @@ export function useCamera() {
 			// Force the camera to look at origin immediately
 			camera.value.lookAt(0, 0, 0)
 
-		logger.info('useCamera', 'Camera fitted to both models', {
-			center: { x: center.x, y: center.y, z: center.z },
-			size: { x: size.x, y: size.y, z: size.z },
-			cameraDistance,
-		})
-	} catch (error) {
-		logger.error('useCamera', 'Failed to fit camera to both models', error)
+			logger.info('useCamera', 'Camera fitted to both models', {
+				center: { x: center.x, y: center.y, z: center.z },
+				size: { x: size.x, y: size.y, z: size.z },
+				cameraDistance,
+			})
+		} catch (error) {
+			logger.error('useCamera', 'Failed to fit camera to both models', error)
 		}
 	}
 
@@ -327,13 +340,13 @@ export function useCamera() {
 				controls.value.target.copy(baselineTarget.value)
 			} else if (initialCameraPos.value) {
 				camera.value.position.copy(initialCameraPos.value)
-			controls.value.target.copy(initialTarget.value)
-		}
+				controls.value.target.copy(initialTarget.value)
+			}
 
-	controls.value.update()
-	logger.info('useCamera', 'View reset to baseline/initial position')
-	} catch (error) {
-		logger.error('useCamera', 'Failed to reset view', error)
+			controls.value.update()
+			logger.info('useCamera', 'View reset to baseline/initial position')
+		} catch (error) {
+			logger.error('useCamera', 'Failed to reset view', error)
 		}
 	}
 
@@ -358,9 +371,9 @@ export function useCamera() {
 			camera.value.position.copy(controls.value.target).add(direction.multiplyScalar(distance))
 			controls.value.update()
 
-		logger.info('useCamera', 'Camera fitted to view', { distance, padding })
-	} catch (error) {
-		logger.error('useCamera', 'Failed to fit to view', error)
+			logger.info('useCamera', 'Camera fitted to view', { distance, padding })
+		} catch (error) {
+			logger.error('useCamera', 'Failed to fit to view', error)
 		}
 	}
 
@@ -400,8 +413,8 @@ export function useCamera() {
 			if (progress < 1) {
 				requestAnimationFrame(animate)
 			} else {
-			isAnimating.value = false
-			logger.info('useCamera', 'Preset animation completed', { preset: presetName })
+				isAnimating.value = false
+				logger.info('useCamera', 'Preset animation completed', { preset: presetName })
 			}
 		}
 
@@ -447,9 +460,9 @@ export function useCamera() {
 	const onWindowResize = (width, height) => {
 		if (!camera.value) return
 
-	camera.value.aspect = width / height
-	camera.value.updateProjectionMatrix()
-	logger.info('useCamera', 'Camera updated for resize', { width, height })
+		camera.value.aspect = width / height
+		camera.value.updateProjectionMatrix()
+		logger.info('useCamera', 'Camera updated for resize', { width, height })
 	}
 
 	/**
@@ -511,12 +524,8 @@ export function useCamera() {
 			event.preventDefault()
 			event.stopPropagation()
 
-			// Wheel event handled
-
-			distance.value += event.deltaY * 0.05 // Much more sensitive zoom
-			distance.value = Math.max(1, distance.value) // Only prevent going too close, no max limit
-
-			// Distance updated
+			distance.value += event.deltaY * 0.05
+			distance.value = Math.max(1, distance.value)
 
 			// Update camera position based on current rotation and new distance around model center
 			const x = modelCenter.value.x + Math.sin(rotationY.value) * Math.cos(rotationX.value) * distance.value
@@ -525,8 +534,6 @@ export function useCamera() {
 
 			camera.value.position.set(x, y, z)
 			camera.value.lookAt(modelCenter.value)
-
-			// Camera position updated after zoom
 		}
 
 		const onClick = (event) => {

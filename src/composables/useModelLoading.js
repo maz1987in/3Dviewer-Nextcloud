@@ -11,6 +11,7 @@ import { createErrorState } from '../utils/error-handler.js'
 import { logger } from '../utils/logger.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
 import { LOADING_STAGES } from '../constants/index.js'
+import { disposeObject } from '../utils/three-utils.js'
 
 export function useModelLoading() {
 	// Loading state
@@ -88,13 +89,30 @@ export function useModelLoading() {
 	 * @param {string} filename - File name
 	 * @param {object} context - Loading context
 	 * @return {Promise<object>} Load result
+	 * @throws {Error} If parameters are invalid or file format is unsupported
 	 */
 	const loadModelFromFileId = async (fileId, filename, context) => {
+		// Input validation
+		if (!fileId || (typeof fileId !== 'number' && typeof fileId !== 'string')) {
+			logger.error('useModelLoading', 'Invalid file ID')
+			throw new Error('Valid file ID is required')
+		}
+		if (!filename || typeof filename !== 'string') {
+			logger.error('useModelLoading', 'Invalid filename')
+			throw new Error('Valid filename is required')
+		}
+		if (!context) {
+			logger.error('useModelLoading', 'Loading context is required')
+			throw new Error('Loading context is required')
+		}
+
 		try {
 			const extension = filename.split('.').pop().toLowerCase()
 
 			if (!isSupportedExtension(extension)) {
-				throw new Error(`Unsupported file extension: ${extension}`)
+				const error = new Error(`Unsupported file extension: ${extension}`)
+				logger.error('useModelLoading', error.message)
+				throw error
 			}
 
 			// Create abort controller for this load operation
@@ -108,10 +126,10 @@ export function useModelLoading() {
 			// Extract directory path for multi-file loading
 			const dirPath = filename.substring(0, filename.lastIndexOf('/'))
 
-		// Check if this is a multi-file format
-		const isMultiFile = ['obj', 'gltf', 'fbx'].includes(extension)
+			// Check if this is a multi-file format
+			const isMultiFile = ['obj', 'gltf', 'fbx'].includes(extension)
 
-		if (isMultiFile) {
+			if (isMultiFile) {
 			logger.info('useModelLoading', 'Multi-file format detected', { extension, fileId })
 
 				try {
@@ -173,87 +191,87 @@ export function useModelLoading() {
 				}
 			}
 
-		// Single-file loading (fallback or non-multi-file formats)
-		progress.value = { loaded: 0, total: 0, message: 'Downloading model...' }
+			// Single-file loading (fallback or non-multi-file formats)
+			progress.value = { loaded: 0, total: 0, message: 'Downloading model...' }
 
-		const response = await fetch(`/apps/threedviewer/api/file/${fileId}`, {
-			signal: abortController.value?.signal,
-			headers: {
-				Accept: 'application/octet-stream',
-				'X-Requested-With': 'XMLHttpRequest',
-			},
-			credentials: 'same-origin',
-		})
+			const response = await fetch(`/apps/threedviewer/api/file/${fileId}`, {
+				signal: abortController.value?.signal,
+				headers: {
+					Accept: 'application/octet-stream',
+					'X-Requested-With': 'XMLHttpRequest',
+				},
+				credentials: 'same-origin',
+			})
 
-		if (!response.ok) {
-			throw new Error(`Failed to fetch model: ${response.status} ${response.statusText}`)
-		}
+			if (!response.ok) {
+				throw new Error(`Failed to fetch model: ${response.status} ${response.statusText}`)
+			}
 
-		// Get content length for progress tracking
-		const contentLength = parseInt(response.headers.get('content-length') || '0', 10)
-		
-		// Stream the response with progress tracking
-		const reader = response.body.getReader()
-		const chunks = []
-		let receivedLength = 0
-
-		while (true) {
-			const { done, value } = await reader.read()
+			// Get content length for progress tracking
+			const contentLength = parseInt(response.headers.get('content-length') || '0', 10)
 			
-			if (done) break
-			
-			chunks.push(value)
-			receivedLength += value.length
-			
-			// Update progress
-			if (contentLength > 0) {
-				progress.value = { 
-					loaded: receivedLength, 
-					total: contentLength, 
-					message: 'Downloading model...' 
-				}
-			} else {
-				// If no content-length, just show bytes downloaded
-				progress.value = { 
-					loaded: receivedLength, 
-					total: 0, 
-					message: 'Downloading model...' 
+			// Stream the response with progress tracking
+			const reader = response.body.getReader()
+			const chunks = []
+			let receivedLength = 0
+
+			while (true) {
+				const { done, value } = await reader.read()
+				
+				if (done) break
+				
+				chunks.push(value)
+				receivedLength += value.length
+				
+				// Update progress
+				if (contentLength > 0) {
+					progress.value = { 
+						loaded: receivedLength, 
+						total: contentLength, 
+						message: 'Downloading model...' 
+					}
+				} else {
+					// If no content-length, just show bytes downloaded
+					progress.value = { 
+						loaded: receivedLength, 
+						total: 0, 
+						message: 'Downloading model...' 
+					}
 				}
 			}
-		}
 
-		// Combine chunks into single ArrayBuffer
-		const arrayBuffer = new Uint8Array(receivedLength)
-		let position = 0
-		for (const chunk of chunks) {
-			arrayBuffer.set(chunk, position)
-			position += chunk.length
-		}
+			// Combine chunks into single ArrayBuffer
+			const arrayBuffer = new Uint8Array(receivedLength)
+			let position = 0
+			for (const chunk of chunks) {
+				arrayBuffer.set(chunk, position)
+				position += chunk.length
+			}
 
-		progress.value = { loaded: receivedLength, total: receivedLength, message: 'Parsing model...' }
-		
-		// Prepare context
-		const loadingContext = {
-			...context,
-			fileId,
-			abortController: abortController.value,
-			fileExtension: extension,
-			updateProgress,
-			hasDraco: hasDraco.value,
-			hasKtx2: hasKtx2.value,
-			hasMeshopt: hasMeshopt.value,
-		}
+			progress.value = { loaded: receivedLength, total: receivedLength, message: 'Parsing model...' }
+			
+			// Prepare context
+			const loadingContext = {
+				...context,
+				fileId,
+				abortController: abortController.value,
+				fileExtension: extension,
+				updateProgress,
+				hasDraco: hasDraco.value,
+				hasKtx2: hasKtx2.value,
+				hasMeshopt: hasMeshopt.value,
+			}
 
-		// Load the model (pass .buffer to get ArrayBuffer from Uint8Array)
-		const result = await loadModelByExtension(extension, arrayBuffer.buffer, loadingContext)
+			// Load the model (pass .buffer to get ArrayBuffer from Uint8Array)
+			const result = await loadModelByExtension(extension, arrayBuffer.buffer, loadingContext)
 
-		if (result && result.object3D) {
-			modelRoot.value = result.object3D
-			currentFileId.value = fileId
+			if (result && result.object3D) {
+				modelRoot.value = result.object3D
+				currentFileId.value = fileId
 
-			// Clear loading state
-			loading.value = false
-			progress.value = { loaded: receivedLength, total: receivedLength, message: 'Complete' }
+				// Clear loading state
+				loading.value = false
+				progress.value = { loaded: receivedLength, total: receivedLength, message: 'Complete' }
 
 				logger.info('useModelLoading', 'Model loaded successfully', {
 					fileId,
@@ -480,8 +498,9 @@ export function useModelLoading() {
 		}
 
 		loading.value = false
-	progress.value = { loaded: 0, total: 0, message: null }
-	logger.info('useModelLoading', 'Load cancelled')
+		progress.value = { loaded: 0, total: 0, message: null }
+		logger.info('useModelLoading', 'Load cancelled')
+		
 		// Test harness hook
 		if (typeof window !== 'undefined') {
 			window.__ABORTED = true

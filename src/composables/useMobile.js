@@ -99,6 +99,7 @@ export function useMobile() {
 		}
 
 		updateOrientation()
+		eventListeners.value.orientationChange = updateOrientation
 		window.addEventListener('orientationchange', updateOrientation)
 		window.addEventListener('resize', updateOrientation)
 	}
@@ -116,6 +117,7 @@ export function useMobile() {
 		}
 
 		updateScreenSize()
+		eventListeners.value.resize = updateScreenSize
 		window.addEventListener('resize', updateScreenSize)
 	}
 
@@ -244,7 +246,11 @@ export function useMobile() {
 			}
 		}
 
-		// Add event listeners
+		// Store event listener references and add event listeners
+		eventListeners.value.touchStart = handleTouchStart
+		eventListeners.value.touchMove = handleTouchMove
+		eventListeners.value.touchEnd = handleTouchEnd
+		
 		document.addEventListener('touchstart', handleTouchStart, { passive: false })
 		document.addEventListener('touchmove', handleTouchMove, { passive: false })
 		document.addEventListener('touchend', handleTouchEnd, { passive: false })
@@ -470,16 +476,44 @@ export function useMobile() {
 		}
 	}
 
+	// Store event listener references for proper cleanup
+	const eventListeners = ref({
+		orientationChange: null,
+		resize: null,
+		touchStart: null,
+		touchMove: null,
+		touchEnd: null,
+	})
+
 	/**
 	 * Dispose of mobile resources
 	 */
 	const dispose = () => {
-		// Remove event listeners
-		window.removeEventListener('orientationchange', () => {})
-		window.removeEventListener('resize', () => {})
-		document.removeEventListener('touchstart', () => {})
-		document.removeEventListener('touchmove', () => {})
-		document.removeEventListener('touchend', () => {})
+		// Remove event listeners with proper references
+		if (eventListeners.value.orientationChange) {
+			window.removeEventListener('orientationchange', eventListeners.value.orientationChange)
+		}
+		if (eventListeners.value.resize) {
+			window.removeEventListener('resize', eventListeners.value.resize)
+		}
+		if (eventListeners.value.touchStart) {
+			document.removeEventListener('touchstart', eventListeners.value.touchStart)
+		}
+		if (eventListeners.value.touchMove) {
+			document.removeEventListener('touchmove', eventListeners.value.touchMove)
+		}
+		if (eventListeners.value.touchEnd) {
+			document.removeEventListener('touchend', eventListeners.value.touchEnd)
+		}
+
+		// Clear references
+		eventListeners.value = {
+			orientationChange: null,
+			resize: null,
+			touchStart: null,
+			touchMove: null,
+			touchEnd: null,
+		}
 
 		logger.info('useMobile', 'Mobile resources disposed')
 	}

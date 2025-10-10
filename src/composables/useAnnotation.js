@@ -31,6 +31,16 @@ export function useAnnotation() {
 
 	// Initialize annotation system
 	const init = (scene) => {
+		// Input validation
+		if (!scene) {
+			logError('useAnnotation', 'Scene is required for initialization', new Error('Scene is required'))
+			throw new Error('Scene is required to initialize annotation system')
+		}
+		if (!(scene instanceof THREE.Scene)) {
+			logError('useAnnotation', 'Invalid scene object', new Error('Invalid scene'))
+			throw new Error('Scene must be an instance of THREE.Scene')
+		}
+
 		try {
 			// Store scene reference
 			sceneRef.value = scene
@@ -42,10 +52,9 @@ export function useAnnotation() {
 
 			// Calculate initial model scale
 			updateModelScale()
-
-			// Annotation system initialized
 		} catch (error) {
 			logError('useAnnotation', 'Failed to initialize annotation system', error)
+			throw error
 		}
 	}
 
@@ -58,13 +67,10 @@ export function useAnnotation() {
 	// Toggle annotation mode
 	const toggleAnnotation = () => {
 		isActive.value = !isActive.value
-		// Annotation mode toggled
 	}
 
 	// Handle click events for annotation placement
 	const handleClick = (event, camera) => {
-		// Annotation click handler called
-
 		if (!isActive.value) {
 			return
 		}
@@ -107,8 +113,6 @@ export function useAnnotation() {
 			// Create visual elements and store references
 			annotation.pointMesh = createAnnotationPoint(annotation)
 			annotation.textMesh = createAnnotationText(annotation)
-
-			// Annotation added
 		} catch (error) {
 			logError('useAnnotation', 'Failed to add annotation point', error)
 		}
@@ -159,7 +163,6 @@ export function useAnnotation() {
 				textMeshes.value.push(textMesh)
 			}
 
-			// Annotation text created
 			return textMesh
 		} catch (error) {
 			logError('useAnnotation', 'Failed to create annotation text', error)
@@ -201,8 +204,6 @@ export function useAnnotation() {
 		if (index !== -1) {
 			const annotation = annotations.value[index]
 
-			// Deleting annotation
-
 			// Remove visual elements using stored references
 			if (annotation.pointMesh && annotationGroup.value) {
 				annotationGroup.value.remove(annotation.pointMesh)
@@ -210,7 +211,6 @@ export function useAnnotation() {
 				if (pointIndex !== -1) {
 					pointMeshes.value.splice(pointIndex, 1)
 				}
-				// Removed point mesh
 			}
 
 			if (annotation.textMesh && annotationGroup.value) {
@@ -219,28 +219,22 @@ export function useAnnotation() {
 				if (textIndex !== -1) {
 					textMeshes.value.splice(textIndex, 1)
 				}
-				// Removed text mesh
 			}
 
 			// Remove from annotations array
 			annotations.value.splice(index, 1)
-
-			// Annotation deleted
 		}
 	}
 
 	// Clear all annotations
 	const clearAllAnnotations = () => {
 		try {
-			// Starting clear all annotations
-
 			// Force remove all children from annotation group
 			if (annotationGroup.value) {
 				// Remove all children by iterating backwards to avoid index issues
 				while (annotationGroup.value.children.length > 0) {
 					const child = annotationGroup.value.children[0]
 					annotationGroup.value.remove(child)
-					// Removed child
 				}
 			}
 
@@ -254,8 +248,6 @@ export function useAnnotation() {
 			currentAnnotation.value = null
 			pointMeshes.value = []
 			textMeshes.value = []
-
-			// All annotations cleared
 		} catch (error) {
 			logError('useAnnotation', 'Failed to clear all annotations', error)
 		}

@@ -47,6 +47,16 @@ export function useMeasurement() {
 
 	// Initialize measurement system
 	const init = (scene) => {
+		// Input validation
+		if (!scene) {
+			logError('useMeasurement', 'Scene is required for initialization', new Error('Scene is required'))
+			throw new Error('Scene is required to initialize measurement system')
+		}
+		if (!(scene instanceof THREE.Scene)) {
+			logError('useMeasurement', 'Invalid scene object', new Error('Invalid scene'))
+			throw new Error('Scene must be an instance of THREE.Scene')
+		}
+
 		try {
 			// Store scene reference
 			sceneRef.value = scene
@@ -58,10 +68,9 @@ export function useMeasurement() {
 
 			// Calculate initial visual scale
 			updateVisualScale()
-
-			// Measurement system initialized
 		} catch (error) {
 			logError('useMeasurement', 'Failed to initialize measurement system', error)
+			throw error
 		}
 	}
 
@@ -77,7 +86,6 @@ export function useMeasurement() {
 		if (!isActive.value) {
 			clearCurrentMeasurement()
 		}
-		// Measurement mode toggled
 	}
 	
 	// Convert distance to real-world units
@@ -97,30 +105,50 @@ export function useMeasurement() {
 	
 	// Set measurement unit
 	const setUnit = (unit) => {
-		if (UNIT_SCALES[unit]) {
-			currentUnit.value = unit
-			// Recalculate all existing measurements
-			measurements.value = measurements.value.map(m => ({
-				...m,
-				...convertDistance(m.distance),
-			}))
-			// Update all text labels on 3D objects
-			updateAllTextLabels()
+		if (!unit) {
+			logger.error('useMeasurement', 'Unit parameter is required')
+			throw new Error('Unit is required')
 		}
+		if (!UNIT_SCALES[unit]) {
+			logger.error('useMeasurement', 'Invalid unit specified', { unit })
+			throw new Error(`Invalid unit: ${unit}. Available units: ${Object.keys(UNIT_SCALES).join(', ')}`)
+		}
+		
+		currentUnit.value = unit
+		// Recalculate all existing measurements
+		measurements.value = measurements.value.map(m => ({
+			...m,
+			...convertDistance(m.distance),
+		}))
+		// Update all text labels on 3D objects
+		updateAllTextLabels()
+		logger.info('useMeasurement', 'Unit changed', { unit })
 	}
 	
 	// Set model scale (how many real units = 1 Three.js unit)
 	const setModelScale = (scale) => {
-		if (scale > 0) {
-			modelScale.value = scale
-			// Recalculate all existing measurements
-			measurements.value = measurements.value.map(m => ({
-				...m,
-				...convertDistance(m.distance),
-			}))
-			// Update all text labels on 3D objects
-			updateAllTextLabels()
+		if (typeof scale !== 'number') {
+			logger.error('useMeasurement', 'Scale must be a number')
+			throw new Error('Scale must be a number')
 		}
+		if (scale <= 0) {
+			logger.error('useMeasurement', 'Scale must be positive', { scale })
+			throw new Error('Scale must be a positive number')
+		}
+		if (!isFinite(scale)) {
+			logger.error('useMeasurement', 'Scale must be finite', { scale })
+			throw new Error('Scale must be a finite number')
+		}
+		
+		modelScale.value = scale
+		// Recalculate all existing measurements
+		measurements.value = measurements.value.map(m => ({
+			...m,
+			...convertDistance(m.distance),
+		}))
+		// Update all text labels on 3D objects
+		updateAllTextLabels()
+		logger.info('useMeasurement', 'Model scale updated', { scale })
 	}
 	
 	// Update all text labels on 3D objects with current measurement values
@@ -168,8 +196,6 @@ export function useMeasurement() {
 
 	// Handle mouse click for point selection
 	const handleClick = (event, camera) => {
-		// Measurement click handler called
-
 		if (!isActive.value) {
 			return
 		}
@@ -199,8 +225,6 @@ export function useMeasurement() {
 
 		// Create visual indicator for the point
 		createPointIndicator(point)
-
-		// Point added
 
 		// If we have 2 points, create a measurement
 		if (points.value.length === 2) {
@@ -259,8 +283,6 @@ export function useMeasurement() {
 
 		// Create distance text
 		createDistanceText(measurement)
-
-		// Measurement created
 
 		// Reset for next measurement
 		points.value = []
@@ -327,8 +349,6 @@ export function useMeasurement() {
 				measurementGroup.value.add(textMesh)
 				textMeshes.value.push(textMesh)
 			}
-
-			// Distance calculated
 		} catch (error) {
 			logError('useMeasurement', 'Failed to create distance text', error)
 		}
@@ -386,8 +406,6 @@ export function useMeasurement() {
 
 			// Remove from measurements array
 			measurements.value.splice(index, 1)
-
-			// Measurement deleted
 		}
 	}
 
@@ -405,8 +423,6 @@ export function useMeasurement() {
 		pointMeshes.value = []
 		lineMeshes.value = []
 		textMeshes.value = []
-
-		// All measurements cleared
 	}
 
 	// Get measurement summary

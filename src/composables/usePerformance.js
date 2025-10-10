@@ -130,8 +130,10 @@ export function usePerformance() {
 		recommendedMode,
 	})
 
-	return recommendedMode
-}	/**
+		return recommendedMode
+	}
+
+	/**
 	 * Initialize performance monitoring
 	 * @param {THREE.WebGLRenderer} renderer - WebGL renderer
 	 */
@@ -167,7 +169,9 @@ export function usePerformance() {
 		}
 
 		// Set initial performance settings
-		applyPerformanceSettings(renderer)		// Start performance monitoring
+		applyPerformanceSettings(renderer)
+		
+		// Start performance monitoring
 		startPerformanceMonitoring()
 
 		logger.info('usePerformance', 'Performance monitoring initialized', {
@@ -181,8 +185,20 @@ export function usePerformance() {
 	 * Set performance mode
 	 * @param {string} mode - Performance mode ('low', 'balanced', 'high', 'ultra', 'auto')
 	 * @param {THREE.WebGLRenderer} [renderer] - Optional renderer for auto mode detection
+	 * @throws {Error} If mode is invalid
 	 */
 	const setPerformanceMode = (mode, renderer = null) => {
+		// Input validation
+		const validModes = ['low', 'balanced', 'high', 'ultra', 'auto']
+		if (!mode || typeof mode !== 'string') {
+			logger.error('usePerformance', 'Invalid mode type')
+			throw new Error('Performance mode must be a string')
+		}
+		if (!validModes.includes(mode)) {
+			logger.error('usePerformance', 'Invalid performance mode', { mode })
+			throw new Error(`Invalid performance mode: ${mode}. Valid modes: ${validModes.join(', ')}`)
+		}
+
 		performanceMode.value = mode
 
 		// Apply mode-specific settings
@@ -407,14 +423,14 @@ export function usePerformance() {
 			// Performance is below threshold, apply optimizations
 			if (pixelRatio.value > 0.5) {
 				pixelRatio.value = Math.max(0.5, pixelRatio.value - 0.1)
-			renderer.setPixelRatio(pixelRatio.value)
-			logger.warn('usePerformance', 'Auto-optimization: Reduced pixel ratio', { pixelRatio: pixelRatio.value })
+				renderer.setPixelRatio(pixelRatio.value)
+				logger.warn('usePerformance', 'Auto-optimization: Reduced pixel ratio', { pixelRatio: pixelRatio.value })
 			}
 
 			if (shadows.value && currentFPS.value < 20) {
 				shadows.value = false
-			renderer.shadowMap.enabled = false
-			logger.warn('usePerformance', 'Auto-optimization: Disabled shadows')
+				renderer.shadowMap.enabled = false
+				logger.warn('usePerformance', 'Auto-optimization: Disabled shadows')
 			}
 
 			if (lodEnabled.value) {
@@ -445,8 +461,8 @@ export function usePerformance() {
 			}
 		})
 
-	if (optimizedCount > 0) {
-		logger.info('usePerformance', 'LOD optimization applied', { optimizedCount })
+		if (optimizedCount > 0) {
+			logger.info('usePerformance', 'LOD optimization applied', { optimizedCount })
 		}
 	}
 
@@ -561,16 +577,16 @@ export function usePerformance() {
 	 * @param {number} threshold - FPS threshold for auto-optimization
 	 */
 	const setOptimizationThreshold = (threshold) => {
-	optimizationThreshold.value = Math.max(10, Math.min(120, threshold))
-	logger.info('usePerformance', 'Optimization threshold set', { threshold: optimizationThreshold.value })
+		optimizationThreshold.value = Math.max(10, Math.min(120, threshold))
+		logger.info('usePerformance', 'Optimization threshold set', { threshold: optimizationThreshold.value })
 	}
 
 	/**
 	 * Toggle auto-optimization
 	 */
 	const toggleAutoOptimization = () => {
-	autoOptimize.value = !autoOptimize.value
-	logger.info('usePerformance', 'Auto-optimization toggled', { enabled: autoOptimize.value })
+		autoOptimize.value = !autoOptimize.value
+		logger.info('usePerformance', 'Auto-optimization toggled', { enabled: autoOptimize.value })
 	}
 
 	/**

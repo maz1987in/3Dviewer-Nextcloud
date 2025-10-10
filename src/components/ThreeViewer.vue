@@ -654,6 +654,71 @@ export default {
 			height,
 			pixelRatio: renderer.value.getPixelRatio(),
 		})
+		
+		// Re-adjust overlay positioning on window resize
+		adjustOverlayPositioning()
+	}
+
+	/**
+	 * Dynamically adjust overlay positioning to avoid toolbar overlap
+	 */
+	const adjustOverlayPositioning = () => {
+		// Wait for DOM to be ready and add a small delay to ensure toolbar is fully rendered
+		nextTick(() => {
+			setTimeout(() => {
+				const toolbar = document.querySelector('.viewer-toolbar')
+				const appHeader = document.querySelector('#header')
+				const nextcloudHeader = document.querySelector('#header')
+				
+				let totalHeaderHeight = 0
+				
+				// Check for Nextcloud header height
+				if (nextcloudHeader) {
+					const headerRect = nextcloudHeader.getBoundingClientRect()
+					totalHeaderHeight += headerRect.height
+				}
+				
+				// Check for viewer toolbar height
+				if (toolbar) {
+					const toolbarRect = toolbar.getBoundingClientRect()
+					totalHeaderHeight += toolbarRect.height
+				}
+				
+				// Calculate safe spacing: total header height + padding (more conservative)
+				const safeTopSpacing = Math.max(180, totalHeaderHeight + 50)
+				
+				// Update CSS custom property
+				document.documentElement.style.setProperty('--overlay-top-spacing', `${safeTopSpacing}px`)
+				
+				// For mobile, use a slightly smaller spacing but ensure minimum
+				const mobileSpacing = Math.max(140, safeTopSpacing - 30)
+				document.documentElement.style.setProperty('--overlay-mobile-top-spacing', `${mobileSpacing}px`)
+				
+				logger.info('ThreeViewer', 'Adjusted overlay positioning', {
+					totalHeaderHeight,
+					safeTopSpacing,
+					mobileSpacing,
+					hasToolbar: !!toolbar,
+					hasNextcloudHeader: !!nextcloudHeader,
+					windowHeight: window.innerHeight,
+					windowWidth: window.innerWidth,
+				})
+				
+				// Force a style recalculation by directly setting styles on overlays
+				const measurementOverlay = document.querySelector('.measurement-overlay')
+				const annotationOverlay = document.querySelector('.annotation-overlay')
+				
+				if (measurementOverlay) {
+					measurementOverlay.style.top = `${safeTopSpacing}px`
+					logger.info('ThreeViewer', 'Forced measurement overlay positioning', { top: safeTopSpacing })
+				}
+				
+				if (annotationOverlay) {
+					annotationOverlay.style.top = `${safeTopSpacing}px`
+					logger.info('ThreeViewer', 'Forced annotation overlay positioning', { top: safeTopSpacing })
+				}
+			}, 200) // Increased delay to ensure DOM is fully rendered
+		})
 	}
 
 	const onCanvasClick = (event) => {
@@ -830,31 +895,41 @@ export default {
 					const box2 = new THREE.Box3().setFromObject(model2)
 					const combinedBox = box1.union(box2)
 
+					if (combinedBox.isEmpty()) {
+						logger.warn('ThreeViewer', 'Combined bounding box is empty')
+						return
+					}
+
 					const center = combinedBox.getCenter(new THREE.Vector3())
 					const size = combinedBox.getSize(new THREE.Vector3())
 					const maxDim = Math.max(size.x, size.y, size.z)
 
-					// Calculate camera distance
+					// Calculate camera distance using FOV-based calculation
 					const fov = camera.camera.value.fov * (Math.PI / 180)
-					const cameraDistance = maxDim / (2 * Math.tan(fov / 2)) * 1.5
+					const cameraDistance = Math.abs(maxDim / Math.sin(fov / 2)) * 1.2
 
-					// Position camera to view both models
+					// Position camera to view both models at a good angle
 					camera.camera.value.position.set(
-						center.x + cameraDistance,
-						center.y + cameraDistance * 0.5,
-						center.z + cameraDistance,
+						center.x + cameraDistance * 0.7,
+						center.y + cameraDistance * 0.7,
+						center.z + cameraDistance * 0.7,
 					)
-					camera.camera.value.lookAt(center)
 
-					// Force a render to update the view
-					if (renderer.value && scene.value) {
-						renderer.value.render(scene.value, camera.camera.value)
-					}
-
-					// Enable camera controls after positioning
+					// Set camera target to center of both models
 					if (camera.controls.value) {
-						camera.controls.value.enabled = true
+						camera.controls.value.target.copy(center)
+						camera.controls.value.update()
 					}
+
+					logger.info('ThreeViewer', 'Camera positioned for both models', {
+						center: { x: center.x, y: center.y, z: center.z },
+						cameraDistance,
+						cameraPosition: { 
+							x: camera.camera.value.position.x, 
+							y: camera.camera.value.position.y, 
+							z: camera.camera.value.position.z 
+						}
+					})
 				})
 			} catch (error) {
 				logger.error('ThreeViewer', 'Failed to fit both models to view', error)
@@ -903,18 +978,38 @@ export default {
 			performance.setPerformanceMode(mode, renderer.value)
 			logger.info('ThreeViewer', 'Performance mode changed', { mode })
 		}
-	})		// Lifecycle
-		onMounted(() => {
-			// Test hooks for Playwright/testing
-			if (typeof window !== 'undefined') {
-				window.__LOAD_STARTED = true
-				window.__THREEDVIEWER_VIEWER = Object.assign({}, window.__THREEDVIEWER_VIEWER, {
-					cancelLoad,
-					retryLoad,
-				})
-			}
-			init()
-		})
+	})
+
+	// Watch for measurement/annotation mode changes to adjust positioning
+	watch(() => measurement.isActive.value, (active) => {
+		if (active) {
+			nextTick(() => {
+				setTimeout(() => adjustOverlayPositioning(), 100)
+			})
+		}
+	})
+
+	watch(() => annotation.isActive.value, (active) => {
+		if (active) {
+			nextTick(() => {
+				setTimeout(() => adjustOverlayPositioning(), 100)
+			})
+		}
+	})			// Lifecycle
+	onMounted(() => {
+		// Test hooks for Playwright/testing
+		if (typeof window !== 'undefined') {
+			window.__LOAD_STARTED = true
+			window.__THREEDVIEWER_VIEWER = Object.assign({}, window.__THREEDVIEWER_VIEWER, {
+				cancelLoad,
+				retryLoad,
+			})
+		}
+		init()
+		
+		// Adjust overlay positioning to avoid toolbar overlap
+		adjustOverlayPositioning()
+	})
 
 		onBeforeUnmount(() => {
 			// Cancel animation loop
@@ -1022,11 +1117,31 @@ export default {
 <style scoped>
 /* CSS Variables for consistent spacing */
 :root {
-	--overlay-top-spacing: 80px;
+	--overlay-top-spacing: 150px; /* Further increased to ensure no overlap */
 	--overlay-side-spacing: 20px;
-	--overlay-mobile-top-spacing: 70px;
+	--overlay-mobile-top-spacing: 120px; /* Further increased for mobile */
 	--overlay-mobile-side-spacing: 10px;
 }
+
+/* Force overlay positioning to prevent overlap */
+.measurement-overlay,
+.annotation-overlay {
+	/* Ensure panels are positioned below any header/toolbar */
+	top: 80px !important;
+	/* Ensure panels don't extend beyond viewport */
+	max-width: 280px !important;
+	/* Ensure proper z-index */
+	z-index: 250 !important;
+}
+
+@media (max-width: 768px) {
+	.measurement-overlay,
+	.annotation-overlay {
+		top: 140px !important;
+		max-width: calc(100vw - 40px) !important;
+	}
+}
+
 
 .three-viewer {
 	position: relative;
@@ -1464,6 +1579,9 @@ export default {
 	z-index: 200;
 	color: white;
 	font-family: Arial, sans-serif;
+	/* Ensure panel stays within bounds */
+	min-width: 250px;
+	width: auto;
 }
 
 .measurement-header {

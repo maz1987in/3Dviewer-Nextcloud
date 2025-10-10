@@ -5,7 +5,7 @@
 
 import { ref, computed } from 'vue'
 import * as THREE from 'three'
-import { setWireframeMode, createGridHelper, createAxesHelper, disposeObject } from '../utils/three-utils.js'
+import { applyWireframe, createGridHelper, createAxesHelper, disposeObject } from '../utils/three-utils.js'
 import { logger } from '../utils/logger.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
 
@@ -313,8 +313,8 @@ export function useScene() {
 			scene.value.background = background
 		}
 
-	backgroundColor.value = background
-	logger.info('useScene', 'Background set', { background })
+		backgroundColor.value = background
+		logger.info('useScene', 'Background set', { background })
 	}
 
 	/**
@@ -349,9 +349,21 @@ export function useScene() {
 	/**
 	 * Add object to scene
 	 * @param {THREE.Object3D} object - Object to add
+	 * @throws {Error} If scene not initialized or object is invalid
 	 */
 	const addObject = (object) => {
-		if (!scene.value || !object) return
+		if (!scene.value) {
+			logger.error('useScene', 'Scene not initialized')
+			throw new Error('Scene must be initialized before adding objects')
+		}
+		if (!object) {
+			logger.error('useScene', 'No object provided to add to scene')
+			throw new Error('Object is required')
+		}
+		if (!(object instanceof THREE.Object3D)) {
+			logger.error('useScene', 'Invalid object type provided')
+			throw new Error('Object must be an instance of THREE.Object3D')
+		}
 
 		scene.value.add(object)
 		logger.info('useScene', 'Object added to scene', {
@@ -381,8 +393,8 @@ export function useScene() {
 	const onWindowResize = (width, height) => {
 		if (!renderer.value) return
 
-	renderer.value.setSize(width, height)
-	logger.info('useScene', 'Scene resized', { width, height })
+		renderer.value.setSize(width, height)
+		logger.info('useScene', 'Scene resized', { width, height })
 	}
 
 	/**
