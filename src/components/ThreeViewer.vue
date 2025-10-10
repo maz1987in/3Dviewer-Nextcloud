@@ -1200,11 +1200,13 @@ export default {
 
 	const setPerformanceMode = (mode) => {
 		if (performance && typeof performance.setPerformanceMode === 'function') {
-			performance.setPerformanceMode(mode)
+			performance.setPerformanceMode(mode, renderer.value)
 			logger.info('ThreeViewer', 'Performance mode set', { mode })
 		}
-	}		// Watchers
-		watch(() => props.showGrid, (val) => {
+	}
+	
+	// Watchers
+	watch(() => props.showGrid, (val) => {
 			if (grid.value) {
 				grid.value.visible = val
 			}

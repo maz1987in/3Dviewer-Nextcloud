@@ -17,40 +17,41 @@
 				@toggle-help="onToggleHelp"
 				@toggle-tools="onToggleTools" />
 			
-			<!-- Slide-Out Tool Panel -->
-			<SlideOutToolPanel
-				ref="toolsPanel"
-				:auto-rotate="autoRotate"
-				:camera-type="cameraType"
-				:current-preset="currentPreset"
-				:presets="animationPresets"
-				:grid="grid"
-				:axes="axes"
-				:wireframe="wireframe"
-				:background-color="background"
-				:measurement-mode="measurementMode"
-				:annotation-mode="annotationMode"
-				:comparison-mode="comparisonMode"
-				:model-loaded="modelLoaded"
-				:is-mobile="isMobile"
-				@reset-view="onReset"
-				@fit-to-view="onFitToView"
-				@toggle-auto-rotate="onToggleAutoRotate"
-				@toggle-projection="onToggleProjection"
-				@change-preset="onChangePreset"
-				@toggle-grid="grid = !grid"
-				@toggle-axes="axes = !axes"
-				@toggle-wireframe="wireframe = !wireframe"
-				@change-background="onBackgroundChange"
-				@toggle-measurement="onToggleMeasurement"
-				@toggle-annotation="onToggleAnnotation"
-				@toggle-comparison="onToggleComparison"
-				@toggle-performance="onTogglePerformance"
-				@toggle-stats="onToggleStats"
-				@take-screenshot="onTakeScreenshot"
-				@export-model="onExportModel"
-				@clear-cache="onClearCache"
-				@toggle-help="onToggleHelp" />
+		<!-- Slide-Out Tool Panel -->
+		<SlideOutToolPanel
+			ref="toolsPanel"
+			:auto-rotate="autoRotate"
+			:camera-type="cameraType"
+			:current-preset="currentPreset"
+			:presets="animationPresets"
+			:grid="grid"
+			:axes="axes"
+			:wireframe="wireframe"
+			:background-color="background"
+			:measurement-mode="measurementMode"
+			:annotation-mode="annotationMode"
+			:comparison-mode="comparisonMode"
+			:model-loaded="modelLoaded"
+			:performance-mode="performanceMode"
+			:is-mobile="isMobile"
+			@reset-view="onReset"
+			@fit-to-view="onFitToView"
+			@toggle-auto-rotate="onToggleAutoRotate"
+			@toggle-projection="onToggleProjection"
+			@change-preset="onChangePreset"
+			@toggle-grid="grid = !grid"
+			@toggle-axes="axes = !axes"
+			@toggle-wireframe="wireframe = !wireframe"
+			@change-background="onBackgroundChange"
+			@toggle-measurement="onToggleMeasurement"
+			@toggle-annotation="onToggleAnnotation"
+			@toggle-comparison="onToggleComparison"
+			@cycle-performance-mode="onCyclePerformanceMode"
+			@toggle-stats="onToggleStats"
+			@take-screenshot="onTakeScreenshot"
+			@export-model="onExportModel"
+			@clear-cache="onClearCache"
+			@toggle-help="onToggleHelp" />
 			
 			<!-- 3D Viewer -->
 			<ThreeViewer
@@ -247,8 +248,14 @@ export default {
 		},
 
 	onTogglePerformance() {
-		// Toggle the performance stats overlay visibility
+		// Toggle the performance stats overlay visibility (for MinimalTopBar button)
 		this.$refs.viewer?.togglePerformanceStats?.()
+	},
+	
+	onCyclePerformanceMode(mode) {
+		// Set the new performance mode
+		this.performanceMode = mode
+		this.$refs.viewer?.setPerformanceMode?.(mode)
 	},
 	
 	onToggleStats() {

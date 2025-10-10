@@ -163,10 +163,10 @@
 							<span class="expand-icon">{{ sections.settings ? '▼' : '▶' }}</span>
 						</button>
 						<div v-show="sections.settings" class="section-content">
-							<button class="tool-btn" @click="emit('toggle-performance')">
-								<span class="tool-icon">⚡</span>
-								<span class="tool-label">{{ t('threedviewer', 'Performance') }}</span>
-							</button>
+						<button class="tool-btn" @click="cyclePerformanceMode">
+							<span class="tool-icon">⚡</span>
+							<span class="tool-label">{{ t('threedviewer', 'Performance') }}: {{ getPerformanceModeText() }}</span>
+						</button>
 							<button class="tool-btn"
 								:disabled="!modelLoaded"
 								@click="emit('toggle-stats')">
@@ -235,6 +235,7 @@ export default {
 		annotationMode: { type: Boolean, default: false },
 		comparisonMode: { type: Boolean, default: false },
 		modelLoaded: { type: Boolean, default: false },
+		performanceMode: { type: String, default: 'auto' },
 		
 		// Mobile detection
 		isMobile: { type: Boolean, default: false },
@@ -255,7 +256,7 @@ export default {
 		'toggle-measurement',
 		'toggle-annotation',
 		'toggle-comparison',
-		'toggle-performance',
+		'cycle-performance-mode',
 		'toggle-stats',
 		'take-screenshot',
 		'export-model',
@@ -366,30 +367,57 @@ export default {
 			window.removeEventListener('keydown', handleKeyPress)
 		})
 		
-		/**
-		 * Handle export format selection
-		 */
-		const handleExportChange = (format) => {
-			if (format) {
-				emit('export-model', format)
-				// Reset select after emitting
-				if (exportSelect.value) {
-					exportSelect.value.value = ''
-				}
+	/**
+	 * Handle export format selection
+	 */
+	const handleExportChange = (format) => {
+		if (format) {
+			emit('export-model', format)
+			// Reset select after emitting
+			if (exportSelect.value) {
+				exportSelect.value.value = ''
 			}
 		}
-		
-		return {
-			t,
-			isOpen,
-			sections,
-			exportSelect,
-			togglePanel,
-			closePanel,
-			toggleSection,
-			handleExportChange,
-			emit,
+	}
+	
+	/**
+	 * Cycle through performance modes
+	 */
+	const cyclePerformanceMode = () => {
+		const modes = ['auto', 'low', 'balanced', 'high', 'ultra']
+		const currentIndex = modes.indexOf(props.performanceMode)
+		const nextIndex = (currentIndex + 1) % modes.length
+		const nextMode = modes[nextIndex]
+		emit('cycle-performance-mode', nextMode)
+	}
+	
+	/**
+	 * Get display text for current performance mode
+	 */
+	const getPerformanceModeText = () => {
+		switch (props.performanceMode) {
+		case 'low': return t('threedviewer', 'Low')
+		case 'balanced': return t('threedviewer', 'Balanced')
+		case 'high': return t('threedviewer', 'High')
+		case 'ultra': return t('threedviewer', 'Ultra')
+		case 'auto':
+		default: return t('threedviewer', 'Auto')
 		}
+	}
+	
+	return {
+		t,
+		isOpen,
+		sections,
+		exportSelect,
+		togglePanel,
+		closePanel,
+		toggleSection,
+		handleExportChange,
+		cyclePerformanceMode,
+		getPerformanceModeText,
+		emit,
+	}
 	},
 	
 	// Expose methods for parent component access
