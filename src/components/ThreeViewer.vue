@@ -105,7 +105,7 @@
 		</div>
 
 	<!-- Performance Stats Overlay (Dev/Debug) -->
-	<div v-if="performance && currentFPS > 0" class="performance-stats">
+	<div v-if="showPerformanceStats && performance && currentFPS > 0" class="performance-stats">
 		<div class="stats-header">
 			<span class="stats-icon">📊</span>
 			<span class="stats-title">Performance</span>
@@ -274,7 +274,7 @@ export default {
 		comparisonMode: { type: Boolean, default: false },
 		performanceMode: { type: String, default: 'auto' },
 	},
-	emits: ['model-loaded', 'error', 'view-reset', 'fit-to-view', 'toggle-auto-rotate', 'change-preset', 'toggle-grid', 'axes-toggle', 'wireframe-toggle', 'background-change', 'toggle-measurement', 'toggle-annotation', 'toggle-comparison', 'toggle-performance', 'dismiss', 'push-toast'],
+	emits: ['model-loaded', 'error', 'view-reset', 'fit-to-view', 'toggle-auto-rotate', 'change-preset', 'toggle-grid', 'axes-toggle', 'wireframe-toggle', 'background-change', 'toggle-measurement', 'toggle-annotation', 'toggle-comparison', 'toggle-performance', 'dismiss', 'push-toast', 'loading-state-changed', 'fps-updated'],
 	setup(props, { emit }) {
 		// Refs
 		const container = ref(null)
@@ -286,6 +286,7 @@ export default {
 		const aborting = ref(false)
 		const initializing = ref(true) // Show loading during initial setup
 		const animationFrameId = ref(null) // Track animation frame for cleanup
+		const showPerformanceStats = ref(true) // Toggle for performance stats overlay
 
 		// Composables
 		const camera = useCamera()
@@ -666,7 +667,7 @@ export default {
 		// Wait for DOM to be ready and add a small delay to ensure toolbar is fully rendered
 		nextTick(() => {
 			setTimeout(() => {
-				const toolbar = document.querySelector('.viewer-toolbar')
+				const toolbar = document.querySelector('.minimal-top-bar')
 				const appHeader = document.querySelector('#header')
 				const nextcloudHeader = document.querySelector('#header')
 				
@@ -678,10 +679,10 @@ export default {
 					totalHeaderHeight += headerRect.height
 				}
 				
-				// Check for viewer toolbar height
+				// Check for minimal top bar height
 				if (toolbar) {
 					const toolbarRect = toolbar.getBoundingClientRect()
-					totalHeaderHeight += toolbarRect.height
+					totalHeaderHeight += toolbarRect.height + 10 // Add some padding
 				}
 				
 				// Calculate safe spacing: total header height + padding (more conservative)
@@ -698,7 +699,7 @@ export default {
 					totalHeaderHeight,
 					safeTopSpacing,
 					mobileSpacing,
-					hasToolbar: !!toolbar,
+					hasMinimalTopBar: !!toolbar,
 					hasNextcloudHeader: !!nextcloudHeader,
 					windowHeight: window.innerHeight,
 					windowWidth: window.innerWidth,
@@ -805,16 +806,21 @@ export default {
 			measurement.deleteMeasurement(measurementId)
 		}
 
-		const toggleAnnotationMode = () => {
-			// If turning annotation ON, turn measurement OFF
-			if (!annotation.isActive.value) {
-				if (measurement.isActive.value) {
-					measurement.toggleMeasurement()
-				}
+	const toggleAnnotationMode = () => {
+		// If turning annotation ON, turn measurement OFF
+		if (!annotation.isActive.value) {
+			if (measurement.isActive.value) {
+				measurement.toggleMeasurement()
 			}
-			annotation.toggleAnnotation()
-			emit('toggle-annotation')
 		}
+		annotation.toggleAnnotation()
+		emit('toggle-annotation')
+	}
+
+	const togglePerformanceStats = () => {
+		showPerformanceStats.value = !showPerformanceStats.value
+		logger.info('ThreeViewer', 'Performance stats toggled', { visible: showPerformanceStats.value })
+	}
 
 		const deleteAnnotation = (annotationId) => {
 			annotation.deleteAnnotation(annotationId)
@@ -995,7 +1001,24 @@ export default {
 				setTimeout(() => adjustOverlayPositioning(), 100)
 			})
 		}
-	})			// Lifecycle
+	})
+
+	// Emit loading state changes
+	watch(() => modelLoading.isLoading.value, (loading) => {
+		emit('loading-state-changed', loading)
+	})
+
+	// Emit FPS updates (throttled to every 500ms)
+	let lastFpsEmit = 0
+	watch(() => performance.currentFPS.value, (fps) => {
+		const now = Date.now()
+		if (now - lastFpsEmit > 500) {
+			emit('fps-updated', fps)
+			lastFpsEmit = now
+		}
+	})
+
+	// Lifecycle
 	onMounted(() => {
 		// Test hooks for Playwright/testing
 		if (typeof window !== 'undefined') {
@@ -1088,7 +1111,10 @@ export default {
 		currentDrawCalls: performance.currentDrawCalls,
 		currentTriangles: performance.currentTriangles,
 		currentPerformanceMode: performance.currentPerformanceMode,
-		currentPixelRatio: performance.currentPixelRatio,			// Methods
+		currentPixelRatio: performance.currentPixelRatio,
+		showPerformanceStats,
+		
+		// Methods
 			toggleOriginalModel,
 			toggleComparisonModel,
 			fitBothModelsToView,
@@ -1106,10 +1132,11 @@ export default {
 			toggleAnnotationMode,
 			deleteAnnotation,
 			updateAnnotationText,
-			clearAllAnnotations,
-			toggleComparisonMode,
-			setPerformanceMode,
-		}
+		clearAllAnnotations,
+		toggleComparisonMode,
+		setPerformanceMode,
+		togglePerformanceStats,
+	}
 	},
 }
 </script>
@@ -1230,20 +1257,21 @@ export default {
 
 /* Performance Stats Overlay */
 .performance-stats {
-	position: absolute;
-	bottom: 10px;
-	left: 10px;
-	background: rgba(0, 0, 0, 0.85);
-	color: #fff;
-	padding: 12px;
-	border-radius: 8px;
-	font-family: 'Monaco', 'Courier New', monospace;
-	font-size: 12px;
-	z-index: 900;
-	min-width: 180px;
-	backdrop-filter: blur(10px);
-	border: 1px solid rgba(255, 255, 255, 0.1);
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+	position: absolute !important;
+	bottom: 10px !important;
+	left: 10px !important;
+	background: rgba(0, 0, 0, 0.85) !important;
+	color: #ffffff !important;
+	padding: 12px !important;
+	border-radius: 8px !important;
+	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+	font-size: 12px !important;
+	z-index: 900 !important;
+	min-width: 180px !important;
+	border: 1px solid rgba(255, 255, 255, 0.2) !important;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+	display: block !important;
+	backdrop-filter: blur(10px) !important;
 }
 
 .stats-header {
@@ -1319,7 +1347,7 @@ export default {
 .stat-value {
 	font-weight: bold;
 	font-size: 12px;
-	color: #fff;
+	color: #ffffff;
 }
 
 .stat-value.good {

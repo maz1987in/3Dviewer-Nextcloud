@@ -2,18 +2,35 @@
 	<NcAppContent>
 		<div id="viewer-wrapper">
 			<ToastContainer :toasts="toasts" @dismiss="dismissToast" />
-			<ViewerToolbar
+			
+			<!-- Minimal Top Bar -->
+			<MinimalTopBar
+				:model-name="filename"
+				:is-loading="isLoading"
+				:fps="fps"
+				:show-performance="showPerformance"
+				:is-mobile="isMobile"
+				@reset-view="onReset"
+				@fit-to-view="onFitToView"
+				@toggle-performance="onTogglePerformance"
+				@take-screenshot="onTakeScreenshot"
+				@toggle-help="onToggleHelp"
+				@toggle-tools="onToggleTools" />
+			
+			<!-- Slide-Out Tool Panel -->
+			<SlideOutToolPanel
+				ref="toolsPanel"
+				:auto-rotate="autoRotate"
+				:current-preset="currentPreset"
+				:presets="animationPresets"
 				:grid="grid"
 				:axes="axes"
 				:wireframe="wireframe"
-				:background="background"
-				:auto-rotate="autoRotate"
-				:presets="animationPresets"
-				:current-preset="currentPreset"
+				:background-color="background"
 				:measurement-mode="measurementMode"
 				:annotation-mode="annotationMode"
 				:comparison-mode="comparisonMode"
-				:performance-mode="performanceMode"
+				:is-mobile="isMobile"
 				@reset-view="onReset"
 				@fit-to-view="onFitToView"
 				@toggle-auto-rotate="onToggleAutoRotate"
@@ -25,7 +42,11 @@
 				@toggle-measurement="onToggleMeasurement"
 				@toggle-annotation="onToggleAnnotation"
 				@toggle-comparison="onToggleComparison"
-				@toggle-performance="onTogglePerformance" />
+				@toggle-performance="onTogglePerformance"
+				@take-screenshot="onTakeScreenshot"
+				@toggle-help="onToggleHelp" />
+			
+			<!-- 3D Viewer -->
 			<ThreeViewer
 				:file-id="fileId"
 				:filename="filename"
@@ -40,6 +61,8 @@
 				:comparison-mode="comparisonMode"
 				:performance-mode="performanceMode"
 				@model-loaded="onModelLoaded"
+				@loading-state-changed="onLoadingStateChanged"
+				@fps-updated="onFpsUpdated"
 				@error="onError" />
 		</div>
 	</NcAppContent>
@@ -48,7 +71,8 @@
 <script>
 import ToastContainer from './components/ToastContainer.vue'
 import ThreeViewer from './components/ThreeViewer.vue'
-import ViewerToolbar from './components/ViewerToolbar.vue'
+import MinimalTopBar from './components/MinimalTopBar.vue'
+import SlideOutToolPanel from './components/SlideOutToolPanel.vue'
 import { NcAppContent } from '@nextcloud/vue'
 
 export default {
@@ -57,7 +81,8 @@ export default {
 		NcAppContent,
 		ToastContainer,
 		ThreeViewer,
-		ViewerToolbar,
+		MinimalTopBar,
+		SlideOutToolPanel,
 	},
 	data() {
 		return {
@@ -80,6 +105,11 @@ export default {
 			performanceMode: 'auto',
 			toasts: [],
 			_prefsLoaded: false,
+			// UI state
+			isLoading: false,
+			fps: 0,
+			showPerformance: true,
+			isMobile: false,
 		}
 	},
 	watch: {
@@ -96,6 +126,13 @@ export default {
 		if (!this.fileId && typeof window !== 'undefined' && window.__TEST_FILE_ID) {
 			this.fileId = Number(window.__TEST_FILE_ID)
 		}
+		
+		// Detect mobile device
+		this.detectMobile()
+		window.addEventListener('resize', this.detectMobile)
+	},
+	beforeUnmount() {
+		window.removeEventListener('resize', this.detectMobile)
 	},
 	methods: {
 		parseFileId() {
@@ -194,19 +231,45 @@ export default {
 			this.$refs.viewer?.toggleComparisonMode?.()
 		},
 
-		onTogglePerformance() {
-			const modes = ['auto', 'balanced', 'high', 'ultra', 'low']
-			const currentIndex = modes.indexOf(this.performanceMode)
-			const nextIndex = (currentIndex + 1) % modes.length
-			this.performanceMode = modes[nextIndex]
-			this.$refs.viewer?.setPerformanceMode?.(this.performanceMode)
-		},
+	onTogglePerformance() {
+		// Toggle the performance stats overlay visibility
+		this.$refs.viewer?.togglePerformanceStats?.()
+	},
 		onBackgroundChange(val) {
 			this.background = val
+		},
+		onTakeScreenshot() {
+			// TODO: Implement screenshot functionality
+			this.pushToast({ 
+				type: 'info', 
+				title: this.t('threedviewer', 'Screenshot'), 
+				message: this.t('threedviewer', 'Screenshot feature coming soon') 
+			})
+		},
+		onToggleHelp() {
+			// TODO: Implement help modal
+			this.pushToast({ 
+				type: 'info', 
+				title: this.t('threedviewer', 'Help'), 
+				message: this.t('threedviewer', 'Press T to toggle tools panel') 
+			})
+		},
+		onToggleTools() {
+			// Toggle the tools panel
+			if (this.$refs.toolsPanel) {
+				this.$refs.toolsPanel.togglePanel()
+			}
+		},
+		onLoadingStateChanged(loading) {
+			this.isLoading = loading
+		},
+		onFpsUpdated(fps) {
+			this.fps = fps
 		},
 		onModelLoaded(meta) {
 			this.modelMeta = meta
 			this.lastError = null
+			this.isLoading = false
 			// Sync animation presets from viewer
 			if (this.$refs.viewer?.animationPresets) {
 				this.animationPresets = this.$refs.viewer.animationPresets
@@ -250,6 +313,9 @@ export default {
 		},
 		dismissToast(id) {
 			this.toasts = this.toasts.filter(t => t.id !== id)
+		},
+		detectMobile() {
+			this.isMobile = window.innerWidth <= 768
 		},
 		tSuccessTitle() { return this.t('threedviewer', 'Model loaded') },
 		tLoadedMessage(name) { return this.t('threedviewer', 'Loaded {file}', { file: name }) },
