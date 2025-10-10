@@ -3,7 +3,7 @@
  * Loads textures asynchronously after displaying model geometry
  */
 
-import { ref, readonly } from 'vue'
+import { ref, readonly, computed } from 'vue'
 import { logger } from '../utils/logger.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
 
@@ -13,6 +13,7 @@ export function useProgressiveTextures() {
 	const textureProgress = ref({ loaded: 0, total: 0 })
 	const pendingTextures = ref([])
 	const loadedTextures = ref(0)
+	const failedTextures = ref([])
 
 	/**
 	 * Queue texture for progressive loading
@@ -81,6 +82,15 @@ export function useProgressiveTextures() {
 					},
 					undefined, // onProgress
 					(error) => {
+						// Track failed texture
+						failedTextures.value.push({
+							url: textureUrl,
+							propertyName,
+							materialName: material?.name || 'unnamed',
+							error: error?.message || 'Unknown error',
+							timestamp: Date.now(),
+						})
+						
 						logger.warn('useProgressiveTextures', 'Texture loading failed', {
 							textureUrl,
 							error: error?.message,
@@ -91,6 +101,15 @@ export function useProgressiveTextures() {
 					}
 				)
 			} catch (error) {
+				// Track unexpected errors
+				failedTextures.value.push({
+					url: textureUrl,
+					propertyName,
+					materialName: material?.name || 'unnamed',
+					error: error?.message || 'Unexpected error',
+					timestamp: Date.now(),
+				})
+				
 				logger.error('useProgressiveTextures', 'Error loading texture', error)
 				loadedTextures.value++
 				textureProgress.value.loaded = loadedTextures.value
@@ -151,8 +170,38 @@ export function useProgressiveTextures() {
 		loadedTextures.value = 0
 		textureProgress.value = { loaded: 0, total: 0 }
 		loadingTextures.value = false
+		failedTextures.value = []
 		logger.info('useProgressiveTextures', 'Texture queue cleared')
 	}
+
+	/**
+	 * Get summary of texture loading failures
+	 * @return {object} Summary with counts and details
+	 */
+	const getFailureSummary = () => {
+		const summary = {
+			count: failedTextures.value.length,
+			textures: failedTextures.value.map(f => ({
+				name: f.url.split('/').pop(),
+				type: f.propertyName,
+				material: f.materialName,
+			})),
+			message: '',
+		}
+
+		if (summary.count === 0) {
+			summary.message = 'All textures loaded successfully'
+		} else if (summary.count === 1) {
+			summary.message = `1 texture could not be loaded: ${summary.textures[0].name}`
+		} else {
+			summary.message = `${summary.count} textures could not be loaded`
+		}
+
+		return summary
+	}
+
+	// Computed properties
+	const hasFailures = computed(() => failedTextures.value.length > 0)
 
 	return {
 		// State (readonly)
@@ -160,12 +209,15 @@ export function useProgressiveTextures() {
 		textureProgress: readonly(textureProgress),
 		pendingTextures: readonly(pendingTextures),
 		loadedTextures: readonly(loadedTextures),
+		failedTextures: readonly(failedTextures),
+		hasFailures,
 
 		// Methods
 		queueTexture,
 		startProgressiveLoading,
 		loadTextureAsync,
 		clearQueue,
+		getFailureSummary,
 	}
 }
 

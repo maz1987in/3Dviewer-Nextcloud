@@ -231,17 +231,18 @@ export function parseGltfDependencies(gltfJson) {
  * @param {string} baseFilename - Base filename of the OBJ (e.g., "model.obj")
  * @param {number} fileId - File ID of the main OBJ file
  * @param {string} dirPath - Directory path (e.g., "/models")
- * @returns {Promise<Array<File>>} - Array of File objects (MTL + textures)
+ * @returns {Promise<object>} - Object with { found: File[], missing: string[] }
  */
 export async function fetchObjDependencies(objContent, baseFilename, fileId, dirPath) {
 	const dependencies = []
+	const missingFiles = []
 	
 	// Parse MTL references
 	const mtlFiles = parseObjMaterialFiles(objContent)
 	
 	if (mtlFiles.length === 0) {
 		logger.info('MultiFileHelpers', ' No MTL files referenced in OBJ')
-		return dependencies
+		return { found: dependencies, missing: missingFiles }
 	}
 	
 	logger.info('MultiFileHelpers', ' Found MTL files:', mtlFiles)
@@ -274,27 +275,34 @@ export async function fetchObjDependencies(objContent, baseFilename, fileId, dir
 							const texUrl = `/apps/threedviewer/api/file/${fileId}`
 							const texFile = await fetchFileFromUrl(texUrl, texFilename, 'application/octet-stream', { fileId })
 							logger.info('MultiFileHelpers', ' Fetched texture:', texFilename)
-							return texFile
+							return { file: texFile, name: texFilename, found: true }
 						} else {
 							logger.warn('MultiFileHelpers', ' Could not find file ID for texture:', texFilename)
-							return null
+							missingFiles.push(texFilename)
+							return { file: null, name: texFilename, found: false }
 						}
 					} catch (err) {
 						logger.warn('MultiFileHelpers', ' Failed to fetch texture:', texFilename, err)
-						return null
+						missingFiles.push(texFilename)
+						return { file: null, name: texFilename, found: false }
 					}
 				})
 			
-				const textures = getFulfilledValues(await Promise.allSettled(texturePromises))
+				const textureResults = await Promise.allSettled(texturePromises)
+				const textures = textureResults
+					.filter(r => r.status === 'fulfilled' && r.value?.found)
+					.map(r => r.value.file)
 				
 				return [file, ...textures]
 			} else {
 				logger.warn('MultiFileHelpers', ' Could not find file ID for MTL:', mtlFilename)
+				missingFiles.push(mtlFilename)
 				return []
 			}
 			
 		} catch (err) {
 			logger.warn('MultiFileHelpers', ' Failed to fetch MTL:', mtlFilename, err)
+			missingFiles.push(mtlFilename)
 			return []
 		}
 	})
@@ -302,7 +310,7 @@ export async function fetchObjDependencies(objContent, baseFilename, fileId, dir
 	const results = await Promise.allSettled(mtlPromises)
 	const allFiles = getFulfilledValues(results, false).flatMap(r => r)
 	
-	return allFiles
+	return { found: allFiles, missing: missingFiles }
 }
 
 /**
@@ -313,10 +321,11 @@ export async function fetchObjDependencies(objContent, baseFilename, fileId, dir
  * @param {string} baseFilename - Base filename of the GLTF (e.g., "model.gltf")
  * @param {number} fileId - File ID of the main GLTF file
  * @param {string} dirPath - Directory path
- * @returns {Promise<Array<File>>} - Array of File objects (bins + textures)
+ * @returns {Promise<object>} - Object with { found: File[], missing: string[] }
  */
 export async function fetchGltfDependencies(gltfContent, baseFilename, fileId, dirPath) {
 	const dependencies = []
+	const missingFiles = []
 	
 	try {
 		const gltfJson = JSON.parse(gltfContent)
@@ -338,10 +347,12 @@ export async function fetchGltfDependencies(gltfContent, baseFilename, fileId, d
 					return file
 				} else {
 					logger.warn('MultiFileHelpers', ' Could not find file ID for buffer:', bufferUri)
+					missingFiles.push(bufferUri)
 					return null
 				}
 			} catch (err) {
 				logger.warn('MultiFileHelpers', ' Failed to fetch buffer:', bufferUri, err)
+				missingFiles.push(bufferUri)
 				return null
 			}
 		})
@@ -360,10 +371,12 @@ export async function fetchGltfDependencies(gltfContent, baseFilename, fileId, d
 					return file
 				} else {
 					logger.warn('MultiFileHelpers', ' Could not find file ID for image:', imageUri)
+					missingFiles.push(imageUri)
 					return null
 				}
 			} catch (err) {
 				logger.warn('MultiFileHelpers', ' Failed to fetch image:', imageUri, err)
+				missingFiles.push(imageUri)
 				return null
 			}
 		})
@@ -375,7 +388,7 @@ export async function fetchGltfDependencies(gltfContent, baseFilename, fileId, d
 		console.error('[MultiFileHelpers] Error parsing GLTF:', err)
 	}
 	
-	return dependencies
+	return { found: dependencies, missing: missingFiles }
 }
 
 /**
@@ -385,10 +398,11 @@ export async function fetchGltfDependencies(gltfContent, baseFilename, fileId, d
  * @param {string} baseFilename - Base filename of the FBX (e.g., "model.fbx")
  * @param {number} fileId - File ID of the main FBX file
  * @param {string} dirPath - Directory path (e.g., "/models")
- * @returns {Promise<Array<File>>} - Array of File objects (textures)
+ * @returns {Promise<object>} - Object with { found: File[], missing: string[] }
  */
 async function fetchFbxDependencies(baseFilename, fileId, dirPath) {
 	const dependencies = []
+	const missingFiles = [] // FBX speculatively loads all textures, so missing is usually empty
 	
 	try {
 		// Common texture extensions used by FBX
@@ -447,7 +461,7 @@ async function fetchFbxDependencies(baseFilename, fileId, dirPath) {
 		logger.error('FBXDependencies', 'Error fetching FBX dependencies', err)
 	}
 	
-	return dependencies
+	return { found: dependencies, missing: missingFiles }
 }
 
 /**
@@ -508,34 +522,42 @@ export async function loadModelWithDependencies(fileId, filename, extension, dir
 	})
 	
 	// Fetch dependencies based on format
-	let dependencies = []
+	let dependencyResult = { found: [], missing: [] }
 	
 	if (extension === 'obj') {
 		const objText = await mainFile.text()
-		dependencies = await fetchObjDependencies(objText, filename, fileId, dirPath)
+		dependencyResult = await fetchObjDependencies(objText, filename, fileId, dirPath)
 	} else if (extension === 'gltf') {
 		const gltfText = await mainFile.text()
-		dependencies = await fetchGltfDependencies(gltfText, filename, fileId, dirPath)
+		dependencyResult = await fetchGltfDependencies(gltfText, filename, fileId, dirPath)
 	} else if (extension === 'fbx') {
-		dependencies = await fetchFbxDependencies(filename, fileId, dirPath)
+		dependencyResult = await fetchFbxDependencies(filename, fileId, dirPath)
 	} else if (extension === '3ds' || extension === 'dae') {
 		// 3DS and DAE files can reference external textures
 		// Fetch all texture files in the directory (similar to FBX)
-		dependencies = await fetchFbxDependencies(filename, fileId, dirPath)
+		dependencyResult = await fetchFbxDependencies(filename, fileId, dirPath)
 	}
 	// GLB, STL, PLY, etc. are single-file formats - no dependencies
 	
+	const dependencies = dependencyResult.found || []
+	const missingFiles = dependencyResult.missing || []
+	
 	logger.info('MultiFileHelpers', ' Loaded dependencies:', dependencies.length)
+	if (missingFiles.length > 0) {
+		logger.warn('MultiFileHelpers', ' Missing files:', missingFiles)
+	}
 	
 	const result = {
 		mainFile,
 		dependencies,
+		missingFiles,
 		allFiles: [mainFile, ...dependencies],
 	}
 	
 	logger.info('MultiFileHelpers', ' Returning result:', {
 		mainFile: { name: result.mainFile.name, size: result.mainFile.size, type: result.mainFile.type },
 		dependencies: result.dependencies.map(f => ({ name: f.name, size: f.size, type: f.type })),
+		missingFiles: result.missingFiles,
 		allFilesCount: result.allFiles.length
 	})
 	

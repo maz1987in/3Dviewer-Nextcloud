@@ -191,6 +191,10 @@ export function useModelLoading() {
 							dependencies: result.dependencies.length,
 						})
 
+						// Add missing files info to result for error reporting
+						modelResult.missingFiles = result.missingFiles || []
+						modelResult.missingTextures = loadingContext.missingTextures || []
+
 						return modelResult
 					} else {
 						throw new Error('No valid 3D object returned from loader')

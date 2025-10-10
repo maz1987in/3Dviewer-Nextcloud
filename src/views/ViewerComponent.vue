@@ -487,6 +487,30 @@ export default {
 					this.updateProgress(true, 100, this.t('threedviewer', 'Model loaded'), '', false)
 					logger.info('ViewerComponent', 'Model loaded successfully')
 					
+					// Check for loading warnings (missing files/textures)
+					const totalMissing = (result.missingFiles?.length || 0) + (context.missingTextures?.length || 0)
+					if (totalMissing > 0) {
+						const missingList = [
+							...(result.missingFiles || []),
+							...(context.missingTextures || [])
+						]
+						
+						logger.warn('ViewerComponent', 'Model loaded with warnings', {
+							missingCount: totalMissing,
+							missingFiles: missingList
+						})
+						
+						// Emit warning toast
+						this.$emit('push-toast', {
+							type: 'warning',
+							title: this.t('threedviewer', 'Model loaded with warnings'),
+							message: totalMissing === 1
+								? this.t('threedviewer', '1 texture could not be loaded')
+								: this.t('threedviewer', '{count} textures could not be loaded', { count: totalMissing }),
+							timeout: 8000,
+						})
+					}
+					
 					// Emit success event
 					this.$emit('model-loaded', {
 						filename: result.mainFile.name,

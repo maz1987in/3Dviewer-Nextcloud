@@ -22,6 +22,7 @@ class ThreeDSLoader extends BaseLoader {
 
 		// Create a custom LoadingManager for texture loading
 		let loadingManager = THREE.DefaultLoadingManager
+		const missingTextures = []
 		
 		// If additional files provided, set up custom texture loading
 		if (additionalFiles && additionalFiles.length > 0) {
@@ -44,6 +45,8 @@ class ThreeDSLoader extends BaseLoader {
 					return URL.createObjectURL(blob)
 				}
 				
+				// Track missing texture
+				missingTextures.push(textureName)
 				this.logWarning('3DS texture not found in dependencies', { textureName, url })
 				return url
 			})
@@ -70,6 +73,15 @@ class ThreeDSLoader extends BaseLoader {
 		this.logInfo('3DS model loaded successfully', {
 			children: object3D.children.length,
 		})
+
+		// Add missing textures info to context for error reporting
+		if (missingTextures.length > 0) {
+			this.logWarning('3DS textures not found', {
+				count: missingTextures.length,
+				files: missingTextures,
+			})
+			context.missingTextures = missingTextures
+		}
 
 		// Process the result
 		return this.processModel(object3D, context)

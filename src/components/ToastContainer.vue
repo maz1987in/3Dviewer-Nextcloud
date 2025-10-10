@@ -159,6 +159,7 @@ export default {
 .toast.success { border-left: 4px solid var(--color-success,#2e7d32); }
 .toast.error { border-left: 4px solid var(--color-error,#d32f2f); }
 .toast.info { border-left: 4px solid var(--color-primary-element,#1976d2); }
+.toast.warning { border-left: 4px solid var(--color-warning,#ff9800); }
 .toast .title { display:block; font-weight:600; margin-bottom:2px; }
 .toast .close { position:absolute; top:4px; right:6px; background:transparent; border:none; color:currentColor; font-size:16px; cursor:pointer; padding:0; }
 .toast .close:focus-visible { outline:2px solid var(--color-primary-element,#1976d2); outline-offset:2px; }
@@ -191,6 +192,7 @@ export default {
 .toast.success .progress-bar::after { background: var(--color-success, #2e7d32); }
 .toast.error .progress-bar::after { background: var(--color-error, #d32f2f); }
 .toast.info .progress-bar::after { background: var(--color-primary-element, #1976d2); }
+.toast.warning .progress-bar::after { background: var(--color-warning, #ff9800); }
 
 /* Dark theme adjustments */
 .dark-theme .toast .progress-bar {

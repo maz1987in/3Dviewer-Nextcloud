@@ -639,6 +639,30 @@ export default {
 					const fileSize = modelLoading.progress.value.total || 0
 					modelStatsComposable.analyzeModel(modelRoot.value, filename, fileSize)
 
+					// Check for loading warnings (missing files/textures)
+					const missingFiles = loadedModel.missingFiles || []
+					const missingTextures = loadedModel.missingTextures || []
+					const totalMissing = missingFiles.length + missingTextures.length
+					
+					if (totalMissing > 0) {
+						const missingList = [...missingFiles, ...missingTextures]
+						
+						logger.warn('ThreeViewer', 'Model loaded with warnings', {
+							missingCount: totalMissing,
+							missingFiles: missingList,
+						})
+						
+						// Emit warning toast
+						emit('push-toast', {
+							type: 'warning',
+							title: 'Model loaded with warnings',
+							message: totalMissing === 1
+								? `1 texture could not be loaded: ${missingList[0]}`
+								: `${totalMissing} textures could not be loaded`,
+							timeout: 8000,
+						})
+					}
+
 					emit('model-loaded', { fileId, filename })
 					logger.info('ThreeViewer', 'Model loaded successfully')
 				} else {
