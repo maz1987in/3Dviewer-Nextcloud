@@ -212,6 +212,13 @@ Handle Texture.JPG vs texture.jpg mismatches.
 
 ## ✅ Recently Completed (October 2025)
 
+- [x] **Dependency Caching System** (October 10, 2025) - IndexedDB caching for MTL/textures
+  - Persistent cache across sessions using IndexedDB
+  - Smart file size limits (10MB per file, 100MB total)
+  - LRU eviction and 7-day auto-expiration
+  - Clear Cache button in SETTINGS section
+  - Prevents out-of-memory errors with large files
+  - Dramatically faster reloads for models with dependencies
 - [x] **Enhanced Model Statistics Panel** (October 10, 2025) - Comprehensive model information display
   - Statistics panel on left side with detailed model info
   - Geometry stats: Vertices, faces, meshes count
