@@ -46,6 +46,7 @@
 				@toggle-annotation="onToggleAnnotation"
 				@toggle-comparison="onToggleComparison"
 				@toggle-performance="onTogglePerformance"
+				@toggle-stats="onToggleStats"
 				@take-screenshot="onTakeScreenshot"
 				@export-model="onExportModel"
 				@toggle-help="onToggleHelp" />
@@ -247,6 +248,11 @@ export default {
 	onTogglePerformance() {
 		// Toggle the performance stats overlay visibility
 		this.$refs.viewer?.togglePerformanceStats?.()
+	},
+	
+	onToggleStats() {
+		// Toggle the model statistics panel
+		this.$refs.viewer?.toggleModelStats?.()
 	},
 	
 	onExportModel(format) {

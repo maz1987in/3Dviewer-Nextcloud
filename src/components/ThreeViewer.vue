@@ -72,6 +72,96 @@
 			</div>
 		</div>
 
+		<!-- Model Statistics Panel -->
+		<div v-if="showModelStats && modelStats" class="model-stats-overlay" :class="{ 'mobile': isMobile }">
+			<div class="stats-panel-header">
+				<h3>{{ t('threedviewer', 'Model Statistics') }}</h3>
+				<button class="close-stats-btn" @click="toggleModelStats">×</button>
+			</div>
+			
+			<div class="stats-panel-content">
+				<!-- Geometry Section -->
+				<div class="stats-section">
+					<h4>{{ t('threedviewer', 'Geometry') }}</h4>
+					<div class="stat-row">
+						<span>{{ t('threedviewer', 'Vertices') }}:</span>
+						<span class="stat-value">{{ modelStats.vertices.toLocaleString() }}</span>
+					</div>
+					<div class="stat-row">
+						<span>{{ t('threedviewer', 'Faces') }}:</span>
+						<span class="stat-value">{{ modelStats.faces.toLocaleString() }}</span>
+					</div>
+					<div class="stat-row">
+						<span>{{ t('threedviewer', 'Meshes') }}:</span>
+						<span class="stat-value">{{ modelStats.meshes }}</span>
+					</div>
+				</div>
+
+				<!-- Materials Section -->
+				<div class="stats-section">
+					<h4>{{ t('threedviewer', 'Materials') }} ({{ modelStats.materialCount }})</h4>
+					<div v-if="modelStats.materials.length > 0" class="material-list">
+						<div v-for="mat in modelStats.materials" :key="mat.uuid" class="material-item">
+							<span class="material-name">{{ mat.name }}</span>
+							<span class="material-type">{{ mat.type }}</span>
+						</div>
+						<div v-if="modelStats.materialCount > 10" class="more-items">
+							{{ t('threedviewer', '+ {count} more', { count: modelStats.materialCount - 10 }) }}
+						</div>
+					</div>
+					<div v-else class="no-items">
+						{{ t('threedviewer', 'No materials') }}
+					</div>
+				</div>
+
+				<!-- Textures Section -->
+				<div class="stats-section">
+					<h4>{{ t('threedviewer', 'Textures') }} ({{ modelStats.textureCount }})</h4>
+					<div v-if="modelStats.textureCount > 0" class="stat-row">
+						<span>{{ t('threedviewer', 'Memory') }}:</span>
+						<span class="stat-value">{{ modelStats.textureMemoryMB.toFixed(2) }} MB</span>
+					</div>
+					<div v-else class="no-items">
+						{{ t('threedviewer', 'No textures') }}
+					</div>
+				</div>
+
+				<!-- Dimensions Section -->
+				<div class="stats-section">
+					<h4>{{ t('threedviewer', 'Dimensions') }}</h4>
+					<div class="stat-row">
+						<span>{{ t('threedviewer', 'Width (X)') }}:</span>
+						<span class="stat-value">{{ modelStats.boundingBox.x.toFixed(2) }} units</span>
+					</div>
+					<div class="stat-row">
+						<span>{{ t('threedviewer', 'Height (Y)') }}:</span>
+						<span class="stat-value">{{ modelStats.boundingBox.y.toFixed(2) }} units</span>
+					</div>
+					<div class="stat-row">
+						<span>{{ t('threedviewer', 'Depth (Z)') }}:</span>
+						<span class="stat-value">{{ modelStats.boundingBox.z.toFixed(2) }} units</span>
+					</div>
+					<div class="stat-row">
+						<span>{{ t('threedviewer', 'Volume') }}:</span>
+						<span class="stat-value">{{ modelStats.volume.toFixed(2) }} cu. units</span>
+					</div>
+				</div>
+
+				<!-- File Section -->
+				<div class="stats-section">
+					<h4>{{ t('threedviewer', 'File') }}</h4>
+					<div class="stat-row">
+						<span>{{ t('threedviewer', 'Size') }}:</span>
+						<span class="stat-value">{{ modelStats.fileSizeMB.toFixed(2) }} MB</span>
+					</div>
+					<div class="stat-row">
+						<span>{{ t('threedviewer', 'Format') }}:</span>
+						<span class="stat-value">{{ modelStats.format.toUpperCase() }}</span>
+					</div>
+				</div>
+			</div>
+		</div>
+
 		<!-- Error display -->
 		<div v-if="hasError && errorState" class="error-display" :class="{ 'mobile': isMobile }">
 			<div class="error-content">
@@ -277,6 +367,7 @@ import { useMeasurement } from '../composables/useMeasurement.js'
 import { useAnnotation } from '../composables/useAnnotation.js'
 import { usePerformance } from '../composables/usePerformance.js'
 import { useExport } from '../composables/useExport.js'
+import { useModelStats } from '../composables/useModelStats.js'
 import { logger } from '../utils/logger.js'
 
 export default {
@@ -320,6 +411,7 @@ export default {
 		const annotation = useAnnotation()
 		const performance = usePerformance()
 		const exportComposable = useExport()
+		const modelStatsComposable = useModelStats()
 
 		// Computed properties
 		const isMobile = computed(() => camera.isMobile.value)
@@ -528,6 +620,10 @@ export default {
 
 					// Update grid size
 					updateGridSize(modelRoot.value)
+
+					// Calculate model statistics
+					const fileSize = modelLoading.progress.value.total || 0
+					modelStatsComposable.analyzeModel(modelRoot.value, filename, fileSize)
 
 					emit('model-loaded', { fileId, filename })
 					logger.info('ThreeViewer', 'Model loaded successfully')
@@ -845,6 +941,14 @@ export default {
 	const togglePerformanceStats = () => {
 		showPerformanceStats.value = !showPerformanceStats.value
 		logger.info('ThreeViewer', 'Performance stats toggled', { visible: showPerformanceStats.value })
+	}
+
+	/**
+	 * Toggle model statistics panel
+	 */
+	const toggleModelStats = () => {
+		modelStatsComposable.toggleStatsPanel()
+		logger.info('ThreeViewer', 'Model stats toggled', { visible: modelStatsComposable.showStats.value })
 	}
 
 	/**
@@ -1210,6 +1314,10 @@ export default {
 		isExporting: exportComposable.exporting,
 		exportProgress: exportComposable.exportProgress,
 		
+		// Model stats
+		modelStats: modelStatsComposable.modelStats,
+		showModelStats: modelStatsComposable.showStats,
+		
 		// Methods
 			toggleOriginalModel,
 			toggleComparisonModel,
@@ -1233,6 +1341,7 @@ export default {
 		toggleComparisonMode,
 		setPerformanceMode,
 		togglePerformanceStats,
+		toggleModelStats,
 		handleExport,
 		hasModel: computed(() => modelRoot.value !== null),
 	}
@@ -1408,6 +1517,159 @@ export default {
 
 .export-progress-overlay.mobile .export-percentage {
 	font-size: 24px;
+}
+
+/* Model Statistics Panel */
+.model-stats-overlay {
+	position: absolute;
+	top: 80px;
+	left: 20px;
+	width: 320px;
+	max-height: 600px;
+	background: rgba(0, 0, 0, 0.9);
+	border: 1px solid rgba(255, 255, 255, 0.2);
+	border-radius: 8px;
+	color: white;
+	z-index: 300;
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.stats-panel-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 16px 20px;
+	background: rgba(0, 0, 0, 0.5);
+	border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.stats-panel-header h3 {
+	margin: 0;
+	font-size: 16px;
+	font-weight: 600;
+	color: var(--color-primary-element, #4287f5);
+}
+
+.close-stats-btn {
+	background: transparent;
+	border: none;
+	color: white;
+	font-size: 28px;
+	line-height: 1;
+	cursor: pointer;
+	padding: 4px 8px;
+	border-radius: 4px;
+	transition: background 0.2s ease;
+}
+
+.close-stats-btn:hover {
+	background: rgba(255, 255, 255, 0.1);
+}
+
+.stats-panel-content {
+	flex: 1;
+	overflow-y: auto;
+	padding: 16px 20px;
+}
+
+.stats-section {
+	margin-bottom: 20px;
+	padding-bottom: 16px;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.stats-section:last-child {
+	border-bottom: none;
+	margin-bottom: 0;
+}
+
+.stats-section h4 {
+	margin: 0 0 12px 0;
+	font-size: 14px;
+	font-weight: 600;
+	color: rgba(255, 255, 255, 0.9);
+}
+
+.stat-row {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 6px 0;
+	font-size: 13px;
+}
+
+.stat-row span:first-child {
+	color: rgba(255, 255, 255, 0.7);
+}
+
+.stat-row .stat-value {
+	font-weight: 600;
+	color: #ffffff;
+	font-family: 'Courier New', monospace;
+}
+
+.material-list {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.material-item {
+	display: flex;
+	justify-content: space-between;
+	padding: 8px 12px;
+	background: rgba(255, 255, 255, 0.05);
+	border-radius: 4px;
+	font-size: 12px;
+}
+
+.material-name {
+	color: #ffffff;
+	font-weight: 500;
+}
+
+.material-type {
+	color: rgba(255, 255, 255, 0.6);
+	font-size: 11px;
+}
+
+.no-items {
+	color: rgba(255, 255, 255, 0.5);
+	font-style: italic;
+	font-size: 12px;
+	padding: 8px 0;
+}
+
+.more-items {
+	color: rgba(255, 255, 255, 0.6);
+	font-size: 12px;
+	padding: 8px 12px;
+	text-align: center;
+	font-style: italic;
+}
+
+/* Mobile adjustments for stats panel */
+.model-stats-overlay.mobile {
+	top: 60px;
+	left: 10px;
+	right: 10px;
+	width: auto;
+	max-height: 500px;
+}
+
+.model-stats-overlay.mobile .stats-panel-header {
+	padding: 12px 16px;
+}
+
+.model-stats-overlay.mobile .stats-panel-content {
+	padding: 12px 16px;
+}
+
+.model-stats-overlay.mobile .stat-row {
+	font-size: 12px;
 }
 
 .error-display {

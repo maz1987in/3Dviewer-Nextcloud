@@ -167,6 +167,12 @@
 								<span class="tool-icon">⚡</span>
 								<span class="tool-label">{{ t('threedviewer', 'Performance') }}</span>
 							</button>
+							<button class="tool-btn"
+								:disabled="!modelLoaded"
+								@click="emit('toggle-stats')">
+								<span class="tool-icon">📊</span>
+								<span class="tool-label">{{ t('threedviewer', 'Model Statistics') }}</span>
+							</button>
 							<button class="tool-btn" @click="emit('take-screenshot')">
 								<span class="tool-icon">📷</span>
 								<span class="tool-label">{{ t('threedviewer', 'Screenshot') }}</span>
@@ -246,6 +252,7 @@ export default {
 		'toggle-annotation',
 		'toggle-comparison',
 		'toggle-performance',
+		'toggle-stats',
 		'take-screenshot',
 		'export-model',
 		'toggle-help',
