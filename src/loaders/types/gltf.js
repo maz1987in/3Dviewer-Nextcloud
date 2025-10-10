@@ -1,4 +1,4 @@
-/* global THREE */
+import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { BaseLoader } from '../BaseLoader.js'
 
@@ -45,60 +45,42 @@ class GltfLoader extends BaseLoader {
 	 */
 	async setupResourceManager(additionalFiles) {
 		try {
-			// Create a custom resource manager that serves files from our additional files
+			// Create a map of blob URLs for each file
 			const resourceMap = new Map()
 			
-			// Map filename to File object
+			// Convert each File to a blob URL
 			for (const file of additionalFiles) {
-				resourceMap.set(file.name, file)
-				this.logInfo('Added resource to map:', file.name)
+				const blob = new Blob([file], { type: file.type || 'application/octet-stream' })
+				const blobUrl = URL.createObjectURL(blob)
+				resourceMap.set(file.name, blobUrl)
+				this.logInfo('Created blob URL for resource:', file.name, { type: file.type, size: file.size })
 			}
 
-			// Override the GLTFLoader's load method to use our resource map
-			const originalLoad = this.loader.load.bind(this.loader)
-			this.loader.load = (url, onLoad, onProgress, onError) => {
-				// Check if this URL matches one of our additional files
-				const filename = url.split('/').pop()
+			// Create a custom LoadingManager with URL modifier
+			const manager = new THREE.LoadingManager()
+			
+			manager.setURLModifier((url) => {
+				// Extract filename from URL
+				const filename = url.split('/').pop().split('?')[0]
+				
+				// Check if we have this file
 				if (resourceMap.has(filename)) {
-					const file = resourceMap.get(filename)
-					
-					// For binary files, we need to provide the ArrayBuffer directly
-					// Create a mock response that the GLTF loader expects
-					file.arrayBuffer().then(arrayBuffer => {
-						this.logInfo('Providing binary data for:', filename, {
-							size: arrayBuffer.byteLength,
-							type: file.type
-						})
-						
-						// Create a mock XMLHttpRequest response
-						const mockResponse = {
-							response: arrayBuffer,
-							status: 200,
-							statusText: 'OK',
-							responseType: 'arraybuffer'
-						}
-						
-						// Call the onLoad callback with the mock response
-						if (onLoad) {
-							onLoad(mockResponse)
-						}
-					}).catch(error => {
-						this.logError('Failed to convert file to ArrayBuffer', { 
-							filename, 
-							error: error.message 
-						})
-						if (onError) {
-							onError(error)
-						}
-					})
-				} else {
-					// Fall back to original load method for embedded resources
-					originalLoad(url, onLoad, onProgress, onError)
+					const blobUrl = resourceMap.get(filename)
+					this.logInfo('Resolving resource from blob:', filename)
+					return blobUrl
 				}
-			}
+				
+				// Return original URL if not found
+				this.logWarning('Resource not found in map, using original URL:', filename)
+				return url
+			})
+			
+			// Set the custom manager on the loader
+			this.loader.manager = manager
 
 			this.logInfo('Resource manager setup complete', { 
-				resources: additionalFiles.length 
+				resources: additionalFiles.length,
+				files: Array.from(resourceMap.keys())
 			})
 		} catch (error) {
 			this.logWarning('Failed to setup resource manager', { 
@@ -120,9 +102,9 @@ class GltfLoader extends BaseLoader {
 			try {
 				const { DRACOLoader } = await import('three/examples/jsm/loaders/DRACOLoader.js')
 				const dracoLoader = new DRACOLoader()
-				dracoLoader.setDecoderPath('/apps/threedviewer/decoder/')
+				dracoLoader.setDecoderPath('/apps/threedviewer/draco/')
 				this.loader.setDRACOLoader(dracoLoader)
-				this.logInfo('DRACO loader configured')
+				this.logInfo('DRACO loader configured', { path: '/apps/threedviewer/draco/' })
 			} catch (error) {
 				this.logWarning('DRACO loader unavailable', { error: error.message })
 			}
@@ -133,10 +115,10 @@ class GltfLoader extends BaseLoader {
 			try {
 				const { KTX2Loader } = await import('three/examples/jsm/loaders/KTX2Loader.js')
 				const ktx2Loader = new KTX2Loader()
-				ktx2Loader.setTranscoderPath('/apps/threedviewer/decoder/')
+				ktx2Loader.setTranscoderPath('/apps/threedviewer/basis/')
 				ktx2Loader.detectSupport(renderer)
 				this.loader.setKTX2Loader(ktx2Loader)
-				this.logInfo('KTX2 loader configured')
+				this.logInfo('KTX2 loader configured', { path: '/apps/threedviewer/basis/' })
 			} catch (error) {
 				this.logWarning('KTX2 loader unavailable', { error: error.message })
 			}

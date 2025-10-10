@@ -232,6 +232,14 @@ export const PROGRESSIVE_LOADING_SETTINGS = {
 	showProgress: true,   // Show texture loading indicator
 }
 
+export const COMPRESSION_SETTINGS = {
+	ktx2Enabled: true,    // Enable KTX2 texture compression support
+	dracoEnabled: true,   // Enable DRACO geometry compression support
+	// Decoder paths are handled by AssetController
+	// DRACO: /apps/threedviewer/draco/
+	// Basis (KTX2): /apps/threedviewer/basis/
+}
+
 /**
  * File size categories and limits
  */
@@ -436,6 +444,7 @@ export const VIEWER_CONFIG = {
 	comparison: COMPARISON_SETTINGS,
 	cache: CACHE_SETTINGS,
 	progressiveLoading: PROGRESSIVE_LOADING_SETTINGS,
+	compression: COMPRESSION_SETTINGS,
 	fileSizeCategories: FILE_SIZE_CATEGORIES,
 	supportedFormats: SUPPORTED_FORMATS,
 	limits: {
