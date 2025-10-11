@@ -90,6 +90,17 @@ Cache MTL/textures to avoid re-downloading.
 
 ## ✅ Recently Completed (October 2025)
 
+- [x] **Help Panel with Tool Explanations** (October 10, 2025) - Comprehensive in-app documentation
+  - Created HelpPanel.vue modal component with organized sections
+  - Documented all tools in VIEW, DISPLAY, TOOLS, and SETTINGS sections
+  - Each tool explained with icon, name, and clear description
+  - Keyboard shortcuts table with visual kbd styling
+  - Tips & Tricks section for helpful usage notes
+  - Modal opens via help button (ⓘ), closes via X, Escape, or backdrop click
+  - Fully responsive mobile design (full-screen on mobile)
+  - RTL-aware layout for right-to-left languages
+  - Theme-aware colors adapting to light/dark modes
+  - Accessible with ARIA labels and keyboard navigation
 - [x] **Theme Customization with RTL Support** (October 10, 2025) - Complete theme system and Right-to-Left language support
   - Created useTheme.js composable for theme and direction management
   - Theme modes: Auto (system), Light, Dark with cycle button in Settings
