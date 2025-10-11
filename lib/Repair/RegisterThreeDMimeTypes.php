@@ -36,6 +36,14 @@ class RegisterThreeDMimeTypes implements IRepairStep {
 	/**
 	 * Extension to MIME type mappings for 3D model formats
 	 * 
+	 * SYNC NOTE: The complete list of supported formats is defined in 
+	 *            src/config/viewer-config.js (SUPPORTED_FORMATS) as the single source of truth.
+	 *            This PHP constant registers MIME types for Nextcloud's file system.
+	 * 
+	 * MUST stay synchronized with:
+	 *  - src/config/viewer-config.js::SUPPORTED_FORMATS
+	 *  - lib/Service/ModelFileSupport.php::$supported
+	 * 
 	 * @see https://www.iana.org/assignments/media-types/media-types.xhtml
 	 */
 	private const EXT_MIME_MAP = [
@@ -51,6 +59,9 @@ class RegisterThreeDMimeTypes implements IRepairStep {
 		'3mf' => ['model/3mf'],
 		'fbx' => ['model/x.fbx'],
 		'3ds' => ['application/x-3ds'],
+		'x3d' => ['model/x3d+xml'],
+		'vrml' => ['model/vrml'],
+		'wrl' => ['model/vrml'], // VRML alternative extension
 		
 		// Material/texture files
 		'mtl' => ['text/plain'],

@@ -1,4 +1,5 @@
 {
+  "_comment": "SYNC NOTE: This maps to src/config/viewer-config.js::SUPPORTED_FORMATS",
   "mappings": {
     "glb": "model/gltf-binary",
     "gltf": "model/gltf+json",

@@ -204,7 +204,7 @@
 						<li>{{ t('threedviewer', 'Textures in subdirectories (like "Texture/" folder) are automatically found.') }}</li>
 						<li>{{ t('threedviewer', 'Dependencies (MTL files, textures) are cached for 7 days for faster reloads.') }}</li>
 						<li>{{ t('threedviewer', 'Auto mode detects your device capabilities for optimal performance.') }}</li>
-						<li>{{ t('threedviewer', 'All formats supported: OBJ, GLTF, GLB, FBX, STL, 3DS, DAE, PLY, 3MF, X3D, VRML.') }}</li>
+						<li>{{ t('threedviewer', 'All formats supported: {formats}', { formats: supportedFormats }) }}</li>
 						<li>{{ t('threedviewer', 'Use comparison mode to spot differences between model versions.') }}</li>
 					</ul>
 				</section>
@@ -215,6 +215,7 @@
 
 <script>
 import { translate as t } from '@nextcloud/l10n'
+import { FORMATS_DISPLAY_LIST } from '../config/viewer-config.js'
 
 export default {
 	name: 'HelpPanel',
@@ -249,6 +250,7 @@ export default {
 			t,
 			close,
 			cleanup,
+			supportedFormats: FORMATS_DISPLAY_LIST,
 		}
 	},
 	
