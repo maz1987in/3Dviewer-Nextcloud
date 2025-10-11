@@ -75,7 +75,10 @@
 		<!-- Model Statistics Panel -->
 		<div v-if="showModelStats && modelStats" class="model-stats-overlay" :class="{ 'mobile': isMobile }">
 			<div class="stats-panel-header">
-				<h3>{{ t('threedviewer', 'Model Statistics') }}</h3>
+				<div class="stats-title-group">
+					<img v-if="formatIcon" :src="formatIcon" class="format-icon" alt="Format icon" />
+					<h3>{{ t('threedviewer', 'Model Statistics') }}</h3>
+				</div>
 				<button class="close-stats-btn" @click="toggleModelStats">×</button>
 			</div>
 			
@@ -382,6 +385,7 @@ import { useModelStats } from '../composables/useModelStats.js'
 import { useProgressiveTextures } from '../composables/useProgressiveTextures.js'
 import { useTheme } from '../composables/useTheme.js'
 import { logger } from '../utils/logger.js'
+import { getIconForFilename } from '../utils/iconHelpers.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
 import { initCache, clearExpired, clearAll, getCacheStats } from '../utils/dependencyCache.js'
 
@@ -450,6 +454,12 @@ export default {
 			get: () => measurement.currentUnit.value,
 			set: (value) => { measurement.currentUnit.value = value },
 		})
+		
+		// Format icon for current model
+		const formatIcon = computed(() => {
+			const filename = modelStatsComposable.modelStats.value?.filename || props.filename || ''
+			return getIconForFilename(filename)
+		})
 
 		// Methods
 		const init = async () => {
@@ -488,9 +498,12 @@ export default {
 			overlay: 'Visible in bottom-left corner'
 		})
 
-	// Load model if fileId provided
+	// Load model if fileId provided, otherwise show demo
 	if (props.fileId) {
 		await loadModel(props.fileId)
+	} else {
+		// Show demo scene when no file is specified
+		createDemoScene()
 	}
 	
 	// Initialization complete - hide loading indicator
@@ -685,30 +698,100 @@ export default {
 			}
 		}
 
-		const createDemoScene = (fileId) => {
-			try {
-				// Create a simple demo scene
-				const geometry = new THREE.BoxGeometry(1, 1, 1)
-				const material = new THREE.MeshLambertMaterial({ color: 0x00ff00 })
-				const cube = new THREE.Mesh(geometry, material)
-
-				modelRoot.value = new THREE.Group()
-				modelRoot.value.add(cube)
-				scene.value.add(modelRoot.value)
-
-				// Fit camera to object
-				camera.fitCameraToObject(modelRoot.value)
-
-				// Update grid size
-				updateGridSize(modelRoot.value)
-
-				emit('model-loaded', { fileId, filename: 'demo.glb' })
-				logger.info('ThreeViewer', 'Demo scene created')
-			} catch (error) {
-				logger.error('ThreeViewer', 'Failed to create demo scene', error)
-				emit('error', error)
-			}
+	const createDemoScene = (fileId = 'demo') => {
+		try {
+			const demoGroup = new THREE.Group()
+			
+			// Load the app logo texture
+			const textureLoader = new THREE.TextureLoader()
+			const logoTexture = textureLoader.load('/apps/threedviewer/img/app-color.png')
+			
+			// 1. Center piece - Logo on a plane with depth
+			const logoPlaneGeometry = new THREE.PlaneGeometry(2, 2)
+			const logoMaterial = new THREE.MeshBasicMaterial({ 
+				map: logoTexture,
+				transparent: true,
+				side: THREE.DoubleSide,
+			})
+			const logoPlane = new THREE.Mesh(logoPlaneGeometry, logoMaterial)
+			logoPlane.position.set(0, 0.5, 0)
+			demoGroup.add(logoPlane)
+			
+			// 2. Logo back panel for depth effect
+			const backPanelGeometry = new THREE.PlaneGeometry(2.1, 2.1)
+			const backPanelMaterial = new THREE.MeshStandardMaterial({ 
+				color: 0x0082c9,
+				metalness: 0.3,
+				roughness: 0.7,
+			})
+			const backPanel = new THREE.Mesh(backPanelGeometry, backPanelMaterial)
+			backPanel.position.set(0, 0.5, -0.1)
+			demoGroup.add(backPanel)
+			
+			// 3. Decorative sphere - left
+			const sphereGeometry = new THREE.SphereGeometry(0.3, 32, 32)
+			const sphereMaterial = new THREE.MeshStandardMaterial({ 
+				color: 0x0082c9,
+				metalness: 0.8,
+				roughness: 0.2,
+			})
+			const sphere1 = new THREE.Mesh(sphereGeometry, sphereMaterial)
+			sphere1.position.set(-1.3, -0.5, 0.3)
+			demoGroup.add(sphere1)
+			
+			// 4. Decorative sphere - right
+			const sphere2 = new THREE.Mesh(sphereGeometry, sphereMaterial)
+			sphere2.position.set(1.3, -0.5, 0.3)
+			demoGroup.add(sphere2)
+			
+			// 5. Small decorative cubes
+			const cubeGeometry = new THREE.BoxGeometry(0.25, 0.25, 0.25)
+			const cubeMaterial = new THREE.MeshStandardMaterial({ 
+				color: 0x4ecdc4,
+				metalness: 0.5,
+				roughness: 0.5,
+			})
+			
+			const cube1 = new THREE.Mesh(cubeGeometry, cubeMaterial)
+			cube1.position.set(-1.5, 0.8, 0.5)
+			cube1.rotation.set(0.5, 0.5, 0)
+			demoGroup.add(cube1)
+			
+			const cube2 = new THREE.Mesh(cubeGeometry, cubeMaterial)
+			cube2.position.set(1.5, 0.8, 0.5)
+			cube2.rotation.set(0.3, 0.8, 0.2)
+			demoGroup.add(cube2)
+			
+			// 6. Add demo lights
+			const ambientLight = new THREE.AmbientLight(0xffffff, 0.6)
+			demoGroup.add(ambientLight)
+			
+			const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8)
+			directionalLight.position.set(5, 5, 5)
+			demoGroup.add(directionalLight)
+			
+			const pointLight = new THREE.PointLight(0xffffff, 0.4)
+			pointLight.position.set(-3, 3, 3)
+			demoGroup.add(pointLight)
+			
+			// Add to scene
+			modelRoot.value = demoGroup
+			scene.value.add(modelRoot.value)
+			
+			// Fit camera
+			camera.fitCameraToObject(modelRoot.value)
+			updateGridSize(modelRoot.value)
+			
+			// Analyze demo model for stats
+			modelStatsComposable.analyzeModel(modelRoot.value, 'demo-scene.glb', 0)
+			
+			emit('model-loaded', { fileId, filename: 'Demo Scene' })
+			logger.info('ThreeViewer', 'Demo scene created with app logo')
+		} catch (error) {
+			logger.error('ThreeViewer', 'Failed to create demo scene', error)
+			emit('error', error)
 		}
+	}
 
 		/**
 		 * Dynamically update grid size based on model dimensions
@@ -1414,6 +1497,7 @@ export default {
 		// Model stats
 		modelStats: modelStatsComposable.modelStats,
 		showModelStats: modelStatsComposable.showStats,
+		formatIcon,
 		
 		// Progressive textures
 		loadingTextures: progressiveTexturesComposable.loadingTextures,
@@ -1653,6 +1737,20 @@ export default {
 	padding: 16px 20px;
 	background: rgba(0, 0, 0, 0.5);
 	border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.stats-title-group {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.stats-title-group .format-icon {
+	width: 24px;
+	height: 24px;
+	object-fit: contain;
+	filter: brightness(0) invert(1); /* Make icon white for dark bg */
+	opacity: 0.9;
 }
 
 .stats-panel-header h3 {

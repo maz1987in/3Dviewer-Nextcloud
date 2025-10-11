@@ -210,6 +210,20 @@ export const COMPARISON_SETTINGS = {
 }
 
 /**
+ * Demo scene settings
+ */
+export const DEMO_SCENE_CONFIG = {
+	enabled: true,
+	autoRotate: true,
+	objects: [
+		{ type: 'torusKnot', color: 0x4287f5, position: [0, 1, 0] },
+		{ type: 'sphere', color: 0xff6b6b, position: [-1.5, 0.5, 0] },
+		{ type: 'box', color: 0x4ecdc4, position: [1.5, 0.5, 0] },
+		{ type: 'cone', color: 0xffe66d, position: [0, 0, -1.5] },
+	],
+}
+
+/**
  * Cache settings
  */
 export const CACHE_SETTINGS = {
@@ -264,6 +278,18 @@ export const FILE_SIZE_CATEGORIES = {
 
 /**
  * Supported file formats with metadata
+ * 
+ * This is the SINGLE SOURCE OF TRUTH for all supported 3D model formats.
+ * All other format lists (loaders, PHP backend, help text) are derived from this.
+ * 
+ * @typedef {Object} FormatMetadata
+ * @property {string} name - Display name (uppercase)
+ * @property {string} description - Human-readable description
+ * @property {string} mimeType - Primary MIME type for backend
+ * @property {string[]} features - Capabilities/features of this format
+ * @property {boolean} multiFile - Whether format supports external dependencies (MTL, textures, etc.)
+ * @property {number} displayOrder - Sort order for UI display
+ * @property {string} icon - Path to format-specific icon SVG
  */
 export const SUPPORTED_FORMATS = {
 	glb: {
@@ -271,68 +297,134 @@ export const SUPPORTED_FORMATS = {
 		description: 'Binary glTF format',
 		mimeType: 'model/gltf-binary',
 		features: ['materials', 'animations', 'compression'],
+		multiFile: false,
+		displayOrder: 1,
+		icon: '/apps/threedviewer/img/filetypes/glb.svg',
 	},
 	gltf: {
 		name: 'GLTF',
 		description: 'JSON-based glTF format',
 		mimeType: 'model/gltf+json',
 		features: ['materials', 'animations', 'compression'],
+		multiFile: true,
+		displayOrder: 2,
+		icon: '/apps/threedviewer/img/filetypes/gltf.svg',
 	},
 	obj: {
 		name: 'OBJ',
 		description: 'Wavefront OBJ format',
 		mimeType: 'model/obj',
 		features: ['materials', 'mtl-support'],
+		multiFile: true,
+		displayOrder: 3,
+		icon: '/apps/threedviewer/img/filetypes/obj.svg',
 	},
 	stl: {
 		name: 'STL',
 		description: 'Stereolithography format',
 		mimeType: 'model/stl',
 		features: ['geometry-only'],
+		multiFile: false,
+		displayOrder: 5,
+		icon: '/apps/threedviewer/img/filetypes/stl.svg',
 	},
 	ply: {
 		name: 'PLY',
 		description: 'Polygon File Format',
 		mimeType: 'model/ply',
 		features: ['point-clouds', 'colors'],
+		multiFile: false,
+		displayOrder: 8,
+		icon: '/apps/threedviewer/img/filetypes/ply.svg',
 	},
 	fbx: {
 		name: 'FBX',
 		description: 'Autodesk FBX format',
 		mimeType: 'application/octet-stream',
 		features: ['materials', 'animations', 'bones'],
+		multiFile: true,
+		displayOrder: 4,
+		icon: '/apps/threedviewer/img/filetypes/fbx.svg',
 	},
 	'3mf': {
 		name: '3MF',
 		description: '3D Manufacturing Format',
 		mimeType: 'model/3mf',
 		features: ['materials', 'colors'],
+		multiFile: false,
+		displayOrder: 9,
+		icon: '/apps/threedviewer/img/filetypes/3mf.svg',
 	},
 	'3ds': {
 		name: '3DS',
 		description: '3D Studio format',
 		mimeType: 'application/octet-stream',
 		features: ['materials', 'animations'],
+		multiFile: true,
+		displayOrder: 7,
+		icon: '/apps/threedviewer/img/filetypes/3ds.svg',
 	},
 	dae: {
 		name: 'DAE',
 		description: 'Collada format',
 		mimeType: 'model/vnd.collada+xml',
 		features: ['materials', 'animations', 'bones'],
+		multiFile: true,
+		displayOrder: 6,
+		icon: '/apps/threedviewer/img/filetypes/dae.svg',
 	},
 	x3d: {
 		name: 'X3D',
 		description: 'Extensible 3D format',
 		mimeType: 'model/x3d+xml',
 		features: ['materials', 'animations'],
+		multiFile: false,
+		displayOrder: 10,
+		icon: '/apps/threedviewer/img/filetypes/x3d.svg',
 	},
 	vrml: {
 		name: 'VRML',
 		description: 'Virtual Reality Modeling Language',
 		mimeType: 'model/vrml',
 		features: ['materials', 'animations'],
+		multiFile: false,
+		displayOrder: 11,
+		icon: '/apps/threedviewer/img/filetypes/vrml.svg',
+	},
+	wrl: {
+		name: 'WRL',
+		description: 'VRML World (alternative extension)',
+		mimeType: 'model/vrml',
+		features: ['materials', 'animations'],
+		multiFile: false,
+		displayOrder: 12,
+		icon: '/apps/threedviewer/img/filetypes/wrl.svg',
 	},
 }
+
+/**
+ * Array of all supported model file extensions
+ * Derived from SUPPORTED_FORMATS
+ */
+export const MODEL_EXTENSIONS = Object.keys(SUPPORTED_FORMATS)
+
+/**
+ * Array of formats that support multi-file loading (with dependencies)
+ * Derived from SUPPORTED_FORMATS
+ */
+export const MULTI_FILE_FORMATS = Object.entries(SUPPORTED_FORMATS)
+	.filter(([_, meta]) => meta.multiFile)
+	.map(([ext]) => ext)
+
+/**
+ * Comma-separated list of format names for display in UI
+ * Example: "GLB, GLTF, OBJ, FBX, STL, DAE, 3DS, PLY, 3MF, X3D, VRML, WRL"
+ * Sorted by displayOrder
+ */
+export const FORMATS_DISPLAY_LIST = Object.entries(SUPPORTED_FORMATS)
+	.sort(([, a], [, b]) => a.displayOrder - b.displayOrder)
+	.map(([_, meta]) => meta.name)
+	.join(', ')
 
 /**
  * Get configuration value with fallback
@@ -442,6 +534,7 @@ export const VIEWER_CONFIG = {
 	error: ERROR_SETTINGS,
 	theme: THEME_SETTINGS,
 	comparison: COMPARISON_SETTINGS,
+	demoScene: DEMO_SCENE_CONFIG,
 	cache: CACHE_SETTINGS,
 	progressiveLoading: PROGRESSIVE_LOADING_SETTINGS,
 	compression: COMPRESSION_SETTINGS,
@@ -453,7 +546,7 @@ export const VIEWER_CONFIG = {
 		retryDelayMs: 1000,
 		loaderTimeoutMs: 30000,
 	},
-	supportedExtensions: [
-		'glb', 'gltf', 'obj', 'stl', 'ply', 'fbx', '3mf', '3ds', 'dae', 'x3d', 'vrml', 'wrl',
-	],
+	// Derived from SUPPORTED_FORMATS - no need to maintain separately
+	supportedExtensions: MODEL_EXTENSIONS,
+	multiFileFormats: MULTI_FILE_FORMATS,
 }
