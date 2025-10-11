@@ -205,4 +205,25 @@ export default {
 		transition: none;
 	}
 }
+
+/* RTL (Right-to-Left) Support */
+[dir="rtl"] .toast-container {
+	right: auto;
+	left: 12px;
+}
+
+[dir="rtl"] .toast {
+	border-left: none;
+	border-right: 4px solid;
+}
+
+[dir="rtl"] .toast.success { border-right: 4px solid var(--color-success,#2e7d32); }
+[dir="rtl"] .toast.error { border-right: 4px solid var(--color-error,#d32f2f); }
+[dir="rtl"] .toast.info { border-right: 4px solid var(--color-primary-element,#1976d2); }
+[dir="rtl"] .toast.warning { border-right: 4px solid var(--color-warning,#ff9800); }
+
+[dir="rtl"] .toast .close {
+	right: auto;
+	left: 6px;
+}
 </style>

@@ -33,6 +33,7 @@
 			:comparison-mode="comparisonMode"
 			:model-loaded="modelLoaded"
 			:performance-mode="performanceMode"
+			:theme-mode="themeMode"
 			:is-mobile="isMobile"
 			@reset-view="onReset"
 			@fit-to-view="onFitToView"
@@ -47,6 +48,7 @@
 			@toggle-annotation="onToggleAnnotation"
 			@toggle-comparison="onToggleComparison"
 			@cycle-performance-mode="onCyclePerformanceMode"
+			@cycle-theme="onCycleTheme"
 			@toggle-stats="onToggleStats"
 			@take-screenshot="onTakeScreenshot"
 			@export-model="onExportModel"
@@ -112,6 +114,7 @@ export default {
 			annotationMode: false,
 			comparisonMode: false,
 			performanceMode: 'auto',
+			themeMode: 'auto',
 			toasts: [],
 			_prefsLoaded: false,
 			// UI state
@@ -256,6 +259,12 @@ export default {
 		// Set the new performance mode
 		this.performanceMode = mode
 		this.$refs.viewer?.setPerformanceMode?.(mode)
+	},
+	
+	onCycleTheme(mode) {
+		// Set the new theme mode
+		this.themeMode = mode
+		this.$refs.viewer?.setTheme?.(mode)
 	},
 	
 	onToggleStats() {

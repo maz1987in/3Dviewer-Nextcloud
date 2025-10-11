@@ -380,6 +380,7 @@ import { usePerformance } from '../composables/usePerformance.js'
 import { useExport } from '../composables/useExport.js'
 import { useModelStats } from '../composables/useModelStats.js'
 import { useProgressiveTextures } from '../composables/useProgressiveTextures.js'
+import { useTheme } from '../composables/useTheme.js'
 import { logger } from '../utils/logger.js'
 import { initCache, clearExpired, clearAll, getCacheStats } from '../utils/dependencyCache.js'
 
@@ -426,6 +427,7 @@ export default {
 		const exportComposable = useExport()
 		const modelStatsComposable = useModelStats()
 		const progressiveTexturesComposable = useProgressiveTextures()
+		const themeComposable = useTheme()
 
 		// Computed properties
 		const isMobile = computed(() => camera.isMobile.value)
@@ -1275,6 +1277,13 @@ export default {
 			lastFpsEmit = now
 		}
 	})
+	
+	// Watch for theme changes to update scene background
+	watch(() => themeComposable.resolvedTheme.value, (newTheme) => {
+		if (scene.value) {
+			sceneComposable.applyThemeToScene(newTheme)
+		}
+	})
 
 	// Lifecycle
 	onMounted(async () => {
@@ -1287,6 +1296,9 @@ export default {
 		} catch (error) {
 			logger.warn('ThreeViewer', 'Cache init failed, continuing without cache', error)
 		}
+		
+		// Initialize theme system
+		themeComposable.initTheme()
 
 		// Test hooks for Playwright/testing
 		if (typeof window !== 'undefined') {
@@ -1397,6 +1409,12 @@ export default {
 		loadingTextures: progressiveTexturesComposable.loadingTextures,
 		textureProgress: progressiveTexturesComposable.textureProgress,
 		
+		// Theme
+		currentTheme: themeComposable.currentTheme,
+		resolvedTheme: themeComposable.resolvedTheme,
+		direction: themeComposable.direction,
+		isRTL: themeComposable.isRTL,
+		
 		// Methods
 			toggleOriginalModel,
 			toggleComparisonModel,
@@ -1419,6 +1437,7 @@ export default {
 		clearAllAnnotations,
 		toggleComparisonMode,
 		setPerformanceMode,
+		setTheme: themeComposable.setTheme,
 		togglePerformanceStats,
 		toggleModelStats,
 		handleExport,
@@ -2461,5 +2480,30 @@ export default {
 	width: 100%;
 		padding: 8px;
 	}
+}
+
+/* RTL (Right-to-Left) Support */
+[dir="rtl"] .model-stats-overlay {
+	left: auto;
+	right: 20px;
+}
+
+[dir="rtl"] .export-progress-overlay {
+	/* Center aligned, no change needed */
+}
+
+[dir="rtl"] .texture-progress-indicator {
+	right: auto;
+	left: 10px;
+}
+
+[dir="rtl"] .performance-stats {
+	left: auto;
+	right: 10px;
+}
+
+[dir="rtl"] .measurement-overlay,
+[dir="rtl"] .annotation-overlay {
+	/* Top-center aligned, no change needed */
 }
 </style>

@@ -478,6 +478,26 @@ export function useScene() {
 	}
 
 	/**
+	 * Apply theme to scene background
+	 * @param {string} theme - 'light' or 'dark'
+	 */
+	const applyThemeToScene = (theme) => {
+		if (!scene.value) return
+		
+		const themeColors = VIEWER_CONFIG.theme[theme] || VIEWER_CONFIG.theme.light
+		
+		if (themeColors.background) {
+			scene.value.background = new THREE.Color(themeColors.background)
+			backgroundColor.value = themeColors.background
+			
+			logger.info('useScene', 'Scene theme applied', { 
+				theme, 
+				background: themeColors.background 
+			})
+		}
+	}
+
+	/**
 	 * Dispose of scene resources
 	 */
 	const dispose = () => {
@@ -535,6 +555,7 @@ export function useScene() {
 		setupHelpers,
 		updateGridSize,
 		setBackground,
+		applyThemeToScene,
 		addFog,
 		removeFog,
 		addObject,

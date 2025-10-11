@@ -321,5 +321,21 @@ export default {
 		padding: 6px 8px;
 	}
 }
+
+/* RTL (Right-to-Left) Support */
+[dir="rtl"] .btn-group {
+	flex-direction: row-reverse;
+}
+
+[dir="rtl"] .quick-btn,
+[dir="rtl"] .icon-btn {
+	margin-left: 0;
+	margin-right: 4px;
+}
+
+[dir="rtl"] .quick-btn:first-child,
+[dir="rtl"] .icon-btn:first-child {
+	margin-right: 0;
+}
 </style>
 

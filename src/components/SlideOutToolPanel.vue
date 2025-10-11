@@ -163,16 +163,20 @@
 							<span class="expand-icon">{{ sections.settings ? '▼' : '▶' }}</span>
 						</button>
 						<div v-show="sections.settings" class="section-content">
-						<button class="tool-btn" @click="cyclePerformanceMode">
-							<span class="tool-icon">⚡</span>
-							<span class="tool-label">{{ t('threedviewer', 'Performance') }}: {{ getPerformanceModeText() }}</span>
+					<button class="tool-btn" @click="cyclePerformanceMode">
+						<span class="tool-icon">⚡</span>
+						<span class="tool-label">{{ t('threedviewer', 'Performance') }}: {{ getPerformanceModeText() }}</span>
+					</button>
+					<button class="tool-btn" @click="cycleTheme">
+						<span class="tool-icon">{{ getThemeIcon() }}</span>
+						<span class="tool-label">{{ t('threedviewer', 'Theme') }}: {{ getThemeText() }}</span>
+					</button>
+						<button class="tool-btn"
+							:disabled="!modelLoaded"
+							@click="emit('toggle-stats')">
+							<span class="tool-icon">📊</span>
+							<span class="tool-label">{{ t('threedviewer', 'Model Statistics') }}</span>
 						</button>
-							<button class="tool-btn"
-								:disabled="!modelLoaded"
-								@click="emit('toggle-stats')">
-								<span class="tool-icon">📊</span>
-								<span class="tool-label">{{ t('threedviewer', 'Model Statistics') }}</span>
-							</button>
 							<button class="tool-btn" @click="emit('take-screenshot')">
 								<span class="tool-icon">📷</span>
 								<span class="tool-label">{{ t('threedviewer', 'Screenshot') }}</span>
@@ -236,6 +240,7 @@ export default {
 		comparisonMode: { type: Boolean, default: false },
 		modelLoaded: { type: Boolean, default: false },
 		performanceMode: { type: String, default: 'auto' },
+		themeMode: { type: String, default: 'auto' },
 		
 		// Mobile detection
 		isMobile: { type: Boolean, default: false },
@@ -257,6 +262,7 @@ export default {
 		'toggle-annotation',
 		'toggle-comparison',
 		'cycle-performance-mode',
+		'cycle-theme',
 		'toggle-stats',
 		'take-screenshot',
 		'export-model',
@@ -405,6 +411,41 @@ export default {
 		}
 	}
 	
+	/**
+	 * Cycle through theme modes
+	 */
+	const cycleTheme = () => {
+		const modes = ['auto', 'light', 'dark']
+		const currentIndex = modes.indexOf(props.themeMode)
+		const nextIndex = (currentIndex + 1) % modes.length
+		const nextMode = modes[nextIndex]
+		emit('cycle-theme', nextMode)
+	}
+	
+	/**
+	 * Get display text for current theme
+	 */
+	const getThemeText = () => {
+		switch (props.themeMode) {
+		case 'light': return t('threedviewer', 'Light')
+		case 'dark': return t('threedviewer', 'Dark')
+		case 'auto':
+		default: return t('threedviewer', 'Auto')
+		}
+	}
+	
+	/**
+	 * Get icon for current theme
+	 */
+	const getThemeIcon = () => {
+		switch (props.themeMode) {
+		case 'light': return '☀️'
+		case 'dark': return '🌙'
+		case 'auto':
+		default: return '🌓'
+		}
+	}
+	
 	return {
 		t,
 		isOpen,
@@ -416,6 +457,9 @@ export default {
 		handleExportChange,
 		cyclePerformanceMode,
 		getPerformanceModeText,
+		cycleTheme,
+		getThemeText,
+		getThemeIcon,
 		emit,
 	}
 	},
@@ -761,6 +805,53 @@ export default {
 	.panel-toggle-btn,
 	.tool-btn {
 		transition: none;
+	}
+}
+
+/* RTL (Right-to-Left) Support */
+[dir="rtl"] .slide-out-panel {
+	right: auto;
+	left: 0;
+	box-shadow: 4px 0 20px rgba(0, 0, 0, 0.1);
+}
+
+[dir="rtl"] .panel-toggle-btn {
+	right: auto;
+	left: 10px;
+}
+
+[dir="rtl"] .panel-toggle-btn .toggle-icon {
+	transform: scaleX(-1); /* Flip arrow direction */
+}
+
+[dir="rtl"] .expand-icon {
+	transform: scaleX(-1); /* Flip expand arrows */
+}
+
+/* Slide transitions for RTL */
+[dir="rtl"] .slide-panel-enter-active {
+	animation: slide-in-left 0.3s ease;
+}
+
+[dir="rtl"] .slide-panel-leave-active {
+	animation: slide-out-left 0.3s ease;
+}
+
+@keyframes slide-in-left {
+	from {
+		transform: translateX(-100%);
+	}
+	to {
+		transform: translateX(0);
+	}
+}
+
+@keyframes slide-out-left {
+	from {
+		transform: translateX(0);
+	}
+	to {
+		transform: translateX(-100%);
 	}
 }
 </style>
