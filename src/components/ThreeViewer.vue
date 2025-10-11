@@ -382,6 +382,7 @@ import { useModelStats } from '../composables/useModelStats.js'
 import { useProgressiveTextures } from '../composables/useProgressiveTextures.js'
 import { useTheme } from '../composables/useTheme.js'
 import { logger } from '../utils/logger.js'
+import { VIEWER_CONFIG } from '../config/viewer-config.js'
 import { initCache, clearExpired, clearAll, getCacheStats } from '../utils/dependencyCache.js'
 
 export default {
@@ -568,18 +569,22 @@ export default {
 		}
 
 		const setupHelpers = () => {
-			// Grid helper
+			// Grid helper - use config values for consistency
 			if (props.showGrid) {
-				grid.value = new THREE.GridHelper(10, 10)
-				grid.value.material.color.setHex(0x00ff00)
-				grid.value.material.opacity = 1.0
-				grid.value.material.transparent = false
+				const gridSize = VIEWER_CONFIG.grid?.size || 10
+				const gridDivisions = VIEWER_CONFIG.grid?.divisions || 10
+				const gridColor = VIEWER_CONFIG.grid?.colorGrid || 0x00ff00
+				
+				grid.value = new THREE.GridHelper(gridSize, gridDivisions, gridColor, gridColor)
+				grid.value.material.opacity = VIEWER_CONFIG.grid?.opacity || 1.0
+				grid.value.material.transparent = VIEWER_CONFIG.grid?.transparent || false
 				scene.value.add(grid.value)
 			}
 
-			// Axes helper
+			// Axes helper - use config value for consistency
 			if (props.showAxes) {
-				axes.value = new THREE.AxesHelper(5)
+				const axesSize = VIEWER_CONFIG.axes?.size || 5
+				axes.value = new THREE.AxesHelper(axesSize)
 				scene.value.add(axes.value)
 			}
 		}
@@ -1281,7 +1286,12 @@ export default {
 	// Watch for theme changes to update scene background
 	watch(() => themeComposable.resolvedTheme.value, (newTheme) => {
 		if (scene.value) {
-			sceneComposable.applyThemeToScene(newTheme)
+			// Apply theme to scene background
+			const themeColors = VIEWER_CONFIG.theme[newTheme] || VIEWER_CONFIG.theme.light
+			if (themeColors.background) {
+				scene.value.background = new THREE.Color(themeColors.background)
+				logger.info('ThreeViewer', 'Scene theme applied', { theme: newTheme, background: themeColors.background })
+			}
 		}
 	})
 
