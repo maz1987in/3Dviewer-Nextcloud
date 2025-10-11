@@ -3,6 +3,9 @@
 		<div id="viewer-wrapper">
 			<ToastContainer :toasts="toasts" @dismiss="dismissToast" />
 			
+			<!-- Help Panel -->
+			<HelpPanel v-if="showHelp" @close="showHelp = false" />
+			
 			<!-- Minimal Top Bar -->
 			<MinimalTopBar
 				:model-name="filename"
@@ -82,6 +85,7 @@ import ToastContainer from './components/ToastContainer.vue'
 import ThreeViewer from './components/ThreeViewer.vue'
 import MinimalTopBar from './components/MinimalTopBar.vue'
 import SlideOutToolPanel from './components/SlideOutToolPanel.vue'
+import HelpPanel from './components/HelpPanel.vue'
 import { NcAppContent } from '@nextcloud/vue'
 
 export default {
@@ -92,6 +96,7 @@ export default {
 		ThreeViewer,
 		MinimalTopBar,
 		SlideOutToolPanel,
+		HelpPanel,
 	},
 	data() {
 		return {
@@ -121,6 +126,7 @@ export default {
 			isLoading: false,
 			fps: 0,
 			showPerformance: true,
+			showHelp: false,
 			isMobile: false,
 		}
 	},
@@ -294,12 +300,8 @@ export default {
 			})
 		},
 		onToggleHelp() {
-			// TODO: Implement help modal
-			this.pushToast({ 
-				type: 'info', 
-				title: this.t('threedviewer', 'Help'), 
-				message: this.t('threedviewer', 'Press T to toggle tools panel') 
-			})
+			// Toggle help panel visibility
+			this.showHelp = !this.showHelp
 		},
 		onToggleTools() {
 			// Toggle the tools panel
