@@ -44,23 +44,11 @@ Cache MTL/textures to avoid re-downloading.
 
 ---
 
-### 5. Theme Customization
+## 💡 Future Ideas (Low Priority)
 
-**Enhancement**: Extend current CSS-based theme support
-
-**Effort**: 3-4h
-
----
-
-**Action Items**:
-
-- [ ] Theme picker UI (light/dark/auto)## 💡 Future Ideas (Low Priority)
-
-- [ ] Custom color schemes
-
-- [ ] Save theme preference8. Thumbnail generation for multi-file models
-
-- [ ] Sync with Nextcloud theme9. Lazy loading for large texture sets
+- Custom color schemes (beyond light/dark)
+- Thumbnail generation for multi-file models
+- Lazy loading for large texture sets
 
 10. Multi-file export/download as ZIP
 
@@ -102,6 +90,20 @@ Cache MTL/textures to avoid re-downloading.
 
 ## ✅ Recently Completed (October 2025)
 
+- [x] **Theme Customization with RTL Support** (October 10, 2025) - Complete theme system and Right-to-Left language support
+  - Created useTheme.js composable for theme and direction management
+  - Theme modes: Auto (system), Light, Dark with cycle button in Settings
+  - System theme detection using matchMedia (prefers-color-scheme)
+  - Auto-watches for OS theme changes in auto mode
+  - Theme picker UI with icons: 🌓 Auto / ☀️ Light / 🌙 Dark
+  - Persists theme preference to localStorage
+  - Updates scene background color based on theme
+  - Full RTL (Right-to-Left) support for Arabic, Hebrew, Persian, Urdu
+  - Auto-detects RTL from locale, html[dir], or document.dir
+  - Flips UI layout: Panel on left, toasts on left, buttons mirrored
+  - CSS [dir="rtl"] selectors for all directional elements
+  - Slide animations adapt to RTL direction
+  - Persists direction preference to localStorage
 - [x] **KTX2 Texture Compression Support** (October 10, 2025) - Fixed decoder paths and GLTF resource loading
   - Fixed incorrect decoder paths (decoder/ → draco/ and basis/)
   - Completely rewrote GLTF resource manager using LoadingManager URL modifier
