@@ -1,0 +1,167 @@
+name: 🐛 Bug Report
+description: Report a bug or unexpected behavior
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill out the information below to help us diagnose the issue.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is
+      placeholder: Tell us what went wrong
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Steps to reproduce the behavior
+      placeholder: |
+        1. Go to '...'
+        2. Click on '...'
+        3. Upload file '...'
+        4. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+      placeholder: Describe what should have happened
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened?
+      placeholder: Describe what actually happened
+    validations:
+      required: true
+
+  - type: dropdown
+    id: file-format
+    attributes:
+      label: 3D File Format
+      description: Which 3D file format were you using when the issue occurred?
+      options:
+        - GLB
+        - GLTF
+        - OBJ
+        - OBJ + MTL
+        - STL
+        - PLY
+        - FBX
+        - 3MF
+        - 3DS
+        - VRML
+        - X3D
+        - Other
+        - Not applicable
+    validations:
+      required: false
+
+  - type: input
+    id: app-version
+    attributes:
+      label: 3D Viewer App Version
+      description: What version of the app are you running?
+      placeholder: "e.g., 1.7.7"
+    validations:
+      required: true
+
+  - type: input
+    id: nextcloud-version
+    attributes:
+      label: Nextcloud Version
+      description: What version of Nextcloud are you running?
+      placeholder: "e.g., Nextcloud 31.0.0"
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser
+      description: Which browser are you using?
+      placeholder: "e.g., Chrome 120, Firefox 121, Safari 17"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating System
+      description: Which OS are you using?
+      placeholder: "e.g., Windows 11, macOS 14, Ubuntu 22.04"
+    validations:
+      required: false
+
+  - type: textarea
+    id: browser-console
+    attributes:
+      label: Browser Console Errors
+      description: |
+        Open your browser's developer console (F12) and paste any error messages you see.
+        This is very helpful for diagnosing issues!
+      placeholder: |
+        Paste console errors here (if any)
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: nextcloud-logs
+    attributes:
+      label: Nextcloud Logs
+      description: |
+        Check your Nextcloud logs (Settings → Administration → Logging) for any related errors.
+        Paste relevant log entries here.
+      placeholder: |
+        Paste Nextcloud log entries here (if any)
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: If applicable, add screenshots to help explain your problem
+      placeholder: Drag and drop images here or paste image URLs
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Add any other context about the problem here
+      placeholder: Any other relevant information
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submission Checklist
+      description: Please confirm the following before submitting
+      options:
+        - label: I have searched existing issues to ensure this isn't a duplicate
+          required: true
+        - label: I have checked the browser console for errors
+          required: false
+        - label: I have checked the Nextcloud logs
+          required: false
+        - label: I am using a supported Nextcloud version (30+)
+          required: true
+

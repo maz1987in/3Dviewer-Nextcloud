@@ -1,0 +1,85 @@
+name: ❓ Question / Help
+description: Ask a question or request help
+title: "[Question]: "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before asking, please check:
+        - [Documentation](https://github.com/maz1987in/3Dviewer-Nextcloud/blob/main/README.md)
+        - [Troubleshooting Guide](https://github.com/maz1987in/3Dviewer-Nextcloud/blob/main/docs/TROUBLESHOOTING.md)
+        - [Existing Issues](https://github.com/maz1987in/3Dviewer-Nextcloud/issues)
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your Question
+      description: What would you like to know?
+      placeholder: "How do I...?"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Question Category
+      description: What is your question about?
+      options:
+        - Installation / Setup
+        - Configuration
+        - File Format Support
+        - Usage / How-to
+        - Performance
+        - Integration
+        - Development
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Provide any relevant context or background information
+      placeholder: "I'm trying to... and I want to know..."
+    validations:
+      required: false
+
+  - type: input
+    id: nextcloud-version
+    attributes:
+      label: Nextcloud Version
+      description: What version of Nextcloud are you running?
+      placeholder: "e.g., Nextcloud 31.0.0"
+    validations:
+      required: false
+
+  - type: input
+    id: app-version
+    attributes:
+      label: 3D Viewer App Version
+      description: What version of the app are you running?
+      placeholder: "e.g., 1.7.7"
+    validations:
+      required: false
+
+  - type: textarea
+    id: attempted
+    attributes:
+      label: What Have You Tried?
+      description: What have you already attempted?
+      placeholder: "I tried... but..."
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submission Checklist
+      options:
+        - label: I have checked the documentation
+          required: true
+        - label: I have searched existing issues and discussions
+          required: true
+
