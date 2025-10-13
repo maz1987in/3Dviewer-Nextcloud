@@ -1,5 +1,9 @@
 # 3D Viewer for Nextcloud
 
+[![Version](https://img.shields.io/badge/version-1.7.7-blue)](https://github.com/maz1987in/3Dviewer-Nextcloud/releases)
+[![License](https://img.shields.io/badge/license-AGPL--3.0-orange)](LICENSE)
+[![Nextcloud](https://img.shields.io/badge/Nextcloud-30--32-0082c9)](https://nextcloud.com)
+
 A comprehensive 3D model viewer application for Nextcloud that supports multiple 3D file formats with advanced features like dynamic grid sizing, model comparison, and real-time streaming.
 
 ## 📚 Documentation
@@ -15,8 +19,19 @@ A comprehensive 3D model viewer application for Nextcloud that supports multiple
 
 ### Installation
 
-1. **Install the app** from the Nextcloud App Store or manually ([Installation Guide](docs/INSTALLATION.md))
-2. **✅ Enable the app** - MIME types register automatically!
+#### Option 1: From Nextcloud App Store (Recommended)
+
+1. Open your Nextcloud instance
+2. Go to **Apps** (top-right menu)
+3. Search for "**3D Viewer**" or "**Three D Viewer**"
+4. Click **Download and enable**
+5. MIME types are registered automatically!
+
+#### Option 2: Manual Installation
+
+1. **Download** the latest release from [GitHub Releases](https://github.com/maz1987in/3Dviewer-Nextcloud/releases)
+2. **Extract** the archive to your Nextcloud apps directory: `apps/threedviewer/`
+3. **Enable the app** - MIME types register automatically!
    
    ```bash
    # Enable app (MIME types are registered automatically during this step)
@@ -66,17 +81,22 @@ You can reinstall anytime and MIME types will be re-registered automatically!
 - **Theme Integration**: Respects Nextcloud light/dark themes
 - **Accessibility**: ARIA labels and keyboard navigation
 
-## Usage
+## 📦 Version
 
-- To get started easily use the [Appstore App generator](https://apps.nextcloud.com/developer/apps/generate) to
-  dynamically generate an App based on this repository with all the constants prefilled.
-- Alternatively you can use the "Use this template" button on the top of this page to create a new repository based on
-  this repository. Afterwards adjust all the necessary constants like App ID, namespace, descriptions etc.
+**Current Version**: 1.7.7  
+**Released**: October 11, 2025
 
-Once your app is ready follow the [instructions](https://nextcloudappstore.readthedocs.io/en/latest/developer.html) to
-upload it to the Appstore.
+See [CHANGELOG.md](CHANGELOG.md) for detailed release notes.
 
-## Resources
+## 🤝 Contributing
+
+Contributions are welcome! Please see our [Developer Guide](docs/DEVELOPER_GUIDE.md) for details on:
+- Setting up the development environment
+- Code style and standards
+- Submitting pull requests
+- Testing requirements
+
+## 📄 Resources
 
 ### Documentation for developers:
 

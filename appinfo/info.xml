@@ -3,15 +3,35 @@
 	  xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
 	<id>threedviewer</id>
 	<name>Three D Viewer</name>
-	<summary>3D Viewer</summary>
-	<description>This is a Nextcloud app that allows users to view 3D models directly within their Nextcloud instance. The app leverages the Three.js library for rendering 3D graphics in the browser.</description>
-	<version>1.0.0</version>
+	<summary>View 3D models directly in Nextcloud with advanced rendering</summary>
+	<description><![CDATA[A comprehensive 3D model viewer that allows you to view, interact with, and analyze 3D models directly within Nextcloud. Supports 10+ formats including GLB, GLTF, OBJ, STL, PLY, FBX, 3MF, and 3DS with full material and texture support.
+
+**Key Features:**
+- Support for multiple 3D file formats (GLB, GLTF, OBJ+MTL, STL, PLY, FBX, 3MF, 3DS, VRML, X3D)
+- Interactive 3D viewer with orbit controls and zoom
+- Wireframe and measurement tools
+- Model comparison with synchronized controls
+- Dynamic grid system that adapts to model size
+- Light and dark theme support
+- Multi-file support (OBJ+MTL+textures, GLTF+bins+images)
+- Performance optimized with code splitting and dynamic imports
+- Works with public shares and authenticated users
+- Accessibility features with keyboard navigation
+
+Built with Three.js for high-performance WebGL rendering.]]></description>
+	<version>1.7.7</version>
 	<licence>agpl</licence>
 	<author mail="maz1987in@gmail.com" homepage="https://github.com/maz1987in">Mazin Al Saadi</author>
 	<donation title="Donate to the developers with PayPal" type="paypal">https://www.paypal.com/ncp/payment/KZCB3XTCHGKZC</donation>
 	<namespace>ThreeDViewer</namespace>
 	<category>multimedia</category>
+	<website>https://github.com/maz1987in/3Dviewer-Nextcloud</website>
 	<bugs>https://github.com/maz1987in/3Dviewer-Nextcloud/issues</bugs>
+	<screenshot>https://raw.githubusercontent.com/maz1987in/3Dviewer-Nextcloud/main/img/screenshots/01-main-viewer.png</screenshot>
+	<screenshot>https://raw.githubusercontent.com/maz1987in/3Dviewer-Nextcloud/main/img/screenshots/02-files-integration.png</screenshot>
+	<screenshot>https://raw.githubusercontent.com/maz1987in/3Dviewer-Nextcloud/main/img/screenshots/03-toolbar-features.png</screenshot>
+	<screenshot>https://raw.githubusercontent.com/maz1987in/3Dviewer-Nextcloud/main/img/screenshots/04-multi-file-support.png</screenshot>
+	<screenshot>https://raw.githubusercontent.com/maz1987in/3Dviewer-Nextcloud/main/img/screenshots/05-dark-theme.png</screenshot>
 	<dependencies>
 		<nextcloud min-version="30" max-version="32"/>
 	</dependencies>
