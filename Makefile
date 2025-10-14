@@ -77,6 +77,22 @@ clean-all: clean ## Clean everything including dependencies
 setup: install-dev ## Setup development environment
 	@echo "Development environment setup complete!"
 
+install-hooks: ## Install git hooks for code quality checks
+	@echo "Installing git hooks..."
+	@chmod +x .hooks/pre-commit
+	@if [ -d .git ]; then \
+		ln -sf ../../.hooks/pre-commit .git/hooks/pre-commit; \
+		echo "✓ Pre-commit hook installed"; \
+	fi
+	@chmod +x .hook-checkout/post-checkout
+	@if [ -d .git ]; then \
+		ln -sf ../../.hook-checkout/post-checkout .git/hooks/post-checkout; \
+		echo "✓ Post-checkout hook installed"; \
+	fi
+	@echo "✅ Git hooks installed successfully!"
+	@echo "Pre-commit: Runs linting before commits"
+	@echo "Post-checkout: Auto-installs dependencies when package files change"
+
 ci: ## Run CI pipeline locally
 	composer cs:check
 	composer psalm

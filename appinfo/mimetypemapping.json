@@ -1,0 +1,18 @@
+{
+  "_comment": "SYNC NOTE: This maps to src/config/viewer-config.js::SUPPORTED_FORMATS",
+  "mappings": {
+    "glb": "model/gltf-binary",
+    "gltf": "model/gltf+json",
+    "obj": "model/obj",
+    "stl": "model/stl",
+    "ply": "model/ply",
+    "fbx": "application/octet-stream",
+    "3mf": "model/3mf",
+    "3ds": "application/octet-stream",
+    "dae": "model/vnd.collada+xml",
+    "x3d": "model/x3d+xml",
+    "vrml": "model/vrml",
+    "wrl": "model/vrml",
+    "mtl": "text/plain"
+  }
+}

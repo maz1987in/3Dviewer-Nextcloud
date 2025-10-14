@@ -3,10 +3,11 @@
  * Handles camera setup, controls, animations, and view management
  */
 
-import { ref, computed, readonly, watch } from 'vue'
+import { ref } from 'vue'
 import * as THREE from 'three'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
-import { logError } from '../utils/error-handler.js'
+import { logger } from '../utils/logger.js'
+import { throttle } from '../utils/mathHelpers.js'
 
 export function useCamera() {
 	// Camera and controls state
@@ -17,6 +18,11 @@ export function useCamera() {
 	const baselineTarget = ref(null)
 	const initialTarget = ref(new THREE.Vector3(0, 0, 0))
 	const manuallyPositioned = ref(false)
+
+	// Camera projection state
+	const cameraType = ref(VIEWER_CONFIG.camera.defaultProjection || 'perspective')
+	const perspectiveCamera = ref(null)
+	const orthographicCamera = ref(null)
 
 	// Custom camera controls state
 	const isMouseDown = ref(false)
@@ -31,10 +37,9 @@ export function useCamera() {
 	const autoRotateEnabled = ref(false)
 	const autoRotateSpeed = ref(0.5)
 
-	// Track when manuallyPositioned changes
-
 	// Animation state
 	const isAnimating = ref(false)
+	const animationFrameId = ref(null)
 
 	// Mobile state
 	const isMobile = ref(false)
@@ -80,6 +85,32 @@ export function useCamera() {
 	])
 
 	/**
+	 * Initialize orthographic camera
+	 * @param {number} width - Viewport width
+	 * @param {number} height - Viewport height
+	 * @return {THREE.OrthographicCamera} Orthographic camera
+	 */
+	const initOrthographicCamera = (width, height) => {
+		const aspect = width / height
+		const frustumSize = VIEWER_CONFIG.camera.orthographic.frustumSize
+		
+		const orthoCamera = new THREE.OrthographicCamera(
+			frustumSize * aspect / -2,
+			frustumSize * aspect / 2,
+			frustumSize / 2,
+			frustumSize / -2,
+			VIEWER_CONFIG.camera.near,
+			VIEWER_CONFIG.camera.far
+		)
+		
+		orthoCamera.zoom = VIEWER_CONFIG.camera.orthographic.zoom
+		orthoCamera.position.set(2, 2, 2)
+		orthoCamera.updateProjectionMatrix()
+		
+		return orthoCamera
+	}
+
+	/**
 	 * Initialize camera with appropriate settings
 	 * @param {number} width - Viewport width
 	 * @param {number} height - Viewport height
@@ -90,16 +121,21 @@ export function useCamera() {
 			isMobile.value = mobile
 			const fov = mobile ? 75 : VIEWER_CONFIG.camera.fov
 
-			camera.value = new THREE.PerspectiveCamera(fov, width / height, VIEWER_CONFIG.camera.near, VIEWER_CONFIG.camera.far)
-			camera.value.position.set(2, 2, 2)
-
-			// Camera created successfully
-
+			// Create perspective camera
+			perspectiveCamera.value = new THREE.PerspectiveCamera(fov, width / height, VIEWER_CONFIG.camera.near, VIEWER_CONFIG.camera.far)
+			perspectiveCamera.value.position.set(2, 2, 2)
+			
+			// Create orthographic camera
+			orthographicCamera.value = initOrthographicCamera(width, height)
+			orthographicCamera.value.position.copy(perspectiveCamera.value.position)
+			
+			// Set active camera based on type
+			camera.value = cameraType.value === 'orthographic' ? orthographicCamera.value : perspectiveCamera.value
 			initialCameraPos.value = camera.value.position.clone()
 
-			logError('useCamera', 'Camera initialized', { fov, width, height, mobile })
+			logger.info('useCamera', 'Camera initialized', { fov, width, height, mobile, type: cameraType.value })
 		} catch (error) {
-			logError('useCamera', 'Failed to initialize camera', error)
+			logger.error('useCamera', 'Failed to initialize camera', error)
 			throw error
 		}
 	}
@@ -115,21 +151,24 @@ export function useCamera() {
 
 			controls.value = new OrbitControls(camera.value, renderer.domElement)
 
-			// DISABLE controls initially to prevent interference with camera positioning
-			controls.value.enabled = false
-
-			// Basic controls setup
+			// Basic controls setup (keep it simple like ViewerComponent)
 			controls.value.enableDamping = true
-			controls.value.dampingFactor = 0.05
-			controls.value.screenSpacePanning = false
-
-			// Prevent models from going out of view
-			controls.value.minDistance = VIEWER_CONFIG.camera.minDistance
-			controls.value.maxDistance = VIEWER_CONFIG.camera.maxDistance
-			controls.value.maxPolarAngle = VIEWER_CONFIG.camera.maxPolarAngle
-			controls.value.minPolarAngle = VIEWER_CONFIG.camera.minPolarAngle
+			controls.value.enableZoom = true
+			// Enable rotate/pan only if auto-rotate is not active
+			controls.value.enableRotate = !autoRotateEnabled.value
+			controls.value.enablePan = !autoRotateEnabled.value
+			controls.value.zoomSpeed = 1.0
+			controls.value.rotateSpeed = 1.0
 
 			controls.value.update()
+			
+			// Log control states for debugging
+			logger.info('useCamera', 'OrbitControls initialized', {
+				enableZoom: controls.value.enableZoom,
+				enableRotate: controls.value.enableRotate,
+				enablePan: controls.value.enablePan,
+				autoRotateActive: autoRotateEnabled.value,
+			})
 
 			// Monitor camera target to prevent off-center viewing
 			controls.value.addEventListener('change', onControlsChange)
@@ -145,9 +184,9 @@ export function useCamera() {
 				setupMobileControls()
 			}
 
-			logError('useCamera', 'Controls initialized successfully')
+			logger.info('useCamera', 'Controls initialized successfully')
 		} catch (error) {
-			logError('useCamera', 'Failed to setup controls', error)
+			logger.error('useCamera', 'Failed to setup controls', error)
 			throw error
 		}
 	}
@@ -166,7 +205,7 @@ export function useCamera() {
 			TWO: THREE.TOUCH.DOLLY_PAN,
 		}
 
-		logError('useCamera', 'Mobile controls configured')
+		logger.info('useCamera', 'Mobile controls configured')
 	}
 
 	/**
@@ -174,13 +213,15 @@ export function useCamera() {
 	 */
 	const onControlsChange = () => {
 		if (!controls.value || !camera.value || manuallyPositioned.value) return
+		
+		if (autoRotateEnabled.value) return
 
 		// Check if camera target is off-center and reset if needed
 		const target = controls.value.target
 		const threshold = VIEWER_CONFIG.camera.targetResetThreshold
 
 		if (Math.abs(target.x) > threshold || Math.abs(target.z) > threshold) {
-			logError('useCamera', 'Camera target drifted off-center, resetting to origin', {
+			logger.warn('useCamera', 'Camera target drifted off-center, resetting to origin', {
 				target: { x: target.x, y: target.y, z: target.z },
 				threshold,
 			})
@@ -203,139 +244,90 @@ export function useCamera() {
 	/**
 	 * Fit camera to an object
 	 * @param {THREE.Object3D} obj - Object to fit camera to
+	 * @throws {Error} If camera or controls not initialized
 	 */
 	const fitCameraToObject = (obj) => {
-		// Fitting camera to object
-
-		if (!camera.value || !controls.value || !obj) return
+		// Input validation
+		if (!camera.value) {
+			logger.error('useCamera', 'Camera not initialized')
+			throw new Error('Camera must be initialized before fitting to object')
+		}
+		if (!controls.value) {
+			logger.error('useCamera', 'Controls not initialized')
+			throw new Error('Controls must be initialized before fitting to object')
+		}
+		if (!obj) {
+			logger.warn('useCamera', 'No object provided to fit camera to')
+			return
+		}
 
 		try {
 			const box = new THREE.Box3().setFromObject(obj)
-			if (box.isEmpty()) return
-
-			const center = box.getCenter(new THREE.Vector3())
-			const size = box.getSize(new THREE.Vector3())
-			const maxDim = Math.max(size.x, size.y, size.z)
-
-			// Get the world position of the object and add the center offset
-			const worldPosition = new THREE.Vector3()
-			obj.getWorldPosition(worldPosition)
-			const worldCenter = center.clone().add(worldPosition)
-
-			// Update model center for camera controls
-			modelCenter.value.copy(worldCenter)
-
-			const fov = camera.value.fov * (Math.PI / 180)
-			let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2)) * 1.4
-
-			// Camera calculation completed
-
-			// Validate cameraZ to prevent NaN
-			if (!isFinite(cameraZ) || cameraZ <= 0) {
-				cameraZ = maxDim * 2 // Fallback to 2x the max dimension
-			}
-
-			// Only center the model if it's not already centered (within a small tolerance)
-			const tolerance = 0.1
-			const isAlreadyCentered = Math.abs(center.x) < tolerance
-                               && Math.abs(center.y) < tolerance
-                               && Math.abs(center.z) < tolerance
-
-			if (!isAlreadyCentered) {
-				obj.position.sub(center)
-			}
-
-			// Set camera position to look at origin with better distance
-			let cameraDistance = Math.max(cameraZ * 2, 20)
-
-			// Validate cameraDistance to prevent NaN
-			if (!isFinite(cameraDistance) || cameraDistance <= 0) {
-				cameraDistance = 50 // Fallback distance
-			}
-
-			// Validate camera before setting position
-			if (!camera.value) {
+			if (box.isEmpty()) {
+				logger.warn('useCamera', 'Object has empty bounding box, cannot fit camera')
 				return
 			}
 
-			// Setting camera position
-
-			// Update controls target to world center
-			controls.value.target.copy(worldCenter)
-
-			// Update controls first
-			controls.value.update()
-
-			// Set camera position relative to world center
+			const size = box.getSize(new THREE.Vector3())
+			const center = box.getCenter(new THREE.Vector3())
+			const maxDim = Math.max(size.x, size.y, size.z)
+			
+			// Calculate optimal camera distance based on camera type
+			let cameraDistance
+			if (cameraType.value === 'perspective' && perspectiveCamera.value) {
+				const fov = perspectiveCamera.value.fov * (Math.PI / 180)
+				cameraDistance = Math.abs(maxDim / Math.sin(fov / 2)) * 0.75
+			} else {
+				// For orthographic, use a fixed distance relationship
+				cameraDistance = maxDim * 2
+			}
+			
+			// Set camera position at a good angle (offset from center)
 			camera.value.position.set(
-				worldCenter.x + cameraDistance,
-				worldCenter.y + cameraDistance * 0.5,
-				worldCenter.z + cameraDistance,
+				center.x + cameraDistance * 0.5,
+				center.y + cameraDistance * 0.5,
+				center.z + cameraDistance
 			)
-			camera.value.lookAt(worldCenter)
-
-			// Calculate initial rotation values based on camera position
-			const direction = new THREE.Vector3()
-			direction.subVectors(camera.value.position, worldCenter).normalize()
-
-			// Calculate rotationY (horizontal rotation)
-			rotationY.value = Math.atan2(direction.x, direction.z)
-
-			// Calculate rotationX (vertical rotation)
-			const horizontalDistance = Math.sqrt(direction.x * direction.x + direction.z * direction.z)
-			rotationX.value = Math.atan2(direction.y, horizontalDistance)
-
-			// Update distance to match actual distance
-			distance.value = camera.value.position.distanceTo(worldCenter)
-
-			// Initial rotation calculated
-
-			// Ensure the camera position is valid before proceeding
-			if (!isFinite(camera.value.position.x) || !isFinite(camera.value.position.y) || !isFinite(camera.value.position.z)) {
-				camera.value.position.set(23.35, 11.68, 23.35)
+			
+			// Look at center
+			camera.value.lookAt(center)
+			
+			// Update controls target and controls
+			if (controls.value) {
+				controls.value.target.copy(center)
+				controls.value.update()
+				controls.value.enabled = true
 			}
-
-			// Set the controls' internal position state to match
-			if (controls.value.object) {
-				controls.value.object.position.copy(camera.value.position)
+			
+			// Update camera near/far planes
+			camera.value.near = cameraDistance / 100
+			camera.value.far = cameraDistance * 100
+			
+			// Handle orthographic zoom
+			if (cameraType.value === 'orthographic' && orthographicCamera.value) {
+				orthographicCamera.value.zoom = VIEWER_CONFIG.camera.orthographic.frustumSize / maxDim
 			}
+			
+			camera.value.updateProjectionMatrix()
+			
+			// Update model center for camera controls
+			modelCenter.value.copy(center)
+			
+			// Update distance value
+			distance.value = camera.value.position.distanceTo(center)
+			
+			// Save this as the baseline position for reset
+			baselineCameraPos.value = camera.value.position.clone()
+			baselineTarget.value = controls.value.target.clone()
 
-			// Also update the controls' internal state
-			if (controls.value.object && controls.value.object !== camera.value) {
-				controls.value.object.position.copy(camera.value.position)
-				controls.value.object.lookAt(0, 0, 0)
-			}
-
-			// Mark that we've manually positioned the camera
-			manuallyPositioned.value = true
-
-			// Set a timeout to allow manual positioning to stabilize
-			setTimeout(() => {
-				// Only allow manual positioning to be reset if camera is still valid
-				if (camera.value
-              && isFinite(camera.value.position.x)
-              && isFinite(camera.value.position.y)
-              && isFinite(camera.value.position.z)) {
-					manuallyPositioned.value = false
-
-					// Re-enable controls after stabilization
-					if (controls.value) {
-						controls.value.enabled = true
-					}
-				}
-			}, 1000) // Wait 1 second for stabilization
-
-			// Verify the position was set correctly
-
-			// Camera fitted to object successfully
-
-			logError('useCamera', 'Camera fitted to object', {
+			logger.info('useCamera', 'Camera fitted to object', {
 				center: { x: center.x, y: center.y, z: center.z },
 				size: { x: size.x, y: size.y, z: size.z },
 				cameraDistance,
+				type: cameraType.value,
 			})
 		} catch (error) {
-			logError('useCamera', 'Failed to fit camera to object', error)
+			logger.error('useCamera', 'Failed to fit camera to object', error)
 		}
 	}
 
@@ -343,9 +335,18 @@ export function useCamera() {
 	 * Fit camera to view both models (comparison mode)
 	 * @param {THREE.Object3D} model1 - First model
 	 * @param {THREE.Object3D} model2 - Second model
+	 * @throws {Error} If camera or controls not initialized, or if models are invalid
 	 */
 	const fitBothModelsToView = (model1, model2) => {
-		if (!camera.value || !controls.value || !model1 || !model2) return
+		// Input validation
+		if (!camera.value || !controls.value) {
+			logger.error('useCamera', 'Camera or controls not initialized')
+			throw new Error('Camera and controls must be initialized')
+		}
+		if (!model1 || !model2) {
+			logger.error('useCamera', 'Both models must be provided for comparison view')
+			throw new Error('Both models are required for comparison view')
+		}
 
 		try {
 			const box1 = new THREE.Box3().setFromObject(model1)
@@ -359,8 +360,8 @@ export function useCamera() {
 			// Center both models at origin
 			const tolerance = 0.1
 			const isAlreadyCentered = Math.abs(center.x) < tolerance
-                               && Math.abs(center.y) < tolerance
-                               && Math.abs(center.z) < tolerance
+				&& Math.abs(center.y) < tolerance
+				&& Math.abs(center.z) < tolerance
 
 			if (!isAlreadyCentered) {
 				model1.position.sub(center)
@@ -380,13 +381,13 @@ export function useCamera() {
 			// Force the camera to look at origin immediately
 			camera.value.lookAt(0, 0, 0)
 
-			logError('useCamera', 'Camera fitted to both models', {
+			logger.info('useCamera', 'Camera fitted to both models', {
 				center: { x: center.x, y: center.y, z: center.z },
 				size: { x: size.x, y: size.y, z: size.z },
 				cameraDistance,
 			})
 		} catch (error) {
-			logError('useCamera', 'Failed to fit camera to both models', error)
+			logger.error('useCamera', 'Failed to fit camera to both models', error)
 		}
 	}
 
@@ -406,9 +407,9 @@ export function useCamera() {
 			}
 
 			controls.value.update()
-			logError('useCamera', 'View reset to baseline/initial position')
+			logger.info('useCamera', 'View reset to baseline/initial position')
 		} catch (error) {
-			logError('useCamera', 'Failed to reset view', error)
+			logger.error('useCamera', 'Failed to reset view', error)
 		}
 	}
 
@@ -426,16 +427,27 @@ export function useCamera() {
 
 			const size = box.getSize(new THREE.Vector3())
 			const maxDim = Math.max(size.x, size.y, size.z)
-			const fov = camera.value.fov * (Math.PI / 180)
-			const distance = Math.abs(maxDim / Math.sin(fov / 2)) * padding
+			
+			let distance
+			if (cameraType.value === 'perspective' && perspectiveCamera.value) {
+				const fov = perspectiveCamera.value.fov * (Math.PI / 180)
+				distance = Math.abs(maxDim / Math.sin(fov / 2)) * padding
+			} else {
+				// For orthographic, adjust zoom instead
+				distance = maxDim * padding
+				if (orthographicCamera.value) {
+					orthographicCamera.value.zoom = VIEWER_CONFIG.camera.orthographic.frustumSize / (maxDim * padding)
+					orthographicCamera.value.updateProjectionMatrix()
+				}
+			}
 
 			const direction = camera.value.position.clone().sub(controls.value.target).normalize()
 			camera.value.position.copy(controls.value.target).add(direction.multiplyScalar(distance))
 			controls.value.update()
 
-			logError('useCamera', 'Camera fitted to view', { distance, padding })
+			logger.info('useCamera', 'Camera fitted to view', { distance, padding, type: cameraType.value })
 		} catch (error) {
-			logError('useCamera', 'Failed to fit to view', error)
+			logger.error('useCamera', 'Failed to fit to view', error)
 		}
 	}
 
@@ -473,10 +485,11 @@ export function useCamera() {
 			controls.value.update()
 
 			if (progress < 1) {
-				requestAnimationFrame(animate)
+				animationFrameId.value = requestAnimationFrame(animate)
 			} else {
 				isAnimating.value = false
-				logError('useCamera', 'Preset animation completed', { preset: presetName })
+				animationFrameId.value = null
+				logger.info('useCamera', 'Preset animation completed', { preset: presetName })
 			}
 		}
 
@@ -507,7 +520,9 @@ export function useCamera() {
 			controls.value.update()
 
 			if (progress < 1) {
-				requestAnimationFrame(animate)
+				animationFrameId.value = requestAnimationFrame(animate)
+			} else {
+				animationFrameId.value = null
 			}
 		}
 
@@ -522,30 +537,46 @@ export function useCamera() {
 	const onWindowResize = (width, height) => {
 		if (!camera.value) return
 
-		camera.value.aspect = width / height
-		camera.value.updateProjectionMatrix()
-		logError('useCamera', 'Camera updated for resize', { width, height })
+		const aspect = width / height
+
+		// Update both cameras
+		if (perspectiveCamera.value) {
+			perspectiveCamera.value.aspect = aspect
+			perspectiveCamera.value.updateProjectionMatrix()
+		}
+
+		if (orthographicCamera.value) {
+			const frustumSize = VIEWER_CONFIG.camera.orthographic.frustumSize
+			orthographicCamera.value.left = frustumSize * aspect / -2
+			orthographicCamera.value.right = frustumSize * aspect / 2
+			orthographicCamera.value.top = frustumSize / 2
+			orthographicCamera.value.bottom = frustumSize / -2
+			orthographicCamera.value.updateProjectionMatrix()
+		}
+
+		logger.info('useCamera', 'Camera updated for resize', { width, height, type: cameraType.value })
 	}
+
+	/**
+	 * Throttled version of window resize handler
+	 * Limits resize updates to prevent excessive camera matrix recalculations
+	 */
+	const throttledResize = throttle(onWindowResize, 100)
 
 	/**
 	 * Update controls
 	 */
 	const updateControls = () => {
-		if (controls.value && !manuallyPositioned.value && controls.value.enabled) {
-			// Only update controls if they are enabled, camera position is valid (not NaN) and we haven't manually positioned it
-			if (camera.value
-          && isFinite(camera.value.position.x)
-          && isFinite(camera.value.position.y)
-          && isFinite(camera.value.position.z)) {
-				controls.value.update()
-			}
+		// Always update controls if they exist (same as ViewerComponent)
+		if (controls.value) {
+			controls.value.update()
 		}
 	}
 
 	/**
 	 * Setup custom camera controls (mouse events)
 	 * @param {HTMLElement} domElement - DOM element to attach events to
-	 * @param measurementHandler
+	 * @param {Function} measurementHandler - Callback for measurement clicks
 	 */
 	const setupCustomControls = (domElement, measurementHandler = null) => {
 		if (!domElement || !camera.value) return
@@ -591,12 +622,8 @@ export function useCamera() {
 			event.preventDefault()
 			event.stopPropagation()
 
-			// Wheel event handled
-
-			distance.value += event.deltaY * 0.05 // Much more sensitive zoom
-			distance.value = Math.max(2, Math.min(200, distance.value)) // Wider zoom range
-
-			// Distance updated
+			distance.value += event.deltaY * 0.05
+			distance.value = Math.max(1, distance.value)
 
 			// Update camera position based on current rotation and new distance around model center
 			const x = modelCenter.value.x + Math.sin(rotationY.value) * Math.cos(rotationX.value) * distance.value
@@ -605,8 +632,6 @@ export function useCamera() {
 
 			camera.value.position.set(x, y, z)
 			camera.value.lookAt(modelCenter.value)
-
-			// Camera position updated after zoom
 		}
 
 		const onClick = (event) => {
@@ -634,79 +659,45 @@ export function useCamera() {
 		}
 	}
 
-	/**
-	 * Render the scene
-	 * @param {THREE.WebGLRenderer} renderer - WebGL renderer
-	 * @param {THREE.Scene} scene - Three.js scene
-	 */
-	const render = (renderer, scene) => {
-		if (renderer && scene && camera.value) {
-			try {
-				// Clean up any invalid geometries in the scene before rendering
-				scene.traverse((child) => {
-					if (child.geometry) {
-						// Check for invalid geometry attributes
-						if (!child.geometry.attributes || !child.geometry.attributes.position) {
-							child.geometry.dispose()
-							child.geometry = null
-							return
-						}
-
-						// Check for null bounding sphere
-						try {
-							if (!child.geometry.boundingSphere) {
-								child.geometry.computeBoundingSphere()
-							}
-							if (child.geometry.boundingSphere && child.geometry.boundingSphere.center === null) {
-								child.geometry.dispose()
-								child.geometry = null
-								return
-							}
-						} catch (error) {
-							child.geometry.dispose()
-							child.geometry = null
-							return
-						}
+		/**
+		 * Render the scene
+		 * @param {THREE.WebGLRenderer} renderer - WebGL renderer
+		 * @param {THREE.Scene} scene - Three.js scene
+		 */
+		const render = (renderer, scene) => {
+			if (renderer && scene && camera.value) {
+				try {
+				// Update OrbitControls before rendering (processes zoom changes)
+				if (controls.value) {
+					controls.value.update()
+				}
+				
+				// Update distance from OrbitControls if auto-rotate is enabled
+				// This allows zoom to work during auto-rotate
+				if (autoRotateEnabled.value && controls.value) {
+					const currentDistance = camera.value.position.distanceTo(modelCenter.value)
+					if (Math.abs(currentDistance - distance.value) > 0.1) {
+						// Distance changed by OrbitControls zoom - update our tracked distance
+						distance.value = currentDistance
 					}
-
-					if (child.material) {
-						if (!child.material.isMaterial) {
-							child.material.dispose()
-							child.material = null
-						}
-					}
-				})
-
-				// Auto-rotate functionality
+				}
+				
+				// Custom auto-rotate functionality (uses manual camera positioning instead of OrbitControls.autoRotate)
 				if (autoRotateEnabled.value && !isMouseDown.value) {
-					rotationY.value += autoRotateSpeed.value * 0.01
+						rotationY.value += autoRotateSpeed.value * 0.01
 
-					// Update camera position based on current rotation around model center
-					const x = modelCenter.value.x + Math.sin(rotationY.value) * Math.cos(rotationX.value) * distance.value
-					const y = modelCenter.value.y + Math.sin(rotationX.value) * distance.value
-					const z = modelCenter.value.z + Math.cos(rotationY.value) * Math.cos(rotationX.value) * distance.value
+						// Update camera position based on current rotation around model center
+						const x = modelCenter.value.x + Math.sin(rotationY.value) * Math.cos(rotationX.value) * distance.value
+						const y = modelCenter.value.y + Math.sin(rotationX.value) * distance.value
+						const z = modelCenter.value.z + Math.cos(rotationY.value) * Math.cos(rotationX.value) * distance.value
 
-					camera.value.position.set(x, y, z)
-					camera.value.lookAt(modelCenter.value)
-				}
-
-				// Check if camera position becomes NaN and fix it
-				if (!isFinite(camera.value.position.x) || !isFinite(camera.value.position.y) || !isFinite(camera.value.position.z)) {
-					// Fix the camera position
-					camera.value.position.set(23.35, 11.68, 23.35)
-					camera.value.lookAt(0, 0, 0)
-
-					// Update controls if they exist and disable them temporarily
-					if (controls.value && controls.value.object) {
-						controls.value.object.position.copy(camera.value.position)
-						controls.value.target.set(0, 0, 0)
-						controls.value.enabled = false // Disable controls if they cause NaN
+						camera.value.position.set(x, y, z)
+						camera.value.lookAt(modelCenter.value)
 					}
-				}
 
-				renderer.render(scene, camera.value)
-			} catch (error) {
-				// Render error handled
+					renderer.render(scene, camera.value)
+				} catch (error) {
+				console.error('[useCamera] Render error:', error)
 			}
 		}
 	}
@@ -716,7 +707,25 @@ export function useCamera() {
 	 */
 	const toggleAutoRotate = () => {
 		autoRotateEnabled.value = !autoRotateEnabled.value
-		// Auto-rotate toggled
+		
+		// Update OrbitControls settings based on auto-rotate state
+		if (controls.value) {
+			if (autoRotateEnabled.value) {
+				// Disable rotation and pan when auto-rotating, but keep zoom enabled
+				controls.value.enableRotate = false
+				controls.value.enablePan = false
+				controls.value.enableZoom = true  // Keep zoom working!
+				logger.info('useCamera', 'Auto-rotate enabled - OrbitControls rotation/pan disabled, zoom active')
+			} else {
+				// Re-enable all controls when auto-rotate is off
+				controls.value.enableRotate = true
+				controls.value.enablePan = true
+				controls.value.enableZoom = true
+				logger.info('useCamera', 'Auto-rotate disabled - OrbitControls fully re-enabled')
+			}
+		}
+		
+		logger.info('useCamera', 'Auto-rotate toggled', { enabled: autoRotateEnabled.value })
 	}
 
 	/**
@@ -725,35 +734,112 @@ export function useCamera() {
 	 */
 	const setAutoRotateSpeed = (speed) => {
 		autoRotateSpeed.value = speed
-		// Auto-rotate speed set
+		logger.info('useCamera', 'Auto-rotate speed set', { speed })
+	}
+
+	/**
+	 * Cancel ongoing animations
+	 */
+	const cancelAnimations = () => {
+		if (animationFrameId.value) {
+			cancelAnimationFrame(animationFrameId.value)
+			animationFrameId.value = null
+		}
+		isAnimating.value = false
+		logger.info('useCamera', 'Animations cancelled')
+	}
+
+	/**
+	 * Toggle camera projection between perspective and orthographic
+	 */
+	const toggleCameraProjection = () => {
+		if (!perspectiveCamera.value || !orthographicCamera.value || !controls.value) {
+			logger.warn('useCamera', 'Cannot toggle projection: cameras or controls not initialized')
+			return
+		}
+
+		try {
+			const currentCamera = camera.value
+			const currentPosition = currentCamera.position.clone()
+			const currentTarget = controls.value.target.clone()
+			const currentZoom = currentCamera.zoom || 1
+
+			// Switch camera type
+			const newType = cameraType.value === 'perspective' ? 'orthographic' : 'perspective'
+			const newCamera = newType === 'orthographic' ? orthographicCamera.value : perspectiveCamera.value
+
+			// Transfer position and target
+			newCamera.position.copy(currentPosition)
+			newCamera.lookAt(currentTarget)
+
+			// Handle zoom translation between camera types
+			if (newType === 'orthographic' && cameraType.value === 'perspective') {
+				// Perspective to Orthographic: Calculate appropriate zoom based on distance
+				const distance = currentPosition.distanceTo(currentTarget)
+				const fov = perspectiveCamera.value.fov * (Math.PI / 180)
+				const frustumHeight = 2 * Math.tan(fov / 2) * distance
+				newCamera.zoom = VIEWER_CONFIG.camera.orthographic.frustumSize / frustumHeight
+			} else if (newType === 'perspective' && cameraType.value === 'orthographic') {
+				// Orthographic to Perspective: Just reset zoom to 1
+				newCamera.zoom = 1
+			}
+
+			// Update projection matrix
+			newCamera.updateProjectionMatrix()
+
+			// Update active camera
+			camera.value = newCamera
+			cameraType.value = newType
+
+			// Update controls to use new camera
+			controls.value.object = newCamera
+			controls.value.target.copy(currentTarget)
+			controls.value.update()
+
+			logger.info('useCamera', 'Camera projection toggled', { 
+				from: cameraType.value === 'perspective' ? 'orthographic' : 'perspective',
+				to: newType,
+				zoom: newCamera.zoom 
+			})
+		} catch (error) {
+			logger.error('useCamera', 'Failed to toggle camera projection', error)
+		}
 	}
 
 	/**
 	 * Dispose of camera and controls
 	 */
 	const dispose = () => {
+		// Cancel any ongoing animations
+		cancelAnimations()
+
 		if (controls.value) {
 			controls.value.dispose()
 			controls.value = null
 		}
 
 		camera.value = null
+		perspectiveCamera.value = null
+		orthographicCamera.value = null
 		initialCameraPos.value = null
 		baselineCameraPos.value = null
 		baselineTarget.value = null
 
-		logError('useCamera', 'Camera and controls disposed')
+		logger.info('useCamera', 'Camera and controls disposed')
 	}
 
 	return {
-		// State
-		camera: readonly(camera),
-		controls: readonly(controls),
-		isAnimating: readonly(isAnimating),
-		autoRotate: readonly(autoRotateEnabled),
-		autoRotateSpeed: readonly(autoRotateSpeed),
-		isMobile: readonly(isMobile),
-		animationPresets: readonly(animationPresets),
+		// State - these are mutable by the composable's own methods, so don't use readonly
+		camera,
+		controls,
+		isAnimating,
+		autoRotate: autoRotateEnabled,
+		autoRotateSpeed,
+		isMobile,
+		animationPresets,
+		cameraType,
+		perspectiveCamera,
+		orthographicCamera,
 
 		// Methods
 		initCamera,
@@ -769,8 +855,11 @@ export function useCamera() {
 		animateToPreset,
 		smoothZoom,
 		onWindowResize,
+		throttledResize,
 		updateControls,
 		render,
+		cancelAnimations,
+		toggleCameraProjection,
 		dispose,
 	}
 }

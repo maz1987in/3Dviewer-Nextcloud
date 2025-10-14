@@ -1,15 +1,25 @@
-// VRML loader
+import { BaseLoader } from '../BaseLoader.js'
+import { decodeTextFromBuffer } from '../../utils/fileHelpers.js'
 
-export default async function loadVRML(arrayBuffer, context) {
-	const { THREE, scene, applyWireframe, ensurePlaceholderRemoved } = context
+/**
+ * VRML loader class
+ */
+class VrmlLoader extends BaseLoader {
 
-	try {
+	constructor() {
+		super('VRMLLoader', ['vrml', 'wrl'])
+		this.loader = null
+	}
+
+	/**
+	 * Load VRML model
+	 * @param {ArrayBuffer} arrayBuffer - File data
+	 * @param {object} context - Loading context
+	 * @return {Promise<object>} Load result
+	 */
+	async loadModel(arrayBuffer, context) {
 		// Convert ArrayBuffer to text for parsing
-		const text = new TextDecoder('utf-8', { fatal: false }).decode(arrayBuffer)
-
-		if (!text || text.trim().length === 0) {
-			throw new Error('Empty or invalid VRML file')
-		}
+		const text = decodeTextFromBuffer(arrayBuffer)
 
 		// Check if it looks like a VRML file
 		if (!text.toLowerCase().includes('vrml') && !text.toLowerCase().includes('#vrml')) {
@@ -18,12 +28,12 @@ export default async function loadVRML(arrayBuffer, context) {
 
 		// Load VRML loader dynamically
 		const { VRMLLoader } = await import('three/examples/jsm/loaders/VRMLLoader.js')
-		const loader = new VRMLLoader()
+		this.loader = new VRMLLoader()
 
 		return new Promise((resolve, reject) => {
 			try {
 				// Parse the VRML content
-				loader.parse(text, (result) => {
+				this.loader.parse(text, (result) => {
 					try {
 						if (!result.scene) {
 							throw new Error('No scene found in VRML file')
@@ -31,30 +41,19 @@ export default async function loadVRML(arrayBuffer, context) {
 
 						const vrmlScene = result.scene
 
-						// Apply wireframe if needed
-						applyWireframe(vrmlScene)
-
-						// Remove any placeholder objects
-						ensurePlaceholderRemoved()
-
-						// Add the scene to the main scene
-						scene.add(vrmlScene)
-
-						// Calculate bounding box for camera positioning
-						const box = new THREE.Box3().setFromObject(vrmlScene)
-						const center = box.getCenter(new THREE.Vector3())
-						const size = box.getSize(new THREE.Vector3())
-
-						// Center the model
-						vrmlScene.position.sub(center)
-
-						resolve({
-							object3D: vrmlScene,
-							boundingBox: box,
-							center,
-							size,
-							animations: result.animations || [],
+						this.logInfo('VRML model loaded successfully', {
+							animations: result.animations?.length || 0,
 						})
+
+						// Process the result
+						const processedResult = this.processModel(vrmlScene, context)
+
+						// Add animations if available
+						if (result.animations && result.animations.length > 0) {
+							processedResult.animations = result.animations
+						}
+
+						resolve(processedResult)
 					} catch (error) {
 						reject(new Error(`Failed to process VRML scene: ${error.message}`))
 					}
@@ -63,7 +62,9 @@ export default async function loadVRML(arrayBuffer, context) {
 				reject(new Error(`Failed to load VRML file: ${error.message}`))
 			}
 		})
-	} catch (error) {
-		throw new Error(`Failed to load VRML file: ${error.message}`)
 	}
+
 }
+
+// Export the class as default so the registry can instantiate it
+export default VrmlLoader

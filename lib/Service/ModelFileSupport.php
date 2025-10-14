@@ -15,10 +15,20 @@ use OCP\Files\NotFoundException;
  *  - Supported extension allow-list
  *  - Content type mapping
  *  - Sibling MTL resolution
+ *
+ * SYNC NOTE: The 3D model format list is defined in src/config/viewer-config.js (SUPPORTED_FORMATS)
+ *            as the single source of truth. This PHP list includes:
+ *            - Model formats from SUPPORTED_FORMATS (glb, gltf, obj, stl, ply, fbx, 3mf, 3ds, dae, x3d, vrml, wrl)
+ *            - Dependency files: mtl (materials), bin (GLTF buffers)
+ *            - Texture formats: png, jpg, jpeg, tga, bmp, webp
+ * 
+ * NOTE: This list MUST stay synchronized with:
+ *       - RegisterThreeDMimeTypes::EXT_MIME_MAP
+ *       - src/config/viewer-config.js::SUPPORTED_FORMATS
  */
 class ModelFileSupport {
     /** @var list<string> */
-    private array $supported = ['glb','gltf','obj','stl','ply','mtl','fbx','3mf','3ds'];
+    private array $supported = ['glb','gltf','obj','stl','ply','dae','mtl','fbx','3mf','3ds','x3d','vrml','wrl','bin','png','jpg','jpeg','tga','bmp','webp'];
 
     /** @return list<string> */
     public function getSupportedExtensions(): array {
@@ -36,10 +46,19 @@ class ModelFileSupport {
             'obj' => 'model/obj',
             'stl' => 'model/stl',
             'ply' => 'model/ply',
+            'dae' => 'model/vnd.collada+xml', // COLLADA format
             'mtl' => 'text/plain',
             'fbx' => 'application/octet-stream', // No well-standardized registered model MIME; using generic
             '3mf' => 'model/3mf',
             '3ds' => 'application/octet-stream', // Legacy 3D Studio format
+            'x3d' => 'model/x3d+xml',
+            'vrml', 'wrl' => 'model/vrml', // VRML format (both extensions)
+            'bin' => 'application/octet-stream', // Binary data for GLTF buffers
+            'png' => 'image/png',
+            'jpg', 'jpeg' => 'image/jpeg',
+            'tga' => 'image/x-tga',
+            'bmp' => 'image/bmp',
+            'webp' => 'image/webp',
             default => 'application/octet-stream',
         };
     }

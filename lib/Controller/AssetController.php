@@ -7,6 +7,9 @@ namespace OCA\ThreeDViewer\Controller;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\AppFramework\Http\FileDisplayResponse;
+use OCP\AppFramework\Http\Attribute\FrontpageRoute;
+use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
+use OCP\AppFramework\Http\Attribute\PublicPage;
 use OCP\IRequest;
 use OCP\IURLGenerator;
 
@@ -20,9 +23,11 @@ class AssetController extends Controller {
 
 	/**
 	 * Serve decoder assets (WASM files, etc.)
-	 * @NoCSRFRequired
-	 * @PublicPage
+	 * Supports: /apps/threedviewer/draco/{filename} and /apps/threedviewer/basis/{filename}
 	 */
+	#[NoCSRFRequired]
+	#[PublicPage]
+	#[FrontpageRoute(verb: 'GET', url: '/{type}/{filename}')]
 	public function serveAsset(string $type, string $filename): FileDisplayResponse {
 		$appRoot = dirname(__DIR__, 2);
 		$allowedTypes = ['draco', 'basis'];

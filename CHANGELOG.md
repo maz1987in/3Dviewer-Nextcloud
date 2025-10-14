@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.7] - 2025-10-11
+
 ### Added
 - Comprehensive development tooling and configuration
 - Jest testing framework for JavaScript unit tests
@@ -16,12 +18,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Git hooks for automated code quality checks
 - VS Code workspace configuration
 - Makefile for common development tasks
+- App store marketing materials and screenshots
 
 ### Changed
 - Enhanced package.json with additional scripts and dependencies
 - Improved composer.json with security auditing and additional test configurations
 - Updated stylelint configuration with comprehensive CSS/SCSS rules
 - Enhanced psalm.xml with better static analysis settings
+- Updated app metadata for Nextcloud app store publication
 
 ### Security
 - Added security scanning workflows (CodeQL, npm audit, composer audit)

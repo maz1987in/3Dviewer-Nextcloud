@@ -20,7 +20,6 @@ import {
 	validateFileExtension,
 } from '../utils/validation.js'
 import {
-	ERROR_TYPES,
 	LOADING_STAGES,
 } from '../constants/index.js'
 
@@ -357,7 +356,6 @@ export const MaterialLoaderMixin = {
 	 * Parse material text (to be implemented by subclasses)
 	 * @param {string} text - Material text
 	 * @param {object} options - Parsing options
-	 * @return {THREE.Material} Parsed material
 	 */
 	parseMaterial(text, options) {
 		throw new Error('parseMaterial must be implemented by subclasses')

@@ -23,8 +23,6 @@ Stretch (optional placeholders acceptable initially):
 - Thumbnail provider for 3D types (can return static placeholder). 
 - Drag-and-drop local file into viewer (dev-only flag) without uploading first.
 
-Reference example app for format handling ideas: https://github.com/WARP-LAB/files_3dmodelviewer (do not copy proprietary code; adapt patterns only).
-
 Nextcloud app dev guide: https://docs.nextcloud.com/server/latest/developer_manual/app_development/index.html
 
 ## Architecture & Key Files

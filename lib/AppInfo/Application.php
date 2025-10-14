@@ -8,109 +8,33 @@ use OCP\AppFramework\App;
 use OCP\AppFramework\Bootstrap\IBootContext;
 use OCP\AppFramework\Bootstrap\IBootstrap;
 use OCP\AppFramework\Bootstrap\IRegistrationContext;
-use OCP\IURLGenerator;
-use OCP\Util;
-use OCA\ThreeDViewer\Controller\AssetController;
-use OCA\ThreeDViewer\Controller\FileController;
-
-use function file_exists;
+use OCP\AppFramework\Http\Events\BeforeTemplateRenderedEvent;
+use OCA\ThreeDViewer\Listener\LoadViewerListener;
+use OCA\ThreeDViewer\Listener\LoadFilesListener;
+use OCA\ThreeDViewer\Listener\CspListener;
 
 class Application extends App implements IBootstrap {
 	public const APP_ID = 'threedviewer';
 
-	/** @psalm-suppress PossiblyUnusedMethod */
-	public function __construct() {
-		parent::__construct(self::APP_ID);
+	public function __construct(array $urlParams = []) {
+		parent::__construct(self::APP_ID, $urlParams);
 	}
 
 	public function register(IRegistrationContext $context): void {
-		// Register repair step for missing 3D MIME types (idempotent)
-		if (\class_exists('OCA\\ThreeDViewer\\Repair\\RegisterThreeDMimeTypes') && \method_exists($context, 'registerRepairStep')) {
-			/** @psalm-suppress UndefinedInterfaceMethod */
-			$context->registerRepairStep('OCA\\ThreeDViewer\\Repair\\RegisterThreeDMimeTypes');
-		}
-		if (\class_exists('OCA\\ThreeDViewer\\Repair\\CleanupThreeDMimeTypes') && \method_exists($context, 'registerRepairStep')) {
-			/** @psalm-suppress UndefinedInterfaceMethod */
-			$context->registerRepairStep('OCA\\ThreeDViewer\\Repair\\CleanupThreeDMimeTypes');
+		// Register listener for when Viewer app loads
+		// This follows the pattern from files_pdfviewer
+		if (class_exists('OCA\Viewer\Event\LoadViewer')) {
+			$context->registerEventListener(\OCA\Viewer\Event\LoadViewer::class, LoadViewerListener::class);
 		}
 
-		// Register Files app integration
-		if (\class_exists('OCA\\ThreeDViewer\\FileAction\\View3DAction') && \method_exists($context, 'registerEventListener')) {
-			/** @psalm-suppress UndefinedInterfaceMethod */
-			$context->registerEventListener('OCA\\Files\\Event\\LoadSidebar', 'OCA\\ThreeDViewer\\FileAction\\View3DAction');
-			/** @psalm-suppress UndefinedInterfaceMethod */
-			$context->registerEventListener('OCA\\Files\\Event\\LoadViewer', 'OCA\\ThreeDViewer\\FileAction\\View3DAction');
-		}
-
-		// Register services
-		if (\method_exists($context, 'registerService')) {
-			// Register ModelFileSupport service
-			/** @psalm-suppress UndefinedInterfaceMethod */
-			$context->registerService('OCA\\ThreeDViewer\\Service\\ModelFileSupport', function($c) {
-				return new \OCA\ThreeDViewer\Service\ModelFileSupport();
-			});
-			
-			// Register ResponseBuilder service
-			/** @psalm-suppress UndefinedInterfaceMethod */
-			$context->registerService('OCA\\ThreeDViewer\\Service\\ResponseBuilder', function($c) {
-				return new \OCA\ThreeDViewer\Service\ResponseBuilder(
-					$c->query('OCA\\ThreeDViewer\\Service\\ModelFileSupport')
-				);
-			});
-			
-			// Register asset controller for serving decoder files
-			/** @psalm-suppress UndefinedInterfaceMethod */
-			$context->registerService(AssetController::class, function($c) {
-				return new AssetController(
-					$c->query('OCP\\IRequest'),
-					$c->query('OCP\\IURLGenerator')
-				);
-			});
-			
-			// Register file controller for serving 3D files
-			/** @psalm-suppress UndefinedInterfaceMethod */
-			$context->registerService(FileController::class, function($c) {
-				return new FileController(
-					self::APP_ID,
-					$c->query('OCP\\IRequest'),
-					$c->query('OCP\\Files\\IRootFolder'),
-					$c->query('OCP\\IUserSession'),
-					$c->query('OCA\\ThreeDViewer\\Service\\ModelFileSupport'),
-					$c->query('OCA\\ThreeDViewer\\Service\\ResponseBuilder'),
-					$c->query('Psr\\Log\\LoggerInterface')
-				);
-			});
-		}
+		// Register listener to load our script on every page (Files app context)
+		// This ensures our viewer handler is registered before Files app renders
+		$context->registerEventListener(BeforeTemplateRenderedEvent::class, LoadFilesListener::class);
 		
-		// Register controllers for routes
-		if (\method_exists($context, 'registerController')) {
-			/** @psalm-suppress UndefinedInterfaceMethod */
-			$context->registerController(AssetController::class);
-			/** @psalm-suppress UndefinedInterfaceMethod */
-			$context->registerController(FileController::class);
-		}
+		// Register CSP listener to allow blob URLs for 3D viewer
+		$context->registerEventListener(BeforeTemplateRenderedEvent::class, CspListener::class);
 	}
 
 	public function boot(IBootContext $context): void {
-		// Load Files integration assets only when needed
-		// The View3DAction will handle loading the script in Files app context
-
-		// Extend CSP for WebAssembly support
-		$cspClass = 'OCP\\Security\\CSP\\ContentSecurityPolicy';
-		if (\class_exists($cspClass) && \method_exists($context, 'registerCSP')) {
-			/** @psalm-suppress MixedAssignment */
-			/** @psalm-suppress MixedMethodCall Dynamic instantiation of optional Nextcloud CSP class */
-			$policy = new $cspClass();
-			// Below calls guarded by runtime check; Psalm may see dynamic type.
-			/** @psalm-suppress MixedMethodCall */ $policy->addAllowedScriptDomain('self');
-			/** @psalm-suppress MixedMethodCall */ $policy->addAllowedScriptDomain('blob:');
-			/** @psalm-suppress MixedMethodCall */ $policy->addAllowedConnectDomain('self');
-			/** @psalm-suppress MixedMethodCall */ $policy->addAllowedConnectDomain('blob:');
-			/** @psalm-suppress MixedMethodCall */ $policy->addAllowedWorkerSrcDomain('self');
-			/** @psalm-suppress MixedMethodCall */ $policy->addAllowedWorkerSrcDomain('blob:');
-			/** @psalm-suppress MixedMethodCall */ $policy->addAllowedScriptDomain('unsafe-eval');
-			/** @psalm-suppress MixedMethodCall */ $policy->addAllowedScriptDomain('unsafe-inline');
-			/** @psalm-suppress UndefinedInterfaceMethod */ $context->registerCSP($policy);
-		}
 	}
 }

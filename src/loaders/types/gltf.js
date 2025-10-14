@@ -1,3 +1,4 @@
+import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { BaseLoader } from '../BaseLoader.js'
 
@@ -18,7 +19,7 @@ class GltfLoader extends BaseLoader {
 	 * @return {Promise<object>} Load result
 	 */
 	async loadModel(arrayBuffer, context) {
-		const { THREE, renderer, hasDraco, hasKtx2, hasMeshopt } = context
+		const { renderer, hasDraco, hasKtx2, hasMeshopt, additionalFiles } = context
 
 		// Create loader
 		this.loader = new GLTFLoader()
@@ -26,11 +27,66 @@ class GltfLoader extends BaseLoader {
 		// Configure decoders
 		await this.configureDecoders(renderer, hasDraco, hasKtx2, hasMeshopt)
 
+		// Set up resource manager for multi-file loading
+		if (additionalFiles && additionalFiles.length > 0) {
+			await this.setupResourceManager(additionalFiles)
+		}
+
 		// Parse the model
 		const gltf = await this.parseModel(arrayBuffer)
 
 		// Process the result
 		return this.processModel(gltf.scene, context)
+	}
+
+	/**
+	 * Set up resource manager for multi-file loading
+	 * @param {Array<File>} additionalFiles - Array of dependency files
+	 */
+	async setupResourceManager(additionalFiles) {
+		try {
+			// Create a map of blob URLs for each file
+			const resourceMap = new Map()
+			
+			// Convert each File to a blob URL
+			for (const file of additionalFiles) {
+				const blob = new Blob([file], { type: file.type || 'application/octet-stream' })
+				const blobUrl = URL.createObjectURL(blob)
+				resourceMap.set(file.name, blobUrl)
+				this.logInfo('Created blob URL for resource:', file.name, { type: file.type, size: file.size })
+			}
+
+			// Create a custom LoadingManager with URL modifier
+			const manager = new THREE.LoadingManager()
+			
+			manager.setURLModifier((url) => {
+				// Extract filename from URL
+				const filename = url.split('/').pop().split('?')[0]
+				
+				// Check if we have this file
+				if (resourceMap.has(filename)) {
+					const blobUrl = resourceMap.get(filename)
+					this.logInfo('Resolving resource from blob:', filename)
+					return blobUrl
+				}
+				
+				// Return original URL if not found
+				this.logWarning('Resource not found in map, using original URL:', filename)
+				return url
+			})
+			
+			// Set the custom manager on the loader
+			this.loader.manager = manager
+
+			this.logInfo('Resource manager setup complete', { 
+				resources: additionalFiles.length,
+				files: Array.from(resourceMap.keys())
+			})
+		} catch (error) {
+			this.logWarning('Failed to setup resource manager', { 
+				error: error.message 
+			})
+		}
 	}
 
 	/**
@@ -46,9 +102,9 @@ class GltfLoader extends BaseLoader {
 			try {
 				const { DRACOLoader } = await import('three/examples/jsm/loaders/DRACOLoader.js')
 				const dracoLoader = new DRACOLoader()
-				dracoLoader.setDecoderPath('/apps/threedviewer/decoder/')
+				dracoLoader.setDecoderPath('/apps/threedviewer/draco/')
 				this.loader.setDRACOLoader(dracoLoader)
-				this.logInfo('DRACO loader configured')
+				this.logInfo('DRACO loader configured', { path: '/apps/threedviewer/draco/' })
 			} catch (error) {
 				this.logWarning('DRACO loader unavailable', { error: error.message })
 			}
@@ -59,10 +115,10 @@ class GltfLoader extends BaseLoader {
 			try {
 				const { KTX2Loader } = await import('three/examples/jsm/loaders/KTX2Loader.js')
 				const ktx2Loader = new KTX2Loader()
-				ktx2Loader.setTranscoderPath('/apps/threedviewer/decoder/')
+				ktx2Loader.setTranscoderPath('/apps/threedviewer/basis/')
 				ktx2Loader.detectSupport(renderer)
 				this.loader.setKTX2Loader(ktx2Loader)
-				this.logInfo('KTX2 loader configured')
+				this.logInfo('KTX2 loader configured', { path: '/apps/threedviewer/basis/' })
 			} catch (error) {
 				this.logWarning('KTX2 loader unavailable', { error: error.message })
 			}
@@ -105,15 +161,5 @@ class GltfLoader extends BaseLoader {
 
 }
 
-// Create loader instance
-const gltfLoader = new GltfLoader()
+export { GltfLoader }
 
-/**
- * Load GLTF/GLB model (legacy function for compatibility)
- * @param {ArrayBuffer} arrayBuffer - File data
- * @param {object} context - Loading context
- * @return {Promise<object>} Load result
- */
-export default async function loadGltf(arrayBuffer, context) {
-	return gltfLoader.load(arrayBuffer, context)
-}

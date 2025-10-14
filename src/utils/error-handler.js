@@ -69,7 +69,24 @@ export function logError(component, message, error, level = 'error') {
 		errorInfo.loaderName = error.loaderName
 	}
 
-	// Debug logging disabled
+	// Log to console for debugging
+	const logPrefix = `[${component}] ${message}`
+	
+	switch (level) {
+	case 'warn':
+		console.warn(logPrefix, errorInfo)
+		break
+	case 'info':
+		console.info(logPrefix, errorInfo)
+		break
+	case 'log':
+		console.log(logPrefix, errorInfo)
+		break
+	case 'error':
+	default:
+		console.error(logPrefix, errorInfo)
+		break
+	}
 }
 
 /**
