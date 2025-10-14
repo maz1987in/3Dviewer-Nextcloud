@@ -3,9 +3,16 @@
  * Handles 3D annotation creation, management, and interaction
  */
 
-import { ref, computed } from 'vue'
+import { ref, computed, readonly } from 'vue'
 import * as THREE from 'three'
 import { logError } from '../utils/error-handler.js'
+import { 
+	calculateModelScale, 
+	createTextTexture, 
+	createMarkerSphere, 
+	createTextMesh,
+	raycastIntersection 
+} from '../utils/modelScaleUtils.js'
 
 export function useAnnotation() {
 	// Annotation state
@@ -16,10 +23,7 @@ export function useAnnotation() {
 	const textMeshes = ref([])
 	const pointMeshes = ref([])
 	const sceneRef = ref(null)
-
-	// Raycaster for 3D interaction
-	const raycaster = ref(new THREE.Raycaster())
-	const mouse = ref(new THREE.Vector2())
+	const modelScale = ref(1) // Scale factor based on model size
 
 	// Computed properties
 	const hasAnnotations = computed(() => annotations.value.length > 0)
@@ -27,6 +31,16 @@ export function useAnnotation() {
 
 	// Initialize annotation system
 	const init = (scene) => {
+		// Input validation
+		if (!scene) {
+			logError('useAnnotation', 'Scene is required for initialization', new Error('Scene is required'))
+			throw new Error('Scene is required to initialize annotation system')
+		}
+		if (!(scene instanceof THREE.Scene)) {
+			logError('useAnnotation', 'Invalid scene object', new Error('Invalid scene'))
+			throw new Error('Scene must be an instance of THREE.Scene')
+		}
+
 		try {
 			// Store scene reference
 			sceneRef.value = scene
@@ -36,22 +50,27 @@ export function useAnnotation() {
 			annotationGroup.value.name = 'annotationGroup'
 			scene.add(annotationGroup.value)
 
-			// Annotation system initialized
+			// Calculate initial model scale
+			updateModelScale()
 		} catch (error) {
 			logError('useAnnotation', 'Failed to initialize annotation system', error)
+			throw error
 		}
+	}
+
+	// Calculate and update model scale based on bounding box
+	const updateModelScale = () => {
+		if (!sceneRef.value) return
+		modelScale.value = calculateModelScale(sceneRef.value)
 	}
 
 	// Toggle annotation mode
 	const toggleAnnotation = () => {
 		isActive.value = !isActive.value
-		// Annotation mode toggled
 	}
 
 	// Handle click events for annotation placement
 	const handleClick = (event, camera) => {
-		// Annotation click handler called
-
 		if (!isActive.value) {
 			return
 		}
@@ -61,33 +80,13 @@ export function useAnnotation() {
 		}
 
 		try {
-			// Get mouse coordinates
-			const rect = event.target.getBoundingClientRect()
-			mouse.value.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
-			mouse.value.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
-
-			// Mouse coordinates processed
-
-			// Update raycaster
-			raycaster.value.setFromCamera(mouse.value, camera)
-
-			// Find intersectable objects (exclude annotation elements)
-			const intersectableObjects = []
-			sceneRef.value.traverse((child) => {
-				if (child.isMesh && child.name !== 'annotationPoint' && child.name !== 'annotationText') {
-					intersectableObjects.push(child)
-				}
+			// Use shared raycasting utility with custom filter
+			const point = raycastIntersection(event, camera, sceneRef.value, {
+				filterMesh: (mesh) => mesh.isMesh && mesh.name !== 'annotationPoint' && mesh.name !== 'annotationText',
+				recursive: false,
 			})
 
-			// Intersectable objects found
-
-			// Perform raycasting
-			const intersects = raycaster.value.intersectObjects(intersectableObjects, false)
-
-			// Intersections found
-
-			if (intersects.length > 0) {
-				const point = intersects[0].point.clone()
+			if (point) {
 				addAnnotationPoint(point)
 			}
 		} catch (error) {
@@ -114,8 +113,6 @@ export function useAnnotation() {
 			// Create visual elements and store references
 			annotation.pointMesh = createAnnotationPoint(annotation)
 			annotation.textMesh = createAnnotationText(annotation)
-
-			// Annotation added
 		} catch (error) {
 			logError('useAnnotation', 'Failed to add annotation point', error)
 		}
@@ -125,15 +122,20 @@ export function useAnnotation() {
 	const createAnnotationPoint = (annotation) => {
 		if (!annotationGroup.value) return null
 
-		const geometry = new THREE.SphereGeometry(0.1, 16, 16)
-		const material = new THREE.MeshBasicMaterial({ color: 0xff0000 })
-		const sphere = new THREE.Mesh(geometry, material)
+		// Use shared marker sphere utility
+		const sphere = createMarkerSphere(annotation.point, {
+			scale: modelScale.value,
+			color: 0xff0000, // Red for annotations
+			sizeMultiplier: 2,
+			opacity: 0.9,
+			renderOrder: 999,
+			name: 'annotationPoint',
+		})
 
-		sphere.position.copy(annotation.point)
-		sphere.name = 'annotationPoint'
-
-		annotationGroup.value.add(sphere)
-		pointMeshes.value.push(sphere)
+		if (sphere) {
+			annotationGroup.value.add(sphere)
+			pointMeshes.value.push(sphere)
+		}
 
 		return sphere
 	}
@@ -141,47 +143,26 @@ export function useAnnotation() {
 	// Create text for annotation
 	const createAnnotationText = (annotation) => {
 		try {
-			// Create a simple plane with text texture
-			const canvas = document.createElement('canvas')
-			const context = canvas.getContext('2d')
-			canvas.width = 256
-			canvas.height = 64
-
-			// Draw text on canvas
-			context.fillStyle = 'rgba(0, 0, 0, 0.8)'
-			context.fillRect(0, 0, canvas.width, canvas.height)
-			context.fillStyle = '#ff0000'
-			context.font = 'bold 20px Arial'
-			context.textAlign = 'center'
-			context.textBaseline = 'middle'
-			context.fillText(annotation.text, canvas.width / 2, canvas.height / 2)
-
-			// Create texture from canvas
-			const texture = new THREE.CanvasTexture(canvas)
-			texture.needsUpdate = true
-
-			// Create plane geometry
-			const geometry = new THREE.PlaneGeometry(1.5, 0.4)
-			const material = new THREE.MeshBasicMaterial({
-				map: texture,
-				transparent: true,
-				alphaTest: 0.1,
+			// Use shared text mesh utility
+			const textMesh = createTextMesh(annotation.text, annotation.point, {
+				scale: modelScale.value,
+				widthMultiplier: 30,
+				heightMultiplier: 7.5,
+				yOffset: 5, // Position above the point
+				textColor: '#ff0000',
+				bgColor: 'rgba(0, 0, 0, 0.8)',
+				fontSize: 48,
+				canvasWidth: 512,
+				canvasHeight: 128,
+				renderOrder: 997,
+				name: 'annotationText',
 			})
-			const textMesh = new THREE.Mesh(geometry, material)
 
-			// Position text above the point
-			textMesh.position.copy(annotation.point)
-			textMesh.position.y += 0.5
-			textMesh.name = 'annotationText'
+			if (textMesh) {
+				annotationGroup.value.add(textMesh)
+				textMeshes.value.push(textMesh)
+			}
 
-			// Make text face camera (simplified - just point towards origin)
-			textMesh.lookAt(0, 0, 0)
-
-			// Add to annotation group
-			annotationGroup.value.add(textMesh)
-			textMeshes.value.push(textMesh)
-
-			// Annotation text created
 			return textMesh
 		} catch (error) {
 			logError('useAnnotation', 'Failed to create annotation text', error)
@@ -195,30 +176,24 @@ export function useAnnotation() {
 		if (annotation) {
 			annotation.text = newText
 
-			// Update visual text
-			const textMesh = textMeshes.value.find(mesh =>
-				mesh.position.distanceTo(annotation.point) < 0.1,
-			)
+			// Update visual text mesh using stored reference
+			const textMesh = annotation.textMesh
 
 			if (textMesh) {
-				// Recreate the text texture
-				const canvas = document.createElement('canvas')
-				const context = canvas.getContext('2d')
-				canvas.width = 256
-				canvas.height = 64
+				// Create text texture using shared utility
+				const texture = createTextTexture(newText, {
+					width: 1024,
+					height: 256,
+					textColor: '#ff0000',
+					bgColor: 'rgba(0, 0, 0, 0.8)',
+					fontSize: 80,
+					fontFamily: 'Arial',
+				})
 
-				context.fillStyle = 'rgba(0, 0, 0, 0.8)'
-				context.fillRect(0, 0, canvas.width, canvas.height)
-				context.fillStyle = '#ff0000'
-				context.font = 'bold 20px Arial'
-				context.textAlign = 'center'
-				context.textBaseline = 'middle'
-				context.fillText(newText, canvas.width / 2, canvas.height / 2)
-
-				const texture = new THREE.CanvasTexture(canvas)
-				texture.needsUpdate = true
-				textMesh.material.map = texture
-				textMesh.material.needsUpdate = true
+				if (texture) {
+					textMesh.material.map = texture
+					textMesh.material.needsUpdate = true
+				}
 			}
 		}
 	}
@@ -229,8 +204,6 @@ export function useAnnotation() {
 		if (index !== -1) {
 			const annotation = annotations.value[index]
 
-			// Deleting annotation
-
 			// Remove visual elements using stored references
 			if (annotation.pointMesh && annotationGroup.value) {
 				annotationGroup.value.remove(annotation.pointMesh)
@@ -238,7 +211,6 @@ export function useAnnotation() {
 				if (pointIndex !== -1) {
 					pointMeshes.value.splice(pointIndex, 1)
 				}
-				// Removed point mesh
 			}
 
 			if (annotation.textMesh && annotationGroup.value) {
@@ -247,28 +219,22 @@ export function useAnnotation() {
 				if (textIndex !== -1) {
 					textMeshes.value.splice(textIndex, 1)
 				}
-				// Removed text mesh
 			}
 
 			// Remove from annotations array
 			annotations.value.splice(index, 1)
-
-			// Annotation deleted
 		}
 	}
 
 	// Clear all annotations
 	const clearAllAnnotations = () => {
 		try {
-			// Starting clear all annotations
-
 			// Force remove all children from annotation group
 			if (annotationGroup.value) {
 				// Remove all children by iterating backwards to avoid index issues
 				while (annotationGroup.value.children.length > 0) {
 					const child = annotationGroup.value.children[0]
 					annotationGroup.value.remove(child)
-					// Removed child
 				}
 			}
 
@@ -282,8 +248,6 @@ export function useAnnotation() {
 			currentAnnotation.value = null
 			pointMeshes.value = []
 			textMeshes.value = []
-
-			// All annotations cleared
 		} catch (error) {
 			logError('useAnnotation', 'Failed to clear all annotations', error)
 		}
@@ -303,11 +267,25 @@ export function useAnnotation() {
 		}
 	}
 
+	/**
+	 * Dispose of annotation resources
+	 */
+	const dispose = () => {
+		// Clear all annotations
+		annotations.value = []
+		currentAnnotation.value = null
+		isActive.value = false
+		modelScale.value = 1
+
+		logger.info('useAnnotation', 'Annotation resources disposed')
+	}
+
 	return {
 		// State
-		isActive,
-		annotations,
-		currentAnnotation,
+		isActive: readonly(isActive),
+		annotations: readonly(annotations),
+		currentAnnotation: readonly(currentAnnotation),
+		modelScale: readonly(modelScale),
 
 		// Computed
 		hasAnnotations,
@@ -315,6 +293,7 @@ export function useAnnotation() {
 
 		// Methods
 		init,
+		updateModelScale,
 		toggleAnnotation,
 		handleClick,
 		addAnnotationPoint,
@@ -322,5 +301,6 @@ export function useAnnotation() {
 		deleteAnnotation,
 		clearAllAnnotations,
 		getAnnotationSummary,
+		dispose,
 	}
 }

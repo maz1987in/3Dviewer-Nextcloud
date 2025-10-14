@@ -1,0 +1,131 @@
+# Docker Compose file for Nextcloud with 3D Viewer app
+# This setup uses SQLite for simplicity and is intended for development or small-scale use.
+# To enter bash use docker exec -it -u www-data nextcloud-threedviewer bash
+services:
+  nextcloud:
+    image: nextcloud:stable-apache
+    container_name: nextcloud-threedviewer
+    restart: always
+    ports:
+      - "8080:80"
+    volumes:
+      - nextcloud-main:/var/www/html
+      - ./:/var/www/html/apps/threedviewer
+    environment:
+      NEXTCLOUD_ADMIN_USER: admin
+      NEXTCLOUD_ADMIN_PASSWORD: admin
+      NEXTCLOUD_TRUSTED_DOMAINS: localhost#,super-train-r45g6xpw476357v4-8080.app.github.dev
+      NC_CLI_URL: http://localhost:8080 # Using localhost for internal consistency
+      #NEXTCLOUD_UPLOAD_LIMIT: 2G
+      #PHP_UPLOAD_LIMIT: 2G
+      #APACHE_BODY_LIMIT: "0"
+      #TRUSTED_PROXIES: '172.17.0.0/16'   # Trust proxies from common Docker network ranges
+    entrypoint:
+      - bash
+      - -lc
+      - |
+          set -Eeuo pipefail
+          log(){ echo "[nextcloud-entry] $*"; }
+          occ() {
+            if [ `id -u` -eq 0 ]; then
+              if command -v runuser >/dev/null 2>&1; then
+                runuser -u www-data -- php -f /var/www/html/occ "$@"
+              else
+                su -s /bin/sh www-data -c "php -f /var/www/html/occ $*"
+              fi
+            else
+              php -f /var/www/html/occ "$@"
+            fi
+          }
+
+          # PHP upload limits
+          #echo 'file_uploads = On' > /usr/local/etc/php/conf.d/uploads.ini
+          #echo 'upload_max_filesize = 2G' >> /usr/local/etc/php/conf.d/uploads.ini
+          #echo 'post_max_size = 2G' >> /usr/local/etc/php/conf.d/uploads.ini
+
+          # Silence Apache ServerName warning
+          echo 'ServerName localhost' > /etc/apache2/conf-available/servername.conf
+          a2enconf servername >/dev/null 2>&1 || true
+
+          # Ensure sqlite3 PHP extension exists (needed for SQLite install)
+          if ! php -r 'exit(extension_loaded("sqlite3")?0:1);'; then
+            log 'Installing php sqlite3 extension...'
+            apt-get update
+            apt-get install -y --no-install-recommends php8.3-sqlite3 sqlite3
+            rm -rf /var/lib/apt/lists/*
+          fi
+
+          # Seed the application into the named volume on first run
+          if [ ! -f /var/www/html/version.php ]; then
+            log 'Seeding /var/www/html from /usr/src/nextcloud...'
+            tar cf - --one-file-system -C /usr/src/nextcloud . | tar xf -
+          fi
+
+          # Ensure dirs. and ownership
+          mkdir -p /var/www/html/data /var/www/html/config /var/www/html/custom_apps
+          chown -R www-data:www-data /var/www/html 2>/dev/null || true
+
+          # Detect install state
+          installed=false
+          if occ status 2>/dev/null | grep -q 'installed: true'; then installed=true; fi
+          log "Nextcloud installed: $$installed"
+          # Install if needed (SQLite)
+          if [ "$$installed" = false ]; then
+            log 'Running occ maintenance:install (SQLite)...'
+            set +e
+            occ maintenance:install \
+              --database=SQLite \
+              --admin-user="$$NEXTCLOUD_ADMIN_USER" \
+              --admin-pass="$$NEXTCLOUD_ADMIN_PASSWORD" \
+              --data-dir=/var/www/html/data
+            rc=$$?
+            set -e
+            if [ $$rc -ne 0 ]; then
+              log 'Install failed; check logs above. You can complete install via the browser.'
+            fi
+            # Re-check install state
+            if occ status 2>/dev/null | grep -q 'installed: true'; then installed=true; fi
+          fi
+
+          # Post-install config (only if installed)
+          if [ "$$installed" = true ]; then
+            log 'Applying system configurations...'
+            occ config:system:set trusted_domains 0 --value=localhost || true
+            occ config:system:set trusted_domains 1 --value="$$NEXTCLOUD_TRUSTED_DOMAINS" || true
+            if [ -n "$${NC_CLI_URL:-}" ]; then
+              occ config:system:set overwrite.cli.url --value="$${NC_CLI_URL}" || true
+            fi
+            # Ensure we don't force a single host/protocol
+            #occ config:system:delete overwritehost || true
+            #occ config:system:delete overwriteprotocol || true
+            occ config:system:set overwritehost --value="localhost:8080" || true
+            occ config:system:set overwriteprotocol --value="http" || true
+            # Optional proxies (must be IP/CIDR if used)
+            if [ -n "$${TRUSTED_PROXIES:-}" ]; then
+              occ config:system:set trusted_proxies 0 --value="$${TRUSTED_PROXIES}" || true
+            fi
+            #occ config:system:set files.chunked_upload.max_size --value=1048576000 || true
+            #occ config:app:set files max_chunk_size --value 1048576000 || true
+            # Enable your app
+            if ! occ app:list 2>/dev/null | grep -q threedviewer; then
+              log 'Enabling threedviewer app...'
+              occ app:enable threedviewer || true
+            fi
+
+            occ maintenance:repair --include-expensive
+            occ db:add-missing-indices
+          else
+            log 'Nextcloud not yet installed; finish via http://localhost:8080 (admin/admin), then restart container for post-install config.'
+          fi
+
+          chown -R www-data:www-data /var/www/html 2>/dev/null || true
+          log 'Starting Apache...'
+          exec /entrypoint.sh apache2-foreground
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost/status.php"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+volumes:
+  nextcloud-main:

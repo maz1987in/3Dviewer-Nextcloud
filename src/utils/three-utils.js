@@ -174,19 +174,68 @@ export function disposeObject(object3D) {
  * @param {object} options - Grid options
  * @return {THREE.GridHelper} Grid helper
  */
-export function createGridHelper(size, divisions, options = {}) {
-	const grid = new THREE.GridHelper(size, divisions)
+/**
+ * Create a grid helper with consistent styling
+ * @param {number} size - Grid size
+ * @param {number} divisions - Number of divisions
+ * @param {object} options - Grid options
+ * @return {THREE.GridHelper} Grid helper
+ */
+export function createGridHelper(size = 10, divisions = 10, options = {}) {
+	const {
+		colorCenterLine = 0x444444,
+		colorGrid = 0x888888,
+		visible = true,
+	} = options
 
-	if (options.color) {
-		grid.material.color.setHex(options.color)
-	}
-	if (options.opacity !== undefined) {
-		grid.material.opacity = options.opacity
-		grid.material.transparent = options.opacity < 1
-	}
+	const grid = new THREE.GridHelper(size, divisions, colorCenterLine, colorGrid)
+	grid.visible = visible
+	grid.userData.isHelper = true
 
 	return grid
 }
+
+/**
+ * Get comprehensive bounding box information for an object
+ * @param {THREE.Object3D} object3D - Object to analyze
+ * @param {THREE.Box3} [existingBox] - Optional existing Box3 to reuse
+ * @return {object} Bounding box information
+ */
+export function getBoundingInfo(object3D, existingBox = null) {
+	const box = existingBox || new THREE.Box3()
+	box.setFromObject(object3D)
+	
+	const size = new THREE.Vector3()
+	const center = new THREE.Vector3()
+	
+	box.getSize(size)
+	box.getCenter(center)
+	
+	const maxDimension = Math.max(size.x, size.y, size.z)
+	const minDimension = Math.min(size.x, size.y, size.z)
+	const volume = size.x * size.y * size.z
+	const diagonalLength = size.length()
+	
+	return {
+		box,
+		size,
+		center,
+		maxDimension,
+		minDimension,
+		volume,
+		diagonalLength,
+		isEmpty: box.isEmpty(),
+		min: box.min.clone(),
+		max: box.max.clone(),
+	}
+}
+
+/**
+ * Create axes helper with consistent styling
+ * @param {number} size - Axes size
+ * @param {object} options - Axes options
+ * @return {THREE.AxesHelper} Axes helper
+ */
 
 /**
  * Create axes helper with consistent styling
@@ -208,4 +257,71 @@ export function createBoundingBoxHelper(object3D, options = {}) {
 	const { box } = calculateBoundingBox(object3D)
 	const helper = new THREE.Box3Helper(box, options.color || 0x00ff00)
 	return helper
+}
+
+/**
+ * Create placeholder material for progressive loading
+ * @param {THREE.Material} originalMaterial - Original material
+ * @return {THREE.Material} Placeholder material
+ */
+export function createPlaceholderMaterial(originalMaterial) {
+	if (!originalMaterial) {
+		return createStandardMaterial({ color: 0xcccccc })
+	}
+
+	const placeholder = originalMaterial.clone()
+
+	// Remove all texture maps
+	placeholder.map = null
+	placeholder.normalMap = null
+	placeholder.specularMap = null
+	placeholder.emissiveMap = null
+	placeholder.bumpMap = null
+	placeholder.roughnessMap = null
+	placeholder.metalnessMap = null
+	placeholder.alphaMap = null
+	placeholder.aoMap = null
+
+	// Use material color or default gray
+	if (!placeholder.color || placeholder.color.getHex() === 0x000000) {
+		placeholder.color.setHex(0xcccccc)
+	}
+
+	// Increase roughness for better visibility without textures
+	if (placeholder.roughness !== undefined) {
+		placeholder.roughness = 0.8
+	}
+
+	// Ensure material updates
+	placeholder.needsUpdate = true
+
+	return placeholder
+}
+
+/**
+ * Apply texture to material progressively
+ * @param {THREE.Material} material - Target material
+ * @param {string} propertyName - Texture property ('map', 'normalMap', etc.)
+ * @param {THREE.Texture} texture - Loaded texture
+ */
+export function applyTextureToMaterial(material, propertyName, texture) {
+	if (!material || !propertyName || !texture) {
+		return
+	}
+
+	material[propertyName] = texture
+	material.needsUpdate = true
+
+	// Adjust material properties when texture is applied
+	if (propertyName === 'map') {
+		// Reduce roughness when diffuse map is applied (for more realistic look)
+		if (material.roughness !== undefined && material.roughness > 0.5) {
+			material.roughness = 0.5
+		}
+	}
+
+	logger.info('three-utils', 'Texture applied to material', {
+		propertyName,
+		materialName: material.name || 'unnamed',
+	})
 }

@@ -2,30 +2,63 @@
 	<NcAppContent>
 		<div id="viewer-wrapper">
 			<ToastContainer :toasts="toasts" @dismiss="dismissToast" />
-			<ViewerToolbar
-				:grid="grid"
-				:axes="axes"
-				:wireframe="wireframe"
-				:background="background"
-				:auto-rotate="autoRotate"
-				:presets="animationPresets"
-				:current-preset="currentPreset"
-				:measurement-mode="measurementMode"
-				:annotation-mode="annotationMode"
-				:comparison-mode="comparisonMode"
-				:performance-mode="performanceMode"
+			
+			<!-- Help Panel -->
+			<HelpPanel v-if="showHelp" @close="showHelp = false" />
+			
+			<!-- Minimal Top Bar -->
+			<MinimalTopBar
+				:model-name="filename"
+				:is-loading="isLoading"
+				:fps="fps"
+				:show-performance="showPerformance"
+				:is-mobile="isMobile"
 				@reset-view="onReset"
 				@fit-to-view="onFitToView"
-				@toggle-auto-rotate="onToggleAutoRotate"
-				@change-preset="onChangePreset"
-				@toggle-grid="grid = !grid"
-				@toggle-axes="axes = !axes"
-				@toggle-wireframe="wireframe = !wireframe"
-				@change-background="onBackgroundChange"
-				@toggle-measurement="onToggleMeasurement"
-				@toggle-annotation="onToggleAnnotation"
-				@toggle-comparison="onToggleComparison"
-				@toggle-performance="onTogglePerformance" />
+				@toggle-performance="onTogglePerformance"
+				@take-screenshot="onTakeScreenshot"
+				@toggle-help="onToggleHelp"
+				@toggle-tools="onToggleTools" />
+			
+		<!-- Slide-Out Tool Panel -->
+		<SlideOutToolPanel
+			ref="toolsPanel"
+			:auto-rotate="autoRotate"
+			:camera-type="cameraType"
+			:current-preset="currentPreset"
+			:presets="animationPresets"
+			:grid="grid"
+			:axes="axes"
+			:wireframe="wireframe"
+			:background-color="background"
+			:measurement-mode="measurementMode"
+			:annotation-mode="annotationMode"
+			:comparison-mode="comparisonMode"
+			:model-loaded="modelLoaded"
+			:performance-mode="performanceMode"
+			:theme-mode="themeMode"
+			:is-mobile="isMobile"
+			@reset-view="onReset"
+			@fit-to-view="onFitToView"
+			@toggle-auto-rotate="onToggleAutoRotate"
+			@toggle-projection="onToggleProjection"
+			@change-preset="onChangePreset"
+			@toggle-grid="grid = !grid"
+			@toggle-axes="axes = !axes"
+			@toggle-wireframe="wireframe = !wireframe"
+			@change-background="onBackgroundChange"
+			@toggle-measurement="onToggleMeasurement"
+			@toggle-annotation="onToggleAnnotation"
+			@toggle-comparison="onToggleComparison"
+			@cycle-performance-mode="onCyclePerformanceMode"
+			@cycle-theme="onCycleTheme"
+			@toggle-stats="onToggleStats"
+			@take-screenshot="onTakeScreenshot"
+			@export-model="onExportModel"
+			@clear-cache="onClearCache"
+			@toggle-help="onToggleHelp" />
+			
+			<!-- 3D Viewer -->
 			<ThreeViewer
 				:file-id="fileId"
 				:filename="filename"
@@ -40,6 +73,8 @@
 				:comparison-mode="comparisonMode"
 				:performance-mode="performanceMode"
 				@model-loaded="onModelLoaded"
+				@loading-state-changed="onLoadingStateChanged"
+				@fps-updated="onFpsUpdated"
 				@error="onError" />
 		</div>
 	</NcAppContent>
@@ -48,16 +83,10 @@
 <script>
 import ToastContainer from './components/ToastContainer.vue'
 import ThreeViewer from './components/ThreeViewer.vue'
-import ViewerToolbar from './components/ViewerToolbar.vue'
-
-// Attempt to import NcAppContent (Nextcloud UI component); provide minimal fallback if unavailable (e.g., in Playwright data URL harness)
-let NcAppContent
-try {
-	// eslint-disable-next-line import/no-unresolved
-	NcAppContent = (await import('@nextcloud/vue/dist/Components/NcAppContent.js')).default
-} catch (e) {
-	NcAppContent = { name: 'NcAppContentStub', functional: true, render(h, ctx) { return h('div', { class: 'nc-app-content-stub' }, ctx.children) } }
-}
+import MinimalTopBar from './components/MinimalTopBar.vue'
+import SlideOutToolPanel from './components/SlideOutToolPanel.vue'
+import HelpPanel from './components/HelpPanel.vue'
+import { NcAppContent } from '@nextcloud/vue'
 
 export default {
 	name: 'App',
@@ -65,7 +94,9 @@ export default {
 		NcAppContent,
 		ToastContainer,
 		ThreeViewer,
-		ViewerToolbar,
+		MinimalTopBar,
+		SlideOutToolPanel,
+		HelpPanel,
 	},
 	data() {
 		return {
@@ -77,17 +108,26 @@ export default {
 			wireframe: false,
 			background: '#f5f5f5',
 			autoRotate: false,
+			cameraType: 'perspective',
 			animationPresets: [],
 			currentPreset: '',
 			lastError: null,
 			modelMeta: null,
+			modelLoaded: false,
 			// Advanced features
 			measurementMode: false,
 			annotationMode: false,
 			comparisonMode: false,
 			performanceMode: 'auto',
+			themeMode: 'auto',
 			toasts: [],
 			_prefsLoaded: false,
+			// UI state
+			isLoading: false,
+			fps: 0,
+			showPerformance: true,
+			showHelp: false,
+			isMobile: false,
 		}
 	},
 	watch: {
@@ -104,9 +144,23 @@ export default {
 		if (!this.fileId && typeof window !== 'undefined' && window.__TEST_FILE_ID) {
 			this.fileId = Number(window.__TEST_FILE_ID)
 		}
+		
+		// Detect mobile device
+		this.detectMobile()
+		window.addEventListener('resize', this.detectMobile)
+	},
+	beforeUnmount() {
+		window.removeEventListener('resize', this.detectMobile)
 	},
 	methods: {
 		parseFileId() {
+			// First try data attribute from template (RESTful route: /apps/threedviewer/{fileId})
+			const appRoot = document.getElementById('threedviewer')
+			if (appRoot && appRoot.dataset.fileId) {
+				return Number(appRoot.dataset.fileId)
+			}
+			
+			// Fallback: Try query params (legacy: /apps/threedviewer/?fileId=123)
 			const params = new URLSearchParams(window.location.search)
 			const id = params.get('fileId')
 			return id ? Number(id) : null
@@ -116,6 +170,13 @@ export default {
 			return params.get('filename') || null
 		},
 		parseDir() {
+			// First try data attribute from template
+			const appRoot = document.getElementById('threedviewer')
+			if (appRoot && appRoot.dataset.dir) {
+				return appRoot.dataset.dir || null
+			}
+			
+			// Fallback: Try query params
 			const params = new URLSearchParams(window.location.search)
 			return params.get('dir') || null
 		},
@@ -159,6 +220,13 @@ export default {
 			this.autoRotate = !this.autoRotate
 			this.$refs.viewer?.toggleAutoRotate?.()
 		},
+		onToggleProjection() {
+			this.$refs.viewer?.toggleCameraProjection?.()
+			// Update camera type from viewer
+			if (this.$refs.viewer?.cameraType) {
+				this.cameraType = this.$refs.viewer.cameraType
+			}
+		},
 		onChangePreset(presetName) {
 			if (presetName) {
 				this.currentPreset = presetName
@@ -188,29 +256,82 @@ export default {
 			this.$refs.viewer?.toggleComparisonMode?.()
 		},
 
-		onTogglePerformance() {
-			const modes = ['auto', 'high', 'medium', 'low']
-			const currentIndex = modes.indexOf(this.performanceMode)
-			const nextIndex = (currentIndex + 1) % modes.length
-			this.performanceMode = modes[nextIndex]
-			this.$refs.viewer?.setPerformanceMode?.(this.performanceMode)
-		},
-		onBackgroundChange(val) {
+	onTogglePerformance() {
+		// Toggle the performance stats overlay visibility (for MinimalTopBar button)
+		this.$refs.viewer?.togglePerformanceStats?.()
+	},
+	
+	onCyclePerformanceMode(mode) {
+		// Set the new performance mode
+		this.performanceMode = mode
+		this.$refs.viewer?.setPerformanceMode?.(mode)
+	},
+	
+	onCycleTheme(mode) {
+		// Set the new theme mode
+		this.themeMode = mode
+		this.$refs.viewer?.setTheme?.(mode)
+	},
+	
+	onToggleStats() {
+		// Toggle the model statistics panel
+		this.$refs.viewer?.toggleModelStats?.()
+	},
+	
+	onExportModel(format) {
+		// Trigger export on the viewer
+		this.$refs.viewer?.handleExport?.(format)
+	},
+
+	onClearCache() {
+		// Clear dependency cache
+		this.$refs.viewer?.handleClearCache?.()
+	},
+
+	onBackgroundChange(val) {
 			this.background = val
+		},
+		onTakeScreenshot() {
+			// TODO: Implement screenshot functionality
+			this.pushToast({ 
+				type: 'info', 
+				title: this.t('threedviewer', 'Screenshot'), 
+				message: this.t('threedviewer', 'Screenshot feature coming soon') 
+			})
+		},
+		onToggleHelp() {
+			// Toggle help panel visibility
+			this.showHelp = !this.showHelp
+		},
+		onToggleTools() {
+			// Toggle the tools panel
+			if (this.$refs.toolsPanel) {
+				this.$refs.toolsPanel.togglePanel()
+			}
+		},
+		onLoadingStateChanged(loading) {
+			this.isLoading = loading
+		},
+		onFpsUpdated(fps) {
+			this.fps = fps
 		},
 		onModelLoaded(meta) {
 			this.modelMeta = meta
 			this.lastError = null
+			this.isLoading = false
+			this.modelLoaded = true
 			// Sync animation presets from viewer
 			if (this.$refs.viewer?.animationPresets) {
 				this.animationPresets = this.$refs.viewer.animationPresets
 			}
 			this.pushToast({ type: 'success', title: this.tSuccessTitle(), message: this.tLoadedMessage(meta.filename) })
 		},
-		onError(msg) {
-			this.lastError = msg
-			// Viewer error handled
-			this.pushToast({ type: 'error', title: this.tErrorTitle(), message: msg })
+		onError(error) {
+			// Extract message from error object or use as string
+			const message = error?.message || error || 'Unknown error occurred'
+			this.lastError = message
+			// Viewer error handled - show detailed error message in toast
+			this.pushToast({ type: 'error', title: this.tErrorTitle(), message })
 		},
 		pushToast({ type = 'info', title, message, timeout = null }) {
 			const id = Date.now() + Math.random()
@@ -243,9 +364,12 @@ export default {
 		dismissToast(id) {
 			this.toasts = this.toasts.filter(t => t.id !== id)
 		},
-		tSuccessTitle() { return t('threedviewer', 'Model loaded') },
-		tLoadedMessage(name) { return t('threedviewer', 'Loaded {file}', { file: name }) },
-		tErrorTitle() { return t('threedviewer', 'Error loading model') },
+		detectMobile() {
+			this.isMobile = window.innerWidth <= 768
+		},
+		tSuccessTitle() { return this.t('threedviewer', 'Model loaded') },
+		tLoadedMessage(name) { return this.t('threedviewer', 'Loaded {file}', { file: name }) },
+		tErrorTitle() { return this.t('threedviewer', 'Error loading model') },
 	},
 }
 </script>

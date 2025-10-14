@@ -5,8 +5,8 @@
 
 import { ref, computed, readonly } from 'vue'
 import * as THREE from 'three'
-import { logError } from '../utils/error-handler.js'
-import { VIEWER_CONFIG } from '../config/viewer-config.js'
+import { logger } from '../utils/logger.js'
+import { throttle } from '../utils/mathHelpers.js'
 
 export function useMobile() {
 	// Mobile state
@@ -55,7 +55,7 @@ export function useMobile() {
 		setupScreenSizeDetection()
 		setupTouchEvents()
 
-		logError('useMobile', 'Mobile initialization complete', {
+		logger.info('useMobile', 'Mobile initialization complete', {
 			isMobile: isMobile.value,
 			isTouchDevice: isTouchDevice.value,
 			orientation: orientation.value,
@@ -71,8 +71,8 @@ export function useMobile() {
 		const userAgent = navigator.userAgent || navigator.vendor || window.opera
 		const isMobileDevice = /android|bb\d+|meego|avantgo|bada\/|blackberry|blazer|compal|elaine|fennec|hiptop|iemobile|ip(hone|od)|iris|kindle|lge |maemo|midp|mmp|mobile.+firefox|netfront|opera m(ob|in)i|palm( os)?|phone|p(ixi|rim)|plucker|pocket|psp|series(4|6)0|symbian|treo|up\.(browser|link)|vodafone|wap|windows ce|xda|xiino/i.test(userAgent)
 
-		isMobile.value = isMobileDevice
-		logError('useMobile', 'Mobile device detected', { isMobile: isMobileDevice })
+	isMobile.value = isMobileDevice
+	logger.info('useMobile', 'Mobile device detected', { isMobile: isMobileDevice })
 
 		return isMobileDevice
 	}
@@ -83,8 +83,8 @@ export function useMobile() {
 	 */
 	const detectTouchCapability = () => {
 		const isTouchCapable = 'ontouchstart' in window || navigator.maxTouchPoints > 0
-		isTouchDevice.value = isTouchCapable
-		logError('useMobile', 'Touch capability detected', { isTouchCapable })
+	isTouchDevice.value = isTouchCapable
+	logger.info('useMobile', 'Touch capability detected', { isTouchCapable })
 
 		return isTouchCapable
 	}
@@ -96,12 +96,16 @@ export function useMobile() {
 		const updateOrientation = () => {
 			const isLandscape = window.innerWidth > window.innerHeight
 			orientation.value = isLandscape ? 'landscape' : 'portrait'
-			logError('useMobile', 'Orientation changed', { orientation: orientation.value })
+			logger.info('useMobile', 'Orientation changed', { orientation: orientation.value })
 		}
 
+		// Throttle orientation updates to prevent excessive calls during window dragging
+		const throttledUpdateOrientation = throttle(updateOrientation, 150)
+
 		updateOrientation()
-		window.addEventListener('orientationchange', updateOrientation)
-		window.addEventListener('resize', updateOrientation)
+		eventListeners.value.orientationChange = throttledUpdateOrientation
+		window.addEventListener('orientationchange', throttledUpdateOrientation)
+		window.addEventListener('resize', throttledUpdateOrientation)
 	}
 
 	/**
@@ -113,11 +117,15 @@ export function useMobile() {
 				width: window.innerWidth,
 				height: window.innerHeight,
 			}
-			logError('useMobile', 'Screen size updated', screenSize.value)
+			logger.info('useMobile', 'Screen size updated', screenSize.value)
 		}
 
+		// Throttle screen size updates to prevent excessive calls during window dragging
+		const throttledUpdateScreenSize = throttle(updateScreenSize, 150)
+
 		updateScreenSize()
-		window.addEventListener('resize', updateScreenSize)
+		eventListeners.value.resize = throttledUpdateScreenSize
+		window.addEventListener('resize', throttledUpdateScreenSize)
 	}
 
 	/**
@@ -141,7 +149,7 @@ export function useMobile() {
 				gestureStartPos.value.set(touch.clientX, touch.clientY)
 				gestureCurrentPos.value.copy(gestureStartPos.value)
 
-				logError('useMobile', 'Touch start - rotation', {
+				logger.info('useMobile', 'Touch start - rotation', {
 					x: touch.clientX,
 					y: touch.clientY,
 				})
@@ -165,7 +173,7 @@ export function useMobile() {
 				gestureStartPos.value.set(centerX, centerY)
 				gestureCurrentPos.value.copy(gestureStartPos.value)
 
-				logError('useMobile', 'Touch start - pinch', {
+				logger.info('useMobile', 'Touch start - pinch', {
 					distance,
 					centerX,
 					centerY,
@@ -189,7 +197,7 @@ export function useMobile() {
 					gestureVelocity.value.copy(gestureDelta.value).divideScalar(deltaTime)
 				}
 
-				logError('useMobile', 'Touch move - rotation', {
+				logger.info('useMobile', 'Touch move - rotation', {
 					delta: { x: gestureDelta.value.x, y: gestureDelta.value.y },
 					velocity: { x: gestureVelocity.value.x, y: gestureVelocity.value.y },
 				})
@@ -203,15 +211,13 @@ export function useMobile() {
 				)
 
 				if (lastTouchDistance.value > 0) {
-					const scale = distance / lastTouchDistance.value
 					const centerX = (touch1.clientX + touch2.clientX) / 2
 					const centerY = (touch1.clientY + touch2.clientY) / 2
 
 					gestureCurrentPos.value.set(centerX, centerY)
 					gestureDelta.value.copy(gestureCurrentPos.value).sub(gestureStartPos.value)
 
-					logError('useMobile', 'Touch move - pinch', {
-						scale,
+					logger.info('useMobile', 'Touch move - pinch', {
 						distance,
 						centerX,
 						centerY,
@@ -240,14 +246,18 @@ export function useMobile() {
 				gestureDelta.value.set(0, 0)
 				gestureVelocity.value.set(0, 0)
 
-				logError('useMobile', 'Touch end', {
+				logger.info('useMobile', 'Touch end', {
 					touchLength,
 					touchCount: touchCount.value,
 				})
 			}
 		}
 
-		// Add event listeners
+		// Store event listener references and add event listeners
+		eventListeners.value.touchStart = handleTouchStart
+		eventListeners.value.touchMove = handleTouchMove
+		eventListeners.value.touchEnd = handleTouchEnd
+		
 		document.addEventListener('touchstart', handleTouchStart, { passive: false })
 		document.addEventListener('touchmove', handleTouchMove, { passive: false })
 		document.addEventListener('touchend', handleTouchEnd, { passive: false })
@@ -257,7 +267,7 @@ export function useMobile() {
 	 * Handle single tap
 	 */
 	const handleSingleTap = () => {
-		logError('useMobile', 'Single tap detected')
+		logger.info('useMobile', 'Single tap detected')
 		// This could trigger double tap detection or other single tap actions
 	}
 
@@ -283,7 +293,7 @@ export function useMobile() {
 		controls.maxPolarAngle = Math.PI * 0.8
 		controls.minPolarAngle = Math.PI * 0.1
 
-		logError('useMobile', 'Mobile controls configured', {
+		logger.info('useMobile', 'Mobile controls configured', {
 			damping: controls.dampingFactor,
 			minDistance: controls.minDistance,
 			maxDistance: controls.maxDistance,
@@ -321,7 +331,6 @@ export function useMobile() {
 
 				if (lastTouchDistance > 0) {
 					const delta = lastTouchDistance - distance
-					const scale = 1 + delta * 0.01
 
 					// Apply zoom
 					if (controls) {
@@ -337,7 +346,7 @@ export function useMobile() {
 		document.addEventListener('touchstart', handleTouchStart, { passive: false })
 		document.addEventListener('touchmove', handleTouchMove, { passive: false })
 
-		logError('useMobile', 'Pinch zoom setup complete')
+		logger.info('useMobile', 'Pinch zoom setup complete')
 	}
 
 	/**
@@ -360,7 +369,7 @@ export function useMobile() {
 					if (resetFunction) {
 						resetFunction()
 					}
-					logError('useMobile', 'Double tap detected - resetting view')
+					logger.info('useMobile', 'Double tap detected - resetting view')
 				}
 
 				lastTapTime = currentTime
@@ -368,7 +377,7 @@ export function useMobile() {
 		}
 
 		document.addEventListener('touchend', handleTouchEnd, { passive: false })
-		logError('useMobile', 'Double tap reset setup complete')
+		logger.info('useMobile', 'Double tap reset setup complete')
 	}
 
 	/**
@@ -376,7 +385,7 @@ export function useMobile() {
 	 */
 	const toggleMobileHints = () => {
 		mobileHintsVisible.value = !mobileHintsVisible.value
-		logError('useMobile', 'Mobile hints toggled', { visible: mobileHintsVisible.value })
+		logger.info('useMobile', 'Mobile hints toggled', { visible: mobileHintsVisible.value })
 	}
 
 	/**
@@ -384,7 +393,7 @@ export function useMobile() {
 	 */
 	const toggleMobileControls = () => {
 		mobileControlsEnabled.value = !mobileControlsEnabled.value
-		logError('useMobile', 'Mobile controls toggled', { enabled: mobileControlsEnabled.value })
+		logger.info('useMobile', 'Mobile controls toggled', { enabled: mobileControlsEnabled.value })
 	}
 
 	/**
@@ -392,7 +401,7 @@ export function useMobile() {
 	 */
 	const toggleHapticFeedback = () => {
 		hapticFeedback.value = !hapticFeedback.value
-		logError('useMobile', 'Haptic feedback toggled', { enabled: hapticFeedback.value })
+		logger.info('useMobile', 'Haptic feedback toggled', { enabled: hapticFeedback.value })
 	}
 
 	/**
@@ -409,7 +418,7 @@ export function useMobile() {
 		}
 
 		navigator.vibrate(patterns[type] || patterns.light)
-		logError('useMobile', 'Haptic feedback triggered', { type })
+		logger.info('useMobile', 'Haptic feedback triggered', { type })
 	}
 
 	/**
@@ -474,37 +483,65 @@ export function useMobile() {
 		}
 	}
 
+	// Store event listener references for proper cleanup
+	const eventListeners = ref({
+		orientationChange: null,
+		resize: null,
+		touchStart: null,
+		touchMove: null,
+		touchEnd: null,
+	})
+
 	/**
 	 * Dispose of mobile resources
 	 */
 	const dispose = () => {
-		// Remove event listeners
-		window.removeEventListener('orientationchange', () => {})
-		window.removeEventListener('resize', () => {})
-		document.removeEventListener('touchstart', () => {})
-		document.removeEventListener('touchmove', () => {})
-		document.removeEventListener('touchend', () => {})
+		// Remove event listeners with proper references
+		if (eventListeners.value.orientationChange) {
+			window.removeEventListener('orientationchange', eventListeners.value.orientationChange)
+		}
+		if (eventListeners.value.resize) {
+			window.removeEventListener('resize', eventListeners.value.resize)
+		}
+		if (eventListeners.value.touchStart) {
+			document.removeEventListener('touchstart', eventListeners.value.touchStart)
+		}
+		if (eventListeners.value.touchMove) {
+			document.removeEventListener('touchmove', eventListeners.value.touchMove)
+		}
+		if (eventListeners.value.touchEnd) {
+			document.removeEventListener('touchend', eventListeners.value.touchEnd)
+		}
 
-		logError('useMobile', 'Mobile resources disposed')
+		// Clear references
+		eventListeners.value = {
+			orientationChange: null,
+			resize: null,
+			touchStart: null,
+			touchMove: null,
+			touchEnd: null,
+		}
+
+		logger.info('useMobile', 'Mobile resources disposed')
 	}
 
 	return {
-		// State
-		isMobile: readonly(isMobile),
-		isTouchDevice: readonly(isTouchDevice),
-		orientation: readonly(orientation),
-		screenSize: readonly(screenSize),
-		touchCount: readonly(touchCount),
-		isPinching: readonly(isPinching),
-		isRotating: readonly(isRotating),
-		isPanning: readonly(isPanning),
-		gestureStartPos: readonly(gestureStartPos),
-		gestureCurrentPos: readonly(gestureCurrentPos),
-		gestureDelta: readonly(gestureDelta),
-		gestureVelocity: readonly(gestureVelocity),
-		mobileHintsVisible: readonly(mobileHintsVisible),
-		mobileControlsEnabled: readonly(mobileControlsEnabled),
-		hapticFeedback: readonly(hapticFeedback),
+		// State - these are mutable by event listeners, so don't use readonly
+		isMobile,
+		isTouchDevice,
+		orientation,
+		screenSize,
+		touchCount,
+		isPinching,
+		isRotating,
+		isPanning,
+		gestureStartPos,
+		gestureCurrentPos,
+		gestureDelta,
+		gestureVelocity,
+		mobileHintsVisible,
+		mobileControlsEnabled,
+		hapticFeedback,
 
 		// Computed
 		isMobileDevice,

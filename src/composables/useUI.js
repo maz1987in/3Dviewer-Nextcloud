@@ -4,8 +4,10 @@
  */
 
 import { ref, computed, readonly } from 'vue'
-import { logError } from '../utils/error-handler.js'
+import * as THREE from 'three'
+import { logger } from '../utils/logger.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
+import { disposeObject } from '../utils/three-utils.js'
 
 export function useUI() {
 	// UI state
@@ -58,7 +60,7 @@ export function useUI() {
 		performanceMode.value = options.performanceMode ?? 'balanced'
 		isMobile.value = options.isMobile ?? false
 
-		logError('useUI', 'UI initialized', {
+		logger.info('useUI', 'UI initialized', {
 			showGrid: showGrid.value,
 			showAxes: showAxes.value,
 			wireframe: wireframe.value,
@@ -78,7 +80,7 @@ export function useUI() {
 		if (grid) {
 			grid.visible = showGrid.value
 		}
-		logError('useUI', 'Grid toggled', { visible: showGrid.value })
+		logger.info('useUI', 'Grid toggled', { visible: showGrid.value })
 	}
 
 	/**
@@ -90,7 +92,7 @@ export function useUI() {
 		if (axes) {
 			axes.visible = showAxes.value
 		}
-		logError('useUI', 'Axes toggled', { visible: showAxes.value })
+		logger.info('useUI', 'Axes toggled', { visible: showAxes.value })
 	}
 
 	/**
@@ -102,7 +104,7 @@ export function useUI() {
 		if (model) {
 			applyWireframe(model, wireframe.value)
 		}
-		logError('useUI', 'Wireframe toggled', { enabled: wireframe.value })
+		logger.info('useUI', 'Wireframe toggled', { enabled: wireframe.value })
 	}
 
 	/**
@@ -125,7 +127,7 @@ export function useUI() {
 			}
 		})
 
-		logError('useUI', 'Wireframe applied', { enabled })
+		logger.info('useUI', 'Wireframe applied', { enabled })
 	}
 
 	/**
@@ -138,7 +140,7 @@ export function useUI() {
 		if (scene) {
 			scene.background = color ? new THREE.Color(color) : null
 		}
-		logError('useUI', 'Background set', { color })
+		logger.info('useUI', 'Background set', { color })
 	}
 
 	/**
@@ -151,7 +153,7 @@ export function useUI() {
 			controls.autoRotate = autoRotate.value
 			controls.autoRotateSpeed = autoRotateSpeed.value
 		}
-		logError('useUI', 'Auto-rotate toggled', { enabled: autoRotate.value })
+		logger.info('useUI', 'Auto-rotate toggled', { enabled: autoRotate.value })
 	}
 
 	/**
@@ -164,7 +166,7 @@ export function useUI() {
 		if (controls) {
 			controls.autoRotateSpeed = autoRotateSpeed.value
 		}
-		logError('useUI', 'Auto-rotate speed set', { speed: autoRotateSpeed.value })
+		logger.info('useUI', 'Auto-rotate speed set', { speed: autoRotateSpeed.value })
 	}
 
 	/**
@@ -173,7 +175,7 @@ export function useUI() {
 	 */
 	const setPerformanceMode = (mode) => {
 		performanceMode.value = mode
-		logError('useUI', 'Performance mode set', { mode })
+		logger.info('useUI', 'Performance mode set', { mode })
 	}
 
 	/**
@@ -181,7 +183,7 @@ export function useUI() {
 	 */
 	const toggleToolbar = () => {
 		toolbarVisible.value = !toolbarVisible.value
-		logError('useUI', 'Toolbar toggled', { visible: toolbarVisible.value })
+		logger.info('useUI', 'Toolbar toggled', { visible: toolbarVisible.value })
 	}
 
 	/**
@@ -189,7 +191,7 @@ export function useUI() {
 	 */
 	const toggleSettings = () => {
 		settingsOpen.value = !settingsOpen.value
-		logError('useUI', 'Settings toggled', { open: settingsOpen.value })
+		logger.info('useUI', 'Settings toggled', { open: settingsOpen.value })
 	}
 
 	/**
@@ -197,7 +199,7 @@ export function useUI() {
 	 */
 	const toggleHelp = () => {
 		helpOpen.value = !helpOpen.value
-		logError('useUI', 'Help toggled', { open: helpOpen.value })
+		logger.info('useUI', 'Help toggled', { open: helpOpen.value })
 	}
 
 	/**
@@ -235,7 +237,7 @@ export function useUI() {
 		}
 
 		scene.add(skeletonGroup.value)
-		logError('useUI', 'Skeleton loading shown')
+		logger.info('useUI', 'Skeleton loading shown')
 	}
 
 	/**
@@ -246,7 +248,7 @@ export function useUI() {
 			skeletonGroup.value.visible = false
 		}
 		skeletonLoading.value = false
-		logError('useUI', 'Skeleton loading hidden')
+		logger.info('useUI', 'Skeleton loading hidden')
 	}
 
 	/**
@@ -254,7 +256,7 @@ export function useUI() {
 	 */
 	const toggleMobileHints = () => {
 		mobileHintsVisible.value = !mobileHintsVisible.value
-		logError('useUI', 'Mobile hints toggled', { visible: mobileHintsVisible.value })
+		logger.info('useUI', 'Mobile hints toggled', { visible: mobileHintsVisible.value })
 	}
 
 	/**
@@ -266,7 +268,7 @@ export function useUI() {
 		const isMobileDevice = /android|bb\d+|meego|avantgo|bada\/|blackberry|blazer|compal|elaine|fennec|hiptop|iemobile|ip(hone|od)|iris|kindle|lge |maemo|midp|mmp|mobile.+firefox|netfront|opera m(ob|in)i|palm( os)?|phone|p(ixi|rim)|plucker|pocket|psp|series(4|6)0|symbian|treo|up\.(browser|link)|vodafone|wap|windows ce|xda|xiino/i.test(userAgent)
 
 		isMobile.value = isMobileDevice
-		logError('useUI', 'Mobile device detected', { isMobile: isMobileDevice })
+		logger.info('useUI', 'Mobile device detected', { isMobile: isMobileDevice })
 
 		return isMobileDevice
 	}
@@ -321,20 +323,20 @@ export function useUI() {
 		const presets = getUIPresets()
 		const preset = presets[presetName]
 
-		if (!preset) {
-			logError('useUI', 'Unknown UI preset', { presetName })
-			return
-		}
+	if (!preset) {
+		logger.warn('useUI', 'Unknown UI preset', { presetName })
+		return
+	}
 
-		// Apply preset values
-		showGrid.value = preset.showGrid
-		showAxes.value = preset.showAxes
-		wireframe.value = preset.wireframe
-		background.value = preset.background
-		autoRotate.value = preset.autoRotate
-		performanceMode.value = preset.performanceMode
+	// Apply preset values
+	showGrid.value = preset.showGrid
+	showAxes.value = preset.showAxes
+	wireframe.value = preset.wireframe
+	background.value = preset.background
+	autoRotate.value = preset.autoRotate
+	performanceMode.value = preset.performanceMode
 
-		// Apply to context objects
+	// Apply to context objects
 		if (context.grid) {
 			context.grid.visible = showGrid.value
 		}
@@ -352,7 +354,7 @@ export function useUI() {
 			context.controls.autoRotateSpeed = autoRotateSpeed.value
 		}
 
-		logError('useUI', 'UI preset applied', { presetName, preset })
+		logger.info('useUI', 'UI preset applied', { presetName, preset })
 	}
 
 	/**
@@ -361,7 +363,7 @@ export function useUI() {
 	 */
 	const resetUI = (context = {}) => {
 		applyUIPreset('default', context)
-		logError('useUI', 'UI reset to default')
+		logger.info('useUI', 'UI reset to default')
 	}
 
 	/**
@@ -390,22 +392,11 @@ export function useUI() {
 	 */
 	const dispose = () => {
 		if (skeletonGroup.value) {
-			skeletonGroup.value.traverse((child) => {
-				if (child.geometry) {
-					child.geometry.dispose()
-				}
-				if (child.material) {
-					if (Array.isArray(child.material)) {
-						child.material.forEach(material => material.dispose())
-					} else {
-						child.material.dispose()
-					}
-				}
-			})
+			disposeObject(skeletonGroup.value)
 			skeletonGroup.value = null
 		}
 
-		logError('useUI', 'UI disposed')
+		logger.info('useUI', 'UI disposed')
 	}
 
 	return {

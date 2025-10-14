@@ -3,9 +3,12 @@
  * Handles Three.js scene setup, lighting, helpers, and scene management
  */
 
-import { ref, computed, readonly } from 'vue'
+import { ref, computed } from 'vue'
 import * as THREE from 'three'
-import { logError } from '../utils/error-handler.js'
+import { applyWireframe, createGridHelper, createAxesHelper, disposeObject } from '../utils/three-utils.js'
+import { logger } from '../utils/logger.js'
+import { throttle } from '../utils/mathHelpers.js'
+import { clearRaycastCache } from '../utils/modelScaleUtils.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
 
 export function useScene() {
@@ -82,7 +85,7 @@ export function useScene() {
 			// Setup helpers
 			setupHelpers(options.helpers)
 
-			logError('useScene', 'Scene initialized', {
+			logger.info('useScene', 'Scene initialized', {
 				width,
 				height,
 				backgroundColor: backgroundColor.value,
@@ -90,7 +93,7 @@ export function useScene() {
 				antialias: antialias.value,
 			})
 		} catch (error) {
-			logError('useScene', 'Failed to initialize scene', error)
+			logger.error('useScene', 'Failed to initialize scene', error)
 			throw error
 		}
 	}
@@ -169,7 +172,7 @@ export function useScene() {
 			lights.value.push(hemisphereLight)
 		}
 
-		logError('useScene', 'Lighting setup complete', {
+		logger.info('useScene', 'Lighting setup complete', {
 			lightCount: lights.value.length,
 			shadows: directionalLight.castShadow,
 		})
@@ -229,7 +232,7 @@ export function useScene() {
 			})
 		}
 
-		logError('useScene', 'Helpers setup complete', {
+		logger.info('useScene', 'Helpers setup complete', {
 			helperCount: helpers.value.length,
 			hasGrid: !!grid.value,
 			hasAxes: !!axes.value,
@@ -288,14 +291,14 @@ export function useScene() {
 
 			scene.value.add(grid.value)
 
-			logError('useScene', 'Grid size updated', {
+			logger.info('useScene', 'Grid size updated', {
 				gridSize,
 				divisions,
 				maxDim,
 				groundLevel: grid.value.position.y,
 			})
 		} catch (error) {
-			logError('useScene', 'Failed to update grid size', error)
+			logger.error('useScene', 'Failed to update grid size', error)
 		}
 	}
 
@@ -313,7 +316,7 @@ export function useScene() {
 		}
 
 		backgroundColor.value = background
-		logError('useScene', 'Background set', { background })
+		logger.info('useScene', 'Background set', { background })
 	}
 
 	/**
@@ -330,7 +333,7 @@ export function useScene() {
 		scene.value.fog = new THREE.Fog(color, near, far)
 		fog.value = scene.value.fog
 
-		logError('useScene', 'Fog added', { color, near, far })
+		logger.info('useScene', 'Fog added', { color, near, far })
 	}
 
 	/**
@@ -342,18 +345,34 @@ export function useScene() {
 		scene.value.fog = null
 		fog.value = null
 
-		logError('useScene', 'Fog removed')
+		logger.info('useScene', 'Fog removed')
 	}
 
 	/**
 	 * Add object to scene
 	 * @param {THREE.Object3D} object - Object to add
+	 * @throws {Error} If scene not initialized or object is invalid
 	 */
 	const addObject = (object) => {
-		if (!scene.value || !object) return
+		if (!scene.value) {
+			logger.error('useScene', 'Scene not initialized')
+			throw new Error('Scene must be initialized before adding objects')
+		}
+		if (!object) {
+			logger.error('useScene', 'No object provided to add to scene')
+			throw new Error('Object is required')
+		}
+		if (!(object instanceof THREE.Object3D)) {
+			logger.error('useScene', 'Invalid object type provided')
+			throw new Error('Object must be an instance of THREE.Object3D')
+		}
 
 		scene.value.add(object)
-		logError('useScene', 'Object added to scene', {
+		
+		// Clear raycast cache since scene structure changed
+		clearRaycastCache()
+		
+		logger.info('useScene', 'Object added to scene', {
 			type: object.constructor.name,
 			children: object.children.length,
 		})
@@ -367,7 +386,11 @@ export function useScene() {
 		if (!scene.value || !object) return
 
 		scene.value.remove(object)
-		logError('useScene', 'Object removed from scene', {
+		
+		// Clear raycast cache since scene structure changed
+		clearRaycastCache()
+		
+		logger.info('useScene', 'Object removed from scene', {
 			type: object.constructor.name,
 		})
 	}
@@ -381,8 +404,14 @@ export function useScene() {
 		if (!renderer.value) return
 
 		renderer.value.setSize(width, height)
-		logError('useScene', 'Scene resized', { width, height })
+		logger.info('useScene', 'Scene resized', { width, height })
 	}
+
+	/**
+	 * Throttled version of window resize handler
+	 * Limits resize updates to prevent excessive re-renders during window dragging
+	 */
+	const throttledResize = throttle(onWindowResize, 100)
 
 	/**
 	 * Render the scene
@@ -449,6 +478,26 @@ export function useScene() {
 	}
 
 	/**
+	 * Apply theme to scene background
+	 * @param {string} theme - 'light' or 'dark'
+	 */
+	const applyThemeToScene = (theme) => {
+		if (!scene.value) return
+		
+		const themeColors = VIEWER_CONFIG.theme[theme] || VIEWER_CONFIG.theme.light
+		
+		if (themeColors.background) {
+			scene.value.background = new THREE.Color(themeColors.background)
+			backgroundColor.value = themeColors.background
+			
+			logger.info('useScene', 'Scene theme applied', { 
+				theme, 
+				background: themeColors.background 
+			})
+		}
+	}
+
+	/**
 	 * Dispose of scene resources
 	 */
 	const dispose = () => {
@@ -460,18 +509,7 @@ export function useScene() {
 
 		// Dispose of scene objects
 		if (scene.value) {
-			scene.value.traverse((child) => {
-				if (child.geometry) {
-					child.geometry.dispose()
-				}
-				if (child.material) {
-					if (Array.isArray(child.material)) {
-						child.material.forEach(material => material.dispose())
-					} else {
-						child.material.dispose()
-					}
-				}
-			})
+			disposeObject(scene.value)
 			scene.value = null
 		}
 
@@ -483,22 +521,25 @@ export function useScene() {
 		backgroundColor.value = null
 		fog.value = null
 
-		logError('useScene', 'Scene disposed')
+		// Clear raycast cache when disposing scene
+		clearRaycastCache()
+
+		logger.info('useScene', 'Scene disposed')
 	}
 
-	return {
-		// State
-		scene: readonly(scene),
-		renderer: readonly(renderer),
-		grid: readonly(grid),
-		axes: readonly(axes),
-		lights: readonly(lights),
-		helpers: readonly(helpers),
-		backgroundColor: readonly(backgroundColor),
-		fog: readonly(fog),
-		shadows: readonly(shadows),
-		antialias: readonly(antialias),
-		fps: readonly(fps),
+	const composableReturn = {
+		// State - these are mutable by the composable's own methods, so don't use readonly
+		scene,
+		renderer,
+		grid,
+		axes,
+		lights,
+		helpers,
+		backgroundColor,
+		fog,
+		shadows,
+		antialias,
+		fps,
 
 		// Computed
 		isSceneReady,
@@ -514,13 +555,17 @@ export function useScene() {
 		setupHelpers,
 		updateGridSize,
 		setBackground,
+		applyThemeToScene,
 		addFog,
 		removeFog,
 		addObject,
 		removeObject,
 		onWindowResize,
+		throttledResize,
 		render,
 		getSceneStats,
 		dispose,
 	}
+	
+	return composableReturn
 }

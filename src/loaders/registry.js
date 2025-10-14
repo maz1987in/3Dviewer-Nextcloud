@@ -2,6 +2,8 @@
 // Each loader module exports a default async function (arrayBuffer, context) returning { object3D }
 // context: { THREE, scene, renderer, applyWireframe(enabled), ensurePlaceholderRemoved(), hasDraco, hasKtx2, wireframe }
 
+import { logger } from '../utils/logger.js'
+
 const loaders = {
 	gltf: () => import('./types/gltf.js'),
 	glb: () => import('./types/gltf.js'),
@@ -18,11 +20,23 @@ const loaders = {
 }
 
 export async function loadModelByExtension(ext, arrayBuffer, context) {
-	const key = (ext || '').toLowerCase()
-	const importer = loaders[key]
-	if (!importer) throw new Error(`Unsupported extension: ${ext}`)
-	const mod = await importer()
-	return mod.default(arrayBuffer, context)
+	logger.info('LoaderRegistry', 'loading extension:', ext)
+	const importer = loaders[ext]
+	if (importer) {
+		try {
+			const mod = await importer()
+			const LoaderClass = mod.default || Object.values(mod).find(e => typeof e === 'function' && e.prototype?.loadModel)
+
+			if (LoaderClass && typeof LoaderClass === 'function' && LoaderClass.prototype.loadModel) {
+				const loaderInstance = new LoaderClass()
+				return loaderInstance.loadModel(arrayBuffer, context)
+			}
+		} catch (e) {
+			logger.error('LoaderRegistry', 'error loading model', e)
+			return Promise.reject(e)
+		}
+	}
+	return Promise.reject(new Error(`No loader found for extension ${ext}`))
 }
 
 export function isSupportedExtension(ext) {

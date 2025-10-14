@@ -5,26 +5,28 @@
 
 import { ref, computed, readonly } from 'vue'
 import * as THREE from 'three'
+import { getFilePickerBuilder, FilePickerType } from '@nextcloud/dialogs'
+import { translate as t } from '@nextcloud/l10n'
 import { loadModelByExtension, isSupportedExtension } from '../loaders/registry.js'
-import { logError } from '../utils/error-handler.js'
+import { logger } from '../utils/logger.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
+import { disposeObject } from '../utils/three-utils.js'
+import { getFileIdByPath } from '../loaders/multiFileHelpers.js'
 
 export function useComparison() {
 	// Comparison state
 	const comparisonMode = ref(false)
 	const comparisonModel = ref(null)
 	const comparisonIndicator = ref(null)
-	const comparisonFiles = ref([])
-	const selectedComparisonFile = ref(null)
 
 	// File loading state
 	const loadingComparison = ref(false)
 	const comparisonError = ref(null)
+	const abortController = ref(null)
 
 	// Computed properties
 	const isComparisonMode = computed(() => comparisonMode.value)
 	const hasComparisonModel = computed(() => comparisonModel.value !== null)
-	const canCompare = computed(() => comparisonFiles.value.length > 0)
 	const isComparisonLoading = computed(() => loadingComparison.value)
 
 	/**
@@ -39,7 +41,7 @@ export function useComparison() {
 			clearComparison()
 		}
 
-		logError('useComparison', 'Comparison mode toggled', { enabled: comparisonMode.value })
+		logger.info('useComparison', 'Comparison mode toggled', { enabled: comparisonMode.value })
 	}
 
 	/**
@@ -48,85 +50,155 @@ export function useComparison() {
 	const setupComparisonMode = () => {
 		// This would typically open a file picker or modal
 		// The actual implementation depends on the UI framework
-		logError('useComparison', 'Comparison mode setup')
+		logger.info('useComparison', 'Comparison mode setup')
 	}
 
 	/**
-	 * Load comparison files from Nextcloud
-	 * @param {Function} modal - Modal function for file selection
-	 * @return {Promise<Array>} List of available files
+	 * Open native Nextcloud file picker to select comparison model
+	 * @return {Promise<string>} Selected file path
 	 */
-	const loadNextcloudFiles = async (modal) => {
+		const openFilePicker = async () => {
 		try {
-			let files = []
+			// Supported 3D model mime types
+			const mimeTypes = [
+				'model/gltf-binary',
+				'model/gltf+json',
+				'model/obj',
+				'model/stl',
+				'model/x.fbx',
+				'model/vnd.collada+xml',
+				'model/x-ply',
+				'application/x-3ds',
+				'application/x-3mf',
+				'model/x3d+xml',
+				'model/vrml',
+			]
 
-			// Try to get files from current context first
-			if (window.OCA && window.OCA.Files && window.OCA.Files.fileList) {
-				const fileList = window.OCA.Files.fileList
-				if (fileList.files) {
-					files = fileList.files.filter(file =>
-						isSupportedExtension(file.name.split('.').pop().toLowerCase()),
-					)
-				}
-			}
+			logger.info('useComparison', 'Opening native file picker with mime types', { mimeTypes })
 
-			// If no files found, try API methods
-			if (files.length === 0) {
-				// Try 3D viewer OCS API
-				try {
-					const response = await fetch('/ocs/v2.php/apps/threedviewer/api/files', {
-						headers: {
-							Accept: 'application/json',
-							'OCS-APIRequest': 'true',
-							'X-Requested-With': 'XMLHttpRequest',
-						},
-						credentials: 'same-origin',
-					})
+			const picker = getFilePickerBuilder(t('threedviewer', 'Select 3D Model to Compare'))
+				.setMultiSelect(false)
+				.setMimeTypeFilter(mimeTypes)
+				.setType(FilePickerType.Choose)
+				.allowDirectories(false)
+				.build()
 
-					if (response.ok) {
-						const data = await response.json()
-						if (data.ocs && data.ocs.data && data.ocs.data.files) {
-							files = data.ocs.data.files
-						}
-					}
-				} catch (e) {
-					logError('useComparison', 'OCS API failed', e)
-				}
-			}
-
-			// If still no files, create dummy files for testing
-			if (files.length === 0) {
-				files = [
-					{ id: 'dummy1', name: 'Sample Model 1.glb', size: 1024000, path: '/dummy/path1' },
-					{ id: 'dummy2', name: 'Sample Model 2.obj', size: 2048000, path: '/dummy/path2' },
-					{ id: 'dummy3', name: 'Sample Model 3.stl', size: 512000, path: '/dummy/path3' },
-				]
-				logError('useComparison', 'No files found via API, created dummy files for testing')
-			}
-
-			comparisonFiles.value = files
-			logError('useComparison', 'Comparison files loaded', { count: files.length })
-
-			return files
+			logger.info('useComparison', 'File picker built, calling pick()')
+			const path = await picker.pick()
+			logger.info('useComparison', 'File selected from picker', { path })
+			
+			return path
 		} catch (error) {
-			logError('useComparison', 'Failed to load comparison files', error)
+			logger.error('useComparison', 'File picker error details', { 
+				message: error.message, 
+				name: error.name,
+				stack: error.stack 
+			})
+			
+			if (error.message === 'User canceled the picker' || error.message === 'FilePicker: No nodes selected') {
+				logger.info('useComparison', 'File picker cancelled by user')
+			} else {
+				logger.error('useComparison', 'Failed to open file picker', error)
+			}
 			throw error
 		}
 	}
 
 	/**
-	 * Load comparison model from Nextcloud
+	 * Load comparison model from Nextcloud file path
+	 * @param {string} filePath - File path from file picker
+	 * @param {object} context - Loading context
+	 * @return {Promise<object>} Load result
+	 * @throws {Error} If filePath or context are invalid
+	 */
+	const loadComparisonModelFromPath = async (filePath, context) => {
+		// Input validation
+		if (!filePath || typeof filePath !== 'string') {
+			logger.error('useComparison', 'Invalid file path provided')
+			throw new Error('Valid file path is required')
+		}
+		if (!context) {
+			logger.error('useComparison', 'Loading context is required')
+			throw new Error('Loading context is required')
+		}
+
+		try {
+			// Create new abort controller for this load operation
+			abortController.value = new AbortController()
+			
+			loadingComparison.value = true
+			comparisonError.value = null
+
+			logger.info('useComparison', 'Loading comparison model from path', { filePath })
+
+			// Extract filename and extension from the full path
+			const pathParts = filePath.split('/')
+			const filename = pathParts.pop()
+			const extension = filename.split('.').pop().toLowerCase()
+			
+			// Get file ID from path using the same method as the main viewer
+			const fileId = await getFileIdByPath(filePath)
+			if (!fileId) {
+				throw new Error(`Failed to get file ID for path: ${filePath}`)
+			}
+			
+			logger.info('useComparison', 'Found file ID', { filePath, fileId, filename })
+			
+			// Download using the same endpoint as the main viewer
+			const downloadUrl = `/apps/threedviewer/api/file/${fileId}`
+			logger.info('useComparison', 'Attempting download', { downloadUrl, fileId, filename })
+			
+			const fileResponse = await fetch(downloadUrl, {
+				method: 'GET',
+				headers: {
+					'Accept': 'application/octet-stream, */*',
+					'X-Requested-With': 'XMLHttpRequest',
+				},
+				credentials: 'same-origin',
+				signal: abortController.value?.signal,
+			})
+
+			if (!fileResponse.ok) {
+				throw new Error(`Failed to load file: ${fileResponse.status}`)
+			}
+
+			const arrayBuffer = await fileResponse.arrayBuffer()
+			logger.info('useComparison', 'File downloaded', { 
+				filename, 
+				fileId,
+				size: arrayBuffer.byteLength,
+				contentType: fileResponse.headers.get('content-type')
+			})
+
+			// Use common loading logic
+			const loadingContext = { ...context, fileId }
+			const result = await loadComparisonModelFromArrayBuffer(arrayBuffer, extension, filename, loadingContext)
+			logger.info('useComparison', 'Comparison model loaded successfully from path')
+			return result
+		} catch (error) {
+			comparisonError.value = error
+			logger.error('useComparison', 'Error loading comparison model from path', error)
+			throw error
+		} finally {
+			loadingComparison.value = false
+		}
+	}
+
+	/**
+	 * Load comparison model from Nextcloud (legacy method for backward compatibility)
 	 * @param {object} file - File object
 	 * @param {object} context - Loading context
 	 * @return {Promise<object>} Load result
 	 */
 	const loadComparisonModelFromNextcloud = async (file, context) => {
 		try {
+			// Create new abort controller for this load operation
+			abortController.value = new AbortController()
+			
 			loadingComparison.value = true
 			comparisonError.value = null
 
-			logError('useComparison', 'Loading comparison model from Nextcloud', file)
-			// Loading comparison model
+			logger.info('useComparison', 'Loading comparison model from Nextcloud', file, 'info')
 
 			// Skip dummy files
 			if (String(file.id).startsWith('dummy')) {
@@ -158,7 +230,7 @@ export function useComparison() {
 					response = await fetch(endpoint, {
 						headers,
 						credentials: 'same-origin',
-						signal: context.abortController?.signal,
+						signal: abortController.value?.signal,
 					})
 
 					if (response.ok) {
@@ -166,7 +238,7 @@ export function useComparison() {
 						break
 					}
 				} catch (e) {
-					logError('useComparison', `API endpoint failed: ${endpoint}`, e)
+					logger.info('useComparison', `API endpoint failed: ${endpoint}`, e)
 				}
 			}
 
@@ -177,42 +249,15 @@ export function useComparison() {
 			const arrayBuffer = await response.arrayBuffer()
 			const extension = file.name.split('.').pop().toLowerCase()
 
-			logError('useComparison', 'Successfully loaded file from', usedEndpoint)
-			logError('useComparison', 'Detected file extension', extension)
+			logger.info('useComparison', 'Successfully loaded file from', usedEndpoint, 'info')
+			logger.info('useComparison', 'Detected file extension', extension, 'info')
 
-			// Load the model using the appropriate loader
-			const result = await loadModelByExtension(extension, arrayBuffer, {
-				...context,
-				fileId: file.id,
-				filename: file.name,
-				THREE: context.THREE,
-				scene: context.scene,
-				applyWireframe: context.applyWireframe,
-				ensurePlaceholderRemoved: context.ensurePlaceholderRemoved,
-				wireframe: context.wireframe,
-			})
-
-			if (result && result.object3D) {
-				comparisonModel.value = result.object3D
-				// Comparison model loaded
-
-				// Add comparison indicator with proper error handling
-				if (context && context.scene) {
-					addComparisonIndicator(result.object3D, file.name, context.scene)
-				} else {
-					// Context or scene not available for comparison indicator
-				}
-
-				// Comparison model positioned
-
-				logError('useComparison', 'Comparison model loaded successfully')
-				return result
-			} else {
-				throw new Error('No valid 3D object returned from loader')
-			}
-		} catch (error) {
-			comparisonError.value = error
-			logError('useComparison', 'Error loading comparison model from Nextcloud', error)
+			// Use common loading logic
+			const loadingContext = { ...context, fileId: file.id }
+			return await loadComparisonModelFromArrayBuffer(arrayBuffer, extension, file.name, loadingContext)
+	} catch (error) {
+		comparisonError.value = error
+		logger.error('useComparison', 'Error loading comparison model from Nextcloud', error)
 			throw error
 		} finally {
 			loadingComparison.value = false
@@ -227,41 +272,21 @@ export function useComparison() {
 	 */
 	const loadComparisonModel = async (file, context) => {
 		try {
+			// Create new abort controller for this load operation
+			abortController.value = new AbortController()
+			
 			loadingComparison.value = true
 			comparisonError.value = null
 
 			const arrayBuffer = await readFileAsArrayBuffer(file)
 			const extension = file.name.split('.').pop().toLowerCase()
 
-			// Load the model using the appropriate loader
-			const result = await loadModelByExtension(extension, arrayBuffer, {
-				...context,
-				fileId: 'comparison',
-				THREE: context.THREE,
-				scene: context.scene,
-				applyWireframe: context.applyWireframe,
-				ensurePlaceholderRemoved: context.ensurePlaceholderRemoved,
-				wireframe: context.wireframe,
-			})
-
-			if (result && result.object3D) {
-				comparisonModel.value = result.object3D
-
-				// Add comparison indicator with proper error handling
-				if (context && context.scene) {
-					addComparisonIndicator(result.object3D, file.name, context.scene)
-				} else {
-					// Context or scene not available for comparison indicator
-				}
-
-				logError('useComparison', 'Comparison model loaded successfully')
-				return result
-			} else {
-				throw new Error('No valid 3D object returned from loader')
-			}
+			// Use common loading logic
+			const loadingContext = { ...context, fileId: 'comparison' }
+			return await loadComparisonModelFromArrayBuffer(arrayBuffer, extension, file.name, loadingContext)
 		} catch (error) {
 			comparisonError.value = error
-			logError('useComparison', 'Error loading comparison model', error)
+			logger.error('useComparison', 'Error loading comparison model', error)
 			throw error
 		} finally {
 			loadingComparison.value = false
@@ -290,6 +315,41 @@ export function useComparison() {
 	}
 
 	/**
+	 * Common model loading logic to reduce duplication
+	 * @param {ArrayBuffer} arrayBuffer - Model data
+	 * @param {string} extension - File extension
+	 * @param {string} filename - File name
+	 * @param {object} context - Loading context
+	 * @return {Promise<object>} Load result
+	 */
+	const loadComparisonModelFromArrayBuffer = async (arrayBuffer, extension, filename, context) => {
+		const result = await loadModelByExtension(extension, arrayBuffer, {
+			...context,
+			fileId: context.fileId || 'comparison',
+			filename,
+			THREE: context.THREE,
+			scene: context.scene,
+			applyWireframe: context.applyWireframe,
+			ensurePlaceholderRemoved: context.ensurePlaceholderRemoved,
+			wireframe: context.wireframe,
+		})
+
+		if (result && result.object3D) {
+			comparisonModel.value = result.object3D
+
+			// Add comparison indicator with proper error handling
+			if (context && context.scene) {
+				addComparisonIndicator(result.object3D, filename, context.scene)
+			}
+
+			logger.info('useComparison', 'Comparison model loaded successfully')
+			return result
+		} else {
+			throw new Error('No valid 3D object returned from loader')
+		}
+	}
+
+	/**
 	 * Add comparison indicator to model
 	 * @param {THREE.Object3D} model - Model object
 	 * @param {string} filename - File name
@@ -314,7 +374,6 @@ export function useComparison() {
 			// Position indicator above the model
 			const box = new THREE.Box3().setFromObject(model)
 			const size = box.getSize(new THREE.Vector3())
-			const center = box.getCenter(new THREE.Vector3())
 
 			// Position indicator relative to model's center
 			indicator.position.set(0, size.y / 2 + 0.2, 0)
@@ -322,14 +381,14 @@ export function useComparison() {
 			model.add(indicator)
 			comparisonIndicator.value = indicator
 
-			logError('useComparison', 'Comparison indicator added', {
+			logger.info('useComparison', 'Comparison indicator added', {
 				filename,
 				modelPosition: model.position,
 				indicatorPosition: indicator.position,
 			})
 		} catch (error) {
 			// Error adding comparison indicator
-			logError('useComparison', 'Failed to add comparison indicator', error)
+			logger.error('useComparison', 'Failed to add comparison indicator', error)
 		}
 	}
 
@@ -340,68 +399,75 @@ export function useComparison() {
 	 * @param {Function} fitFunction - Function to fit camera to both models
 	 */
 	const fitBothModelsToView = (model1, model2, fitFunction) => {
-		// Fitting both models to view
-
 		if (!model1 || !model2 || !fitFunction) {
 			return
 		}
 
 		try {
-			// Ensure models are valid before proceeding
-			if (!model1 || !model2) {
-				return
-			}
-
 			// Get bounding boxes for both models
 			const box1 = new THREE.Box3().setFromObject(model1)
 			const box2 = new THREE.Box3().setFromObject(model2)
 
 			// Check if bounding boxes are valid
 			if (box1.isEmpty() || box2.isEmpty()) {
+				logger.warn('useComparison', 'Cannot fit models: one or both bounding boxes are empty')
 				return
 			}
 
-			// Calculate sizes
+			// Calculate sizes and centers
 			const size1 = box1.getSize(new THREE.Vector3())
 			const size2 = box2.getSize(new THREE.Vector3())
+			const center1 = box1.getCenter(new THREE.Vector3())
+			const center2 = box2.getCenter(new THREE.Vector3())
 
-			// Calculate the offset needed to position models side by side
-			// Use a larger multiplier to ensure clear separation
-			const offset = Math.max(size1.x, size1.z, size2.x, size2.z) * 1.2
+			// Calculate separation - use a reasonable gap between models
+			const maxDimension = Math.max(size1.x, size1.y, size1.z, size2.x, size2.y, size2.z)
+			const separation = maxDimension * 1.5 // Good separation for comparison
 
-			// Position models side by side
-			// Keep original model at its current position
-			// Move comparison model to the right
-			const originalX = model2.position.x
-			model2.position.x = offset
-			model2.position.y = model2.position.y // Keep original Y position
-			model2.position.z = model2.position.z // Keep original Z position
+			// Reset both models to origin first to clear any existing positioning
+			model1.position.set(0, 0, 0)
+			model2.position.set(0, 0, 0)
+
+			// Position models symmetrically around center (origin) at the same Y level
+			// Layout: [model1]   •   [model2]
+			// Where • is the center point (origin 0,0,0)
+			// We need to position both models so their centers are at the same Y level
+			
+			// Calculate the target Y position for both models (use the lower of the two centers)
+			const targetY = Math.min(center1.y, center2.y)
+			
+			// Position model1 (original) to the left of center
+			model1.position.set(
+				-separation,           // X: left of center
+				targetY - center1.y,  // Y: align both models to same level
+				0                     // Z: center at origin
+			)
+
+			// Position model2 (comparison) to the right of center
+			model2.position.set(
+				separation,           // X: right of center
+				targetY - center2.y, // Y: align both models to same level
+				0                    // Z: center at origin
+			)
 
 			// Force update the matrix to ensure position changes take effect
+			model1.updateMatrixWorld(true)
 			model2.updateMatrixWorld(true)
 
-			// Model positioning applied
-
-			// Verify the positioning worked
-			const model1WorldPos = model1.getWorldPosition(new THREE.Vector3())
-			const model2WorldPos = model2.getWorldPosition(new THREE.Vector3())
-
-			// Keep both models at the same ground level (Y=0)
-			// Don't adjust Y positions - let them stay at their natural positions
-			// This prevents the models from moving up/down
+			logger.info('useComparison', 'Models positioned side by side centered around origin', {
+				separation,
+				model1Pos: { x: model1.position.x, y: model1.position.y, z: model1.position.z },
+				model2Pos: { x: model2.position.x, y: model2.position.y, z: model2.position.z },
+				model1Size: { x: size1.x, y: size1.y, z: size1.z },
+				model2Size: { x: size2.x, y: size2.y, z: size2.z },
+				model1Bounds: { min: box1.min, max: box1.max },
+				model2Bounds: { min: box2.min, max: box2.max },
+			})
 
 			// Use the provided fit function to fit camera to both models
 			fitFunction(model1, model2)
-
-			logError('useComparison', 'Both models fitted to view', {
-				offset,
-				model1Pos: { x: model1.position.x, y: model1.position.y, z: model1.position.z },
-				model2Pos: { x: model2.position.x, y: model2.position.y, z: model2.position.z },
-				model1Visible: model1.visible,
-				model2Visible: model2.visible,
-			})
 		} catch (error) {
-			logError('useComparison', 'Failed to fit both models to view', error)
+			logger.error('useComparison', 'Failed to fit both models to view', error)
 		}
 	}
 
@@ -411,8 +477,8 @@ export function useComparison() {
 	 */
 	const toggleOriginalModel = (model) => {
 		if (model) {
-			model.visible = !model.visible
-			logError('useComparison', 'Original model visibility toggled', { visible: model.visible })
+		model.visible = !model.visible
+		logger.info('useComparison', 'Original model visibility toggled', { visible: model.visible })
 		}
 	}
 
@@ -422,7 +488,7 @@ export function useComparison() {
 	const toggleComparisonModel = () => {
 		if (comparisonModel.value) {
 			comparisonModel.value.visible = !comparisonModel.value.visible
-			logError('useComparison', 'Comparison model visibility toggled', {
+			logger.info('useComparison', 'Comparison model visibility toggled', {
 				visible: comparisonModel.value.visible,
 			})
 		}
@@ -432,21 +498,15 @@ export function useComparison() {
 	 * Clear comparison
 	 */
 	const clearComparison = () => {
+		// Cancel any ongoing load operations
+		if (abortController.value) {
+			abortController.value.abort()
+			abortController.value = null
+		}
+
 		if (comparisonModel.value) {
 			// Dispose of the comparison model
-			comparisonModel.value.traverse((child) => {
-				if (child.geometry) {
-					child.geometry.dispose()
-				}
-				if (child.material) {
-					if (Array.isArray(child.material)) {
-						child.material.forEach(material => material.dispose())
-					} else {
-						child.material.dispose()
-					}
-				}
-			})
-
+			disposeObject(comparisonModel.value)
 			comparisonModel.value = null
 		}
 
@@ -455,9 +515,9 @@ export function useComparison() {
 		}
 
 		comparisonError.value = null
-		selectedComparisonFile.value = null
+		loadingComparison.value = false
 
-		logError('useComparison', 'Comparison cleared')
+		logger.info('useComparison', 'Comparison cleared')
 	}
 
 	/**
@@ -478,26 +538,40 @@ export function useComparison() {
 		return `${Math.round(size * 100) / 100} ${units[unitIndex]}`
 	}
 
+	/**
+	 * Dispose of comparison resources
+	 */
+	const dispose = () => {
+		// Clear comparison
+		clearComparison()
+		
+		// Abort any ongoing operations
+		if (abortController.value) {
+			abortController.value.abort()
+			abortController.value = null
+		}
+
+		logger.info('useComparison', 'Comparison resources disposed')
+	}
+
 	return {
 		// State
 		comparisonMode: readonly(comparisonMode),
 		comparisonModel: readonly(comparisonModel),
 		comparisonIndicator: readonly(comparisonIndicator),
-		comparisonFiles: readonly(comparisonFiles),
-		selectedComparisonFile: readonly(selectedComparisonFile),
 		loadingComparison: readonly(loadingComparison),
 		comparisonError: readonly(comparisonError),
 
 		// Computed
 		isComparisonMode,
 		hasComparisonModel,
-		canCompare,
 		isComparisonLoading,
 
 		// Methods
 		toggleComparisonMode,
 		setupComparisonMode,
-		loadNextcloudFiles,
+		openFilePicker,
+		loadComparisonModelFromPath,
 		loadComparisonModelFromNextcloud,
 		loadComparisonModel,
 		addComparisonIndicator,
@@ -506,5 +580,6 @@ export function useComparison() {
 		toggleComparisonModel,
 		clearComparison,
 		formatFileSize,
+		dispose,
 	}
 }

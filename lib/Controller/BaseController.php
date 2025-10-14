@@ -66,9 +66,7 @@ abstract class BaseController extends Controller {
         
         if (!$this->modelFileSupport->isSupported($normalizedExt)) {
             throw new UnsupportedFileTypeException(
-                'Unsupported file type: ' . $extension,
-                $extension,
-                $this->modelFileSupport->getSupportedExtensions()
+                'Unsupported file type: ' . $extension
             );
         }
 

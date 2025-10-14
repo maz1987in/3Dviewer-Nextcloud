@@ -9,7 +9,6 @@
 			aria-live="polite"
 			:class="{ 'mobile': isMobile }">
 			<div class="loading-content">
-				<div class="loading-spinner" :class="{ 'mobile': isMobile }" />
 				<div class="loading-text">
 					<div class="loading-stage">
 						{{ getStageText(progress.stage) }}
@@ -20,39 +19,148 @@
 						<span v-else-if="progress.loaded > 0">{{ formatFileSize(progress.loaded) }}</span>
 						<span v-else>{{ t('threedviewer', 'Loading 3D scene…') }}</span>
 					</div>
+					<!-- Show percentage when available -->
 					<div v-if="progressPercentage > 0" class="loading-percentage">
 						{{ progressPercentage }}%
 					</div>
 				</div>
-				<div v-if="progress.total > 0"
-					class="progress-bar"
+				<!-- Nextcloud-style progress bar -->
+				<NcProgressBar 
+					:value="progressPercentage" 
+					:max="100"
+					size="medium"
 					:aria-label="t('threedviewer','Model load progress')"
-					role="progressbar"
-					:aria-valuemin="0"
-					:aria-valuemax="progress.total"
-					:aria-valuenow="progress.loaded"
-					:class="{ 'mobile': isMobile }">
-					<div class="progress-bar__fill" :style="{ width: Math.min(100, progressPercentage) + '%' }" />
-					<div class="progress-bar__label">
-						{{ progressPercentage }}%
-					</div>
-				</div>
+				/>
 				<div class="loading-actions" :class="{ 'mobile': isMobile }">
-					<button v-if="progress.stage !== 'error'"
-						type="button"
-						class="cancel-btn"
+					<NcButton
+						v-if="progress.stage !== 'error'"
+						type="error"
 						:disabled="aborting"
-						:class="{ 'mobile': isMobile }"
 						@click="cancelLoad">
 						{{ aborting ? t('threedviewer','Canceling…') : t('threedviewer','Cancel loading') }}
-					</button>
-					<button v-if="progress.stage === 'error'"
-						type="button"
-						class="retry-btn"
-						:class="{ 'mobile': isMobile }"
+					</NcButton>
+					<NcButton
+						v-if="progress.stage === 'error'"
+						type="primary"
 						@click="retryLoad">
 						{{ t('threedviewer','Retry') }}
-					</button>
+					</NcButton>
+				</div>
+			</div>
+		</div>
+
+		<!-- Export progress overlay -->
+		<div v-if="isExporting"
+			class="export-progress-overlay"
+			:class="{ 'mobile': isMobile }">
+			<div class="export-progress-content">
+				<div class="export-icon">
+					📦
+				</div>
+				<div class="export-stage">
+					{{ exportProgress.stage || 'Preparing export...' }}
+				</div>
+				<div class="export-percentage">
+					{{ exportProgress.percentage }}%
+				</div>
+				<NcProgressBar 
+					:value="exportProgress.percentage" 
+					:max="100"
+					size="medium"
+					:aria-label="t('threedviewer','Export progress')"
+				/>
+			</div>
+		</div>
+
+		<!-- Model Statistics Panel -->
+		<div v-if="showModelStats && modelStats" class="model-stats-overlay" :class="{ 'mobile': isMobile }">
+			<div class="stats-panel-header">
+				<div class="stats-title-group">
+					<img v-if="formatIcon" :src="formatIcon" class="format-icon" alt="Format icon" />
+					<h3>{{ t('threedviewer', 'Model Statistics') }}</h3>
+				</div>
+				<button class="close-stats-btn" @click="toggleModelStats">×</button>
+			</div>
+			
+			<div class="stats-panel-content">
+				<!-- Geometry Section -->
+				<div class="stats-section">
+					<h4>{{ t('threedviewer', 'Geometry') }}</h4>
+					<div class="stat-row">
+						<span>{{ t('threedviewer', 'Vertices') }}:</span>
+						<span class="stat-value">{{ modelStats.vertices.toLocaleString() }}</span>
+					</div>
+					<div class="stat-row">
+						<span>{{ t('threedviewer', 'Faces') }}:</span>
+						<span class="stat-value">{{ modelStats.faces.toLocaleString() }}</span>
+					</div>
+					<div class="stat-row">
+						<span>{{ t('threedviewer', 'Meshes') }}:</span>
+						<span class="stat-value">{{ modelStats.meshes }}</span>
+					</div>
+				</div>
+
+				<!-- Materials Section -->
+				<div class="stats-section">
+					<h4>{{ t('threedviewer', 'Materials') }} ({{ modelStats.materialCount }})</h4>
+					<div v-if="modelStats.materials.length > 0" class="material-list">
+						<div v-for="mat in modelStats.materials" :key="mat.uuid" class="material-item">
+							<span class="material-name">{{ mat.name }}</span>
+							<span class="material-type">{{ mat.type }}</span>
+						</div>
+						<div v-if="modelStats.materialCount > 10" class="more-items">
+							{{ t('threedviewer', '+ {count} more', { count: modelStats.materialCount - 10 }) }}
+						</div>
+					</div>
+					<div v-else class="no-items">
+						{{ t('threedviewer', 'No materials') }}
+					</div>
+				</div>
+
+				<!-- Textures Section -->
+				<div class="stats-section">
+					<h4>{{ t('threedviewer', 'Textures') }} ({{ modelStats.textureCount }})</h4>
+					<div v-if="modelStats.textureCount > 0" class="stat-row">
+						<span>{{ t('threedviewer', 'Memory') }}:</span>
+						<span class="stat-value">{{ modelStats.textureMemoryMB.toFixed(2) }} MB</span>
+					</div>
+					<div v-else class="no-items">
+						{{ t('threedviewer', 'No textures') }}
+					</div>
+				</div>
+
+				<!-- Dimensions Section -->
+				<div class="stats-section">
+					<h4>{{ t('threedviewer', 'Dimensions') }}</h4>
+					<div class="stat-row">
+						<span>{{ t('threedviewer', 'Width (X)') }}:</span>
+						<span class="stat-value">{{ modelStats.boundingBox.x.toFixed(2) }} units</span>
+					</div>
+					<div class="stat-row">
+						<span>{{ t('threedviewer', 'Height (Y)') }}:</span>
+						<span class="stat-value">{{ modelStats.boundingBox.y.toFixed(2) }} units</span>
+					</div>
+					<div class="stat-row">
+						<span>{{ t('threedviewer', 'Depth (Z)') }}:</span>
+						<span class="stat-value">{{ modelStats.boundingBox.z.toFixed(2) }} units</span>
+					</div>
+					<div class="stat-row">
+						<span>{{ t('threedviewer', 'Volume') }}:</span>
+						<span class="stat-value">{{ modelStats.volume.toFixed(2) }} cu. units</span>
+					</div>
+				</div>
+
+				<!-- File Section -->
+				<div class="stats-section">
+					<h4>{{ t('threedviewer', 'File') }}</h4>
+					<div class="stat-row">
+						<span>{{ t('threedviewer', 'Size') }}:</span>
+						<span class="stat-value">{{ modelStats.fileSizeMB.toFixed(2) }} MB</span>
+					</div>
+					<div class="stat-row">
+						<span>{{ t('threedviewer', 'Format') }}:</span>
+						<span class="stat-value">{{ modelStats.format.toUpperCase() }}</span>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -80,19 +188,16 @@
 					</ul>
 				</div>
 				<div class="error-actions">
-					<button v-if="canRetry"
-						type="button"
-						class="retry-btn"
-						:class="{ 'mobile': isMobile }"
+					<NcButton v-if="canRetry"
+						type="primary"
 						@click="retryLoad">
 						{{ t('threedviewer','Retry') }}
-					</button>
-					<button type="button"
-						class="dismiss-btn"
-						:class="{ 'mobile': isMobile }"
+					</NcButton>
+					<NcButton
+						type="secondary"
 						@click="clearError">
 						{{ t('threedviewer','Dismiss') }}
-					</button>
+					</NcButton>
 				</div>
 			</div>
 		</div>
@@ -115,7 +220,53 @@
 			</div>
 		</div>
 
-		<!-- Mobile gesture hints -->
+	<!-- Texture Loading Indicator (Bottom-Right) -->
+	<div v-if="loadingTextures && textureProgress.total > 0" class="texture-progress-indicator">
+		<span class="texture-icon">🖼️</span>
+		<span class="texture-status">
+			{{ t('threedviewer', 'Loading textures') }}... {{ textureProgress.loaded }}/{{ textureProgress.total }}
+		</span>
+		<div class="mini-progress-bar">
+			<div class="progress-fill" :style="{ width: (textureProgress.loaded / textureProgress.total * 100) + '%' }"></div>
+		</div>
+	</div>
+
+	<!-- Performance Stats Overlay (Dev/Debug) -->
+	<div v-if="showPerformanceStats && performance && currentFPS > 0" class="performance-stats">
+		<div class="stats-header">
+			<span class="stats-icon">📊</span>
+			<span class="stats-title">Performance</span>
+			<span class="stats-mode" :class="'mode-' + currentPerformanceMode">{{ currentPerformanceMode }}</span>
+		</div>
+		<div class="stats-grid">
+			<div class="stat-item">
+				<span class="stat-label">FPS:</span>
+				<span class="stat-value" :class="{ 'good': currentFPS >= 60, 'warning': currentFPS >= 30 && currentFPS < 60, 'poor': currentFPS < 30 }">
+					{{ currentFPS }}
+				</span>
+			</div>
+			<div class="stat-item">
+				<span class="stat-label">Frame:</span>
+				<span class="stat-value">{{ currentFrameTime?.toFixed(1) }}ms</span>
+			</div>
+			<div class="stat-item">
+				<span class="stat-label">Memory:</span>
+				<span class="stat-value">{{ currentMemoryUsage?.toFixed(1) }}MB</span>
+			</div>
+			<div class="stat-item">
+				<span class="stat-label">Quality:</span>
+				<span class="stat-value">{{ currentPixelRatio?.toFixed(2) }}x</span>
+			</div>
+			<div class="stat-item">
+				<span class="stat-label">Draws:</span>
+				<span class="stat-value">{{ currentDrawCalls }}</span>
+			</div>
+			<div class="stat-item">
+				<span class="stat-label">Triangles:</span>
+				<span class="stat-value">{{ (currentTriangles / 1000).toFixed(1) }}K</span>
+			</div>
+		</div>
+	</div>		<!-- Mobile gesture hints -->
 		<div v-if="isMobile && !isLoading && modelRoot" class="mobile-hints">
 			<div class="hint-item">
 				<span class="hint-icon">👆</span>
@@ -135,27 +286,44 @@
 		<div v-if="measurementActive && measurements.length > 0" class="measurement-overlay" :class="{ 'mobile': isMobile }">
 			<div class="measurement-header">
 				<h3>{{ t('threedviewer', 'Measurements') }}</h3>
-				<button type="button"
-					class="clear-measurements-btn"
-					:class="{ 'mobile': isMobile }"
-					@click="measurement.clearAllMeasurements">
-					{{ t('threedviewer', 'Clear All') }}
-				</button>
+				<div class="measurement-controls">
+					<select v-model="currentUnitModel" 
+						class="unit-selector"
+						@change="handleUnitChange">
+						<option v-for="unit in availableUnits" 
+							:key="unit.value" 
+							:value="unit.value">
+							{{ unit.label }}
+						</option>
+					</select>
+					<button type="button"
+						class="clear-measurements-btn"
+						:class="{ 'mobile': isMobile }"
+						@click="measurement.clearAllMeasurements">
+						{{ t('threedviewer', 'Clear All') }}
+					</button>
+				</div>
 			</div>
 			<div class="measurement-list">
-				<div v-for="(measurement, index) in measurements" :key="measurement.id" class="measurement-item">
+				<div v-for="(m, index) in measurements" :key="m.id" class="measurement-item">
 					<div class="measurement-info">
 						<span class="measurement-label">{{ t('threedviewer', 'Measurement') }} {{ index + 1 }}</span>
-						<span class="measurement-distance">{{ measurement.distance.toFixed(2) }} units</span>
+						<button type="button"
+							class="delete-measurement-btn"
+							:class="{ 'mobile': isMobile }"
+							@click="deleteMeasurement(m.id)">
+							{{ t('threedviewer', 'Delete') }}
+						</button>
 					</div>
 					<div class="measurement-details">
+						<span class="measurement-distance">{{ m.formatted || (m.distance.toFixed(2) + ' units') }}</span>
 						<div class="measurement-point">
 							<span class="point-label">{{ t('threedviewer', 'Point 1') }}:</span>
-							<span class="point-coords">({{ measurement.point1.x.toFixed(2) }}, {{ measurement.point1.y.toFixed(2) }}, {{ measurement.point1.z.toFixed(2) }})</span>
+							<span class="point-coords">({{ m.point1.x.toFixed(2) }}, {{ m.point1.y.toFixed(2) }}, {{ m.point1.z.toFixed(2) }})</span>
 						</div>
 						<div class="measurement-point">
 							<span class="point-label">{{ t('threedviewer', 'Point 2') }}:</span>
-							<span class="point-coords">({{ measurement.point2.x.toFixed(2) }}, {{ measurement.point2.y.toFixed(2) }}, {{ measurement.point2.z.toFixed(2) }})</span>
+							<span class="point-coords">({{ m.point2.x.toFixed(2) }}, {{ m.point2.y.toFixed(2) }}, {{ m.point2.z.toFixed(2) }})</span>
 						</div>
 					</div>
 				</div>
@@ -199,49 +367,34 @@
 			</div>
 		</div>
 
-		<!-- Comparison file selection modal -->
-		<div v-if="isComparisonMode && comparisonFiles.length > 0 && !hasComparisonModel" class="comparison-modal" :class="{ 'mobile': isMobile }">
-			<div class="comparison-modal-content">
-				<div class="comparison-header">
-					<h3>{{ t('threedviewer', 'Select Model to Compare') }}</h3>
-					<button type="button"
-						class="close-comparison-btn"
-						:class="{ 'mobile': isMobile }"
-						@click="toggleComparisonMode">
-						{{ t('threedviewer', 'Close') }}
-					</button>
-				</div>
-				<div class="comparison-file-list">
-					<div v-for="file in comparisonFiles"
-						:key="file.id"
-						class="comparison-file-item"
-						@click="selectComparisonFile(file)">
-						<div class="file-info">
-							<span class="file-name">{{ file.name }}</span>
-							<span class="file-size">{{ formatFileSize(file.size) }}</span>
-						</div>
-						<div class="file-extension">
-							{{ file.name.split('.').pop().toUpperCase() }}
-						</div>
-					</div>
-				</div>
-			</div>
-		</div>
 	</div>
 </template>
 
 <script>
-import { ref, onMounted, onBeforeUnmount, watch, computed } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch, computed, nextTick } from 'vue'
 import * as THREE from 'three'
+import { NcProgressBar, NcButton } from '@nextcloud/vue'
 import { useCamera } from '../composables/useCamera.js'
 import { useModelLoading } from '../composables/useModelLoading.js'
 import { useComparison } from '../composables/useComparison.js'
 import { useMeasurement } from '../composables/useMeasurement.js'
 import { useAnnotation } from '../composables/useAnnotation.js'
-import { logError } from '../utils/error-handler.js'
+import { usePerformance } from '../composables/usePerformance.js'
+import { useExport } from '../composables/useExport.js'
+import { useModelStats } from '../composables/useModelStats.js'
+import { useProgressiveTextures } from '../composables/useProgressiveTextures.js'
+import { useTheme } from '../composables/useTheme.js'
+import { logger } from '../utils/logger.js'
+import { getIconForFilename } from '../utils/iconHelpers.js'
+import { VIEWER_CONFIG } from '../config/viewer-config.js'
+import { initCache, clearExpired, clearAll, getCacheStats } from '../utils/dependencyCache.js'
 
 export default {
 	name: 'ThreeViewerRefactored',
+	components: {
+		NcProgressBar,
+		NcButton,
+	},
 	props: {
 		fileId: { type: [Number, String], default: null },
 		filename: { type: String, default: null },
@@ -255,7 +408,7 @@ export default {
 		comparisonMode: { type: Boolean, default: false },
 		performanceMode: { type: String, default: 'auto' },
 	},
-	emits: ['model-loaded', 'error', 'view-reset', 'fit-to-view', 'toggle-auto-rotate', 'change-preset', 'toggle-grid', 'axes-toggle', 'wireframe-toggle', 'background-change', 'toggle-measurement', 'toggle-annotation', 'toggle-comparison', 'toggle-performance', 'dismiss', 'push-toast'],
+	emits: ['model-loaded', 'error', 'view-reset', 'fit-to-view', 'toggle-auto-rotate', 'toggle-projection', 'change-preset', 'toggle-grid', 'axes-toggle', 'wireframe-toggle', 'background-change', 'toggle-measurement', 'toggle-annotation', 'toggle-comparison', 'toggle-performance', 'dismiss', 'push-toast', 'loading-state-changed', 'fps-updated'],
 	setup(props, { emit }) {
 		// Refs
 		const container = ref(null)
@@ -265,6 +418,9 @@ export default {
 		const axes = ref(null)
 		const modelRoot = ref(null)
 		const aborting = ref(false)
+		const initializing = ref(true) // Show loading during initial setup
+		const animationFrameId = ref(null) // Track animation frame for cleanup
+		const showPerformanceStats = ref(true) // Toggle for performance stats overlay
 
 		// Composables
 		const camera = useCamera()
@@ -272,25 +428,42 @@ export default {
 		const comparison = useComparison()
 		const measurement = useMeasurement()
 		const annotation = useAnnotation()
+		const performance = usePerformance()
+		const exportComposable = useExport()
+		const modelStatsComposable = useModelStats()
+		const progressiveTexturesComposable = useProgressiveTextures()
+		const themeComposable = useTheme()
 
 		// Computed properties
 		const isMobile = computed(() => camera.isMobile.value)
-		const isLoading = computed(() => modelLoading.isLoading.value)
+		const isLoading = computed(() => initializing.value || modelLoading.isLoading.value)
 		const hasError = computed(() => modelLoading.hasError.value)
 		const canRetry = computed(() => modelLoading.canRetry.value)
-		const progress = computed(() => modelLoading.progress.value)
+		const progress = computed(() => {
+			if (initializing.value && !modelLoading.isLoading.value) {
+				return { loaded: 0, total: 0, message: 'Initializing viewer...' }
+			}
+			return modelLoading.progress.value
+		})
 		const progressPercentage = computed(() => modelLoading.progressPercentage.value)
 		const errorState = computed(() => modelLoading.errorState.value)
 		const isComparisonMode = computed(() => comparison.comparisonMode.value)
 		const hasComparisonModel = computed(() => comparison.comparisonModel.value !== null)
+		const availableUnits = computed(() => measurement.getAvailableUnits())
+		const currentUnitModel = computed({
+			get: () => measurement.currentUnit.value,
+			set: (value) => { measurement.currentUnit.value = value },
+		})
+		
+		// Format icon for current model
+		const formatIcon = computed(() => {
+			const filename = modelStatsComposable.modelStats.value?.filename || props.filename || ''
+			return getIconForFilename(filename)
+		})
 
 		// Methods
 		const init = async () => {
 			try {
-				// Test harness hook: mark load start when initialization begins
-				if (typeof window !== 'undefined') {
-					window.__LOAD_STARTED = true
-				}
 				// Initialize decoders
 				await modelLoading.initDecoders()
 
@@ -305,49 +478,60 @@ export default {
 				// Setup controls
 				await camera.setupControls(renderer.value)
 
-				// Setup custom controls for interaction
-				if (renderer.value && renderer.value.domElement) {
-					camera.setupCustomControls(renderer.value.domElement, (event, camera) => {
-						// Handle measurement clicks
-						measurement.handleClick(event, camera)
-						// Handle annotation clicks
-						annotation.handleClick(event, camera)
-					})
-				}
+			// Initialize measurement system
+			measurement.init(scene.value)
 
-				// Initialize measurement system
-				measurement.init(scene.value)
+			// Initialize annotation system
+			annotation.init(scene.value)
 
-				// Initialize annotation system
-				annotation.init(scene.value)
+		// Initialize performance monitoring
+		performance.initPerformance(renderer.value)
+		
+		// Set initial performance mode (pass renderer for auto mode detection)
+		performance.setPerformanceMode(props.performanceMode, renderer.value)
+		
+		// Log performance monitoring status
+		logger.info('ThreeViewer', 'Performance monitoring initialized', {
+			mode: props.performanceMode,
+			monitoring: 'ACTIVE',
+			fps: 'Tracking started',
+			overlay: 'Visible in bottom-left corner'
+		})
 
-				// Load model if fileId provided
-				if (props.fileId) {
-					await loadModel(props.fileId)
-				}
+	// Load model if fileId provided, otherwise show demo
+	if (props.fileId) {
+		await loadModel(props.fileId)
+	} else {
+		// Show demo scene when no file is specified
+		createDemoScene()
+	}
+	
+	// Initialization complete - hide loading indicator
+	initializing.value = false
 
-				// Start animation loop
-				animate()
+	// Start animation loop
+	animate()			// Setup event listeners
+			setupEventListeners()
 
-				// Setup event listeners
-				setupEventListeners()
-
-				logError('ThreeViewer', 'Initialization complete')
-			} catch (error) {
-				logError('ThreeViewer', 'Initialization failed', error)
-				emit('error', error)
-			}
+			logger.info('ThreeViewer', 'Initialization complete')
+		} catch (error) {
+			initializing.value = false // Hide loading on error too
+			logger.error('ThreeViewer', 'Initialization failed', error)
+			emit('error', error)
 		}
+	}
 
-		const setupScene = async () => {
+	const setupScene = async () => {
+		try {
 			// Create scene
 			scene.value = new THREE.Scene()
-
+			
+			// Background will be set via props or remain null (transparent)
+			scene.value.background = props.background ? new THREE.Color(props.background) : null
+			
 			// Ensure container has proper dimensions
 			const containerWidth = container.value.clientWidth || container.value.offsetWidth || 800
 			const containerHeight = container.value.clientHeight || container.value.offsetHeight || 600
-
-			// Container dimensions checked
 
 			// Create renderer
 			renderer.value = new THREE.WebGLRenderer({
@@ -356,14 +540,14 @@ export default {
 				powerPreference: 'high-performance',
 			})
 
+			// Set initial size - this will set pixel ratio to window.devicePixelRatio by default
+			// but initPerformance() will immediately override it with the detected optimal ratio
 			renderer.value.setSize(containerWidth, containerHeight)
-			renderer.value.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+			// Note: pixel ratio will be overridden by initPerformance() based on auto-detection
 			renderer.value.shadowMap.enabled = true
 			renderer.value.shadowMap.type = THREE.PCFSoftShadowMap
 
 			container.value.appendChild(renderer.value.domElement)
-
-			// Renderer setup completed
 
 			// Setup lighting
 			setupLighting()
@@ -371,16 +555,20 @@ export default {
 			// Setup grid and axes
 			setupHelpers()
 
-			logError('ThreeViewer', 'Scene setup complete')
+			logger.info('ThreeViewer', 'Scene setup complete')
+		} catch (error) {
+			logger.error('ThreeViewer', 'Failed to setup scene', error)
+			throw error
 		}
+	}
 
 		const setupLighting = () => {
-			// Ambient light
-			const ambientLight = new THREE.AmbientLight(0x404040, 0.6)
+			// Ambient light - increased intensity to match ViewerComponent
+			const ambientLight = new THREE.AmbientLight(0x404040, 2.0)
 			scene.value.add(ambientLight)
 
-			// Directional light
-			const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8)
+			// Directional light - increased intensity to match ViewerComponent
+			const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0)
 			directionalLight.position.set(10, 10, 5)
 			directionalLight.castShadow = true
 			directionalLight.shadow.mapSize.width = 2048
@@ -394,82 +582,66 @@ export default {
 		}
 
 		const setupHelpers = () => {
-			// Grid helper
+			// Grid helper - use config values for consistency
 			if (props.showGrid) {
-				grid.value = new THREE.GridHelper(10, 10)
-				grid.value.material.color.setHex(0x00ff00)
-				grid.value.material.opacity = 1.0
-				grid.value.material.transparent = false
+				const gridSize = VIEWER_CONFIG.grid?.size || 10
+				const gridDivisions = VIEWER_CONFIG.grid?.divisions || 10
+				const gridColor = VIEWER_CONFIG.grid?.colorGrid || 0x00ff00
+				
+				grid.value = new THREE.GridHelper(gridSize, gridDivisions, gridColor, gridColor)
+				grid.value.material.opacity = VIEWER_CONFIG.grid?.opacity || 1.0
+				grid.value.material.transparent = VIEWER_CONFIG.grid?.transparent || false
 				scene.value.add(grid.value)
 			}
 
-			// Axes helper
+			// Axes helper - use config value for consistency
 			if (props.showAxes) {
-				axes.value = new THREE.AxesHelper(5)
+				const axesSize = VIEWER_CONFIG.axes?.size || 5
+				axes.value = new THREE.AxesHelper(axesSize)
 				scene.value.add(axes.value)
 			}
 		}
 
+		/**
+		 * Load a 3D model from file ID
+		 * @param {string|number} fileId - Nextcloud file ID
+		 */
 		const loadModel = async (fileId) => {
 			try {
 				// Get the filename from props or URL
-				const filename = props.filename ? decodeURIComponent(props.filename) : 'model.glb'
+				const fullPath = props.filename ? decodeURIComponent(props.filename) : 'model.glb'
+				
+				// Extract directory and filename
+				// fullPath might be like "/3d_test/capsule/capsule.obj" or just "model.obj"
+				const pathParts = fullPath.split('/').filter(p => p) // Remove empty strings
+				const filename = pathParts.pop() // Get the actual filename
+				
+				// Reconstruct directory path with leading slash if it was present
+				let dirPath
+				if (fullPath.startsWith('/')) {
+					dirPath = '/' + pathParts.join('/')
+				} else {
+					dirPath = pathParts.join('/') || (props.dir || 'Models')
+				}
+				
 				const extension = filename.split('.').pop().toLowerCase()
 
-				// Props received and processed
-
-				logError('ThreeViewer', 'Loading model', {
+				logger.info('ThreeViewer', 'Loading model', {
 					fileId,
 					filename,
-					dir: props.dir,
+					fullPath,
+					dirPath,
+					extension,
 					userId: window.OC?.getCurrentUser?.()?.uid || 'admin',
 					propsFilename: props.filename,
-					decodedFilename: props.filename ? decodeURIComponent(props.filename) : 'N/A',
 				})
 
-				// Try multiple approaches to fetch the model
-				let response
-				let error
-				const userId = window.OC?.getCurrentUser?.()?.uid || 'admin'
-				const dir = props.dir || 'Models'
-
-				// First try: Use the custom API endpoint
-				try {
-					response = await fetch(`/apps/threedviewer/file/${fileId}`)
-					if (response.ok) {
-						// Success with custom API
-					} else {
-						throw new Error(`Custom API failed: ${response.status}`)
-					}
-				} catch (e) {
-					// Fallback: Use Nextcloud Files API
-					try {
-						response = await fetch(`/remote.php/dav/files/${userId}/${dir}/${filename}`)
-						if (!response.ok) {
-							throw new Error(`Files API failed: ${response.status}`)
-						}
-					} catch (e2) {
-						// Final fallback: Try direct file access
-						response = await fetch(`/remote.php/dav/files/${userId}/${filename}`)
-						if (!response.ok) {
-							throw new Error(`All methods failed: Custom API (${e.message}), Files API (${e2.message}), Direct access (${response.status})`)
-						}
-					}
-				}
-
-				if (!response.ok) {
-					const errorText = await response.text()
-					throw new Error(`Failed to fetch model: ${response.status} ${response.statusText} - ${errorText}`)
-				}
-
-				// Get the array buffer
-				const arrayBuffer = await response.arrayBuffer()
-
-				// Use the model loading composable to load the actual model
-				const loadedModel = await modelLoading.loadModel(arrayBuffer, extension, {
+				// Use the model loading composable which has proper progress tracking
+				const loadedModel = await modelLoading.loadModelFromFileId(fileId, fullPath, {
 					fileId,
 					filename,
-					dir: props.dir,
+					dir: dirPath,
+					THREE,
 				})
 
 				if (loadedModel && loadedModel.object3D) {
@@ -477,114 +649,338 @@ export default {
 					modelRoot.value = loadedModel.object3D
 					scene.value.add(modelRoot.value)
 
-					// Model added to scene successfully
-
 					// Fit camera to object
 					camera.fitCameraToObject(modelRoot.value)
 
 					// Update grid size
 					updateGridSize(modelRoot.value)
 
+					// Calculate model statistics
+					const fileSize = modelLoading.progress.value.total || 0
+					modelStatsComposable.analyzeModel(modelRoot.value, filename, fileSize)
+
+					// Check for loading warnings (missing files/textures)
+					const missingFiles = loadedModel.missingFiles || []
+					const missingTextures = loadedModel.missingTextures || []
+					const totalMissing = missingFiles.length + missingTextures.length
+					
+					if (totalMissing > 0) {
+						const missingList = [...missingFiles, ...missingTextures]
+						
+						logger.warn('ThreeViewer', 'Model loaded with warnings', {
+							missingCount: totalMissing,
+							missingFiles: missingList,
+						})
+						
+						// Emit warning toast
+						emit('push-toast', {
+							type: 'warning',
+							title: 'Model loaded with warnings',
+							message: totalMissing === 1
+								? `1 texture could not be loaded: ${missingList[0]}`
+								: `${totalMissing} textures could not be loaded`,
+							timeout: 8000,
+						})
+					}
+
 					emit('model-loaded', { fileId, filename })
-					logError('ThreeViewer', 'Model loaded successfully')
+					logger.info('ThreeViewer', 'Model loaded successfully')
 				} else {
 					// Fallback to demo scene if model loading failed
 					createDemoScene(fileId)
 				}
 			} catch (error) {
-				logError('ThreeViewer', 'Failed to load model', error)
-				emit('error', error)
+				// Don't log error if it was a user-initiated cancellation
+				if (error.name !== 'AbortError') {
+					logger.error('ThreeViewer', 'Failed to load model', error)
+					emit('error', error)
+				}
 			}
 		}
 
-		const createDemoScene = (fileId) => {
-			// Create a simple demo scene
-			const geometry = new THREE.BoxGeometry(1, 1, 1)
-			const material = new THREE.MeshLambertMaterial({ color: 0x00ff00 })
-			const cube = new THREE.Mesh(geometry, material)
-
-			modelRoot.value = new THREE.Group()
-			modelRoot.value.add(cube)
+	const createDemoScene = (fileId = 'demo') => {
+		try {
+			const demoGroup = new THREE.Group()
+			
+			// Load the app logo texture
+			const textureLoader = new THREE.TextureLoader()
+			const logoTexture = textureLoader.load('/apps/threedviewer/img/app-color.png')
+			
+			// 1. Center piece - Logo on a plane with depth
+			const logoPlaneGeometry = new THREE.PlaneGeometry(2, 2)
+			const logoMaterial = new THREE.MeshBasicMaterial({ 
+				map: logoTexture,
+				transparent: true,
+				side: THREE.DoubleSide,
+			})
+			const logoPlane = new THREE.Mesh(logoPlaneGeometry, logoMaterial)
+			logoPlane.position.set(0, 0.5, 0)
+			demoGroup.add(logoPlane)
+			
+			// 2. Logo back panel for depth effect
+			const backPanelGeometry = new THREE.PlaneGeometry(2.1, 2.1)
+			const backPanelMaterial = new THREE.MeshStandardMaterial({ 
+				color: 0x0082c9,
+				metalness: 0.3,
+				roughness: 0.7,
+			})
+			const backPanel = new THREE.Mesh(backPanelGeometry, backPanelMaterial)
+			backPanel.position.set(0, 0.5, -0.1)
+			demoGroup.add(backPanel)
+			
+			// 3. Decorative sphere - left
+			const sphereGeometry = new THREE.SphereGeometry(0.3, 32, 32)
+			const sphereMaterial = new THREE.MeshStandardMaterial({ 
+				color: 0x0082c9,
+				metalness: 0.8,
+				roughness: 0.2,
+			})
+			const sphere1 = new THREE.Mesh(sphereGeometry, sphereMaterial)
+			sphere1.position.set(-1.3, -0.5, 0.3)
+			demoGroup.add(sphere1)
+			
+			// 4. Decorative sphere - right
+			const sphere2 = new THREE.Mesh(sphereGeometry, sphereMaterial)
+			sphere2.position.set(1.3, -0.5, 0.3)
+			demoGroup.add(sphere2)
+			
+			// 5. Small decorative cubes
+			const cubeGeometry = new THREE.BoxGeometry(0.25, 0.25, 0.25)
+			const cubeMaterial = new THREE.MeshStandardMaterial({ 
+				color: 0x4ecdc4,
+				metalness: 0.5,
+				roughness: 0.5,
+			})
+			
+			const cube1 = new THREE.Mesh(cubeGeometry, cubeMaterial)
+			cube1.position.set(-1.5, 0.8, 0.5)
+			cube1.rotation.set(0.5, 0.5, 0)
+			demoGroup.add(cube1)
+			
+			const cube2 = new THREE.Mesh(cubeGeometry, cubeMaterial)
+			cube2.position.set(1.5, 0.8, 0.5)
+			cube2.rotation.set(0.3, 0.8, 0.2)
+			demoGroup.add(cube2)
+			
+			// 6. Add demo lights
+			const ambientLight = new THREE.AmbientLight(0xffffff, 0.6)
+			demoGroup.add(ambientLight)
+			
+			const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8)
+			directionalLight.position.set(5, 5, 5)
+			demoGroup.add(directionalLight)
+			
+			const pointLight = new THREE.PointLight(0xffffff, 0.4)
+			pointLight.position.set(-3, 3, 3)
+			demoGroup.add(pointLight)
+			
+			// Add to scene
+			modelRoot.value = demoGroup
 			scene.value.add(modelRoot.value)
-
-			// Fit camera to object
+			
+			// Fit camera
 			camera.fitCameraToObject(modelRoot.value)
-
-			// Update grid size
 			updateGridSize(modelRoot.value)
-
-			emit('model-loaded', { fileId, filename: 'demo.glb' })
-			logError('ThreeViewer', 'Demo scene created')
+			
+			// Analyze demo model for stats
+			modelStatsComposable.analyzeModel(modelRoot.value, 'demo-scene.glb', 0)
+			
+			emit('model-loaded', { fileId, filename: 'Demo Scene' })
+			logger.info('ThreeViewer', 'Demo scene created with app logo')
+		} catch (error) {
+			logger.error('ThreeViewer', 'Failed to create demo scene', error)
+			emit('error', error)
 		}
+	}
 
+		/**
+		 * Dynamically update grid size based on model dimensions
+		 * @param {THREE.Object3D} obj - 3D object to fit grid to
+		 */
 		const updateGridSize = (obj) => {
 			if (!grid.value || !obj) return
 
-			const box = new THREE.Box3().setFromObject(obj)
-			const size = box.getSize(new THREE.Vector3())
-			const center = box.getCenter(new THREE.Vector3())
-			const maxDim = Math.max(size.x, size.y, size.z)
+			try {
+				const box = new THREE.Box3().setFromObject(obj)
+				
+				// Validate bounding box
+				if (box.isEmpty()) {
+					logger.warn('ThreeViewer', 'Cannot update grid: model bounding box is empty')
+					return
+				}
 
-			// Dynamic grid sizing based on model size
-			let gridSize, divisions
-			if (maxDim < 5) {
-				gridSize = 10
-				divisions = 10
-			} else if (maxDim < 20) {
-				gridSize = 20
-				divisions = 20
-			} else if (maxDim < 100) {
-				gridSize = 50
-				divisions = 25
-			} else {
-				gridSize = 100
-				divisions = 50
+				const size = box.getSize(new THREE.Vector3())
+				const center = box.getCenter(new THREE.Vector3())
+				const maxDim = Math.max(size.x, size.y, size.z)
+
+				// Dynamic grid sizing based on model size
+				let gridSize, divisions
+				if (maxDim < 5) {
+					gridSize = 10
+					divisions = 10
+				} else if (maxDim < 20) {
+					gridSize = 20
+					divisions = 20
+				} else if (maxDim < 100) {
+					gridSize = 100
+					divisions = 25
+				} else if (maxDim < 500) {
+					gridSize = Math.ceil(maxDim * 1.5) // 1.5x model size
+					divisions = 50
+				} else {
+					gridSize = Math.ceil(maxDim * 2) // 2x model size for very large models
+					divisions = 100
+				}
+
+				// Calculate grid position at the bottom of the model
+				const gridY = center.y - (size.y / 2) - 0.1 // Slightly below the bottom of the model
+
+				// Validate grid position to prevent NaN
+				if (!isFinite(gridY) || !isFinite(center.x) || !isFinite(center.z)) {
+					logger.error('ThreeViewer', 'Invalid grid position calculated', { gridY, center })
+					return
+				}
+
+				// Update grid
+				scene.value.remove(grid.value)
+				grid.value = new THREE.GridHelper(gridSize, divisions)
+				grid.value.material.color.setHex(0x00ff00)
+				grid.value.material.opacity = 1.0
+				grid.value.material.transparent = false
+
+				// Position grid at the bottom of the model
+				grid.value.position.set(center.x, gridY, center.z)
+
+				scene.value.add(grid.value)
+
+				logger.info('ThreeViewer', 'Grid size updated', {
+					gridSize,
+					divisions,
+					maxDim,
+					modelCenter: { x: center.x, y: center.y, z: center.z },
+					gridPosition: { x: center.x, y: gridY, z: center.z },
+				})
+			} catch (error) {
+				logger.error('ThreeViewer', 'Failed to update grid size', error)
 			}
-
-			// Calculate grid position at the bottom of the model
-			const gridY = center.y - (size.y / 2) - 0.1 // Slightly below the bottom of the model
-
-			// Update grid
-			scene.value.remove(grid.value)
-			grid.value = new THREE.GridHelper(gridSize, divisions)
-			grid.value.material.color.setHex(0x00ff00)
-			grid.value.material.opacity = 1.0
-			grid.value.material.transparent = false
-
-			// Position grid at the bottom of the model
-			grid.value.position.set(center.x, gridY, center.z)
-
-			scene.value.add(grid.value)
-
-			logError('ThreeViewer', 'Grid size updated', {
-				gridSize,
-				divisions,
-				maxDim,
-				modelCenter: { x: center.x, y: center.y, z: center.z },
-				gridPosition: { x: center.x, y: gridY, z: center.z },
-			})
 		}
 
-		const animate = () => {
-			requestAnimationFrame(animate)
+	const animate = () => {
+		animationFrameId.value = requestAnimationFrame(animate)
 
-			// Update controls
-			camera.updateControls()
+		// Update controls
+		camera.updateControls()
 
-			// Render scene
-			camera.render(renderer.value, scene.value)
+		// Render scene
+		camera.render(renderer.value, scene.value)
+
+		// Update performance metrics after rendering (throttled)
+		if (performance && typeof performance.updatePerformanceMetrics === 'function') {
+			performance.updatePerformanceMetrics(renderer.value, scene.value)
 		}
+	}
 
 		const setupEventListeners = () => {
 			window.addEventListener('resize', onWindowResize)
+			
+			// Add click handler for measurement and annotation
+			if (renderer.value && renderer.value.domElement) {
+				renderer.value.domElement.addEventListener('click', onCanvasClick)
+			}
 		}
 
-		const onWindowResize = () => {
-			const width = container.value.clientWidth
-			const height = container.value.clientHeight
+	const onWindowResize = () => {
+		const width = container.value.clientWidth
+		const height = container.value.clientHeight
 
-			camera.onWindowResize(width, height)
-			renderer.value.setSize(width, height)
+		camera.onWindowResize(width, height)
+		
+		// Preserve pixel ratio by using setSize with updateStyle=false
+		// This prevents setSize from resetting pixel ratio to window.devicePixelRatio
+		renderer.value.setSize(width, height, false)
+		
+		logger.info('ThreeViewer', 'Window resized', {
+			width,
+			height,
+			pixelRatio: renderer.value.getPixelRatio(),
+		})
+		
+		// Re-adjust overlay positioning on window resize
+		adjustOverlayPositioning()
+	}
+
+	/**
+	 * Dynamically adjust overlay positioning to avoid toolbar overlap
+	 */
+	const adjustOverlayPositioning = () => {
+		// Wait for DOM to be ready and add a small delay to ensure toolbar is fully rendered
+		nextTick(() => {
+			setTimeout(() => {
+				const toolbar = document.querySelector('.minimal-top-bar')
+				const appHeader = document.querySelector('#header')
+				const nextcloudHeader = document.querySelector('#header')
+				
+				let totalHeaderHeight = 0
+				
+				// Check for Nextcloud header height
+				if (nextcloudHeader) {
+					const headerRect = nextcloudHeader.getBoundingClientRect()
+					totalHeaderHeight += headerRect.height
+				}
+				
+				// Check for minimal top bar height
+				if (toolbar) {
+					const toolbarRect = toolbar.getBoundingClientRect()
+					totalHeaderHeight += toolbarRect.height + 10 // Add some padding
+				}
+				
+				// Calculate safe spacing: total header height + padding (more conservative)
+				const safeTopSpacing = Math.max(180, totalHeaderHeight + 50)
+				
+				// Update CSS custom property
+				document.documentElement.style.setProperty('--overlay-top-spacing', `${safeTopSpacing}px`)
+				
+				// For mobile, use a slightly smaller spacing but ensure minimum
+				const mobileSpacing = Math.max(140, safeTopSpacing - 30)
+				document.documentElement.style.setProperty('--overlay-mobile-top-spacing', `${mobileSpacing}px`)
+				
+				logger.info('ThreeViewer', 'Adjusted overlay positioning', {
+					totalHeaderHeight,
+					safeTopSpacing,
+					mobileSpacing,
+					hasMinimalTopBar: !!toolbar,
+					hasNextcloudHeader: !!nextcloudHeader,
+					windowHeight: window.innerHeight,
+					windowWidth: window.innerWidth,
+				})
+				
+				// Force a style recalculation by directly setting styles on overlays
+				const measurementOverlay = document.querySelector('.measurement-overlay')
+				const annotationOverlay = document.querySelector('.annotation-overlay')
+				
+				if (measurementOverlay) {
+					measurementOverlay.style.top = `${safeTopSpacing}px`
+					logger.info('ThreeViewer', 'Forced measurement overlay positioning', { top: safeTopSpacing })
+				}
+				
+				if (annotationOverlay) {
+					annotationOverlay.style.top = `${safeTopSpacing}px`
+					logger.info('ThreeViewer', 'Forced annotation overlay positioning', { top: safeTopSpacing })
+				}
+			}, 200) // Increased delay to ensure DOM is fully rendered
+		})
+	}
+
+	const onCanvasClick = (event) => {
+			// Handle measurement clicks
+			if (measurement.isActive.value) {
+				measurement.handleClick(event, camera.camera.value)
+			}
+			
+			// Handle annotation clicks
+			if (annotation.isActive.value) {
+				annotation.handleClick(event, camera.camera.value)
+			}
 		}
 
 		// Comparison methods
@@ -600,15 +996,19 @@ export default {
 
 		// Loading methods
 		const cancelLoad = () => {
-			modelLoading.cancelLoad()
 			aborting.value = true
+			modelLoading.cancelLoad()
+			// Reset aborting state after a short delay
+			setTimeout(() => {
+				aborting.value = false
+			}, 500)
 		}
 
 		const retryLoad = async () => {
 			try {
 				await modelLoading.retryLoad(() => loadModel(props.fileId))
 			} catch (error) {
-				logError('ThreeViewer', 'Retry failed', error)
+				logger.error('ThreeViewer', 'Retry failed', error)
 			}
 		}
 
@@ -638,13 +1038,135 @@ export default {
 
 		// Advanced feature methods
 		const toggleMeasurementMode = () => {
+			// If turning measurement ON, turn annotation OFF
+			if (!measurement.isActive.value) {
+				if (annotation.isActive.value) {
+					annotation.toggleAnnotation()
+				}
+			}
 			measurement.toggleMeasurement()
 		}
 
-		const toggleAnnotationMode = () => {
-			annotation.toggleAnnotation()
-			emit('toggle-annotation')
+		const handleUnitChange = () => {
+			measurement.setUnit(currentUnitModel.value)
 		}
+
+		const deleteMeasurement = (measurementId) => {
+			measurement.deleteMeasurement(measurementId)
+		}
+
+	const toggleAnnotationMode = () => {
+		// If turning annotation ON, turn measurement OFF
+		if (!annotation.isActive.value) {
+			if (measurement.isActive.value) {
+				measurement.toggleMeasurement()
+			}
+		}
+		annotation.toggleAnnotation()
+		emit('toggle-annotation')
+	}
+
+	const togglePerformanceStats = () => {
+		showPerformanceStats.value = !showPerformanceStats.value
+		logger.info('ThreeViewer', 'Performance stats toggled', { visible: showPerformanceStats.value })
+	}
+
+	/**
+	 * Toggle model statistics panel
+	 */
+	const toggleModelStats = () => {
+		modelStatsComposable.toggleStatsPanel()
+		logger.info('ThreeViewer', 'Model stats toggled', { visible: modelStatsComposable.showStats.value })
+	}
+
+	/**
+	 * Clear dependency cache
+	 */
+	const handleClearCache = async () => {
+		try {
+			logger.info('ThreeViewer', 'Clearing dependency cache')
+			await clearAll()
+			const stats = await getCacheStats()
+			logger.info('ThreeViewer', 'Cache cleared', stats)
+			
+			emit('push-toast', {
+				type: 'success',
+				title: 'Cache Cleared',
+				message: 'Dependency cache has been cleared successfully'
+			})
+		} catch (error) {
+			logger.error('ThreeViewer', 'Failed to clear cache', error)
+			emit('push-toast', {
+				type: 'error',
+				title: 'Clear Cache Failed',
+				message: error.message || 'Failed to clear cache'
+			})
+		}
+	}
+
+	/**
+	 * Handle model export
+	 * @param {string} format - Export format (glb, stl, obj)
+	 */
+	const handleExport = async (format) => {
+		if (!modelRoot.value) {
+			logger.warn('ThreeViewer', 'No model loaded for export')
+			emit('push-toast', { 
+				type: 'error', 
+				title: 'Export Failed',
+				message: 'No model loaded to export' 
+			})
+			return
+		}
+
+		try {
+			logger.info('ThreeViewer', 'Starting export', { format })
+
+			// Extract filename from props or use default
+			const baseFilename = props.filename 
+				? props.filename.split('/').pop().split('.')[0] 
+				: 'model'
+
+			// Export based on format
+			switch (format.toLowerCase()) {
+				case 'glb':
+					await exportComposable.exportAsGLB(modelRoot.value, baseFilename)
+					emit('push-toast', { 
+						type: 'success', 
+						title: 'Export Successful',
+						message: `Model exported as ${baseFilename}.glb` 
+					})
+					break
+				case 'stl':
+					await exportComposable.exportAsSTL(modelRoot.value, baseFilename)
+					emit('push-toast', { 
+						type: 'success', 
+						title: 'Export Successful',
+						message: `Model exported as ${baseFilename}.stl` 
+					})
+					break
+				case 'obj':
+					await exportComposable.exportAsOBJ(modelRoot.value, baseFilename)
+					emit('push-toast', { 
+						type: 'success', 
+						title: 'Export Successful',
+						message: `Model exported as ${baseFilename}.obj` 
+					})
+					break
+				default:
+					throw new Error(`Unsupported export format: ${format}`)
+			}
+
+			logger.info('ThreeViewer', 'Export completed successfully', { format, filename: baseFilename })
+		} catch (error) {
+			logger.error('ThreeViewer', 'Export failed', error)
+			emit('push-toast', { 
+				type: 'error', 
+				title: 'Export Failed',
+				message: error.message || 'Failed to export model' 
+			})
+		}
+	}
 
 		const deleteAnnotation = (annotationId) => {
 			annotation.deleteAnnotation(annotationId)
@@ -661,60 +1183,63 @@ export default {
 		const toggleComparisonMode = async () => {
 			try {
 				if (!comparison.isComparisonMode.value) {
-					// Entering comparison mode - load available files
-					await loadComparisonFiles()
+					// Entering comparison mode - open native file picker
+					comparison.toggleComparisonMode()
+					emit('toggle-comparison')
+					
+					try {
+						const filePath = await comparison.openFilePicker()
+						
+						// Load the selected model
+						const context = {
+							THREE,
+							scene: scene.value,
+							abortController: new AbortController(),
+							applyWireframe: props.wireframe,
+							ensurePlaceholderRemoved: () => {},
+							wireframe: props.wireframe,
+						}
+
+						await comparison.loadComparisonModelFromPath(filePath, context)
+
+						// Add the comparison model to the scene
+						if (comparison.comparisonModel.value) {
+							scene.value.add(comparison.comparisonModel.value)
+
+							// Fit both models to view
+							if (modelRoot.value && comparison.comparisonModel.value) {
+								fitBothModelsToView()
+							}
+						}
+					} catch (error) {
+						// User cancelled or error occurred
+						logger.error('ThreeViewer', 'Failed to load comparison model', error)
+						// Exit comparison mode if picker was cancelled
+						comparison.toggleComparisonMode()
+						emit('toggle-comparison')
+					}
 				} else {
 					// Exiting comparison mode - clear comparison
 					comparison.clearComparison()
+					comparison.toggleComparisonMode()
+					emit('toggle-comparison')
 				}
-
-				comparison.toggleComparisonMode()
-				emit('toggle-comparison')
 			} catch (error) {
-				logError('ThreeViewer', 'Failed to toggle comparison mode', error)
+				logger.error('ThreeViewer', 'Failed to toggle comparison mode', error)
 			}
 		}
 
-		const loadComparisonFiles = async () => {
-			try {
-				await comparison.loadNextcloudFiles()
-			} catch (error) {
-				logError('ThreeViewer', 'Failed to load comparison files', error)
-			}
-		}
-
-		const selectComparisonFile = async (file) => {
-			try {
-				// Selecting comparison file
-
-				// Load the comparison model
-				const context = {
-					THREE,
-					scene: scene.value,
-					abortController: new AbortController(),
-					applyWireframe: props.wireframe,
-					ensurePlaceholderRemoved: () => {},
-					wireframe: props.wireframe,
-				}
-
-				await comparison.loadComparisonModelFromNextcloud(file, context)
-
-				// Add the comparison model to the scene
-				if (comparison.comparisonModel.value) {
-					scene.value.add(comparison.comparisonModel.value)
-
-					// Fit both models to view
-					if (modelRoot.value && comparison.comparisonModel.value) {
-						fitBothModelsToView()
-					}
-				}
-			} catch (error) {
-				logError('ThreeViewer', 'Failed to load comparison model', error)
-			}
-		}
-
+		/**
+		 * Fit both original and comparison models to camera view
+		 * Positions models side by side and adjusts camera to show both
+		 */
 		const fitBothModelsToView = () => {
-			if (modelRoot.value && comparison.comparisonModel.value) {
+			if (!modelRoot.value || !comparison.comparisonModel.value) {
+				logger.warn('ThreeViewer', 'Cannot fit both models: one or both models missing')
+				return
+			}
+
+			try {
 				// First position the models side by side
 				comparison.fitBothModelsToView(modelRoot.value, comparison.comparisonModel.value, (model1, model2) => {
 					// After positioning, fit camera to the combined bounding box
@@ -722,43 +1247,56 @@ export default {
 					const box2 = new THREE.Box3().setFromObject(model2)
 					const combinedBox = box1.union(box2)
 
+					if (combinedBox.isEmpty()) {
+						logger.warn('ThreeViewer', 'Combined bounding box is empty')
+						return
+					}
+
 					const center = combinedBox.getCenter(new THREE.Vector3())
 					const size = combinedBox.getSize(new THREE.Vector3())
 					const maxDim = Math.max(size.x, size.y, size.z)
 
-					// Calculate camera distance
+					// Calculate camera distance using FOV-based calculation
 					const fov = camera.camera.value.fov * (Math.PI / 180)
-					const cameraDistance = maxDim / (2 * Math.tan(fov / 2)) * 1.5
+					const cameraDistance = Math.abs(maxDim / Math.sin(fov / 2)) * 1.2
 
-					// Position camera to view both models
+					// Position camera to view both models at a good angle
 					camera.camera.value.position.set(
-						center.x + cameraDistance,
-						center.y + cameraDistance * 0.5,
-						center.z + cameraDistance,
+						center.x + cameraDistance * 0.7,
+						center.y + cameraDistance * 0.7,
+						center.z + cameraDistance * 0.7,
 					)
-					camera.camera.value.lookAt(center)
 
-					// Both models fitted to view
-
-					// Force a render to update the view
-					if (renderer.value && scene.value) {
-						renderer.value.render(scene.value, camera.camera.value)
-					}
-
-					// Enable camera controls after positioning
+					// Set camera target to center of both models
 					if (camera.controls.value) {
-						camera.controls.value.enabled = true
+						camera.controls.value.target.copy(center)
+						camera.controls.value.update()
 					}
+
+					logger.info('ThreeViewer', 'Camera positioned for both models', {
+						center: { x: center.x, y: center.y, z: center.z },
+						cameraDistance,
+						cameraPosition: { 
+							x: camera.camera.value.position.x, 
+							y: camera.camera.value.position.y, 
+							z: camera.camera.value.position.z 
+						}
+					})
 				})
+			} catch (error) {
+				logger.error('ThreeViewer', 'Failed to fit both models to view', error)
 			}
 		}
 
-		const setPerformanceMode = (mode) => {
-			// TODO: Implement performance mode functionality
+	const setPerformanceMode = (mode) => {
+		if (performance && typeof performance.setPerformanceMode === 'function') {
+			performance.setPerformanceMode(mode, renderer.value)
+			logger.info('ThreeViewer', 'Performance mode set', { mode })
 		}
-
-		// Watchers
-		watch(() => props.showGrid, (val) => {
+	}
+	
+	// Watchers
+	watch(() => props.showGrid, (val) => {
 			if (grid.value) {
 				grid.value.visible = val
 			}
@@ -787,40 +1325,127 @@ export default {
 			}
 		})
 
-		// Lifecycle
-		onMounted(() => {
-			// Expose minimal test hook for Playwright to control loading
-			if (typeof window !== 'undefined') {
-				window.__THREEDVIEWER_VIEWER = Object.assign({}, window.__THREEDVIEWER_VIEWER, {
-					cancelLoad,
-					retryLoad,
-				})
+	watch(() => props.performanceMode, (mode) => {
+		if (performance && typeof performance.setPerformanceMode === 'function') {
+			// Pass renderer to enable smart detection for auto mode
+			// setPerformanceMode already calls applyPerformanceSettings internally
+			performance.setPerformanceMode(mode, renderer.value)
+			logger.info('ThreeViewer', 'Performance mode changed', { mode })
+		}
+	})
+
+	// Watch for measurement/annotation mode changes to adjust positioning
+	watch(() => measurement.isActive.value, (active) => {
+		if (active) {
+			nextTick(() => {
+				setTimeout(() => adjustOverlayPositioning(), 100)
+			})
+		}
+	})
+
+	watch(() => annotation.isActive.value, (active) => {
+		if (active) {
+			nextTick(() => {
+				setTimeout(() => adjustOverlayPositioning(), 100)
+			})
+		}
+	})
+
+	// Emit loading state changes
+	watch(() => modelLoading.isLoading.value, (loading) => {
+		emit('loading-state-changed', loading)
+	})
+
+	// Emit FPS updates (throttled to every 500ms)
+	let lastFpsEmit = 0
+	watch(() => performance.currentFPS.value, (fps) => {
+		const now = Date.now()
+		if (now - lastFpsEmit > 500) {
+			emit('fps-updated', fps)
+			lastFpsEmit = now
+		}
+	})
+	
+	// Watch for theme changes to update scene background
+	watch(() => themeComposable.resolvedTheme.value, (newTheme) => {
+		if (scene.value) {
+			// Apply theme to scene background
+			const themeColors = VIEWER_CONFIG.theme[newTheme] || VIEWER_CONFIG.theme.light
+			if (themeColors.background) {
+				scene.value.background = new THREE.Color(themeColors.background)
+				logger.info('ThreeViewer', 'Scene theme applied', { theme: newTheme, background: themeColors.background })
 			}
-			init()
-		})
+		}
+	})
+
+	// Lifecycle
+	onMounted(async () => {
+		// Initialize dependency cache
+		try {
+			await initCache()
+			await clearExpired()
+			const stats = await getCacheStats()
+			logger.info('ThreeViewer', 'Cache initialized', stats)
+		} catch (error) {
+			logger.warn('ThreeViewer', 'Cache init failed, continuing without cache', error)
+		}
+		
+		// Initialize theme system
+		themeComposable.initTheme()
+
+		// Test hooks for Playwright/testing
+		if (typeof window !== 'undefined') {
+			window.__LOAD_STARTED = true
+			window.__THREEDVIEWER_VIEWER = Object.assign({}, window.__THREEDVIEWER_VIEWER, {
+				cancelLoad,
+				retryLoad,
+			})
+		}
+		init()
+		
+		// Adjust overlay positioning to avoid toolbar overlap
+		adjustOverlayPositioning()
+	})
 
 		onBeforeUnmount(() => {
-			// Cleanup
-			window.removeEventListener('resize', onWindowResize)
-
-			if (renderer.value) {
-				renderer.value.dispose()
+			// Cancel animation loop
+			if (animationFrameId.value !== null) {
+				cancelAnimationFrame(animationFrameId.value)
+				animationFrameId.value = null
 			}
 
-			camera.dispose()
-			modelLoading.clearModel()
-			comparison.clearComparison()
-		})
+			// Cleanup event listeners
+			window.removeEventListener('resize', onWindowResize)
+			
+			// Remove canvas click listener - check domElement exists
+			if (renderer.value?.domElement) {
+				renderer.value.domElement.removeEventListener('click', onCanvasClick)
+			}
 
-		return {
-			// Refs
-			container,
+		if (renderer.value) {
+			renderer.value.dispose()
+		}
+
+		camera.dispose()
+		modelLoading.clearModel()
+		comparison.clearComparison()
+		
+		// Dispose performance monitoring
+		if (performance && typeof performance.dispose === 'function') {
+			performance.dispose()
+		}
+	})
+
+	return {
+		// Refs
+		container,
 			scene,
 			renderer,
 			grid,
 			axes,
 			modelRoot,
 			aborting,
+			initializing,
 
 			// Computed
 			isMobile,
@@ -832,6 +1457,8 @@ export default {
 			errorState,
 			isComparisonMode,
 			hasComparisonModel,
+			availableUnits,
+			currentUnitModel,
 
 			// Measurement
 			measurement,
@@ -847,10 +1474,42 @@ export default {
 			annotationCount: annotation.annotationCount,
 
 			// Comparison
-			comparisonFiles: comparison.comparisonFiles,
 			isComparisonLoading: comparison.isComparisonLoading,
 
-			// Methods
+		// Performance
+		performance,
+		currentFPS: performance.currentFPS,
+		currentFrameTime: performance.currentFrameTime,
+		currentMemoryUsage: performance.currentMemoryUsage,
+		currentDrawCalls: performance.currentDrawCalls,
+		currentTriangles: performance.currentTriangles,
+		currentPerformanceMode: performance.currentPerformanceMode,
+		currentPixelRatio: performance.currentPixelRatio,
+		showPerformanceStats,
+		
+		// Camera
+		cameraType: camera.cameraType,
+		
+		// Export state
+		isExporting: exportComposable.exporting,
+		exportProgress: exportComposable.exportProgress,
+		
+		// Model stats
+		modelStats: modelStatsComposable.modelStats,
+		showModelStats: modelStatsComposable.showStats,
+		formatIcon,
+		
+		// Progressive textures
+		loadingTextures: progressiveTexturesComposable.loadingTextures,
+		textureProgress: progressiveTexturesComposable.textureProgress,
+		
+		// Theme
+		currentTheme: themeComposable.currentTheme,
+		resolvedTheme: themeComposable.resolvedTheme,
+		direction: themeComposable.direction,
+		isRTL: themeComposable.isRTL,
+		
+		// Methods
 			toggleOriginalModel,
 			toggleComparisonModel,
 			fitBothModelsToView,
@@ -860,23 +1519,58 @@ export default {
 			getStageText,
 			formatFileSize,
 			toggleAutoRotate: camera.toggleAutoRotate,
+			toggleCameraProjection: camera.toggleCameraProjection,
 			resetView,
 			fitToView,
 			toggleMeasurementMode,
+			handleUnitChange,
+			deleteMeasurement,
 			toggleAnnotationMode,
 			deleteAnnotation,
 			updateAnnotationText,
-			clearAllAnnotations,
-			toggleComparisonMode,
-			loadComparisonFiles,
-			selectComparisonFile,
-			setPerformanceMode,
-		}
+		clearAllAnnotations,
+		toggleComparisonMode,
+		setPerformanceMode,
+		setTheme: themeComposable.setTheme,
+		togglePerformanceStats,
+		toggleModelStats,
+		handleExport,
+		handleClearCache,
+		hasModel: computed(() => modelRoot.value !== null),
+	}
 	},
 }
 </script>
 
 <style scoped>
+/* CSS Variables for consistent spacing */
+:root {
+	--overlay-top-spacing: 150px; /* Further increased to ensure no overlap */
+	--overlay-side-spacing: 20px;
+	--overlay-mobile-top-spacing: 120px; /* Further increased for mobile */
+	--overlay-mobile-side-spacing: 10px;
+}
+
+/* Force overlay positioning to prevent overlap */
+.measurement-overlay,
+.annotation-overlay {
+	/* Ensure panels are positioned below any header/toolbar */
+	top: 80px !important;
+	/* Ensure panels don't extend beyond viewport */
+	max-width: 280px !important;
+	/* Ensure proper z-index */
+	z-index: 250 !important;
+}
+
+@media (max-width: 768px) {
+	.measurement-overlay,
+	.annotation-overlay {
+		top: 140px !important;
+		max-width: calc(100vw - 40px) !important;
+	}
+}
+
+
 .three-viewer {
 	position: relative;
 	width: 100%;
@@ -901,6 +1595,38 @@ export default {
 .loading-content {
 	text-align: center;
 	color: white;
+	max-width: 500px;
+	padding: 20px;
+}
+
+.loading-text {
+	margin-bottom: 20px;
+}
+
+.loading-stage {
+	font-size: 18px;
+	font-weight: bold;
+	margin-bottom: 10px;
+}
+
+.loading-details {
+	font-size: 14px;
+	opacity: 0.9;
+	margin-bottom: 5px;
+}
+
+.loading-percentage {
+	font-size: 24px;
+	font-weight: bold;
+	margin-top: 10px;
+	color: var(--color-primary-element);
+}
+
+.loading-actions {
+	margin-top: 20px;
+	display: flex;
+	gap: 10px;
+	justify-content: center;
 }
 
 .loading-spinner {
@@ -918,6 +1644,241 @@ export default {
 	100% { transform: rotate(360deg); }
 }
 
+/* Export progress overlay */
+.export-progress-overlay {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: rgba(0, 0, 0, 0.85);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 1500;
+	backdrop-filter: blur(4px);
+}
+
+.export-progress-content {
+	text-align: center;
+	color: white;
+	max-width: 400px;
+	padding: 30px;
+	background: rgba(0, 0, 0, 0.7);
+	border-radius: 12px;
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.export-icon {
+	font-size: 48px;
+	margin-bottom: 16px;
+	animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+	0%, 100% { transform: scale(1); opacity: 1; }
+	50% { transform: scale(1.1); opacity: 0.8; }
+}
+
+.export-stage {
+	font-size: 16px;
+	font-weight: 500;
+	margin-bottom: 12px;
+	color: #ffffff;
+}
+
+.export-percentage {
+	font-size: 28px;
+	font-weight: bold;
+	margin-bottom: 16px;
+	color: var(--color-primary-element, #4287f5);
+}
+
+.export-progress-overlay.mobile .export-progress-content {
+	max-width: 90%;
+	padding: 20px;
+}
+
+.export-progress-overlay.mobile .export-icon {
+	font-size: 36px;
+}
+
+.export-progress-overlay.mobile .export-stage {
+	font-size: 14px;
+}
+
+.export-progress-overlay.mobile .export-percentage {
+	font-size: 24px;
+}
+
+/* Model Statistics Panel */
+.model-stats-overlay {
+	position: absolute;
+	top: 80px;
+	left: 20px;
+	width: 320px;
+	max-height: 600px;
+	background: rgba(0, 0, 0, 0.9);
+	border: 1px solid rgba(255, 255, 255, 0.2);
+	border-radius: 8px;
+	color: white;
+	z-index: 300;
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.stats-panel-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 16px 20px;
+	background: rgba(0, 0, 0, 0.5);
+	border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.stats-title-group {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.stats-title-group .format-icon {
+	width: 24px;
+	height: 24px;
+	object-fit: contain;
+	filter: brightness(0) invert(1); /* Make icon white for dark bg */
+	opacity: 0.9;
+}
+
+.stats-panel-header h3 {
+	margin: 0;
+	font-size: 16px;
+	font-weight: 600;
+	color: var(--color-primary-element, #4287f5);
+}
+
+.close-stats-btn {
+	background: transparent;
+	border: none;
+	color: white;
+	font-size: 28px;
+	line-height: 1;
+	cursor: pointer;
+	padding: 4px 8px;
+	border-radius: 4px;
+	transition: background 0.2s ease;
+}
+
+.close-stats-btn:hover {
+	background: rgba(255, 255, 255, 0.1);
+}
+
+.stats-panel-content {
+	flex: 1;
+	overflow-y: auto;
+	padding: 16px 20px;
+}
+
+.stats-section {
+	margin-bottom: 20px;
+	padding-bottom: 16px;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.stats-section:last-child {
+	border-bottom: none;
+	margin-bottom: 0;
+}
+
+.stats-section h4 {
+	margin: 0 0 12px 0;
+	font-size: 14px;
+	font-weight: 600;
+	color: rgba(255, 255, 255, 0.9);
+}
+
+.stat-row {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 6px 0;
+	font-size: 13px;
+}
+
+.stat-row span:first-child {
+	color: rgba(255, 255, 255, 0.7);
+}
+
+.stat-row .stat-value {
+	font-weight: 600;
+	color: #ffffff;
+	font-family: 'Courier New', monospace;
+}
+
+.material-list {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.material-item {
+	display: flex;
+	justify-content: space-between;
+	padding: 8px 12px;
+	background: rgba(255, 255, 255, 0.05);
+	border-radius: 4px;
+	font-size: 12px;
+}
+
+.material-name {
+	color: #ffffff;
+	font-weight: 500;
+}
+
+.material-type {
+	color: rgba(255, 255, 255, 0.6);
+	font-size: 11px;
+}
+
+.no-items {
+	color: rgba(255, 255, 255, 0.5);
+	font-style: italic;
+	font-size: 12px;
+	padding: 8px 0;
+}
+
+.more-items {
+	color: rgba(255, 255, 255, 0.6);
+	font-size: 12px;
+	padding: 8px 12px;
+	text-align: center;
+	font-style: italic;
+}
+
+/* Mobile adjustments for stats panel */
+.model-stats-overlay.mobile {
+	top: 60px;
+	left: 10px;
+	right: 10px;
+	width: auto;
+	max-height: 500px;
+}
+
+.model-stats-overlay.mobile .stats-panel-header {
+	padding: 12px 16px;
+}
+
+.model-stats-overlay.mobile .stats-panel-content {
+	padding: 12px 16px;
+}
+
+.model-stats-overlay.mobile .stat-row {
+	font-size: 12px;
+}
+
 .error-display {
 	position: absolute;
 	top: 20px;
@@ -928,6 +1889,166 @@ export default {
 	padding: 20px;
 	border-radius: 8px;
 	z-index: 1001;
+}
+
+/* Texture Progress Indicator */
+.texture-progress-indicator {
+	position: absolute;
+	bottom: 10px;
+	right: 10px;
+	background: rgba(0, 0, 0, 0.85);
+	color: white;
+	padding: 12px 16px;
+	border-radius: 8px;
+	font-size: 12px;
+	z-index: 250;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	border: 1px solid rgba(255, 255, 255, 0.2);
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+	backdrop-filter: blur(10px);
+	min-width: 200px;
+}
+
+.texture-icon {
+	font-size: 16px;
+	line-height: 1;
+}
+
+.texture-status {
+	flex: 1;
+	font-size: 11px;
+	color: rgba(255, 255, 255, 0.9);
+}
+
+.mini-progress-bar {
+	width: 80px;
+	height: 4px;
+	background: rgba(255, 255, 255, 0.2);
+	border-radius: 2px;
+	overflow: hidden;
+}
+
+.progress-fill {
+	height: 100%;
+	background: var(--color-primary-element, #4287f5);
+	transition: width 0.3s ease;
+	border-radius: 2px;
+}
+
+.texture-progress-indicator.mobile {
+	bottom: 60px;
+	right: 10px;
+	left: 10px;
+	font-size: 11px;
+}
+
+/* Performance Stats Overlay */
+.performance-stats {
+	position: absolute !important;
+	bottom: 10px !important;
+	left: 10px !important;
+	background: rgba(0, 0, 0, 0.85) !important;
+	color: #ffffff !important;
+	padding: 12px !important;
+	border-radius: 8px !important;
+	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+	font-size: 12px !important;
+	z-index: 900 !important;
+	min-width: 180px !important;
+	border: 1px solid rgba(255, 255, 255, 0.2) !important;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+	display: block !important;
+	backdrop-filter: blur(10px) !important;
+}
+
+.stats-header {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 10px;
+	padding-bottom: 8px;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.stats-icon {
+	font-size: 16px;
+}
+
+.stats-title {
+	font-weight: bold;
+	font-size: 13px;
+	flex: 1;
+}
+
+.stats-mode {
+	font-size: 10px;
+	padding: 2px 6px;
+	border-radius: 4px;
+	font-weight: bold;
+	text-transform: uppercase;
+}
+
+.stats-mode.mode-low {
+	background: rgba(255, 193, 7, 0.3);
+	color: #ffc107;
+}
+
+.stats-mode.mode-balanced {
+	background: rgba(76, 175, 80, 0.3);
+	color: #4caf50;
+}
+
+.stats-mode.mode-high {
+	background: rgba(33, 150, 243, 0.3);
+	color: #2196f3;
+}
+
+.stats-mode.mode-ultra {
+	background: rgba(156, 39, 176, 0.3);
+	color: #9c27b0;
+}
+
+.stats-mode.mode-auto {
+	background: rgba(158, 158, 158, 0.3);
+	color: #9e9e9e;
+}
+
+.stats-grid {
+	display: grid;
+	grid-template-columns: 1fr;
+	gap: 6px;
+}
+
+.stat-item {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 2px 0;
+}
+
+.stat-label {
+	color: rgba(255, 255, 255, 0.7);
+	font-size: 11px;
+}
+
+.stat-value {
+	font-weight: bold;
+	font-size: 12px;
+	color: #ffffff;
+}
+
+.stat-value.good {
+	color: #4caf50;
+}
+
+.stat-value.warning {
+	color: #ffc107;
+}
+
+.stat-value.poor {
+	color: #f44336;
 }
 
 .comparison-controls {
@@ -1163,8 +2284,8 @@ export default {
 /* Measurement overlay styles */
 .measurement-overlay {
 	position: absolute;
-	top: 20px;
-	right: 20px;
+	top: var(--overlay-top-spacing);
+	right: var(--overlay-side-spacing);
 	background: rgba(0, 0, 0, 0.8);
 	border: 1px solid #00ff00;
 	border-radius: 8px;
@@ -1175,6 +2296,9 @@ export default {
 	z-index: 200;
 	color: white;
 	font-family: Arial, sans-serif;
+	/* Ensure panel stays within bounds */
+	min-width: 250px;
+	width: auto;
 }
 
 .measurement-header {
@@ -1190,6 +2314,26 @@ export default {
 	margin: 0;
 	font-size: 16px;
 	color: #00ff00;
+}
+
+.measurement-controls {
+	display: flex;
+	gap: 10px;
+	align-items: center;
+}
+
+.unit-selector {
+	background: #2a2a2a;
+	color: #00ff00;
+	border: 1px solid #00ff00;
+	padding: 5px 10px;
+	border-radius: 4px;
+	font-size: 12px;
+	cursor: pointer;
+}
+
+.unit-selector:hover {
+	background: #3a3a3a;
 }
 
 .clear-measurements-btn {
@@ -1232,6 +2376,20 @@ export default {
 	color: #00ff00;
 }
 
+.delete-measurement-btn {
+	background: #ff4444;
+	color: white;
+	border: none;
+	padding: 3px 8px;
+	border-radius: 3px;
+	cursor: pointer;
+	font-size: 11px;
+}
+
+.delete-measurement-btn:hover {
+	background: #ff6666;
+}
+
 .measurement-distance {
 	font-size: 16px;
 	font-weight: bold;
@@ -1263,9 +2421,9 @@ export default {
 
 @media (max-width: 768px) {
 	.measurement-overlay {
-		top: 10px;
-		right: 10px;
-		left: 10px;
+		top: var(--overlay-mobile-top-spacing);
+		right: var(--overlay-mobile-side-spacing);
+		left: var(--overlay-mobile-side-spacing);
 		max-width: none;
 		max-height: 300px;
 	}
@@ -1285,8 +2443,8 @@ export default {
 /* Annotation overlay styles */
 .annotation-overlay {
 	position: absolute;
-	top: 20px;
-	left: 20px;
+	top: var(--overlay-top-spacing);
+	left: var(--overlay-side-spacing);
 	background: rgba(0, 0, 0, 0.8);
 	border: 1px solid #ff0000;
 	border-radius: 8px;
@@ -1413,9 +2571,9 @@ export default {
 
 @media (max-width: 768px) {
 	.annotation-overlay {
-		top: 10px;
-		left: 10px;
-		right: 10px;
+		top: var(--overlay-mobile-top-spacing);
+		left: var(--overlay-mobile-side-spacing);
+		right: var(--overlay-mobile-side-spacing);
 		max-width: none;
 		max-height: 300px;
 	}
@@ -1432,126 +2590,28 @@ export default {
 	}
 }
 
-/* Comparison modal styles */
-.comparison-modal {
-	position: fixed;
-	top: 0;
-	left: 0;
-	right: 0;
-	bottom: 0;
-	background: rgba(0, 0, 0, 0.8);
-	display: flex;
-	justify-content: center;
-	align-items: center;
-	z-index: 1000;
+/* RTL (Right-to-Left) Support */
+[dir="rtl"] .model-stats-overlay {
+	left: auto;
+	right: 20px;
 }
 
-.comparison-modal-content {
-	background: #2a2a2a;
-	border: 1px solid #444;
-	border-radius: 8px;
-	padding: 20px;
-	max-width: 500px;
-	max-height: 80vh;
-	overflow-y: auto;
-	width: 90%;
+[dir="rtl"] .export-progress-overlay {
+	/* Center aligned, no change needed */
 }
 
-.comparison-header {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	margin-bottom: 20px;
-	padding-bottom: 15px;
-	border-bottom: 1px solid #444;
+[dir="rtl"] .texture-progress-indicator {
+	right: auto;
+	left: 10px;
 }
 
-.comparison-header h3 {
-	margin: 0;
-	color: #fff;
-	font-size: 18px;
+[dir="rtl"] .performance-stats {
+	left: auto;
+	right: 10px;
 }
 
-.close-comparison-btn {
-	background: #ff4444;
-	color: white;
-	border: none;
-	padding: 8px 16px;
-	border-radius: 4px;
-	cursor: pointer;
-	font-size: 14px;
-}
-
-.close-comparison-btn:hover {
-	background: #ff6666;
-}
-
-.comparison-file-list {
-	display: flex;
-	flex-direction: column;
-	gap: 10px;
-}
-
-.comparison-file-item {
-	background: #333;
-	border: 1px solid #555;
-	border-radius: 6px;
-	padding: 15px;
-	cursor: pointer;
-	transition: all 0.2s ease;
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-}
-
-.comparison-file-item:hover {
-	background: #444;
-	border-color: #666;
-	transform: translateY(-2px);
-}
-
-.file-info {
-	display: flex;
-	flex-direction: column;
-	gap: 5px;
-	flex: 1;
-}
-
-.file-name {
-	color: #fff;
-	font-weight: bold;
-	font-size: 14px;
-}
-
-.file-size {
-	color: #aaa;
-	font-size: 12px;
-}
-
-.file-extension {
-	background: #007acc;
-	color: white;
-	padding: 4px 8px;
-	border-radius: 4px;
-	font-size: 11px;
-	font-weight: bold;
-}
-
-@media (max-width: 768px) {
-	.comparison-modal-content {
-		width: 95%;
-		padding: 15px;
-	}
-
-	.comparison-header {
-		flex-direction: column;
-		gap: 10px;
-		align-items: stretch;
-	}
-
-	.close-comparison-btn {
-		width: 100%;
-		padding: 10px;
-	}
+[dir="rtl"] .measurement-overlay,
+[dir="rtl"] .annotation-overlay {
+	/* Top-center aligned, no change needed */
 }
 </style>
