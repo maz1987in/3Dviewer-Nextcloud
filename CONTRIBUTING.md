@@ -283,8 +283,8 @@ When making changes:
 
 ### Contact
 
-- **Maintainer**: [Your Name](mailto:your-email@example.com)
-- **Project Repository**: [GitHub Repository](https://github.com/your-username/3Dviewer-Nextcloud)
+- **Maintainer**: [Mazin Al Saadi](mailto:maz1987in@gmail.com)
+- **Project Repository**: [GitHub Repository](https://github.com/maz1987in/3Dviewer-Nextcloud)
 
 ## Recognition
 
