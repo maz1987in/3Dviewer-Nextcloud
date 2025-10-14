@@ -59,6 +59,38 @@ npm run build
 make test
 ```
 
+### Optional: Install Git Hooks
+
+Git hooks help catch issues before committing. To install them:
+
+```bash
+# Automated installation
+make install-hooks
+
+# Or manual installation
+chmod +x .hooks/pre-commit
+ln -s ../../.hooks/pre-commit .git/hooks/pre-commit
+chmod +x .hook-checkout/post-checkout
+ln -s ../../.hook-checkout/post-checkout .git/hooks/post-checkout
+```
+
+**What the hooks do:**
+
+- **Pre-commit hook** (`.hooks/pre-commit`):
+  - Checks PHP syntax
+  - Runs PHP-CS-Fixer
+  - Runs ESLint
+  - Runs StyleLint
+  - Prevents commits with code quality issues
+
+- **Post-checkout hook** (`.hook-checkout/post-checkout`):
+  - Auto-runs `npm install` when package.json changes
+  - Auto-runs `composer install` when composer.json changes
+  - Copies decoder files if missing
+  - Keeps your environment up-to-date automatically
+
+> **Note**: Hooks are optional. CI runs these checks on pull requests anyway.
+
 ## Making Changes
 
 ### Branch Strategy
