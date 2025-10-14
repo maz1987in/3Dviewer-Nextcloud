@@ -1,8 +1,20 @@
 # Troubleshooting Guide
 
-This guide helps you diagnose and resolve common issues with the 3D Viewer for Nextcloud application.
+This comprehensive troubleshooting guide helps you diagnose and resolve common issues with the 3D Viewer for Nextcloud application.
 
-## 🚨 Most Common Issues
+## Table of Contents
+
+- [Most Common Issues](#most-common-issues)
+- [Installation Issues](#installation-issues)
+- [Performance Issues](#performance-issues)
+- [Model Loading Issues](#model-loading-issues)
+- [UI and Controls Issues](#ui-and-controls-issues)
+- [API and Networking Issues](#api-and-networking-issues)
+- [Debugging Tools](#debugging-tools)
+- [Advanced Troubleshooting](#advanced-troubleshooting)
+- [Getting Help](#getting-help)
+
+## Most Common Issues
 
 ### ❌ 3D Files Download Instead of Opening in Viewer
 
@@ -134,80 +146,240 @@ If all checks pass and files still download, see [Viewer Not Loading](#viewer-no
 
 ---
 
-## 🔧 Other Common Issues
+## Installation Issues
 
-### Viewer Not Loading
+### App Not Appearing in Apps List
 
 #### Symptoms
-- Blank screen when clicking 3D files
-- Error message "Viewer failed to load"
-- Browser console shows JavaScript errors
-
-#### Diagnosis
-1. **Check Browser Console**
-   ```javascript
-   // Look for errors like:
-   // - "Failed to load resource"
-   // - "Uncaught TypeError"
-   // - "Module not found"
-   ```
-
-2. **Verify File Permissions**
-   ```bash
-   # Check app directory permissions
-   ls -la /path/to/nextcloud/apps/threedviewer/
-   
-   # Should show:
-   # drwxr-xr-x www-data www-data threedviewer
-   ```
-
-3. **Check Nextcloud Logs**
-   ```bash
-   # Check Nextcloud log
-   tail -f /path/to/nextcloud/data/nextcloud.log
-   
-   # Look for errors related to threedviewer
-   grep -i threedviewer /path/to/nextcloud/data/nextcloud.log
-   ```
+- 3D Viewer doesn't appear in the Apps section
+- Cannot enable the app
+- App shows as disabled
 
 #### Solutions
 
-**JavaScript Bundle Not Loading**:
+**Check File Permissions:**
 ```bash
-# Rebuild frontend
-cd /path/to/nextcloud/apps/threedviewer
-npm install
-npm run build
+# Check app directory permissions
+ls -la /path/to/nextcloud/apps/threedviewer/
 
-# Check if files exist
-ls -la js/
-```
+# Should show:
+# drwxr-xr-x www-data www-data threedviewer
 
-**Permission Issues**:
-```bash
-# Fix permissions
+# Fix permissions if needed
 chown -R www-data:www-data /path/to/nextcloud/apps/threedviewer/
 chmod -R 755 /path/to/nextcloud/apps/threedviewer/
 ```
 
-**Missing Dependencies**:
+**Verify App is in Correct Directory:**
 ```bash
-# Install PHP dependencies
-composer install --no-dev --optimize-autoloader
+# Check if app is in the right place
+ls -la /path/to/nextcloud/apps/threedviewer/appinfo/info.xml
 
-# Install Node.js dependencies
+# Should exist and be readable
+```
+
+**Check Nextcloud Logs:**
+```bash
+# Check Nextcloud logs for errors
+tail -f /path/to/nextcloud/data/nextcloud.log
+
+# Look for errors related to threedviewer
+grep -i threedviewer /path/to/nextcloud/data/nextcloud.log
+```
+
+**Verify App Dependencies:**
+```bash
+# Check if all required files exist
+ls -la /path/to/nextcloud/apps/threedviewer/
+# Should have: appinfo/, lib/, src/, templates/, etc.
+```
+
+### MIME Type Registration Issues
+
+#### Symptoms
+- MIME types not registered automatically
+- Files still download instead of opening
+- Error messages about MIME type registration
+
+#### Solutions
+
+**Manual MIME Type Registration:**
+```bash
+# Enable the app (this should register MIME types)
+php occ app:enable threedviewer
+
+# If that doesn't work, manually register
+php occ maintenance:mimetype:update-db
+php occ files:scan --all
+```
+
+**Check MIME Type Files:**
+```bash
+# Verify config files exist
+ls -la /path/to/nextcloud/config/mimetype*.json
+
+# Should show:
+# mimetypemapping.json
+# mimetypealiases.json
+```
+
+**Verify MIME Type Content:**
+```bash
+# Check if 3D model mappings are present
+cat /path/to/nextcloud/config/mimetypemapping.json | grep -E "(glb|gltf|obj|stl)"
+```
+
+### Build Issues
+
+#### Symptoms
+- Frontend doesn't load
+- JavaScript errors in console
+- Missing CSS or JS files
+
+#### Solutions
+
+**Rebuild Frontend:**
+```bash
+cd /path/to/nextcloud/apps/threedviewer
+npm install
+npm run build
+
+# Check if files were created
+ls -la js/
+ls -la css/
+```
+
+**Check Build Output:**
+```bash
+# Should see files like:
+# js/threedviewer-main.mjs
+# css/threedviewer-main.css
+```
+
+**Verify Dependencies:**
+```bash
+# Check if all dependencies are installed
+npm list
+
+# Reinstall if needed
+rm -rf node_modules package-lock.json
 npm install
 ```
 
-**Decoder assets missing (DRACO/Basis)**:
-```bash
-# Ensure decoder assets exist (after build)
-ls -la /path/to/nextcloud/apps/threedviewer/draco/
-ls -la /path/to/nextcloud/apps/threedviewer/basis/
+---
 
-# If missing, rebuild which copies them via prebuild script
-npm run build
+## Performance Issues
+
+### Slow Loading Times
+
+#### Symptoms
+- Models take a long time to load
+- Browser becomes unresponsive during loading
+- Progress indicators show slow progress
+
+#### Solutions
+
+**Check File Size:**
+```bash
+# Check file size
+ls -lh /path/to/file.glb
+
+# Large files (>50MB) may cause performance issues
+# Consider compressing the model
 ```
+
+**Optimize Model:**
+- Use compressed formats (GLB with DRACO compression)
+- Reduce polygon count
+- Compress textures
+- Use lower resolution textures
+
+**Increase PHP Limits:**
+```bash
+# Check current limits
+php -i | grep -E "(memory_limit|upload_max_filesize|post_max_size|max_execution_time)"
+
+# Edit php.ini to increase limits
+memory_limit = 512M
+upload_max_filesize = 100M
+post_max_size = 100M
+max_execution_time = 300
+```
+
+**Enable Compression:**
+- Ensure DRACO decoders are present: `/apps/threedviewer/draco/`
+- Ensure KTX2 transcoders are present: `/apps/threedviewer/basis/`
+
+### Choppy Animation
+
+#### Symptoms
+- Low frame rate during camera movement
+- Stuttering or jerky motion
+- Browser performance warnings
+
+#### Solutions
+
+**Check Performance Mode:**
+- Click the **⚡ Performance** button in the toolbar
+- Try different quality settings (Auto, Balanced, High, Ultra, Low)
+- Use "Auto" mode for optimal performance
+
+**Reduce Model Complexity:**
+- Use simpler models for testing
+- Disable unnecessary features (shadows, antialiasing)
+- Close other browser tabs
+
+**Check Browser Performance:**
+```javascript
+// Open browser dev tools
+// Go to Performance tab
+// Record a session while using viewer
+// Look for performance bottlenecks
+```
+
+**Monitor Frame Rate:**
+```javascript
+// Check frame rate in console
+console.log('Frame rate:', this.frameRate);
+// Should be 30+ FPS for smooth experience
+```
+
+### High Memory Usage
+
+#### Symptoms
+- Browser becomes slow
+- Memory warnings
+- Browser crashes with large models
+
+#### Solutions
+
+**Close Other Tabs:**
+- Close unused browser tabs
+- Free up system memory
+
+**Use Smaller Models:**
+- Test with smaller files first
+- Use compressed formats
+- Consider breaking large models into smaller parts
+
+**Enable Garbage Collection:**
+```javascript
+// Force garbage collection (if available)
+if (window.gc) {
+  window.gc();
+}
+```
+
+**Check Memory Usage:**
+```javascript
+// Monitor memory usage
+console.log('Memory usage:', performance.memory);
+// Should show reasonable usage
+```
+
+---
+
+## Model Loading Issues
 
 ### Models Not Displaying
 
@@ -216,150 +388,165 @@ npm run build
 - Error message "Model failed to load"
 - Loading spinner never stops
 
-#### Diagnosis
-1. **Check File Format**
-   ```javascript
-  // Verify file extension is supported (core)
-  const supportedFormats = ['glb','gltf','obj','stl','ply','fbx','3mf','3ds'];
-   console.log('File format supported:', supportedFormats.includes(fileExtension));
-   ```
-
-2. **Check File Size**
-   ```bash
-   # Check file size
-   ls -lh /path/to/file.glb
-   
-   # Should be under 100MB for optimal performance
-   ```
-
-3. **Verify File Integrity**
-   ```bash
-   # Check if file is corrupted
-   file /path/to/file.glb
-   
-   # Should show proper file type
-   ```
-
 #### Solutions
 
-**Unsupported Format**:
-- Convert to supported format (GLB, GLTF, OBJ, STL, PLY, FBX)
-- Check if format is in supported list
+**Check File Format:**
+```javascript
+// Verify file extension is supported (core)
+const supportedFormats = ['glb','gltf','obj','stl','ply','fbx','3mf','3ds'];
+console.log('File format supported:', supportedFormats.includes(fileExtension));
+```
 
-**File Too Large**:
-- Compress the model
-- Increase PHP memory limit
-- Use streaming for very large files
- - Try canceling and reloading; verify network bandwidth
+**Check File Integrity:**
+```bash
+# Check if file is corrupted
+file /path/to/file.glb
 
-**Corrupted File**:
-- Re-upload the file
-- Check file transfer integrity
-- Verify original file is not corrupted
+# Should show proper file type
+```
 
-### Performance Issues
+**Verify File Size:**
+```bash
+# Check file size
+ls -lh /path/to/file.glb
+
+# Should be under 100MB for optimal performance
+```
+
+**Check Browser Console:**
+- Open Developer Tools (F12)
+- Look for JavaScript errors
+- Check Network tab for failed requests
+
+### Unsupported Format Errors
 
 #### Symptoms
-- Slow loading times
-- Choppy animation
-- Browser becomes unresponsive
-- High memory usage
-
-#### Diagnosis
-1. **Check Browser Performance**
-   ```javascript
-   // Open browser dev tools
-   // Go to Performance tab
-   // Record a session while using viewer
-   ```
-
-2. **Monitor Memory Usage**
-   ```javascript
-   // Check memory usage
-   console.log('Memory usage:', performance.memory);
-   
-   // Check frame rate
-   console.log('Frame rate:', this.frameRate);
-   ```
-
-3. **Check File Size**
-   ```bash
-   # Check file size
-   du -h /path/to/file.glb
-   
-   # Large files (>50MB) may cause performance issues
-   ```
+- Error message "Unsupported file format"
+- File doesn't load
+- Console shows format errors
 
 #### Solutions
 
-**High Memory Usage**:
-- Close other browser tabs
-- Reduce model complexity
-- Use lower quality models
-- Enable garbage collection
+**Check Supported Formats:**
+- GLB, GLTF, OBJ, STL, PLY, FBX, 3MF, 3DS, DAE, X3D, VRML are supported
+- Convert unsupported formats to supported ones
+- Use online converters or 3D modeling software
 
-**Slow Loading**:
-- Use compressed formats (GLB with DRACO)
-- Optimize model geometry
-- Use texture compression
-- Enable progressive loading
- - Verify decoders are present (DRACO/Basis)
+**Verify File Extension:**
+```javascript
+// Check if extension is in supported list
+const extension = filename.split('.').pop().toLowerCase();
+console.log('Extension:', extension);
+```
 
-**Choppy Animation**:
-- Reduce model complexity
-- Lower render quality
-- Disable unnecessary features
-- Check browser hardware acceleration
+**Check MIME Type:**
+```bash
+# Verify MIME type is correct
+php occ files:scan --verbose username --path="/file.glb"
+# Should show: model/gltf-binary (NOT application/octet-stream)
+```
 
-### Camera Issues
+### Multi-File Loading Issues
 
 #### Symptoms
-- Camera not responding to controls
-- Model appears at edge of screen
-- Camera resets unexpectedly
-- Controls feel sluggish
-
-#### Diagnosis
-1. **Check Camera State**
-   ```javascript
-   // Check camera position
-   console.log('Camera position:', this.camera.position);
-   console.log('Camera target:', this.controls.target);
-   ```
-
-2. **Verify Controls**
-   ```javascript
-   // Check if controls are enabled
-   console.log('Controls enabled:', this.controls.enabled);
-   console.log('Controls damping:', this.controls.enableDamping);
-   ```
-
-3. **Check Event Listeners**
-   ```javascript
-   // Verify event listeners are attached
-   console.log('Event listeners:', this.controls.listeners);
-   ```
+- OBJ files load without materials
+- GLTF files missing textures
+- Error messages about missing dependencies
 
 #### Solutions
 
-**Camera Not Responding**:
-- Refresh the page
-- Check if controls are enabled
-- Verify mouse/touch events are working
+**Check File Structure:**
+```
+# For OBJ files, ensure you have:
+model.obj          # Main geometry file
+model.mtl          # Material file
+texture.jpg        # Texture files
+
+# For GLTF files, ensure you have:
+model.gltf         # Main file
+model.bin          # Binary data
+texture.jpg        # Texture files
+```
+
+**Verify File Permissions:**
+- Ensure all related files are readable
+- Check that MTL and texture files are in the same directory
+- Verify file names match exactly (case-sensitive)
+
+**Check Console Logs:**
+```javascript
+// Look for dependency loading messages
+// Should see: "Loading MTL file: model.mtl"
+// Should see: "Loading texture: texture.jpg"
+```
+
+---
+
+## UI and Controls Issues
+
+### Camera Not Responding
+
+#### Symptoms
+- Mouse/touch controls don't work
+- Camera doesn't move
+- Controls feel unresponsive
+
+#### Solutions
+
+**Check if Controls are Enabled:**
+```javascript
+// Check if controls are enabled
+console.log('Controls enabled:', this.controls.enabled);
+console.log('Controls damping:', this.controls.enableDamping);
+```
+
+**Verify Event Listeners:**
+```javascript
+// Verify event listeners are attached
+console.log('Event listeners:', this.controls.listeners);
+```
+
+**Refresh the Page:**
+- Try refreshing the page
+- Clear browser cache
 - Check for JavaScript errors
 
-**Model at Edge**:
-- Click "Reset View" button
-- Use "Fit to View" button
-- Check model centering logic
-- Verify camera positioning
+**Check Mouse/Touch Events:**
+- Ensure you're clicking on the 3D viewer area
+- Try different mouse buttons
+- Check if touch events are working on mobile
 
-**Sluggish Controls**:
-- Reduce damping factor
-- Increase frame rate
-- Optimize rendering
-- Check browser performance
- - Disable other overlays (measurement/annotation) temporarily
+### Model at Edge of Screen
+
+#### Symptoms
+- Model appears at edge of viewport
+- Camera positioned incorrectly
+- Model not centered
+
+#### Solutions
+
+**Use Reset View:**
+- Click the "Reset View" button (🔄)
+- This should center the model and reset camera position
+
+**Use Fit to View:**
+- Click the "Fit to View" button (📐)
+- This should frame the model optimally
+
+**Check Model Centering:**
+```javascript
+// Check if model is centered
+const box = new THREE.Box3().setFromObject(this.modelRoot);
+console.log('Model bounds:', box);
+console.log('Model center:', box.getCenter(new THREE.Vector3()));
+```
+
+**Verify Camera Position:**
+```javascript
+// Check camera position
+console.log('Camera position:', this.camera.position);
+console.log('Camera target:', this.controls.target);
+```
 
 ### Grid Issues
 
@@ -367,78 +554,156 @@ npm run build
 - Grid not visible
 - Grid wrong size
 - Grid in wrong position
-- Grid not updating
-
-#### Diagnosis
-1. **Check Grid State**
-   ```javascript
-   // Check grid visibility
-   console.log('Grid visible:', this.grid.visible);
-   console.log('Grid position:', this.grid.position);
-   console.log('Grid size:', this.grid.size);
-   ```
-
-2. **Verify Grid Update**
-   ```javascript
-   // Check if grid updates when model loads
-   console.log('Grid updated:', this.gridNeedsUpdate);
-   ```
-
-3. **Check Model Bounds**
-   ```javascript
-   // Check model bounding box
-   const box = new THREE.Box3().setFromObject(this.modelRoot);
-   console.log('Model bounds:', box);
-   ```
 
 #### Solutions
 
-**Grid Not Visible**:
-- Toggle grid visibility
-- Check grid material opacity
-- Verify grid is added to scene
-- Check camera position
+**Toggle Grid Visibility:**
+- Click the grid toggle button
+- Check if grid is enabled in settings
 
-**Wrong Grid Size**:
-- Check model dimensions
-- Verify grid sizing logic
-- Update grid after model load
-- Check grid divisions
+**Check Grid State:**
+```javascript
+// Check grid visibility
+console.log('Grid visible:', this.grid.visible);
+console.log('Grid position:', this.grid.position);
+console.log('Grid size:', this.grid.size);
+```
 
-**Grid Wrong Position**:
-- Check model centering
-- Verify grid positioning logic
-- Update grid after model load
-- Check ground level calculation
+**Verify Grid Update:**
+```javascript
+// Check if grid updates when model loads
+console.log('Grid updated:', this.gridNeedsUpdate);
+```
 
-### API/Networking Issues
+**Reset Grid:**
+- Load a new model (this should update the grid)
+- Use "Fit to View" to reposition camera
+- Check if model bounds are calculated correctly
+
+### Toolbar Not Working
 
 #### Symptoms
-- 401/403 responses when listing/streaming
-- 404 on OCS endpoints
-- CORS errors in console
-
-#### Diagnosis
-1. Verify OCS header on requests
-```http
-OCS-APIRequest: true
-```
-2. Check app routes are reachable
-```bash
-curl -I https://your-host/apps/threedviewer/test
-```
-3. Check WebDAV fallback
-```bash
-curl -I https://your-host/remote.php/dav/files/<user>/<dir>/<filename>
-```
+- Toolbar buttons don't respond
+- Features not working
+- UI elements missing
 
 #### Solutions
-- Include `OCS-APIRequest: true` for OCS endpoints
-- Ensure the app is enabled: `php occ app:enable threedviewer`
-- Verify the user has permission to the file
-- If OCS fails, the viewer can fall back to WebDAV; ensure WebDAV is enabled
 
-## 🔍 Debugging Tools
+**Check Toolbar State:**
+```javascript
+// Check if toolbar is mounted
+console.log('Toolbar mounted:', this.$refs.toolbar);
+```
+
+**Verify Event Handlers:**
+- Check if button click handlers are attached
+- Look for JavaScript errors in console
+- Verify component communication
+
+**Check CSS:**
+- Ensure toolbar CSS is loaded
+- Check for styling conflicts
+- Verify responsive design
+
+---
+
+## API and Networking Issues
+
+### 401/403 Responses
+
+#### Symptoms
+- Unauthorized errors when loading files
+- Permission denied messages
+- Files not accessible
+
+#### Solutions
+
+**Check Authentication:**
+- Ensure you're logged in to Nextcloud
+- Check if session is valid
+- Try logging out and back in
+
+**Verify File Permissions:**
+- Check if you have read access to the file
+- Verify file ownership
+- Check Nextcloud file permissions
+
+**Include Required Headers:**
+```javascript
+// Ensure OCS headers are included
+fetch('/ocs/v2.php/apps/threedviewer/api/files', {
+  headers: {
+    'OCS-APIRequest': 'true',
+    'Accept': 'application/json',
+    'X-Requested-With': 'XMLHttpRequest'
+  }
+});
+```
+
+### 404 Not Found Errors
+
+#### Symptoms
+- File not found errors
+- API endpoints not responding
+- Missing resources
+
+#### Solutions
+
+**Check File Exists:**
+```bash
+# Verify file exists in Nextcloud
+ls -la /path/to/nextcloud/data/username/files/model.glb
+```
+
+**Verify API Endpoints:**
+```bash
+# Test API endpoint
+curl -I https://your-domain.com/apps/threedviewer/api/files
+```
+
+**Check App Routes:**
+```bash
+# Verify app routes are registered
+php occ app:list | grep threedviewer
+```
+
+**Enable App:**
+```bash
+# Ensure app is enabled
+php occ app:enable threedviewer
+```
+
+### CORS Errors
+
+#### Symptoms
+- Cross-origin request blocked
+- CORS policy errors
+- Network requests failing
+
+#### Solutions
+
+**Check CORS Headers:**
+```javascript
+// Check CORS headers in response
+fetch('/ocs/v2.php/apps/threedviewer/api/files')
+  .then(response => {
+    console.log('CORS headers:', response.headers);
+  });
+```
+
+**Verify Nextcloud Configuration:**
+- Check if CORS is properly configured
+- Ensure trusted domains are set
+- Verify SSL/TLS configuration
+
+**Check Browser Settings:**
+- Disable CORS in development (not recommended for production)
+- Use same-origin requests when possible
+- Check browser security settings
+
+---
+
+## Debugging Tools
 
 ### Browser DevTools
 
@@ -539,7 +804,9 @@ const monitorMemory = () => {
 setInterval(monitorMemory, 5000);
 ```
 
-## 🛠️ Advanced Troubleshooting
+---
+
+## Advanced Troubleshooting
 
 ### Server Configuration Issues
 
@@ -581,15 +848,6 @@ php occ db:add-missing-columns
 ```
 
 ### Network Issues
-
-#### CORS Issues
-```javascript
-// Check CORS headers
-fetch('/ocs/v2.php/apps/threedviewer/api/files')
-  .then(response => {
-    console.log('CORS headers:', response.headers);
-  });
-```
 
 #### SSL/TLS Issues
 ```bash
@@ -636,13 +894,15 @@ find /path/to/nextcloud/apps/threedviewer/ -type d -exec chmod 755 {} \;
 find /path/to/nextcloud/apps/threedviewer/ -type f -exec chmod 644 {} \;
 ```
 
-## 📞 Getting Help
+---
+
+## Getting Help
 
 ### Self-Help Resources
 
 1. **Documentation**
    - Check this troubleshooting guide
-   - Review user guide and API reference
+   - Review [README.md](README.md) and [TECHNICAL.md](TECHNICAL.md)
    - Search GitHub wiki
 
 2. **Community Forums**
@@ -686,7 +946,9 @@ When reporting issues, include:
 - **GitHub Issues**: [Report bugs](https://github.com/maz1987in/3Dviewer-Nextcloud/issues)
 - **GitHub Discussions**: [Ask questions](https://github.com/maz1987in/3Dviewer-Nextcloud/discussions)
 
-## 🔧 Maintenance
+---
+
+## Maintenance
 
 ### Regular Maintenance
 
@@ -737,4 +999,4 @@ chown -R www-data:www-data /path/to/nextcloud/
 
 ---
 
-For more detailed information, see the [Technical Architecture](TECHNICAL_ARCHITECTURE.md) and [Developer Guide](DEVELOPER_GUIDE.md) documentation.
+For more detailed technical information, see the [TECHNICAL.md](TECHNICAL.md) and [IMPLEMENTATION.md](IMPLEMENTATION.md) documentation.
