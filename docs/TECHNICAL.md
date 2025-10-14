@@ -1004,4 +1004,145 @@ if (appRoot) {
 
 ---
 
-This technical documentation provides comprehensive information about the 3D Viewer's architecture, performance monitoring, multi-file loading capabilities, composables API, lazy loading implementation, model loading system, and advanced viewer wiring. For user-facing documentation, see the main [README.md](README.md).
+## Viewer Integration and Decoders
+
+### Viewer Integration (Three.js)
+
+The in-browser 3D viewer is implemented with Vue 2 + Three.js with lazy-loaded official loaders.
+
+**Supported formats (frontend & backend end-to-end):** `glb`, `gltf`, `obj` (+ `.mtl`), `stl`, `ply`, `fbx`, `3mf`, `3ds`, `dae`, `x3d`, `vrml`, `wrl`.
+
+#### Key Implementation Points
+
+- **Dynamic imports:** Individual Three.js loaders (`GLTFLoader`, `OBJLoader`, `MTLLoader`, `STLLoader`, `PLYLoader`, `FBXLoader`) are code-split so they only load when a matching extension is requested.
+
+- **OBJ + MTL:** After streaming an OBJ, the viewer parses its `mtllib` directive and performs a second request to `/file/{fileId}/mtl/{mtlName}` (or the public variant) to load materials when present. Missing or invalid MTL files gracefully degrade to untextured materials.
+
+- **Camera framing:** On initial model load, the scene bounding box is computed and the camera + orbit controls are adjusted to frame the model (with a small margin) and set a sensible near/far range.
+
+- **Wireframe & helpers:** Toolbar hooks are scaffolded for grid, axes, reset, wireframe. Wireframe application iterates mesh materials updating their `wireframe` flag.
+
+- **Background:** Respects Nextcloud light/dark theme variables by default; a custom color override toggle can be layered later.
+
+- **Performance:** Heavy/optional decoders (DRACO, KTX2/Basis) are prepared for future activation—decoder asset folders (`/draco`, `/basis`) are copied during build.
+
+- **Accessibility:** Toolbar buttons expose ARIA labels; further keyboard shortcuts (reset view, toggle wireframe) are candidates for a future iteration.
+
+- **Abortable loading:** Large model fetches can be canceled mid-stream to avoid wasting bandwidth and free UI quickly.
+
+#### Fetch & Security Behavior
+
+- The viewer never constructs raw WebDAV URLs; it only streams through the app's controlled endpoints, ensuring permission checks and extension allow-listing.
+- Failed loads surface toast notifications with concise, localizable error messages.
+
+### Compressed Geometry & Texture Decoders
+
+Three.js supports additional compression / texture container formats via external decoder or transcoder binaries:
+
+- **DRACO:** Geometry compression; requires `draco_decoder.{js,wasm}`.
+- **KTX2 / Basis Universal:** GPU texture compression; requires `basis_transcoder.{js,wasm}`.
+- **Meshopt (optional scaffolding):** Geometry and attribute compression; expects `meshopt_decoder.wasm` (and JS wrapper when present). If you place the decoder at `/apps/threedviewer/meshopt/meshopt_decoder.wasm` it will be auto-detected and wired into `GLTFLoader`.
+
+This app ships these binaries by copying them out of the `three` package during the build step rather than bundling them into JS. This keeps the main bundle lean and allows the browser to instantiate WebAssembly directly.
+
+#### Build Integration
+
+1. A prebuild script (`scripts/copy-decoders.mjs`) runs automatically before `vite build`.
+2. It copies required files from `node_modules/three/examples/jsm/libs/{draco,basis}/` into top-level `draco/` and `basis/` directories in the app root.
+3. At runtime the viewer points loaders to `/apps/threedviewer/draco/` and `/apps/threedviewer/basis/`.
+
+**Files copied during build** (`npm run build` executes `scripts/copy-decoders.mjs`):
+
+```
+draco/
+  draco_decoder.js
+  draco_decoder.wasm         (copied from node_modules/three/)
+  draco_wasm_wrapper.js
+basis/
+  basis_transcoder.js
+  basis_transcoder.wasm      (copied from node_modules/three/)
+meshopt/ (optional, not currently used)
+  meshopt_decoder.wasm
+```
+
+**Note**: The `.js` files are committed to the repository, but `.wasm` binaries are copied during the build process from the `three` npm package. This keeps the repository size smaller and ensures decoder versions match the installed Three.js version.
+
+#### Runtime Behavior
+
+- On first glTF load the viewer probes `/apps/threedviewer/draco/draco_decoder.wasm` and `/apps/threedviewer/basis/basis_transcoder.wasm` (HEAD fallback to GET if 405) to detect decoder presence.
+- If folders or files are missing the viewer silently skips enabling those compression paths; models encoded with DRACO or KTX2 will then fail to load and a user-facing error toast is shown.
+- If present, the corresponding Three.js loaders (`DRACOLoader`, `KTX2Loader`) are dynamically imported and attached to `GLTFLoader` before parsing.
+- If absent, parsing proceeds without compression support; DRACO / KTX2 content in models will fail gracefully (console warning) while uncompressed primitives/textures still load.
+
+#### Packaging Considerations
+
+- Ensure `draco/` and `basis/` directories are included in the distributed app tarball. (They are plain static assets; no build fingerprints.)
+- CSP must allow loading the Wasm modules. A future CSP rule adjustment will add the required `wasm-unsafe-eval` or appropriate `script-src`/`worker-src` allowances.
+
+#### Troubleshooting
+
+- If the build log shows decoder files copied but runtime 404s occur, verify the deployment kept the `draco/` and `basis/` directories at the app root (same level as `appinfo/`).
+- Clearing browser cache is rarely required because these are versioned implicitly by app release; still, stale caches can be invalidated via standard Nextcloud app upgrade.
+
+### Abortable Model Loading
+
+Large 3D assets (especially `fbx`, `3mf`, or high-poly `gltf`) can be slow to download or parse. The viewer exposes a cancel mechanism that aborts the in-flight fetch and parsing pipeline.
+
+**Behavior overview:**
+
+| Aspect | Detail |
+|--------|--------|
+| **Trigger** | User clicks the "Cancel loading" button displayed in the loading overlay. |
+| **Mechanism** | An `AbortController` is attached to the streaming `fetch`; the reader loop periodically checks `aborting` and throws an `AbortError` if set. |
+| **UI Feedback** | Button label changes to `Canceling…` until the abort resolves, then the overlay shows a localized "Canceled" message (short-lived until next action). |
+| **Cleanup** | Partial buffers are discarded; any placeholder spinner state is cleared; the previous model (if any) remains rendered. |
+| **Events** | Emits `model-aborted` with `{ fileId }`. Successful loads still emit `model-loaded`. Errors emit `error`. |
+| **Camera State** | Existing saved camera state is preserved; aborted new load does not overwrite baseline or stored camera for previous model. |
+| **Wireframe / Toggles** | Abort has no side effects on viewer toggles or persisted toolbar preferences. |
+
+**Edge cases & guarantees:**
+
+- If abort occurs after full download but before parse completion, a final abort check runs just before scene insertion, ensuring no partially parsed scene attaches.
+- Parse failures unrelated to abort still emit `error` and reset progress counters.
+- Multiple rapid cancels: repeated clicks while already aborting are ignored (button disabled).
+- New load requests automatically cancel any prior in-flight load (programmatic preemption when `fileId` changes).
+
+**Consuming events (example skeleton):**
+
+```js
+<ThreeViewer @model-loaded="onLoaded" @model-aborted="onAborted" @error="onError" />
+```
+
+#### Emitted Events Summary
+
+| Event | Payload | When |
+|-------|---------|------|
+| `load-start` | `{ fileId }` | Emitted immediately after a new load begins (before `fetch`) so tests / external code can deterministically react (e.g. schedule an abort) |
+| `model-loaded` | `{ fileId, filename }` | After successful parse, scene add, camera fit, saved camera restore attempt |
+| `model-aborted` | `{ fileId }` | User or programmatic cancel mid-download or pre-parse (also proactively fired as soon as `cancelLoad()` executes to guarantee delivery) |
+| `error` | `{ message, error }` | Fetch or parse failure (non-abort) |
+| `reset-done` | none | After user triggers a camera reset action (toolbar integration) |
+
+### Centralized Model File Support
+
+Supported extension logic, MIME type mapping, and OBJ→MTL sibling resolution are centralized in `ModelFileSupport`. Both authenticated and public share services (`FileService`, `ShareFileService`) delegate to this class to avoid duplication and ensure consistent behavior.
+
+**Purpose:** Single source of truth for all 3D format support decisions.
+
+**Key Methods:**
+
+- `getSupportedExtensions()` - Returns array of supported file extensions
+- `isSupportedExtension($extension)` - Validates if extension is supported
+- `mapContentType($extension)` - Maps extension to MIME type for HTTP headers
+- `resolveMtlFile($objNode, $mtlName)` - Finds MTL sibling for OBJ files
+
+**When adding a new 3D format:**
+
+1. Update `getSupportedExtensions()` and `mapContentType()` in `ModelFileSupport`
+2. Update MIME registration in `RegisterThreeDMimeTypes`
+3. Add frontend loader in `src/loaders/types/`
+4. Register loader in `src/loaders/registry.js`
+
+---
+
+This technical documentation provides comprehensive information about the 3D Viewer's architecture, performance monitoring, multi-file loading capabilities, composables API, lazy loading implementation, model loading system, advanced viewer wiring, and decoder integration. For user-facing documentation, see the main [README.md](../README.md). For implementation history and lessons learned, see [IMPLEMENTATION.md](IMPLEMENTATION.md). For testing information, see [TESTING.md](TESTING.md).

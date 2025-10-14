@@ -1,16 +1,9 @@
-# TODO - ThreeDViewer# TODO - 3D Viewer Next Steps
+# TODO - 3D Viewer Next Steps
 
+**Last Updated**: October 14, 2025  
+**Current Status**: Documentation consolidation complete ✅
 
-
-**Last Updated**: October 9, 2025  **Last Updated**: October 6, 2025  
-
-**Status**: Performance monitoring complete ✅, Ready for next features**Current Status**: Multi-file loading complete (ViewerComponent.vue) ✅
-
-
-
-------
-
-
+---
 
 ## 🎯 High Priority
 
@@ -32,216 +25,85 @@ Need real-world test files to validate implementation.
 
 ## 🔧 Medium Priority
 
-### 2. Dependency Caching
+### 2. Dependency Caching Enhancement
 
-Cache MTL/textures to avoid re-downloading.
+**Priority**: MEDIUM | **Effort**: 2-3h
 
-- **Effort**: 4-5h
-- **Tech**: IndexedDB or localStorage
-- **Benefit**: Faster loads, less bandwidth
+Improve caching to avoid re-downloading MTL/textures.
 
+**Action Items**:
+- [x] Implement IndexedDB caching
+- [ ] Add cache size limits and LRU eviction
+- [ ] Add cache clearing UI
+- [ ] Test cache persistence
 
+### 3. Progressive Texture Loading Improvements
+
+**Priority**: MEDIUM | **Effort**: 1-2h
+
+Enhance texture loading experience.
+
+**Action Items**:
+- [x] Show geometry immediately
+- [x] Load textures in background
+- [ ] Add loading progress indicator
+- [ ] Optimize batch size and timing
 
 ---
 
 ## 💡 Future Ideas (Low Priority)
 
-- Custom color schemes (beyond light/dark)
-- Thumbnail generation for multi-file models
-- Lazy loading for large texture sets
+### New Features
+1. **Screenshot/Thumbnail Generation** - Capture current view as image
+2. **Enhanced Annotation System** - Add notes/labels to model points
+3. **Advanced Comparison Mode** - Side-by-side view with diff highlighting
+4. **Animation Timeline** - Better controls for animated models
+5. **Model Transformation Tools** - Scale, rotate, translate
+6. **Measurement Enhancements** - Area calculation, volume estimation
+7. **Cross-section View** - Cut plane visualization
+8. **Exploded View** - Separate parts visualization
+9. **VR/AR Preview** - WebXR integration
 
-10. Multi-file export/download as ZIP
-
----11. Batch texture optimization on upload
-
-12. Comparison mode for multi-file models
-
-## 💡 Future Ideas
+### Performance & Optimization
+10. **Custom Color Schemes** - Beyond light/dark themes
+11. **Lazy Loading for Large Texture Sets** - On-demand texture loading
+12. **Multi-file Export/Download as ZIP** - Bundle all related files
+13. **Batch Texture Optimization** - Optimize textures on upload
 
 ---
-
-### Low Priority (Nice to Have)
 
 ## ✅ Recently Completed
 
-7. **Screenshot/Thumbnail Generation** - Capture current view as image
-
-8. **Annotation System** - Add notes/labels to model points- [x] Multi-file loading infrastructure (Phase 1)
-
-9. **Comparison Mode Improvements** - Side-by-side view, diff highlighting- [x] OBJ+MTL+textures support (Phase 2)
-
-10. **Animation Timeline** - Better controls for animated models- [x] GLTF+bins+images support (Phase 2)
-
-11. **Model Transformation** - Scale, rotate, translate tools- [x] Backend API endpoint `/api/file/by-path`
-
-12. **Measurement Enhancements** - Area calculation, volume estimation- [x] ViewerComponent.vue integration
-
-13. **Cross-section View** - Cut plane visualization- [x] Security & authentication
-
-14. **Exploded View** - Separate parts visualization- [x] Graceful error handling
-
-15. **VR/AR Preview** - WebXR integration- [x] Documentation (MULTI_FILE_LOADING_COMPLETE.md)
-
-
-
-------
-
-
-
-## ✅ Recently Completed (October 2025)
-
-- [x] **Help Panel with Tool Explanations** (October 10, 2025) - Comprehensive in-app documentation
-  - Created HelpPanel.vue modal component with organized sections
-  - Documented all tools in VIEW, DISPLAY, TOOLS, and SETTINGS sections
-  - Each tool explained with icon, name, and clear description
-  - Keyboard shortcuts table with visual kbd styling
-  - Tips & Tricks section for helpful usage notes
-  - Modal opens via help button (ⓘ), closes via X, Escape, or backdrop click
-  - Fully responsive mobile design (full-screen on mobile)
-  - RTL-aware layout for right-to-left languages
-  - Theme-aware colors adapting to light/dark modes
-  - Accessible with ARIA labels and keyboard navigation
-- [x] **Theme Customization with RTL Support** (October 10, 2025) - Complete theme system and Right-to-Left language support
-  - Created useTheme.js composable for theme and direction management
-  - Theme modes: Auto (system), Light, Dark with cycle button in Settings
-  - System theme detection using matchMedia (prefers-color-scheme)
-  - Auto-watches for OS theme changes in auto mode
-  - Theme picker UI with icons: 🌓 Auto / ☀️ Light / 🌙 Dark
-  - Persists theme preference to localStorage
-  - Updates scene background color based on theme
-  - Full RTL (Right-to-Left) support for Arabic, Hebrew, Persian, Urdu
-  - Auto-detects RTL from locale, html[dir], or document.dir
-  - Flips UI layout: Panel on left, toasts on left, buttons mirrored
-  - CSS [dir="rtl"] selectors for all directional elements
-  - Slide animations adapt to RTL direction
-  - Persists direction preference to localStorage
-- [x] **KTX2 Texture Compression Support** (October 10, 2025) - Fixed decoder paths and GLTF resource loading
-  - Fixed incorrect decoder paths (decoder/ → draco/ and basis/)
-  - Completely rewrote GLTF resource manager using LoadingManager URL modifier
-  - Added route attributes to AssetController for decoder file serving
-  - KTX2 compressed textures now load correctly in GLTF files
-  - 50-75% texture memory reduction with compression
-  - DRACO compressed geometry also works properly
-  - Added COMPRESSION_SETTINGS to viewer-config.js
-  - Fixed critical GLTF multi-file loading bug
-- [x] **Auto-Rotate + Zoom Fix** (October 10, 2025) - Fixed zoom not working during auto-rotate
-  - Disabled OrbitControls rotation/pan when auto-rotate is ON (keeps zoom enabled)
-  - Synchronized distance value with OrbitControls zoom changes in render loop
-  - Auto-rotate now respects zoom changes and updates rotation radius dynamically
-  - Smooth interaction: model rotates automatically while user can zoom in/out
-  - No conflicts or jittery behavior between auto-rotate and zoom
-  - Fixed critical UX issue affecting core viewer functionality
-- [x] **Improved Error Handling** (October 10, 2025) - User-visible warnings for missing textures/dependencies
-  - Warning toasts appear when textures or dependencies fail to load
-  - Shows exact count and names of missing files
-  - Model still displays with available textures (partial load success)
-  - 8-second timeout for warning toasts (longer than info)
-  - New orange/amber warning toast type with proper styling
-  - Detailed console logs for debugging
-  - Non-blocking - user can interact immediately
-- [x] **Progressive Texture Loading + Subdirectory Support** (October 10, 2025) - Instant geometry display with background texture loading
-  - Model geometry visible in <1 second with placeholder colors
-  - Textures load asynchronously in background (non-blocking)
-  - Materials auto-update as textures finish loading
-  - Visual progress indicator in bottom-right corner
-  - Batch loading (3 textures at a time) prevents system overload
-  - 100ms delay between batches for smooth loading
-  - Automatic subdirectory search for textures (Texture/, textures/, etc.)
-  - Added 3DS and DAE multi-file format support
-  - LoadingManager URL modifier for 3DS external textures
-  - Dramatically improved UX and perceived performance
-- [x] **Dependency Caching System** (October 10, 2025) - IndexedDB caching for MTL/textures
-  - Persistent cache across sessions using IndexedDB
-  - Smart file size limits (10MB per file, 100MB total)
-  - LRU eviction and 7-day auto-expiration
-  - Clear Cache button in SETTINGS section
-  - Prevents out-of-memory errors with large files
-  - Dramatically faster reloads for models with dependencies
-- [x] **Enhanced Model Statistics Panel** (October 10, 2025) - Comprehensive model information display
-  - Statistics panel on left side with detailed model info
-  - Geometry stats: Vertices, faces, meshes count
-  - Materials list with names and types (first 10 shown)
-  - Texture count and memory usage in MB
-  - Bounding box dimensions (X, Y, Z) and volume
-  - File size and format display
-  - Auto-analysis on model load
-- [x] **Multi-Format Export Functionality** (October 10, 2025) - Export models as GLB, STL, or OBJ
-  - Export dropdown in SlideOutToolPanel (SETTINGS section)
-  - GLB export with embedded textures and materials (recommended)
-  - STL export for 3D printing (geometry only)
-  - OBJ export for universal compatibility
-  - Visual progress overlay with animated stages
-  - Smart filename extraction and toast notifications
-- [x] **Camera Projection Toggle** (October 10, 2025) - Perspective ↔ Orthographic switching
-  - Toggle button in SlideOutToolPanel (VIEW section)
-  - Smooth camera state preservation during switch
-  - Proper zoom translation between projection modes
-  - OrbitControls update and window resize handling
-- [x] **Performance Monitoring System** - Full integration with auto-detection
-- [x] **Browser Capability Detection** - Smart quality mode selection
-- [x] **Performance Overlay** - Real-time FPS/memory/quality stats
-- [x] **5 Quality Modes** - Low, Balanced, High, Ultra, Auto
-- [x] **Auto-Optimizer Fix** - Disabled in auto mode to trust detection
-- [x] **Pixel Ratio Supersampling** - 1.5x rendering for high mode
-- [x] **Documentation Cleanup** - Consolidated performance docs
-- [x] **Code Cleanup** - Removed debug console.logs
-- [x] **Multi-File Loading** - OBJ+MTL, GLTF+dependencies support
-- [x] **Measurement Tool** - Distance, angles, professional UI
-- [x] **KTX2 Compression** - Compressed texture support
-- [x] **DRACO Compression** - Compressed geometry support
-- [x] **Case-Insensitive Matching** - Robust filename handling
+- [x] **Help Panel** (Oct 10, 2025) - Comprehensive in-app documentation
+- [x] **Theme Customization with RTL Support** (Oct 10, 2025)
+- [x] **KTX2 Texture Compression Support** (Oct 10, 2025)
+- [x] **Auto-Rotate + Zoom Fix** (Oct 10, 2025)
+- [x] **Progressive Texture Loading** (Oct 10, 2025)
+- [x] **Dependency Caching System** (Oct 10, 2025)
+- [x] **Enhanced Model Statistics Panel** (Oct 10, 2025)
+- [x] **Multi-Format Export** (Oct 10, 2025) - GLB, STL, OBJ
+- [x] **Camera Projection Toggle** (Oct 10, 2025) - Perspective ↔ Orthographic
+- [x] **Performance Monitoring System** (Oct 9, 2025)
+- [x] **Documentation Consolidation** (Oct 14, 2025) - Reduced duplicate content
 
 ---
 
-## 📝 Quick Reference
+## 📝 Documentation Updates
 
-**Main TODO Doc**: `IMPROVEMENTS_TODO.md` (detailed breakdown)  
-**Multi-File Docs**: `docs/MULTI_FILE_LOADING_COMPLETE.md`  
-**Architecture**: `docs/TECHNICAL_ARCHITECTURE.md`  
-**Test Plan**: `TEST_CHECKLIST.md`
-
-- [x] **Auto-Optimizer Fix** - Disabled in auto mode to trust detection
-
-- [x] **Pixel Ratio Supersampling** - 1.5x rendering for high mode---
-
-- [x] **Documentation Cleanup** - Consolidated performance docs
-
-- [x] **Code Cleanup** - Removed debug console.logs## 🎯 Recommended Next Action
-
-- [x] **Multi-File Loading** - OBJ+MTL, GLTF+dependencies support
-
-- [x] **Measurement Tool** - Distance, angles, professional UIStart with **#1: Integrate into ThreeViewer.vue** to unify both viewers, then move to **#2: Testing** to ensure stability.
-
-- [x] **KTX2 Compression** - Compressed texture support
-
-- [x] **DRACO Compression** - Compressed geometry supportAfter that, **#7: Case-insensitive matching** is a quick win that solves common user issues!
-
-- [x] **Case-Insensitive Matching** - Robust filename handling
+For detailed information, see:
+- **[User Guide](docs/README.md)** - Installation, usage, features
+- **[Technical Documentation](docs/TECHNICAL.md)** - Architecture and API
+- **[Testing Guide](docs/TESTING.md)** - Testing procedures
+- **[Implementation Guide](docs/IMPLEMENTATION.md)** - Lessons learned
+- **[Troubleshooting Guide](docs/TROUBLESHOOTING.md)** - Common issues
 
 ---
 
----
+## 🎯 Recommended Next Action
 
-*This is a quick reference. See IMPROVEMENTS_TODO.md for full details.*
+**Start with #1: Comprehensive Multi-File Testing** to ensure robustness of the current implementation.
 
-## 📚 Documentation Reference
-
-- **Main README**: [`README.md`](README.md) - Project overview, installation, features
-- **Development Guide**: [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) - Setup, build, architecture
-- **Performance Guide**: [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) - Quality modes, optimization
-- **Testing**: [`docs/testing/TEST_CHECKLIST.md`](docs/testing/TEST_CHECKLIST.md) - Test procedures
-- **API Reference**: [`docs/API_REFERENCE.md`](docs/API_REFERENCE.md) - Composables, utilities
-- **Archived Notes**: [`docs/archived/`](docs/archived/) - Historical investigation notes
-
----
-
-## 🎯 Recommended Next Steps
-
-1. **Quick Win**: Fix auto-rotate zoom bug (#1) - Test thoroughly
-2. **High Value**: Add camera projection toggle (#3) - Professional feature
-3. **User Request**: Implement export functionality (#2) - Most requested
-
-**For detailed historical context**, see archived files in `docs/archived/IMPROVEMENTS_TODO.md`
+After testing is solid, move to **#2: Dependency Caching Enhancement** for better performance.
 
 ---
 

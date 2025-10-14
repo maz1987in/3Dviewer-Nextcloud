@@ -43,7 +43,7 @@ This project adheres to the [Nextcloud Code of Conduct](https://nextcloud.com/co
 
 ## Development Setup
 
-Follow the [Development Guide](DEVELOPMENT.md) for detailed setup instructions.
+For detailed development environment setup, see the [User Guide](docs/README.md#developer-guide).
 
 ### Quick Setup
 
@@ -52,11 +52,11 @@ Follow the [Development Guide](DEVELOPMENT.md) for detailed setup instructions.
 composer install
 npm install
 
-# Setup development environment
-make setup
+# Build the project
+npm run build
 
-# Verify setup
-make ci
+# Run tests
+make test
 ```
 
 ## Making Changes
@@ -88,140 +88,11 @@ make ci
 - Use **BEM** methodology when appropriate
 - Maintain **consistent naming**
 
-### Example PHP Code
-
-```php
-<?php
-
-declare(strict_types=1);
-
-namespace OCA\ThreeDViewer\Service;
-
-/**
- * Service for handling 3D model file operations
- */
-class ModelFileService
-{
-    private ModelFileSupport $modelFileSupport;
-
-    public function __construct(ModelFileSupport $modelFileSupport)
-    {
-        $this->modelFileSupport = $modelFileSupport;
-    }
-
-    /**
-     * Check if file extension is supported
-     */
-    public function isSupportedExtension(string $extension): bool
-    {
-        return $this->modelFileSupport->isSupportedExtension($extension);
-    }
-}
-```
-
-### Example JavaScript Code
-
-```javascript
-/**
- * Loader for 3D model files
- */
-export class ModelLoader {
-    /**
-     * Load a 3D model from URL
-     * @param {string} url - Model file URL
-     * @param {Object} options - Loading options
-     * @returns {Promise<Object>} Loaded model
-     */
-    async loadModel(url, options = {}) {
-        try {
-            const response = await fetch(url);
-            if (!response.ok) {
-                throw new Error(`Failed to load model: ${response.statusText}`);
-            }
-            return await this.parseModel(response, options);
-        } catch (error) {
-            console.error('Model loading failed:', error);
-            throw error;
-        }
-    }
-}
-```
+For code examples and architecture details, see [Technical Documentation](docs/TECHNICAL.md).
 
 ## Testing
 
-### Writing Tests
-
-#### PHP Tests
-- Place tests in `tests/unit/` directory
-- Use **PHPUnit** framework
-- Test both **success** and **failure** scenarios
-- Aim for **high code coverage**
-
-```php
-<?php
-
-declare(strict_types=1);
-
-namespace OCA\ThreeDViewer\Tests\Unit\Service;
-
-use OCA\ThreeDViewer\Service\ModelFileService;
-use PHPUnit\Framework\TestCase;
-
-class ModelFileServiceTest extends TestCase
-{
-    private ModelFileService $service;
-
-    protected function setUp(): void
-    {
-        $this->service = new ModelFileService();
-    }
-
-    public function testIsSupportedExtension(): void
-    {
-        $this->assertTrue($this->service->isSupportedExtension('glb'));
-        $this->assertTrue($this->service->isSupportedExtension('gltf'));
-        $this->assertFalse($this->service->isSupportedExtension('txt'));
-    }
-}
-```
-
-#### JavaScript Tests
-- Place tests in `tests/` directory
-- Use **Jest** framework
-- Test **components**, **utilities**, and **composables**
-- Use **mocking** for external dependencies
-
-```javascript
-import { ModelLoader } from '../src/loaders/ModelLoader';
-
-describe('ModelLoader', () => {
-    let loader;
-
-    beforeEach(() => {
-        loader = new ModelLoader();
-    });
-
-    test('should load model successfully', async () => {
-        const mockModel = { scenes: [], animations: [] };
-        global.fetch = jest.fn().mockResolvedValue({
-            ok: true,
-            json: () => Promise.resolve(mockModel)
-        });
-
-        const result = await loader.loadModel('test.glb');
-        expect(result).toEqual(mockModel);
-    });
-
-    test('should handle loading errors', async () => {
-        global.fetch = jest.fn().mockResolvedValue({
-            ok: false,
-            statusText: 'Not Found'
-        });
-
-        await expect(loader.loadModel('invalid.glb')).rejects.toThrow('Failed to load model');
-    });
-});
-```
+All tests should pass before submitting a pull request. For detailed testing procedures, examples, and guidelines, see the [Testing Guide](docs/TESTING.md).
 
 ### Running Tests
 
@@ -229,9 +100,13 @@ describe('ModelLoader', () => {
 # Run all tests
 make test
 
-# Run specific test suites
+# Run PHP unit tests
 composer test:unit
+
+# Run JavaScript tests
 npm test
+
+# Run end-to-end tests
 npm run test:e2e
 ```
 
