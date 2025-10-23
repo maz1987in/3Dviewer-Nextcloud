@@ -1,0 +1,516 @@
+/**
+ * Circular 3D Controller Styles
+ * Multi-layer circular navigation control with cube gizmo, arrows, and zoom
+ */
+
+.circular-controller {
+	position: absolute;
+	width: 250px;
+	height: 250px;
+	pointer-events: auto;
+	z-index: 150;
+	user-select: none;
+	transition: opacity 0.3s ease;
+}
+
+.circular-controller.mobile {
+	width: 180px;
+	height: 180px;
+}
+
+.circular-controller.hidden {
+	opacity: 0;
+	pointer-events: none;
+}
+
+/* Controller layers container */
+.controller-layers {
+	position: relative;
+	width: 90%;
+	height: 90%;
+	top: 5%;
+	left: 5%;
+	background: radial-gradient(
+		circle, 
+		rgba(20, 20, 30, 0.85) 0%, 
+		rgba(10, 10, 20, 0.7) 40%,
+		rgba(0, 0, 10, 0.5) 70%,
+		transparent 100%
+	);
+	border-radius: 50%;
+	box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4),
+	            inset 0 1px 0 rgba(255, 255, 255, 0.1);
+	backdrop-filter: blur(10px);
+	border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Outer zoom ring (visual only) */
+.zoom-ring {
+	position: absolute;
+	width: 78%; /* Reduced from 85% */
+	height: 78%; /* Reduced from 85% */
+	pointer-events: none;
+	top: 11%; /* Adjusted centering */
+	left: 11%; /* Adjusted centering */
+}
+
+.zoom-ring-circle {
+	fill: none;
+	stroke: rgba(255, 255, 255, 0.4); /* Increased opacity from 0.2 to 0.4 */
+	stroke-width: 2; /* Increased from 1.5 */
+}
+
+.zoom-ring svg {
+	width: 100%;
+	height: 100%;
+}
+
+.zoom-ring-ticks line {
+	stroke: rgba(255, 255, 255, 0.5); /* Increased opacity from 0.3 to 0.5 */
+	stroke-width: 1.2; /* Increased from 0.8 */
+}
+
+
+
+/* Movement ring - full interactive area */
+.movement-ring {
+	position: absolute;
+	top: 5%; /* Increased clickable area */
+	left: 5%; /* Increased clickable area */
+	width: 90%; /* Increased from 70% */
+	height: 90%; /* Increased from 70% */
+	pointer-events: auto;
+	cursor: pointer;
+	border-radius: 50%;
+	transition: background 0.2s ease;
+	z-index: 10; /* Above arrows but below cube */
+	background: rgba(255, 255, 255, 0.02); /* Slight background so it's clickable */
+}
+
+.movement-ring:hover {
+	background: rgba(66, 135, 245, 0.08);
+}
+
+.movement-ring:active {
+	background: rgba(66, 135, 245, 0.15);
+	cursor: grabbing;
+}
+
+/* Arrow indicators (visual only, not clickable) */
+.arrow-indicators {
+	position: relative;
+	width: 100%;
+	height: 100%;
+	pointer-events: none;
+}
+
+.direction-arrow {
+	position: absolute;
+	width: 24px;
+	height: 24px;
+	background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.05) 100%) !important;
+	border: 1.5px solid rgba(255, 255, 255, 0.3) !important;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	pointer-events: none;
+	font-size: 12px;
+	color: rgba(255, 255, 255, 0.9);
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2),
+	            inset 0 1px 2px rgba(255, 255, 255, 0.2);
+	opacity: 0.7;
+	backdrop-filter: blur(4px);
+	transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+/* Highlight arrow when movement ring is active in that direction */
+.movement-ring:active .direction-arrow {
+	opacity: 0.9;
+}
+
+/* Force left and right arrows to have consistent styling */
+.circular-controller .direction-arrow.arrow-left,
+.circular-controller .direction-arrow.arrow-right {
+	background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.05) 100%) !important;
+	border: 1.5px solid rgba(255, 255, 255, 0.3) !important;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), inset 0 1px 2px rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Even more specific override for left and right arrows */
+.circular-controller .arrow-indicators .direction-arrow.arrow-left,
+.circular-controller .arrow-indicators .direction-arrow.arrow-right {
+	background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.05) 100%) !important;
+	border: 1.5px solid rgba(255, 255, 255, 0.3) !important;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), inset 0 1px 2px rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Nuclear option - target any possible selector */
+div.direction-arrow.arrow-left,
+div.direction-arrow.arrow-right {
+	background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.05) 100%) !important;
+	border: 1.5px solid rgba(255, 255, 255, 0.3) !important;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), inset 0 1px 2px rgba(255, 255, 255, 0.2) !important;
+}
+
+.circular-controller.mobile .direction-arrow {
+	width: 24px;
+	height: 24px;
+	font-size: 12px;
+}
+
+/* Position arrows in the center of the ring, further from the cube */
+.arrow-up {
+	top: 2%; /* Moved further out from the cube */
+	left: 50%;
+	transform: translateX(-50%);
+}
+
+.arrow-down {
+	bottom: 2%; /* Moved further out from the cube */
+	left: 50%;
+	transform: translateX(-50%);
+}
+
+.arrow-up-left {
+	top: 15%; /* Moved further out from the cube */
+	left: 12%; /* Moved further out from the cube */
+}
+
+.arrow-up-right {
+	top: 15%; /* Moved further out from the cube */
+	right: 12%; /* Moved further out from the cube */
+}
+
+.arrow-down-left {
+	bottom: 15%; /* Moved further out from the cube */
+	left: 12%; /* Moved further out from the cube */
+}
+
+.arrow-down-right {
+	bottom: 15%; /* Moved further out from the cube */
+	right: 12%; /* Moved further out from the cube */
+}
+
+/* Zoom buttons (replacing left/right arrows) */
+.zoom-btn {
+	position: absolute;
+	width: 32px;
+	height: 32px;
+	border-radius: 50%;
+	background: linear-gradient(135deg, rgba(66, 135, 245, 0.9) 0%, rgba(50, 100, 200, 0.8) 100%);
+	border: 2px solid rgba(255, 255, 255, 0.5);
+	color: white;
+	font-size: 20px;
+	font-weight: bold;
+	cursor: pointer;
+	pointer-events: auto;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: all 0.2s ease;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3),
+	            inset 0 1px 2px rgba(255, 255, 255, 0.3);
+	backdrop-filter: blur(8px);
+	z-index: 15;
+	top: 50%;
+}
+
+.zoom-btn:hover {
+	background: linear-gradient(135deg, rgba(66, 135, 245, 1) 0%, rgba(50, 100, 200, 0.95) 100%);
+	transform: scale(1.1) translateY(-50%);
+	box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4),
+	            inset 0 1px 3px rgba(255, 255, 255, 0.4);
+	border-color: rgba(255, 255, 255, 0.7);
+}
+
+.zoom-btn:active {
+	transform: scale(0.95) translateY(-50%);
+	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3),
+	            inset 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.zoom-btn.zoom-out {
+	left: -16px;
+	transform: translateY(-50%);
+}
+
+.zoom-btn.zoom-in {
+	right: -16px;
+	transform: translateY(-50%);
+}
+
+.zoom-btn.zoom-out:hover {
+	transform: scale(1.1) translateY(-50%);
+}
+
+.zoom-btn.zoom-in:hover {
+	transform: scale(1.1) translateY(-50%);
+}
+
+.zoom-btn.zoom-out:active {
+	transform: scale(0.95) translateY(-50%);
+}
+
+.zoom-btn.zoom-in:active {
+	transform: scale(0.95) translateY(-50%);
+}
+
+/* Inner orbit ring - visual guide only */
+.orbit-ring-visual {
+	position: absolute;
+	top: 30%;
+	left: 30%;
+	width: 40%;
+	height: 40%;
+	border: 1px dashed rgba(255, 255, 255, 0.2);
+	border-radius: 50%;
+	pointer-events: none;
+	transition: border-color 0.2s ease;
+	box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.1);
+}
+
+.movement-ring:hover .orbit-ring-visual {
+	border-color: rgba(255, 255, 255, 0.35);
+}
+
+.movement-ring:active .orbit-ring-visual {
+	border-color: rgba(66, 135, 245, 0.6);
+	box-shadow: inset 0 0 15px rgba(66, 135, 245, 0.2);
+}
+
+/* Center dot indicator */
+.center-dot {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	width: 10px;
+	height: 10px;
+	background: radial-gradient(circle, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.4) 100%);
+	border: 2px solid rgba(255, 255, 255, 0.5);
+	border-radius: 50%;
+	pointer-events: none;
+	z-index: 1;
+	box-shadow: 0 0 8px rgba(255, 255, 255, 0.5),
+	            inset 0 1px 2px rgba(255, 255, 255, 0.8);
+}
+
+.movement-ring:active .center-dot {
+	background: rgba(66, 135, 245, 0.6);
+	border-color: rgba(66, 135, 245, 0.8);
+}
+
+/* Central cube container */
+.cube-container {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	width: 100px;
+	height: 100px;
+	pointer-events: auto;
+	z-index: 100; /* Ensure cube is above everything */
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: transparent; /* Ensure no background interference */
+}
+
+.circular-controller.mobile .cube-container {
+	width: 70px;
+	height: 70px;
+}
+
+.cube-canvas {
+	border-radius: 8px;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+/* Drag handle for repositioning */
+.drag-handle {
+	position: absolute;
+	top: -12px;
+	right: -12px;
+	width: 32px;
+	height: 32px;
+	background: rgba(255, 255, 255, 0.2);
+	border: 2px solid white;
+	border-radius: 50%;
+	cursor: move;
+	pointer-events: auto;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 18px;
+	transition: all 0.2s ease;
+	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.drag-handle:hover {
+	background: rgba(255, 255, 255, 0.3);
+	transform: scale(1.1);
+}
+
+.drag-handle:active {
+	cursor: grabbing;
+	background: rgba(255, 255, 255, 0.4);
+	transform: scale(0.95);
+}
+
+.circular-controller.mobile .drag-handle {
+	width: 28px;
+	height: 28px;
+	font-size: 16px;
+}
+
+/* Dragging state */
+.circular-controller.dragging {
+	opacity: 0.8;
+	transition: none;
+}
+
+.circular-controller.dragging .controller-layers {
+	box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+}
+
+/* Tooltips on hover */
+.zoom-btn::after,
+.cube-container::after {
+	content: attr(aria-label);
+	position: absolute;
+	background: rgba(0, 0, 0, 0.9);
+	color: white;
+	padding: 4px 8px;
+	border-radius: 4px;
+	font-size: 11px;
+	white-space: nowrap;
+	pointer-events: none;
+	opacity: 0;
+	transition: opacity 0.2s ease;
+	z-index: 1000;
+}
+
+.zoom-btn:hover::after,
+.cube-container:hover::after {
+	opacity: 1;
+}
+
+/* Position tooltips appropriately */
+.zoom-btn.plus::after {
+	bottom: 100%;
+	left: 50%;
+	transform: translateX(-50%);
+	margin-bottom: 4px;
+}
+
+.zoom-btn.minus::after {
+	top: 100%;
+	left: 50%;
+	transform: translateX(-50%);
+	margin-top: 4px;
+}
+
+.cube-container::after {
+	bottom: 100%;
+	left: 50%;
+	transform: translateX(-50%);
+	margin-bottom: 8px;
+}
+
+/* Dark theme support */
+.dark-theme .circular-controller .controller-layers {
+	background: radial-gradient(circle, rgba(40, 40, 40, 0.8) 0%, rgba(20, 20, 20, 0.6) 50%, transparent 100%);
+}
+
+.dark-theme .zoom-btn,
+.dark-theme .direction-arrow {
+	background: rgba(100, 181, 246, 0.9);
+}
+
+.dark-theme .zoom-btn:hover,
+.dark-theme .direction-arrow:hover {
+	background: rgba(100, 181, 246, 1);
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+	.circular-controller .controller-layers {
+		border: 3px solid white;
+	}
+
+	.zoom-btn,
+	.direction-arrow,
+	.drag-handle {
+		border-width: 3px;
+	}
+
+	.orbit-ring {
+		border-width: 3px;
+	}
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+	.circular-controller,
+	.zoom-btn,
+	.direction-arrow,
+	.drag-handle,
+	.orbit-ring {
+		transition: none;
+	}
+
+	.zoom-btn:hover,
+	.direction-arrow:hover,
+	.drag-handle:hover {
+		transform: none;
+	}
+}
+
+/* Mobile touch optimization */
+@media (hover: none) and (pointer: coarse) {
+	/* Disable tooltips on touch devices */
+	.zoom-btn::after,
+	.cube-container::after {
+		display: none;
+	}
+
+	/* Larger touch targets */
+	.zoom-btn {
+		min-width: 44px;
+		min-height: 44px;
+	}
+	
+	/* Larger movement ring for better touch */
+	.movement-ring {
+		cursor: grab;
+	}
+	
+	.movement-ring:active {
+		cursor: grabbing;
+	}
+}
+
+/* RTL support */
+[dir="rtl"] .drag-handle {
+	right: auto;
+	left: -12px;
+}
+
+/* Animation for appearance */
+@keyframes controllerFadeIn {
+	from {
+		opacity: 0;
+		transform: scale(0.8);
+	}
+	to {
+		opacity: 1;
+		transform: scale(1);
+	}
+}
+
+.circular-controller.fade-in {
+	animation: controllerFadeIn 0.3s ease;
+}
+
