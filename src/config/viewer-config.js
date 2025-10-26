@@ -519,6 +519,28 @@ export function getEnvironmentConfig(environment = 'production') {
 }
 
 /**
+ * Circular controller settings
+ */
+export const CONTROLLER_SETTINGS = {
+	defaultVisible: true,
+	defaultPosition: { x: 20, y: 20 }, // offset from bottom-right
+	size: {
+		desktop: 180, // Reduced from 250
+		mobile: 140, // Reduced from 180
+	},
+	cubeSize: {
+		desktop: 80, // Reduced from 100
+		mobile: 60, // Reduced from 70
+	},
+	arrowNudgeAmount: 0.1, // radians
+	zoomStep: 0.1,
+	panSpeed: 0.3, // Camera panning speed multiplier
+	animationDuration: 800, // ms for snap-to-view
+	persistPosition: true,
+	persistVisibility: true,
+}
+
+/**
  * Main viewer configuration object
  */
 export const VIEWER_CONFIG = {
@@ -540,6 +562,7 @@ export const VIEWER_CONFIG = {
 	compression: COMPRESSION_SETTINGS,
 	fileSizeCategories: FILE_SIZE_CATEGORIES,
 	supportedFormats: SUPPORTED_FORMATS,
+	controller: CONTROLLER_SETTINGS,
 	limits: {
 		maxFileSize: 500 * 1024 * 1024, // 500 MB
 		maxRetries: 3,

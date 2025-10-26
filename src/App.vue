@@ -6,19 +6,21 @@
 			<!-- Help Panel -->
 			<HelpPanel v-if="showHelp" @close="showHelp = false" />
 			
-			<!-- Minimal Top Bar -->
-			<MinimalTopBar
-				:model-name="filename"
-				:is-loading="isLoading"
-				:fps="fps"
-				:show-performance="showPerformance"
-				:is-mobile="isMobile"
-				@reset-view="onReset"
-				@fit-to-view="onFitToView"
-				@toggle-performance="onTogglePerformance"
-				@take-screenshot="onTakeScreenshot"
-				@toggle-help="onToggleHelp"
-				@toggle-tools="onToggleTools" />
+		<!-- Minimal Top Bar -->
+		<MinimalTopBar
+			:model-name="filename"
+			:is-loading="isLoading"
+			:fps="fps"
+			:show-performance="showPerformance"
+			:show-controller="showController"
+			:is-mobile="isMobile"
+			@reset-view="onReset"
+			@fit-to-view="onFitToView"
+			@toggle-performance="onTogglePerformance"
+			@toggle-controller="onToggleController"
+			@take-screenshot="onTakeScreenshot"
+			@toggle-help="onToggleHelp"
+			@toggle-tools="onToggleTools" />
 			
 		<!-- Slide-Out Tool Panel -->
 		<SlideOutToolPanel
@@ -27,6 +29,7 @@
 			:camera-type="cameraType"
 			:current-preset="currentPreset"
 			:presets="animationPresets"
+			:show-controller="showController"
 			:grid="grid"
 			:axes="axes"
 			:wireframe="wireframe"
@@ -43,6 +46,7 @@
 			@toggle-auto-rotate="onToggleAutoRotate"
 			@toggle-projection="onToggleProjection"
 			@change-preset="onChangePreset"
+			@toggle-controller="onToggleController"
 			@toggle-grid="grid = !grid"
 			@toggle-axes="axes = !axes"
 			@toggle-wireframe="wireframe = !wireframe"
@@ -58,24 +62,25 @@
 			@clear-cache="onClearCache"
 			@toggle-help="onToggleHelp" />
 			
-			<!-- 3D Viewer -->
-			<ThreeViewer
-				:file-id="fileId"
-				:filename="filename"
-				:dir="dir"
-				ref="viewer"
-				:show-grid="grid"
-				:show-axes="axes"
-				:wireframe="wireframe"
-				:background="background"
-				:measurement-mode="measurementMode"
-				:annotation-mode="annotationMode"
-				:comparison-mode="comparisonMode"
-				:performance-mode="performanceMode"
-				@model-loaded="onModelLoaded"
-				@loading-state-changed="onLoadingStateChanged"
-				@fps-updated="onFpsUpdated"
-				@error="onError" />
+		<!-- 3D Viewer -->
+		<ThreeViewer
+			:file-id="fileId"
+			:filename="filename"
+			:dir="dir"
+			ref="viewer"
+			:show-grid="grid"
+			:show-axes="axes"
+			:wireframe="wireframe"
+			:background="background"
+			:show-controller="showController"
+			:measurement-mode="measurementMode"
+			:annotation-mode="annotationMode"
+			:comparison-mode="comparisonMode"
+			:performance-mode="performanceMode"
+			@model-loaded="onModelLoaded"
+			@loading-state-changed="onLoadingStateChanged"
+			@fps-updated="onFpsUpdated"
+			@error="onError" />
 		</div>
 	</NcAppContent>
 </template>
@@ -111,6 +116,7 @@ export default {
 			cameraType: 'perspective',
 			animationPresets: [],
 			currentPreset: '',
+			showController: true,
 			lastError: null,
 			modelMeta: null,
 			modelLoaded: false,
@@ -220,19 +226,23 @@ export default {
 			this.autoRotate = !this.autoRotate
 			this.$refs.viewer?.toggleAutoRotate?.()
 		},
-		onToggleProjection() {
-			this.$refs.viewer?.toggleCameraProjection?.()
-			// Update camera type from viewer
-			if (this.$refs.viewer?.cameraType) {
-				this.cameraType = this.$refs.viewer.cameraType
-			}
-		},
-		onChangePreset(presetName) {
-			if (presetName) {
-				this.currentPreset = presetName
-				this.$refs.viewer?.animateToPreset?.(presetName)
-			}
-		},
+	onToggleProjection() {
+		this.$refs.viewer?.toggleCameraProjection?.()
+		// Update camera type from viewer
+		if (this.$refs.viewer?.cameraType) {
+			this.cameraType = this.$refs.viewer.cameraType
+		}
+	},
+	onChangePreset(presetName) {
+		if (presetName) {
+			this.currentPreset = presetName
+			this.$refs.viewer?.animateToPreset?.(presetName)
+		}
+	},
+	onToggleController() {
+		this.showController = !this.showController
+		this.$refs.viewer?.toggleController?.()
+	},
 
 		// Advanced features event handlers
 		onToggleMeasurement() {

@@ -44,6 +44,14 @@
 				<span v-if="fps" class="fps-badge">{{ Math.round(fps) }}</span>
 			</button>
 			
+			<button :aria-label="t('threedviewer', '3D Controller')"
+				class="icon-btn"
+				:class="{ 'active': showController }"
+				:title="t('threedviewer', '3D Controller')"
+				@click="$emit('toggle-controller')">
+				<span class="btn-icon">🎮</span>
+			</button>
+			
 			<button :aria-label="t('threedviewer', 'Take screenshot')"
 				class="icon-btn"
 				:title="t('threedviewer', 'Take screenshot')"
@@ -82,6 +90,7 @@ export default {
 		isLoading: { type: Boolean, default: false },
 		fps: { type: Number, default: 0 },
 		showPerformance: { type: Boolean, default: false },
+		showController: { type: Boolean, default: true },
 		isMobile: { type: Boolean, default: false },
 	},
 	
@@ -89,6 +98,7 @@ export default {
 		'reset-view',
 		'fit-to-view',
 		'toggle-performance',
+		'toggle-controller',
 		'take-screenshot',
 		'toggle-help',
 		'toggle-tools',
@@ -205,6 +215,11 @@ export default {
 .icon-btn {
 	padding: 8px 10px;
 	position: relative;
+}
+
+.icon-btn.active {
+	background: rgba(0, 130, 201, 0.8) !important;
+	border-color: rgba(0, 130, 201, 0.6) !important;
 }
 
 .btn-icon {

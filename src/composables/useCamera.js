@@ -807,6 +807,214 @@ export function useCamera() {
 	}
 
 	/**
+	 * Rotate camera by delta angles (for controller support)
+	 * @param {number} deltaX - Horizontal rotation delta
+	 * @param {number} deltaY - Vertical rotation delta
+	 */
+	const rotateCameraByDelta = (deltaX, deltaY) => {
+		if (!camera.value || !controls.value) return
+
+		try {
+			// Sync rotationX and rotationY from current camera position if needed
+			// This ensures we rotate from the current view, not from (0,0)
+			const currentPos = camera.value.position.clone()
+			const relativePos = currentPos.sub(modelCenter.value)
+			const currentDistance = relativePos.length()
+			
+			// Update distance if it changed
+			if (currentDistance > 0.1) {
+				distance.value = currentDistance
+			}
+			
+			// Calculate current rotation angles from camera position
+			// Only do this if rotationX/Y appear to be at default (0,0) but camera is not at front view
+			const currentRotationY = Math.atan2(relativePos.x, relativePos.z)
+			const currentRotationX = Math.asin(relativePos.y / currentDistance)
+			
+			// If current angles differ significantly from tracked angles, sync them
+			const angleDiff = Math.abs(currentRotationY - rotationY.value) + Math.abs(currentRotationX - rotationX.value)
+			if (angleDiff > 0.1) {
+				rotationY.value = currentRotationY
+				rotationX.value = currentRotationX
+				logger.info('useCamera', 'Synced rotation angles from camera position', { 
+					rotationX: rotationX.value, 
+					rotationY: rotationY.value 
+				})
+			}
+			
+			// Apply rotation delta
+			rotationY.value -= deltaX
+			rotationX.value += deltaY
+			
+			// Clamp vertical rotation
+			rotationX.value = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, rotationX.value))
+
+			// Update camera position based on rotation around model center
+			const x = modelCenter.value.x + Math.sin(rotationY.value) * Math.cos(rotationX.value) * distance.value
+			const y = modelCenter.value.y + Math.sin(rotationX.value) * distance.value
+			const z = modelCenter.value.z + Math.cos(rotationY.value) * Math.cos(rotationX.value) * distance.value
+
+			camera.value.position.set(x, y, z)
+			camera.value.lookAt(modelCenter.value)
+			
+			if (controls.value) {
+				controls.value.update()
+			}
+
+			logger.info('useCamera', 'Camera rotated by delta', { deltaX, deltaY })
+		} catch (error) {
+			logger.error('useCamera', 'Failed to rotate camera by delta', error)
+		}
+	}
+
+	/**
+	 * Snap camera to named view with animation
+	 * @param {string} viewName - Name of canonical view
+	 * @param {number} duration - Animation duration in ms
+	 */
+	const snapToNamedView = (viewName, duration = 800) => {
+		if (!camera.value || !controls.value) return
+
+		const viewMap = {
+			FRONT: { x: 0, y: 0, z: 1 },
+			BACK: { x: 0, y: 0, z: -1 },
+			LEFT: { x: -1, y: 0, z: 0 },
+			RIGHT: { x: 1, y: 0, z: 0 },
+			TOP: { x: 0, y: 1, z: 0 },
+			BOTTOM: { x: 0, y: -1, z: 0 },
+		}
+
+		const view = viewMap[viewName]
+		if (!view) {
+			logger.warn('useCamera', 'Unknown view name', { viewName })
+			return
+		}
+
+		try {
+			const currentDistance = camera.value.position.distanceTo(modelCenter.value)
+			const targetPos = new THREE.Vector3(
+				modelCenter.value.x + view.x * currentDistance,
+				modelCenter.value.y + view.y * currentDistance,
+				modelCenter.value.z + view.z * currentDistance
+			)
+
+			// Use existing animateToPreset for smooth animation
+			const startTime = Date.now()
+			const startPosition = camera.value.position.clone()
+			const startTarget = controls.value.target.clone()
+			const endTarget = modelCenter.value.clone()
+
+			isAnimating.value = true
+
+			const animate = () => {
+				const elapsed = Date.now() - startTime
+				const progress = Math.min(elapsed / duration, 1)
+
+				// Easing function (ease-in-out)
+				const easeProgress = progress < 0.5
+					? 2 * progress * progress
+					: 1 - Math.pow(-2 * progress + 2, 2) / 2
+
+				// Interpolate position and target
+				camera.value.position.lerpVectors(startPosition, targetPos, easeProgress)
+				controls.value.target.lerpVectors(startTarget, endTarget, easeProgress)
+				controls.value.update()
+
+				if (progress < 1) {
+					animationFrameId.value = requestAnimationFrame(animate)
+				} else {
+					isAnimating.value = false
+					animationFrameId.value = null
+					logger.info('useCamera', 'Snap to view completed', { viewName })
+				}
+			}
+
+			animate()
+		} catch (error) {
+			logger.error('useCamera', 'Failed to snap to named view', error)
+		}
+	}
+
+	/**
+	 * Get current camera distance from model center
+	 * @return {number} Distance
+	 */
+	const getCameraDistance = () => {
+		return distance.value
+	}
+
+	/**
+	 * Get model center point
+	 * @return {THREE.Vector3} Model center
+	 */
+	const getModelCenter = () => {
+		return modelCenter.value
+	}
+
+	/**
+	 * Pan camera by delta (for controller support)
+	 * @param {number} deltaX - Horizontal pan delta
+	 * @param {number} deltaY - Vertical pan delta
+	 */
+	const panCameraByDelta = (deltaX, deltaY) => {
+		if (!camera.value || !controls.value) return
+
+		try {
+			// Get camera's right and up vectors
+			const cameraRight = new THREE.Vector3()
+			const cameraUp = new THREE.Vector3()
+			
+			camera.value.getWorldDirection(cameraRight)
+			cameraRight.cross(camera.value.up).normalize()
+			cameraUp.copy(camera.value.up).normalize()
+
+			// Calculate pan offset
+			const panSpeed = 0.1
+			const panOffset = new THREE.Vector3()
+			panOffset.add(cameraRight.multiplyScalar(deltaX * panSpeed))
+			panOffset.add(cameraUp.multiplyScalar(deltaY * panSpeed))
+
+			// Apply pan to camera and target
+			camera.value.position.add(panOffset)
+			modelCenter.value.add(panOffset)
+			
+			if (controls.value) {
+				controls.value.target.copy(modelCenter.value)
+				controls.value.update()
+			}
+
+			logger.info('useCamera', 'Camera panned by delta', { deltaX, deltaY })
+		} catch (error) {
+			logger.error('useCamera', 'Failed to pan camera by delta', error)
+		}
+	}
+
+	/**
+	 * Reset camera pan to original model center
+	 */
+	const resetPan = () => {
+		if (!camera.value || !controls.value || !initialTarget.value) return
+
+		try {
+			// Calculate the offset
+			const offset = new THREE.Vector3().subVectors(initialTarget.value, modelCenter.value)
+			
+			// Apply offset to camera position and target
+			camera.value.position.add(offset)
+			modelCenter.value.copy(initialTarget.value)
+			
+			if (controls.value) {
+				controls.value.target.copy(modelCenter.value)
+				controls.value.update()
+			}
+
+			logger.info('useCamera', 'Pan reset to original center', { center: modelCenter.value })
+		} catch (error) {
+			logger.error('useCamera', 'Failed to reset pan', error)
+		}
+	}
+
+	/**
 	 * Dispose of camera and controls
 	 */
 	const dispose = () => {
@@ -860,6 +1068,12 @@ export function useCamera() {
 		render,
 		cancelAnimations,
 		toggleCameraProjection,
+		rotateCameraByDelta,
+		snapToNamedView,
+		panCameraByDelta,
+		resetPan,
+		getCameraDistance,
+		getModelCenter,
 		dispose,
 	}
 }
