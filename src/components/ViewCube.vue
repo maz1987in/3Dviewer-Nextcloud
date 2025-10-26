@@ -46,32 +46,32 @@ export default {
 		 * Create a canvas with text label
 		 * @param {string} text - Label text
 		 * @param {string} color - Background color
-		 * @returns {HTMLCanvasElement} Canvas with text
+		 * @return {HTMLCanvasElement} Canvas with text
 		 */
 		const createTextCanvas = (text, color = '#4287f5') => {
 			const canvas = document.createElement('canvas')
 			const size = 256
 			canvas.width = size
 			canvas.height = size
-			
+
 			const context = canvas.getContext('2d')
-			
+
 			// Background
 			context.fillStyle = color
 			context.fillRect(0, 0, size, size)
-			
+
 			// Border
 			context.strokeStyle = '#ffffff'
 			context.lineWidth = 8
 			context.strokeRect(0, 0, size, size)
-			
+
 			// Text
 			context.fillStyle = '#ffffff'
 			context.font = 'bold 48px Arial'
 			context.textAlign = 'center'
 			context.textBaseline = 'middle'
 			context.fillText(text, size / 2, size / 2)
-			
+
 			return canvas
 		}
 
@@ -90,7 +90,7 @@ export default {
 				cubeCamera.value = new THREE.OrthographicCamera(
 					-size / 2, size / 2,
 					size / 2, -size / 2,
-					1, 1000
+					1, 1000,
 				)
 				cubeCamera.value.position.set(0, 0, 200)
 
@@ -163,7 +163,7 @@ export default {
 					const faceIndex = Math.floor(intersects[0].faceIndex / 2)
 					const faceNames = ['RIGHT', 'LEFT', 'TOP', 'BOTTOM', 'FRONT', 'BACK']
 					const faceName = faceNames[faceIndex]
-					
+
 					logger.info('ViewCube', 'Face clicked', { face: faceName })
 					emit('face-click', faceViews[faceName])
 				}
@@ -319,4 +319,3 @@ export default {
 	left: 10px;
 }
 </style>
-

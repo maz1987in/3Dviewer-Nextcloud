@@ -71,7 +71,7 @@ export function logError(component, message, error, level = 'error') {
 
 	// Log to console for debugging
 	const logPrefix = `[${component}] ${message}`
-	
+
 	switch (level) {
 	case 'warn':
 		console.warn(logPrefix, errorInfo)

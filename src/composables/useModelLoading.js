@@ -16,15 +16,15 @@ import { disposeObject } from '../utils/three-utils.js'
 export function useModelLoading() {
 	// Loading state
 	const loading = ref(false)
-	const progress = ref({ 
-		loaded: 0, 
-		total: 0, 
-		message: null, 
+	const progress = ref({
+		loaded: 0,
+		total: 0,
+		message: null,
 		stage: null,
 		percentage: 0,
 		estimatedTimeRemaining: null,
 		speed: 0,
-		startTime: null
+		startTime: null,
 	})
 	const retryCount = ref(0)
 	const maxRetries = ref(VIEWER_CONFIG.limits.maxRetries)
@@ -139,7 +139,7 @@ export function useModelLoading() {
 			const isMultiFile = ['obj', 'gltf', 'fbx', '3ds', 'dae'].includes(extension)
 
 			if (isMultiFile) {
-			logger.info('useModelLoading', 'Multi-file format detected', { extension, fileId })
+				logger.info('useModelLoading', 'Multi-file format detected', { extension, fileId })
 
 				try {
 					// Update progress
@@ -223,7 +223,7 @@ export function useModelLoading() {
 
 			// Get content length for progress tracking
 			const contentLength = parseInt(response.headers.get('content-length') || '0', 10)
-			
+
 			// Stream the response with progress tracking
 			const reader = response.body.getReader()
 			const chunks = []
@@ -231,25 +231,25 @@ export function useModelLoading() {
 
 			while (true) {
 				const { done, value } = await reader.read()
-				
+
 				if (done) break
-				
+
 				chunks.push(value)
 				receivedLength += value.length
-				
+
 				// Update progress
 				if (contentLength > 0) {
-					progress.value = { 
-						loaded: receivedLength, 
-						total: contentLength, 
-						message: 'Downloading model...' 
+					progress.value = {
+						loaded: receivedLength,
+						total: contentLength,
+						message: 'Downloading model...',
 					}
 				} else {
 					// If no content-length, just show bytes downloaded
-					progress.value = { 
-						loaded: receivedLength, 
-						total: 0, 
-						message: 'Downloading model...' 
+					progress.value = {
+						loaded: receivedLength,
+						total: 0,
+						message: 'Downloading model...',
 					}
 				}
 			}
@@ -263,7 +263,7 @@ export function useModelLoading() {
 			}
 
 			progress.value = { loaded: receivedLength, total: receivedLength, message: 'Parsing model...' }
-			
+
 			// Prepare context
 			const loadingContext = {
 				...context,
@@ -326,7 +326,7 @@ export function useModelLoading() {
 
 			// Prepare loading context
 			const loadingContext = {
-				THREE,  // Pass THREE.js to loaders
+				THREE, // Pass THREE.js to loaders
 				...context,
 				abortController: abortController.value,
 				fileExtension: extension,
@@ -442,26 +442,26 @@ export function useModelLoading() {
 	const updateProgress = (loaded, total, stage = null, message = null) => {
 		const now = Date.now()
 		const currentProgress = progress.value
-		
+
 		// Initialize start time on first progress update
 		if (!currentProgress.startTime) {
 			currentProgress.startTime = now
 		}
-		
+
 		// Calculate percentage
 		const percentage = total > 0 ? Math.round((loaded / total) * 100) : 0
-		
+
 		// Calculate speed (bytes per second)
 		const elapsed = (now - currentProgress.startTime) / 1000
 		const speed = elapsed > 0 ? loaded / elapsed : 0
-		
+
 		// Calculate estimated time remaining
 		let estimatedTimeRemaining = null
 		if (total > 0 && speed > 0 && loaded < total) {
 			const remainingBytes = total - loaded
 			estimatedTimeRemaining = Math.round(remainingBytes / speed)
 		}
-		
+
 		// Update progress with enhanced information
 		progress.value = {
 			loaded,
@@ -471,7 +471,7 @@ export function useModelLoading() {
 			percentage,
 			estimatedTimeRemaining,
 			speed,
-			startTime: currentProgress.startTime
+			startTime: currentProgress.startTime,
 		}
 
 		// Log progress updates (throttled to avoid spam)
@@ -550,7 +550,7 @@ export function useModelLoading() {
 		loading.value = false
 		progress.value = { loaded: 0, total: 0, message: null }
 		logger.info('useModelLoading', 'Load cancelled')
-		
+
 		// Test harness hook
 		if (typeof window !== 'undefined') {
 			window.__ABORTED = true
@@ -640,7 +640,7 @@ export function useModelLoading() {
 	 */
 	const formatTimeRemaining = (seconds) => {
 		if (!seconds || seconds <= 0) return null
-		
+
 		if (seconds < 60) {
 			return `${Math.round(seconds)}s`
 		} else if (seconds < 3600) {
@@ -659,16 +659,16 @@ export function useModelLoading() {
 	 */
 	const formatSpeed = (bytesPerSecond) => {
 		if (!bytesPerSecond || bytesPerSecond <= 0) return '0 B/s'
-		
+
 		const units = ['B/s', 'KB/s', 'MB/s', 'GB/s']
 		let size = bytesPerSecond
 		let unitIndex = 0
-		
+
 		while (size >= 1024 && unitIndex < units.length - 1) {
 			size /= 1024
 			unitIndex++
 		}
-		
+
 		return `${Math.round(size * 100) / 100} ${units[unitIndex]}`
 	}
 
@@ -686,7 +686,7 @@ export function useModelLoading() {
 			timeRemaining: formatTimeRemaining(current.estimatedTimeRemaining),
 			stage: getStageText(current.stage),
 			message: current.message,
-			elapsed: current.startTime ? Math.round((Date.now() - current.startTime) / 1000) : 0
+			elapsed: current.startTime ? Math.round((Date.now() - current.startTime) / 1000) : 0,
 		}
 	}
 
@@ -696,13 +696,13 @@ export function useModelLoading() {
 	const dispose = () => {
 		// Cancel any ongoing load operations
 		cancelLoad()
-		
+
 		// Clear the current model
 		clearModel()
-		
+
 		// Clear error state
 		clearError()
-		
+
 		// Reset loading state
 		loading.value = false
 		progress.value = { loaded: 0, total: 0, message: '' }

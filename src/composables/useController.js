@@ -107,7 +107,7 @@ export function useController() {
 				camera.position.lerpVectors(
 					startPos,
 					{ x: targetPos.x, y: targetPos.y, z: targetPos.z },
-					easeProgress
+					easeProgress,
 				)
 				camera.lookAt(center)
 				controls.update()
@@ -212,6 +212,7 @@ export function useController() {
 
 	/**
 	 * Save controller position to localStorage
+	 * @param position
 	 */
 	const savePosition = (position) => {
 		try {
@@ -239,6 +240,7 @@ export function useController() {
 
 	/**
 	 * Save controller visibility to localStorage
+	 * @param visible
 	 */
 	const saveVisibility = (visible) => {
 		try {
@@ -265,4 +267,3 @@ export function useController() {
 		saveVisibility,
 	}
 }
-

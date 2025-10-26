@@ -12,7 +12,7 @@
 				<span class="btn-icon">🔄</span>
 				<span class="btn-text">{{ t('threedviewer', 'Reset') }}</span>
 			</button>
-			
+
 			<button :aria-label="t('threedviewer', 'Fit to view')"
 				class="quick-btn"
 				:title="t('threedviewer', 'Fit model to view')"
@@ -43,7 +43,7 @@
 				<span class="btn-icon">⚡</span>
 				<span v-if="fps" class="fps-badge">{{ Math.round(fps) }}</span>
 			</button>
-			
+
 			<button :aria-label="t('threedviewer', '3D Controller')"
 				class="icon-btn"
 				:class="{ 'active': showController }"
@@ -51,21 +51,21 @@
 				@click="$emit('toggle-controller')">
 				<span class="btn-icon">🎮</span>
 			</button>
-			
+
 			<button :aria-label="t('threedviewer', 'Take screenshot')"
 				class="icon-btn"
 				:title="t('threedviewer', 'Take screenshot')"
 				@click="$emit('take-screenshot')">
 				<span class="btn-icon">📷</span>
 			</button>
-			
+
 			<button :aria-label="t('threedviewer', 'Help')"
 				class="icon-btn"
 				:title="t('threedviewer', 'Help & shortcuts')"
 				@click="$emit('toggle-help')">
 				<span class="btn-icon">ⓘ</span>
 			</button>
-			
+
 			<!-- Tools Button - Last item -->
 			<button :aria-label="t('threedviewer', 'Toggle tools panel')"
 				class="tools-btn"
@@ -84,7 +84,7 @@ import { translate as t } from '@nextcloud/l10n'
 
 export default {
 	name: 'MinimalTopBar',
-	
+
 	props: {
 		modelName: { type: String, default: '' },
 		isLoading: { type: Boolean, default: false },
@@ -93,7 +93,7 @@ export default {
 		showController: { type: Boolean, default: true },
 		isMobile: { type: Boolean, default: false },
 	},
-	
+
 	emits: [
 		'reset-view',
 		'fit-to-view',
@@ -103,14 +103,13 @@ export default {
 		'toggle-help',
 		'toggle-tools',
 	],
-	
+
 	setup(props, { emit }) {
 		const performanceText = computed(() => {
 			if (!props.fps) return t('threedviewer', 'Performance info')
 			return t('threedviewer', 'FPS: {fps}', { fps: Math.round(props.fps) })
 		})
 
-		
 		return {
 			t,
 			performanceText,
@@ -290,16 +289,16 @@ export default {
 	.minimal-top-bar {
 		padding: 6px 8px;
 	}
-	
+
 	.left-section .quick-btn:last-child {
 		display: none; /* Hide "Fit" button on very small screens */
 	}
-	
+
 	.model-name {
 		font-size: 12px;
 		max-width: 120px;
 	}
-	
+
 	.fps-badge {
 		font-size: 9px;
 		padding: 1px 4px;
@@ -330,7 +329,7 @@ export default {
 	.minimal-top-bar {
 		padding: 4px 8px;
 	}
-	
+
 	.quick-btn,
 	.icon-btn {
 		padding: 6px 8px;
@@ -353,4 +352,3 @@ export default {
 	margin-right: 0;
 }
 </style>
-

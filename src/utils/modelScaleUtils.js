@@ -9,14 +9,14 @@ import { logError } from './error-handler.js'
 /**
  * Calculate visual scale based on model bounding box
  * Used for sizing annotations, measurements, and other visual elements
- * 
+ *
  * @param {THREE.Scene} scene - The Three.js scene containing the model
- * @param {Object} options - Configuration options
+ * @param {object} options - Configuration options
  * @param {number} options.percentage - Percentage of model size (default: 0.01 = 1%)
  * @param {number} options.minScale - Minimum scale value (default: 0.5)
  * @param {number} options.maxScale - Maximum scale value (default: 10)
  * @param {string[]} options.excludeNames - Mesh names to exclude from calculation
- * @returns {number} Calculated scale factor
+ * @return {number} Calculated scale factor
  */
 export function calculateModelScale(scene, options = {}) {
 	const {
@@ -77,7 +77,7 @@ export function calculateModelScale(scene, options = {}) {
  * Check if a mesh should be excluded from scale calculation
  * @param {THREE.Mesh} mesh - The mesh to check
  * @param {string[]} excludeNames - Names/patterns to exclude
- * @returns {boolean} True if mesh should be excluded
+ * @return {boolean} True if mesh should be excluded
  */
 function shouldExcludeMesh(mesh, excludeNames) {
 	if (!mesh.name) return false
@@ -94,16 +94,16 @@ function shouldExcludeMesh(mesh, excludeNames) {
 /**
  * Create a canvas texture for text labels
  * Shared function for consistent text rendering across annotations and measurements
- * 
+ *
  * @param {string} text - The text to render
- * @param {Object} options - Configuration options
+ * @param {object} options - Configuration options
  * @param {number} options.width - Canvas width (default: 512)
  * @param {number} options.height - Canvas height (default: 128)
  * @param {string} options.textColor - Text color (default: '#ffffff')
  * @param {string} options.bgColor - Background color (default: 'rgba(0, 0, 0, 0.8)')
  * @param {number} options.fontSize - Font size in pixels (default: 48)
  * @param {string} options.fontFamily - Font family (default: 'Arial')
- * @returns {THREE.CanvasTexture} Canvas texture for use in materials
+ * @return {THREE.CanvasTexture} Canvas texture for use in materials
  */
 export function createTextTexture(text, options = {}) {
 	const {
@@ -148,16 +148,16 @@ export function createTextTexture(text, options = {}) {
 /**
  * Create a marker sphere for annotations or measurements
  * Shared function for consistent point markers across the app
- * 
+ *
  * @param {THREE.Vector3} position - Position for the marker
- * @param {Object} options - Configuration options
+ * @param {object} options - Configuration options
  * @param {number} options.scale - Visual scale factor (default: 1)
  * @param {number} options.color - Sphere color as hex (default: 0xffff00 yellow)
  * @param {number} options.sizeMultiplier - Size multiplier (default: 2)
  * @param {number} options.opacity - Material opacity (default: 0.9)
  * @param {number} options.renderOrder - Render order (default: 999)
  * @param {string} options.name - Mesh name (default: 'markerSphere')
- * @returns {THREE.Mesh} Sphere mesh ready to add to scene
+ * @return {THREE.Mesh} Sphere mesh ready to add to scene
  */
 export function createMarkerSphere(position, options = {}) {
 	const {
@@ -195,10 +195,10 @@ export function createMarkerSphere(position, options = {}) {
 /**
  * Create a text label mesh with texture
  * Shared function for creating 3D text labels
- * 
+ *
  * @param {string} text - Text to display
  * @param {THREE.Vector3} position - Position for the label
- * @param {Object} options - Configuration options
+ * @param {object} options - Configuration options
  * @param {number} options.scale - Visual scale factor (default: 1)
  * @param {number} options.widthMultiplier - Width multiplier (default: 30)
  * @param {number} options.heightMultiplier - Height multiplier (default: 7.5)
@@ -210,7 +210,7 @@ export function createMarkerSphere(position, options = {}) {
  * @param {number} options.canvasHeight - Canvas height (default: 128)
  * @param {number} options.renderOrder - Render order (default: 997)
  * @param {string} options.name - Mesh name (default: 'textLabel')
- * @returns {THREE.Mesh} Text mesh ready to add to scene
+ * @return {THREE.Mesh} Text mesh ready to add to scene
  */
 export function createTextMesh(text, position, options = {}) {
 	const {
@@ -295,14 +295,14 @@ export function clearRaycastCache(sceneId = null) {
  * @param {THREE.Scene} scene - Scene to cache objects for
  * @param {Function} filterMesh - Filter function for meshes
  * @param {string} cacheKey - Cache key for this filter combination
- * @returns {THREE.Object3D[]} Array of intersectable objects
+ * @return {THREE.Object3D[]} Array of intersectable objects
  */
 function getCachedIntersectableObjects(scene, filterMesh, cacheKey) {
 	// Check cache first
 	if (raycasterCache.has(cacheKey)) {
 		const cached = raycasterCache.get(cacheKey)
 		const now = Date.now()
-		
+
 		// Cache is valid for 5 seconds or until scene changes
 		if (now - cached.timestamp < 5000 && cached.scene === scene) {
 			return cached.objects
@@ -316,7 +316,7 @@ function getCachedIntersectableObjects(scene, filterMesh, cacheKey) {
 		if (!child.isMesh || !child.visible || !child.geometry || !child.material) {
 			return
 		}
-		
+
 		// Apply custom filter
 		if (filterMesh(child)) {
 			intersectableObjects.push(child)
@@ -336,16 +336,16 @@ function getCachedIntersectableObjects(scene, filterMesh, cacheKey) {
 /**
  * Perform raycasting to find 3D intersection point from mouse click
  * Optimized version with caching and early exit conditions
- * 
+ *
  * @param {MouseEvent} event - Mouse click event
  * @param {THREE.Camera} camera - Camera for raycasting
  * @param {THREE.Scene} scene - Scene to raycast against
- * @param {Object} options - Configuration options
+ * @param {object} options - Configuration options
  * @param {Function} options.filterMesh - Optional filter function (mesh => boolean)
  * @param {boolean} options.recursive - Recursive intersection (default: true)
  * @param {boolean} options.useCache - Whether to use object caching (default: true)
  * @param {number} options.maxDistance - Maximum raycast distance (default: 1000)
- * @returns {THREE.Vector3|null} Intersection point or null if no intersection
+ * @return {THREE.Vector3|null} Intersection point or null if no intersection
  */
 export function raycastIntersection(event, camera, scene, options = {}) {
 	const {

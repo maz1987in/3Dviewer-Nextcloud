@@ -18,7 +18,7 @@ export function removePlaceholders(scene) {
 
 	const placeholders = scene.children.filter(c => c.userData?.isPlaceholder)
 	placeholders.forEach(p => scene.remove(p))
-	
+
 	return placeholders.length
 }
 
@@ -42,9 +42,9 @@ export function removeByUserData(scene, key, value = undefined) {
 		// Match specific value
 		return c.userData?.[key] === value
 	})
-	
+
 	matching.forEach(obj => scene.remove(obj))
-	
+
 	return matching.length
 }
 
@@ -79,7 +79,7 @@ export function clearScene(scene) {
 	}
 
 	const count = scene.children.length
-	
+
 	// Remove all children (iterate backwards to avoid index issues)
 	for (let i = scene.children.length - 1; i >= 0; i--) {
 		const child = scene.children[i]
@@ -88,7 +88,7 @@ export function clearScene(scene) {
 			scene.remove(child)
 		}
 	}
-	
+
 	return count
 }
 
@@ -103,12 +103,12 @@ export function countObjectsByType(scene) {
 	}
 
 	const counts = {}
-	
+
 	scene.traverse((object) => {
 		const type = object.type || 'Unknown'
 		counts[type] = (counts[type] || 0) + 1
 	})
-	
+
 	return counts
 }
 
@@ -128,7 +128,7 @@ export function getAllMeshes(scene) {
 			meshes.push(object)
 		}
 	})
-	
+
 	return meshes
 }
 
@@ -148,6 +148,6 @@ export function getAllLights(scene) {
 			lights.push(object)
 		}
 	})
-	
+
 	return lights
 }

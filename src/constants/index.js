@@ -1,9 +1,9 @@
 /**
  * Application constants and configuration values
- * 
+ *
  * NOTE: For configurable settings (performance thresholds, camera settings, lighting, etc.),
  * see src/config/viewer-config.js which is the single source of truth for all viewer configuration.
- * 
+ *
  * This file contains ONLY app-level constants:
  * - Event names
  * - Error types and codes

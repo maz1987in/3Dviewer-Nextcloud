@@ -55,7 +55,7 @@ export const CAMERA_SETTINGS = {
 	// Orthographic camera settings
 	orthographic: {
 		zoom: 1,
-		frustumSize: 10,  // Controls the viewing volume size
+		frustumSize: 10, // Controls the viewing volume size
 	},
 	defaultProjection: 'perspective', // 'perspective' or 'orthographic'
 	position: {
@@ -232,8 +232,8 @@ export const DEMO_SCENE_CONFIG = {
 export const CACHE_SETTINGS = {
 	enabled: true,
 	expirationDays: 7,
-	maxSizeMB: 100,  // Maximum total cache size
-	maxFileSizeMB: 10,  // Maximum individual file size to cache
+	maxSizeMB: 100, // Maximum total cache size
+	maxFileSizeMB: 10, // Maximum individual file size to cache
 	autoCleanup: true,
 	dbName: '3DViewerCache',
 	dbVersion: 1,
@@ -244,14 +244,14 @@ export const CACHE_SETTINGS = {
  */
 export const PROGRESSIVE_LOADING_SETTINGS = {
 	enabled: true,
-	textureBatchSize: 3,  // Load 3 textures at a time
-	textureDelay: 100,    // 100ms delay between batches
-	showProgress: true,   // Show texture loading indicator
+	textureBatchSize: 3, // Load 3 textures at a time
+	textureDelay: 100, // 100ms delay between batches
+	showProgress: true, // Show texture loading indicator
 }
 
 export const COMPRESSION_SETTINGS = {
-	ktx2Enabled: true,    // Enable KTX2 texture compression support
-	dracoEnabled: true,   // Enable DRACO geometry compression support
+	ktx2Enabled: true, // Enable KTX2 texture compression support
+	dracoEnabled: true, // Enable DRACO geometry compression support
 	// Decoder paths are handled by AssetController
 	// DRACO: /apps/threedviewer/draco/
 	// Basis (KTX2): /apps/threedviewer/basis/
@@ -281,11 +281,11 @@ export const FILE_SIZE_CATEGORIES = {
 
 /**
  * Supported file formats with metadata
- * 
+ *
  * This is the SINGLE SOURCE OF TRUTH for all supported 3D model formats.
  * All other format lists (loaders, PHP backend, help text) are derived from this.
- * 
- * @typedef {Object} FormatMetadata
+ *
+ * @typedef {object} FormatMetadata
  * @property {string} name - Display name (uppercase)
  * @property {string} description - Human-readable description
  * @property {string} mimeType - Primary MIME type for backend

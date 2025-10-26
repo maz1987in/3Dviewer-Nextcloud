@@ -11,7 +11,7 @@ import { VIEWER_CONFIG } from '../config/viewer-config.js'
 
 export function usePerformance() {
 	// Performance state
-	const performanceMode = ref('auto')  // Default to auto mode for smart detection
+	const performanceMode = ref('auto') // Default to auto mode for smart detection
 	const targetFPS = ref(60)
 	const currentFPS = ref(0)
 	const frameTime = ref(0)
@@ -61,7 +61,7 @@ export function usePerformance() {
 	/**
 	 * Detect browser capabilities and recommend performance mode
 	 * @param {THREE.WebGLRenderer} renderer - WebGL renderer
-	 * @returns {string} Recommended performance mode
+	 * @return {string} Recommended performance mode
 	 */
 	const detectBrowserCapabilities = (renderer) => {
 		let score = 0
@@ -74,16 +74,16 @@ export function usePerformance() {
 			capabilities.webglVersion = renderer.capabilities.isWebGL2 ? 2 : 1
 			capabilities.maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE)
 			capabilities.maxVertexUniforms = gl.getParameter(gl.MAX_VERTEX_UNIFORM_VECTORS)
-			
+
 			// WebGL 2 support adds points
 			if (capabilities.webglVersion === 2) score += scores.webgl2Bonus
-			
+
 			// Large texture support
 			if (capabilities.maxTextureSize >= 8192) score += scores.largeTextureBonus
 			if (capabilities.maxTextureSize >= 16384) score += scores.veryLargeTextureBonus
 		}
 
-			// Check device pixel ratio (indicator of high-DPI display)
+		// Check device pixel ratio (indicator of high-DPI display)
 		capabilities.devicePixelRatio = window.devicePixelRatio || 1
 		if (capabilities.devicePixelRatio >= 2) score += scores.highDPIBonus
 
@@ -122,7 +122,7 @@ export function usePerformance() {
 		} else if (score >= thresholds.balancedMode) {
 			recommendedMode = 'balanced' // Mid-range
 		} else if (score >= thresholds.lowMode) {
-			recommendedMode = 'balanced' // Lower mid-range  
+			recommendedMode = 'balanced' // Lower mid-range
 		} else {
 			recommendedMode = 'low' // Low-end or mobile
 		}
@@ -147,25 +147,25 @@ export function usePerformance() {
 		if (performanceMode.value === 'auto') {
 			const recommendedMode = detectBrowserCapabilities(renderer)
 			logger.info('usePerformance', 'Auto mode: applying recommended settings', { recommendedMode })
-			
+
 			const qualityLevels = VIEWER_CONFIG.performanceDetection.qualityLevels
 			const quality = qualityLevels[recommendedMode]
-			
+
 			pixelRatio.value = quality.pixelRatio
 			antialias.value = quality.antialias
 			shadows.value = quality.shadows
-			
+
 			if (recommendedMode === 'high') {
 				occlusionCulling.value = true
 			}
-			
+
 			// Disable auto-optimization in auto mode since we already detected optimal settings
 			autoOptimize.value = false
 		}
 
 		// Set initial performance settings
 		applyPerformanceSettings(renderer)
-		
+
 		// Start performance monitoring
 		startPerformanceMonitoring()
 
@@ -244,7 +244,7 @@ export function usePerformance() {
 			if (renderer) {
 				const recommendedMode = detectBrowserCapabilities(renderer)
 				logger.info('usePerformance', 'Auto mode: applying recommended settings', { recommendedMode })
-				
+
 				switch (recommendedMode) {
 				case 'low':
 					pixelRatio.value = 0.75
@@ -270,7 +270,7 @@ export function usePerformance() {
 				shadows.value = true
 				pixelRatio.value = 1
 			}
-			
+
 			lodEnabled.value = true
 			frustumCulling.value = true
 			targetFPS.value = 60
@@ -295,7 +295,7 @@ export function usePerformance() {
 
 		// Calculate final pixel ratio
 		const finalPixelRatio = Math.min(pixelRatio.value, maxPixelRatio.value)
-		
+
 		// Store current size before changing pixel ratio
 		const currentSize = renderer.getSize(new THREE.Vector2())
 		const oldPixelRatio = renderer.getPixelRatio()

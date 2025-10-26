@@ -323,20 +323,20 @@ export function useUI() {
 		const presets = getUIPresets()
 		const preset = presets[presetName]
 
-	if (!preset) {
-		logger.warn('useUI', 'Unknown UI preset', { presetName })
-		return
-	}
+		if (!preset) {
+			logger.warn('useUI', 'Unknown UI preset', { presetName })
+			return
+		}
 
-	// Apply preset values
-	showGrid.value = preset.showGrid
-	showAxes.value = preset.showAxes
-	wireframe.value = preset.wireframe
-	background.value = preset.background
-	autoRotate.value = preset.autoRotate
-	performanceMode.value = preset.performanceMode
+		// Apply preset values
+		showGrid.value = preset.showGrid
+		showAxes.value = preset.showAxes
+		wireframe.value = preset.wireframe
+		background.value = preset.background
+		autoRotate.value = preset.autoRotate
+		performanceMode.value = preset.performanceMode
 
-	// Apply to context objects
+		// Apply to context objects
 		if (context.grid) {
 			context.grid.visible = showGrid.value
 		}

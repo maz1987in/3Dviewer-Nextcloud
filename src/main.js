@@ -15,17 +15,17 @@ if (typeof window !== 'undefined') {
 
 // Supported MIME types for 3D models
 const SUPPORTED_MIMES = [
-	'model/gltf-binary',  // .glb
-	'model/gltf+json',    // .gltf
-	'model/obj',          // .obj
-	'model/stl',          // .stl
-	'application/sla',    // .stl alternative
+	'model/gltf-binary', // .glb
+	'model/gltf+json', // .gltf
+	'model/obj', // .obj
+	'model/stl', // .stl
+	'application/sla', // .stl alternative
 	'model/vnd.collada+xml', // .dae
-	'model/x.fbx',        // .fbx
-	'model/3mf',          // .3mf
-	'application/x-3ds',  // .3ds
-	'model/x.ply',        // .ply
-	'model/ply',          // .ply alternative
+	'model/x.fbx', // .fbx
+	'model/3mf', // .3mf
+	'application/x-3ds', // .3ds
+	'model/x.ply', // .ply
+	'model/ply', // .ply alternative
 ]
 
 // Mode 1: Register simple viewer handler with Viewer API (modal preview)

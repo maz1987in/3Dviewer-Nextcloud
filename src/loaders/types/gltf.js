@@ -47,7 +47,7 @@ class GltfLoader extends BaseLoader {
 		try {
 			// Create a map of blob URLs for each file
 			const resourceMap = new Map()
-			
+
 			// Convert each File to a blob URL
 			for (const file of additionalFiles) {
 				const blob = new Blob([file], { type: file.type || 'application/octet-stream' })
@@ -58,33 +58,33 @@ class GltfLoader extends BaseLoader {
 
 			// Create a custom LoadingManager with URL modifier
 			const manager = new THREE.LoadingManager()
-			
+
 			manager.setURLModifier((url) => {
 				// Extract filename from URL
 				const filename = url.split('/').pop().split('?')[0]
-				
+
 				// Check if we have this file
 				if (resourceMap.has(filename)) {
 					const blobUrl = resourceMap.get(filename)
 					this.logInfo('Resolving resource from blob:', filename)
 					return blobUrl
 				}
-				
+
 				// Return original URL if not found
 				this.logWarning('Resource not found in map, using original URL:', filename)
 				return url
 			})
-			
+
 			// Set the custom manager on the loader
 			this.loader.manager = manager
 
-			this.logInfo('Resource manager setup complete', { 
+			this.logInfo('Resource manager setup complete', {
 				resources: additionalFiles.length,
-				files: Array.from(resourceMap.keys())
+				files: Array.from(resourceMap.keys()),
 			})
 		} catch (error) {
-			this.logWarning('Failed to setup resource manager', { 
-				error: error.message 
+			this.logWarning('Failed to setup resource manager', {
+				error: error.message,
 			})
 		}
 	}
@@ -162,4 +162,3 @@ class GltfLoader extends BaseLoader {
 }
 
 export { GltfLoader }
-

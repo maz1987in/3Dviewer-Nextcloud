@@ -1,10 +1,15 @@
 <template>
 	<div class="help-panel-backdrop" @click="close">
-		<div class="help-panel" @click.stop role="dialog" aria-labelledby="help-title">
+		<div class="help-panel"
+			role="dialog"
+			aria-labelledby="help-title"
+			@click.stop>
 			<!-- Header -->
 			<div class="help-header">
-				<h2 id="help-title">{{ t('threedviewer', '3D Viewer Help') }}</h2>
-				<button class="close-btn" @click="close" :aria-label="t('threedviewer', 'Close help')">
+				<h2 id="help-title">
+					{{ t('threedviewer', '3D Viewer Help') }}
+				</h2>
+				<button class="close-btn" :aria-label="t('threedviewer', 'Close help')" @click="close">
 					×
 				</button>
 			</div>
@@ -261,33 +266,33 @@ import { FORMATS_DISPLAY_LIST } from '../config/viewer-config.js'
 
 export default {
 	name: 'HelpPanel',
-	
+
 	emits: ['close'],
-	
+
 	setup(props, { emit }) {
 		const close = () => {
 			emit('close')
 		}
-		
+
 		// Handle Escape key to close
 		const handleKeydown = (event) => {
 			if (event.key === 'Escape') {
 				close()
 			}
 		}
-		
+
 		// Add event listener on mount
 		if (typeof window !== 'undefined') {
 			window.addEventListener('keydown', handleKeydown)
 		}
-		
+
 		// Cleanup on unmount
 		const cleanup = () => {
 			if (typeof window !== 'undefined') {
 				window.removeEventListener('keydown', handleKeydown)
 			}
 		}
-		
+
 		return {
 			t,
 			close,
@@ -295,7 +300,7 @@ export default {
 			supportedFormats: FORMATS_DISPLAY_LIST,
 		}
 	},
-	
+
 	beforeUnmount() {
 		this.cleanup()
 	},
@@ -531,34 +536,34 @@ export default {
 		border-radius: 0;
 		margin: 0;
 	}
-	
+
 	.help-header {
 		border-radius: 0;
 		padding: 16px 20px;
 	}
-	
+
 	.help-header h2 {
 		font-size: 20px;
 	}
-	
+
 	.help-content {
 		padding: 20px;
 	}
-	
+
 	.help-grid {
 		grid-template-columns: 1fr;
 	}
-	
+
 	.help-section {
 		margin-bottom: 24px;
 	}
-	
+
 	.shortcut-row {
 		flex-direction: column;
 		align-items: flex-start;
 		gap: 8px;
 	}
-	
+
 	.shortcut-row kbd {
 		min-width: 60px;
 	}
@@ -597,7 +602,7 @@ export default {
 	.help-panel {
 		animation: none;
 	}
-	
+
 	.help-item {
 		transition: none;
 	}
@@ -622,4 +627,3 @@ export default {
 	background: var(--color-primary-element-hover);
 }
 </style>
-

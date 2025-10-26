@@ -26,15 +26,15 @@ registerFileAction(new FileAction({
 	displayName: () => 'View in 3D',
 	iconSvgInline: () => '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 7v10c0 5.55 3.84 9.74 9 11 5.16-1.26 9-5.45 9-11V7l-10-5z"/></svg>',
 	default: DefaultType.HIDDEN, // Make this the default action
-	
+
 	enabled(nodes) {
 		// Enable for single 3D model files
-		return nodes.length === 1 
-			&& nodes[0].mime 
+		return nodes.length === 1
+			&& nodes[0].mime
 			&& SUPPORTED_MIMES.includes(nodes[0].mime)
 			&& (nodes[0].permissions & Permission.READ) !== 0
 	},
-	
+
 	async exec(node) {
 		// Open in Viewer app
 		if (window.OCA?.Viewer) {
@@ -46,7 +46,7 @@ registerFileAction(new FileAction({
 		}
 		return false
 	},
-	
+
 	order: -1, // Higher priority than default actions
 }))
 

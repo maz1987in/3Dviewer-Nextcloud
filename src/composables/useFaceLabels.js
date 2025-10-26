@@ -110,7 +110,7 @@ export function useFaceLabels() {
 				const labelPos = new THREE.Vector3(
 					center.x + (size.x / 2) * config.position[0] + config.offset[0],
 					center.y + (size.y / 2) * config.position[1] + config.offset[1],
-					center.z + (size.z / 2) * config.position[2] + config.offset[2]
+					center.z + (size.z / 2) * config.position[2] + config.offset[2],
 				)
 
 				// Create label element
@@ -124,7 +124,7 @@ export function useFaceLabels() {
 				labels.value.push(label)
 
 				logger.info('useFaceLabels', `Added ${face} label`, {
-					position: { x: labelPos.x, y: labelPos.y, z: labelPos.z }
+					position: { x: labelPos.x, y: labelPos.y, z: labelPos.z },
 				})
 			})
 
@@ -227,4 +227,3 @@ export function useFaceLabels() {
 		dispose,
 	}
 }
-

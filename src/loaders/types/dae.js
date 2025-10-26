@@ -34,7 +34,7 @@ class DaeLoader extends BaseLoader {
 		if (!daeScene) {
 			throw new Error('No scene found in DAE file')
 		}
-		
+
 		// DAE (Collada) uses Z-up coordinate system by specification
 		// Rotate to Y-up (Three.js standard) by rotating -90° around X-axis
 		daeScene.rotation.x = -Math.PI / 2
@@ -53,6 +53,7 @@ class DaeLoader extends BaseLoader {
 
 		return result
 	}
+
 }
 
 // Export the class as default so the registry can instantiate it

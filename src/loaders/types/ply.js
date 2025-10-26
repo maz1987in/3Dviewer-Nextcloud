@@ -25,7 +25,7 @@ class PlyLoader extends BaseLoader {
 
 		// Parse the PLY geometry
 		const geometry = this.loader.parse(arrayBuffer)
-		
+
 		if (!geometry || geometry.attributes.position.count === 0) {
 			throw new Error('No valid geometry found in PLY file')
 		}
@@ -41,7 +41,7 @@ class PlyLoader extends BaseLoader {
 
 		// Create mesh
 		const mesh = this.createMesh(geometry, material)
-		
+
 		// PLY files are often exported with Z-up coordinate system
 		// Rotate to Y-up (Three.js standard) by rotating -90° around X-axis
 		mesh.rotation.x = -Math.PI / 2

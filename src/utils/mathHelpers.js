@@ -7,7 +7,7 @@
  * Calculate average of array values
  * @param {Array<number>|Array<object>} array - Array of numbers or objects
  * @param {string|null} property - Property name if array contains objects
- * @returns {number} Average value (0 if array is empty)
+ * @return {number} Average value (0 if array is empty)
  */
 export function average(array, property = null) {
 	if (!Array.isArray(array) || array.length === 0) {
@@ -25,7 +25,7 @@ export function average(array, property = null) {
  * Calculate sum of array values
  * @param {Array<number>|Array<object>} array - Array of numbers or objects
  * @param {string|null} property - Property name if array contains objects
- * @returns {number} Sum of values
+ * @return {number} Sum of values
  */
 export function sum(array, property = null) {
 	if (!Array.isArray(array) || array.length === 0) {
@@ -40,7 +40,7 @@ export function sum(array, property = null) {
 /**
  * Calculate median of array values
  * @param {Array<number>} array - Array of numbers
- * @returns {number} Median value (0 if array is empty)
+ * @return {number} Median value (0 if array is empty)
  */
 export function median(array) {
 	if (!Array.isArray(array) || array.length === 0) {
@@ -62,7 +62,7 @@ export function median(array) {
  * @param {number} value - Value to clamp
  * @param {number} min - Minimum value
  * @param {number} max - Maximum value
- * @returns {number} Clamped value
+ * @return {number} Clamped value
  */
 export function clamp(value, min, max) {
 	return Math.max(min, Math.min(max, value))
@@ -73,7 +73,7 @@ export function clamp(value, min, max) {
  * @param {number} start - Start value
  * @param {number} end - End value
  * @param {number} t - Interpolation factor (0-1)
- * @returns {number} Interpolated value
+ * @return {number} Interpolated value
  */
 export function lerp(start, end, t) {
 	return start + (end - start) * clamp(t, 0, 1)
@@ -86,7 +86,7 @@ export function lerp(start, end, t) {
  * @param {number} inMax - Input range maximum
  * @param {number} outMin - Output range minimum
  * @param {number} outMax - Output range maximum
- * @returns {number} Mapped value
+ * @return {number} Mapped value
  */
 export function mapRange(value, inMin, inMax, outMin, outMax) {
 	return ((value - inMin) * (outMax - outMin)) / (inMax - inMin) + outMin
@@ -96,7 +96,7 @@ export function mapRange(value, inMin, inMax, outMin, outMax) {
  * Round a number to specified decimal places
  * @param {number} value - Value to round
  * @param {number} decimals - Number of decimal places (default: 2)
- * @returns {number} Rounded value
+ * @return {number} Rounded value
  */
 export function roundTo(value, decimals = 2) {
 	const factor = Math.pow(10, decimals)
@@ -108,7 +108,7 @@ export function roundTo(value, decimals = 2) {
  * @param {number} value - Part value
  * @param {number} total - Total value
  * @param {number} decimals - Number of decimal places (default: 0)
- * @returns {number} Percentage (0-100)
+ * @return {number} Percentage (0-100)
  */
 export function percentage(value, total, decimals = 0) {
 	if (total === 0) return 0
@@ -119,7 +119,7 @@ export function percentage(value, total, decimals = 0) {
  * Calculate minimum value in array
  * @param {Array<number>|Array<object>} array - Array of numbers or objects
  * @param {string|null} property - Property name if array contains objects
- * @returns {number} Minimum value (Infinity if array is empty)
+ * @return {number} Minimum value (Infinity if array is empty)
  */
 export function min(array, property = null) {
 	if (!Array.isArray(array) || array.length === 0) {
@@ -137,7 +137,7 @@ export function min(array, property = null) {
  * Calculate maximum value in array
  * @param {Array<number>|Array<object>} array - Array of numbers or objects
  * @param {string|null} property - Property name if array contains objects
- * @returns {number} Maximum value (-Infinity if array is empty)
+ * @return {number} Maximum value (-Infinity if array is empty)
  */
 export function max(array, property = null) {
 	if (!Array.isArray(array) || array.length === 0) {
@@ -155,13 +155,13 @@ export function max(array, property = null) {
  * Throttle a function to limit how often it can be called
  * @param {Function} func - Function to throttle
  * @param {number} delay - Delay in milliseconds
- * @returns {Function} Throttled function
+ * @return {Function} Throttled function
  */
 export function throttle(func, delay) {
 	let timeoutId = null
 	let lastExecTime = 0
 
-	return function (...args) {
+	return function(...args) {
 		const currentTime = Date.now()
 
 		if (currentTime - lastExecTime > delay) {
@@ -181,12 +181,12 @@ export function throttle(func, delay) {
  * Debounce a function to delay its execution until after a period of inactivity
  * @param {Function} func - Function to debounce
  * @param {number} delay - Delay in milliseconds
- * @returns {Function} Debounced function
+ * @return {Function} Debounced function
  */
 export function debounce(func, delay) {
 	let timeoutId = null
 
-	return function (...args) {
+	return function(...args) {
 		clearTimeout(timeoutId)
 		timeoutId = setTimeout(() => {
 			func.apply(this, args)

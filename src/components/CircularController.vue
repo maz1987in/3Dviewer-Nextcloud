@@ -6,7 +6,6 @@
 		:style="controllerStyle"
 		role="region"
 		:aria-label="t('threedviewer', '3D navigation controller')">
-		
 		<div class="controller-layers">
 			<!-- Outer zoom ring with tick marks (visual only) -->
 			<div class="zoom-ring">
@@ -28,7 +27,6 @@
 				</svg>
 			</div>
 
-
 			<!-- Movement ring (full interactive area) -->
 			<div
 				class="movement-ring"
@@ -37,7 +35,6 @@
 				:title="isPanningMode ? t('threedviewer', 'Click anywhere to pan - farther from center = faster') : t('threedviewer', 'Click anywhere to rotate - farther from center = faster')"
 				@mousedown="handleMovementStart"
 				@touchstart.prevent="handleMovementTouchStart">
-				
 				<!-- Directional arrows (visual indicators only) -->
 				<div class="arrow-indicators">
 					<div
@@ -49,55 +46,55 @@
 					</div>
 				</div>
 
-			<!-- Zoom buttons (replacing left/right arrows) -->
-			<button
-				class="zoom-btn zoom-out"
-				:aria-label="t('threedviewer', 'Zoom Out')"
-				:title="t('threedviewer', 'Zoom Out')"
-				@click.stop="handleZoomOut"
-				@mousedown.stop="handleZoomOutStart"
-				@mouseup.stop="handleZoomStop"
-				@mouseleave.stop="handleZoomStop"
-				@touchstart.stop="handleZoomOutStart"
-				@touchend.stop="handleZoomStop">
-				−
-			</button>
-			<button
-				class="zoom-btn zoom-in"
-				:aria-label="t('threedviewer', 'Zoom In')"
-				:title="t('threedviewer', 'Zoom In')"
-				@click.stop="handleZoomIn"
-				@mousedown.stop="handleZoomInStart"
-				@mouseup.stop="handleZoomStop"
-				@mouseleave.stop="handleZoomStop"
-				@touchstart.stop="handleZoomInStart"
-				@touchend.stop="handleZoomStop">
-				+
-			</button>
+				<!-- Zoom buttons (replacing left/right arrows) -->
+				<button
+					class="zoom-btn zoom-out"
+					:aria-label="t('threedviewer', 'Zoom Out')"
+					:title="t('threedviewer', 'Zoom Out')"
+					@click.stop="handleZoomOut"
+					@mousedown.stop="handleZoomOutStart"
+					@mouseup.stop="handleZoomStop"
+					@mouseleave.stop="handleZoomStop"
+					@touchstart.stop="handleZoomOutStart"
+					@touchend.stop="handleZoomStop">
+					−
+				</button>
+				<button
+					class="zoom-btn zoom-in"
+					:aria-label="t('threedviewer', 'Zoom In')"
+					:title="t('threedviewer', 'Zoom In')"
+					@click.stop="handleZoomIn"
+					@mousedown.stop="handleZoomInStart"
+					@mouseup.stop="handleZoomStop"
+					@mouseleave.stop="handleZoomStop"
+					@touchstart.stop="handleZoomInStart"
+					@touchend.stop="handleZoomStop">
+					+
+				</button>
 
-			<!-- Panning mode toggle button -->
-			<button
-				class="mode-btn panning-toggle"
-				:class="{ active: isPanningMode }"
-				:aria-label="isPanningMode ? t('threedviewer', 'Switch to Rotation Mode') : t('threedviewer', 'Switch to Panning Mode')"
-				:title="isPanningMode ? t('threedviewer', 'Switch to Rotation Mode') : t('threedviewer', 'Switch to Panning Mode')"
-				@click.stop="togglePanningMode">
-				{{ isPanningMode ? '↻' : '↔' }}
-			</button>
+				<!-- Panning mode toggle button -->
+				<button
+					class="mode-btn panning-toggle"
+					:class="{ active: isPanningMode }"
+					:aria-label="isPanningMode ? t('threedviewer', 'Switch to Rotation Mode') : t('threedviewer', 'Switch to Panning Mode')"
+					:title="isPanningMode ? t('threedviewer', 'Switch to Rotation Mode') : t('threedviewer', 'Switch to Panning Mode')"
+					@click.stop="togglePanningMode">
+					{{ isPanningMode ? '↻' : '↔' }}
+				</button>
 
-			<!-- Panning reset button (only visible in panning mode) -->
-			<button
-				v-if="isPanningMode"
-				class="mode-btn panning-reset"
-				@click.stop="resetPanning"
-				:aria-label="t('threedviewer', 'Reset camera position')"
-				:title="t('threedviewer', 'Reset camera position')">
-				⌂
-			</button>
-			
-			<!-- Inner dashed ring (visual guide) -->
-			<div class="orbit-ring-visual" />
-				
+				<!-- Panning reset button (only visible in panning mode) -->
+				<button
+					v-if="isPanningMode"
+					class="mode-btn panning-reset"
+					:aria-label="t('threedviewer', 'Reset camera position')"
+					:title="t('threedviewer', 'Reset camera position')"
+					@click.stop="resetPanning">
+					⌂
+				</button>
+
+				<!-- Inner dashed ring (visual guide) -->
+				<div class="orbit-ring-visual" />
+
 				<!-- Center dot indicator -->
 				<div class="center-dot" />
 			</div>
@@ -209,12 +206,14 @@ export default {
 
 		/**
 		 * Create canvas with text label for cube faces
+		 * @param text
+		 * @param color
 		 */
-			const createTextCanvas = (text, color = '#4287f5') => {
-		const canvas = document.createElement('canvas')
-		const size = VIEWER_CONFIG.texture.cubeTextureSize
-		canvas.width = size
-		canvas.height = size
+		const createTextCanvas = (text, color = '#4287f5') => {
+			const canvas = document.createElement('canvas')
+			const size = VIEWER_CONFIG.texture.cubeTextureSize
+			canvas.width = size
+			canvas.height = size
 
 			const context = canvas.getContext('2d')
 
@@ -252,7 +251,7 @@ export default {
 				cubeCamera.value = new THREE.OrthographicCamera(
 					-size / 2, size / 2,
 					size / 2, -size / 2,
-					1, 1000
+					1, 1000,
 				)
 				cubeCamera.value.position.set(0, 0, 200)
 
@@ -286,7 +285,7 @@ export default {
 
 				// Setup click interaction
 				setupCubeClickHandler()
-				
+
 				// Setup rotation stop handler
 				setupRotationStopHandler()
 
@@ -302,218 +301,218 @@ export default {
 		/**
 		 * Setup click handler for cube face selection
 		 */
-	const setupRotationStopHandler = () => {
+		const setupRotationStopHandler = () => {
 		// No longer needed - drag-to-rotate doesn't require global stop handler
-	}
+		}
 		// Double-click tracking
 		const lastClickTime = ref(0)
 		const lastClickedFace = ref(null)
 		const DOUBLE_CLICK_DELAY = VIEWER_CONFIG.interaction.doubleClickDelay // ms
 
-	// Cube drag rotation state
-	const isDraggingCube = ref(false)
-	const cubeDragStart = ref({ x: 0, y: 0 })
-	const lastCubeDragPos = ref({ x: 0, y: 0 })
-	const hasCubeDragStarted = ref(false) // Track if actual drag movement has started
+		// Cube drag rotation state
+		const isDraggingCube = ref(false)
+		const cubeDragStart = ref({ x: 0, y: 0 })
+		const lastCubeDragPos = ref({ x: 0, y: 0 })
+		const hasCubeDragStarted = ref(false) // Track if actual drag movement has started
 
-	const setupCubeClickHandler = () => {
-		if (!cubeRenderer.value) return
+		const setupCubeClickHandler = () => {
+			if (!cubeRenderer.value) return
 
-		const canvas = cubeRenderer.value.domElement
+			const canvas = cubeRenderer.value.domElement
 
-		// Handle mousedown - start drag or detect click
-		canvas.addEventListener('mousedown', (event) => {
-			const rect = canvas.getBoundingClientRect()
-			mouse.value.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
-			mouse.value.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
+			// Handle mousedown - start drag or detect click
+			canvas.addEventListener('mousedown', (event) => {
+				const rect = canvas.getBoundingClientRect()
+				mouse.value.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
+				mouse.value.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
 
-			raycaster.value.setFromCamera(mouse.value, cubeCamera.value)
-			const intersects = raycaster.value.intersectObject(cubeMesh.value)
+				raycaster.value.setFromCamera(mouse.value, cubeCamera.value)
+				const intersects = raycaster.value.intersectObject(cubeMesh.value)
 
-			if (intersects.length > 0) {
-				const faceIndex = Math.floor(intersects[0].faceIndex / 2)
-				const faceNames = ['RIGHT', 'LEFT', 'TOP', 'BOTTOM', 'FRONT', 'BACK']
-				const faceName = faceNames[faceIndex]
+				if (intersects.length > 0) {
+					const faceIndex = Math.floor(intersects[0].faceIndex / 2)
+					const faceNames = ['RIGHT', 'LEFT', 'TOP', 'BOTTOM', 'FRONT', 'BACK']
+					const faceName = faceNames[faceIndex]
 
-				// Check for double-click
-				const currentTime = Date.now()
-				const timeSinceLastClick = currentTime - lastClickTime.value
+					// Check for double-click
+					const currentTime = Date.now()
+					const timeSinceLastClick = currentTime - lastClickTime.value
 
-				if (timeSinceLastClick < DOUBLE_CLICK_DELAY && lastClickedFace.value === faceName) {
+					if (timeSinceLastClick < DOUBLE_CLICK_DELAY && lastClickedFace.value === faceName) {
 					// Double-click detected - snap to view
-					logger.info('CircularController', 'Cube face double-clicked - snapping to view', { face: faceName })
-					emit('snap-to-view', { viewName: faceName })
-					lastClickedFace.value = null
-					lastClickTime.value = 0
-			} else {
-				// Prepare for potential drag
-				cubeDragStart.value = { x: event.clientX, y: event.clientY }
+						logger.info('CircularController', 'Cube face double-clicked - snapping to view', { face: faceName })
+						emit('snap-to-view', { viewName: faceName })
+						lastClickedFace.value = null
+						lastClickTime.value = 0
+					} else {
+						// Prepare for potential drag
+						cubeDragStart.value = { x: event.clientX, y: event.clientY }
+						lastCubeDragPos.value = { x: event.clientX, y: event.clientY }
+						lastClickedFace.value = faceName
+						lastClickTime.value = currentTime
+						isDraggingCube.value = true
+						hasCubeDragStarted.value = false // Reset drag started flag
+
+						logger.info('CircularController', 'Cube drag prepared', { face: faceName })
+					}
+				}
+			})
+
+			// Handle mousemove - rotate based on drag
+			const handleCubeDrag = (event) => {
+				if (!isDraggingCube.value) return
+
+				// Calculate total distance from drag start
+				const totalDeltaX = event.clientX - cubeDragStart.value.x
+				const totalDeltaY = event.clientY - cubeDragStart.value.y
+				const totalDistance = Math.sqrt(totalDeltaX * totalDeltaX + totalDeltaY * totalDeltaY)
+
+				// Only start emitting rotation events after a minimum movement threshold
+				// This prevents tiny accidental movements on click
+				const MIN_DRAG_THRESHOLD = VIEWER_CONFIG.interaction.dragThreshold // pixels
+				if (!hasCubeDragStarted.value && totalDistance < MIN_DRAG_THRESHOLD) {
+					return // Ignore movement until threshold is exceeded
+				}
+
+				// Mark that drag has actually started
+				if (!hasCubeDragStarted.value) {
+					hasCubeDragStarted.value = true
+					// Reset last position to current position to avoid large initial delta
+					lastCubeDragPos.value = { x: event.clientX, y: event.clientY }
+					logger.info('CircularController', 'Cube drag actually started - threshold exceeded')
+					return // Skip first frame after threshold
+				}
+
+				// Calculate deltas: moving mouse up/down = vertical rotation, left/right = horizontal rotation
+				const deltaY = event.clientY - lastCubeDragPos.value.y // Mouse Y movement
+				const deltaX = event.clientX - lastCubeDragPos.value.x // Mouse X movement
+
+				// Skip if no actual movement (prevents zero-delta events)
+				if (deltaX === 0 && deltaY === 0) return
+
+				// Update last position
 				lastCubeDragPos.value = { x: event.clientX, y: event.clientY }
-				lastClickedFace.value = faceName
-				lastClickTime.value = currentTime
-				isDraggingCube.value = true
-				hasCubeDragStarted.value = false // Reset drag started flag
-				
-				logger.info('CircularController', 'Cube drag prepared', { face: faceName })
+
+				// Emit rotation with sensitivity adjustment
+				// Both directions are now natural - drag direction matches rotation
+				const sensitivity = VIEWER_CONFIG.interaction.cubeDragSensitivity
+				emit('camera-rotate', {
+					deltaX: deltaX * sensitivity, // Horizontal mouse movement → X-axis rotation (natural)
+					deltaY: deltaY * sensitivity, // Vertical mouse movement → Y-axis rotation (natural)
+				})
 			}
+
+			// Handle mouseup - stop drag
+			const handleCubeMouseUp = () => {
+				if (isDraggingCube.value) {
+					logger.info('CircularController', 'Cube drag ended')
+					isDraggingCube.value = false
+					hasCubeDragStarted.value = false
+				}
 			}
-		})
 
-	// Handle mousemove - rotate based on drag
-	const handleCubeDrag = (event) => {
-		if (!isDraggingCube.value) return
+			// Add event listeners
+			document.addEventListener('mousemove', handleCubeDrag)
+			document.addEventListener('mouseup', handleCubeMouseUp)
 
-		// Calculate total distance from drag start
-		const totalDeltaX = event.clientX - cubeDragStart.value.x
-		const totalDeltaY = event.clientY - cubeDragStart.value.y
-		const totalDistance = Math.sqrt(totalDeltaX * totalDeltaX + totalDeltaY * totalDeltaY)
+			// Touch support
+			canvas.addEventListener('touchstart', (event) => {
+				if (event.touches.length !== 1) return
 
-		// Only start emitting rotation events after a minimum movement threshold
-		// This prevents tiny accidental movements on click
-		const MIN_DRAG_THRESHOLD = VIEWER_CONFIG.interaction.dragThreshold // pixels
-		if (!hasCubeDragStarted.value && totalDistance < MIN_DRAG_THRESHOLD) {
-			return // Ignore movement until threshold is exceeded
-		}
+				const touch = event.touches[0]
+				const rect = canvas.getBoundingClientRect()
+				mouse.value.x = ((touch.clientX - rect.left) / rect.width) * 2 - 1
+				mouse.value.y = -((touch.clientY - rect.top) / rect.height) * 2 + 1
 
-		// Mark that drag has actually started
-		if (!hasCubeDragStarted.value) {
-			hasCubeDragStarted.value = true
-			// Reset last position to current position to avoid large initial delta
-			lastCubeDragPos.value = { x: event.clientX, y: event.clientY }
-			logger.info('CircularController', 'Cube drag actually started - threshold exceeded')
-			return // Skip first frame after threshold
-		}
+				raycaster.value.setFromCamera(mouse.value, cubeCamera.value)
+				const intersects = raycaster.value.intersectObject(cubeMesh.value)
 
-		// Calculate deltas: moving mouse up/down = vertical rotation, left/right = horizontal rotation
-		const deltaY = event.clientY - lastCubeDragPos.value.y // Mouse Y movement
-		const deltaX = event.clientX - lastCubeDragPos.value.x // Mouse X movement
+				if (intersects.length > 0) {
+					const faceIndex = Math.floor(intersects[0].faceIndex / 2)
+					const faceNames = ['RIGHT', 'LEFT', 'TOP', 'BOTTOM', 'FRONT', 'BACK']
+					const faceName = faceNames[faceIndex]
 
-		// Skip if no actual movement (prevents zero-delta events)
-		if (deltaX === 0 && deltaY === 0) return
+					// Check for double-tap
+					const currentTime = Date.now()
+					const timeSinceLastClick = currentTime - lastClickTime.value
 
-		// Update last position
-		lastCubeDragPos.value = { x: event.clientX, y: event.clientY }
-
-		// Emit rotation with sensitivity adjustment
-		// Both directions are now natural - drag direction matches rotation
-		const sensitivity = VIEWER_CONFIG.interaction.cubeDragSensitivity
-		emit('camera-rotate', {
-			deltaX: deltaX * sensitivity,  // Horizontal mouse movement → X-axis rotation (natural)
-			deltaY: deltaY * sensitivity   // Vertical mouse movement → Y-axis rotation (natural)
-		})
-	}
-
-	// Handle mouseup - stop drag
-	const handleCubeMouseUp = () => {
-		if (isDraggingCube.value) {
-			logger.info('CircularController', 'Cube drag ended')
-			isDraggingCube.value = false
-			hasCubeDragStarted.value = false
-		}
-	}
-
-		// Add event listeners
-		document.addEventListener('mousemove', handleCubeDrag)
-		document.addEventListener('mouseup', handleCubeMouseUp)
-
-		// Touch support
-		canvas.addEventListener('touchstart', (event) => {
-			if (event.touches.length !== 1) return
-
-			const touch = event.touches[0]
-			const rect = canvas.getBoundingClientRect()
-			mouse.value.x = ((touch.clientX - rect.left) / rect.width) * 2 - 1
-			mouse.value.y = -((touch.clientY - rect.top) / rect.height) * 2 + 1
-
-			raycaster.value.setFromCamera(mouse.value, cubeCamera.value)
-			const intersects = raycaster.value.intersectObject(cubeMesh.value)
-
-			if (intersects.length > 0) {
-				const faceIndex = Math.floor(intersects[0].faceIndex / 2)
-				const faceNames = ['RIGHT', 'LEFT', 'TOP', 'BOTTOM', 'FRONT', 'BACK']
-				const faceName = faceNames[faceIndex]
-
-				// Check for double-tap
-				const currentTime = Date.now()
-				const timeSinceLastClick = currentTime - lastClickTime.value
-
-				if (timeSinceLastClick < DOUBLE_CLICK_DELAY && lastClickedFace.value === faceName) {
+					if (timeSinceLastClick < DOUBLE_CLICK_DELAY && lastClickedFace.value === faceName) {
 					// Double-tap detected - snap to view
-					logger.info('CircularController', 'Cube face double-tapped - snapping to view', { face: faceName })
-					emit('snap-to-view', { viewName: faceName })
-					lastClickedFace.value = null
-					lastClickTime.value = 0
-			} else {
-				// Prepare for potential drag
-				cubeDragStart.value = { x: touch.clientX, y: touch.clientY }
+						logger.info('CircularController', 'Cube face double-tapped - snapping to view', { face: faceName })
+						emit('snap-to-view', { viewName: faceName })
+						lastClickedFace.value = null
+						lastClickTime.value = 0
+					} else {
+						// Prepare for potential drag
+						cubeDragStart.value = { x: touch.clientX, y: touch.clientY }
+						lastCubeDragPos.value = { x: touch.clientX, y: touch.clientY }
+						lastClickedFace.value = faceName
+						lastClickTime.value = currentTime
+						isDraggingCube.value = true
+						hasCubeDragStarted.value = false // Reset drag started flag
+
+						logger.info('CircularController', 'Cube touch drag prepared', { face: faceName })
+					}
+				}
+			})
+
+			const handleCubeTouchMove = (event) => {
+				if (!isDraggingCube.value || event.touches.length !== 1) return
+
+				const touch = event.touches[0]
+
+				// Calculate total distance from drag start
+				const totalDeltaX = touch.clientX - cubeDragStart.value.x
+				const totalDeltaY = touch.clientY - cubeDragStart.value.y
+				const totalDistance = Math.sqrt(totalDeltaX * totalDeltaX + totalDeltaY * totalDeltaY)
+
+				// Only start emitting rotation events after a minimum movement threshold
+				const MIN_DRAG_THRESHOLD = VIEWER_CONFIG.interaction.dragThreshold // pixels
+				if (!hasCubeDragStarted.value && totalDistance < MIN_DRAG_THRESHOLD) {
+					return // Ignore movement until threshold is exceeded
+				}
+
+				// Mark that drag has actually started
+				if (!hasCubeDragStarted.value) {
+					hasCubeDragStarted.value = true
+					// Reset last position to current position to avoid large initial delta
+					lastCubeDragPos.value = { x: touch.clientX, y: touch.clientY }
+					logger.info('CircularController', 'Cube touch drag actually started - threshold exceeded')
+					return // Skip first frame after threshold
+				}
+
+				// Calculate deltas: moving touch up/down = vertical rotation, left/right = horizontal rotation
+				const deltaY = touch.clientY - lastCubeDragPos.value.y // Touch Y movement
+				const deltaX = touch.clientX - lastCubeDragPos.value.x // Touch X movement
+
+				// Skip if no actual movement (prevents zero-delta events)
+				if (deltaX === 0 && deltaY === 0) return
+
+				// Update last position
 				lastCubeDragPos.value = { x: touch.clientX, y: touch.clientY }
-				lastClickedFace.value = faceName
-				lastClickTime.value = currentTime
-				isDraggingCube.value = true
-				hasCubeDragStarted.value = false // Reset drag started flag
-				
-				logger.info('CircularController', 'Cube touch drag prepared', { face: faceName })
+
+				// Emit rotation with sensitivity adjustment
+				// Both directions are now natural - drag direction matches rotation
+				const sensitivity = VIEWER_CONFIG.interaction.cubeDragSensitivity
+				emit('camera-rotate', {
+					deltaX: deltaX * sensitivity, // Horizontal touch movement → X-axis rotation (natural)
+					deltaY: deltaY * sensitivity, // Vertical touch movement → Y-axis rotation (natural)
+				})
 			}
+
+			const handleCubeTouchEnd = () => {
+				if (isDraggingCube.value) {
+					logger.info('CircularController', 'Cube touch drag ended')
+					isDraggingCube.value = false
+					hasCubeDragStarted.value = false
+				}
 			}
-		})
 
-	const handleCubeTouchMove = (event) => {
-		if (!isDraggingCube.value || event.touches.length !== 1) return
+			document.addEventListener('touchmove', handleCubeTouchMove, { passive: false })
+			document.addEventListener('touchend', handleCubeTouchEnd)
 
-		const touch = event.touches[0]
-
-		// Calculate total distance from drag start
-		const totalDeltaX = touch.clientX - cubeDragStart.value.x
-		const totalDeltaY = touch.clientY - cubeDragStart.value.y
-		const totalDistance = Math.sqrt(totalDeltaX * totalDeltaX + totalDeltaY * totalDeltaY)
-
-		// Only start emitting rotation events after a minimum movement threshold
-		const MIN_DRAG_THRESHOLD = VIEWER_CONFIG.interaction.dragThreshold // pixels
-		if (!hasCubeDragStarted.value && totalDistance < MIN_DRAG_THRESHOLD) {
-			return // Ignore movement until threshold is exceeded
+			logger.info('CircularController', 'Cube drag handler setup complete - VERSION 7.0 - NO SNAP')
 		}
-
-		// Mark that drag has actually started
-		if (!hasCubeDragStarted.value) {
-			hasCubeDragStarted.value = true
-			// Reset last position to current position to avoid large initial delta
-			lastCubeDragPos.value = { x: touch.clientX, y: touch.clientY }
-			logger.info('CircularController', 'Cube touch drag actually started - threshold exceeded')
-			return // Skip first frame after threshold
-		}
-
-		// Calculate deltas: moving touch up/down = vertical rotation, left/right = horizontal rotation
-		const deltaY = touch.clientY - lastCubeDragPos.value.y // Touch Y movement
-		const deltaX = touch.clientX - lastCubeDragPos.value.x // Touch X movement
-
-		// Skip if no actual movement (prevents zero-delta events)
-		if (deltaX === 0 && deltaY === 0) return
-
-		// Update last position
-		lastCubeDragPos.value = { x: touch.clientX, y: touch.clientY }
-
-		// Emit rotation with sensitivity adjustment
-		// Both directions are now natural - drag direction matches rotation
-		const sensitivity = VIEWER_CONFIG.interaction.cubeDragSensitivity
-		emit('camera-rotate', {
-			deltaX: deltaX * sensitivity,  // Horizontal touch movement → X-axis rotation (natural)
-			deltaY: deltaY * sensitivity   // Vertical touch movement → Y-axis rotation (natural)
-		})
-	}
-
-	const handleCubeTouchEnd = () => {
-		if (isDraggingCube.value) {
-			logger.info('CircularController', 'Cube touch drag ended')
-			isDraggingCube.value = false
-			hasCubeDragStarted.value = false
-		}
-	}
-
-		document.addEventListener('touchmove', handleCubeTouchMove, { passive: false })
-		document.addEventListener('touchend', handleCubeTouchEnd)
-
-		logger.info('CircularController', 'Cube drag handler setup complete - VERSION 7.0 - NO SNAP')
-	}
 
 		/**
 		 * Update cube rotation to match main camera
@@ -544,82 +543,84 @@ export default {
 			}
 		}
 
-	/**
-	 * Handle movement ring mouse down - calculate direction and start continuous rotation
-	 */
-	const handleMovementStart = (event) => {
-		// Prevent default behavior and stop propagation
-		event.preventDefault()
-		event.stopPropagation()
-		
-		// Don't start a new movement if already moving
-		if (isMoving.value) return
-		
-		if (!controllerRef.value) return
-		
-		const rect = controllerRef.value.getBoundingClientRect()
-		const centerX = rect.left + rect.width / 2
-		const centerY = rect.top + rect.height / 2
-		
-		// Calculate direction vector from center to click point
-		const deltaX = event.clientX - centerX
-		const deltaY = event.clientY - centerY
-		const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
-		
-		// Normalize direction - accept clicks up to slightly beyond the controller radius
-		// But exclude clicks too close to center (where cube is) - minimum 15% of radius
-		const maxRadius = (controllerSize.value / 2) * 1.1 // 110% to include edge clicks with margin
-		const minRadius = (controllerSize.value / 2) * 0.15
-		if (distance > minRadius && distance <= maxRadius) {
-			const normalizedX = deltaX / distance
-			const normalizedY = deltaY / distance
-			const strength = Math.min(distance / (maxRadius * 0.5), 1.0)
-			
-			if (isPanningMode.value) {
-				// Panning mode - start continuous movement
-				movementDirection.value = {
-					x: normalizedX * strength * 0.02,
-					y: normalizedY * strength * 0.02,
-				}
-				
-				isMoving.value = true
-				startContinuousMovement()
-			} else {
-				// Rotation mode - emit rotation events
-				movementDirection.value = {
-					x: normalizedX * strength * 0.02,
-					y: normalizedY * strength * 0.02,
-				}
-				
-				isMoving.value = true
-				startContinuousMovement()
-			}
-		}
-		
-		document.addEventListener('mousemove', handleMovementMove)
-		document.addEventListener('mouseup', handleMovementEnd)
-	}
-
 		/**
-		 * Update movement direction while dragging
+		 * Handle movement ring mouse down - calculate direction and start continuous rotation
+		 * @param event
 		 */
-		const handleMovementMove = (event) => {
-			if (!isMoving.value || !controllerRef.value) return
-			
+		const handleMovementStart = (event) => {
+		// Prevent default behavior and stop propagation
+			event.preventDefault()
+			event.stopPropagation()
+
+			// Don't start a new movement if already moving
+			if (isMoving.value) return
+
+			if (!controllerRef.value) return
+
 			const rect = controllerRef.value.getBoundingClientRect()
 			const centerX = rect.left + rect.width / 2
 			const centerY = rect.top + rect.height / 2
-			
+
+			// Calculate direction vector from center to click point
 			const deltaX = event.clientX - centerX
 			const deltaY = event.clientY - centerY
 			const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
-			
+
+			// Normalize direction - accept clicks up to slightly beyond the controller radius
+			// But exclude clicks too close to center (where cube is) - minimum 15% of radius
+			const maxRadius = (controllerSize.value / 2) * 1.1 // 110% to include edge clicks with margin
+			const minRadius = (controllerSize.value / 2) * 0.15
+			if (distance > minRadius && distance <= maxRadius) {
+				const normalizedX = deltaX / distance
+				const normalizedY = deltaY / distance
+				const strength = Math.min(distance / (maxRadius * 0.5), 1.0)
+
+				if (isPanningMode.value) {
+				// Panning mode - start continuous movement
+					movementDirection.value = {
+						x: normalizedX * strength * 0.02,
+						y: normalizedY * strength * 0.02,
+					}
+
+					isMoving.value = true
+					startContinuousMovement()
+				} else {
+				// Rotation mode - emit rotation events
+					movementDirection.value = {
+						x: normalizedX * strength * 0.02,
+						y: normalizedY * strength * 0.02,
+					}
+
+					isMoving.value = true
+					startContinuousMovement()
+				}
+			}
+
+			document.addEventListener('mousemove', handleMovementMove)
+			document.addEventListener('mouseup', handleMovementEnd)
+		}
+
+		/**
+		 * Update movement direction while dragging
+		 * @param event
+		 */
+		const handleMovementMove = (event) => {
+			if (!isMoving.value || !controllerRef.value) return
+
+			const rect = controllerRef.value.getBoundingClientRect()
+			const centerX = rect.left + rect.width / 2
+			const centerY = rect.top + rect.height / 2
+
+			const deltaX = event.clientX - centerX
+			const deltaY = event.clientY - centerY
+			const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
+
 			const maxRadius = controllerSize.value / 2
 			if (distance > 0 && distance < maxRadius * 0.9) {
 				const normalizedX = deltaX / distance
 				const normalizedY = deltaY / distance
 				const strength = Math.min(distance / (maxRadius * 0.5), 1.0)
-				
+
 				// Update movement direction for both rotation and panning modes
 				movementDirection.value = {
 					x: normalizedX * strength * 0.02,
@@ -633,6 +634,7 @@ export default {
 
 		/**
 		 * Stop continuous movement
+		 * @param event
 		 */
 		const handleMovementEnd = (event) => {
 			isMoving.value = false
@@ -640,7 +642,7 @@ export default {
 				clearInterval(movementInterval.value)
 				movementInterval.value = null
 			}
-			
+
 			document.removeEventListener('mousemove', handleMovementMove)
 			document.removeEventListener('mouseup', handleMovementEnd)
 		}
@@ -658,14 +660,14 @@ export default {
 							// Get camera's right and up vectors
 							const cameraRight = new THREE.Vector3()
 							const cameraUp = new THREE.Vector3()
-							
+
 							// Get camera direction (where camera is looking)
 							const cameraDirection = new THREE.Vector3()
 							props.mainCamera.getWorldDirection(cameraDirection)
-							
+
 							// Calculate right vector (perpendicular to camera direction and up)
 							cameraRight.crossVectors(props.mainCamera.up, cameraDirection).normalize()
-							
+
 							// Use camera's up vector
 							cameraUp.copy(props.mainCamera.up).normalize()
 
@@ -676,8 +678,8 @@ export default {
 								panConfig.min,
 								Math.min(
 									panConfig.max,
-									panConfig.base + (cameraDistance * panConfig.cameraDistanceFactor)
-								)
+									panConfig.base + (cameraDistance * panConfig.cameraDistanceFactor),
+								),
 							)
 
 							// Calculate pan offset - invert both X and Y for natural panning
@@ -701,12 +703,12 @@ export default {
 					})
 				}
 			}
-			
+
 			// Continue applying movement while active
 			if (movementInterval.value) {
 				clearInterval(movementInterval.value)
 			}
-			
+
 			movementInterval.value = setInterval(() => {
 				// Stop if not moving
 				if (!isMoving.value) {
@@ -714,7 +716,7 @@ export default {
 					movementInterval.value = null
 					return
 				}
-				
+
 				if (movementDirection.value.x !== 0 || movementDirection.value.y !== 0) {
 					if (isPanningMode.value) {
 						// Panning mode - direct camera manipulation
@@ -723,14 +725,14 @@ export default {
 								// Get camera's right and up vectors
 								const cameraRight = new THREE.Vector3()
 								const cameraUp = new THREE.Vector3()
-								
+
 								// Get camera direction (where camera is looking)
 								const cameraDirection = new THREE.Vector3()
 								props.mainCamera.getWorldDirection(cameraDirection)
-								
+
 								// Calculate right vector (perpendicular to camera direction and up)
 								cameraRight.crossVectors(props.mainCamera.up, cameraDirection).normalize()
-								
+
 								// Use camera's up vector
 								cameraUp.copy(props.mainCamera.up).normalize()
 
@@ -741,8 +743,8 @@ export default {
 									panConfig.min,
 									Math.min(
 										panConfig.max,
-										panConfig.base + (cameraDistance * panConfig.cameraDistanceFactor)
-									)
+										panConfig.base + (cameraDistance * panConfig.cameraDistanceFactor),
+									),
 								)
 
 								// Calculate pan offset - invert both X and Y for natural panning
@@ -769,74 +771,76 @@ export default {
 			}, 16) // ~60fps
 		}
 
-	/**
-	 * Handle movement ring touch start
-	 */
-	const handleMovementTouchStart = (event) => {
-		if (event.touches.length !== 1 || !controllerRef.value) return
-		
-		const touch = event.touches[0]
-		const rect = controllerRef.value.getBoundingClientRect()
-		const centerX = rect.left + rect.width / 2
-		const centerY = rect.top + rect.height / 2
-		
-		const deltaX = touch.clientX - centerX
-		const deltaY = touch.clientY - centerY
-		const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
-		
-		// Normalize direction - accept clicks up to slightly beyond the controller radius
-		// But exclude clicks too close to center (where cube is) - minimum 15% of radius
-		const maxRadius = (controllerSize.value / 2) * 1.1 // 110% to include edge clicks with margin
-		const minRadius = (controllerSize.value / 2) * 0.15
-		if (distance > minRadius && distance <= maxRadius) {
-			const normalizedX = deltaX / distance
-			const normalizedY = deltaY / distance
-			const strength = Math.min(distance / (maxRadius * 0.5), 1.0)
-			
-			movementDirection.value = {
-				x: normalizedX * strength * 0.02,
-				y: normalizedY * strength * 0.02,
+		/**
+		 * Handle movement ring touch start
+		 * @param event
+		 */
+		const handleMovementTouchStart = (event) => {
+			if (event.touches.length !== 1 || !controllerRef.value) return
+
+			const touch = event.touches[0]
+			const rect = controllerRef.value.getBoundingClientRect()
+			const centerX = rect.left + rect.width / 2
+			const centerY = rect.top + rect.height / 2
+
+			const deltaX = touch.clientX - centerX
+			const deltaY = touch.clientY - centerY
+			const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
+
+			// Normalize direction - accept clicks up to slightly beyond the controller radius
+			// But exclude clicks too close to center (where cube is) - minimum 15% of radius
+			const maxRadius = (controllerSize.value / 2) * 1.1 // 110% to include edge clicks with margin
+			const minRadius = (controllerSize.value / 2) * 0.15
+			if (distance > minRadius && distance <= maxRadius) {
+				const normalizedX = deltaX / distance
+				const normalizedY = deltaY / distance
+				const strength = Math.min(distance / (maxRadius * 0.5), 1.0)
+
+				movementDirection.value = {
+					x: normalizedX * strength * 0.02,
+					y: normalizedY * strength * 0.02,
+				}
+
+				isMoving.value = true
+				startContinuousMovement()
+
+				logger.info('CircularController', 'Touch movement started', {
+					deltaX,
+					deltaY,
+					distance,
+					maxRadius,
+					strength,
+					direction: movementDirection.value,
+				})
 			}
-			
-			isMoving.value = true
-			startContinuousMovement()
-			
-			logger.info('CircularController', 'Touch movement started', { 
-				deltaX, 
-				deltaY, 
-				distance, 
-				maxRadius,
-				strength,
-				direction: movementDirection.value 
-			})
+
+			document.addEventListener('touchmove', handleMovementTouchMove, { passive: false })
+			document.addEventListener('touchend', handleMovementTouchEnd)
 		}
-		
-		document.addEventListener('touchmove', handleMovementTouchMove, { passive: false })
-		document.addEventListener('touchend', handleMovementTouchEnd)
-	}
 
 		/**
 		 * Handle movement touch move
+		 * @param event
 		 */
 		const handleMovementTouchMove = (event) => {
 			if (!isMoving.value || event.touches.length !== 1 || !controllerRef.value) return
-			
+
 			event.preventDefault()
 			const touch = event.touches[0]
 			const rect = controllerRef.value.getBoundingClientRect()
 			const centerX = rect.left + rect.width / 2
 			const centerY = rect.top + rect.height / 2
-			
+
 			const deltaX = touch.clientX - centerX
 			const deltaY = touch.clientY - centerY
 			const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
-			
+
 			const maxRadius = controllerSize.value / 2
 			if (distance > 0 && distance < maxRadius * 0.9) {
 				const normalizedX = deltaX / distance
 				const normalizedY = deltaY / distance
 				const strength = Math.min(distance / (maxRadius * 0.5), 1.0)
-				
+
 				movementDirection.value = {
 					x: normalizedX * strength * 0.02,
 					y: normalizedY * strength * 0.02,
@@ -853,7 +857,7 @@ export default {
 				clearInterval(movementInterval.value)
 				movementInterval.value = null
 			}
-			
+
 			document.removeEventListener('touchmove', handleMovementTouchMove)
 			document.removeEventListener('touchend', handleMovementTouchEnd)
 		}
@@ -876,6 +880,7 @@ export default {
 
 		/**
 		 * Handle continuous zoom in (hold button)
+		 * @param event
 		 */
 		const handleZoomInStart = (event) => {
 			// Clear any existing interval first
@@ -883,20 +888,21 @@ export default {
 				clearInterval(zoomInterval.value)
 				zoomInterval.value = null
 			}
-			
+
 			// Immediate zoom
 			handleZoomIn()
-			
+
 			// Continue zooming while held
 			zoomInterval.value = setInterval(() => {
 				handleZoomIn()
 			}, 100)
-			
+
 			logger.info('CircularController', 'Continuous zoom in started')
 		}
 
 		/**
 		 * Handle continuous zoom out (hold button)
+		 * @param event
 		 */
 		const handleZoomOutStart = (event) => {
 			// Clear any existing interval first
@@ -904,65 +910,65 @@ export default {
 				clearInterval(zoomInterval.value)
 				zoomInterval.value = null
 			}
-			
+
 			// Immediate zoom
 			handleZoomOut()
-			
+
 			// Continue zooming while held
 			zoomInterval.value = setInterval(() => {
 				handleZoomOut()
 			}, 100)
-			
+
 			logger.info('CircularController', 'Continuous zoom out started')
 		}
 
-	/**
-	 * Stop continuous zoom
-	 */
-	const handleZoomStop = () => {
-		if (zoomInterval.value) {
-			clearInterval(zoomInterval.value)
-			zoomInterval.value = null
-			logger.info('CircularController', 'Continuous zoom stopped')
-		}
-	}
-
-	// Panning mode state
-	const isPanningMode = ref(false)
-
-	/**
-	 * Toggle between rotation and panning mode
-	 */
-	const togglePanningMode = () => {
-		isPanningMode.value = !isPanningMode.value
-		logger.info('CircularController', 'Mode toggled', { isPanningMode: isPanningMode.value })
-	}
-
-	/**
-	 * Reset camera panning to original position
-	 */
-	const resetPanning = () => {
-		if (props.mainCamera && props.mainControls) {
-			try {
-				// Only reset the target (panning) to center, keep camera distance and angle
-				const currentCameraPosition = props.mainCamera.position.clone()
-				const currentDistance = currentCameraPosition.length()
-				
-				// Calculate the direction from camera to current target
-				const cameraDirection = new THREE.Vector3()
-				cameraDirection.subVectors(props.mainControls.target, currentCameraPosition).normalize()
-				
-				// Set new target to be at the same distance from camera, but centered
-				const newTarget = new THREE.Vector3(0, 0, 0)
-				props.mainControls.target.copy(newTarget)
-				props.mainControls.update()
-				
-				logger.info('CircularController', 'Camera panning reset to center (preserving zoom and angle)')
-			} catch (error) {
-				logger.error('CircularController', 'Failed to reset panning', error)
+		/**
+		 * Stop continuous zoom
+		 */
+		const handleZoomStop = () => {
+			if (zoomInterval.value) {
+				clearInterval(zoomInterval.value)
+				zoomInterval.value = null
+				logger.info('CircularController', 'Continuous zoom stopped')
 			}
 		}
-	}
+
+		// Panning mode state
+		const isPanningMode = ref(false)
+
+		/**
+		 * Toggle between rotation and panning mode
+		 */
+		const togglePanningMode = () => {
+			isPanningMode.value = !isPanningMode.value
+			logger.info('CircularController', 'Mode toggled', { isPanningMode: isPanningMode.value })
+		}
+
+		/**
+		 * Reset camera panning to original position
+		 */
+		const resetPanning = () => {
+			if (props.mainCamera && props.mainControls) {
+				try {
+				// Only reset the target (panning) to center, keep camera distance and angle
+					const currentCameraPosition = props.mainCamera.position.clone()
+					const currentDistance = currentCameraPosition.length()
+
+					// Calculate the direction from camera to current target
+					const cameraDirection = new THREE.Vector3()
+					cameraDirection.subVectors(props.mainControls.target, currentCameraPosition).normalize()
+
+					// Set new target to be at the same distance from camera, but centered
+					const newTarget = new THREE.Vector3(0, 0, 0)
+					props.mainControls.target.copy(newTarget)
+					props.mainControls.update()
+
+					logger.info('CircularController', 'Camera panning reset to center (preserving zoom and angle)')
+				} catch (error) {
+					logger.error('CircularController', 'Failed to reset panning', error)
+				}
+			}
+		}
 
 		// Zoom ring interaction state
 		const isZoomDragging = ref(false)
@@ -971,34 +977,36 @@ export default {
 
 		/**
 		 * Handle zoom ring mouse start
+		 * @param event
 		 */
 		const handleZoomRingStart = (event) => {
 			if (!controllerRef.value) return
-			
+
 			const rect = controllerRef.value.getBoundingClientRect()
 			const centerY = rect.top + rect.height / 2
 			zoomStartY.value = event.clientY
 			zoomStartDistance.value = Math.abs(event.clientY - centerY)
 			isZoomDragging.value = true
-			
+
 			// Add event listeners for mouse move and up
 			document.addEventListener('mousemove', handleZoomRingMove)
 			document.addEventListener('mouseup', handleZoomRingEnd)
-			
+
 			logger.info('CircularController', 'Zoom ring interaction started')
 		}
 
 		/**
 		 * Handle zoom ring mouse move
+		 * @param event
 		 */
 		const handleZoomRingMove = (event) => {
 			if (!isZoomDragging.value || !controllerRef.value) return
-			
+
 			const rect = controllerRef.value.getBoundingClientRect()
 			const centerY = rect.top + rect.height / 2
 			const currentY = event.clientY
 			const deltaY = currentY - zoomStartY.value
-			
+
 			// Determine zoom direction based on vertical movement
 			if (Math.abs(deltaY) > 10) { // Minimum movement threshold
 				const zoomDelta = deltaY > 0 ? -1 : 1 // Down = zoom out, Up = zoom in
@@ -1021,30 +1029,32 @@ export default {
 
 		/**
 		 * Handle zoom ring touch start
+		 * @param event
 		 */
 		const handleZoomRingTouchStart = (event) => {
 			if (!controllerRef.value || event.touches.length !== 1) return
-			
+
 			const rect = controllerRef.value.getBoundingClientRect()
 			const centerY = rect.top + rect.height / 2
 			zoomStartY.value = event.touches[0].clientY
 			zoomStartDistance.value = Math.abs(event.touches[0].clientY - centerY)
 			isZoomDragging.value = true
-			
+
 			logger.info('CircularController', 'Zoom ring touch started')
 		}
 
 		/**
 		 * Handle zoom ring touch move
+		 * @param event
 		 */
 		const handleZoomRingTouchMove = (event) => {
 			if (!isZoomDragging.value || !controllerRef.value || event.touches.length !== 1) return
-			
+
 			const rect = controllerRef.value.getBoundingClientRect()
 			const centerY = rect.top + rect.height / 2
 			const currentY = event.touches[0].clientY
 			const deltaY = currentY - zoomStartY.value
-			
+
 			// Determine zoom direction based on vertical movement
 			if (Math.abs(deltaY) > 10) { // Minimum movement threshold
 				const zoomDelta = deltaY > 0 ? -1 : 1 // Down = zoom out, Up = zoom in
@@ -1053,9 +1063,9 @@ export default {
 			}
 		}
 
-
 		/**
 		 * Handle controller drag start
+		 * @param event
 		 */
 		const handleDragStart = (event) => {
 			isDragging.value = true
@@ -1071,17 +1081,18 @@ export default {
 
 		/**
 		 * Handle controller drag move
+		 * @param event
 		 */
 		const handleDragMove = (event) => {
 			if (!isDragging.value) return
 
 			const newX = Math.max(0, Math.min(
 				window.innerWidth - controllerSize.value,
-				window.innerWidth - event.clientX + dragOffset.value.x
+				window.innerWidth - event.clientX + dragOffset.value.x,
 			))
 			const newY = Math.max(0, Math.min(
 				window.innerHeight - controllerSize.value,
-				event.clientY - dragOffset.value.y
+				event.clientY - dragOffset.value.y,
 			))
 
 			position.value = { x: newX, y: newY }
@@ -1102,6 +1113,7 @@ export default {
 
 		/**
 		 * Handle controller touch drag start
+		 * @param event
 		 */
 		const handleDragTouchStart = (event) => {
 			if (event.touches.length !== 1) return
@@ -1120,6 +1132,7 @@ export default {
 
 		/**
 		 * Handle controller touch drag move
+		 * @param event
 		 */
 		const handleDragTouchMove = (event) => {
 			if (!isDragging.value || event.touches.length !== 1) return
@@ -1129,11 +1142,11 @@ export default {
 
 			const newX = Math.max(0, Math.min(
 				window.innerWidth - controllerSize.value,
-				window.innerWidth - touch.clientX + dragOffset.value.x
+				window.innerWidth - touch.clientX + dragOffset.value.x,
 			))
 			const newY = Math.max(0, Math.min(
 				window.innerHeight - controllerSize.value,
-				touch.clientY - dragOffset.value.y
+				touch.clientY - dragOffset.value.y,
 			))
 
 			position.value = { x: newX, y: newY }
@@ -1195,20 +1208,20 @@ export default {
 				animationFrameId.value = null
 			}
 
-		if (zoomInterval.value) {
-			clearInterval(zoomInterval.value)
-			zoomInterval.value = null
-		}
+			if (zoomInterval.value) {
+				clearInterval(zoomInterval.value)
+				zoomInterval.value = null
+			}
 
-		if (rotationInterval.value) {
-			clearInterval(rotationInterval.value)
-			rotationInterval.value = null
-		}
+			if (rotationInterval.value) {
+				clearInterval(rotationInterval.value)
+				rotationInterval.value = null
+			}
 
-		if (movementInterval.value) {
-			clearInterval(movementInterval.value)
-			movementInterval.value = null
-		}
+			if (movementInterval.value) {
+				clearInterval(movementInterval.value)
+				movementInterval.value = null
+			}
 
 			if (cubeRenderer.value) {
 				cubeRenderer.value.dispose()
@@ -1294,4 +1307,3 @@ export default {
 </script>
 
 <style scoped src="../css/components/circular-controller.css"></style>
-

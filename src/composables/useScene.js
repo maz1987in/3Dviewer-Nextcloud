@@ -371,10 +371,10 @@ export function useScene() {
 		}
 
 		scene.value.add(object)
-		
+
 		// Clear raycast cache since scene structure changed
 		clearRaycastCache()
-		
+
 		logger.info('useScene', 'Object added to scene', {
 			type: object.constructor.name,
 			children: object.children.length,
@@ -389,10 +389,10 @@ export function useScene() {
 		if (!scene.value || !object) return
 
 		scene.value.remove(object)
-		
+
 		// Clear raycast cache since scene structure changed
 		clearRaycastCache()
-		
+
 		logger.info('useScene', 'Object removed from scene', {
 			type: object.constructor.name,
 		})
@@ -486,16 +486,16 @@ export function useScene() {
 	 */
 	const applyThemeToScene = (theme) => {
 		if (!scene.value) return
-		
+
 		const themeColors = VIEWER_CONFIG.theme[theme] || VIEWER_CONFIG.theme.light
-		
+
 		if (themeColors.background) {
 			scene.value.background = new THREE.Color(themeColors.background)
 			backgroundColor.value = themeColors.background
-			
-			logger.info('useScene', 'Scene theme applied', { 
-				theme, 
-				background: themeColors.background 
+
+			logger.info('useScene', 'Scene theme applied', {
+				theme,
+				background: themeColors.background,
 			})
 		}
 	}
@@ -569,6 +569,6 @@ export function useScene() {
 		getSceneStats,
 		dispose,
 	}
-	
+
 	return composableReturn
 }

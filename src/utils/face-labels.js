@@ -10,7 +10,7 @@ import { logger } from './logger.js'
  * Create a text sprite with the given text
  * @param {string} text - Text to display
  * @param {object} options - Sprite options
- * @returns {THREE.Sprite} Text sprite
+ * @return {THREE.Sprite} Text sprite
  */
 function createTextSprite(text, options = {}) {
 	const {
@@ -53,7 +53,7 @@ function createTextSprite(text, options = {}) {
 		borderThickness / 2,
 		borderThickness / 2,
 		canvas.width - borderThickness,
-		canvas.height - borderThickness
+		canvas.height - borderThickness,
 	)
 
 	// Draw text
@@ -86,7 +86,7 @@ function createTextSprite(text, options = {}) {
 /**
  * Create face labels for a cube
  * @param {object} options - Label options
- * @returns {THREE.Group} Group containing all face labels
+ * @return {THREE.Group} Group containing all face labels
  */
 export function createFaceLabels(options = {}) {
 	const {
@@ -109,8 +109,8 @@ export function createFaceLabels(options = {}) {
 
 	// TOP face
 	if (showTop) {
-		const topLabel = createTextSprite('TOP', { 
-			...options, 
+		const topLabel = createTextSprite('TOP', {
+			...options,
 			scale,
 			borderColor: '#ff0000',
 		})
@@ -121,8 +121,8 @@ export function createFaceLabels(options = {}) {
 
 	// BOTTOM face
 	if (showBottom) {
-		const bottomLabel = createTextSprite('BOTTOM', { 
-			...options, 
+		const bottomLabel = createTextSprite('BOTTOM', {
+			...options,
 			scale,
 			borderColor: '#ff00ff',
 		})
@@ -133,8 +133,8 @@ export function createFaceLabels(options = {}) {
 
 	// FRONT face
 	if (showFront) {
-		const frontLabel = createTextSprite('FRONT', { 
-			...options, 
+		const frontLabel = createTextSprite('FRONT', {
+			...options,
 			scale,
 			borderColor: '#00ff00',
 		})
@@ -145,8 +145,8 @@ export function createFaceLabels(options = {}) {
 
 	// BACK face
 	if (showBack) {
-		const backLabel = createTextSprite('BACK', { 
-			...options, 
+		const backLabel = createTextSprite('BACK', {
+			...options,
 			scale,
 			borderColor: '#0000ff',
 		})
@@ -157,8 +157,8 @@ export function createFaceLabels(options = {}) {
 
 	// LEFT face
 	if (showLeft) {
-		const leftLabel = createTextSprite('LEFT', { 
-			...options, 
+		const leftLabel = createTextSprite('LEFT', {
+			...options,
 			scale,
 			borderColor: '#ffff00',
 		})
@@ -169,8 +169,8 @@ export function createFaceLabels(options = {}) {
 
 	// RIGHT face
 	if (showRight) {
-		const rightLabel = createTextSprite('RIGHT', { 
-			...options, 
+		const rightLabel = createTextSprite('RIGHT', {
+			...options,
 			scale,
 			borderColor: '#00ffff',
 		})
@@ -192,7 +192,7 @@ export function createFaceLabels(options = {}) {
  * Create face labels for a model's bounding box
  * @param {THREE.Object3D} model - Model to label
  * @param {object} options - Label options
- * @returns {THREE.Group} Group containing all face labels
+ * @return {THREE.Group} Group containing all face labels
  */
 export function createModelFaceLabels(model, options = {}) {
 	if (!model) {
@@ -231,7 +231,7 @@ export function createModelFaceLabels(model, options = {}) {
 /**
  * Create a reference cube with face labels
  * @param {object} options - Cube options
- * @returns {THREE.Group} Group containing cube and labels
+ * @return {THREE.Group} Group containing cube and labels
  */
 export function createLabeledCube(options = {}) {
 	const {
@@ -251,8 +251,8 @@ export function createLabeledCube(options = {}) {
 		const material = new THREE.MeshStandardMaterial({
 			color: cubeColor,
 			transparent: true,
-			opacity: opacity,
-			wireframe: wireframe,
+			opacity,
+			wireframe,
 			side: THREE.DoubleSide,
 		})
 		const cube = new THREE.Mesh(geometry, material)
@@ -328,4 +328,3 @@ export function removeFaceLabels(scene) {
 
 	logger.info('FaceLabels', 'Face labels removed', { count: labelsToRemove.length })
 }
-

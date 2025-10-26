@@ -25,12 +25,11 @@
 					</div>
 				</div>
 				<!-- Nextcloud-style progress bar -->
-				<NcProgressBar 
-					:value="progressPercentage" 
+				<NcProgressBar
+					:value="progressPercentage"
 					:max="100"
 					size="medium"
-					:aria-label="t('threedviewer','Model load progress')"
-				/>
+					:aria-label="t('threedviewer','Model load progress')" />
 				<div class="loading-actions" :class="{ 'mobile': isMobile }">
 					<NcButton
 						v-if="progress.stage !== 'error'"
@@ -63,12 +62,11 @@
 				<div class="export-percentage">
 					{{ exportProgress.percentage }}%
 				</div>
-				<NcProgressBar 
-					:value="exportProgress.percentage" 
+				<NcProgressBar
+					:value="exportProgress.percentage"
 					:max="100"
 					size="medium"
-					:aria-label="t('threedviewer','Export progress')"
-				/>
+					:aria-label="t('threedviewer','Export progress')" />
 			</div>
 		</div>
 
@@ -76,12 +74,17 @@
 		<div v-if="showModelStats && modelStats" class="model-stats-overlay" :class="{ 'mobile': isMobile }">
 			<div class="stats-panel-header">
 				<div class="stats-title-group">
-					<img v-if="formatIcon" :src="formatIcon" class="format-icon" alt="Format icon" />
+					<img v-if="formatIcon"
+						:src="formatIcon"
+						class="format-icon"
+						alt="Format icon">
 					<h3>{{ t('threedviewer', 'Model Statistics') }}</h3>
 				</div>
-				<button class="close-stats-btn" @click="toggleModelStats">×</button>
+				<button class="close-stats-btn" @click="toggleModelStats">
+					×
+				</button>
 			</div>
-			
+
 			<div class="stats-panel-content">
 				<!-- Geometry Section -->
 				<div class="stats-section">
@@ -220,53 +223,53 @@
 			</div>
 		</div>
 
-	<!-- Texture Loading Indicator (Bottom-Right) -->
-	<div v-if="loadingTextures && textureProgress.total > 0" class="texture-progress-indicator">
-		<span class="texture-icon">🖼️</span>
-		<span class="texture-status">
-			{{ t('threedviewer', 'Loading textures') }}... {{ textureProgress.loaded }}/{{ textureProgress.total }}
-		</span>
-		<div class="mini-progress-bar">
-			<div class="progress-fill" :style="{ width: (textureProgress.loaded / textureProgress.total * 100) + '%' }"></div>
+		<!-- Texture Loading Indicator (Bottom-Right) -->
+		<div v-if="loadingTextures && textureProgress.total > 0" class="texture-progress-indicator">
+			<span class="texture-icon">🖼️</span>
+			<span class="texture-status">
+				{{ t('threedviewer', 'Loading textures') }}... {{ textureProgress.loaded }}/{{ textureProgress.total }}
+			</span>
+			<div class="mini-progress-bar">
+				<div class="progress-fill" :style="{ width: (textureProgress.loaded / textureProgress.total * 100) + '%' }" />
+			</div>
 		</div>
-	</div>
 
-	<!-- Performance Stats Overlay (Dev/Debug) -->
-	<div v-if="showPerformanceStats && performance && currentFPS > 0" class="performance-stats">
-		<div class="stats-header">
-			<span class="stats-icon">📊</span>
-			<span class="stats-title">Performance</span>
-			<span class="stats-mode" :class="'mode-' + currentPerformanceMode">{{ currentPerformanceMode }}</span>
-		</div>
-		<div class="stats-grid">
-			<div class="stat-item">
-				<span class="stat-label">FPS:</span>
-				<span class="stat-value" :class="{ 'good': currentFPS >= 60, 'warning': currentFPS >= 30 && currentFPS < 60, 'poor': currentFPS < 30 }">
-					{{ currentFPS }}
-				</span>
+		<!-- Performance Stats Overlay (Dev/Debug) -->
+		<div v-if="showPerformanceStats && performance && currentFPS > 0" class="performance-stats">
+			<div class="stats-header">
+				<span class="stats-icon">📊</span>
+				<span class="stats-title">Performance</span>
+				<span class="stats-mode" :class="'mode-' + currentPerformanceMode">{{ currentPerformanceMode }}</span>
 			</div>
-			<div class="stat-item">
-				<span class="stat-label">Frame:</span>
-				<span class="stat-value">{{ currentFrameTime?.toFixed(1) }}ms</span>
+			<div class="stats-grid">
+				<div class="stat-item">
+					<span class="stat-label">FPS:</span>
+					<span class="stat-value" :class="{ 'good': currentFPS >= 60, 'warning': currentFPS >= 30 && currentFPS < 60, 'poor': currentFPS < 30 }">
+						{{ currentFPS }}
+					</span>
+				</div>
+				<div class="stat-item">
+					<span class="stat-label">Frame:</span>
+					<span class="stat-value">{{ currentFrameTime?.toFixed(1) }}ms</span>
+				</div>
+				<div class="stat-item">
+					<span class="stat-label">Memory:</span>
+					<span class="stat-value">{{ currentMemoryUsage?.toFixed(1) }}MB</span>
+				</div>
+				<div class="stat-item">
+					<span class="stat-label">Quality:</span>
+					<span class="stat-value">{{ currentPixelRatio?.toFixed(2) }}x</span>
+				</div>
+				<div class="stat-item">
+					<span class="stat-label">Draws:</span>
+					<span class="stat-value">{{ currentDrawCalls }}</span>
+				</div>
+				<div class="stat-item">
+					<span class="stat-label">Triangles:</span>
+					<span class="stat-value">{{ (currentTriangles / 1000).toFixed(1) }}K</span>
+				</div>
 			</div>
-			<div class="stat-item">
-				<span class="stat-label">Memory:</span>
-				<span class="stat-value">{{ currentMemoryUsage?.toFixed(1) }}MB</span>
-			</div>
-			<div class="stat-item">
-				<span class="stat-label">Quality:</span>
-				<span class="stat-value">{{ currentPixelRatio?.toFixed(2) }}x</span>
-			</div>
-			<div class="stat-item">
-				<span class="stat-label">Draws:</span>
-				<span class="stat-value">{{ currentDrawCalls }}</span>
-			</div>
-			<div class="stat-item">
-				<span class="stat-label">Triangles:</span>
-				<span class="stat-value">{{ (currentTriangles / 1000).toFixed(1) }}K</span>
-			</div>
-		</div>
-	</div>		<!-- Mobile gesture hints -->
+		</div>		<!-- Mobile gesture hints -->
 		<div v-if="isMobile && !isLoading && modelRoot" class="mobile-hints">
 			<div class="hint-item">
 				<span class="hint-icon">👆</span>
@@ -287,11 +290,11 @@
 			<div class="measurement-header">
 				<h3>{{ t('threedviewer', 'Measurements') }}</h3>
 				<div class="measurement-controls">
-					<select v-model="currentUnitModel" 
+					<select v-model="currentUnitModel"
 						class="unit-selector"
 						@change="handleUnitChange">
-						<option v-for="unit in availableUnits" 
-							:key="unit.value" 
+						<option v-for="unit in availableUnits"
+							:key="unit.value"
 							:value="unit.value">
 							{{ unit.label }}
 						</option>
@@ -381,7 +384,6 @@
 			@snap-to-view="handleSnapToView"
 			@nudge-camera="handleNudgeCamera"
 			@position-changed="handleControllerPositionChange" />
-
 	</div>
 </template>
 
@@ -431,11 +433,11 @@ export default {
 	},
 	emits: ['model-loaded', 'error', 'view-reset', 'fit-to-view', 'toggle-auto-rotate', 'toggle-projection', 'change-preset', 'toggle-grid', 'axes-toggle', 'wireframe-toggle', 'background-change', 'toggle-measurement', 'toggle-annotation', 'toggle-comparison', 'toggle-performance', 'dismiss', 'push-toast', 'loading-state-changed', 'fps-updated'],
 	setup(props, { emit }) {
-			// Refs
-	const container = ref(null)
-	const scene = ref(null)
-	const renderer = ref(null)
-	const renderPaused = ref(false)
+		// Refs
+		const container = ref(null)
+		const scene = ref(null)
+		const renderer = ref(null)
+		const renderPaused = ref(false)
 		const grid = ref(null)
 		const axes = ref(null)
 		const modelRoot = ref(null)
@@ -479,7 +481,7 @@ export default {
 			get: () => measurement.currentUnit.value,
 			set: (value) => { measurement.currentUnit.value = value },
 		})
-		
+
 		// Format icon for current model
 		const formatIcon = computed(() => {
 			const filename = modelStatsComposable.modelStats.value?.filename || props.filename || ''
@@ -503,134 +505,134 @@ export default {
 				// Setup controls
 				await camera.setupControls(renderer.value)
 
-			// Initialize measurement system
-			measurement.init(scene.value)
+				// Initialize measurement system
+				measurement.init(scene.value)
 
-			// Initialize annotation system
-			annotation.init(scene.value)
+				// Initialize annotation system
+				annotation.init(scene.value)
 
-		// Initialize performance monitoring
-		performance.initPerformance(renderer.value)
-		
-		// Set initial performance mode (pass renderer for auto mode detection)
-		performance.setPerformanceMode(props.performanceMode, renderer.value)
-		
-		// Log performance monitoring status
-		logger.info('ThreeViewer', 'Performance monitoring initialized', {
-			mode: props.performanceMode,
-			monitoring: 'ACTIVE',
-			fps: 'Tracking started',
-			overlay: 'Visible in bottom-left corner'
-		})
+				// Initialize performance monitoring
+				performance.initPerformance(renderer.value)
 
-	// Load model if fileId provided, otherwise show demo
-	if (props.fileId) {
-		await loadModel(props.fileId)
-	} else {
-		// Show demo scene when no file is specified
-		createDemoScene()
-	}
-	
-	// Initialization complete - hide loading indicator
-	initializing.value = false
+				// Set initial performance mode (pass renderer for auto mode detection)
+				performance.setPerformanceMode(props.performanceMode, renderer.value)
 
-	// Start animation loop
-	animate()			// Setup event listeners
-			setupEventListeners()
+				// Log performance monitoring status
+				logger.info('ThreeViewer', 'Performance monitoring initialized', {
+					mode: props.performanceMode,
+					monitoring: 'ACTIVE',
+					fps: 'Tracking started',
+					overlay: 'Visible in bottom-left corner',
+				})
 
-			logger.info('ThreeViewer', 'Initialization complete')
-		} catch (error) {
-			initializing.value = false // Hide loading on error too
-			logger.error('ThreeViewer', 'Initialization failed', error)
-			emit('error', error)
+				// Load model if fileId provided, otherwise show demo
+				if (props.fileId) {
+					await loadModel(props.fileId)
+				} else {
+					// Show demo scene when no file is specified
+					createDemoScene()
+				}
+
+				// Initialization complete - hide loading indicator
+				initializing.value = false
+
+				// Start animation loop
+				animate()			// Setup event listeners
+				setupEventListeners()
+
+				logger.info('ThreeViewer', 'Initialization complete')
+			} catch (error) {
+				initializing.value = false // Hide loading on error too
+				logger.error('ThreeViewer', 'Initialization failed', error)
+				emit('error', error)
+			}
 		}
-	}
 
-	const setupScene = async () => {
-		try {
+		const setupScene = async () => {
+			try {
 			// Create scene
-			scene.value = new THREE.Scene()
-			
-			// Background will be set via props or remain null (transparent)
-			scene.value.background = props.background ? new THREE.Color(props.background) : null
-			
-			// Ensure container has proper dimensions
-			const containerWidth = container.value.clientWidth || container.value.offsetWidth || 800
-			const containerHeight = container.value.clientHeight || container.value.offsetHeight || 600
+				scene.value = new THREE.Scene()
 
-			// Create renderer
-			renderer.value = new THREE.WebGLRenderer({
-				antialias: true,
-				alpha: true,
-				powerPreference: 'high-performance',
-			})
+				// Background will be set via props or remain null (transparent)
+				scene.value.background = props.background ? new THREE.Color(props.background) : null
 
-			// Set initial size - this will set pixel ratio to window.devicePixelRatio by default
-			// but initPerformance() will immediately override it with the detected optimal ratio
-			renderer.value.setSize(containerWidth, containerHeight)
-			// Note: pixel ratio will be overridden by initPerformance() based on auto-detection
-			renderer.value.shadowMap.enabled = true
-			renderer.value.shadowMap.type = THREE.PCFSoftShadowMap
+				// Ensure container has proper dimensions
+				const containerWidth = container.value.clientWidth || container.value.offsetWidth || 800
+				const containerHeight = container.value.clientHeight || container.value.offsetHeight || 600
 
-			container.value.appendChild(renderer.value.domElement)
-			
-			// Initialize label renderer for face labels
-			faceLabels.initLabelRenderer(container.value, containerWidth, containerHeight)
+				// Create renderer
+				renderer.value = new THREE.WebGLRenderer({
+					antialias: true,
+					alpha: true,
+					powerPreference: 'high-performance',
+				})
 
-			// Setup lighting
-			setupLighting()
+				// Set initial size - this will set pixel ratio to window.devicePixelRatio by default
+				// but initPerformance() will immediately override it with the detected optimal ratio
+				renderer.value.setSize(containerWidth, containerHeight)
+				// Note: pixel ratio will be overridden by initPerformance() based on auto-detection
+				renderer.value.shadowMap.enabled = true
+				renderer.value.shadowMap.type = THREE.PCFSoftShadowMap
 
-			// Setup grid and axes
-			setupHelpers()
+				container.value.appendChild(renderer.value.domElement)
 
-			logger.info('ThreeViewer', 'Scene setup complete')
-		} catch (error) {
-			logger.error('ThreeViewer', 'Failed to setup scene', error)
-			throw error
+				// Initialize label renderer for face labels
+				faceLabels.initLabelRenderer(container.value, containerWidth, containerHeight)
+
+				// Setup lighting
+				setupLighting()
+
+				// Setup grid and axes
+				setupHelpers()
+
+				logger.info('ThreeViewer', 'Scene setup complete')
+			} catch (error) {
+				logger.error('ThreeViewer', 'Failed to setup scene', error)
+				throw error
+			}
 		}
-	}
 
-			const setupLighting = () => {
+		const setupLighting = () => {
 		// Ambient light - use config values
-		const lightingConfig = VIEWER_CONFIG.lighting
-		const ambientLight = new THREE.AmbientLight(
-			lightingConfig.ambient.color,
-			lightingConfig.ambient.intensity
-		)
-		scene.value.add(ambientLight)
-
-		// Directional light - use config values
-		const directionalLight = new THREE.DirectionalLight(
-			lightingConfig.directional.color,
-			lightingConfig.directional.intensity
-		)
-		directionalLight.position.set(
-			lightingConfig.directional.position.x,
-			lightingConfig.directional.position.y,
-			lightingConfig.directional.position.z
-		)
-		directionalLight.castShadow = lightingConfig.directional.castShadow
-		if (directionalLight.castShadow) {
-			directionalLight.shadow.mapSize.width = lightingConfig.directional.shadowMapSize
-			directionalLight.shadow.mapSize.height = lightingConfig.directional.shadowMapSize
-		}
-		scene.value.add(directionalLight)
-
-		// Point light - use config values
-		if (lightingConfig.point.enabled) {
-			const pointLight = new THREE.PointLight(
-				lightingConfig.point.color,
-				lightingConfig.point.intensity,
-				lightingConfig.point.distance
+			const lightingConfig = VIEWER_CONFIG.lighting
+			const ambientLight = new THREE.AmbientLight(
+				lightingConfig.ambient.color,
+				lightingConfig.ambient.intensity,
 			)
-			pointLight.position.set(
-				lightingConfig.point.position.x,
-				lightingConfig.point.position.y,
-				lightingConfig.point.position.z
+			scene.value.add(ambientLight)
+
+			// Directional light - use config values
+			const directionalLight = new THREE.DirectionalLight(
+				lightingConfig.directional.color,
+				lightingConfig.directional.intensity,
 			)
-			scene.value.add(pointLight)
+			directionalLight.position.set(
+				lightingConfig.directional.position.x,
+				lightingConfig.directional.position.y,
+				lightingConfig.directional.position.z,
+			)
+			directionalLight.castShadow = lightingConfig.directional.castShadow
+			if (directionalLight.castShadow) {
+				directionalLight.shadow.mapSize.width = lightingConfig.directional.shadowMapSize
+				directionalLight.shadow.mapSize.height = lightingConfig.directional.shadowMapSize
+			}
+			scene.value.add(directionalLight)
+
+			// Point light - use config values
+			if (lightingConfig.point.enabled) {
+				const pointLight = new THREE.PointLight(
+					lightingConfig.point.color,
+					lightingConfig.point.intensity,
+					lightingConfig.point.distance,
+				)
+				pointLight.position.set(
+					lightingConfig.point.position.x,
+					lightingConfig.point.position.y,
+					lightingConfig.point.position.z,
+				)
+				scene.value.add(pointLight)
+			}
 		}
-	}
 
 		const setupHelpers = () => {
 			// Grid helper - use config values for consistency
@@ -638,7 +640,7 @@ export default {
 				const gridSize = VIEWER_CONFIG.grid?.size || 10
 				const gridDivisions = VIEWER_CONFIG.grid?.divisions || 10
 				const gridColor = VIEWER_CONFIG.grid?.colorGrid || 0x00ff00
-				
+
 				grid.value = new THREE.GridHelper(gridSize, gridDivisions, gridColor, gridColor)
 				grid.value.material.opacity = VIEWER_CONFIG.grid?.opacity || 1.0
 				grid.value.material.transparent = VIEWER_CONFIG.grid?.transparent || false
@@ -661,12 +663,12 @@ export default {
 			try {
 				// Get the filename from props or URL
 				const fullPath = props.filename ? decodeURIComponent(props.filename) : 'model.glb'
-				
+
 				// Extract directory and filename
 				// fullPath might be like "/3d_test/capsule/capsule.obj" or just "model.obj"
 				const pathParts = fullPath.split('/').filter(p => p) // Remove empty strings
 				const filename = pathParts.pop() // Get the actual filename
-				
+
 				// Reconstruct directory path with leading slash if it was present
 				let dirPath
 				if (fullPath.startsWith('/')) {
@@ -674,7 +676,7 @@ export default {
 				} else {
 					dirPath = pathParts.join('/') || (props.dir || 'Models')
 				}
-				
+
 				const extension = filename.split('.').pop().toLowerCase()
 
 				logger.info('ThreeViewer', 'Loading model', {
@@ -705,7 +707,7 @@ export default {
 
 					// Update grid size
 					updateGridSize(modelRoot.value)
-					
+
 					// Add face labels if enabled
 					if (props.showFaceLabels) {
 						faceLabels.addFaceLabels(modelRoot.value, scene.value)
@@ -719,15 +721,15 @@ export default {
 					const missingFiles = loadedModel.missingFiles || []
 					const missingTextures = loadedModel.missingTextures || []
 					const totalMissing = missingFiles.length + missingTextures.length
-					
+
 					if (totalMissing > 0) {
 						const missingList = [...missingFiles, ...missingTextures]
-						
+
 						logger.warn('ThreeViewer', 'Model loaded with warnings', {
 							missingCount: totalMissing,
 							missingFiles: missingList,
 						})
-						
+
 						// Emit warning toast
 						emit('push-toast', {
 							type: 'warning',
@@ -754,102 +756,102 @@ export default {
 			}
 		}
 
-	const createDemoScene = (fileId = 'demo') => {
-		try {
-			const demoGroup = new THREE.Group()
-			
-					// Load the app logo texture
-		const textureLoader = new THREE.TextureLoader()
-		const logoTexture = textureLoader.load('./img/app-color.svg', undefined, undefined, (error) => {
-			logger.warn('ThreeViewer', 'Failed to load app logo, using fallback', error)
-		})
-			
-			// 1. Center piece - Logo on a plane with depth
-			const logoPlaneGeometry = new THREE.PlaneGeometry(2, 2)
-			const logoMaterial = new THREE.MeshBasicMaterial({ 
-				map: logoTexture,
-				transparent: true,
-				side: THREE.DoubleSide,
-			})
-			const logoPlane = new THREE.Mesh(logoPlaneGeometry, logoMaterial)
-			logoPlane.position.set(0, 0.5, 0)
-			demoGroup.add(logoPlane)
-			
-			// 2. Logo back panel for depth effect
-			const backPanelGeometry = new THREE.PlaneGeometry(2.1, 2.1)
-			const backPanelMaterial = new THREE.MeshStandardMaterial({ 
-				color: 0x0082c9,
-				metalness: 0.3,
-				roughness: 0.7,
-			})
-			const backPanel = new THREE.Mesh(backPanelGeometry, backPanelMaterial)
-			backPanel.position.set(0, 0.5, -0.1)
-			demoGroup.add(backPanel)
-			
-			// 3. Decorative sphere - left
-			const sphereGeometry = new THREE.SphereGeometry(0.3, 32, 32)
-			const sphereMaterial = new THREE.MeshStandardMaterial({ 
-				color: 0x0082c9,
-				metalness: 0.8,
-				roughness: 0.2,
-			})
-			const sphere1 = new THREE.Mesh(sphereGeometry, sphereMaterial)
-			sphere1.position.set(-1.3, -0.5, 0.3)
-			demoGroup.add(sphere1)
-			
-			// 4. Decorative sphere - right
-			const sphere2 = new THREE.Mesh(sphereGeometry, sphereMaterial)
-			sphere2.position.set(1.3, -0.5, 0.3)
-			demoGroup.add(sphere2)
-			
-			// 5. Small decorative cubes
-			const cubeGeometry = new THREE.BoxGeometry(0.25, 0.25, 0.25)
-			const cubeMaterial = new THREE.MeshStandardMaterial({ 
-				color: 0x4ecdc4,
-				metalness: 0.5,
-				roughness: 0.5,
-			})
-			
-			const cube1 = new THREE.Mesh(cubeGeometry, cubeMaterial)
-			cube1.position.set(-1.5, 0.8, 0.5)
-			cube1.rotation.set(0.5, 0.5, 0)
-			demoGroup.add(cube1)
-			
-			const cube2 = new THREE.Mesh(cubeGeometry, cubeMaterial)
-			cube2.position.set(1.5, 0.8, 0.5)
-			cube2.rotation.set(0.3, 0.8, 0.2)
-			demoGroup.add(cube2)
-			
-			// 6. Add demo lights
-			const ambientLight = new THREE.AmbientLight(0xffffff, 0.6)
-			demoGroup.add(ambientLight)
-			
-			const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8)
-			directionalLight.position.set(5, 5, 5)
-			demoGroup.add(directionalLight)
-			
-			const pointLight = new THREE.PointLight(0xffffff, 0.4)
-			pointLight.position.set(-3, 3, 3)
-			demoGroup.add(pointLight)
-			
-			// Add to scene
-			modelRoot.value = demoGroup
-			scene.value.add(modelRoot.value)
-			
-			// Fit camera
-			camera.fitCameraToObject(modelRoot.value)
-			updateGridSize(modelRoot.value)
-			
-			// Analyze demo model for stats
-			modelStatsComposable.analyzeModel(modelRoot.value, 'demo-scene.glb', 0)
-			
-			emit('model-loaded', { fileId, filename: 'Demo Scene' })
-			logger.info('ThreeViewer', 'Demo scene created with app logo')
-		} catch (error) {
-			logger.error('ThreeViewer', 'Failed to create demo scene', error)
-			emit('error', error)
+		const createDemoScene = (fileId = 'demo') => {
+			try {
+				const demoGroup = new THREE.Group()
+
+				// Load the app logo texture
+				const textureLoader = new THREE.TextureLoader()
+				const logoTexture = textureLoader.load('./img/app-color.svg', undefined, undefined, (error) => {
+					logger.warn('ThreeViewer', 'Failed to load app logo, using fallback', error)
+				})
+
+				// 1. Center piece - Logo on a plane with depth
+				const logoPlaneGeometry = new THREE.PlaneGeometry(2, 2)
+				const logoMaterial = new THREE.MeshBasicMaterial({
+					map: logoTexture,
+					transparent: true,
+					side: THREE.DoubleSide,
+				})
+				const logoPlane = new THREE.Mesh(logoPlaneGeometry, logoMaterial)
+				logoPlane.position.set(0, 0.5, 0)
+				demoGroup.add(logoPlane)
+
+				// 2. Logo back panel for depth effect
+				const backPanelGeometry = new THREE.PlaneGeometry(2.1, 2.1)
+				const backPanelMaterial = new THREE.MeshStandardMaterial({
+					color: 0x0082c9,
+					metalness: 0.3,
+					roughness: 0.7,
+				})
+				const backPanel = new THREE.Mesh(backPanelGeometry, backPanelMaterial)
+				backPanel.position.set(0, 0.5, -0.1)
+				demoGroup.add(backPanel)
+
+				// 3. Decorative sphere - left
+				const sphereGeometry = new THREE.SphereGeometry(0.3, 32, 32)
+				const sphereMaterial = new THREE.MeshStandardMaterial({
+					color: 0x0082c9,
+					metalness: 0.8,
+					roughness: 0.2,
+				})
+				const sphere1 = new THREE.Mesh(sphereGeometry, sphereMaterial)
+				sphere1.position.set(-1.3, -0.5, 0.3)
+				demoGroup.add(sphere1)
+
+				// 4. Decorative sphere - right
+				const sphere2 = new THREE.Mesh(sphereGeometry, sphereMaterial)
+				sphere2.position.set(1.3, -0.5, 0.3)
+				demoGroup.add(sphere2)
+
+				// 5. Small decorative cubes
+				const cubeGeometry = new THREE.BoxGeometry(0.25, 0.25, 0.25)
+				const cubeMaterial = new THREE.MeshStandardMaterial({
+					color: 0x4ecdc4,
+					metalness: 0.5,
+					roughness: 0.5,
+				})
+
+				const cube1 = new THREE.Mesh(cubeGeometry, cubeMaterial)
+				cube1.position.set(-1.5, 0.8, 0.5)
+				cube1.rotation.set(0.5, 0.5, 0)
+				demoGroup.add(cube1)
+
+				const cube2 = new THREE.Mesh(cubeGeometry, cubeMaterial)
+				cube2.position.set(1.5, 0.8, 0.5)
+				cube2.rotation.set(0.3, 0.8, 0.2)
+				demoGroup.add(cube2)
+
+				// 6. Add demo lights
+				const ambientLight = new THREE.AmbientLight(0xffffff, 0.6)
+				demoGroup.add(ambientLight)
+
+				const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8)
+				directionalLight.position.set(5, 5, 5)
+				demoGroup.add(directionalLight)
+
+				const pointLight = new THREE.PointLight(0xffffff, 0.4)
+				pointLight.position.set(-3, 3, 3)
+				demoGroup.add(pointLight)
+
+				// Add to scene
+				modelRoot.value = demoGroup
+				scene.value.add(modelRoot.value)
+
+				// Fit camera
+				camera.fitCameraToObject(modelRoot.value)
+				updateGridSize(modelRoot.value)
+
+				// Analyze demo model for stats
+				modelStatsComposable.analyzeModel(modelRoot.value, 'demo-scene.glb', 0)
+
+				emit('model-loaded', { fileId, filename: 'Demo Scene' })
+				logger.info('ThreeViewer', 'Demo scene created with app logo')
+			} catch (error) {
+				logger.error('ThreeViewer', 'Failed to create demo scene', error)
+				emit('error', error)
+			}
 		}
-	}
 
 		/**
 		 * Dynamically update grid size based on model dimensions
@@ -860,7 +862,7 @@ export default {
 
 			try {
 				const box = new THREE.Box3().setFromObject(obj)
-				
+
 				// Validate bounding box
 				if (box.isEmpty()) {
 					logger.warn('ThreeViewer', 'Cannot update grid: model bounding box is empty')
@@ -941,7 +943,7 @@ export default {
 
 			// Render scene
 			camera.render(renderer.value, scene.value)
-			
+
 			// Render face labels
 			faceLabels.renderLabels(scene.value, camera.camera.value)
 
@@ -953,104 +955,104 @@ export default {
 
 		const setupEventListeners = () => {
 			window.addEventListener('resize', onWindowResize)
-			
+
 			// Add click handler for measurement and annotation
 			if (renderer.value && renderer.value.domElement) {
 				renderer.value.domElement.addEventListener('click', onCanvasClick)
 			}
 		}
 
-	const onWindowResize = () => {
-		const width = container.value.clientWidth
-		const height = container.value.clientHeight
+		const onWindowResize = () => {
+			const width = container.value.clientWidth
+			const height = container.value.clientHeight
 
-		camera.onWindowResize(width, height)
-		
-		// Preserve pixel ratio by using setSize with updateStyle=false
-		// This prevents setSize from resetting pixel ratio to window.devicePixelRatio
-		renderer.value.setSize(width, height, false)
-		
-		// Resize label renderer
-		faceLabels.onWindowResize(width, height)
-		
-		logger.info('ThreeViewer', 'Window resized', {
-			width,
-			height,
-			pixelRatio: renderer.value.getPixelRatio(),
-		})
-		
-		// Re-adjust overlay positioning on window resize
-		adjustOverlayPositioning()
-	}
+			camera.onWindowResize(width, height)
 
-	/**
-	 * Dynamically adjust overlay positioning to avoid toolbar overlap
-	 */
-	const adjustOverlayPositioning = () => {
+			// Preserve pixel ratio by using setSize with updateStyle=false
+			// This prevents setSize from resetting pixel ratio to window.devicePixelRatio
+			renderer.value.setSize(width, height, false)
+
+			// Resize label renderer
+			faceLabels.onWindowResize(width, height)
+
+			logger.info('ThreeViewer', 'Window resized', {
+				width,
+				height,
+				pixelRatio: renderer.value.getPixelRatio(),
+			})
+
+			// Re-adjust overlay positioning on window resize
+			adjustOverlayPositioning()
+		}
+
+		/**
+		 * Dynamically adjust overlay positioning to avoid toolbar overlap
+		 */
+		const adjustOverlayPositioning = () => {
 		// Wait for DOM to be ready and add a small delay to ensure toolbar is fully rendered
-		nextTick(() => {
-			setTimeout(() => {
-				const toolbar = document.querySelector('.minimal-top-bar')
-				const appHeader = document.querySelector('#header')
-				const nextcloudHeader = document.querySelector('#header')
-				
-				let totalHeaderHeight = 0
-				
-				// Check for Nextcloud header height
-				if (nextcloudHeader) {
-					const headerRect = nextcloudHeader.getBoundingClientRect()
-					totalHeaderHeight += headerRect.height
-				}
-				
-				// Check for minimal top bar height
-				if (toolbar) {
-					const toolbarRect = toolbar.getBoundingClientRect()
-					totalHeaderHeight += toolbarRect.height + 10 // Add some padding
-				}
-				
-				// Calculate safe spacing: total header height + padding (more conservative)
-				const safeTopSpacing = Math.max(180, totalHeaderHeight + 50)
-				
-				// Update CSS custom property
-				document.documentElement.style.setProperty('--overlay-top-spacing', `${safeTopSpacing}px`)
-				
-				// For mobile, use a slightly smaller spacing but ensure minimum
-				const mobileSpacing = Math.max(140, safeTopSpacing - 30)
-				document.documentElement.style.setProperty('--overlay-mobile-top-spacing', `${mobileSpacing}px`)
-				
-				logger.info('ThreeViewer', 'Adjusted overlay positioning', {
-					totalHeaderHeight,
-					safeTopSpacing,
-					mobileSpacing,
-					hasMinimalTopBar: !!toolbar,
-					hasNextcloudHeader: !!nextcloudHeader,
-					windowHeight: window.innerHeight,
-					windowWidth: window.innerWidth,
-				})
-				
-				// Force a style recalculation by directly setting styles on overlays
-				const measurementOverlay = document.querySelector('.measurement-overlay')
-				const annotationOverlay = document.querySelector('.annotation-overlay')
-				
-				if (measurementOverlay) {
-					measurementOverlay.style.top = `${safeTopSpacing}px`
-					logger.info('ThreeViewer', 'Forced measurement overlay positioning', { top: safeTopSpacing })
-				}
-				
-				if (annotationOverlay) {
-					annotationOverlay.style.top = `${safeTopSpacing}px`
-					logger.info('ThreeViewer', 'Forced annotation overlay positioning', { top: safeTopSpacing })
-				}
-			}, 200) // Increased delay to ensure DOM is fully rendered
-		})
-	}
+			nextTick(() => {
+				setTimeout(() => {
+					const toolbar = document.querySelector('.minimal-top-bar')
+					const appHeader = document.querySelector('#header')
+					const nextcloudHeader = document.querySelector('#header')
 
-	const onCanvasClick = (event) => {
+					let totalHeaderHeight = 0
+
+					// Check for Nextcloud header height
+					if (nextcloudHeader) {
+						const headerRect = nextcloudHeader.getBoundingClientRect()
+						totalHeaderHeight += headerRect.height
+					}
+
+					// Check for minimal top bar height
+					if (toolbar) {
+						const toolbarRect = toolbar.getBoundingClientRect()
+						totalHeaderHeight += toolbarRect.height + 10 // Add some padding
+					}
+
+					// Calculate safe spacing: total header height + padding (more conservative)
+					const safeTopSpacing = Math.max(180, totalHeaderHeight + 50)
+
+					// Update CSS custom property
+					document.documentElement.style.setProperty('--overlay-top-spacing', `${safeTopSpacing}px`)
+
+					// For mobile, use a slightly smaller spacing but ensure minimum
+					const mobileSpacing = Math.max(140, safeTopSpacing - 30)
+					document.documentElement.style.setProperty('--overlay-mobile-top-spacing', `${mobileSpacing}px`)
+
+					logger.info('ThreeViewer', 'Adjusted overlay positioning', {
+						totalHeaderHeight,
+						safeTopSpacing,
+						mobileSpacing,
+						hasMinimalTopBar: !!toolbar,
+						hasNextcloudHeader: !!nextcloudHeader,
+						windowHeight: window.innerHeight,
+						windowWidth: window.innerWidth,
+					})
+
+					// Force a style recalculation by directly setting styles on overlays
+					const measurementOverlay = document.querySelector('.measurement-overlay')
+					const annotationOverlay = document.querySelector('.annotation-overlay')
+
+					if (measurementOverlay) {
+						measurementOverlay.style.top = `${safeTopSpacing}px`
+						logger.info('ThreeViewer', 'Forced measurement overlay positioning', { top: safeTopSpacing })
+					}
+
+					if (annotationOverlay) {
+						annotationOverlay.style.top = `${safeTopSpacing}px`
+						logger.info('ThreeViewer', 'Forced annotation overlay positioning', { top: safeTopSpacing })
+					}
+				}, 200) // Increased delay to ensure DOM is fully rendered
+			})
+		}
+
+		const onCanvasClick = (event) => {
 			// Handle measurement clicks
 			if (measurement.isActive.value) {
 				measurement.handleClick(event, camera.camera.value)
 			}
-			
+
 			// Handle annotation clicks
 			if (annotation.isActive.value) {
 				annotation.handleClick(event, camera.camera.value)
@@ -1129,118 +1131,118 @@ export default {
 			measurement.deleteMeasurement(measurementId)
 		}
 
-	const toggleAnnotationMode = () => {
+		const toggleAnnotationMode = () => {
 		// If turning annotation ON, turn measurement OFF
-		if (!annotation.isActive.value) {
-			if (measurement.isActive.value) {
-				measurement.toggleMeasurement()
+			if (!annotation.isActive.value) {
+				if (measurement.isActive.value) {
+					measurement.toggleMeasurement()
+				}
+			}
+			annotation.toggleAnnotation()
+			emit('toggle-annotation')
+		}
+
+		const togglePerformanceStats = () => {
+			showPerformanceStats.value = !showPerformanceStats.value
+			logger.info('ThreeViewer', 'Performance stats toggled', { visible: showPerformanceStats.value })
+		}
+
+		/**
+		 * Toggle model statistics panel
+		 */
+		const toggleModelStats = () => {
+			modelStatsComposable.toggleStatsPanel()
+			logger.info('ThreeViewer', 'Model stats toggled', { visible: modelStatsComposable.showStats.value })
+		}
+
+		/**
+		 * Clear dependency cache
+		 */
+		const handleClearCache = async () => {
+			try {
+				logger.info('ThreeViewer', 'Clearing dependency cache')
+				await clearAll()
+				const stats = await getCacheStats()
+				logger.info('ThreeViewer', 'Cache cleared', stats)
+
+				emit('push-toast', {
+					type: 'success',
+					title: 'Cache Cleared',
+					message: 'Dependency cache has been cleared successfully',
+				})
+			} catch (error) {
+				logger.error('ThreeViewer', 'Failed to clear cache', error)
+				emit('push-toast', {
+					type: 'error',
+					title: 'Clear Cache Failed',
+					message: error.message || 'Failed to clear cache',
+				})
 			}
 		}
-		annotation.toggleAnnotation()
-		emit('toggle-annotation')
-	}
 
-	const togglePerformanceStats = () => {
-		showPerformanceStats.value = !showPerformanceStats.value
-		logger.info('ThreeViewer', 'Performance stats toggled', { visible: showPerformanceStats.value })
-	}
+		/**
+		 * Handle model export
+		 * @param {string} format - Export format (glb, stl, obj)
+		 */
+		const handleExport = async (format) => {
+			if (!modelRoot.value) {
+				logger.warn('ThreeViewer', 'No model loaded for export')
+				emit('push-toast', {
+					type: 'error',
+					title: 'Export Failed',
+					message: 'No model loaded to export',
+				})
+				return
+			}
 
-	/**
-	 * Toggle model statistics panel
-	 */
-	const toggleModelStats = () => {
-		modelStatsComposable.toggleStatsPanel()
-		logger.info('ThreeViewer', 'Model stats toggled', { visible: modelStatsComposable.showStats.value })
-	}
-	
-	/**
-	 * Clear dependency cache
-	 */
-	const handleClearCache = async () => {
-		try {
-			logger.info('ThreeViewer', 'Clearing dependency cache')
-			await clearAll()
-			const stats = await getCacheStats()
-			logger.info('ThreeViewer', 'Cache cleared', stats)
-			
-			emit('push-toast', {
-				type: 'success',
-				title: 'Cache Cleared',
-				message: 'Dependency cache has been cleared successfully'
-			})
-		} catch (error) {
-			logger.error('ThreeViewer', 'Failed to clear cache', error)
-			emit('push-toast', {
-				type: 'error',
-				title: 'Clear Cache Failed',
-				message: error.message || 'Failed to clear cache'
-			})
-		}
-	}
+			try {
+				logger.info('ThreeViewer', 'Starting export', { format })
 
-	/**
-	 * Handle model export
-	 * @param {string} format - Export format (glb, stl, obj)
-	 */
-	const handleExport = async (format) => {
-		if (!modelRoot.value) {
-			logger.warn('ThreeViewer', 'No model loaded for export')
-			emit('push-toast', { 
-				type: 'error', 
-				title: 'Export Failed',
-				message: 'No model loaded to export' 
-			})
-			return
-		}
+				// Extract filename from props or use default
+				const baseFilename = props.filename
+					? props.filename.split('/').pop().split('.')[0]
+					: 'model'
 
-		try {
-			logger.info('ThreeViewer', 'Starting export', { format })
-
-			// Extract filename from props or use default
-			const baseFilename = props.filename 
-				? props.filename.split('/').pop().split('.')[0] 
-				: 'model'
-
-			// Export based on format
-			switch (format.toLowerCase()) {
+				// Export based on format
+				switch (format.toLowerCase()) {
 				case 'glb':
 					await exportComposable.exportAsGLB(modelRoot.value, baseFilename)
-					emit('push-toast', { 
-						type: 'success', 
+					emit('push-toast', {
+						type: 'success',
 						title: 'Export Successful',
-						message: `Model exported as ${baseFilename}.glb` 
+						message: `Model exported as ${baseFilename}.glb`,
 					})
 					break
 				case 'stl':
 					await exportComposable.exportAsSTL(modelRoot.value, baseFilename)
-					emit('push-toast', { 
-						type: 'success', 
+					emit('push-toast', {
+						type: 'success',
 						title: 'Export Successful',
-						message: `Model exported as ${baseFilename}.stl` 
+						message: `Model exported as ${baseFilename}.stl`,
 					})
 					break
 				case 'obj':
 					await exportComposable.exportAsOBJ(modelRoot.value, baseFilename)
-					emit('push-toast', { 
-						type: 'success', 
+					emit('push-toast', {
+						type: 'success',
 						title: 'Export Successful',
-						message: `Model exported as ${baseFilename}.obj` 
+						message: `Model exported as ${baseFilename}.obj`,
 					})
 					break
 				default:
 					throw new Error(`Unsupported export format: ${format}`)
-			}
+				}
 
-			logger.info('ThreeViewer', 'Export completed successfully', { format, filename: baseFilename })
-		} catch (error) {
-			logger.error('ThreeViewer', 'Export failed', error)
-			emit('push-toast', { 
-				type: 'error', 
-				title: 'Export Failed',
-				message: error.message || 'Failed to export model' 
-			})
+				logger.info('ThreeViewer', 'Export completed successfully', { format, filename: baseFilename })
+			} catch (error) {
+				logger.error('ThreeViewer', 'Export failed', error)
+				emit('push-toast', {
+					type: 'error',
+					title: 'Export Failed',
+					message: error.message || 'Failed to export model',
+				})
+			}
 		}
-	}
 
 		const deleteAnnotation = (annotationId) => {
 			annotation.deleteAnnotation(annotationId)
@@ -1260,10 +1262,10 @@ export default {
 					// Entering comparison mode - open native file picker
 					comparison.toggleComparisonMode()
 					emit('toggle-comparison')
-					
+
 					try {
 						const filePath = await comparison.openFilePicker()
-						
+
 						// Check if user cancelled (null return)
 						if (!filePath) {
 							logger.info('ThreeViewer', 'File picker cancelled by user')
@@ -1272,7 +1274,7 @@ export default {
 							emit('toggle-comparison')
 							return
 						}
-						
+
 						// Load the selected model
 						const context = {
 							THREE,
@@ -1287,11 +1289,11 @@ export default {
 
 						// Pause rendering during comparison model initialization to prevent race conditions
 						renderPaused.value = true
-						
+
 						// Add the comparison model to the scene
 						if (comparison.comparisonModel.value) {
 							scene.value.add(comparison.comparisonModel.value)
-							
+
 							// Use triple requestAnimationFrame to ensure models are fully rendered before fitting
 							requestAnimationFrame(() => {
 								requestAnimationFrame(() => {
@@ -1403,13 +1405,13 @@ export default {
 							logger.info('ThreeViewer', 'Camera positioned for both models', {
 								center: { x: center.x, y: center.y, z: center.z },
 								cameraDistance,
-								cameraPosition: { 
-									x: camera.camera.value.position.x, 
-									y: camera.camera.value.position.y, 
-									z: camera.camera.value.position.z 
-								}
+								cameraPosition: {
+									x: camera.camera.value.position.x,
+									y: camera.camera.value.position.y,
+									z: camera.camera.value.position.z,
+								},
 							})
-							
+
 							// Reset flag after positioning is complete
 							if (camera.isPositioningCamera !== undefined) {
 								camera.isPositioningCamera.value = false
@@ -1432,281 +1434,296 @@ export default {
 			}
 		}
 
-	const setPerformanceMode = (mode) => {
-		if (performance && typeof performance.setPerformanceMode === 'function') {
-			performance.setPerformanceMode(mode, renderer.value)
-			logger.info('ThreeViewer', 'Performance mode set', { mode })
-		}
-	}
-
-	/**
-	 * Handle view cube face click
-	 * Animates camera to the selected face view
-	 * @param {Object} faceView - Face view data with position and label
-	 */
-	const handleViewCubeFaceClick = (faceView) => {
-		if (!camera.camera.value || !camera.controls.value || !modelRoot.value) {
-			logger.warn('ThreeViewer', 'Cannot animate to face view: camera, controls, or model not ready')
-			return
+		const setPerformanceMode = (mode) => {
+			if (performance && typeof performance.setPerformanceMode === 'function') {
+				performance.setPerformanceMode(mode, renderer.value)
+				logger.info('ThreeViewer', 'Performance mode set', { mode })
+			}
 		}
 
-		try {
+		/**
+		 * Handle view cube face click
+		 * Animates camera to the selected face view
+		 * @param {object} faceView - Face view data with position and label
+		 */
+		const handleViewCubeFaceClick = (faceView) => {
+			if (!camera.camera.value || !camera.controls.value || !modelRoot.value) {
+				logger.warn('ThreeViewer', 'Cannot animate to face view: camera, controls, or model not ready')
+				return
+			}
+
+			try {
 			// Calculate the bounding box of the model to determine distance
-			const box = new THREE.Box3().setFromObject(modelRoot.value)
-			const center = box.getCenter(new THREE.Vector3())
-			const size = box.getSize(new THREE.Vector3())
-			const maxDim = Math.max(size.x, size.y, size.z)
+				const box = new THREE.Box3().setFromObject(modelRoot.value)
+				const center = box.getCenter(new THREE.Vector3())
+				const size = box.getSize(new THREE.Vector3())
+				const maxDim = Math.max(size.x, size.y, size.z)
 
-			// Calculate appropriate distance based on FOV
-			const fov = camera.camera.value.fov * (Math.PI / 180)
-			const cameraDistance = Math.abs(maxDim / Math.sin(fov / 2)) * 1.5
+				// Calculate appropriate distance based on FOV
+				const fov = camera.camera.value.fov * (Math.PI / 180)
+				const cameraDistance = Math.abs(maxDim / Math.sin(fov / 2)) * 1.5
 
-			// Calculate target camera position based on face direction
-			const targetPosition = new THREE.Vector3()
-				.copy(faceView.position)
-				.multiplyScalar(cameraDistance)
-				.add(center)
+				// Calculate target camera position based on face direction
+				const targetPosition = new THREE.Vector3()
+					.copy(faceView.position)
+					.multiplyScalar(cameraDistance)
+					.add(center)
 
-			// Animate camera to target position
-			animateCameraToPosition(targetPosition, center, 1000)
+				// Animate camera to target position
+				animateCameraToPosition(targetPosition, center, 1000)
 
-			logger.info('ThreeViewer', 'Animating camera to face view', {
-				face: faceView.label,
-				targetPosition: { x: targetPosition.x, y: targetPosition.y, z: targetPosition.z },
-				center: { x: center.x, y: center.y, z: center.z },
-			})
-		} catch (error) {
-			logger.error('ThreeViewer', 'Failed to animate to face view', error)
-		}
-	}
-
-	/**
-	 * Animate camera to a specific position
-	 * @param {THREE.Vector3} targetPosition - Target camera position
-	 * @param {THREE.Vector3} targetLookAt - Target look-at point
-	 * @param {number} duration - Animation duration in ms
-	 */
-	const animateCameraToPosition = (targetPosition, targetLookAt, duration = 1000) => {
-		if (!camera.camera.value || !camera.controls.value) return
-
-		const startPosition = camera.camera.value.position.clone()
-		const startLookAt = camera.controls.value.target.clone()
-		const startTime = Date.now()
-
-		const animate = () => {
-			const elapsed = Date.now() - startTime
-			const progress = Math.min(elapsed / duration, 1)
-
-			// Easing function (ease-in-out cubic)
-			const easeProgress = progress < 0.5
-				? 4 * progress * progress * progress
-				: 1 - Math.pow(-2 * progress + 2, 3) / 2
-
-			// Interpolate position
-			camera.camera.value.position.lerpVectors(startPosition, targetPosition, easeProgress)
-
-			// Interpolate look-at target
-			camera.controls.value.target.lerpVectors(startLookAt, targetLookAt, easeProgress)
-			camera.controls.value.update()
-
-			if (progress < 1) {
-				requestAnimationFrame(animate)
-			} else {
-				logger.info('ThreeViewer', 'Camera animation completed')
+				logger.info('ThreeViewer', 'Animating camera to face view', {
+					face: faceView.label,
+					targetPosition: { x: targetPosition.x, y: targetPosition.y, z: targetPosition.z },
+					center: { x: center.x, y: center.y, z: center.z },
+				})
+			} catch (error) {
+				logger.error('ThreeViewer', 'Failed to animate to face view', error)
 			}
 		}
 
-		animate()
-	}
+		/**
+		 * Animate camera to a specific position
+		 * @param {THREE.Vector3} targetPosition - Target camera position
+		 * @param {THREE.Vector3} targetLookAt - Target look-at point
+		 * @param {number} duration - Animation duration in ms
+		 */
+		const animateCameraToPosition = (targetPosition, targetLookAt, duration = 1000) => {
+			if (!camera.camera.value || !camera.controls.value) return
 
-	/**
-	 * Handle controller rotation event
-	 */
-	const handleControllerRotate = ({ deltaX, deltaY }) => {
-		logger.info('ThreeViewer', 'handleControllerRotate called', { deltaX, deltaY, hasCamera: !!camera.camera.value, hasControls: !!camera.controls.value })
-		
-		if (!camera.camera.value || !camera.controls.value) {
-			logger.warn('ThreeViewer', 'Camera or controls not ready for rotation')
-			return
+			const startPosition = camera.camera.value.position.clone()
+			const startLookAt = camera.controls.value.target.clone()
+			const startTime = Date.now()
+
+			const animate = () => {
+				const elapsed = Date.now() - startTime
+				const progress = Math.min(elapsed / duration, 1)
+
+				// Easing function (ease-in-out cubic)
+				const easeProgress = progress < 0.5
+					? 4 * progress * progress * progress
+					: 1 - Math.pow(-2 * progress + 2, 3) / 2
+
+				// Interpolate position
+				camera.camera.value.position.lerpVectors(startPosition, targetPosition, easeProgress)
+
+				// Interpolate look-at target
+				camera.controls.value.target.lerpVectors(startLookAt, targetLookAt, easeProgress)
+				camera.controls.value.update()
+
+				if (progress < 1) {
+					requestAnimationFrame(animate)
+				} else {
+					logger.info('ThreeViewer', 'Camera animation completed')
+				}
+			}
+
+			animate()
 		}
-		
-		try {
-			camera.rotateCameraByDelta(deltaX, deltaY)
-			logger.info('ThreeViewer', 'Camera rotated from controller', { deltaX, deltaY })
-		} catch (error) {
-			logger.error('ThreeViewer', 'Failed to rotate camera from controller', error)
-		}
-	}
 
-	/**
-	 * Handle test pan event
-	 */
-	const handleTestPan = (data) => {
-		console.log('TEST PAN EVENT RECEIVED:', data)
-		console.log('ThreeViewer mounted:', !!camera.camera.value, !!camera.controls.value)
-	}
+		/**
+		 * Handle controller rotation event
+		 * @param root0
+		 * @param root0.deltaX
+		 * @param root0.deltaY
+		 */
+		const handleControllerRotate = ({ deltaX, deltaY }) => {
+			logger.info('ThreeViewer', 'handleControllerRotate called', { deltaX, deltaY, hasCamera: !!camera.camera.value, hasControls: !!camera.controls.value })
 
-	/**
-	 * Direct pan method that can be called from CircularController
-	 */
-	const directPan = (panDelta) => {
-		console.log('DIRECT PAN CALLED:', panDelta)
-		if (!camera.camera.value || !camera.controls.value) {
-			console.log('Camera or controls not ready for direct pan')
-			return
+			if (!camera.camera.value || !camera.controls.value) {
+				logger.warn('ThreeViewer', 'Camera or controls not ready for rotation')
+				return
+			}
+
+			try {
+				camera.rotateCameraByDelta(deltaX, deltaY)
+				logger.info('ThreeViewer', 'Camera rotated from controller', { deltaX, deltaY })
+			} catch (error) {
+				logger.error('ThreeViewer', 'Failed to rotate camera from controller', error)
+			}
 		}
 
-		try {
+		/**
+		 * Handle test pan event
+		 * @param data
+		 */
+		const handleTestPan = (data) => {
+			console.log('TEST PAN EVENT RECEIVED:', data)
+			console.log('ThreeViewer mounted:', !!camera.camera.value, !!camera.controls.value)
+		}
+
+		/**
+		 * Direct pan method that can be called from CircularController
+		 * @param panDelta
+		 */
+		const directPan = (panDelta) => {
+			console.log('DIRECT PAN CALLED:', panDelta)
+			if (!camera.camera.value || !camera.controls.value) {
+				console.log('Camera or controls not ready for direct pan')
+				return
+			}
+
+			try {
 			// Use the existing panCameraByDelta method
-			camera.panCameraByDelta(panDelta.x, panDelta.y)
-			logger.info('ThreeViewer', 'Camera panned from direct call', { x: panDelta.x, y: panDelta.y })
-		} catch (error) {
-			logger.error('ThreeViewer', 'Failed to pan camera from direct call', error)
+				camera.panCameraByDelta(panDelta.x, panDelta.y)
+				logger.info('ThreeViewer', 'Camera panned from direct call', { x: panDelta.x, y: panDelta.y })
+			} catch (error) {
+				logger.error('ThreeViewer', 'Failed to pan camera from direct call', error)
+			}
 		}
-	}
 
-	/**
-	 * Handle controller pan event
-	 */
-	const handleControllerPan = ({ x, y }) => {
-		console.log('PAN EVENT RECEIVED:', { x, y })
-		if (!camera.camera.value || !camera.controls.value) {
-			console.log('Camera or controls not ready')
-			return
-		}
-		
-		try {
-			camera.panCameraByDelta(x, y)
-			logger.info('ThreeViewer', 'Camera panned from controller', { x, y })
-		} catch (error) {
-			logger.error('ThreeViewer', 'Failed to pan camera from controller', error)
-		}
-	}
+		/**
+		 * Handle controller pan event
+		 * @param root0
+		 * @param root0.x
+		 * @param root0.y
+		 */
+		const handleControllerPan = ({ x, y }) => {
+			console.log('PAN EVENT RECEIVED:', { x, y })
+			if (!camera.camera.value || !camera.controls.value) {
+				console.log('Camera or controls not ready')
+				return
+			}
 
-	/**
-	 * Handle controller zoom event
-	 */
-	const handleControllerZoom = ({ delta }) => {
-		if (!camera.camera.value || !camera.controls.value) return
-		
-		try {
+			try {
+				camera.panCameraByDelta(x, y)
+				logger.info('ThreeViewer', 'Camera panned from controller', { x, y })
+			} catch (error) {
+				logger.error('ThreeViewer', 'Failed to pan camera from controller', error)
+			}
+		}
+
+		/**
+		 * Handle controller zoom event
+		 * @param root0
+		 * @param root0.delta
+		 */
+		const handleControllerZoom = ({ delta }) => {
+			if (!camera.camera.value || !camera.controls.value) return
+
+			try {
 			// Get current camera position and target
-			const direction = camera.camera.value.position.clone()
-				.sub(camera.controls.value.target)
-			
-			// Calculate zoom factor (zoom in = positive delta, zoom out = negative delta)
-			const zoomAmount = delta * 0.2 // Adjust sensitivity
-			const scale = Math.exp(-zoomAmount)
-			
-			// Apply zoom by scaling the direction vector
-			direction.multiplyScalar(scale)
-			camera.camera.value.position.copy(camera.controls.value.target).add(direction)
-			
-			// Update controls
-			camera.controls.value.update()
-			
-			const currentDistance = camera.getCameraDistance()
-			logger.info('ThreeViewer', 'Camera zoomed from controller', { delta, newDistance: currentDistance })
-		} catch (error) {
-			logger.error('ThreeViewer', 'Failed to zoom camera from controller', error)
-		}
-	}
+				const direction = camera.camera.value.position.clone()
+					.sub(camera.controls.value.target)
 
-	/**
-	 * Handle controller snap to view event
-	 */
-	const handleSnapToView = ({ viewName }) => {
-		logger.info('ThreeViewer', 'handleSnapToView called', { viewName, hasCamera: !!camera.camera.value, hasControls: !!camera.controls.value })
-		
-		if (!camera.camera.value || !camera.controls.value) {
-			logger.warn('ThreeViewer', 'Camera or controls not ready for snap')
-			return
-		}
-		
-		try {
-			camera.snapToNamedView(viewName, VIEWER_CONFIG.controller.animationDuration)
-			logger.info('ThreeViewer', 'Snapped to view from controller', { viewName })
-		} catch (error) {
-			logger.error('ThreeViewer', 'Failed to snap to view from controller', error)
-		}
-	}
+				// Calculate zoom factor (zoom in = positive delta, zoom out = negative delta)
+				const zoomAmount = delta * 0.2 // Adjust sensitivity
+				const scale = Math.exp(-zoomAmount)
 
-	/**
-	 * Handle controller nudge camera event
-	 */
-	const handleNudgeCamera = ({ direction }) => {
-		logger.info('ThreeViewer', 'handleNudgeCamera called', { direction, hasCamera: !!camera.camera.value, hasControls: !!camera.controls.value })
-		
-		if (!camera.camera.value || !camera.controls.value) {
-			logger.warn('ThreeViewer', 'Camera or controls not ready for nudge')
-			return
+				// Apply zoom by scaling the direction vector
+				direction.multiplyScalar(scale)
+				camera.camera.value.position.copy(camera.controls.value.target).add(direction)
+
+				// Update controls
+				camera.controls.value.update()
+
+				const currentDistance = camera.getCameraDistance()
+				logger.info('ThreeViewer', 'Camera zoomed from controller', { delta, newDistance: currentDistance })
+			} catch (error) {
+				logger.error('ThreeViewer', 'Failed to zoom camera from controller', error)
+			}
 		}
-		
-		try {
+
+		/**
+		 * Handle controller snap to view event
+		 * @param root0
+		 * @param root0.viewName
+		 */
+		const handleSnapToView = ({ viewName }) => {
+			logger.info('ThreeViewer', 'handleSnapToView called', { viewName, hasCamera: !!camera.camera.value, hasControls: !!camera.controls.value })
+
+			if (!camera.camera.value || !camera.controls.value) {
+				logger.warn('ThreeViewer', 'Camera or controls not ready for snap')
+				return
+			}
+
+			try {
+				camera.snapToNamedView(viewName, VIEWER_CONFIG.controller.animationDuration)
+				logger.info('ThreeViewer', 'Snapped to view from controller', { viewName })
+			} catch (error) {
+				logger.error('ThreeViewer', 'Failed to snap to view from controller', error)
+			}
+		}
+
+		/**
+		 * Handle controller nudge camera event
+		 * @param root0
+		 * @param root0.direction
+		 */
+		const handleNudgeCamera = ({ direction }) => {
+			logger.info('ThreeViewer', 'handleNudgeCamera called', { direction, hasCamera: !!camera.camera.value, hasControls: !!camera.controls.value })
+
+			if (!camera.camera.value || !camera.controls.value) {
+				logger.warn('ThreeViewer', 'Camera or controls not ready for nudge')
+				return
+			}
+
+			try {
 			// Convert direction to delta rotation
-			const nudgeAmount = VIEWER_CONFIG.controller.arrowNudgeAmount
-			const deltaMap = {
-				up: { x: 0, y: -nudgeAmount },
-				down: { x: 0, y: nudgeAmount },
-				left: { x: nudgeAmount, y: 0 },
-				right: { x: -nudgeAmount, y: 0 },
-				'up-left': { x: nudgeAmount * 0.707, y: -nudgeAmount * 0.707 },
-				'up-right': { x: -nudgeAmount * 0.707, y: -nudgeAmount * 0.707 },
-				'down-left': { x: nudgeAmount * 0.707, y: nudgeAmount * 0.707 },
-				'down-right': { x: -nudgeAmount * 0.707, y: nudgeAmount * 0.707 },
+				const nudgeAmount = VIEWER_CONFIG.controller.arrowNudgeAmount
+				const deltaMap = {
+					up: { x: 0, y: -nudgeAmount },
+					down: { x: 0, y: nudgeAmount },
+					left: { x: nudgeAmount, y: 0 },
+					right: { x: -nudgeAmount, y: 0 },
+					'up-left': { x: nudgeAmount * 0.707, y: -nudgeAmount * 0.707 },
+					'up-right': { x: -nudgeAmount * 0.707, y: -nudgeAmount * 0.707 },
+					'down-left': { x: nudgeAmount * 0.707, y: nudgeAmount * 0.707 },
+					'down-right': { x: -nudgeAmount * 0.707, y: nudgeAmount * 0.707 },
+				}
+
+				const delta = deltaMap[direction]
+				if (delta) {
+					camera.rotateCameraByDelta(delta.x, delta.y)
+					logger.info('ThreeViewer', 'Camera nudged from controller', { direction, delta })
+				} else {
+					logger.warn('ThreeViewer', 'Unknown nudge direction', { direction })
+				}
+			} catch (error) {
+				logger.error('ThreeViewer', 'Failed to nudge camera from controller', error)
 			}
-			
-			const delta = deltaMap[direction]
-			if (delta) {
-				camera.rotateCameraByDelta(delta.x, delta.y)
-				logger.info('ThreeViewer', 'Camera nudged from controller', { direction, delta })
-			} else {
-				logger.warn('ThreeViewer', 'Unknown nudge direction', { direction })
+		}
+
+		/**
+		 * Handle controller position change event
+		 * @param position
+		 */
+		const handleControllerPositionChange = (position) => {
+			logger.info('ThreeViewer', 'Controller position changed', position)
+		}
+
+		/**
+		 * Toggle controller visibility
+		 */
+		const toggleController = () => {
+			controller.controllerVisible.value = !controller.controllerVisible.value
+			controller.saveVisibility(controller.controllerVisible.value)
+			logger.info('ThreeViewer', 'Controller toggled', { visible: controller.controllerVisible.value })
+		}
+
+		/**
+		 * Toggle face labels visibility
+		 */
+		const toggleFaceLabels = () => {
+			if (modelRoot.value && scene.value) {
+				faceLabels.toggleLabels(modelRoot.value, scene.value)
 			}
-		} catch (error) {
-			logger.error('ThreeViewer', 'Failed to nudge camera from controller', error)
 		}
-	}
 
-	/**
-	 * Handle controller position change event
-	 */
-	const handleControllerPositionChange = (position) => {
-		logger.info('ThreeViewer', 'Controller position changed', position)
-	}
+		/**
+		 * Update face labels for the current model
+		 */
+		const updateFaceLabels = () => {
+			if (!scene.value || !modelRoot.value) return
 
-	/**
-	 * Toggle controller visibility
-	 */
-	const toggleController = () => {
-		controller.controllerVisible.value = !controller.controllerVisible.value
-		controller.saveVisibility(controller.controllerVisible.value)
-		logger.info('ThreeViewer', 'Controller toggled', { visible: controller.controllerVisible.value })
-	}
-
-	/**
-	 * Toggle face labels visibility
-	 */
-	const toggleFaceLabels = () => {
-		if (modelRoot.value && scene.value) {
-			faceLabels.toggleLabels(modelRoot.value, scene.value)
+			// Add or update face labels using the composable
+			if (faceLabels.labelsEnabled.value) {
+				faceLabels.addFaceLabels(modelRoot.value, scene.value)
+			}
 		}
-	}
 
-	/**
-	 * Update face labels for the current model
-	 */
-	const updateFaceLabels = () => {
-		if (!scene.value || !modelRoot.value) return
-		
-		// Add or update face labels using the composable
-		if (faceLabels.labelsEnabled.value) {
-			faceLabels.addFaceLabels(modelRoot.value, scene.value)
-		}
-	}
-	
-	// Watchers
-	watch(() => props.showGrid, (val) => {
+		// Watchers
+		watch(() => props.showGrid, (val) => {
 			if (grid.value) {
 				grid.value.visible = val
 			}
@@ -1717,7 +1734,7 @@ export default {
 				axes.value.visible = val
 			}
 		})
-		
+
 		watch(() => props.showFaceLabels, (val) => {
 			if (val && modelRoot.value) {
 				faceLabels.addFaceLabels(modelRoot.value, scene.value)
@@ -1743,88 +1760,88 @@ export default {
 			}
 		})
 
-	watch(() => props.performanceMode, (mode) => {
-		if (performance && typeof performance.setPerformanceMode === 'function') {
+		watch(() => props.performanceMode, (mode) => {
+			if (performance && typeof performance.setPerformanceMode === 'function') {
 			// Pass renderer to enable smart detection for auto mode
 			// setPerformanceMode already calls applyPerformanceSettings internally
-			performance.setPerformanceMode(mode, renderer.value)
-			logger.info('ThreeViewer', 'Performance mode changed', { mode })
-		}
-	})
-
-	// Watch for measurement/annotation mode changes to adjust positioning
-	watch(() => measurement.isActive.value, (active) => {
-		if (active) {
-			nextTick(() => {
-				setTimeout(() => adjustOverlayPositioning(), VIEWER_CONFIG.uiTiming.overlayInitialDelay)
-			})
-		}
-	})
-
-	watch(() => annotation.isActive.value, (active) => {
-		if (active) {
-			nextTick(() => {
-				setTimeout(() => adjustOverlayPositioning(), VIEWER_CONFIG.uiTiming.overlayInitialDelay)
-			})
-		}
-	})
-
-	// Emit loading state changes
-	watch(() => modelLoading.isLoading.value, (loading) => {
-		emit('loading-state-changed', loading)
-	})
-
-	// Emit FPS updates (throttled)
-	let lastFpsEmit = 0
-	const fpsThrottle = VIEWER_CONFIG.uiTiming.fpsEmitThrottle
-	watch(() => performance.currentFPS.value, (fps) => {
-		const now = Date.now()
-		if (now - lastFpsEmit > fpsThrottle) {
-			emit('fps-updated', fps)
-			lastFpsEmit = now
-		}
-	})
-	
-	// Watch for theme changes to update scene background
-	watch(() => themeComposable.resolvedTheme.value, (newTheme) => {
-		if (scene.value) {
-			// Apply theme to scene background
-			const themeColors = VIEWER_CONFIG.theme[newTheme] || VIEWER_CONFIG.theme.light
-			if (themeColors.background) {
-				scene.value.background = new THREE.Color(themeColors.background)
-				logger.info('ThreeViewer', 'Scene theme applied', { theme: newTheme, background: themeColors.background })
+				performance.setPerformanceMode(mode, renderer.value)
+				logger.info('ThreeViewer', 'Performance mode changed', { mode })
 			}
-		}
-	})
+		})
 
-	// Lifecycle
-	onMounted(async () => {
+		// Watch for measurement/annotation mode changes to adjust positioning
+		watch(() => measurement.isActive.value, (active) => {
+			if (active) {
+				nextTick(() => {
+					setTimeout(() => adjustOverlayPositioning(), VIEWER_CONFIG.uiTiming.overlayInitialDelay)
+				})
+			}
+		})
+
+		watch(() => annotation.isActive.value, (active) => {
+			if (active) {
+				nextTick(() => {
+					setTimeout(() => adjustOverlayPositioning(), VIEWER_CONFIG.uiTiming.overlayInitialDelay)
+				})
+			}
+		})
+
+		// Emit loading state changes
+		watch(() => modelLoading.isLoading.value, (loading) => {
+			emit('loading-state-changed', loading)
+		})
+
+		// Emit FPS updates (throttled)
+		let lastFpsEmit = 0
+		const fpsThrottle = VIEWER_CONFIG.uiTiming.fpsEmitThrottle
+		watch(() => performance.currentFPS.value, (fps) => {
+			const now = Date.now()
+			if (now - lastFpsEmit > fpsThrottle) {
+				emit('fps-updated', fps)
+				lastFpsEmit = now
+			}
+		})
+
+		// Watch for theme changes to update scene background
+		watch(() => themeComposable.resolvedTheme.value, (newTheme) => {
+			if (scene.value) {
+			// Apply theme to scene background
+				const themeColors = VIEWER_CONFIG.theme[newTheme] || VIEWER_CONFIG.theme.light
+				if (themeColors.background) {
+					scene.value.background = new THREE.Color(themeColors.background)
+					logger.info('ThreeViewer', 'Scene theme applied', { theme: newTheme, background: themeColors.background })
+				}
+			}
+		})
+
+		// Lifecycle
+		onMounted(async () => {
 		// Initialize dependency cache
-		try {
-			await initCache()
-			await clearExpired()
-			const stats = await getCacheStats()
-			logger.info('ThreeViewer', 'Cache initialized', stats)
-		} catch (error) {
-			logger.warn('ThreeViewer', 'Cache init failed, continuing without cache', error)
-		}
-		
-		// Initialize theme system
-		themeComposable.initTheme()
+			try {
+				await initCache()
+				await clearExpired()
+				const stats = await getCacheStats()
+				logger.info('ThreeViewer', 'Cache initialized', stats)
+			} catch (error) {
+				logger.warn('ThreeViewer', 'Cache init failed, continuing without cache', error)
+			}
 
-		// Test hooks for Playwright/testing
-		if (typeof window !== 'undefined') {
-			window.__LOAD_STARTED = true
-			window.__THREEDVIEWER_VIEWER = Object.assign({}, window.__THREEDVIEWER_VIEWER, {
-				cancelLoad,
-				retryLoad,
-			})
-		}
-		init()
-		
-		// Adjust overlay positioning to avoid toolbar overlap
-		adjustOverlayPositioning()
-	})
+			// Initialize theme system
+			themeComposable.initTheme()
+
+			// Test hooks for Playwright/testing
+			if (typeof window !== 'undefined') {
+				window.__LOAD_STARTED = true
+				window.__THREEDVIEWER_VIEWER = Object.assign({}, window.__THREEDVIEWER_VIEWER, {
+					cancelLoad,
+					retryLoad,
+				})
+			}
+			init()
+
+			// Adjust overlay positioning to avoid toolbar overlap
+			adjustOverlayPositioning()
+		})
 
 		onBeforeUnmount(() => {
 			// Cancel animation loop
@@ -1835,32 +1852,32 @@ export default {
 
 			// Cleanup event listeners
 			window.removeEventListener('resize', onWindowResize)
-			
+
 			// Remove canvas click listener - check domElement exists
 			if (renderer.value?.domElement) {
 				renderer.value.domElement.removeEventListener('click', onCanvasClick)
 			}
 
-		if (renderer.value) {
-			renderer.value.dispose()
-		}
+			if (renderer.value) {
+				renderer.value.dispose()
+			}
 
-		camera.dispose()
-		modelLoading.clearModel()
-		comparison.clearComparison()
-		
-		// Dispose face labels
-		faceLabels.dispose()
-		
-		// Dispose performance monitoring
-		if (performance && typeof performance.dispose === 'function') {
-			performance.dispose()
-		}
-	})
+			camera.dispose()
+			modelLoading.clearModel()
+			comparison.clearComparison()
 
-	return {
+			// Dispose face labels
+			faceLabels.dispose()
+
+			// Dispose performance monitoring
+			if (performance && typeof performance.dispose === 'function') {
+				performance.dispose()
+			}
+		})
+
+		return {
 		// Refs
-		container,
+			container,
 			scene,
 			renderer,
 			grid,
@@ -1898,44 +1915,44 @@ export default {
 			// Comparison
 			isComparisonLoading: comparison.isComparisonLoading,
 
-		// Camera composable
-		camera,
+			// Camera composable
+			camera,
 
-		// Performance
-		performance,
-		currentFPS: performance.currentFPS,
-		currentFrameTime: performance.currentFrameTime,
-		currentMemoryUsage: performance.currentMemoryUsage,
-		currentDrawCalls: performance.currentDrawCalls,
-		currentTriangles: performance.currentTriangles,
-		currentPerformanceMode: performance.currentPerformanceMode,
-		currentPixelRatio: performance.currentPixelRatio,
-		showPerformanceStats,
-		
-		// Camera
-		cameraType: camera.cameraType,
-		animationPresets: camera.animationPresets,
-		
-		// Export state
-		isExporting: exportComposable.exporting,
-		exportProgress: exportComposable.exportProgress,
-		
-		// Model stats
-		modelStats: modelStatsComposable.modelStats,
-		showModelStats: modelStatsComposable.showStats,
-		formatIcon,
-		
-		// Progressive textures
-		loadingTextures: progressiveTexturesComposable.loadingTextures,
-		textureProgress: progressiveTexturesComposable.textureProgress,
-		
-		// Theme
-		currentTheme: themeComposable.currentTheme,
-		resolvedTheme: themeComposable.resolvedTheme,
-		direction: themeComposable.direction,
-		isRTL: themeComposable.isRTL,
-		
-		// Methods
+			// Performance
+			performance,
+			currentFPS: performance.currentFPS,
+			currentFrameTime: performance.currentFrameTime,
+			currentMemoryUsage: performance.currentMemoryUsage,
+			currentDrawCalls: performance.currentDrawCalls,
+			currentTriangles: performance.currentTriangles,
+			currentPerformanceMode: performance.currentPerformanceMode,
+			currentPixelRatio: performance.currentPixelRatio,
+			showPerformanceStats,
+
+			// Camera
+			cameraType: camera.cameraType,
+			animationPresets: camera.animationPresets,
+
+			// Export state
+			isExporting: exportComposable.exporting,
+			exportProgress: exportComposable.exportProgress,
+
+			// Model stats
+			modelStats: modelStatsComposable.modelStats,
+			showModelStats: modelStatsComposable.showStats,
+			formatIcon,
+
+			// Progressive textures
+			loadingTextures: progressiveTexturesComposable.loadingTextures,
+			textureProgress: progressiveTexturesComposable.textureProgress,
+
+			// Theme
+			currentTheme: themeComposable.currentTheme,
+			resolvedTheme: themeComposable.resolvedTheme,
+			direction: themeComposable.direction,
+			isRTL: themeComposable.isRTL,
+
+			// Methods
 			toggleOriginalModel,
 			toggleComparisonModel,
 			fitBothModelsToView,
@@ -1957,22 +1974,22 @@ export default {
 			clearAllAnnotations,
 			toggleComparisonMode,
 			directPan,
-		setPerformanceMode,
-		setTheme: themeComposable.setTheme,
-		togglePerformanceStats,
-		toggleModelStats,
-		handleExport,
-		handleClearCache,
-		toggleFaceLabels,
-		handleViewCubeFaceClick,
-		toggleController,
-		handleControllerRotate,
-		handleControllerZoom,
-		handleSnapToView,
-		handleNudgeCamera,
-		handleControllerPositionChange,
-		hasModel: computed(() => modelRoot.value !== null),
-	}
+			setPerformanceMode,
+			setTheme: themeComposable.setTheme,
+			togglePerformanceStats,
+			toggleModelStats,
+			handleExport,
+			handleClearCache,
+			toggleFaceLabels,
+			handleViewCubeFaceClick,
+			toggleController,
+			handleControllerRotate,
+			handleControllerZoom,
+			handleSnapToView,
+			handleNudgeCamera,
+			handleControllerPositionChange,
+			hasModel: computed(() => modelRoot.value !== null),
+		}
 	},
 }
 </script>
@@ -2004,7 +2021,6 @@ export default {
 		max-width: calc(100vw - 40px) !important;
 	}
 }
-
 
 .three-viewer {
 	position: relative;

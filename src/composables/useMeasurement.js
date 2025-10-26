@@ -2,12 +2,12 @@ import { ref, computed, readonly } from 'vue'
 import * as THREE from 'three'
 import { logError } from '../utils/error-handler.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
-import { 
-	calculateModelScale, 
-	createTextTexture, 
-	createMarkerSphere, 
+import {
+	calculateModelScale,
+	createTextTexture,
+	createMarkerSphere,
 	createTextMesh,
-	raycastIntersection 
+	raycastIntersection,
 } from '../utils/modelScaleUtils.js'
 
 // Unit conversion factors from config
@@ -20,7 +20,7 @@ export function useMeasurement() {
 	const points = ref([])
 	const measurements = ref([])
 	const currentMeasurement = ref(null)
-	
+
 	// Unit configuration
 	const currentUnit = ref(DEFAULT_UNIT) // Use configured default unit
 	const modelScale = ref(1) // Scale factor: 1 Three.js unit = modelScale real units
@@ -82,7 +82,7 @@ export function useMeasurement() {
 			clearCurrentMeasurement()
 		}
 	}
-	
+
 	// Convert distance to real-world units
 	const convertDistance = (threeJsDistance) => {
 		const unitConfig = UNIT_SCALES[currentUnit.value] || UNIT_SCALES.units
@@ -97,7 +97,7 @@ export function useMeasurement() {
 			suffix: unitConfig.suffix,
 		}
 	}
-	
+
 	// Set measurement unit
 	const setUnit = (unit) => {
 		if (!unit) {
@@ -108,7 +108,7 @@ export function useMeasurement() {
 			logger.error('useMeasurement', 'Invalid unit specified', { unit })
 			throw new Error(`Invalid unit: ${unit}. Available units: ${Object.keys(UNIT_SCALES).join(', ')}`)
 		}
-		
+
 		currentUnit.value = unit
 		// Recalculate all existing measurements
 		measurements.value = measurements.value.map(m => ({
@@ -119,7 +119,7 @@ export function useMeasurement() {
 		updateAllTextLabels()
 		logger.info('useMeasurement', 'Unit changed', { unit })
 	}
-	
+
 	// Set model scale (how many real units = 1 Three.js unit)
 	const setModelScale = (scale) => {
 		if (typeof scale !== 'number') {
@@ -134,7 +134,7 @@ export function useMeasurement() {
 			logger.error('useMeasurement', 'Scale must be finite', { scale })
 			throw new Error('Scale must be a finite number')
 		}
-		
+
 		modelScale.value = scale
 		// Recalculate all existing measurements
 		measurements.value = measurements.value.map(m => ({
@@ -145,7 +145,7 @@ export function useMeasurement() {
 		updateAllTextLabels()
 		logger.info('useMeasurement', 'Model scale updated', { scale })
 	}
-	
+
 	// Update all text labels on 3D objects with current measurement values
 	const updateAllTextLabels = () => {
 		if (!measurementGroup.value || textMeshes.value.length === 0) return
@@ -155,10 +155,10 @@ export function useMeasurement() {
 			measurements.value.forEach((measurement, index) => {
 				if (index < textMeshes.value.length) {
 					const textMesh = textMeshes.value[index]
-					
+
 					// Use formatted value with current unit
 					const displayText = measurement.formatted || `${measurement.distance.toFixed(2)} units`
-					
+
 					// Create text texture using shared utility
 					const texture = createTextTexture(displayText, {
 						width: 512,
@@ -179,7 +179,7 @@ export function useMeasurement() {
 			logError('useMeasurement', 'Failed to update text labels', error)
 		}
 	}
-	
+
 	// Get available units
 	const getAvailableUnits = () => {
 		return Object.entries(UNIT_SCALES).map(([key, config]) => ({
@@ -256,7 +256,7 @@ export function useMeasurement() {
 
 		// Calculate distance in Three.js units
 		const distance = point1.distanceTo(point2)
-		
+
 		// Convert to real-world units
 		const converted = convertDistance(distance)
 
@@ -305,12 +305,12 @@ export function useMeasurement() {
 			depthTest: false,
 		})
 		const cylinder = new THREE.Mesh(cylinderGeometry, cylinderMaterial)
-		
+
 		// Position and orient the cylinder
 		cylinder.position.copy(measurement.point1).add(direction.multiplyScalar(0.5))
 		cylinder.quaternion.setFromUnitVectors(
 			new THREE.Vector3(0, 1, 0),
-			direction.normalize()
+			direction.normalize(),
 		)
 		cylinder.renderOrder = 997
 		cylinder.name = `measurementLine_${measurement.id}`
@@ -324,7 +324,7 @@ export function useMeasurement() {
 		try {
 			// Use formatted value if available, otherwise show raw distance with units
 			const displayText = measurement.formatted || `${measurement.distance.toFixed(2)} units`
-			
+
 			// Use shared text mesh utility
 			const textMesh = createTextMesh(displayText, measurement.midpoint, {
 				scale: visualScale.value,
@@ -365,7 +365,7 @@ export function useMeasurement() {
 				// Note: Each measurement has 2 points, but we need to be careful not to delete
 				// points that might be shared with other measurements
 				// For safety, we'll remove line and text, but keep point cleanup simple
-				
+
 				// Remove line mesh
 				if (index < lineMeshes.value.length) {
 					const lineMesh = lineMeshes.value[index]
@@ -374,7 +374,7 @@ export function useMeasurement() {
 						lineMeshes.value.splice(index, 1)
 					}
 				}
-				
+
 				// Remove text mesh
 				if (index < textMeshes.value.length) {
 					const textMesh = textMeshes.value[index]
@@ -383,7 +383,7 @@ export function useMeasurement() {
 						textMeshes.value.splice(index, 1)
 					}
 				}
-				
+
 				// Remove point meshes for this measurement (2 points per measurement)
 				// Points are stored sequentially: measurement 0 = points 0,1; measurement 1 = points 2,3; etc.
 				const pointStartIndex = index * 2
@@ -447,7 +447,7 @@ export function useMeasurement() {
 		measurements.value = []
 		currentMeasurement.value = null
 		isActive.value = false
-		
+
 		// Clear visual elements
 		pointMeshes.value = []
 		lineMeshes.value = []

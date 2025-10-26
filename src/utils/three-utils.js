@@ -204,18 +204,18 @@ export function createGridHelper(size = 10, divisions = 10, options = {}) {
 export function getBoundingInfo(object3D, existingBox = null) {
 	const box = existingBox || new THREE.Box3()
 	box.setFromObject(object3D)
-	
+
 	const size = new THREE.Vector3()
 	const center = new THREE.Vector3()
-	
+
 	box.getSize(size)
 	box.getCenter(center)
-	
+
 	const maxDimension = Math.max(size.x, size.y, size.z)
 	const minDimension = Math.min(size.x, size.y, size.z)
 	const volume = size.x * size.y * size.z
 	const diagonalLength = size.length()
-	
+
 	return {
 		box,
 		size,

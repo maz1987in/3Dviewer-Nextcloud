@@ -2,80 +2,80 @@
 	<NcAppContent>
 		<div id="viewer-wrapper">
 			<ToastContainer :toasts="toasts" @dismiss="dismissToast" />
-			
+
 			<!-- Help Panel -->
 			<HelpPanel v-if="showHelp" @close="showHelp = false" />
-			
-		<!-- Minimal Top Bar -->
-		<MinimalTopBar
-			:model-name="filename"
-			:is-loading="isLoading"
-			:fps="fps"
-			:show-performance="showPerformance"
-			:show-controller="showController"
-			:is-mobile="isMobile"
-			@reset-view="onReset"
-			@fit-to-view="onFitToView"
-			@toggle-performance="onTogglePerformance"
-			@toggle-controller="onToggleController"
-			@take-screenshot="onTakeScreenshot"
-			@toggle-help="onToggleHelp"
-			@toggle-tools="onToggleTools" />
-			
-		<!-- Slide-Out Tool Panel -->
-		<SlideOutToolPanel
-			ref="toolsPanel"
-			:auto-rotate="autoRotate"
-			:camera-type="cameraType"
-			:grid="grid"
-			:axes="axes"
-			:wireframe="wireframe"
-			:background-color="background"
-			:measurement-mode="measurementMode"
-			:annotation-mode="annotationMode"
-			:comparison-mode="comparisonMode"
-			:model-loaded="modelLoaded"
-			:performance-mode="performanceMode"
-			:theme-mode="themeMode"
-			:is-mobile="isMobile"
-			@reset-view="onReset"
-			@fit-to-view="onFitToView"
-			@toggle-auto-rotate="onToggleAutoRotate"
-			@toggle-projection="onToggleProjection"
-			@toggle-grid="grid = !grid"
-			@toggle-axes="axes = !axes"
-			@toggle-wireframe="wireframe = !wireframe"
-			@change-background="onBackgroundChange"
-			@toggle-measurement="onToggleMeasurement"
-			@toggle-annotation="onToggleAnnotation"
-			@toggle-comparison="onToggleComparison"
-			@cycle-performance-mode="onCyclePerformanceMode"
-			@cycle-theme="onCycleTheme"
-			@toggle-stats="onToggleStats"
-			@take-screenshot="onTakeScreenshot"
-			@export-model="onExportModel"
-			@clear-cache="onClearCache"
-			@toggle-help="onToggleHelp" />
-			
-		<!-- 3D Viewer -->
-		<ThreeViewer
-			:file-id="fileId"
-			:filename="filename"
-			:dir="dir"
-			ref="viewer"
-			:show-grid="grid"
-			:show-axes="axes"
-			:wireframe="wireframe"
-			:background="background"
-			:show-controller="showController"
-			:measurement-mode="measurementMode"
-			:annotation-mode="annotationMode"
-			:comparison-mode="comparisonMode"
-			:performance-mode="performanceMode"
-			@model-loaded="onModelLoaded"
-			@loading-state-changed="onLoadingStateChanged"
-			@fps-updated="onFpsUpdated"
-			@error="onError" />
+
+			<!-- Minimal Top Bar -->
+			<MinimalTopBar
+				:model-name="filename"
+				:is-loading="isLoading"
+				:fps="fps"
+				:show-performance="showPerformance"
+				:show-controller="showController"
+				:is-mobile="isMobile"
+				@reset-view="onReset"
+				@fit-to-view="onFitToView"
+				@toggle-performance="onTogglePerformance"
+				@toggle-controller="onToggleController"
+				@take-screenshot="onTakeScreenshot"
+				@toggle-help="onToggleHelp"
+				@toggle-tools="onToggleTools" />
+
+			<!-- Slide-Out Tool Panel -->
+			<SlideOutToolPanel
+				ref="toolsPanel"
+				:auto-rotate="autoRotate"
+				:camera-type="cameraType"
+				:grid="grid"
+				:axes="axes"
+				:wireframe="wireframe"
+				:background-color="background"
+				:measurement-mode="measurementMode"
+				:annotation-mode="annotationMode"
+				:comparison-mode="comparisonMode"
+				:model-loaded="modelLoaded"
+				:performance-mode="performanceMode"
+				:theme-mode="themeMode"
+				:is-mobile="isMobile"
+				@reset-view="onReset"
+				@fit-to-view="onFitToView"
+				@toggle-auto-rotate="onToggleAutoRotate"
+				@toggle-projection="onToggleProjection"
+				@toggle-grid="grid = !grid"
+				@toggle-axes="axes = !axes"
+				@toggle-wireframe="wireframe = !wireframe"
+				@change-background="onBackgroundChange"
+				@toggle-measurement="onToggleMeasurement"
+				@toggle-annotation="onToggleAnnotation"
+				@toggle-comparison="onToggleComparison"
+				@cycle-performance-mode="onCyclePerformanceMode"
+				@cycle-theme="onCycleTheme"
+				@toggle-stats="onToggleStats"
+				@take-screenshot="onTakeScreenshot"
+				@export-model="onExportModel"
+				@clear-cache="onClearCache"
+				@toggle-help="onToggleHelp" />
+
+			<!-- 3D Viewer -->
+			<ThreeViewer
+				ref="viewer"
+				:file-id="fileId"
+				:filename="filename"
+				:dir="dir"
+				:show-grid="grid"
+				:show-axes="axes"
+				:wireframe="wireframe"
+				:background="background"
+				:show-controller="showController"
+				:measurement-mode="measurementMode"
+				:annotation-mode="annotationMode"
+				:comparison-mode="comparisonMode"
+				:performance-mode="performanceMode"
+				@model-loaded="onModelLoaded"
+				@loading-state-changed="onLoadingStateChanged"
+				@fps-updated="onFpsUpdated"
+				@error="onError" />
 		</div>
 	</NcAppContent>
 </template>
@@ -145,7 +145,7 @@ export default {
 		if (!this.fileId && typeof window !== 'undefined' && window.__TEST_FILE_ID) {
 			this.fileId = Number(window.__TEST_FILE_ID)
 		}
-		
+
 		// Detect mobile device
 		this.detectMobile()
 		window.addEventListener('resize', this.detectMobile)
@@ -160,7 +160,7 @@ export default {
 			if (appRoot && appRoot.dataset.fileId) {
 				return Number(appRoot.dataset.fileId)
 			}
-			
+
 			// Fallback: Try query params (legacy: /apps/threedviewer/?fileId=123)
 			const params = new URLSearchParams(window.location.search)
 			const id = params.get('fileId')
@@ -176,7 +176,7 @@ export default {
 			if (appRoot && appRoot.dataset.dir) {
 				return appRoot.dataset.dir || null
 			}
-			
+
 			// Fallback: Try query params
 			const params = new URLSearchParams(window.location.search)
 			return params.get('dir') || null
@@ -221,23 +221,23 @@ export default {
 			this.autoRotate = !this.autoRotate
 			this.$refs.viewer?.toggleAutoRotate?.()
 		},
-	onToggleProjection() {
-		this.$refs.viewer?.toggleCameraProjection?.()
-		// Update camera type from viewer
-		if (this.$refs.viewer?.cameraType) {
-			this.cameraType = this.$refs.viewer.cameraType
-		}
-	},
-	onChangePreset(presetName) {
-		if (presetName) {
-			this.currentPreset = presetName
-			this.$refs.viewer?.animateToPreset?.(presetName)
-		}
-	},
-	onToggleController() {
-		this.showController = !this.showController
-		this.$refs.viewer?.toggleController?.()
-	},
+		onToggleProjection() {
+			this.$refs.viewer?.toggleCameraProjection?.()
+			// Update camera type from viewer
+			if (this.$refs.viewer?.cameraType) {
+				this.cameraType = this.$refs.viewer.cameraType
+			}
+		},
+		onChangePreset(presetName) {
+			if (presetName) {
+				this.currentPreset = presetName
+				this.$refs.viewer?.animateToPreset?.(presetName)
+			}
+		},
+		onToggleController() {
+			this.showController = !this.showController
+			this.$refs.viewer?.toggleController?.()
+		},
 
 		// Advanced features event handlers
 		onToggleMeasurement() {
@@ -261,47 +261,47 @@ export default {
 			this.$refs.viewer?.toggleComparisonMode?.()
 		},
 
-	onTogglePerformance() {
+		onTogglePerformance() {
 		// Toggle the performance stats overlay visibility (for MinimalTopBar button)
-		this.$refs.viewer?.togglePerformanceStats?.()
-	},
-	
-	onCyclePerformanceMode(mode) {
+			this.$refs.viewer?.togglePerformanceStats?.()
+		},
+
+		onCyclePerformanceMode(mode) {
 		// Set the new performance mode
-		this.performanceMode = mode
-		this.$refs.viewer?.setPerformanceMode?.(mode)
-	},
-	
-	onCycleTheme(mode) {
+			this.performanceMode = mode
+			this.$refs.viewer?.setPerformanceMode?.(mode)
+		},
+
+		onCycleTheme(mode) {
 		// Set the new theme mode
-		this.themeMode = mode
-		this.$refs.viewer?.setTheme?.(mode)
-	},
-	
-	onToggleStats() {
+			this.themeMode = mode
+			this.$refs.viewer?.setTheme?.(mode)
+		},
+
+		onToggleStats() {
 		// Toggle the model statistics panel
-		this.$refs.viewer?.toggleModelStats?.()
-	},
-	
-	onExportModel(format) {
+			this.$refs.viewer?.toggleModelStats?.()
+		},
+
+		onExportModel(format) {
 		// Trigger export on the viewer
-		this.$refs.viewer?.handleExport?.(format)
-	},
+			this.$refs.viewer?.handleExport?.(format)
+		},
 
-	onClearCache() {
+		onClearCache() {
 		// Clear dependency cache
-		this.$refs.viewer?.handleClearCache?.()
-	},
+			this.$refs.viewer?.handleClearCache?.()
+		},
 
-	onBackgroundChange(val) {
+		onBackgroundChange(val) {
 			this.background = val
 		},
 		onTakeScreenshot() {
 			// TODO: Implement screenshot functionality
-			this.pushToast({ 
-				type: 'info', 
-				title: this.t('threedviewer', 'Screenshot'), 
-				message: this.t('threedviewer', 'Screenshot feature coming soon') 
+			this.pushToast({
+				type: 'info',
+				title: this.t('threedviewer', 'Screenshot'),
+				message: this.t('threedviewer', 'Screenshot feature coming soon'),
 			})
 		},
 		onToggleHelp() {
