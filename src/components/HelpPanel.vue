@@ -11,6 +11,55 @@
 
 			<!-- Content -->
 			<div class="help-content">
+				<!-- 3D CONTROLLER Section -->
+				<section class="help-section">
+					<h3>{{ t('threedviewer', '3D Controller') }}</h3>
+					<div class="help-grid">
+						<div class="help-item">
+							<span class="help-icon">🎮</span>
+							<div class="help-text">
+								<h4>{{ t('threedviewer', 'Toggle Controller') }}</h4>
+								<p>{{ t('threedviewer', 'Show or hide the 3D navigation controller from the top toolbar. The controller is draggable and can be positioned anywhere on screen.') }}</p>
+							</div>
+						</div>
+						<div class="help-item">
+							<span class="help-icon">🔄</span>
+							<div class="help-text">
+								<h4>{{ t('threedviewer', 'Rotation Mode') }}</h4>
+								<p>{{ t('threedviewer', 'Click or drag on the circular ring to rotate the model. Click farther from center for faster rotation.') }}</p>
+							</div>
+						</div>
+						<div class="help-item">
+							<span class="help-icon">↔</span>
+							<div class="help-text">
+								<h4>{{ t('threedviewer', 'Panning Mode') }}</h4>
+								<p>{{ t('threedviewer', 'Click the panning mode button to switch from rotation to panning. Click or drag to move the camera horizontally or vertically.') }}</p>
+							</div>
+						</div>
+						<div class="help-item">
+							<span class="help-icon">±</span>
+							<div class="help-text">
+								<h4>{{ t('threedviewer', 'Zoom Controls') }}</h4>
+								<p>{{ t('threedviewer', 'Use the + and - buttons on the controller to zoom in or out. Hold to zoom continuously.') }}</p>
+							</div>
+						</div>
+						<div class="help-item">
+							<span class="help-icon">⌂</span>
+							<div class="help-text">
+								<h4>{{ t('threedviewer', 'Reset Position') }}</h4>
+								<p>{{ t('threedviewer', 'In panning mode, click the reset button to return the camera to the centered position.') }}</p>
+							</div>
+						</div>
+						<div class="help-item">
+							<span class="help-icon">↔</span>
+							<div class="help-text">
+								<h4>{{ t('threedviewer', 'Drag to Move') }}</h4>
+								<p>{{ t('threedviewer', 'Drag the controller by its edge to reposition it anywhere on the screen. Position is saved automatically.') }}</p>
+							</div>
+						</div>
+					</div>
+				</section>
+
 				<!-- VIEW Section -->
 				<section class="help-section">
 					<h3>{{ t('threedviewer', 'VIEW Controls') }}</h3>
@@ -41,13 +90,6 @@
 							<div class="help-text">
 								<h4>{{ t('threedviewer', 'Camera Projection') }}</h4>
 								<p>{{ t('threedviewer', 'Toggle between Perspective (realistic depth) and Orthographic (parallel lines) camera modes.') }}</p>
-							</div>
-						</div>
-						<div class="help-item">
-							<span class="help-icon">🎬</span>
-							<div class="help-text">
-								<h4>{{ t('threedviewer', 'View Presets') }}</h4>
-								<p>{{ t('threedviewer', 'Quick camera positions: Front, Back, Left, Right, Top, Bottom, and Isometric views.') }}</p>
 							</div>
 						</div>
 					</div>

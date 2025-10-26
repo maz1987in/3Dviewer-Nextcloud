@@ -157,7 +157,7 @@ export default {
 		const cubeContainerRef = ref(null)
 
 		// State
-		const position = ref({ x: 20, y: 20 })
+		const position = ref({ x: 20, y: 20 }) // x: right offset, y: top offset
 		const isDragging = ref(false)
 		const fadeIn = ref(false)
 		const dragOffset = ref({ x: 0, y: 0 })
@@ -203,18 +203,18 @@ export default {
 
 		// Computed style for positioning
 		const controllerStyle = computed(() => ({
-			bottom: `${position.value.y}px`,
+			top: `${position.value.y}px`,
 			right: `${position.value.x}px`,
 		}))
 
 		/**
 		 * Create canvas with text label for cube faces
 		 */
-		const createTextCanvas = (text, color = '#4287f5') => {
-			const canvas = document.createElement('canvas')
-			const size = 256
-			canvas.width = size
-			canvas.height = size
+			const createTextCanvas = (text, color = '#4287f5') => {
+		const canvas = document.createElement('canvas')
+		const size = VIEWER_CONFIG.texture.cubeTextureSize
+		canvas.width = size
+		canvas.height = size
 
 			const context = canvas.getContext('2d')
 
@@ -308,7 +308,7 @@ export default {
 		// Double-click tracking
 		const lastClickTime = ref(0)
 		const lastClickedFace = ref(null)
-		const DOUBLE_CLICK_DELAY = 300 // ms
+		const DOUBLE_CLICK_DELAY = VIEWER_CONFIG.interaction.doubleClickDelay // ms
 
 	// Cube drag rotation state
 	const isDraggingCube = ref(false)
@@ -370,7 +370,7 @@ export default {
 
 		// Only start emitting rotation events after a minimum movement threshold
 		// This prevents tiny accidental movements on click
-		const MIN_DRAG_THRESHOLD = 5 // pixels
+		const MIN_DRAG_THRESHOLD = VIEWER_CONFIG.interaction.dragThreshold // pixels
 		if (!hasCubeDragStarted.value && totalDistance < MIN_DRAG_THRESHOLD) {
 			return // Ignore movement until threshold is exceeded
 		}
@@ -396,7 +396,7 @@ export default {
 
 		// Emit rotation with sensitivity adjustment
 		// Both directions are now natural - drag direction matches rotation
-		const sensitivity = 0.005
+		const sensitivity = VIEWER_CONFIG.interaction.cubeDragSensitivity
 		emit('camera-rotate', {
 			deltaX: deltaX * sensitivity,  // Horizontal mouse movement → X-axis rotation (natural)
 			deltaY: deltaY * sensitivity   // Vertical mouse movement → Y-axis rotation (natural)
@@ -468,7 +468,7 @@ export default {
 		const totalDistance = Math.sqrt(totalDeltaX * totalDeltaX + totalDeltaY * totalDeltaY)
 
 		// Only start emitting rotation events after a minimum movement threshold
-		const MIN_DRAG_THRESHOLD = 5 // pixels
+		const MIN_DRAG_THRESHOLD = VIEWER_CONFIG.interaction.dragThreshold // pixels
 		if (!hasCubeDragStarted.value && totalDistance < MIN_DRAG_THRESHOLD) {
 			return // Ignore movement until threshold is exceeded
 		}
@@ -494,7 +494,7 @@ export default {
 
 		// Emit rotation with sensitivity adjustment
 		// Both directions are now natural - drag direction matches rotation
-		const sensitivity = 0.005
+		const sensitivity = VIEWER_CONFIG.interaction.cubeDragSensitivity
 		emit('camera-rotate', {
 			deltaX: deltaX * sensitivity,  // Horizontal touch movement → X-axis rotation (natural)
 			deltaY: deltaY * sensitivity   // Vertical touch movement → Y-axis rotation (natural)
@@ -548,6 +548,13 @@ export default {
 	 * Handle movement ring mouse down - calculate direction and start continuous rotation
 	 */
 	const handleMovementStart = (event) => {
+		// Prevent default behavior and stop propagation
+		event.preventDefault()
+		event.stopPropagation()
+		
+		// Don't start a new movement if already moving
+		if (isMoving.value) return
+		
 		if (!controllerRef.value) return
 		
 		const rect = controllerRef.value.getBoundingClientRect()
@@ -570,18 +577,13 @@ export default {
 			
 			if (isPanningMode.value) {
 				// Panning mode - start continuous movement
+				movementDirection.value = {
+					x: normalizedX * strength * 0.02,
+					y: normalizedY * strength * 0.02,
+				}
+				
 				isMoving.value = true
 				startContinuousMovement()
-				logger.info('CircularController', 'Pan started', { 
-					deltaX, 
-					deltaY, 
-					distance, 
-					strength,
-					panDelta: {
-						x: normalizedX * strength * 0.1,
-						y: -normalizedY * strength * 0.1,
-					}
-				})
 			} else {
 				// Rotation mode - emit rotation events
 				movementDirection.value = {
@@ -591,22 +593,7 @@ export default {
 				
 				isMoving.value = true
 				startContinuousMovement()
-				
-				logger.info('CircularController', 'Rotation started', { 
-					deltaX, 
-					deltaY, 
-					distance, 
-					maxRadius,
-					strength,
-					direction: movementDirection.value 
-				})
 			}
-		} else {
-			logger.info('CircularController', 'Click outside valid range', { 
-				distance, 
-				maxRadius,
-				threshold: maxRadius
-			})
 		}
 		
 		document.addEventListener('mousemove', handleMovementMove)
@@ -633,17 +620,21 @@ export default {
 				const normalizedY = deltaY / distance
 				const strength = Math.min(distance / (maxRadius * 0.5), 1.0)
 				
+				// Update movement direction for both rotation and panning modes
 				movementDirection.value = {
 					x: normalizedX * strength * 0.02,
 					y: normalizedY * strength * 0.02,
 				}
+			} else {
+				// Stop movement if drag goes outside valid range
+				movementDirection.value = { x: 0, y: 0 }
 			}
 		}
 
 		/**
 		 * Stop continuous movement
 		 */
-		const handleMovementEnd = () => {
+		const handleMovementEnd = (event) => {
 			isMoving.value = false
 			if (movementInterval.value) {
 				clearInterval(movementInterval.value)
@@ -652,8 +643,6 @@ export default {
 			
 			document.removeEventListener('mousemove', handleMovementMove)
 			document.removeEventListener('mouseup', handleMovementEnd)
-			
-			logger.info('CircularController', 'Movement stopped')
 		}
 
 		/**
@@ -680,18 +669,28 @@ export default {
 							// Use camera's up vector
 							cameraUp.copy(props.mainCamera.up).normalize()
 
+							// Calculate dynamic pan speed based on camera distance to target
+							const panConfig = VIEWER_CONFIG.controller.panSpeed
+							const cameraDistance = props.mainCamera.position.distanceTo(props.mainControls.target)
+							const dynamicPanSpeed = Math.max(
+								panConfig.min,
+								Math.min(
+									panConfig.max,
+									panConfig.base + (cameraDistance * panConfig.cameraDistanceFactor)
+								)
+							)
+
 							// Calculate pan offset - invert both X and Y for natural panning
-							const panSpeed = VIEWER_CONFIG.controller.panSpeed
 							const panOffset = new THREE.Vector3()
-							panOffset.add(cameraRight.multiplyScalar(-movementDirection.value.x * panSpeed)) // Invert X
-							panOffset.add(cameraUp.multiplyScalar(-movementDirection.value.y * panSpeed)) // Invert Y
+							panOffset.add(cameraRight.multiplyScalar(-movementDirection.value.x * dynamicPanSpeed)) // Invert X
+							panOffset.add(cameraUp.multiplyScalar(-movementDirection.value.y * dynamicPanSpeed)) // Invert Y
 
 							// Apply pan to camera and target
 							props.mainCamera.position.add(panOffset)
 							props.mainControls.target.add(panOffset)
 							props.mainControls.update()
 						} catch (error) {
-							console.log('CONTINUOUS PAN ERROR:', error)
+							logger.error('CircularController', 'Continuous pan error', error)
 						}
 					}
 				} else {
@@ -709,7 +708,14 @@ export default {
 			}
 			
 			movementInterval.value = setInterval(() => {
-				if (isMoving.value && (movementDirection.value.x !== 0 || movementDirection.value.y !== 0)) {
+				// Stop if not moving
+				if (!isMoving.value) {
+					clearInterval(movementInterval.value)
+					movementInterval.value = null
+					return
+				}
+				
+				if (movementDirection.value.x !== 0 || movementDirection.value.y !== 0) {
 					if (isPanningMode.value) {
 						// Panning mode - direct camera manipulation
 						if (props.mainCamera && props.mainControls) {
@@ -728,18 +734,28 @@ export default {
 								// Use camera's up vector
 								cameraUp.copy(props.mainCamera.up).normalize()
 
+								// Calculate dynamic pan speed based on camera distance to target
+								const panConfig = VIEWER_CONFIG.controller.panSpeed
+								const cameraDistance = props.mainCamera.position.distanceTo(props.mainControls.target)
+								const dynamicPanSpeed = Math.max(
+									panConfig.min,
+									Math.min(
+										panConfig.max,
+										panConfig.base + (cameraDistance * panConfig.cameraDistanceFactor)
+									)
+								)
+
 								// Calculate pan offset - invert both X and Y for natural panning
-								const panSpeed = VIEWER_CONFIG.controller.panSpeed
 								const panOffset = new THREE.Vector3()
-								panOffset.add(cameraRight.multiplyScalar(-movementDirection.value.x * panSpeed)) // Invert X
-								panOffset.add(cameraUp.multiplyScalar(-movementDirection.value.y * panSpeed)) // Invert Y
+								panOffset.add(cameraRight.multiplyScalar(-movementDirection.value.x * dynamicPanSpeed)) // Invert X
+								panOffset.add(cameraUp.multiplyScalar(-movementDirection.value.y * dynamicPanSpeed)) // Invert Y
 
 								// Apply pan to camera and target
 								props.mainCamera.position.add(panOffset)
 								props.mainControls.target.add(panOffset)
 								props.mainControls.update()
 							} catch (error) {
-								console.log('CONTINUOUS PAN ERROR:', error)
+								logger.error('CircularController', 'Pan error', error)
 							}
 						}
 					} else {
@@ -1046,7 +1062,7 @@ export default {
 			const rect = controllerRef.value.getBoundingClientRect()
 			dragOffset.value = {
 				x: event.clientX - rect.right + window.scrollX,
-				y: event.clientY - rect.bottom + window.scrollY,
+				y: event.clientY - rect.top + window.scrollY,
 			}
 
 			document.addEventListener('mousemove', handleDragMove)
@@ -1065,7 +1081,7 @@ export default {
 			))
 			const newY = Math.max(0, Math.min(
 				window.innerHeight - controllerSize.value,
-				window.innerHeight - event.clientY + dragOffset.value.y
+				event.clientY - dragOffset.value.y
 			))
 
 			position.value = { x: newX, y: newY }
@@ -1095,7 +1111,7 @@ export default {
 			const rect = controllerRef.value.getBoundingClientRect()
 			dragOffset.value = {
 				x: touch.clientX - rect.right + window.scrollX,
-				y: touch.clientY - rect.bottom + window.scrollY,
+				y: touch.clientY - rect.top + window.scrollY,
 			}
 
 			document.addEventListener('touchmove', handleDragTouchMove, { passive: false })
@@ -1117,7 +1133,7 @@ export default {
 			))
 			const newY = Math.max(0, Math.min(
 				window.innerHeight - controllerSize.value,
-				window.innerHeight - touch.clientY + dragOffset.value.y
+				touch.clientY - dragOffset.value.y
 			))
 
 			position.value = { x: newX, y: newY }

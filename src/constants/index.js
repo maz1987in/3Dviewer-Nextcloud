@@ -1,125 +1,23 @@
 /**
  * Application constants and configuration values
+ * 
+ * NOTE: For configurable settings (performance thresholds, camera settings, lighting, etc.),
+ * see src/config/viewer-config.js which is the single source of truth for all viewer configuration.
+ * 
+ * This file contains ONLY app-level constants:
+ * - Event names
+ * - Error types and codes
+ * - Loading stages
+ * - MIME types
+ * - API endpoints
+ * - HTTP status codes
+ * - Keyboard shortcuts
+ * - Enums (themes, modes, categories, presets)
  */
-
-/**
- * File size limits in bytes
- */
-export const FILE_SIZE_LIMITS = {
-	SMALL: 10 * 1024 * 1024, // 10MB
-	MEDIUM: 50 * 1024 * 1024, // 50MB
-	LARGE: 100 * 1024 * 1024, // 100MB
-	MAXIMUM: 500 * 1024 * 1024, // 500MB
-}
-
-/**
- * Timeout values in milliseconds
- */
-export const TIMEOUTS = {
-	FILE_LOAD: 30000, // 30 seconds
-	MTL_LOAD: 10000, // 10 seconds
-	API_REQUEST: 15000, // 15 seconds
-	RETRY_DELAY: 1000, // 1 second
-	ERROR_DISPLAY: 5000, // 5 seconds
-	GESTURE_HINT: 3000, // 3 seconds
-}
-
-/**
- * Retry configuration
- */
-export const RETRY_CONFIG = {
-	MAX_ATTEMPTS: 3,
-	BASE_DELAY: 1000,
-	MAX_DELAY: 10000,
-	BACKOFF_MULTIPLIER: 2,
-}
-
-/**
- * Performance thresholds
- */
-export const PERFORMANCE_THRESHOLDS = {
-	TARGET_FPS: 30,
-	MAX_FPS: 60,
-	MEMORY_WARNING: 100 * 1024 * 1024, // 100MB
-	MEMORY_CRITICAL: 200 * 1024 * 1024, // 200MB
-	FRAME_TIME_WARNING: 33, // ~30 FPS
-	FRAME_TIME_CRITICAL: 50, // ~20 FPS
-}
-
-/**
- * Animation settings
- */
-export const ANIMATION_CONSTANTS = {
-	AUTO_ROTATE_SPEED: 2.0,
-	PRESET_DURATION: 1000,
-	EASING_FUNCTION: 'easeInOutCubic',
-	MIN_DURATION: 100,
-	MAX_DURATION: 5000,
-}
-
-/**
- * UI constants
- */
-export const UI_CONSTANTS = {
-	TOOLBAR_HEIGHT: 60,
-	MOBILE_BREAKPOINT: 768,
-	TOUCH_SENSITIVITY: 1.0,
-	PINCH_SENSITIVITY: 1.0,
-	DOUBLE_TAP_DELAY: 300,
-	DEBOUNCE_DELAY: 100,
-}
-
-/**
- * Grid and axes constants
- */
-export const GRID_CONSTANTS = {
-	DEFAULT_SIZE: 10,
-	DEFAULT_DIVISIONS: 10,
-	MIN_SIZE: 1,
-	MAX_SIZE: 1000,
-	MIN_DIVISIONS: 2,
-	MAX_DIVISIONS: 100,
-	COLOR: 0x00ff00,
-	OPACITY: 1.0,
-}
-
-export const AXES_CONSTANTS = {
-	DEFAULT_SIZE: 2,
-	MIN_SIZE: 0.1,
-	MAX_SIZE: 100,
-	X_COLOR: 0xff0000,
-	Y_COLOR: 0x00ff00,
-	Z_COLOR: 0x0000ff,
-}
-
-/**
- * Camera constants
- */
-export const CAMERA_CONSTANTS = {
-	FOV: 75,
-	NEAR: 0.1,
-	FAR: 1000,
-	MIN_DISTANCE: 1,
-	MAX_DISTANCE: 1000,
-	DEFAULT_POSITION: { x: 5, y: 5, z: 5 },
-	DEFAULT_TARGET: { x: 0, y: 0, z: 0 },
-}
-
-/**
- * Material constants
- */
-export const MATERIAL_CONSTANTS = {
-	DEFAULT_COLOR: 0x888888,
-	WIREFRAME_COLOR: 0x00ff00,
-	HIGHLIGHT_COLOR: 0xff0000,
-	SELECTED_COLOR: 0xffff00,
-	DEFAULT_METALNESS: 0.1,
-	DEFAULT_ROUGHNESS: 0.8,
-	DEFAULT_OPACITY: 1.0,
-}
 
 /**
  * Event names
+ * @see src/config/viewer-config.js for configurable settings
  */
 export const EVENTS = {
 	MODEL_LOADED: 'model-loaded',
@@ -288,7 +186,6 @@ export const ANIMATION_PRESETS = {
 	TOP: 'top',
 	BOTTOM: 'bottom',
 }
-
 
 /**
  * Memory units

@@ -431,10 +431,11 @@ export default {
 	},
 	emits: ['model-loaded', 'error', 'view-reset', 'fit-to-view', 'toggle-auto-rotate', 'toggle-projection', 'change-preset', 'toggle-grid', 'axes-toggle', 'wireframe-toggle', 'background-change', 'toggle-measurement', 'toggle-annotation', 'toggle-comparison', 'toggle-performance', 'dismiss', 'push-toast', 'loading-state-changed', 'fps-updated'],
 	setup(props, { emit }) {
-		// Refs
-		const container = ref(null)
-		const scene = ref(null)
-		const renderer = ref(null)
+			// Refs
+	const container = ref(null)
+	const scene = ref(null)
+	const renderer = ref(null)
+	const renderPaused = ref(false)
 		const grid = ref(null)
 		const axes = ref(null)
 		const modelRoot = ref(null)
@@ -589,24 +590,47 @@ export default {
 		}
 	}
 
-		const setupLighting = () => {
-			// Ambient light - increased intensity to match ViewerComponent
-			const ambientLight = new THREE.AmbientLight(0x404040, 2.0)
-			scene.value.add(ambientLight)
+			const setupLighting = () => {
+		// Ambient light - use config values
+		const lightingConfig = VIEWER_CONFIG.lighting
+		const ambientLight = new THREE.AmbientLight(
+			lightingConfig.ambient.color,
+			lightingConfig.ambient.intensity
+		)
+		scene.value.add(ambientLight)
 
-			// Directional light - increased intensity to match ViewerComponent
-			const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0)
-			directionalLight.position.set(10, 10, 5)
-			directionalLight.castShadow = true
-			directionalLight.shadow.mapSize.width = 2048
-			directionalLight.shadow.mapSize.height = 2048
-			scene.value.add(directionalLight)
+		// Directional light - use config values
+		const directionalLight = new THREE.DirectionalLight(
+			lightingConfig.directional.color,
+			lightingConfig.directional.intensity
+		)
+		directionalLight.position.set(
+			lightingConfig.directional.position.x,
+			lightingConfig.directional.position.y,
+			lightingConfig.directional.position.z
+		)
+		directionalLight.castShadow = lightingConfig.directional.castShadow
+		if (directionalLight.castShadow) {
+			directionalLight.shadow.mapSize.width = lightingConfig.directional.shadowMapSize
+			directionalLight.shadow.mapSize.height = lightingConfig.directional.shadowMapSize
+		}
+		scene.value.add(directionalLight)
 
-			// Point light
-			const pointLight = new THREE.PointLight(0xffffff, 0.5, 100)
-			pointLight.position.set(-10, 10, -10)
+		// Point light - use config values
+		if (lightingConfig.point.enabled) {
+			const pointLight = new THREE.PointLight(
+				lightingConfig.point.color,
+				lightingConfig.point.intensity,
+				lightingConfig.point.distance
+			)
+			pointLight.position.set(
+				lightingConfig.point.position.x,
+				lightingConfig.point.position.y,
+				lightingConfig.point.position.z
+			)
 			scene.value.add(pointLight)
 		}
+	}
 
 		const setupHelpers = () => {
 			// Grid helper - use config values for consistency
@@ -734,9 +758,11 @@ export default {
 		try {
 			const demoGroup = new THREE.Group()
 			
-			// Load the app logo texture
-			const textureLoader = new THREE.TextureLoader()
-			const logoTexture = textureLoader.load('/apps/threedviewer/img/app-color.png')
+					// Load the app logo texture
+		const textureLoader = new THREE.TextureLoader()
+		const logoTexture = textureLoader.load('./img/app-color.svg', undefined, undefined, (error) => {
+			logger.warn('ThreeViewer', 'Failed to load app logo, using fallback', error)
+		})
 			
 			// 1. Center piece - Logo on a plane with depth
 			const logoPlaneGeometry = new THREE.PlaneGeometry(2, 2)
@@ -897,28 +923,33 @@ export default {
 			}
 		}
 
-	const animate = () => {
-		animationFrameId.value = requestAnimationFrame(animate)
+		const animate = () => {
+			animationFrameId.value = requestAnimationFrame(animate)
 
-		// Only proceed if camera and renderer are properly initialized
-		if (!camera.camera.value || !camera.controls.value || !renderer.value || !scene.value) {
-			return
+			// Only proceed if camera and renderer are properly initialized
+			if (!camera.camera.value || !camera.controls.value || !renderer.value || !scene.value) {
+				return
+			}
+
+			// Skip rendering if paused (e.g., during comparison model initialization)
+			if (renderPaused.value) {
+				return
+			}
+
+			// Update controls
+			camera.updateControls()
+
+			// Render scene
+			camera.render(renderer.value, scene.value)
+			
+			// Render face labels
+			faceLabels.renderLabels(scene.value, camera.camera.value)
+
+			// Update performance metrics after rendering (throttled)
+			if (performance && typeof performance.updatePerformanceMetrics === 'function') {
+				performance.updatePerformanceMetrics(renderer.value, scene.value)
+			}
 		}
-
-		// Update controls
-		camera.updateControls()
-
-		// Render scene
-		camera.render(renderer.value, scene.value)
-		
-		// Render face labels
-		faceLabels.renderLabels(scene.value, camera.camera.value)
-
-		// Update performance metrics after rendering (throttled)
-		if (performance && typeof performance.updatePerformanceMetrics === 'function') {
-			performance.updatePerformanceMetrics(renderer.value, scene.value)
-		}
-	}
 
 		const setupEventListeners = () => {
 			window.addEventListener('resize', onWindowResize)
@@ -1233,6 +1264,15 @@ export default {
 					try {
 						const filePath = await comparison.openFilePicker()
 						
+						// Check if user cancelled (null return)
+						if (!filePath) {
+							logger.info('ThreeViewer', 'File picker cancelled by user')
+							// Exit comparison mode
+							comparison.toggleComparisonMode()
+							emit('toggle-comparison')
+							return
+						}
+						
 						// Load the selected model
 						const context = {
 							THREE,
@@ -1245,18 +1285,35 @@ export default {
 
 						await comparison.loadComparisonModelFromPath(filePath, context)
 
+						// Pause rendering during comparison model initialization to prevent race conditions
+						renderPaused.value = true
+						
 						// Add the comparison model to the scene
 						if (comparison.comparisonModel.value) {
 							scene.value.add(comparison.comparisonModel.value)
-
-							// Fit both models to view
-							if (modelRoot.value && comparison.comparisonModel.value) {
-								fitBothModelsToView()
-							}
+							
+							// Use triple requestAnimationFrame to ensure models are fully rendered before fitting
+							requestAnimationFrame(() => {
+								requestAnimationFrame(() => {
+									requestAnimationFrame(() => {
+										try {
+											// Fit both models to view after everything is ready
+											fitBothModelsToView()
+										} catch (fitError) {
+											logger.warn('ThreeViewer', 'Failed to fit models to view', fitError)
+										} finally {
+											// Resume rendering after fitting is complete
+											renderPaused.value = false
+										}
+									})
+								})
+							})
 						}
 					} catch (error) {
-						// User cancelled or error occurred
+						// Error occurred during loading
 						logger.error('ThreeViewer', 'Failed to load comparison model', error)
+						// Ensure rendering is resumed on error
+						renderPaused.value = false
 						// Exit comparison mode if picker was cancelled
 						comparison.toggleComparisonMode()
 						emit('toggle-comparison')
@@ -1269,6 +1326,19 @@ export default {
 				}
 			} catch (error) {
 				logger.error('ThreeViewer', 'Failed to toggle comparison mode', error)
+				// Ensure rendering is resumed on error
+				renderPaused.value = false
+				// Show user-friendly error message
+				emit('push-toast', {
+					message: t('threedviewer', 'Comparison mode is currently unavailable due to a technical issue. Please try again later.'),
+					type: 'error',
+					timeout: 5000,
+				})
+				// Reset comparison mode state
+				if (comparison.isComparisonMode.value) {
+					comparison.toggleComparisonMode()
+					emit('toggle-comparison')
+				}
 			}
 		}
 
@@ -1285,49 +1355,80 @@ export default {
 			try {
 				// First position the models side by side
 				comparison.fitBothModelsToView(modelRoot.value, comparison.comparisonModel.value, (model1, model2) => {
-					// After positioning, fit camera to the combined bounding box
-					const box1 = new THREE.Box3().setFromObject(model1)
-					const box2 = new THREE.Box3().setFromObject(model2)
-					const combinedBox = box1.union(box2)
+					// Use requestAnimationFrame to defer camera updates until after current render cycle
+					requestAnimationFrame(() => {
+						try {
+							// Set flag to prevent OrbitControls from updating during this operation
+							if (camera.isPositioningCamera !== undefined) {
+								camera.isPositioningCamera.value = true
+							}
 
-					if (combinedBox.isEmpty()) {
-						logger.warn('ThreeViewer', 'Combined bounding box is empty')
-						return
-					}
+							// After positioning, fit camera to the combined bounding box
+							const box1 = new THREE.Box3().setFromObject(model1)
+							const box2 = new THREE.Box3().setFromObject(model2)
+							const combinedBox = box1.union(box2)
 
-					const center = combinedBox.getCenter(new THREE.Vector3())
-					const size = combinedBox.getSize(new THREE.Vector3())
-					const maxDim = Math.max(size.x, size.y, size.z)
+							if (combinedBox.isEmpty()) {
+								logger.warn('ThreeViewer', 'Combined bounding box is empty')
+								// Reset flag
+								if (camera.isPositioningCamera !== undefined) {
+									camera.isPositioningCamera.value = false
+								}
+								return
+							}
 
-					// Calculate camera distance using FOV-based calculation
-					const fov = camera.camera.value.fov * (Math.PI / 180)
-					const cameraDistance = Math.abs(maxDim / Math.sin(fov / 2)) * 1.2
+							const center = combinedBox.getCenter(new THREE.Vector3())
+							const size = combinedBox.getSize(new THREE.Vector3())
+							const maxDim = Math.max(size.x, size.y, size.z)
 
-					// Position camera to view both models at a good angle
-					camera.camera.value.position.set(
-						center.x + cameraDistance * 0.7,
-						center.y + cameraDistance * 0.7,
-						center.z + cameraDistance * 0.7,
-					)
+							// Calculate camera distance using FOV-based calculation
+							const fov = camera.camera.value.fov * (Math.PI / 180)
+							const cameraDistance = Math.abs(maxDim / Math.sin(fov / 2)) * 1.2
 
-					// Set camera target to center of both models
-					if (camera.controls.value) {
-						camera.controls.value.target.copy(center)
-						camera.controls.value.update()
-					}
+							// Position camera to view both models at a good angle
+							camera.camera.value.position.set(
+								center.x + cameraDistance * 0.7,
+								center.y + cameraDistance * 0.7,
+								center.z + cameraDistance * 0.7,
+							)
 
-					logger.info('ThreeViewer', 'Camera positioned for both models', {
-						center: { x: center.x, y: center.y, z: center.z },
-						cameraDistance,
-						cameraPosition: { 
-							x: camera.camera.value.position.x, 
-							y: camera.camera.value.position.y, 
-							z: camera.camera.value.position.z 
+							// Set camera target to center of both models
+							// Don't call controls.update() here as isPositioningCamera flag is set
+							if (camera.controls.value) {
+								camera.controls.value.target.copy(center)
+								// Update camera matrices instead
+								camera.camera.value.updateMatrixWorld(false)
+							}
+
+							logger.info('ThreeViewer', 'Camera positioned for both models', {
+								center: { x: center.x, y: center.y, z: center.z },
+								cameraDistance,
+								cameraPosition: { 
+									x: camera.camera.value.position.x, 
+									y: camera.camera.value.position.y, 
+									z: camera.camera.value.position.z 
+								}
+							})
+							
+							// Reset flag after positioning is complete
+							if (camera.isPositioningCamera !== undefined) {
+								camera.isPositioningCamera.value = false
+							}
+						} catch (error) {
+							logger.error('ThreeViewer', 'Error in deferred camera positioning', error)
+							// Ensure flag is reset even on error
+							if (camera.isPositioningCamera !== undefined) {
+								camera.isPositioningCamera.value = false
+							}
 						}
 					})
 				})
 			} catch (error) {
 				logger.error('ThreeViewer', 'Failed to fit both models to view', error)
+				// Ensure flag is reset even on error
+				if (camera.isPositioningCamera !== undefined) {
+					camera.isPositioningCamera.value = false
+				}
 			}
 		}
 
@@ -1655,7 +1756,7 @@ export default {
 	watch(() => measurement.isActive.value, (active) => {
 		if (active) {
 			nextTick(() => {
-				setTimeout(() => adjustOverlayPositioning(), 100)
+				setTimeout(() => adjustOverlayPositioning(), VIEWER_CONFIG.uiTiming.overlayInitialDelay)
 			})
 		}
 	})
@@ -1663,7 +1764,7 @@ export default {
 	watch(() => annotation.isActive.value, (active) => {
 		if (active) {
 			nextTick(() => {
-				setTimeout(() => adjustOverlayPositioning(), 100)
+				setTimeout(() => adjustOverlayPositioning(), VIEWER_CONFIG.uiTiming.overlayInitialDelay)
 			})
 		}
 	})
@@ -1673,11 +1774,12 @@ export default {
 		emit('loading-state-changed', loading)
 	})
 
-	// Emit FPS updates (throttled to every 500ms)
+	// Emit FPS updates (throttled)
 	let lastFpsEmit = 0
+	const fpsThrottle = VIEWER_CONFIG.uiTiming.fpsEmitThrottle
 	watch(() => performance.currentFPS.value, (fps) => {
 		const now = Date.now()
-		if (now - lastFpsEmit > 500) {
+		if (now - lastFpsEmit > fpsThrottle) {
 			emit('fps-updated', fps)
 			lastFpsEmit = now
 		}

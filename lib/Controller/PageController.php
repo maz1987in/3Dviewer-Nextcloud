@@ -55,6 +55,19 @@ class PageController extends Controller {
 	#[OpenAPI(OpenAPI::SCOPE_IGNORE)]
 	#[FrontpageRoute(verb: 'GET', url: '/{fileId}')]
 	public function viewer(string $fileId): TemplateResponse {
+		// Only handle numeric file IDs to avoid conflicts with static assets
+		if (!is_numeric($fileId)) {
+			// Return 404 for non-numeric paths (like img/app-color.png)
+			$response = new TemplateResponse(
+				'core',
+				'404',
+				[],
+				TemplateResponse::RENDER_AS_ERROR
+			);
+			$response->setStatus(404);
+			return $response;
+		}
+		
 		$response = new TemplateResponse(
 			Application::APP_ID,
 			'index',

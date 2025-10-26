@@ -5,7 +5,7 @@
 
 import { ref, computed, readonly } from 'vue'
 import * as THREE from 'three'
-import { getFilePickerBuilder, FilePickerType } from '@nextcloud/dialogs'
+import { getFilePickerBuilder } from '@nextcloud/dialogs'
 import { translate as t } from '@nextcloud/l10n'
 import { loadModelByExtension, isSupportedExtension } from '../loaders/registry.js'
 import { logger } from '../utils/logger.js'
@@ -55,6 +55,11 @@ export function useComparison() {
 
 	/**
 	 * Open native Nextcloud file picker to select comparison model
+	 * 
+	 * TODO: Currently not working due to Nextcloud file picker API limitations
+	 * The picker opens but file selection is not properly captured.
+	 * This is a known issue with the @nextcloud/dialogs FilePicker API.
+	 * 
 	 * @return {Promise<string>} Selected file path
 	 */
 		const openFilePicker = async () => {
@@ -76,18 +81,45 @@ export function useComparison() {
 
 			logger.info('useComparison', 'Opening native file picker with mime types', { mimeTypes })
 
+			// Build file picker with custom button
+			let selectedNodes = null
+			
 			const picker = getFilePickerBuilder(t('threedviewer', 'Select 3D Model to Compare'))
 				.setMultiSelect(false)
 				.setMimeTypeFilter(mimeTypes)
-				.setType(FilePickerType.Choose)
 				.allowDirectories(false)
+				.addButton({
+					label: t('threedviewer', 'Select'),
+					type: 'primary',
+					callback: (nodes) => {
+						logger.info('useComparison', 'Selection callback invoked', { nodes, count: nodes ? nodes.length : 0 })
+						selectedNodes = nodes
+					},
+				})
 				.build()
 
 			logger.info('useComparison', 'File picker built, calling pick()')
-			const path = await picker.pick()
-			logger.info('useComparison', 'File selected from picker', { path })
 			
-			return path
+			// Use pick() - the callback will set selectedNodes
+			const picked = await picker.pick()
+			
+			logger.info('useComparison', 'Pick result', { picked, selectedNodes, hasNodes: !!selectedNodes })
+			
+			// Check if we have selected nodes from the button callback
+			if (selectedNodes && selectedNodes.length > 0) {
+				const selectedPath = selectedNodes[0].path
+				logger.info('useComparison', 'File selected via button', { path: selectedPath })
+				return selectedPath
+			}
+			
+			// Fallback to direct pick result
+			if (picked && typeof picked === 'string' && picked.trim() !== '') {
+				logger.info('useComparison', 'File selected via direct pick', { path: picked })
+				return picked
+			}
+			
+			logger.info('useComparison', 'File picker cancelled - no selection')
+			return null
 		} catch (error) {
 			logger.error('useComparison', 'File picker error details', { 
 				message: error.message, 
@@ -95,11 +127,13 @@ export function useComparison() {
 				stack: error.stack 
 			})
 			
+			// Treat "No nodes selected" as user cancellation, not an error
 			if (error.message === 'User canceled the picker' || error.message === 'FilePicker: No nodes selected') {
 				logger.info('useComparison', 'File picker cancelled by user')
-			} else {
-				logger.error('useComparison', 'Failed to open file picker', error)
+				return null
 			}
+			
+			logger.error('useComparison', 'Failed to open file picker', error)
 			throw error
 		}
 	}
@@ -404,6 +438,10 @@ export function useComparison() {
 		}
 
 		try {
+			// Update matrices before getting bounding boxes to ensure they're valid
+			model1.updateMatrixWorld(true)
+			model2.updateMatrixWorld(true)
+			
 			// Get bounding boxes for both models
 			const box1 = new THREE.Box3().setFromObject(model1)
 			const box2 = new THREE.Box3().setFromObject(model2)
@@ -450,9 +488,18 @@ export function useComparison() {
 				0                    // Z: center at origin
 			)
 
-			// Force update the matrix to ensure position changes take effect
-			model1.updateMatrixWorld(true)
-			model2.updateMatrixWorld(true)
+		// Update matrices after positioning to ensure they're valid
+		try {
+			// Validate matrices exist before updating
+			if (model1.matrix && model2.matrix) {
+				model1.updateMatrixWorld(true)
+				model2.updateMatrixWorld(true)
+			} else {
+				logger.warn('useComparison', 'One or both models missing matrix, skipping matrix update')
+			}
+		} catch (updateError) {
+			logger.warn('useComparison', 'Failed to update matrices', updateError)
+		}
 
 			logger.info('useComparison', 'Models positioned side by side centered around origin', {
 				separation,
@@ -465,6 +512,7 @@ export function useComparison() {
 			})
 
 			// Use the provided fit function to fit camera to both models
+			// The fit function should handle OrbitControls.update() to ensure matrices are valid
 			fitFunction(model1, model2)
 		} catch (error) {
 			logger.error('useComparison', 'Failed to fit both models to view', error)

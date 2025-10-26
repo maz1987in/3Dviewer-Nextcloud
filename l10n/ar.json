@@ -135,7 +135,20 @@
     "All formats supported: {formats}": "جميع الصيغ مدعومة: {formats}",
     "Use comparison mode to spot differences between model versions.": "استخدم وضع المقارنة لاكتشاف الاختلافات بين إصدارات النموذج.",
     "Demo Scene": "مشهد تجريبي",
-    "No file loaded - showing demo": "لم يتم تحميل ملف - عرض المشهد التجريبي"
+    "No file loaded - showing demo": "لم يتم تحميل ملف - عرض المشهد التجريبي",
+    "3D Controller": "وحدة تحكم ثلاثية الأبعاد",
+    "Toggle Controller": "تبديل وحدة التحكم",
+    "Show or hide the 3D navigation controller from the top toolbar. The controller is draggable and can be positioned anywhere on screen.": "إظهار أو إخفاء وحدة تحكم التنقل ثلاثية الأبعاد من شريط الأدوات العلوي. يمكن سحب وحدة التحكم ووضعها في أي مكان على الشاشة.",
+    "Rotation Mode": "وضع الدوران",
+    "Click or drag on the circular ring to rotate the model. Click farther from center for faster rotation.": "انقر أو اسحب على الحلقة الدائرية لتدوير النموذج. انقر بعيداً عن المركز لدوران أسرع.",
+    "Panning Mode": "وضع التحريك",
+    "Click the panning mode button to switch from rotation to panning. Click or drag to move the camera horizontally or vertically.": "انقر على زر وضع التحريك للتبديل من الدوران إلى التحريك. انقر أو اسحب لتحريك الكاميرا أفقياً أو عمودياً.",
+    "Zoom Controls": "عناصر تحكم التكبير",
+    "Use the + and - buttons on the controller to zoom in or out. Hold to zoom continuously.": "استخدم أزرار + و - على وحدة التحكم للتكبير أو التصغير. اضغط مطولاً للتكبير بشكل مستمر.",
+    "Reset Position": "إعادة ضبط الموضع",
+    "In panning mode, click the reset button to return the camera to the centered position.": "في وضع التحريك، انقر على زر إعادة الضبط لإعادة الكاميرا إلى الموضع المركزي.",
+    "Drag to Move": "السحب للتحريك",
+    "Drag the controller by its edge to reposition it anywhere on the screen. Position is saved automatically.": "اسحب وحدة التحكم من حافتها لإعادة وضعها في أي مكان على الشاشة. يتم حفظ الموضع تلقائياً."
   },
   "pluralForm": "nplurals=6; plural=n==0?0:n==1?1:n==2?2:n%100>=3 && n%100<=10?3:n%100>=11 && n%100<=99?4:5;"
 }

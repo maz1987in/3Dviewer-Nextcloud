@@ -44,6 +44,9 @@ export function useCamera() {
 	// Mobile state
 	const isMobile = ref(false)
 
+	// Flag to prevent OrbitControls update during external camera positioning
+	const isPositioningCamera = ref(false)
+
 	// Animation presets
 	const animationPresets = ref([
 		{
@@ -349,6 +352,12 @@ export function useCamera() {
 		}
 
 		try {
+			// Ensure both models have valid matrices before proceeding
+			if (model1.matrix && model2.matrix) {
+				model1.updateMatrixWorld(true)
+				model2.updateMatrixWorld(true)
+			}
+
 			const box1 = new THREE.Box3().setFromObject(model1)
 			const box2 = new THREE.Box3().setFromObject(model2)
 			const combinedBox = box1.union(box2)
@@ -368,6 +377,10 @@ export function useCamera() {
 				model2.position.sub(center)
 			}
 
+			// Update matrices after positioning to ensure they're valid
+			model1.updateMatrixWorld(true)
+			model2.updateMatrixWorld(true)
+
 			// Position camera to look at origin with better distance
 			const distance = maxDim * 1.5
 			const cameraDistance = Math.max(distance * 1.5, 30)
@@ -376,7 +389,16 @@ export function useCamera() {
 
 			// Update controls target to origin
 			controls.value.target.set(0, 0, 0)
-			controls.value.update()
+			
+			// Update camera matrix before updating controls to prevent matrix errors
+			camera.value.updateMatrixWorld(false)
+			
+			// Update controls with error handling
+			try {
+				controls.value.update()
+			} catch (controlsError) {
+				logger.warn('useCamera', 'Controls update failed, continuing without update', controlsError)
+			}
 
 			// Force the camera to look at origin immediately
 			camera.value.lookAt(0, 0, 0)
@@ -659,47 +681,46 @@ export function useCamera() {
 		}
 	}
 
-		/**
-		 * Render the scene
-		 * @param {THREE.WebGLRenderer} renderer - WebGL renderer
-		 * @param {THREE.Scene} scene - Three.js scene
-		 */
-		const render = (renderer, scene) => {
-			if (renderer && scene && camera.value) {
-				try {
-				// Update OrbitControls before rendering (processes zoom changes)
-				if (controls.value) {
-					controls.value.update()
-				}
-				
-				// Update distance from OrbitControls if auto-rotate is enabled
-				// This allows zoom to work during auto-rotate
-				if (autoRotateEnabled.value && controls.value) {
-					const currentDistance = camera.value.position.distanceTo(modelCenter.value)
-					if (Math.abs(currentDistance - distance.value) > 0.1) {
-						// Distance changed by OrbitControls zoom - update our tracked distance
-						distance.value = currentDistance
-					}
-				}
-				
-				// Custom auto-rotate functionality (uses manual camera positioning instead of OrbitControls.autoRotate)
-				if (autoRotateEnabled.value && !isMouseDown.value) {
-						rotationY.value += autoRotateSpeed.value * 0.01
+	/**
+	 * Render the scene
+	 * @param {THREE.WebGLRenderer} renderer - WebGL renderer
+	 * @param {THREE.Scene} scene - Three.js scene
+	 */
+	const render = (renderer, scene) => {
+		if (!renderer || !scene || !camera.value) {
+			return
+		}
 
-						// Update camera position based on current rotation around model center
-						const x = modelCenter.value.x + Math.sin(rotationY.value) * Math.cos(rotationX.value) * distance.value
-						const y = modelCenter.value.y + Math.sin(rotationX.value) * distance.value
-						const z = modelCenter.value.z + Math.cos(rotationY.value) * Math.cos(rotationX.value) * distance.value
-
-						camera.value.position.set(x, y, z)
-						camera.value.lookAt(modelCenter.value)
-					}
-
-					renderer.render(scene, camera.value)
-				} catch (error) {
-				console.error('[useCamera] Render error:', error)
+		// Update OrbitControls before rendering (processes zoom changes)
+		// Only if controls and camera are fully initialized, and not during external positioning
+		if (controls.value && controls.value.object && controls.value.object === camera.value && !isPositioningCamera.value) {
+			controls.value.update()
+		}
+		
+		// Update distance from OrbitControls if auto-rotate is enabled
+		// This allows zoom to work during auto-rotate
+		if (autoRotateEnabled.value && controls.value) {
+			const currentDistance = camera.value.position.distanceTo(modelCenter.value)
+			if (Math.abs(currentDistance - distance.value) > 0.1) {
+				// Distance changed by OrbitControls zoom - update our tracked distance
+				distance.value = currentDistance
 			}
 		}
+		
+		// Custom auto-rotate functionality (uses manual camera positioning instead of OrbitControls.autoRotate)
+		if (autoRotateEnabled.value && !isMouseDown.value) {
+			rotationY.value += autoRotateSpeed.value * 0.01
+
+			// Update camera position based on current rotation around model center
+			const x = modelCenter.value.x + Math.sin(rotationY.value) * Math.cos(rotationX.value) * distance.value
+			const y = modelCenter.value.y + Math.sin(rotationX.value) * distance.value
+			const z = modelCenter.value.z + Math.cos(rotationY.value) * Math.cos(rotationX.value) * distance.value
+
+			camera.value.position.set(x, y, z)
+			camera.value.lookAt(modelCenter.value)
+		}
+
+		renderer.render(scene, camera.value)
 	}
 
 	/**
@@ -1044,6 +1065,7 @@ export function useCamera() {
 		autoRotate: autoRotateEnabled,
 		autoRotateSpeed,
 		isMobile,
+		isPositioningCamera,
 		animationPresets,
 		cameraType,
 		perspectiveCamera,

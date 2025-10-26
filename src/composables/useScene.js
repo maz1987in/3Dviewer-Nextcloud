@@ -111,62 +111,65 @@ export function useScene() {
 		})
 		lights.value = []
 
+		// Use config values with optional overrides
+		const lightingConfig = VIEWER_CONFIG.lighting
+
 		// Ambient light
 		const ambientLight = new THREE.AmbientLight(
-			options.ambientColor ?? 0x404040,
-			options.ambientIntensity ?? 0.6,
+			options.ambientColor ?? lightingConfig.ambient.color,
+			options.ambientIntensity ?? lightingConfig.ambient.intensity,
 		)
 		scene.value.add(ambientLight)
 		lights.value.push(ambientLight)
 
 		// Directional light
 		const directionalLight = new THREE.DirectionalLight(
-			options.directionalColor ?? 0xffffff,
-			options.directionalIntensity ?? 0.8,
+			options.directionalColor ?? lightingConfig.directional.color,
+			options.directionalIntensity ?? lightingConfig.directional.intensity,
 		)
 		directionalLight.position.set(
-			options.directionalPosition?.x ?? 10,
-			options.directionalPosition?.y ?? 10,
-			options.directionalPosition?.z ?? 5,
+			options.directionalPosition?.x ?? lightingConfig.directional.position.x,
+			options.directionalPosition?.y ?? lightingConfig.directional.position.y,
+			options.directionalPosition?.z ?? lightingConfig.directional.position.z,
 		)
-		directionalLight.castShadow = options.directionalShadows ?? true
+		directionalLight.castShadow = options.directionalShadows ?? lightingConfig.directional.castShadow
 
 		if (directionalLight.castShadow) {
-			directionalLight.shadow.mapSize.width = options.shadowMapSize ?? 2048
-			directionalLight.shadow.mapSize.height = options.shadowMapSize ?? 2048
-			directionalLight.shadow.camera.near = options.shadowCameraNear ?? 0.5
-			directionalLight.shadow.camera.far = options.shadowCameraFar ?? 50
-			directionalLight.shadow.camera.left = options.shadowCameraLeft ?? -10
-			directionalLight.shadow.camera.right = options.shadowCameraRight ?? 10
-			directionalLight.shadow.camera.top = options.shadowCameraTop ?? 10
-			directionalLight.shadow.camera.bottom = options.shadowCameraBottom ?? -10
+			directionalLight.shadow.mapSize.width = options.shadowMapSize ?? lightingConfig.directional.shadowMapSize
+			directionalLight.shadow.mapSize.height = options.shadowMapSize ?? lightingConfig.directional.shadowMapSize
+			directionalLight.shadow.camera.near = options.shadowCameraNear ?? lightingConfig.directional.shadowCameraNear
+			directionalLight.shadow.camera.far = options.shadowCameraFar ?? lightingConfig.directional.shadowCameraFar
+			directionalLight.shadow.camera.left = options.shadowCameraLeft ?? lightingConfig.directional.shadowCameraLeft
+			directionalLight.shadow.camera.right = options.shadowCameraRight ?? lightingConfig.directional.shadowCameraRight
+			directionalLight.shadow.camera.top = options.shadowCameraTop ?? lightingConfig.directional.shadowCameraTop
+			directionalLight.shadow.camera.bottom = options.shadowCameraBottom ?? lightingConfig.directional.shadowCameraBottom
 		}
 
 		scene.value.add(directionalLight)
 		lights.value.push(directionalLight)
 
 		// Point light
-		if (options.pointLight !== false) {
+		if (options.pointLight !== false && lightingConfig.point.enabled) {
 			const pointLight = new THREE.PointLight(
-				options.pointColor ?? 0xffffff,
-				options.pointIntensity ?? 0.5,
-				options.pointDistance ?? 100,
+				options.pointColor ?? lightingConfig.point.color,
+				options.pointIntensity ?? lightingConfig.point.intensity,
+				options.pointDistance ?? lightingConfig.point.distance,
 			)
 			pointLight.position.set(
-				options.pointPosition?.x ?? -10,
-				options.pointPosition?.y ?? 10,
-				options.pointPosition?.z ?? -10,
+				options.pointPosition?.x ?? lightingConfig.point.position.x,
+				options.pointPosition?.y ?? lightingConfig.point.position.y,
+				options.pointPosition?.z ?? lightingConfig.point.position.z,
 			)
 			scene.value.add(pointLight)
 			lights.value.push(pointLight)
 		}
 
 		// Hemisphere light
-		if (options.hemisphereLight) {
+		if (options.hemisphereLight || lightingConfig.hemisphere.enabled) {
 			const hemisphereLight = new THREE.HemisphereLight(
-				options.hemisphereSkyColor ?? 0x87CEEB,
-				options.hemisphereGroundColor ?? 0x362D1D,
-				options.hemisphereIntensity ?? 0.3,
+				options.hemisphereSkyColor ?? lightingConfig.hemisphere.skyColor,
+				options.hemisphereGroundColor ?? lightingConfig.hemisphere.groundColor,
+				options.hemisphereIntensity ?? lightingConfig.hemisphere.intensity,
 			)
 			scene.value.add(hemisphereLight)
 			lights.value.push(hemisphereLight)
@@ -253,7 +256,7 @@ export function useScene() {
 
 			// Determine grid size based on model dimensions
 			let gridSize, divisions
-			const config = VIEWER_CONFIG.grid.dynamicSizing
+			const config = VIEWER_CONFIG.gridDynamicSizing
 
 			if (maxDim < config.smallModelThreshold) {
 				gridSize = config.smallGridSize
@@ -277,7 +280,7 @@ export function useScene() {
 			// Position grid at ground level
 			const center = box.getCenter(new THREE.Vector3())
 			const groundLevel = center.y - size.y / 2
-			const gridOffset = VIEWER_CONFIG.grid.groundOffset
+			const gridOffset = config.groundOffset
 
 			// Remove old grid
 			scene.value.remove(grid.value)

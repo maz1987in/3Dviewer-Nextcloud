@@ -77,7 +77,10 @@ export const GRID_SETTINGS = {
 	defaultSize: 10,
 	defaultDivisions: 10,
 	color: 0x00ff00,
+	colorCenterLine: 0x00ff00,
+	colorGrid: 0x00ff00,
 	opacity: 1.0,
+	transparent: false,
 	visible: true,
 }
 
@@ -534,10 +537,159 @@ export const CONTROLLER_SETTINGS = {
 	},
 	arrowNudgeAmount: 0.1, // radians
 	zoomStep: 0.1,
-	panSpeed: 0.3, // Camera panning speed multiplier
+	panSpeed: {
+		base: 1.0, // Base pan speed multiplier (increased for faster panning)
+		min: 0.5, // Minimum pan speed (for close views)
+		max: 15.0, // Maximum pan speed (for far views)
+		cameraDistanceFactor: 0.015, // Factor to multiply camera distance by for pan speed (increased for more responsiveness)
+	},
 	animationDuration: 800, // ms for snap-to-view
 	persistPosition: true,
 	persistVisibility: true,
+}
+
+/**
+ * Lighting configuration
+ */
+export const LIGHTING_SETTINGS = {
+	ambient: {
+		color: 0x404040,
+		intensity: 2.0,
+	},
+	directional: {
+		color: 0xffffff,
+		intensity: 1.0,
+		position: { x: 10, y: 10, z: 5 },
+		castShadow: true,
+		shadowMapSize: 2048,
+		shadowCameraNear: 0.5,
+		shadowCameraFar: 50,
+		shadowCameraLeft: -10,
+		shadowCameraRight: 10,
+		shadowCameraTop: 10,
+		shadowCameraBottom: -10,
+	},
+	point: {
+		enabled: true,
+		color: 0xffffff,
+		intensity: 0.5,
+		distance: 100,
+		position: { x: -10, y: 10, z: -10 },
+	},
+	hemisphere: {
+		enabled: false,
+		skyColor: 0x87CEEB,
+		groundColor: 0x362D1D,
+		intensity: 0.3,
+	},
+}
+
+/**
+ * Measurement settings
+ * Unit conversion factors (1 Three.js unit = ? real units)
+ */
+export const MEASUREMENT_SETTINGS = {
+	defaultUnit: 'millimeters',
+	unitScales: {
+		millimeters: { factor: 1, suffix: 'mm', label: 'Millimeters' },
+		centimeters: { factor: 10, suffix: 'cm', label: 'Centimeters' },
+		meters: { factor: 1000, suffix: 'm', label: 'Meters' },
+		inches: { factor: 25.4, suffix: 'in', label: 'Inches' },
+		feet: { factor: 304.8, suffix: 'ft', label: 'Feet' },
+		units: { factor: 1, suffix: 'units', label: 'Generic Units' },
+	},
+	markerSize: 0.05,
+	lineWidth: 2,
+	textSize: 0.1,
+}
+
+/**
+ * Interaction settings
+ * Timing, thresholds, and sensitivity values for user interactions
+ */
+export const INTERACTION_SETTINGS = {
+	doubleClickDelay: 300, // ms
+	dragThreshold: 5, // pixels
+	cubeDragSensitivity: 0.005,
+	rotationSensitivity: 0.02,
+	panSensitivity: 0.3,
+	zoomSensitivity: 0.1,
+	zoomInterval: 100, // ms for continuous zoom
+	movementInterval: 16, // ms for continuous movement (~60fps)
+}
+
+/**
+ * UI timing settings
+ * Delays, throttles, and duration values for UI elements
+ */
+export const UI_TIMING = {
+	fpsEmitThrottle: 500, // ms between FPS updates
+	overlayPositionDelay: 200, // ms delay for overlay positioning
+	overlayInitialDelay: 100, // ms initial delay for overlay positioning
+	debounceDelay: 100, // ms for debounced actions
+	gestureHintDuration: 3000, // ms to show gesture hints
+	errorDisplayDuration: 5000, // ms to display errors
+	toastDefaultTimeout: 5000, // ms for toast notifications
+}
+
+/**
+ * Grid dynamic sizing configuration
+ * Determines grid size and divisions based on model dimensions
+ */
+export const GRID_DYNAMIC_SIZING = {
+	smallModelThreshold: 5,
+	smallGridSize: 10,
+	smallGridDivisions: 10,
+	mediumModelThreshold: 20,
+	mediumGridSize: 20,
+	mediumGridDivisions: 20,
+	largeModelThreshold: 100,
+	largeGridSize: 100,
+	largeGridDivisions: 25,
+	veryLargeModelThreshold: 500,
+	veryLargeGridSize: 500,
+	veryLargeGridDivisions: 50,
+	groundOffset: -0.1, // Offset below model bottom
+}
+
+/**
+ * Performance detection settings
+ * Thresholds and scoring for automatic performance mode detection
+ */
+export const PERFORMANCE_DETECTION = {
+	browserCapabilityScores: {
+		webgl2Bonus: 20,
+		largeTextureBonus: 15,
+		veryLargeTextureBonus: 10,
+		highDPIBonus: 15,
+		memory8GBBonus: 20,
+		memory4GBBonus: 10,
+		cpu8CoreBonus: 15,
+		cpu4CoreBonus: 10,
+		cpu2CoreBonus: 5,
+		mobilePenalty: -20,
+	},
+	modeThresholds: {
+		highMode: 55,
+		balancedMode: 40,
+		lowMode: 25,
+	},
+	qualityLevels: {
+		low: { pixelRatio: 0.75, shadows: false, antialias: false },
+		balanced: { pixelRatio: 1.0, shadows: true, antialias: true },
+		high: { pixelRatio: 1.5, shadows: true, antialias: true },
+		ultra: { pixelRatio: 2.0, shadows: true, antialias: true },
+	},
+}
+
+/**
+ * Texture and canvas settings
+ */
+export const TEXTURE_SETTINGS = {
+	cubeTextureSize: 256,
+	maxTextureSize: 4096,
+	anisotropy: 4,
+	generateMipmaps: true,
 }
 
 /**
@@ -569,6 +721,14 @@ export const VIEWER_CONFIG = {
 		retryDelayMs: 1000,
 		loaderTimeoutMs: 30000,
 	},
+	// New consolidated sections
+	lighting: LIGHTING_SETTINGS,
+	measurement: MEASUREMENT_SETTINGS,
+	interaction: INTERACTION_SETTINGS,
+	uiTiming: UI_TIMING,
+	gridDynamicSizing: GRID_DYNAMIC_SIZING,
+	performanceDetection: PERFORMANCE_DETECTION,
+	texture: TEXTURE_SETTINGS,
 	// Derived from SUPPORTED_FORMATS - no need to maintain separately
 	supportedExtensions: MODEL_EXTENSIONS,
 	multiFileFormats: MULTI_FILE_FORMATS,

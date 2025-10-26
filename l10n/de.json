@@ -135,7 +135,20 @@
     "All formats supported: {formats}": "Alle Formate unterstützt: {formats}",
     "Use comparison mode to spot differences between model versions.": "Verwenden Sie den Vergleichsmodus, um Unterschiede zwischen Modellversionen zu erkennen.",
     "Demo Scene": "Demo-Szene",
-    "No file loaded - showing demo": "Keine Datei geladen - Demo wird angezeigt"
+    "No file loaded - showing demo": "Keine Datei geladen - Demo wird angezeigt",
+    "3D Controller": "3D-Controller",
+    "Toggle Controller": "Controller umschalten",
+    "Show or hide the 3D navigation controller from the top toolbar. The controller is draggable and can be positioned anywhere on screen.": "3D-Navigations-Controller in der oberen Symbolleiste ein- oder ausblenden. Der Controller ist verschiebbar und kann überall auf dem Bildschirm positioniert werden.",
+    "Rotation Mode": "Rotationsmodus",
+    "Click or drag on the circular ring to rotate the model. Click farther from center for faster rotation.": "Klicken oder ziehen Sie auf dem kreisförmigen Ring, um das Modell zu drehen. Klicken Sie weiter vom Zentrum entfernt für schnellere Rotation.",
+    "Panning Mode": "Schwenkmodus",
+    "Click the panning mode button to switch from rotation to panning. Click or drag to move the camera horizontally or vertically.": "Klicken Sie auf die Schwenkmodus-Taste, um von der Rotation zum Schwenken zu wechseln. Klicken oder ziehen Sie, um die Kamera horizontal oder vertikal zu bewegen.",
+    "Zoom Controls": "Zoom-Steuerung",
+    "Use the + and - buttons on the controller to zoom in or out. Hold to zoom continuously.": "Verwenden Sie die + und - Tasten am Controller, um hinein- oder herauszuzoomen. Gedrückt halten für kontinuierliches Zoomen.",
+    "Reset Position": "Position zurücksetzen",
+    "In panning mode, click the reset button to return the camera to the centered position.": "Im Schwenkmodus klicken Sie auf die Zurücksetzen-Taste, um die Kamera zur zentrierten Position zurückzusetzen.",
+    "Drag to Move": "Ziehen zum Verschieben",
+    "Drag the controller by its edge to reposition it anywhere on the screen. Position is saved automatically.": "Ziehen Sie den Controller an seinem Rand, um ihn überall auf dem Bildschirm neu zu positionieren. Die Position wird automatisch gespeichert."
   },
   "pluralForm": "nplurals=2; plural=(n != 1);"
 }

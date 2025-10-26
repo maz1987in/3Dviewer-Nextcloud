@@ -57,24 +57,6 @@
 							<span class="tool-icon">📐</span>
 							<span class="tool-label">{{ cameraType === 'perspective' ? t('threedviewer', 'Perspective') : t('threedviewer', 'Orthographic') }}</span>
 						</button>
-						<button class="tool-btn toggle-btn"
-							:class="{ 'active': showController }"
-							@click="emit('toggle-controller')">
-							<span class="tool-icon">🎮</span>
-							<span class="tool-label">{{ t('threedviewer', '3D Controller') }}</span>
-							<span class="toggle-indicator">{{ showController ? '✓' : '' }}</span>
-						</button>
-						<div v-if="!isMobile" class="tool-group">
-							<label class="tool-label-small">{{ t('threedviewer', 'Camera Presets') }}</label>
-							<select :value="currentPreset"
-								class="preset-select"
-								@change="emit('change-preset', $event.target.value)">
-								<option value="">{{ t('threedviewer', 'Select preset...') }}</option>
-								<option v-for="preset in presets" :key="preset.name" :value="preset.name">
-									{{ preset.label }}
-								</option>
-							</select>
-						</div>
 					</div>
 				</section>
 
@@ -231,10 +213,7 @@ export default {
 	props: {
 		// View props
 		autoRotate: { type: Boolean, default: false },
-		currentPreset: { type: String, default: '' },
-		presets: { type: Array, default: () => [] },
 		cameraType: { type: String, default: 'perspective' },
-		showController: { type: Boolean, default: true },
 		
 		// Display props
 		grid: { type: Boolean, default: true },
@@ -261,8 +240,6 @@ export default {
 		'fit-to-view',
 		'toggle-auto-rotate',
 		'toggle-projection',
-		'change-preset',
-		'toggle-controller',
 		'toggle-grid',
 		'toggle-axes',
 		'toggle-wireframe',

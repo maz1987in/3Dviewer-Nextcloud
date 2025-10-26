@@ -7,6 +7,7 @@ import { ref, computed } from 'vue'
 import * as THREE from 'three'
 import { logger } from '../utils/logger.js'
 import { average } from '../utils/mathHelpers.js'
+import { VIEWER_CONFIG } from '../config/viewer-config.js'
 
 export function usePerformance() {
 	// Performance state
@@ -65,6 +66,7 @@ export function usePerformance() {
 	const detectBrowserCapabilities = (renderer) => {
 		let score = 0
 		const capabilities = {}
+		const scores = VIEWER_CONFIG.performanceDetection.browserCapabilityScores
 
 		if (renderer) {
 			// Check WebGL capabilities
@@ -74,22 +76,22 @@ export function usePerformance() {
 			capabilities.maxVertexUniforms = gl.getParameter(gl.MAX_VERTEX_UNIFORM_VECTORS)
 			
 			// WebGL 2 support adds points
-			if (capabilities.webglVersion === 2) score += 20
+			if (capabilities.webglVersion === 2) score += scores.webgl2Bonus
 			
 			// Large texture support
-			if (capabilities.maxTextureSize >= 8192) score += 15
-			if (capabilities.maxTextureSize >= 16384) score += 10
+			if (capabilities.maxTextureSize >= 8192) score += scores.largeTextureBonus
+			if (capabilities.maxTextureSize >= 16384) score += scores.veryLargeTextureBonus
 		}
 
-		// Check device pixel ratio (indicator of high-DPI display)
+			// Check device pixel ratio (indicator of high-DPI display)
 		capabilities.devicePixelRatio = window.devicePixelRatio || 1
-		if (capabilities.devicePixelRatio >= 2) score += 15
+		if (capabilities.devicePixelRatio >= 2) score += scores.highDPIBonus
 
 		// Check available memory (if supported)
 		if (navigator.deviceMemory) {
 			capabilities.deviceMemory = navigator.deviceMemory
-			if (capabilities.deviceMemory >= 8) score += 20
-			else if (capabilities.deviceMemory >= 4) score += 10
+			if (capabilities.deviceMemory >= 8) score += scores.memory8GBBonus
+			else if (capabilities.deviceMemory >= 4) score += scores.memory4GBBonus
 		} else {
 			// Assume reasonable memory if not available
 			score += 10
@@ -98,9 +100,9 @@ export function usePerformance() {
 		// Check CPU cores
 		if (navigator.hardwareConcurrency) {
 			capabilities.cpuCores = navigator.hardwareConcurrency
-			if (capabilities.cpuCores >= 8) score += 15
-			else if (capabilities.cpuCores >= 4) score += 10
-			else if (capabilities.cpuCores >= 2) score += 5
+			if (capabilities.cpuCores >= 8) score += scores.cpu8CoreBonus
+			else if (capabilities.cpuCores >= 4) score += scores.cpu4CoreBonus
+			else if (capabilities.cpuCores >= 2) score += scores.cpu2CoreBonus
 		} else {
 			score += 5
 		}
@@ -108,27 +110,28 @@ export function usePerformance() {
 		// Check if we're on mobile (reduce score)
 		const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
 		if (isMobile) {
-			score -= 20
+			score += scores.mobilePenalty
 			capabilities.isMobile = true
 		}
 
-	// Determine recommended mode based on score
-	let recommendedMode = 'balanced' // default
-	if (score >= 55) {
-		recommendedMode = 'high' // Good system with WebGL2 + 4GB+ RAM
-	} else if (score >= 40) {
-		recommendedMode = 'balanced' // Mid-range
-	} else if (score >= 25) {
-		recommendedMode = 'balanced' // Lower mid-range  
-	} else {
-		recommendedMode = 'low' // Low-end or mobile
-	}
+		// Determine recommended mode based on score
+		const thresholds = VIEWER_CONFIG.performanceDetection.modeThresholds
+		let recommendedMode = 'balanced' // default
+		if (score >= thresholds.highMode) {
+			recommendedMode = 'high' // Good system with WebGL2 + 4GB+ RAM
+		} else if (score >= thresholds.balancedMode) {
+			recommendedMode = 'balanced' // Mid-range
+		} else if (score >= thresholds.lowMode) {
+			recommendedMode = 'balanced' // Lower mid-range  
+		} else {
+			recommendedMode = 'low' // Low-end or mobile
+		}
 
-	logger.info('usePerformance', 'Browser capabilities detected', {
-		capabilities,
-		score,
-		recommendedMode,
-	})
+		logger.info('usePerformance', 'Browser capabilities detected', {
+			capabilities,
+			score,
+			recommendedMode,
+		})
 
 		return recommendedMode
 	}
@@ -145,23 +148,15 @@ export function usePerformance() {
 			const recommendedMode = detectBrowserCapabilities(renderer)
 			logger.info('usePerformance', 'Auto mode: applying recommended settings', { recommendedMode })
 			
-			switch (recommendedMode) {
-			case 'low':
-				pixelRatio.value = 0.75
-				antialias.value = false
-				shadows.value = false
-				break
-			case 'balanced':
-				pixelRatio.value = 1
-				antialias.value = true
-				shadows.value = true
-				break
-			case 'high':
-				pixelRatio.value = 1.5
-				antialias.value = true
-				shadows.value = true
+			const qualityLevels = VIEWER_CONFIG.performanceDetection.qualityLevels
+			const quality = qualityLevels[recommendedMode]
+			
+			pixelRatio.value = quality.pixelRatio
+			antialias.value = quality.antialias
+			shadows.value = quality.shadows
+			
+			if (recommendedMode === 'high') {
 				occlusionCulling.value = true
-				break
 			}
 			
 			// Disable auto-optimization in auto mode since we already detected optimal settings

@@ -1,6 +1,7 @@
 import { ref, computed, readonly } from 'vue'
 import * as THREE from 'three'
 import { logError } from '../utils/error-handler.js'
+import { VIEWER_CONFIG } from '../config/viewer-config.js'
 import { 
 	calculateModelScale, 
 	createTextTexture, 
@@ -9,15 +10,9 @@ import {
 	raycastIntersection 
 } from '../utils/modelScaleUtils.js'
 
-// Unit conversion factors (1 Three.js unit = ? real units)
-const UNIT_SCALES = {
-	millimeters: { factor: 1, suffix: 'mm', label: 'Millimeters' },
-	centimeters: { factor: 10, suffix: 'cm', label: 'Centimeters' },
-	meters: { factor: 1000, suffix: 'm', label: 'Meters' },
-	inches: { factor: 25.4, suffix: 'in', label: 'Inches' },
-	feet: { factor: 304.8, suffix: 'ft', label: 'Feet' },
-	units: { factor: 1, suffix: 'units', label: 'Generic Units' },
-}
+// Unit conversion factors from config
+const UNIT_SCALES = VIEWER_CONFIG.measurement.unitScales
+const DEFAULT_UNIT = VIEWER_CONFIG.measurement.defaultUnit
 
 export function useMeasurement() {
 	// Measurement state
@@ -27,7 +22,7 @@ export function useMeasurement() {
 	const currentMeasurement = ref(null)
 	
 	// Unit configuration
-	const currentUnit = ref('millimeters') // Default to millimeters (common for 3D models)
+	const currentUnit = ref(DEFAULT_UNIT) // Use configured default unit
 	const modelScale = ref(1) // Scale factor: 1 Three.js unit = modelScale real units
 	const visualScale = ref(1) // Visual scale for markers based on model size
 
