@@ -534,6 +534,7 @@ export const CONTROLLER_SETTINGS = {
 	},
 	arrowNudgeAmount: 0.1, // radians
 	zoomStep: 0.1,
+	panSpeed: 0.3, // Camera panning speed multiplier
 	animationDuration: 800, // ms for snap-to-view
 	persistPosition: true,
 	persistVisibility: true,

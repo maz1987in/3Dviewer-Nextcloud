@@ -952,6 +952,69 @@ export function useCamera() {
 	}
 
 	/**
+	 * Pan camera by delta (for controller support)
+	 * @param {number} deltaX - Horizontal pan delta
+	 * @param {number} deltaY - Vertical pan delta
+	 */
+	const panCameraByDelta = (deltaX, deltaY) => {
+		if (!camera.value || !controls.value) return
+
+		try {
+			// Get camera's right and up vectors
+			const cameraRight = new THREE.Vector3()
+			const cameraUp = new THREE.Vector3()
+			
+			camera.value.getWorldDirection(cameraRight)
+			cameraRight.cross(camera.value.up).normalize()
+			cameraUp.copy(camera.value.up).normalize()
+
+			// Calculate pan offset
+			const panSpeed = 0.1
+			const panOffset = new THREE.Vector3()
+			panOffset.add(cameraRight.multiplyScalar(deltaX * panSpeed))
+			panOffset.add(cameraUp.multiplyScalar(deltaY * panSpeed))
+
+			// Apply pan to camera and target
+			camera.value.position.add(panOffset)
+			modelCenter.value.add(panOffset)
+			
+			if (controls.value) {
+				controls.value.target.copy(modelCenter.value)
+				controls.value.update()
+			}
+
+			logger.info('useCamera', 'Camera panned by delta', { deltaX, deltaY })
+		} catch (error) {
+			logger.error('useCamera', 'Failed to pan camera by delta', error)
+		}
+	}
+
+	/**
+	 * Reset camera pan to original model center
+	 */
+	const resetPan = () => {
+		if (!camera.value || !controls.value || !initialTarget.value) return
+
+		try {
+			// Calculate the offset
+			const offset = new THREE.Vector3().subVectors(initialTarget.value, modelCenter.value)
+			
+			// Apply offset to camera position and target
+			camera.value.position.add(offset)
+			modelCenter.value.copy(initialTarget.value)
+			
+			if (controls.value) {
+				controls.value.target.copy(modelCenter.value)
+				controls.value.update()
+			}
+
+			logger.info('useCamera', 'Pan reset to original center', { center: modelCenter.value })
+		} catch (error) {
+			logger.error('useCamera', 'Failed to reset pan', error)
+		}
+	}
+
+	/**
 	 * Dispose of camera and controls
 	 */
 	const dispose = () => {
@@ -1007,6 +1070,8 @@ export function useCamera() {
 		toggleCameraProjection,
 		rotateCameraByDelta,
 		snapToNamedView,
+		panCameraByDelta,
+		resetPan,
 		getCameraDistance,
 		getModelCenter,
 		dispose,

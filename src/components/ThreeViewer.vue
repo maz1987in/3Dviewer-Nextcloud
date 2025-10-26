@@ -369,13 +369,15 @@
 
 		<!-- Circular 3D Controller -->
 		<CircularController
-			v-if="showController && hasModel && camera.camera.value && camera.controls.value"
+			ref="circularControllerRef"
 			:main-camera="camera.camera.value"
 			:main-controls="camera.controls.value"
 			:visible="showController"
 			:is-mobile="isMobile"
 			@camera-rotate="handleControllerRotate"
 			@camera-zoom="handleControllerZoom"
+			@cameraPan="handleControllerPan"
+			@testPan="handleTestPan"
 			@snap-to-view="handleSnapToView"
 			@nudge-camera="handleNudgeCamera"
 			@position-changed="handleControllerPositionChange" />
@@ -436,6 +438,7 @@ export default {
 		const grid = ref(null)
 		const axes = ref(null)
 		const modelRoot = ref(null)
+		const circularControllerRef = ref(null)
 		const aborting = ref(false)
 		const initializing = ref(true) // Show loading during initial setup
 		const animationFrameId = ref(null) // Track animation frame for cleanup
@@ -1435,6 +1438,51 @@ export default {
 	}
 
 	/**
+	 * Handle test pan event
+	 */
+	const handleTestPan = (data) => {
+		console.log('TEST PAN EVENT RECEIVED:', data)
+		console.log('ThreeViewer mounted:', !!camera.camera.value, !!camera.controls.value)
+	}
+
+	/**
+	 * Direct pan method that can be called from CircularController
+	 */
+	const directPan = (panDelta) => {
+		console.log('DIRECT PAN CALLED:', panDelta)
+		if (!camera.camera.value || !camera.controls.value) {
+			console.log('Camera or controls not ready for direct pan')
+			return
+		}
+
+		try {
+			// Use the existing panCameraByDelta method
+			camera.panCameraByDelta(panDelta.x, panDelta.y)
+			logger.info('ThreeViewer', 'Camera panned from direct call', { x: panDelta.x, y: panDelta.y })
+		} catch (error) {
+			logger.error('ThreeViewer', 'Failed to pan camera from direct call', error)
+		}
+	}
+
+	/**
+	 * Handle controller pan event
+	 */
+	const handleControllerPan = ({ x, y }) => {
+		console.log('PAN EVENT RECEIVED:', { x, y })
+		if (!camera.camera.value || !camera.controls.value) {
+			console.log('Camera or controls not ready')
+			return
+		}
+		
+		try {
+			camera.panCameraByDelta(x, y)
+			logger.info('ThreeViewer', 'Camera panned from controller', { x, y })
+		} catch (error) {
+			logger.error('ThreeViewer', 'Failed to pan camera from controller', error)
+		}
+	}
+
+	/**
 	 * Handle controller zoom event
 	 */
 	const handleControllerZoom = ({ delta }) => {
@@ -1804,8 +1852,9 @@ export default {
 			toggleAnnotationMode,
 			deleteAnnotation,
 			updateAnnotationText,
-		clearAllAnnotations,
-		toggleComparisonMode,
+			clearAllAnnotations,
+			toggleComparisonMode,
+			directPan,
 		setPerformanceMode,
 		setTheme: themeComposable.setTheme,
 		togglePerformanceStats,

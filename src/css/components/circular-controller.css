@@ -256,6 +256,82 @@ div.direction-arrow.arrow-right {
 	transform: scale(0.95) translateY(-50%);
 }
 
+/* Mode toggle button */
+.mode-btn {
+	position: absolute;
+	width: 32px;
+	height: 32px;
+	border-radius: 50%;
+	background: linear-gradient(135deg, rgba(150, 150, 150, 0.9) 0%, rgba(120, 120, 120, 0.8) 100%);
+	border: 2px solid rgba(255, 255, 255, 0.6);
+	color: white;
+	font-size: 18px;
+	font-weight: bold;
+	cursor: pointer;
+	pointer-events: auto;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: all 0.2s ease;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4),
+	            inset 0 1px 2px rgba(255, 255, 255, 0.4);
+	backdrop-filter: blur(8px);
+	z-index: 200; /* Above cube container */
+	top: -12px;
+	left: -12px;
+	transform: none;
+}
+
+.mode-btn:hover {
+	background: linear-gradient(135deg, rgba(150, 150, 150, 1) 0%, rgba(120, 120, 120, 0.95) 100%);
+	transform: scale(1.1);
+	box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4),
+	            inset 0 1px 3px rgba(255, 255, 255, 0.4);
+	border-color: rgba(255, 255, 255, 0.7);
+}
+
+.mode-btn:active {
+	transform: scale(0.95);
+	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3),
+	            inset 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Active panning mode styling */
+.mode-btn.active {
+	background: linear-gradient(135deg, rgba(100, 180, 100, 0.9) 0%, rgba(70, 150, 70, 0.8) 100%);
+	border-color: rgba(255, 255, 255, 0.6);
+}
+
+.mode-btn.active:hover {
+	background: linear-gradient(135deg, rgba(100, 180, 100, 1) 0%, rgba(70, 150, 70, 0.95) 100%);
+}
+
+/* Panning reset button */
+.mode-btn.panning-reset {
+	left: -50px; /* Position closer to the left of the toggle button */
+	background: linear-gradient(135deg, rgba(66, 135, 245, 0.9) 0%, rgba(50, 100, 200, 0.8) 100%);
+	border-color: rgba(255, 255, 255, 0.6);
+	color: #fff;
+}
+
+.mode-btn.panning-reset:hover {
+	background: linear-gradient(135deg, rgba(66, 135, 245, 1) 0%, rgba(50, 100, 200, 0.95) 100%);
+}
+
+.mode-btn.panning-reset:active {
+	background: linear-gradient(135deg, rgba(50, 100, 200, 0.9) 0%, rgba(40, 80, 160, 0.8) 100%);
+}
+
+/* Panning mode visual indicator for movement ring */
+.movement-ring.panning-mode {
+	border-color: rgba(100, 180, 100, 0.4);
+}
+
+.movement-ring.panning-mode:hover {
+	border-color: rgba(100, 180, 100, 0.6);
+	box-shadow: 0 0 20px rgba(100, 180, 100, 0.2);
+}
+
 /* Inner orbit ring - visual guide only */
 .orbit-ring-visual {
 	position: absolute;

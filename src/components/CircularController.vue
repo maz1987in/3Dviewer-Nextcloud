@@ -32,8 +32,9 @@
 			<!-- Movement ring (full interactive area) -->
 			<div
 				class="movement-ring"
-				:aria-label="t('threedviewer', 'Click or drag to rotate view')"
-				:title="t('threedviewer', 'Click anywhere to rotate - farther from center = faster')"
+				:class="{ 'panning-mode': isPanningMode }"
+				:aria-label="isPanningMode ? t('threedviewer', 'Click or drag to pan view') : t('threedviewer', 'Click or drag to rotate view')"
+				:title="isPanningMode ? t('threedviewer', 'Click anywhere to pan - farther from center = faster') : t('threedviewer', 'Click anywhere to rotate - farther from center = faster')"
 				@mousedown="handleMovementStart"
 				@touchstart.prevent="handleMovementTouchStart">
 				
@@ -48,28 +49,54 @@
 					</div>
 				</div>
 
-				<!-- Zoom buttons (replacing left/right arrows) -->
-				<button
-					class="zoom-btn zoom-out"
-					:aria-label="t('threedviewer', 'Zoom Out')"
-					:title="t('threedviewer', 'Zoom Out')"
-					@click.stop="handleZoomOut"
-					@mousedown.stop
-					@touchstart.stop>
-					−
-				</button>
-				<button
-					class="zoom-btn zoom-in"
-					:aria-label="t('threedviewer', 'Zoom In')"
-					:title="t('threedviewer', 'Zoom In')"
-					@click.stop="handleZoomIn"
-					@mousedown.stop
-					@touchstart.stop>
-					+
-				</button>
-				
-				<!-- Inner dashed ring (visual guide) -->
-				<div class="orbit-ring-visual" />
+			<!-- Zoom buttons (replacing left/right arrows) -->
+			<button
+				class="zoom-btn zoom-out"
+				:aria-label="t('threedviewer', 'Zoom Out')"
+				:title="t('threedviewer', 'Zoom Out')"
+				@click.stop="handleZoomOut"
+				@mousedown.stop="handleZoomOutStart"
+				@mouseup.stop="handleZoomStop"
+				@mouseleave.stop="handleZoomStop"
+				@touchstart.stop="handleZoomOutStart"
+				@touchend.stop="handleZoomStop">
+				−
+			</button>
+			<button
+				class="zoom-btn zoom-in"
+				:aria-label="t('threedviewer', 'Zoom In')"
+				:title="t('threedviewer', 'Zoom In')"
+				@click.stop="handleZoomIn"
+				@mousedown.stop="handleZoomInStart"
+				@mouseup.stop="handleZoomStop"
+				@mouseleave.stop="handleZoomStop"
+				@touchstart.stop="handleZoomInStart"
+				@touchend.stop="handleZoomStop">
+				+
+			</button>
+
+			<!-- Panning mode toggle button -->
+			<button
+				class="mode-btn panning-toggle"
+				:class="{ active: isPanningMode }"
+				:aria-label="isPanningMode ? t('threedviewer', 'Switch to Rotation Mode') : t('threedviewer', 'Switch to Panning Mode')"
+				:title="isPanningMode ? t('threedviewer', 'Switch to Rotation Mode') : t('threedviewer', 'Switch to Panning Mode')"
+				@click.stop="togglePanningMode">
+				{{ isPanningMode ? '↻' : '↔' }}
+			</button>
+
+			<!-- Panning reset button (only visible in panning mode) -->
+			<button
+				v-if="isPanningMode"
+				class="mode-btn panning-reset"
+				@click.stop="resetPanning"
+				:aria-label="t('threedviewer', 'Reset camera position')"
+				:title="t('threedviewer', 'Reset camera position')">
+				⌂
+			</button>
+			
+			<!-- Inner dashed ring (visual guide) -->
+			<div class="orbit-ring-visual" />
 				
 				<!-- Center dot indicator -->
 				<div class="center-dot" />
@@ -98,7 +125,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch, getCurrentInstance } from 'vue'
 import * as THREE from 'three'
 import { logger } from '../utils/logger.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
@@ -123,7 +150,7 @@ export default {
 			default: false,
 		},
 	},
-	emits: ['camera-rotate', 'camera-zoom', 'snap-to-view', 'position-changed', 'nudge-camera'],
+	emits: ['camera-rotate', 'camera-zoom', 'snap-to-view', 'position-changed', 'nudge-camera', 'cameraPan', 'testPan'],
 	setup(props, { emit }) {
 		// Refs
 		const controllerRef = ref(null)
@@ -541,22 +568,39 @@ export default {
 			const normalizedY = deltaY / distance
 			const strength = Math.min(distance / (maxRadius * 0.5), 1.0)
 			
-			movementDirection.value = {
-				x: normalizedX * strength * 0.02,
-				y: normalizedY * strength * 0.02,
+			if (isPanningMode.value) {
+				// Panning mode - start continuous movement
+				isMoving.value = true
+				startContinuousMovement()
+				logger.info('CircularController', 'Pan started', { 
+					deltaX, 
+					deltaY, 
+					distance, 
+					strength,
+					panDelta: {
+						x: normalizedX * strength * 0.1,
+						y: -normalizedY * strength * 0.1,
+					}
+				})
+			} else {
+				// Rotation mode - emit rotation events
+				movementDirection.value = {
+					x: normalizedX * strength * 0.02,
+					y: normalizedY * strength * 0.02,
+				}
+				
+				isMoving.value = true
+				startContinuousMovement()
+				
+				logger.info('CircularController', 'Rotation started', { 
+					deltaX, 
+					deltaY, 
+					distance, 
+					maxRadius,
+					strength,
+					direction: movementDirection.value 
+				})
 			}
-			
-			isMoving.value = true
-			startContinuousMovement()
-			
-			logger.info('CircularController', 'Movement started', { 
-				deltaX, 
-				deltaY, 
-				distance, 
-				maxRadius,
-				strength,
-				direction: movementDirection.value 
-			})
 		} else {
 			logger.info('CircularController', 'Click outside valid range', { 
 				distance, 
@@ -618,10 +662,45 @@ export default {
 		const startContinuousMovement = () => {
 			// Immediately apply first movement
 			if (movementDirection.value.x !== 0 || movementDirection.value.y !== 0) {
-				emit('camera-rotate', {
-					deltaX: movementDirection.value.x,
-					deltaY: movementDirection.value.y,
-				})
+				if (isPanningMode.value) {
+					// Panning mode - direct camera manipulation
+					if (props.mainCamera && props.mainControls) {
+						try {
+							// Get camera's right and up vectors
+							const cameraRight = new THREE.Vector3()
+							const cameraUp = new THREE.Vector3()
+							
+							// Get camera direction (where camera is looking)
+							const cameraDirection = new THREE.Vector3()
+							props.mainCamera.getWorldDirection(cameraDirection)
+							
+							// Calculate right vector (perpendicular to camera direction and up)
+							cameraRight.crossVectors(props.mainCamera.up, cameraDirection).normalize()
+							
+							// Use camera's up vector
+							cameraUp.copy(props.mainCamera.up).normalize()
+
+							// Calculate pan offset - invert both X and Y for natural panning
+							const panSpeed = VIEWER_CONFIG.controller.panSpeed
+							const panOffset = new THREE.Vector3()
+							panOffset.add(cameraRight.multiplyScalar(-movementDirection.value.x * panSpeed)) // Invert X
+							panOffset.add(cameraUp.multiplyScalar(-movementDirection.value.y * panSpeed)) // Invert Y
+
+							// Apply pan to camera and target
+							props.mainCamera.position.add(panOffset)
+							props.mainControls.target.add(panOffset)
+							props.mainControls.update()
+						} catch (error) {
+							console.log('CONTINUOUS PAN ERROR:', error)
+						}
+					}
+				} else {
+					// Rotation mode
+					emit('camera-rotate', {
+						deltaX: movementDirection.value.x,
+						deltaY: movementDirection.value.y,
+					})
+				}
 			}
 			
 			// Continue applying movement while active
@@ -631,10 +710,45 @@ export default {
 			
 			movementInterval.value = setInterval(() => {
 				if (isMoving.value && (movementDirection.value.x !== 0 || movementDirection.value.y !== 0)) {
-					emit('camera-rotate', {
-						deltaX: movementDirection.value.x,
-						deltaY: movementDirection.value.y,
-					})
+					if (isPanningMode.value) {
+						// Panning mode - direct camera manipulation
+						if (props.mainCamera && props.mainControls) {
+							try {
+								// Get camera's right and up vectors
+								const cameraRight = new THREE.Vector3()
+								const cameraUp = new THREE.Vector3()
+								
+								// Get camera direction (where camera is looking)
+								const cameraDirection = new THREE.Vector3()
+								props.mainCamera.getWorldDirection(cameraDirection)
+								
+								// Calculate right vector (perpendicular to camera direction and up)
+								cameraRight.crossVectors(props.mainCamera.up, cameraDirection).normalize()
+								
+								// Use camera's up vector
+								cameraUp.copy(props.mainCamera.up).normalize()
+
+								// Calculate pan offset - invert both X and Y for natural panning
+								const panSpeed = VIEWER_CONFIG.controller.panSpeed
+								const panOffset = new THREE.Vector3()
+								panOffset.add(cameraRight.multiplyScalar(-movementDirection.value.x * panSpeed)) // Invert X
+								panOffset.add(cameraUp.multiplyScalar(-movementDirection.value.y * panSpeed)) // Invert Y
+
+								// Apply pan to camera and target
+								props.mainCamera.position.add(panOffset)
+								props.mainControls.target.add(panOffset)
+								props.mainControls.update()
+							} catch (error) {
+								console.log('CONTINUOUS PAN ERROR:', error)
+							}
+						}
+					} else {
+						// Rotation mode
+						emit('camera-rotate', {
+							deltaX: movementDirection.value.x,
+							deltaY: movementDirection.value.y,
+						})
+					}
 				}
 			}, 16) // ~60fps
 		}
@@ -786,16 +900,53 @@ export default {
 			logger.info('CircularController', 'Continuous zoom out started')
 		}
 
-		/**
-		 * Stop continuous zoom
-		 */
-		const handleZoomStop = () => {
-			if (zoomInterval.value) {
-				clearInterval(zoomInterval.value)
-				zoomInterval.value = null
-				logger.info('CircularController', 'Continuous zoom stopped')
+	/**
+	 * Stop continuous zoom
+	 */
+	const handleZoomStop = () => {
+		if (zoomInterval.value) {
+			clearInterval(zoomInterval.value)
+			zoomInterval.value = null
+			logger.info('CircularController', 'Continuous zoom stopped')
+		}
+	}
+
+	// Panning mode state
+	const isPanningMode = ref(false)
+
+	/**
+	 * Toggle between rotation and panning mode
+	 */
+	const togglePanningMode = () => {
+		isPanningMode.value = !isPanningMode.value
+		logger.info('CircularController', 'Mode toggled', { isPanningMode: isPanningMode.value })
+	}
+
+	/**
+	 * Reset camera panning to original position
+	 */
+	const resetPanning = () => {
+		if (props.mainCamera && props.mainControls) {
+			try {
+				// Only reset the target (panning) to center, keep camera distance and angle
+				const currentCameraPosition = props.mainCamera.position.clone()
+				const currentDistance = currentCameraPosition.length()
+				
+				// Calculate the direction from camera to current target
+				const cameraDirection = new THREE.Vector3()
+				cameraDirection.subVectors(props.mainControls.target, currentCameraPosition).normalize()
+				
+				// Set new target to be at the same distance from camera, but centered
+				const newTarget = new THREE.Vector3(0, 0, 0)
+				props.mainControls.target.copy(newTarget)
+				props.mainControls.update()
+				
+				logger.info('CircularController', 'Camera panning reset to center (preserving zoom and angle)')
+			} catch (error) {
+				logger.error('CircularController', 'Failed to reset panning', error)
 			}
 		}
+	}
 
 		// Zoom ring interaction state
 		const isZoomDragging = ref(false)
@@ -1028,20 +1179,20 @@ export default {
 				animationFrameId.value = null
 			}
 
-			if (zoomInterval.value) {
-				clearInterval(zoomInterval.value)
-				zoomInterval.value = null
-			}
+		if (zoomInterval.value) {
+			clearInterval(zoomInterval.value)
+			zoomInterval.value = null
+		}
 
-			if (rotationInterval.value) {
-				clearInterval(rotationInterval.value)
-				rotationInterval.value = null
-			}
+		if (rotationInterval.value) {
+			clearInterval(rotationInterval.value)
+			rotationInterval.value = null
+		}
 
-			if (movementInterval.value) {
-				clearInterval(movementInterval.value)
-				movementInterval.value = null
-			}
+		if (movementInterval.value) {
+			clearInterval(movementInterval.value)
+			movementInterval.value = null
+		}
 
 			if (cubeRenderer.value) {
 				cubeRenderer.value.dispose()
@@ -1104,10 +1255,16 @@ export default {
 			fadeIn,
 			arrows,
 			ringRadius,
+			isPanningMode,
+			togglePanningMode,
+			resetPanning,
 			handleMovementStart,
 			handleMovementTouchStart,
 			handleZoomIn,
 			handleZoomOut,
+			handleZoomInStart,
+			handleZoomOutStart,
+			handleZoomStop,
 			handleZoomRingStart,
 			handleZoomRingMove,
 			handleZoomRingEnd,
