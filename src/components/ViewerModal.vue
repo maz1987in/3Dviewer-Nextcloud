@@ -12,12 +12,14 @@
 		<ViewerToolbar
 			:grid="grid"
 			:axes="axes"
+			:face-labels="faceLabels"
 			:wireframe="wireframe"
 			:background="background"
 			class="modal-toolbar"
 			@reset-view="onReset"
 			@toggle-grid="grid = !grid"
 			@toggle-axes="axes = !axes"
+			@toggle-face-labels="toggleFaceLabels"
 			@toggle-wireframe="wireframe = !wireframe"
 			@change-background="onBackgroundChange" />
 	</div>
@@ -42,6 +44,7 @@ export default {
 		return {
 			grid: true,
 			axes: true,
+			faceLabels: false,
 			wireframe: false,
 			background: '#f5f5f5',
 			_prefsLoaded: false,
@@ -50,6 +53,7 @@ export default {
 	watch: {
 		grid() { this.savePrefs() },
 		axes() { this.savePrefs() },
+		faceLabels() { this.savePrefs() },
 		wireframe() { this.savePrefs() },
 		background() { this.savePrefs() },
 	},
@@ -65,6 +69,7 @@ export default {
 				if (typeof parsed === 'object' && parsed) {
 					if (typeof parsed.grid === 'boolean') this.grid = parsed.grid
 					if (typeof parsed.axes === 'boolean') this.axes = parsed.axes
+					if (typeof parsed.faceLabels === 'boolean') this.faceLabels = parsed.faceLabels
 					if (typeof parsed.wireframe === 'boolean') this.wireframe = parsed.wireframe
 					if (typeof parsed.background === 'string' && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(parsed.background)) {
 						this.background = parsed.background
@@ -79,12 +84,17 @@ export default {
 				const data = {
 					grid: this.grid,
 					axes: this.axes,
+					faceLabels: this.faceLabels,
 					wireframe: this.wireframe,
 					background: this.background,
 					v: 1,
 				}
 				localStorage.setItem('threedviewer:prefs', JSON.stringify(data))
 			} catch (_) { /* storage may be disabled */ }
+		},
+		toggleFaceLabels() {
+			this.faceLabels = !this.faceLabels
+			this.$refs.viewer?.toggleFaceLabels?.()
 		},
 		onReset() {
 			this.$refs.viewer?.resetView?.()

@@ -37,7 +37,7 @@ class StlLoader extends BaseLoader {
 
 		// Create mesh
 		const mesh = this.createMesh(geometry, material)
-		
+
 		// STL files are often exported with Z-up coordinate system
 		// Rotate to Y-up (Three.js standard) by rotating -90° around X-axis
 		mesh.rotation.x = -Math.PI / 2

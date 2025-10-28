@@ -5,15 +5,15 @@
 
 /**
  * Check if we're in development mode
- * @returns {boolean}
+ * @return {boolean}
  */
 function isDevelopment() {
 	// Check various environment indicators
 	return (
-		typeof process !== 'undefined' && process.env?.NODE_ENV === 'development' ||
-		window.location.hostname === 'localhost' ||
-		window.location.hostname === '127.0.0.1' ||
-		window.location.hostname.includes('local')
+		typeof process !== 'undefined' && process.env?.NODE_ENV === 'development'
+		|| window.location.hostname === 'localhost'
+		|| window.location.hostname === '127.0.0.1'
+		|| window.location.hostname.includes('local')
 	)
 }
 
@@ -21,7 +21,7 @@ function isDevelopment() {
  * Format log message with context
  * @param {string} context - Component/module name
  * @param {string} message - Log message
- * @returns {string}
+ * @return {string}
  */
 function formatMessage(context, message) {
 	return `[${context}] ${message}`
@@ -98,7 +98,7 @@ export const logger = {
 	 * Create a scoped logger for a specific context
 	 * Useful for components/modules that log frequently
 	 * @param {string} context - Component/module name
-	 * @returns {object} Scoped logger instance
+	 * @return {object} Scoped logger instance
 	 */
 	scope(context) {
 		return {

@@ -135,7 +135,20 @@
     "All formats supported: {formats}": "Todos los formatos compatibles: {formats}",
     "Use comparison mode to spot differences between model versions.": "Use el modo de comparación para detectar diferencias entre versiones de modelos.",
     "Demo Scene": "Escena de demostración",
-    "No file loaded - showing demo": "No se cargó ningún archivo - mostrando demo"
+    "No file loaded - showing demo": "No se cargó ningún archivo - mostrando demo",
+    "3D Controller": "Controlador 3D",
+    "Toggle Controller": "Alternar controlador",
+    "Show or hide the 3D navigation controller from the top toolbar. The controller is draggable and can be positioned anywhere on screen.": "Mostrar u ocultar el controlador de navegación 3D desde la barra de herramientas superior. El controlador se puede arrastrar y posicionar en cualquier parte de la pantalla.",
+    "Rotation Mode": "Modo de rotación",
+    "Click or drag on the circular ring to rotate the model. Click farther from center for faster rotation.": "Haga clic o arrastre el anillo circular para rotar el modelo. Haga clic más lejos del centro para rotación más rápida.",
+    "Panning Mode": "Modo de desplazamiento",
+    "Click the panning mode button to switch from rotation to panning. Click or drag to move the camera horizontally or vertically.": "Haga clic en el botón de modo de desplazamiento para cambiar de rotación a desplazamiento. Haga clic o arrastre para mover la cámara horizontal o verticalmente.",
+    "Zoom Controls": "Controles de zoom",
+    "Use the + and - buttons on the controller to zoom in or out. Hold to zoom continuously.": "Use los botones + y - en el controlador para acercar o alejar. Mantenga presionado para zoom continuo.",
+    "Reset Position": "Restablecer posición",
+    "In panning mode, click the reset button to return the camera to the centered position.": "En modo de desplazamiento, haga clic en el botón de restablecimiento para devolver la cámara a la posición centrada.",
+    "Drag to Move": "Arrastrar para mover",
+    "Drag the controller by its edge to reposition it anywhere on the screen. Position is saved automatically.": "Arrastre el controlador por su borde para reposicionarlo en cualquier parte de la pantalla. La posición se guarda automáticamente."
   },
   "pluralForm": "nplurals=2; plural=(n != 1);"
 }

@@ -56,7 +56,7 @@ const openDB = () => {
 				store.createIndex('fileId', 'fileId', { unique: false })
 				store.createIndex('filename', 'filename', { unique: false })
 				store.createIndex('expiresAt', 'expiresAt', { unique: false })
-				
+
 				logger.info('DependencyCache', 'Database schema created')
 			}
 		}
@@ -89,14 +89,14 @@ export async function initCache() {
 
 		db = await openDB()
 		isInitialized = true
-		
+
 		logger.info('DependencyCache', 'Cache initialized successfully')
-		
+
 		// Auto-cleanup expired entries if enabled
 		if (VIEWER_CONFIG.cache?.autoCleanup !== false) {
 			await clearExpired()
 		}
-		
+
 		return true
 	} catch (error) {
 		logger.error('DependencyCache', 'Failed to initialize cache', error)
@@ -181,10 +181,10 @@ export async function setCached(cacheKey, data, options = {}) {
 
 		// Skip if file is too large to prevent memory issues
 		if (entrySizeMB > maxFileSizeMB) {
-			logger.info('DependencyCache', 'File too large to cache, skipping', { 
-				filename: data.filename, 
+			logger.info('DependencyCache', 'File too large to cache, skipping', {
+				filename: data.filename,
 				sizeMB: entrySizeMB.toFixed(2),
-				maxMB: maxFileSizeMB 
+				maxMB: maxFileSizeMB,
 			})
 			return false
 		}
@@ -216,9 +216,9 @@ export async function setCached(cacheKey, data, options = {}) {
 
 		return new Promise((resolve) => {
 			request.onsuccess = () => {
-				logger.info('DependencyCache', 'Cache entry stored', { 
-					cacheKey, 
-					sizeMB: entrySizeMB.toFixed(2) 
+				logger.info('DependencyCache', 'Cache entry stored', {
+					cacheKey,
+					sizeMB: entrySizeMB.toFixed(2),
 				})
 				resolve(true)
 			}
@@ -451,7 +451,7 @@ async function evictOldEntries(requiredSizeMB) {
 					// Delete oldest entries until we have enough space
 					const deleteTx = database.transaction(['dependencies'], 'readwrite')
 					const deleteStore = deleteTx.objectStore('dependencies')
-					
+
 					for (const entry of entries) {
 						if (freedSpace >= requiredSizeMB * 1024 * 1024) {
 							break
@@ -460,8 +460,8 @@ async function evictOldEntries(requiredSizeMB) {
 						freedSpace += entry.size
 					}
 
-					logger.info('DependencyCache', 'Evicted old entries', { 
-						freedMB: (freedSpace / (1024 * 1024)).toFixed(2) 
+					logger.info('DependencyCache', 'Evicted old entries', {
+						freedMB: (freedSpace / (1024 * 1024)).toFixed(2),
 					})
 					resolve()
 				}
@@ -487,4 +487,3 @@ export function disableCache() {
 	cacheEnabled = false
 	logger.info('DependencyCache', 'Caching disabled')
 }
-

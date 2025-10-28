@@ -71,8 +71,8 @@ export function useMobile() {
 		const userAgent = navigator.userAgent || navigator.vendor || window.opera
 		const isMobileDevice = /android|bb\d+|meego|avantgo|bada\/|blackberry|blazer|compal|elaine|fennec|hiptop|iemobile|ip(hone|od)|iris|kindle|lge |maemo|midp|mmp|mobile.+firefox|netfront|opera m(ob|in)i|palm( os)?|phone|p(ixi|rim)|plucker|pocket|psp|series(4|6)0|symbian|treo|up\.(browser|link)|vodafone|wap|windows ce|xda|xiino/i.test(userAgent)
 
-	isMobile.value = isMobileDevice
-	logger.info('useMobile', 'Mobile device detected', { isMobile: isMobileDevice })
+		isMobile.value = isMobileDevice
+		logger.info('useMobile', 'Mobile device detected', { isMobile: isMobileDevice })
 
 		return isMobileDevice
 	}
@@ -83,8 +83,8 @@ export function useMobile() {
 	 */
 	const detectTouchCapability = () => {
 		const isTouchCapable = 'ontouchstart' in window || navigator.maxTouchPoints > 0
-	isTouchDevice.value = isTouchCapable
-	logger.info('useMobile', 'Touch capability detected', { isTouchCapable })
+		isTouchDevice.value = isTouchCapable
+		logger.info('useMobile', 'Touch capability detected', { isTouchCapable })
 
 		return isTouchCapable
 	}
@@ -257,7 +257,7 @@ export function useMobile() {
 		eventListeners.value.touchStart = handleTouchStart
 		eventListeners.value.touchMove = handleTouchMove
 		eventListeners.value.touchEnd = handleTouchEnd
-		
+
 		document.addEventListener('touchstart', handleTouchStart, { passive: false })
 		document.addEventListener('touchmove', handleTouchMove, { passive: false })
 		document.addEventListener('touchend', handleTouchEnd, { passive: false })

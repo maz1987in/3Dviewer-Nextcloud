@@ -23,34 +23,34 @@ class ThreeDSLoader extends BaseLoader {
 		// Create a custom LoadingManager for texture loading
 		let loadingManager = THREE.DefaultLoadingManager
 		const missingTextures = []
-		
+
 		// If additional files provided, set up custom texture loading
 		if (additionalFiles && additionalFiles.length > 0) {
 			loadingManager = new THREE.LoadingManager()
-			
+
 			// Override URL modifier to use pre-fetched textures
 			loadingManager.setURLModifier((url) => {
 				// Extract just the filename from the URL
 				const textureName = url.split(/[/\\]/).pop()
-				
+
 				// Find the texture in pre-fetched files (case-insensitive)
 				const textureFile = additionalFiles.find(f => {
 					const fileName = f.name.split(/[/\\]/).pop()
 					return fileName.toLowerCase() === textureName.toLowerCase()
 				})
-				
+
 				if (textureFile) {
 					this.logInfo('Loading 3DS texture from dependencies', { textureName })
 					const blob = new Blob([textureFile], { type: textureFile.type || 'image/jpeg' })
 					return URL.createObjectURL(blob)
 				}
-				
+
 				// Track missing texture
 				missingTextures.push(textureName)
 				this.logWarning('3DS texture not found in dependencies', { textureName, url })
 				return url
 			})
-			
+
 			this.logInfo('3DS loader configured with external texture support', {
 				textureCount: additionalFiles.length,
 			})
@@ -65,7 +65,7 @@ class ThreeDSLoader extends BaseLoader {
 		if (!object3D || object3D.children.length === 0) {
 			throw new Error('No valid geometry found in 3DS file')
 		}
-		
+
 		// 3DS format uses Z-up coordinate system
 		// Rotate to Y-up (Three.js standard) by rotating -90° around X-axis
 		object3D.rotation.x = -Math.PI / 2

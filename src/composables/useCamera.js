@@ -44,6 +44,9 @@ export function useCamera() {
 	// Mobile state
 	const isMobile = ref(false)
 
+	// Flag to prevent OrbitControls update during external camera positioning
+	const isPositioningCamera = ref(false)
+
 	// Animation presets
 	const animationPresets = ref([
 		{
@@ -93,20 +96,20 @@ export function useCamera() {
 	const initOrthographicCamera = (width, height) => {
 		const aspect = width / height
 		const frustumSize = VIEWER_CONFIG.camera.orthographic.frustumSize
-		
+
 		const orthoCamera = new THREE.OrthographicCamera(
 			frustumSize * aspect / -2,
 			frustumSize * aspect / 2,
 			frustumSize / 2,
 			frustumSize / -2,
 			VIEWER_CONFIG.camera.near,
-			VIEWER_CONFIG.camera.far
+			VIEWER_CONFIG.camera.far,
 		)
-		
+
 		orthoCamera.zoom = VIEWER_CONFIG.camera.orthographic.zoom
 		orthoCamera.position.set(2, 2, 2)
 		orthoCamera.updateProjectionMatrix()
-		
+
 		return orthoCamera
 	}
 
@@ -124,11 +127,11 @@ export function useCamera() {
 			// Create perspective camera
 			perspectiveCamera.value = new THREE.PerspectiveCamera(fov, width / height, VIEWER_CONFIG.camera.near, VIEWER_CONFIG.camera.far)
 			perspectiveCamera.value.position.set(2, 2, 2)
-			
+
 			// Create orthographic camera
 			orthographicCamera.value = initOrthographicCamera(width, height)
 			orthographicCamera.value.position.copy(perspectiveCamera.value.position)
-			
+
 			// Set active camera based on type
 			camera.value = cameraType.value === 'orthographic' ? orthographicCamera.value : perspectiveCamera.value
 			initialCameraPos.value = camera.value.position.clone()
@@ -161,7 +164,7 @@ export function useCamera() {
 			controls.value.rotateSpeed = 1.0
 
 			controls.value.update()
-			
+
 			// Log control states for debugging
 			logger.info('useCamera', 'OrbitControls initialized', {
 				enableZoom: controls.value.enableZoom,
@@ -213,7 +216,7 @@ export function useCamera() {
 	 */
 	const onControlsChange = () => {
 		if (!controls.value || !camera.value || manuallyPositioned.value) return
-		
+
 		if (autoRotateEnabled.value) return
 
 		// Check if camera target is off-center and reset if needed
@@ -271,7 +274,7 @@ export function useCamera() {
 			const size = box.getSize(new THREE.Vector3())
 			const center = box.getCenter(new THREE.Vector3())
 			const maxDim = Math.max(size.x, size.y, size.z)
-			
+
 			// Calculate optimal camera distance based on camera type
 			let cameraDistance
 			if (cameraType.value === 'perspective' && perspectiveCamera.value) {
@@ -281,41 +284,41 @@ export function useCamera() {
 				// For orthographic, use a fixed distance relationship
 				cameraDistance = maxDim * 2
 			}
-			
+
 			// Set camera position at a good angle (offset from center)
 			camera.value.position.set(
 				center.x + cameraDistance * 0.5,
 				center.y + cameraDistance * 0.5,
-				center.z + cameraDistance
+				center.z + cameraDistance,
 			)
-			
+
 			// Look at center
 			camera.value.lookAt(center)
-			
+
 			// Update controls target and controls
 			if (controls.value) {
 				controls.value.target.copy(center)
 				controls.value.update()
 				controls.value.enabled = true
 			}
-			
+
 			// Update camera near/far planes
 			camera.value.near = cameraDistance / 100
 			camera.value.far = cameraDistance * 100
-			
+
 			// Handle orthographic zoom
 			if (cameraType.value === 'orthographic' && orthographicCamera.value) {
 				orthographicCamera.value.zoom = VIEWER_CONFIG.camera.orthographic.frustumSize / maxDim
 			}
-			
+
 			camera.value.updateProjectionMatrix()
-			
+
 			// Update model center for camera controls
 			modelCenter.value.copy(center)
-			
+
 			// Update distance value
 			distance.value = camera.value.position.distanceTo(center)
-			
+
 			// Save this as the baseline position for reset
 			baselineCameraPos.value = camera.value.position.clone()
 			baselineTarget.value = controls.value.target.clone()
@@ -349,6 +352,12 @@ export function useCamera() {
 		}
 
 		try {
+			// Ensure both models have valid matrices before proceeding
+			if (model1.matrix && model2.matrix) {
+				model1.updateMatrixWorld(true)
+				model2.updateMatrixWorld(true)
+			}
+
 			const box1 = new THREE.Box3().setFromObject(model1)
 			const box2 = new THREE.Box3().setFromObject(model2)
 			const combinedBox = box1.union(box2)
@@ -368,6 +377,10 @@ export function useCamera() {
 				model2.position.sub(center)
 			}
 
+			// Update matrices after positioning to ensure they're valid
+			model1.updateMatrixWorld(true)
+			model2.updateMatrixWorld(true)
+
 			// Position camera to look at origin with better distance
 			const distance = maxDim * 1.5
 			const cameraDistance = Math.max(distance * 1.5, 30)
@@ -376,7 +389,16 @@ export function useCamera() {
 
 			// Update controls target to origin
 			controls.value.target.set(0, 0, 0)
-			controls.value.update()
+
+			// Update camera matrix before updating controls to prevent matrix errors
+			camera.value.updateMatrixWorld(false)
+
+			// Update controls with error handling
+			try {
+				controls.value.update()
+			} catch (controlsError) {
+				logger.warn('useCamera', 'Controls update failed, continuing without update', controlsError)
+			}
 
 			// Force the camera to look at origin immediately
 			camera.value.lookAt(0, 0, 0)
@@ -427,7 +449,7 @@ export function useCamera() {
 
 			const size = box.getSize(new THREE.Vector3())
 			const maxDim = Math.max(size.x, size.y, size.z)
-			
+
 			let distance
 			if (cameraType.value === 'perspective' && perspectiveCamera.value) {
 				const fov = perspectiveCamera.value.fov * (Math.PI / 180)
@@ -659,47 +681,46 @@ export function useCamera() {
 		}
 	}
 
-		/**
-		 * Render the scene
-		 * @param {THREE.WebGLRenderer} renderer - WebGL renderer
-		 * @param {THREE.Scene} scene - Three.js scene
-		 */
-		const render = (renderer, scene) => {
-			if (renderer && scene && camera.value) {
-				try {
-				// Update OrbitControls before rendering (processes zoom changes)
-				if (controls.value) {
-					controls.value.update()
-				}
-				
-				// Update distance from OrbitControls if auto-rotate is enabled
-				// This allows zoom to work during auto-rotate
-				if (autoRotateEnabled.value && controls.value) {
-					const currentDistance = camera.value.position.distanceTo(modelCenter.value)
-					if (Math.abs(currentDistance - distance.value) > 0.1) {
-						// Distance changed by OrbitControls zoom - update our tracked distance
-						distance.value = currentDistance
-					}
-				}
-				
-				// Custom auto-rotate functionality (uses manual camera positioning instead of OrbitControls.autoRotate)
-				if (autoRotateEnabled.value && !isMouseDown.value) {
-						rotationY.value += autoRotateSpeed.value * 0.01
+	/**
+	 * Render the scene
+	 * @param {THREE.WebGLRenderer} renderer - WebGL renderer
+	 * @param {THREE.Scene} scene - Three.js scene
+	 */
+	const render = (renderer, scene) => {
+		if (!renderer || !scene || !camera.value) {
+			return
+		}
 
-						// Update camera position based on current rotation around model center
-						const x = modelCenter.value.x + Math.sin(rotationY.value) * Math.cos(rotationX.value) * distance.value
-						const y = modelCenter.value.y + Math.sin(rotationX.value) * distance.value
-						const z = modelCenter.value.z + Math.cos(rotationY.value) * Math.cos(rotationX.value) * distance.value
+		// Update OrbitControls before rendering (processes zoom changes)
+		// Only if controls and camera are fully initialized, and not during external positioning
+		if (controls.value && controls.value.object && controls.value.object === camera.value && !isPositioningCamera.value) {
+			controls.value.update()
+		}
 
-						camera.value.position.set(x, y, z)
-						camera.value.lookAt(modelCenter.value)
-					}
-
-					renderer.render(scene, camera.value)
-				} catch (error) {
-				console.error('[useCamera] Render error:', error)
+		// Update distance from OrbitControls if auto-rotate is enabled
+		// This allows zoom to work during auto-rotate
+		if (autoRotateEnabled.value && controls.value) {
+			const currentDistance = camera.value.position.distanceTo(modelCenter.value)
+			if (Math.abs(currentDistance - distance.value) > 0.1) {
+				// Distance changed by OrbitControls zoom - update our tracked distance
+				distance.value = currentDistance
 			}
 		}
+
+		// Custom auto-rotate functionality (uses manual camera positioning instead of OrbitControls.autoRotate)
+		if (autoRotateEnabled.value && !isMouseDown.value) {
+			rotationY.value += autoRotateSpeed.value * 0.01
+
+			// Update camera position based on current rotation around model center
+			const x = modelCenter.value.x + Math.sin(rotationY.value) * Math.cos(rotationX.value) * distance.value
+			const y = modelCenter.value.y + Math.sin(rotationX.value) * distance.value
+			const z = modelCenter.value.z + Math.cos(rotationY.value) * Math.cos(rotationX.value) * distance.value
+
+			camera.value.position.set(x, y, z)
+			camera.value.lookAt(modelCenter.value)
+		}
+
+		renderer.render(scene, camera.value)
 	}
 
 	/**
@@ -707,14 +728,14 @@ export function useCamera() {
 	 */
 	const toggleAutoRotate = () => {
 		autoRotateEnabled.value = !autoRotateEnabled.value
-		
+
 		// Update OrbitControls settings based on auto-rotate state
 		if (controls.value) {
 			if (autoRotateEnabled.value) {
 				// Disable rotation and pan when auto-rotating, but keep zoom enabled
 				controls.value.enableRotate = false
 				controls.value.enablePan = false
-				controls.value.enableZoom = true  // Keep zoom working!
+				controls.value.enableZoom = true // Keep zoom working!
 				logger.info('useCamera', 'Auto-rotate enabled - OrbitControls rotation/pan disabled, zoom active')
 			} else {
 				// Re-enable all controls when auto-rotate is off
@@ -724,7 +745,7 @@ export function useCamera() {
 				logger.info('useCamera', 'Auto-rotate disabled - OrbitControls fully re-enabled')
 			}
 		}
-		
+
 		logger.info('useCamera', 'Auto-rotate toggled', { enabled: autoRotateEnabled.value })
 	}
 
@@ -796,13 +817,221 @@ export function useCamera() {
 			controls.value.target.copy(currentTarget)
 			controls.value.update()
 
-			logger.info('useCamera', 'Camera projection toggled', { 
+			logger.info('useCamera', 'Camera projection toggled', {
 				from: cameraType.value === 'perspective' ? 'orthographic' : 'perspective',
 				to: newType,
-				zoom: newCamera.zoom 
+				zoom: newCamera.zoom,
 			})
 		} catch (error) {
 			logger.error('useCamera', 'Failed to toggle camera projection', error)
+		}
+	}
+
+	/**
+	 * Rotate camera by delta angles (for controller support)
+	 * @param {number} deltaX - Horizontal rotation delta
+	 * @param {number} deltaY - Vertical rotation delta
+	 */
+	const rotateCameraByDelta = (deltaX, deltaY) => {
+		if (!camera.value || !controls.value) return
+
+		try {
+			// Sync rotationX and rotationY from current camera position if needed
+			// This ensures we rotate from the current view, not from (0,0)
+			const currentPos = camera.value.position.clone()
+			const relativePos = currentPos.sub(modelCenter.value)
+			const currentDistance = relativePos.length()
+
+			// Update distance if it changed
+			if (currentDistance > 0.1) {
+				distance.value = currentDistance
+			}
+
+			// Calculate current rotation angles from camera position
+			// Only do this if rotationX/Y appear to be at default (0,0) but camera is not at front view
+			const currentRotationY = Math.atan2(relativePos.x, relativePos.z)
+			const currentRotationX = Math.asin(relativePos.y / currentDistance)
+
+			// If current angles differ significantly from tracked angles, sync them
+			const angleDiff = Math.abs(currentRotationY - rotationY.value) + Math.abs(currentRotationX - rotationX.value)
+			if (angleDiff > 0.1) {
+				rotationY.value = currentRotationY
+				rotationX.value = currentRotationX
+				logger.info('useCamera', 'Synced rotation angles from camera position', {
+					rotationX: rotationX.value,
+					rotationY: rotationY.value,
+				})
+			}
+
+			// Apply rotation delta
+			rotationY.value -= deltaX
+			rotationX.value += deltaY
+
+			// Clamp vertical rotation
+			rotationX.value = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, rotationX.value))
+
+			// Update camera position based on rotation around model center
+			const x = modelCenter.value.x + Math.sin(rotationY.value) * Math.cos(rotationX.value) * distance.value
+			const y = modelCenter.value.y + Math.sin(rotationX.value) * distance.value
+			const z = modelCenter.value.z + Math.cos(rotationY.value) * Math.cos(rotationX.value) * distance.value
+
+			camera.value.position.set(x, y, z)
+			camera.value.lookAt(modelCenter.value)
+
+			if (controls.value) {
+				controls.value.update()
+			}
+
+			logger.info('useCamera', 'Camera rotated by delta', { deltaX, deltaY })
+		} catch (error) {
+			logger.error('useCamera', 'Failed to rotate camera by delta', error)
+		}
+	}
+
+	/**
+	 * Snap camera to named view with animation
+	 * @param {string} viewName - Name of canonical view
+	 * @param {number} duration - Animation duration in ms
+	 */
+	const snapToNamedView = (viewName, duration = 800) => {
+		if (!camera.value || !controls.value) return
+
+		const viewMap = {
+			FRONT: { x: 0, y: 0, z: 1 },
+			BACK: { x: 0, y: 0, z: -1 },
+			LEFT: { x: -1, y: 0, z: 0 },
+			RIGHT: { x: 1, y: 0, z: 0 },
+			TOP: { x: 0, y: 1, z: 0 },
+			BOTTOM: { x: 0, y: -1, z: 0 },
+		}
+
+		const view = viewMap[viewName]
+		if (!view) {
+			logger.warn('useCamera', 'Unknown view name', { viewName })
+			return
+		}
+
+		try {
+			const currentDistance = camera.value.position.distanceTo(modelCenter.value)
+			const targetPos = new THREE.Vector3(
+				modelCenter.value.x + view.x * currentDistance,
+				modelCenter.value.y + view.y * currentDistance,
+				modelCenter.value.z + view.z * currentDistance,
+			)
+
+			// Use existing animateToPreset for smooth animation
+			const startTime = Date.now()
+			const startPosition = camera.value.position.clone()
+			const startTarget = controls.value.target.clone()
+			const endTarget = modelCenter.value.clone()
+
+			isAnimating.value = true
+
+			const animate = () => {
+				const elapsed = Date.now() - startTime
+				const progress = Math.min(elapsed / duration, 1)
+
+				// Easing function (ease-in-out)
+				const easeProgress = progress < 0.5
+					? 2 * progress * progress
+					: 1 - Math.pow(-2 * progress + 2, 2) / 2
+
+				// Interpolate position and target
+				camera.value.position.lerpVectors(startPosition, targetPos, easeProgress)
+				controls.value.target.lerpVectors(startTarget, endTarget, easeProgress)
+				controls.value.update()
+
+				if (progress < 1) {
+					animationFrameId.value = requestAnimationFrame(animate)
+				} else {
+					isAnimating.value = false
+					animationFrameId.value = null
+					logger.info('useCamera', 'Snap to view completed', { viewName })
+				}
+			}
+
+			animate()
+		} catch (error) {
+			logger.error('useCamera', 'Failed to snap to named view', error)
+		}
+	}
+
+	/**
+	 * Get current camera distance from model center
+	 * @return {number} Distance
+	 */
+	const getCameraDistance = () => {
+		return distance.value
+	}
+
+	/**
+	 * Get model center point
+	 * @return {THREE.Vector3} Model center
+	 */
+	const getModelCenter = () => {
+		return modelCenter.value
+	}
+
+	/**
+	 * Pan camera by delta (for controller support)
+	 * @param {number} deltaX - Horizontal pan delta
+	 * @param {number} deltaY - Vertical pan delta
+	 */
+	const panCameraByDelta = (deltaX, deltaY) => {
+		if (!camera.value || !controls.value) return
+
+		try {
+			// Get camera's right and up vectors
+			const cameraRight = new THREE.Vector3()
+			const cameraUp = new THREE.Vector3()
+
+			camera.value.getWorldDirection(cameraRight)
+			cameraRight.cross(camera.value.up).normalize()
+			cameraUp.copy(camera.value.up).normalize()
+
+			// Calculate pan offset
+			const panSpeed = 0.1
+			const panOffset = new THREE.Vector3()
+			panOffset.add(cameraRight.multiplyScalar(deltaX * panSpeed))
+			panOffset.add(cameraUp.multiplyScalar(deltaY * panSpeed))
+
+			// Apply pan to camera and target
+			camera.value.position.add(panOffset)
+			modelCenter.value.add(panOffset)
+
+			if (controls.value) {
+				controls.value.target.copy(modelCenter.value)
+				controls.value.update()
+			}
+
+			logger.info('useCamera', 'Camera panned by delta', { deltaX, deltaY })
+		} catch (error) {
+			logger.error('useCamera', 'Failed to pan camera by delta', error)
+		}
+	}
+
+	/**
+	 * Reset camera pan to original model center
+	 */
+	const resetPan = () => {
+		if (!camera.value || !controls.value || !initialTarget.value) return
+
+		try {
+			// Calculate the offset
+			const offset = new THREE.Vector3().subVectors(initialTarget.value, modelCenter.value)
+
+			// Apply offset to camera position and target
+			camera.value.position.add(offset)
+			modelCenter.value.copy(initialTarget.value)
+
+			if (controls.value) {
+				controls.value.target.copy(modelCenter.value)
+				controls.value.update()
+			}
+
+			logger.info('useCamera', 'Pan reset to original center', { center: modelCenter.value })
+		} catch (error) {
+			logger.error('useCamera', 'Failed to reset pan', error)
 		}
 	}
 
@@ -836,6 +1065,7 @@ export function useCamera() {
 		autoRotate: autoRotateEnabled,
 		autoRotateSpeed,
 		isMobile,
+		isPositioningCamera,
 		animationPresets,
 		cameraType,
 		perspectiveCamera,
@@ -860,6 +1090,12 @@ export function useCamera() {
 		render,
 		cancelAnimations,
 		toggleCameraProjection,
+		rotateCameraByDelta,
+		snapToNamedView,
+		panCameraByDelta,
+		resetPan,
+		getCameraDistance,
+		getModelCenter,
 		dispose,
 	}
 }

@@ -10,7 +10,7 @@
  * @param {Array<PromiseSettledResult>} results - Results from Promise.allSettled
  * @param {boolean} filterNull - Whether to filter out null/undefined values (default: true)
  * @return {Array} Array of fulfilled values
- * 
+ *
  * @example
  * const results = await Promise.allSettled(promises)
  * const values = getFulfilledValues(results)
@@ -35,7 +35,7 @@ export function getFulfilledValues(results, filterNull = true) {
  * Filter rejected Promise.allSettled results and extract reasons
  * @param {Array<PromiseSettledResult>} results - Results from Promise.allSettled
  * @return {Array} Array of rejection reasons
- * 
+ *
  * @example
  * const results = await Promise.allSettled(promises)
  * const errors = getRejectedReasons(results)
@@ -54,7 +54,7 @@ export function getRejectedReasons(results) {
  * Get both fulfilled values and rejected reasons from Promise.allSettled
  * @param {Array<PromiseSettledResult>} results - Results from Promise.allSettled
  * @return {object} Object with { fulfilled, rejected } arrays
- * 
+ *
  * @example
  * const results = await Promise.allSettled(promises)
  * const { fulfilled, rejected } = partitionResults(results)
@@ -75,7 +75,7 @@ export function partitionResults(results) {
  * @param {Array} array - Array to chunk
  * @param {number} size - Size of each chunk
  * @return {Array<Array>} Array of chunks
- * 
+ *
  * @example
  * chunkArray([1, 2, 3, 4, 5], 2) // [[1, 2], [3, 4], [5]]
  */
@@ -96,7 +96,7 @@ export function chunkArray(array, size) {
  * @param {Array} array - Array to partition
  * @param {Function} predicate - Function that returns true/false for each element
  * @return {object} Object with { pass, fail } arrays
- * 
+ *
  * @example
  * const { pass, fail } = partition([1, 2, 3, 4], n => n % 2 === 0)
  * // pass: [2, 4], fail: [1, 3]
@@ -125,7 +125,7 @@ export function partition(array, predicate) {
  * @param {Array} array - Array to deduplicate
  * @param {Function|string} [key] - Optional key function or property name for object deduplication
  * @return {Array} Array with duplicates removed
- * 
+ *
  * @example
  * unique([1, 2, 2, 3]) // [1, 2, 3]
  * unique([{id: 1}, {id: 2}, {id: 1}], 'id') // [{id: 1}, {id: 2}]
@@ -145,7 +145,7 @@ export function unique(array, key = null) {
 
 	for (const item of array) {
 		const keyValue = typeof key === 'function' ? key(item) : item[key]
-		
+
 		if (!seen.has(keyValue)) {
 			seen.add(keyValue)
 			result.push(item)
@@ -158,9 +158,9 @@ export function unique(array, key = null) {
 /**
  * Flatten nested arrays to a single level
  * @param {Array} array - Array to flatten
- * @param {number} [depth=1] - Depth to flatten (default: 1 level)
+ * @param {number} [depth] - Depth to flatten (default: 1 level)
  * @return {Array} Flattened array
- * 
+ *
  * @example
  * flatten([[1, 2], [3, 4]]) // [1, 2, 3, 4]
  * flatten([[[1]], [[2]]], 2) // [1, 2]
@@ -182,7 +182,7 @@ export function flatten(array, depth = 1) {
  * @param {Array} array - Array to group
  * @param {Function|string} key - Key function or property name
  * @return {object} Object with grouped items
- * 
+ *
  * @example
  * groupBy([{type: 'a', val: 1}, {type: 'b', val: 2}, {type: 'a', val: 3}], 'type')
  * // {a: [{type: 'a', val: 1}, {type: 'a', val: 3}], b: [{type: 'b', val: 2}]}
@@ -196,7 +196,7 @@ export function groupBy(array, key) {
 
 	for (const item of array) {
 		const groupKey = typeof key === 'function' ? key(item) : item[key]
-		
+
 		if (!groups[groupKey]) {
 			groups[groupKey] = []
 		}
@@ -210,7 +210,7 @@ export function groupBy(array, key) {
  * Compact array by removing falsy values (false, null, 0, "", undefined, NaN)
  * @param {Array} array - Array to compact
  * @return {Array} Array with falsy values removed
- * 
+ *
  * @example
  * compact([0, 1, false, 2, '', 3, null]) // [1, 2, 3]
  */
@@ -227,7 +227,7 @@ export function compact(array) {
  * @param {Array} array - Array to sample from
  * @param {number} count - Number of items to sample (default: 1)
  * @return {Array|*} Sampled item(s)
- * 
+ *
  * @example
  * sample([1, 2, 3, 4, 5]) // random single item
  * sample([1, 2, 3, 4, 5], 3) // array of 3 random items

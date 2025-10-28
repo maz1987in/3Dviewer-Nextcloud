@@ -1,16 +1,70 @@
 <template>
 	<div class="help-panel-backdrop" @click="close">
-		<div class="help-panel" @click.stop role="dialog" aria-labelledby="help-title">
+		<div class="help-panel"
+			role="dialog"
+			aria-labelledby="help-title"
+			@click.stop>
 			<!-- Header -->
 			<div class="help-header">
-				<h2 id="help-title">{{ t('threedviewer', '3D Viewer Help') }}</h2>
-				<button class="close-btn" @click="close" :aria-label="t('threedviewer', 'Close help')">
+				<h2 id="help-title">
+					{{ t('threedviewer', '3D Viewer Help') }}
+				</h2>
+				<button class="close-btn" :aria-label="t('threedviewer', 'Close help')" @click="close">
 					×
 				</button>
 			</div>
 
 			<!-- Content -->
 			<div class="help-content">
+				<!-- 3D CONTROLLER Section -->
+				<section class="help-section">
+					<h3>{{ t('threedviewer', '3D Controller') }}</h3>
+					<div class="help-grid">
+						<div class="help-item">
+							<span class="help-icon">🎮</span>
+							<div class="help-text">
+								<h4>{{ t('threedviewer', 'Toggle Controller') }}</h4>
+								<p>{{ t('threedviewer', 'Show or hide the 3D navigation controller from the top toolbar. The controller is draggable and can be positioned anywhere on screen.') }}</p>
+							</div>
+						</div>
+						<div class="help-item">
+							<span class="help-icon">🔄</span>
+							<div class="help-text">
+								<h4>{{ t('threedviewer', 'Rotation Mode') }}</h4>
+								<p>{{ t('threedviewer', 'Click or drag on the circular ring to rotate the model. Click farther from center for faster rotation.') }}</p>
+							</div>
+						</div>
+						<div class="help-item">
+							<span class="help-icon">↔</span>
+							<div class="help-text">
+								<h4>{{ t('threedviewer', 'Panning Mode') }}</h4>
+								<p>{{ t('threedviewer', 'Click the panning mode button to switch from rotation to panning. Click or drag to move the camera horizontally or vertically.') }}</p>
+							</div>
+						</div>
+						<div class="help-item">
+							<span class="help-icon">±</span>
+							<div class="help-text">
+								<h4>{{ t('threedviewer', 'Zoom Controls') }}</h4>
+								<p>{{ t('threedviewer', 'Use the + and - buttons on the controller to zoom in or out. Hold to zoom continuously.') }}</p>
+							</div>
+						</div>
+						<div class="help-item">
+							<span class="help-icon">⌂</span>
+							<div class="help-text">
+								<h4>{{ t('threedviewer', 'Reset Position') }}</h4>
+								<p>{{ t('threedviewer', 'In panning mode, click the reset button to return the camera to the centered position.') }}</p>
+							</div>
+						</div>
+						<div class="help-item">
+							<span class="help-icon">↔</span>
+							<div class="help-text">
+								<h4>{{ t('threedviewer', 'Drag to Move') }}</h4>
+								<p>{{ t('threedviewer', 'Drag the controller by its edge to reposition it anywhere on the screen. Position is saved automatically.') }}</p>
+							</div>
+						</div>
+					</div>
+				</section>
+
 				<!-- VIEW Section -->
 				<section class="help-section">
 					<h3>{{ t('threedviewer', 'VIEW Controls') }}</h3>
@@ -41,13 +95,6 @@
 							<div class="help-text">
 								<h4>{{ t('threedviewer', 'Camera Projection') }}</h4>
 								<p>{{ t('threedviewer', 'Toggle between Perspective (realistic depth) and Orthographic (parallel lines) camera modes.') }}</p>
-							</div>
-						</div>
-						<div class="help-item">
-							<span class="help-icon">🎬</span>
-							<div class="help-text">
-								<h4>{{ t('threedviewer', 'View Presets') }}</h4>
-								<p>{{ t('threedviewer', 'Quick camera positions: Front, Back, Left, Right, Top, Bottom, and Isometric views.') }}</p>
 							</div>
 						</div>
 					</div>
@@ -219,33 +266,33 @@ import { FORMATS_DISPLAY_LIST } from '../config/viewer-config.js'
 
 export default {
 	name: 'HelpPanel',
-	
+
 	emits: ['close'],
-	
+
 	setup(props, { emit }) {
 		const close = () => {
 			emit('close')
 		}
-		
+
 		// Handle Escape key to close
 		const handleKeydown = (event) => {
 			if (event.key === 'Escape') {
 				close()
 			}
 		}
-		
+
 		// Add event listener on mount
 		if (typeof window !== 'undefined') {
 			window.addEventListener('keydown', handleKeydown)
 		}
-		
+
 		// Cleanup on unmount
 		const cleanup = () => {
 			if (typeof window !== 'undefined') {
 				window.removeEventListener('keydown', handleKeydown)
 			}
 		}
-		
+
 		return {
 			t,
 			close,
@@ -253,7 +300,7 @@ export default {
 			supportedFormats: FORMATS_DISPLAY_LIST,
 		}
 	},
-	
+
 	beforeUnmount() {
 		this.cleanup()
 	},
@@ -489,34 +536,34 @@ export default {
 		border-radius: 0;
 		margin: 0;
 	}
-	
+
 	.help-header {
 		border-radius: 0;
 		padding: 16px 20px;
 	}
-	
+
 	.help-header h2 {
 		font-size: 20px;
 	}
-	
+
 	.help-content {
 		padding: 20px;
 	}
-	
+
 	.help-grid {
 		grid-template-columns: 1fr;
 	}
-	
+
 	.help-section {
 		margin-bottom: 24px;
 	}
-	
+
 	.shortcut-row {
 		flex-direction: column;
 		align-items: flex-start;
 		gap: 8px;
 	}
-	
+
 	.shortcut-row kbd {
 		min-width: 60px;
 	}
@@ -555,7 +602,7 @@ export default {
 	.help-panel {
 		animation: none;
 	}
-	
+
 	.help-item {
 		transition: none;
 	}
@@ -580,4 +627,3 @@ export default {
 	background: var(--color-primary-element-hover);
 }
 </style>
-

@@ -12,7 +12,7 @@ export function useTheme() {
 	const currentTheme = ref('auto') // 'auto', 'light', 'dark'
 	const direction = ref('ltr') // 'ltr', 'rtl'
 	const systemTheme = ref('light')
-	
+
 	// Computed
 	const resolvedTheme = computed(() => {
 		if (currentTheme.value === 'auto') {
@@ -20,12 +20,12 @@ export function useTheme() {
 		}
 		return currentTheme.value
 	})
-	
+
 	const isRTL = computed(() => direction.value === 'rtl')
-	
+
 	/**
 	 * Detect system theme preference
-	 * @returns {string} 'light' or 'dark'
+	 * @return {string} 'light' or 'dark'
 	 */
 	const detectSystemTheme = () => {
 		if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
@@ -33,10 +33,10 @@ export function useTheme() {
 		}
 		return 'light'
 	}
-	
+
 	/**
 	 * Detect language direction from document or locale
-	 * @returns {string} 'ltr' or 'rtl'
+	 * @return {string} 'ltr' or 'rtl'
 	 */
 	const detectLanguageDirection = () => {
 		// Check html[dir] attribute
@@ -44,24 +44,24 @@ export function useTheme() {
 		if (htmlDir === 'rtl' || htmlDir === 'ltr') {
 			return htmlDir
 		}
-		
+
 		// Check document.dir
 		if (document.dir === 'rtl' || document.dir === 'ltr') {
 			return document.dir
 		}
-		
+
 		// Check locale/language for RTL languages
 		const locale = document.documentElement.lang || navigator.language || 'en'
 		const rtlLanguages = ['ar', 'he', 'fa', 'ur', 'yi', 'ps', 'sd'] // Arabic, Hebrew, Persian, Urdu, Yiddish, Pashto, Sindhi
-		
+
 		const lang = locale.split('-')[0].toLowerCase()
 		if (rtlLanguages.includes(lang)) {
 			return 'rtl'
 		}
-		
+
 		return 'ltr'
 	}
-	
+
 	/**
 	 * Apply theme colors to CSS variables
 	 * @param {string} theme - 'light' or 'dark'
@@ -69,7 +69,7 @@ export function useTheme() {
 	const applyThemeColors = (theme) => {
 		const root = document.documentElement
 		const themeColors = THEME_SETTINGS[theme] || THEME_SETTINGS.light
-		
+
 		// Apply theme colors to CSS variables
 		// Note: We primarily use Nextcloud's existing CSS variables
 		// These are supplementary for 3D viewer specific elements
@@ -85,14 +85,14 @@ export function useTheme() {
 		if (themeColors.toolbarText) {
 			root.style.setProperty('--viewer-toolbar-text', themeColors.toolbarText)
 		}
-		
+
 		// Add theme class to body for CSS selectors
 		document.body.classList.remove('theme--light', 'theme--dark')
 		document.body.classList.add(`theme--${theme}`)
-		
+
 		logger.info('useTheme', 'Theme colors applied', { theme, colors: themeColors })
 	}
-	
+
 	/**
 	 * Apply text direction
 	 * @param {string} dir - 'ltr' or 'rtl'
@@ -102,23 +102,23 @@ export function useTheme() {
 			logger.warn('useTheme', 'Invalid direction, defaulting to ltr', { dir })
 			dir = 'ltr'
 		}
-		
+
 		// Set direction on document
 		document.documentElement.setAttribute('dir', dir)
 		document.body.setAttribute('dir', dir)
-		
+
 		// Add RTL class for additional styling
 		if (dir === 'rtl') {
 			document.body.classList.add('rtl-mode')
 		} else {
 			document.body.classList.remove('rtl-mode')
 		}
-		
+
 		direction.value = dir
-		
+
 		logger.info('useTheme', 'Direction applied', { direction: dir })
 	}
-	
+
 	/**
 	 * Set theme mode
 	 * @param {string} mode - 'auto', 'light', or 'dark'
@@ -129,13 +129,13 @@ export function useTheme() {
 			logger.error('useTheme', 'Invalid theme mode', { mode })
 			return
 		}
-		
+
 		currentTheme.value = mode
-		
+
 		// Apply the resolved theme
 		const themeToApply = mode === 'auto' ? systemTheme.value : mode
 		applyThemeColors(themeToApply)
-		
+
 		// Save to localStorage
 		try {
 			localStorage.setItem('threedviewer:theme', mode)
@@ -143,17 +143,17 @@ export function useTheme() {
 		} catch (error) {
 			logger.warn('useTheme', 'Failed to save theme preference', error)
 		}
-		
+
 		logger.info('useTheme', 'Theme changed', { mode, resolved: themeToApply })
 	}
-	
+
 	/**
 	 * Toggle RTL mode
 	 * @param {string} dir - 'ltr' or 'rtl'
 	 */
 	const setDirection = (dir) => {
 		applyDirection(dir)
-		
+
 		// Save to localStorage
 		try {
 			localStorage.setItem('threedviewer:direction', dir)
@@ -162,14 +162,14 @@ export function useTheme() {
 			logger.warn('useTheme', 'Failed to save direction preference', error)
 		}
 	}
-	
+
 	/**
 	 * Initialize theme system
 	 */
 	const initTheme = () => {
 		// Detect system theme
 		systemTheme.value = detectSystemTheme()
-		
+
 		// Load saved theme preference or default to 'auto'
 		let savedTheme = 'auto'
 		try {
@@ -180,7 +180,7 @@ export function useTheme() {
 		} catch (error) {
 			logger.warn('useTheme', 'Failed to load theme preference', error)
 		}
-		
+
 		// Load saved direction or detect from locale
 		let savedDirection = null
 		try {
@@ -191,31 +191,31 @@ export function useTheme() {
 		} catch (error) {
 			logger.warn('useTheme', 'Failed to load direction preference', error)
 		}
-		
+
 		// Use saved direction or auto-detect
 		const detectedDirection = savedDirection || detectLanguageDirection()
-		
+
 		// Apply theme and direction
 		currentTheme.value = savedTheme
 		applyThemeColors(savedTheme === 'auto' ? systemTheme.value : savedTheme)
 		applyDirection(detectedDirection)
-		
+
 		// Watch for system theme changes (only relevant in auto mode)
 		if (window.matchMedia) {
 			const darkModeQuery = window.matchMedia('(prefers-color-scheme: dark)')
-			
+
 			const handleSystemThemeChange = (e) => {
 				systemTheme.value = e.matches ? 'dark' : 'light'
-				
+
 				// Only apply if in auto mode
 				if (currentTheme.value === 'auto') {
 					applyThemeColors(systemTheme.value)
-					logger.info('useTheme', 'System theme changed, auto-applying', { 
-						newTheme: systemTheme.value 
+					logger.info('useTheme', 'System theme changed, auto-applying', {
+						newTheme: systemTheme.value,
 					})
 				}
 			}
-			
+
 			// Modern browsers
 			if (darkModeQuery.addEventListener) {
 				darkModeQuery.addEventListener('change', handleSystemThemeChange)
@@ -224,7 +224,7 @@ export function useTheme() {
 				darkModeQuery.addListener(handleSystemThemeChange)
 			}
 		}
-		
+
 		logger.info('useTheme', 'Theme system initialized', {
 			currentTheme: currentTheme.value,
 			resolvedTheme: resolvedTheme.value,
@@ -232,10 +232,10 @@ export function useTheme() {
 			direction: direction.value,
 		})
 	}
-	
+
 	/**
 	 * Get theme display text
-	 * @returns {string} Display text for current theme
+	 * @return {string} Display text for current theme
 	 */
 	const getThemeText = () => {
 		switch (currentTheme.value) {
@@ -245,10 +245,10 @@ export function useTheme() {
 		default: return 'Auto'
 		}
 	}
-	
+
 	/**
 	 * Get theme icon
-	 * @returns {string} Icon for current theme
+	 * @return {string} Icon for current theme
 	 */
 	const getThemeIcon = () => {
 		switch (currentTheme.value) {
@@ -258,7 +258,7 @@ export function useTheme() {
 		default: return '🌓'
 		}
 	}
-	
+
 	return {
 		// State (readonly)
 		currentTheme: computed(() => currentTheme.value),
@@ -266,7 +266,7 @@ export function useTheme() {
 		systemTheme: computed(() => systemTheme.value),
 		direction: computed(() => direction.value),
 		isRTL,
-		
+
 		// Methods
 		setTheme,
 		setDirection,
@@ -279,4 +279,3 @@ export function useTheme() {
 		getThemeIcon,
 	}
 }
-

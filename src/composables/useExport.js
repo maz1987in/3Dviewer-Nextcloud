@@ -29,13 +29,13 @@ export function useExport() {
 			link.style.display = 'none'
 			document.body.appendChild(link)
 			link.click()
-			
+
 			// Cleanup
 			setTimeout(() => {
 				document.body.removeChild(link)
 				URL.revokeObjectURL(url)
 			}, 100)
-			
+
 			logger.info('useExport', 'Download triggered', { filename, size: blob.size })
 		} catch (error) {
 			logger.error('useExport', 'Failed to trigger download', error)
@@ -81,11 +81,11 @@ export function useExport() {
 
 							// Result is ArrayBuffer for binary export
 							const blob = new Blob([result], { type: 'model/gltf-binary' })
-							
+
 							// Check file size
 							const sizeMB = (blob.size / 1024 / 1024).toFixed(2)
 							logger.info('useExport', 'GLB export complete', { filename, sizeMB: `${sizeMB}MB` })
-							
+
 							if (blob.size > 100 * 1024 * 1024) { // 100MB warning
 								logger.warn('useExport', 'Large file export', { sizeMB: `${sizeMB}MB` })
 							}
@@ -96,10 +96,10 @@ export function useExport() {
 							triggerDownload(blob, `${filename}.glb`)
 
 							exportProgress.value = { stage: 'Export complete!', percentage: 100 }
-							
+
 							// Keep progress visible for a moment before closing
 							await new Promise(resolve => setTimeout(resolve, 500))
-							
+
 							exporting.value = false
 							resolve()
 						} catch (error) {
@@ -119,7 +119,7 @@ export function useExport() {
 						embedImages: true,
 						includeCustomExtensions: true,
 						maxTextureSize: 4096,
-					}
+					},
 				)
 			})
 		} catch (error) {
@@ -164,12 +164,12 @@ export function useExport() {
 
 							// Result is JSON object for non-binary export
 							const json = JSON.stringify(result, null, 2)
-							
+
 							exportProgress.value = { stage: 'Creating JSON file...', percentage: 80 }
 							await new Promise(resolve => setTimeout(resolve, 100))
-							
+
 							const blob = new Blob([json], { type: 'application/json' })
-							
+
 							const sizeMB = (blob.size / 1024 / 1024).toFixed(2)
 							logger.info('useExport', 'GLTF export complete', { filename, sizeMB: `${sizeMB}MB` })
 
@@ -180,7 +180,7 @@ export function useExport() {
 
 							exportProgress.value = { stage: 'Export complete!', percentage: 100 }
 							await new Promise(resolve => setTimeout(resolve, 500))
-							
+
 							exporting.value = false
 							resolve()
 						} catch (error) {
@@ -199,7 +199,7 @@ export function useExport() {
 						binary: false,
 						embedImages: true,
 						includeCustomExtensions: true,
-					}
+					},
 				)
 			})
 		} catch (error) {
@@ -242,7 +242,7 @@ export function useExport() {
 			await new Promise(resolve => setTimeout(resolve, 100))
 
 			const blob = new Blob([result], { type: 'application/octet-stream' })
-			
+
 			const sizeMB = (blob.size / 1024 / 1024).toFixed(2)
 			logger.info('useExport', 'STL export complete', { filename, sizeMB: `${sizeMB}MB` })
 
@@ -253,7 +253,7 @@ export function useExport() {
 
 			exportProgress.value = { stage: 'Export complete!', percentage: 100 }
 			await new Promise(resolve => setTimeout(resolve, 500))
-			
+
 			exporting.value = false
 		} catch (error) {
 			logger.error('useExport', 'STL export error', error)
@@ -295,7 +295,7 @@ export function useExport() {
 			await new Promise(resolve => setTimeout(resolve, 100))
 
 			const blob = new Blob([result], { type: 'text/plain' })
-			
+
 			const sizeMB = (blob.size / 1024 / 1024).toFixed(2)
 			logger.info('useExport', 'OBJ export complete', { filename, sizeMB: `${sizeMB}MB` })
 
@@ -306,7 +306,7 @@ export function useExport() {
 
 			exportProgress.value = { stage: 'Export complete!', percentage: 100 }
 			await new Promise(resolve => setTimeout(resolve, 500))
-			
+
 			exporting.value = false
 		} catch (error) {
 			logger.error('useExport', 'OBJ export error', error)
@@ -337,4 +337,3 @@ export function useExport() {
 		clearError,
 	}
 }
-

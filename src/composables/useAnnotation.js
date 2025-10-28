@@ -6,12 +6,12 @@
 import { ref, computed, readonly } from 'vue'
 import * as THREE from 'three'
 import { logError } from '../utils/error-handler.js'
-import { 
-	calculateModelScale, 
-	createTextTexture, 
-	createMarkerSphere, 
+import {
+	calculateModelScale,
+	createTextTexture,
+	createMarkerSphere,
 	createTextMesh,
-	raycastIntersection 
+	raycastIntersection,
 } from '../utils/modelScaleUtils.js'
 
 export function useAnnotation() {

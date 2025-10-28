@@ -57,17 +57,6 @@
 								<span class="tool-icon">📐</span>
 								<span class="tool-label">{{ cameraType === 'perspective' ? t('threedviewer', 'Perspective') : t('threedviewer', 'Orthographic') }}</span>
 							</button>
-							<div v-if="!isMobile" class="tool-group">
-								<label class="tool-label-small">{{ t('threedviewer', 'Camera Presets') }}</label>
-								<select :value="currentPreset"
-									class="preset-select"
-									@change="emit('change-preset', $event.target.value)">
-									<option value="">{{ t('threedviewer', 'Select preset...') }}</option>
-									<option v-for="preset in presets" :key="preset.name" :value="preset.name">
-										{{ preset.label }}
-									</option>
-								</select>
-							</div>
 						</div>
 					</section>
 
@@ -163,20 +152,20 @@
 							<span class="expand-icon">{{ sections.settings ? '▼' : '▶' }}</span>
 						</button>
 						<div v-show="sections.settings" class="section-content">
-					<button class="tool-btn" @click="cyclePerformanceMode">
-						<span class="tool-icon">⚡</span>
-						<span class="tool-label">{{ t('threedviewer', 'Performance') }}: {{ getPerformanceModeText() }}</span>
-					</button>
-					<button class="tool-btn" @click="cycleTheme">
-						<span class="tool-icon">{{ getThemeIcon() }}</span>
-						<span class="tool-label">{{ t('threedviewer', 'Theme') }}: {{ getThemeText() }}</span>
-					</button>
-						<button class="tool-btn"
-							:disabled="!modelLoaded"
-							@click="emit('toggle-stats')">
-							<span class="tool-icon">📊</span>
-							<span class="tool-label">{{ t('threedviewer', 'Model Statistics') }}</span>
-						</button>
+							<button class="tool-btn" @click="cyclePerformanceMode">
+								<span class="tool-icon">⚡</span>
+								<span class="tool-label">{{ t('threedviewer', 'Performance') }}: {{ getPerformanceModeText() }}</span>
+							</button>
+							<button class="tool-btn" @click="cycleTheme">
+								<span class="tool-icon">{{ getThemeIcon() }}</span>
+								<span class="tool-label">{{ t('threedviewer', 'Theme') }}: {{ getThemeText() }}</span>
+							</button>
+							<button class="tool-btn"
+								:disabled="!modelLoaded"
+								@click="emit('toggle-stats')">
+								<span class="tool-icon">📊</span>
+								<span class="tool-label">{{ t('threedviewer', 'Model Statistics') }}</span>
+							</button>
 							<button class="tool-btn" @click="emit('take-screenshot')">
 								<span class="tool-icon">📷</span>
 								<span class="tool-label">{{ t('threedviewer', 'Screenshot') }}</span>
@@ -187,10 +176,18 @@
 									:disabled="!modelLoaded"
 									class="export-select"
 									@change="handleExportChange($event.target.value)">
-									<option value="">{{ t('threedviewer', 'Select format...') }}</option>
-									<option value="glb">{{ t('threedviewer', 'GLB (Recommended)') }}</option>
-									<option value="stl">{{ t('threedviewer', 'STL (3D Printing)') }}</option>
-									<option value="obj">{{ t('threedviewer', 'OBJ (Universal)') }}</option>
+									<option value="">
+										{{ t('threedviewer', 'Select format...') }}
+									</option>
+									<option value="glb">
+										{{ t('threedviewer', 'GLB (Recommended)') }}
+									</option>
+									<option value="stl">
+										{{ t('threedviewer', 'STL (3D Printing)') }}
+									</option>
+									<option value="obj">
+										{{ t('threedviewer', 'OBJ (Universal)') }}
+									</option>
 								</select>
 							</div>
 							<button class="tool-btn" @click="emit('clear-cache')">
@@ -220,20 +217,18 @@ import { translate as t } from '@nextcloud/l10n'
 
 export default {
 	name: 'SlideOutToolPanel',
-	
+
 	props: {
 		// View props
 		autoRotate: { type: Boolean, default: false },
-		currentPreset: { type: String, default: '' },
-		presets: { type: Array, default: () => [] },
 		cameraType: { type: String, default: 'perspective' },
-		
+
 		// Display props
 		grid: { type: Boolean, default: true },
 		axes: { type: Boolean, default: true },
 		wireframe: { type: Boolean, default: false },
 		backgroundColor: { type: String, default: null },
-		
+
 		// Tool states
 		measurementMode: { type: Boolean, default: false },
 		annotationMode: { type: Boolean, default: false },
@@ -241,11 +236,11 @@ export default {
 		modelLoaded: { type: Boolean, default: false },
 		performanceMode: { type: String, default: 'auto' },
 		themeMode: { type: String, default: 'auto' },
-		
+
 		// Mobile detection
 		isMobile: { type: Boolean, default: false },
 	},
-	
+
 	emits: [
 		'panel-opened',
 		'panel-closed',
@@ -253,7 +248,6 @@ export default {
 		'fit-to-view',
 		'toggle-auto-rotate',
 		'toggle-projection',
-		'change-preset',
 		'toggle-grid',
 		'toggle-axes',
 		'toggle-wireframe',
@@ -269,11 +263,11 @@ export default {
 		'clear-cache',
 		'toggle-help',
 	],
-	
+
 	setup(props, { emit }) {
 		const isOpen = ref(false)
 		const exportSelect = ref(null)
-		
+
 		// Section collapse states (all open by default)
 		const sections = ref({
 			view: true,
@@ -281,14 +275,14 @@ export default {
 			tools: true,
 			settings: true,
 		})
-		
+
 		/**
 		 * Toggle panel open/closed
 		 */
 		const togglePanel = () => {
 			isOpen.value = !isOpen.value
 			emit(isOpen.value ? 'panel-opened' : 'panel-closed')
-			
+
 			// Save state to localStorage
 			try {
 				localStorage.setItem('3dviewer-panel-open', isOpen.value)
@@ -296,7 +290,7 @@ export default {
 				// Ignore localStorage errors
 			}
 		}
-		
+
 		/**
 		 * Close panel
 		 */
@@ -304,7 +298,7 @@ export default {
 			if (isOpen.value) {
 				isOpen.value = false
 				emit('panel-closed')
-				
+
 				try {
 					localStorage.setItem('3dviewer-panel-open', 'false')
 				} catch (e) {
@@ -312,13 +306,14 @@ export default {
 				}
 			}
 		}
-		
+
 		/**
 		 * Toggle section collapsed state
+		 * @param sectionName
 		 */
 		const toggleSection = (sectionName) => {
 			sections.value[sectionName] = !sections.value[sectionName]
-			
+
 			// Save section states
 			try {
 				localStorage.setItem('3dviewer-panel-sections', JSON.stringify(sections.value))
@@ -326,9 +321,10 @@ export default {
 				// Ignore localStorage errors
 			}
 		}
-		
+
 		/**
 		 * Handle keyboard shortcuts
+		 * @param event
 		 */
 		const handleKeyPress = (event) => {
 			// T key to toggle panel
@@ -339,13 +335,13 @@ export default {
 				}
 				togglePanel()
 			}
-			
+
 			// Escape key to close panel
 			if (event.key === 'Escape' && isOpen.value) {
 				closePanel()
 			}
 		}
-		
+
 		// Restore saved state on mount
 		onMounted(() => {
 			// Restore panel open state
@@ -354,7 +350,7 @@ export default {
 				if (savedState !== null) {
 					isOpen.value = savedState === 'true'
 				}
-				
+
 				// Restore section states
 				const savedSections = localStorage.getItem('3dviewer-panel-sections')
 				if (savedSections) {
@@ -363,109 +359,110 @@ export default {
 			} catch (e) {
 				// Ignore localStorage errors
 			}
-			
+
 			// Add keyboard listener
 			window.addEventListener('keydown', handleKeyPress)
 		})
-		
+
 		// Cleanup on unmount
 		onBeforeUnmount(() => {
 			window.removeEventListener('keydown', handleKeyPress)
 		})
-		
-	/**
-	 * Handle export format selection
-	 */
-	const handleExportChange = (format) => {
-		if (format) {
-			emit('export-model', format)
-			// Reset select after emitting
-			if (exportSelect.value) {
-				exportSelect.value.value = ''
+
+		/**
+		 * Handle export format selection
+		 * @param format
+		 */
+		const handleExportChange = (format) => {
+			if (format) {
+				emit('export-model', format)
+				// Reset select after emitting
+				if (exportSelect.value) {
+					exportSelect.value.value = ''
+				}
 			}
 		}
-	}
-	
-	/**
-	 * Cycle through performance modes
-	 */
-	const cyclePerformanceMode = () => {
-		const modes = ['auto', 'low', 'balanced', 'high', 'ultra']
-		const currentIndex = modes.indexOf(props.performanceMode)
-		const nextIndex = (currentIndex + 1) % modes.length
-		const nextMode = modes[nextIndex]
-		emit('cycle-performance-mode', nextMode)
-	}
-	
-	/**
-	 * Get display text for current performance mode
-	 */
-	const getPerformanceModeText = () => {
-		switch (props.performanceMode) {
-		case 'low': return t('threedviewer', 'Low')
-		case 'balanced': return t('threedviewer', 'Balanced')
-		case 'high': return t('threedviewer', 'High')
-		case 'ultra': return t('threedviewer', 'Ultra')
-		case 'auto':
-		default: return t('threedviewer', 'Auto')
+
+		/**
+		 * Cycle through performance modes
+		 */
+		const cyclePerformanceMode = () => {
+			const modes = ['auto', 'low', 'balanced', 'high', 'ultra']
+			const currentIndex = modes.indexOf(props.performanceMode)
+			const nextIndex = (currentIndex + 1) % modes.length
+			const nextMode = modes[nextIndex]
+			emit('cycle-performance-mode', nextMode)
 		}
-	}
-	
-	/**
-	 * Cycle through theme modes
-	 */
-	const cycleTheme = () => {
-		const modes = ['auto', 'light', 'dark']
-		const currentIndex = modes.indexOf(props.themeMode)
-		const nextIndex = (currentIndex + 1) % modes.length
-		const nextMode = modes[nextIndex]
-		emit('cycle-theme', nextMode)
-	}
-	
-	/**
-	 * Get display text for current theme
-	 */
-	const getThemeText = () => {
-		switch (props.themeMode) {
-		case 'light': return t('threedviewer', 'Light')
-		case 'dark': return t('threedviewer', 'Dark')
-		case 'auto':
-		default: return t('threedviewer', 'Auto')
+
+		/**
+		 * Get display text for current performance mode
+		 */
+		const getPerformanceModeText = () => {
+			switch (props.performanceMode) {
+			case 'low': return t('threedviewer', 'Low')
+			case 'balanced': return t('threedviewer', 'Balanced')
+			case 'high': return t('threedviewer', 'High')
+			case 'ultra': return t('threedviewer', 'Ultra')
+			case 'auto':
+			default: return t('threedviewer', 'Auto')
+			}
 		}
-	}
-	
-	/**
-	 * Get icon for current theme
-	 */
-	const getThemeIcon = () => {
-		switch (props.themeMode) {
-		case 'light': return '☀️'
-		case 'dark': return '🌙'
-		case 'auto':
-		default: return '🌓'
+
+		/**
+		 * Cycle through theme modes
+		 */
+		const cycleTheme = () => {
+			const modes = ['auto', 'light', 'dark']
+			const currentIndex = modes.indexOf(props.themeMode)
+			const nextIndex = (currentIndex + 1) % modes.length
+			const nextMode = modes[nextIndex]
+			emit('cycle-theme', nextMode)
 		}
-	}
-	
-	return {
-		t,
-		isOpen,
-		sections,
-		exportSelect,
-		togglePanel,
-		closePanel,
-		toggleSection,
-		handleExportChange,
-		cyclePerformanceMode,
-		getPerformanceModeText,
-		cycleTheme,
-		getThemeText,
-		getThemeIcon,
-		emit,
-	}
+
+		/**
+		 * Get display text for current theme
+		 */
+		const getThemeText = () => {
+			switch (props.themeMode) {
+			case 'light': return t('threedviewer', 'Light')
+			case 'dark': return t('threedviewer', 'Dark')
+			case 'auto':
+			default: return t('threedviewer', 'Auto')
+			}
+		}
+
+		/**
+		 * Get icon for current theme
+		 */
+		const getThemeIcon = () => {
+			switch (props.themeMode) {
+			case 'light': return '☀️'
+			case 'dark': return '🌙'
+			case 'auto':
+			default: return '🌓'
+			}
+		}
+
+		return {
+			t,
+			isOpen,
+			sections,
+			exportSelect,
+			togglePanel,
+			closePanel,
+			toggleSection,
+			handleExportChange,
+			cyclePerformanceMode,
+			getPerformanceModeText,
+			cycleTheme,
+			getThemeText,
+			getThemeIcon,
+			emit,
+		}
 	},
-	
+
 	// Expose methods for parent component access
-	expose: ['togglePanel', 'closePanel']
+	expose: ['togglePanel', 'closePanel'],
 }
 </script>
 
@@ -795,7 +792,6 @@ export default {
 	transform: translateY(100%);
 }
 
-
 /* CSS variables automatically handle theme switching */
 
 /* Accessibility */
@@ -855,4 +851,3 @@ export default {
 	}
 }
 </style>
-

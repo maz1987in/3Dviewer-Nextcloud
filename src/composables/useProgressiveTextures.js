@@ -90,7 +90,7 @@ export function useProgressiveTextures() {
 							error: error?.message || 'Unknown error',
 							timestamp: Date.now(),
 						})
-						
+
 						logger.warn('useProgressiveTextures', 'Texture loading failed', {
 							textureUrl,
 							error: error?.message,
@@ -98,7 +98,7 @@ export function useProgressiveTextures() {
 						loadedTextures.value++
 						textureProgress.value.loaded = loadedTextures.value
 						resolve() // Continue even if texture fails
-					}
+					},
 				)
 			} catch (error) {
 				// Track unexpected errors
@@ -109,7 +109,7 @@ export function useProgressiveTextures() {
 					error: error?.message || 'Unexpected error',
 					timestamp: Date.now(),
 				})
-				
+
 				logger.error('useProgressiveTextures', 'Error loading texture', error)
 				loadedTextures.value++
 				textureProgress.value.loaded = loadedTextures.value
@@ -220,4 +220,3 @@ export function useProgressiveTextures() {
 		getFailureSummary,
 	}
 }
-

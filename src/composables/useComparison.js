@@ -5,7 +5,7 @@
 
 import { ref, computed, readonly } from 'vue'
 import * as THREE from 'three'
-import { getFilePickerBuilder, FilePickerType } from '@nextcloud/dialogs'
+import { getFilePickerBuilder } from '@nextcloud/dialogs'
 import { translate as t } from '@nextcloud/l10n'
 import { loadModelByExtension, isSupportedExtension } from '../loaders/registry.js'
 import { logger } from '../utils/logger.js'
@@ -55,9 +55,14 @@ export function useComparison() {
 
 	/**
 	 * Open native Nextcloud file picker to select comparison model
+	 *
+	 * TODO: Currently not working due to Nextcloud file picker API limitations
+	 * The picker opens but file selection is not properly captured.
+	 * This is a known issue with the @nextcloud/dialogs FilePicker API.
+	 *
 	 * @return {Promise<string>} Selected file path
 	 */
-		const openFilePicker = async () => {
+	const openFilePicker = async () => {
 		try {
 			// Supported 3D model mime types
 			const mimeTypes = [
@@ -76,30 +81,59 @@ export function useComparison() {
 
 			logger.info('useComparison', 'Opening native file picker with mime types', { mimeTypes })
 
+			// Build file picker with custom button
+			let selectedNodes = null
+
 			const picker = getFilePickerBuilder(t('threedviewer', 'Select 3D Model to Compare'))
 				.setMultiSelect(false)
 				.setMimeTypeFilter(mimeTypes)
-				.setType(FilePickerType.Choose)
 				.allowDirectories(false)
+				.addButton({
+					label: t('threedviewer', 'Select'),
+					type: 'primary',
+					callback: (nodes) => {
+						logger.info('useComparison', 'Selection callback invoked', { nodes, count: nodes ? nodes.length : 0 })
+						selectedNodes = nodes
+					},
+				})
 				.build()
 
 			logger.info('useComparison', 'File picker built, calling pick()')
-			const path = await picker.pick()
-			logger.info('useComparison', 'File selected from picker', { path })
-			
-			return path
+
+			// Use pick() - the callback will set selectedNodes
+			const picked = await picker.pick()
+
+			logger.info('useComparison', 'Pick result', { picked, selectedNodes, hasNodes: !!selectedNodes })
+
+			// Check if we have selected nodes from the button callback
+			if (selectedNodes && selectedNodes.length > 0) {
+				const selectedPath = selectedNodes[0].path
+				logger.info('useComparison', 'File selected via button', { path: selectedPath })
+				return selectedPath
+			}
+
+			// Fallback to direct pick result
+			if (picked && typeof picked === 'string' && picked.trim() !== '') {
+				logger.info('useComparison', 'File selected via direct pick', { path: picked })
+				return picked
+			}
+
+			logger.info('useComparison', 'File picker cancelled - no selection')
+			return null
 		} catch (error) {
-			logger.error('useComparison', 'File picker error details', { 
-				message: error.message, 
+			logger.error('useComparison', 'File picker error details', {
+				message: error.message,
 				name: error.name,
-				stack: error.stack 
+				stack: error.stack,
 			})
-			
+
+			// Treat "No nodes selected" as user cancellation, not an error
 			if (error.message === 'User canceled the picker' || error.message === 'FilePicker: No nodes selected') {
 				logger.info('useComparison', 'File picker cancelled by user')
-			} else {
-				logger.error('useComparison', 'Failed to open file picker', error)
+				return null
 			}
+
+			logger.error('useComparison', 'Failed to open file picker', error)
 			throw error
 		}
 	}
@@ -125,7 +159,7 @@ export function useComparison() {
 		try {
 			// Create new abort controller for this load operation
 			abortController.value = new AbortController()
-			
+
 			loadingComparison.value = true
 			comparisonError.value = null
 
@@ -135,23 +169,23 @@ export function useComparison() {
 			const pathParts = filePath.split('/')
 			const filename = pathParts.pop()
 			const extension = filename.split('.').pop().toLowerCase()
-			
+
 			// Get file ID from path using the same method as the main viewer
 			const fileId = await getFileIdByPath(filePath)
 			if (!fileId) {
 				throw new Error(`Failed to get file ID for path: ${filePath}`)
 			}
-			
+
 			logger.info('useComparison', 'Found file ID', { filePath, fileId, filename })
-			
+
 			// Download using the same endpoint as the main viewer
 			const downloadUrl = `/apps/threedviewer/api/file/${fileId}`
 			logger.info('useComparison', 'Attempting download', { downloadUrl, fileId, filename })
-			
+
 			const fileResponse = await fetch(downloadUrl, {
 				method: 'GET',
 				headers: {
-					'Accept': 'application/octet-stream, */*',
+					Accept: 'application/octet-stream, */*',
 					'X-Requested-With': 'XMLHttpRequest',
 				},
 				credentials: 'same-origin',
@@ -163,11 +197,11 @@ export function useComparison() {
 			}
 
 			const arrayBuffer = await fileResponse.arrayBuffer()
-			logger.info('useComparison', 'File downloaded', { 
-				filename, 
+			logger.info('useComparison', 'File downloaded', {
+				filename,
 				fileId,
 				size: arrayBuffer.byteLength,
-				contentType: fileResponse.headers.get('content-type')
+				contentType: fileResponse.headers.get('content-type'),
 			})
 
 			// Use common loading logic
@@ -194,7 +228,7 @@ export function useComparison() {
 		try {
 			// Create new abort controller for this load operation
 			abortController.value = new AbortController()
-			
+
 			loadingComparison.value = true
 			comparisonError.value = null
 
@@ -255,9 +289,9 @@ export function useComparison() {
 			// Use common loading logic
 			const loadingContext = { ...context, fileId: file.id }
 			return await loadComparisonModelFromArrayBuffer(arrayBuffer, extension, file.name, loadingContext)
-	} catch (error) {
-		comparisonError.value = error
-		logger.error('useComparison', 'Error loading comparison model from Nextcloud', error)
+		} catch (error) {
+			comparisonError.value = error
+			logger.error('useComparison', 'Error loading comparison model from Nextcloud', error)
 			throw error
 		} finally {
 			loadingComparison.value = false
@@ -274,7 +308,7 @@ export function useComparison() {
 		try {
 			// Create new abort controller for this load operation
 			abortController.value = new AbortController()
-			
+
 			loadingComparison.value = true
 			comparisonError.value = null
 
@@ -404,6 +438,10 @@ export function useComparison() {
 		}
 
 		try {
+			// Update matrices before getting bounding boxes to ensure they're valid
+			model1.updateMatrixWorld(true)
+			model2.updateMatrixWorld(true)
+
 			// Get bounding boxes for both models
 			const box1 = new THREE.Box3().setFromObject(model1)
 			const box2 = new THREE.Box3().setFromObject(model2)
@@ -432,27 +470,36 @@ export function useComparison() {
 			// Layout: [model1]   •   [model2]
 			// Where • is the center point (origin 0,0,0)
 			// We need to position both models so their centers are at the same Y level
-			
+
 			// Calculate the target Y position for both models (use the lower of the two centers)
 			const targetY = Math.min(center1.y, center2.y)
-			
+
 			// Position model1 (original) to the left of center
 			model1.position.set(
-				-separation,           // X: left of center
-				targetY - center1.y,  // Y: align both models to same level
-				0                     // Z: center at origin
+				-separation, // X: left of center
+				targetY - center1.y, // Y: align both models to same level
+				0, // Z: center at origin
 			)
 
 			// Position model2 (comparison) to the right of center
 			model2.position.set(
-				separation,           // X: right of center
+				separation, // X: right of center
 				targetY - center2.y, // Y: align both models to same level
-				0                    // Z: center at origin
+				0, // Z: center at origin
 			)
 
-			// Force update the matrix to ensure position changes take effect
-			model1.updateMatrixWorld(true)
-			model2.updateMatrixWorld(true)
+			// Update matrices after positioning to ensure they're valid
+			try {
+			// Validate matrices exist before updating
+				if (model1.matrix && model2.matrix) {
+					model1.updateMatrixWorld(true)
+					model2.updateMatrixWorld(true)
+				} else {
+					logger.warn('useComparison', 'One or both models missing matrix, skipping matrix update')
+				}
+			} catch (updateError) {
+				logger.warn('useComparison', 'Failed to update matrices', updateError)
+			}
 
 			logger.info('useComparison', 'Models positioned side by side centered around origin', {
 				separation,
@@ -465,6 +512,7 @@ export function useComparison() {
 			})
 
 			// Use the provided fit function to fit camera to both models
+			// The fit function should handle OrbitControls.update() to ensure matrices are valid
 			fitFunction(model1, model2)
 		} catch (error) {
 			logger.error('useComparison', 'Failed to fit both models to view', error)
@@ -477,8 +525,8 @@ export function useComparison() {
 	 */
 	const toggleOriginalModel = (model) => {
 		if (model) {
-		model.visible = !model.visible
-		logger.info('useComparison', 'Original model visibility toggled', { visible: model.visible })
+			model.visible = !model.visible
+			logger.info('useComparison', 'Original model visibility toggled', { visible: model.visible })
 		}
 	}
 
@@ -544,7 +592,7 @@ export function useComparison() {
 	const dispose = () => {
 		// Clear comparison
 		clearComparison()
-		
+
 		// Abort any ongoing operations
 		if (abortController.value) {
 			abortController.value.abort()

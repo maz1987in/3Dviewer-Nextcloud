@@ -20,7 +20,7 @@ export function useModelStats() {
 	 */
 	const getMaterials = (object3D) => {
 		const materials = new Map()
-		
+
 		object3D.traverse((child) => {
 			if (child.isMesh && child.material) {
 				const mats = Array.isArray(child.material) ? child.material : [child.material]
@@ -35,7 +35,7 @@ export function useModelStats() {
 				})
 			}
 		})
-		
+
 		return Array.from(materials.values())
 	}
 
@@ -47,7 +47,7 @@ export function useModelStats() {
 	const getTextures = (object3D) => {
 		const textures = new Map()
 		let totalMemory = 0
-		
+
 		object3D.traverse((child) => {
 			if (child.material) {
 				const mats = Array.isArray(child.material) ? child.material : [child.material]
@@ -61,7 +61,7 @@ export function useModelStats() {
 								const width = value.image?.width || 512
 								const height = value.image?.height || 512
 								const memory = width * height * 4 // RGBA = 4 bytes per pixel
-								
+
 								textures.set(value.uuid, {
 									uuid: value.uuid,
 									name: value.name || key,
@@ -69,7 +69,7 @@ export function useModelStats() {
 									height,
 									memory,
 								})
-								
+
 								totalMemory += memory
 							}
 						}
@@ -77,7 +77,7 @@ export function useModelStats() {
 				})
 			}
 		})
-		
+
 		return {
 			textures: Array.from(textures.values()),
 			count: textures.size,
@@ -95,7 +95,7 @@ export function useModelStats() {
 		let vertices = 0
 		let faces = 0
 		let meshes = 0
-		
+
 		object3D.traverse((child) => {
 			if (child.isMesh) {
 				meshes++
@@ -104,7 +104,7 @@ export function useModelStats() {
 					if (child.geometry.attributes.position) {
 						vertices += child.geometry.attributes.position.count
 					}
-					
+
 					// Count faces
 					if (child.geometry.index) {
 						faces += child.geometry.index.count / 3
@@ -114,7 +114,7 @@ export function useModelStats() {
 				}
 			}
 		})
-		
+
 		return {
 			vertices,
 			faces: Math.floor(faces),
@@ -138,11 +138,11 @@ export function useModelStats() {
 	 */
 	const formatBytes = (bytes) => {
 		if (bytes === 0) return '0 B'
-		
+
 		const k = 1024
 		const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
 		const i = Math.floor(Math.log(bytes) / Math.log(k))
-		
+
 		return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`
 	}
 
@@ -262,4 +262,3 @@ export function useModelStats() {
 		clearStats,
 	}
 }
-

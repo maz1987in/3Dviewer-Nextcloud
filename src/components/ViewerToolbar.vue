@@ -59,6 +59,15 @@
 				<span class="tb-icon">📐</span>
 				<span class="tb-text">{{ axes ? t('threedviewer','Axes on') : t('threedviewer','Axes off') }}</span>
 			</button>
+			<button :aria-pressed="faceLabels"
+				:aria-label="t('threedviewer','Toggle face labels')"
+				class="tb"
+				type="button"
+				:title="t('threedviewer','Toggle face labels')"
+				@click="$emit('toggle-face-labels')">
+				<span class="tb-icon">🏷️</span>
+				<span class="tb-text">{{ faceLabels ? t('threedviewer','Labels on') : t('threedviewer','Labels off') }}</span>
+			</button>
 			<button :aria-pressed="wireframe"
 				:aria-label="t('threedviewer','Toggle wireframe')"
 				class="tb"
@@ -118,6 +127,7 @@ export default {
 	props: {
 		grid: { type: Boolean, default: true },
 		axes: { type: Boolean, default: true },
+		faceLabels: { type: Boolean, default: false },
 		wireframe: { type: Boolean, default: false },
 		background: { type: String, default: '#f5f5f5' },
 		autoRotate: { type: Boolean, default: false },
