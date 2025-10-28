@@ -122,17 +122,16 @@ export default {
 .minimal-top-bar {
 	position: absolute;
 	top: 0;
-	left: 0;
-	right: 0;
+	inset-inline: 0;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
 	padding: 12px 16px;
-	background: rgba(0, 0, 0, 0.85);
-	border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+	background: rgb(0 0 0 / 85%);
+	border-bottom: 1px solid rgb(255 255 255 / 20%);
 	z-index: 100;
 	gap: 16px;
-	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+	box-shadow: 0 1px 3px rgb(0 0 0 / 30%);
 	backdrop-filter: blur(10px);
 }
 
@@ -157,7 +156,7 @@ export default {
 .model-name {
 	font-size: 15px;
 	font-weight: 600;
-	color: #ffffff;
+	color: #fff;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -169,7 +168,7 @@ export default {
 	align-items: center;
 	gap: 6px;
 	font-size: 13px;
-	color: rgba(255, 255, 255, 0.7);
+	color: rgb(255 255 255 / 70%);
 }
 
 .spinner {
@@ -188,10 +187,10 @@ export default {
 	align-items: center;
 	gap: 6px;
 	padding: 8px 12px;
-	background: rgba(255, 255, 255, 0.1);
-	border: 1px solid rgba(255, 255, 255, 0.2);
+	background: rgb(255 255 255 / 10%);
+	border: 1px solid rgb(255 255 255 / 20%);
 	border-radius: 6px;
-	color: #ffffff;
+	color: #fff;
 	font-size: 13px;
 	font-weight: 500;
 	cursor: pointer;
@@ -201,8 +200,8 @@ export default {
 
 .quick-btn:hover,
 .icon-btn:hover {
-	background: rgba(255, 255, 255, 0.2);
-	border-color: rgba(255, 255, 255, 0.4);
+	background: rgb(255 255 255 / 20%);
+	border-color: rgb(255 255 255 / 40%);
 	transform: translateY(-1px);
 }
 
@@ -217,8 +216,8 @@ export default {
 }
 
 .icon-btn.active {
-	background: rgba(0, 130, 201, 0.8) !important;
-	border-color: rgba(0, 130, 201, 0.6) !important;
+	background: rgb(0 130 201 / 80%) !important;
+	border-color: rgb(0 130 201 / 60%) !important;
 }
 
 .btn-icon {
@@ -232,30 +231,30 @@ export default {
 
 /* Tools Button - Nextcloud blue accent */
 .tools-btn {
-	background: rgba(0, 130, 201, 0.8) !important;
-	border-color: rgba(0, 130, 201, 0.4) !important;
-	color: #ffffff !important;
+	background: rgb(0 130 201 / 80%) !important;
+	border-color: rgb(0 130 201 / 40%) !important;
+	color: #fff !important;
 	font-weight: 600;
 }
 
 .tools-btn:hover {
-	background: rgba(0, 130, 201, 0.9) !important;
-	border-color: rgba(0, 130, 201, 0.6) !important;
-	color: #ffffff !important;
+	background: rgb(0 130 201 / 90%) !important;
+	border-color: rgb(0 130 201 / 60%) !important;
+	color: #fff !important;
 }
 
 .fps-badge {
 	position: absolute;
 	top: -4px;
-	right: -4px;
+	inset-inline-end: -4px;
 	padding: 2px 5px;
-	background: rgba(0, 130, 201, 0.9);
-	color: #ffffff;
+	background: rgb(0 130 201 / 90%);
+	color: #fff;
 	font-size: 10px;
 	font-weight: 700;
 	border-radius: 8px;
 	line-height: 1;
-	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+	box-shadow: 0 2px 4px rgb(0 0 0 / 30%);
 }
 
 /* Mobile Styles */
@@ -285,7 +284,7 @@ export default {
 }
 
 /* Very small screens */
-@media (max-width: 480px) {
+@media (width <= 480px) {
 	.minimal-top-bar {
 		padding: 6px 8px;
 	}
@@ -325,7 +324,7 @@ export default {
 }
 
 /* Landscape mobile optimization */
-@media (max-height: 500px) and (orientation: landscape) {
+@media (height <= 500px) and (orientation: landscape) {
 	.minimal-top-bar {
 		padding: 4px 8px;
 	}
@@ -343,12 +342,11 @@ export default {
 
 [dir="rtl"] .quick-btn,
 [dir="rtl"] .icon-btn {
-	margin-left: 0;
-	margin-right: 4px;
+	margin-inline: 0 4px;
 }
 
 [dir="rtl"] .quick-btn:first-child,
 [dir="rtl"] .icon-btn:first-child {
-	margin-right: 0;
+	margin-inline-end: 0;
 }
 </style>

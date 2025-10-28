@@ -312,10 +312,9 @@ export default {
 .help-panel-backdrop {
 	position: fixed;
 	top: 0;
-	left: 0;
-	right: 0;
+	inset-inline: 0;
 	bottom: 0;
-	background: rgba(0, 0, 0, 0.7);
+	background: rgb(0 0 0 / 70%);
 	backdrop-filter: blur(4px);
 	z-index: 9999;
 	display: flex;
@@ -335,7 +334,7 @@ export default {
 	max-height: 90vh;
 	display: flex;
 	flex-direction: column;
-	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+	box-shadow: 0 8px 32px rgb(0 0 0 / 30%);
 	animation: slide-in 0.3s ease;
 }
 
@@ -344,6 +343,7 @@ export default {
 		opacity: 0;
 		transform: scale(0.95) translateY(-20px);
 	}
+
 	to {
 		opacity: 1;
 		transform: scale(1) translateY(0);
@@ -409,7 +409,7 @@ export default {
 	font-size: 18px;
 	font-weight: 600;
 	color: var(--color-primary-element);
-	margin: 0 0 16px 0;
+	margin: 0 0 16px;
 	padding-bottom: 8px;
 	border-bottom: 2px solid var(--color-primary-element);
 }
@@ -432,7 +432,7 @@ export default {
 
 .help-item:hover {
 	transform: translateY(-2px);
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+	box-shadow: 0 4px 12px rgb(0 0 0 / 10%);
 }
 
 .help-icon {
@@ -452,7 +452,7 @@ export default {
 }
 
 .help-text h4 {
-	margin: 0 0 6px 0;
+	margin: 0 0 6px;
 	font-size: 15px;
 	font-weight: 600;
 	color: var(--color-main-text);
@@ -493,7 +493,7 @@ export default {
 	color: var(--color-main-text);
 	min-width: 80px;
 	text-align: center;
-	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+	box-shadow: 0 2px 4px rgb(0 0 0 / 10%);
 }
 
 .shortcut-row span {
@@ -515,13 +515,13 @@ export default {
 	line-height: 1.6;
 	color: var(--color-main-text);
 	position: relative;
-	padding-left: 8px;
+	padding-inline-start: 8px;
 }
 
 .tips-list li::before {
 	content: '💡';
 	position: absolute;
-	left: -24px;
+	inset-inline-start: -24px;
 }
 
 .tips-list li:last-child {
@@ -529,7 +529,7 @@ export default {
 }
 
 /* Mobile Responsive */
-@media (max-width: 768px) {
+@media (width <= 768px) {
 	.help-panel {
 		max-width: 100%;
 		max-height: 100vh;
@@ -579,13 +579,11 @@ export default {
 }
 
 [dir="rtl"] .tips-list li {
-	padding-left: 0;
-	padding-right: 8px;
+	padding-inline: 0 8px;
 }
 
 [dir="rtl"] .tips-list li::before {
-	left: auto;
-	right: -24px;
+	inset-inline: auto -24px;
 }
 
 /* Theme-aware colors */
@@ -594,7 +592,7 @@ export default {
 }
 
 .theme--dark .help-item:hover {
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+	box-shadow: 0 4px 12px rgb(0 0 0 / 30%);
 }
 
 /* Accessibility */

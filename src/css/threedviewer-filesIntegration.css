@@ -40,7 +40,7 @@
 
 .fileActionsMenu .action-view3d .action-text,
 .fileActionsMenu .action-view3d-extension .action-text {
-	padding-left: 20px;
+	padding-inline-start: 20px;
 }
 
 /* 3D icon for file actions */
@@ -66,11 +66,11 @@
 	background: white;
 	padding: 16px;
 	border-bottom: 1px solid #ddd;
-	box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+	box-shadow: 0 2px 4px rgb(0 0 0 / 10%);
 }
 
 .viewer-header h1 {
-	margin: 0 0 8px 0;
+	margin: 0 0 8px;
 	color: #333;
 	font-size: 24px;
 }
@@ -102,14 +102,14 @@
 .viewer-controls {
 	position: absolute;
 	top: 16px;
-	right: 16px;
+	inset-inline-end: 16px;
 	display: flex;
 	gap: 8px;
 	z-index: 1000;
 }
 
 .control-btn {
-	background: rgba(255, 255, 255, 0.9);
+	background: rgb(255 255 255 / 90%);
 	border: 1px solid #ddd;
 	border-radius: 4px;
 	padding: 8px 12px;
@@ -120,7 +120,7 @@
 
 .control-btn:hover {
 	background: white;
-	box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+	box-shadow: 0 2px 4px rgb(0 0 0 / 10%);
 }
 
 .control-btn.active {
@@ -132,7 +132,7 @@
 .viewer-loading {
 	position: absolute;
 	top: 50%;
-	left: 50%;
+	inset-inline-start: 50%;
 	transform: translate(-50%, -50%);
 	text-align: center;
 	color: #666;
@@ -163,7 +163,7 @@
 .viewer-fullscreen {
 	position: fixed;
 	top: 0;
-	left: 0;
+	inset-inline-start: 0;
 	width: 100vw;
 	height: 100vh;
 	z-index: 9999;
@@ -171,25 +171,25 @@
 }
 
 .viewer-fullscreen .viewer-controls {
-	background: rgba(0, 0, 0, 0.7);
+	background: rgb(0 0 0 / 70%);
 	border-radius: 4px;
 }
 
 .viewer-fullscreen .control-btn {
-	background: rgba(255, 255, 255, 0.2);
+	background: rgb(255 255 255 / 20%);
 	color: white;
-	border-color: rgba(255, 255, 255, 0.3);
+	border-color: rgb(255 255 255 / 30%);
 }
 
 .viewer-fullscreen .control-btn:hover {
-	background: rgba(255, 255, 255, 0.3);
+	background: rgb(255 255 255 / 30%);
 }
 
 /* Responsive design */
-@media (max-width: 768px) {
+@media (width <= 768px) {
 	.viewer-controls {
 		top: 8px;
-		right: 8px;
+		inset-inline-end: 8px;
 		flex-wrap: wrap;
 	}
 	

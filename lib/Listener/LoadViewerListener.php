@@ -17,12 +17,14 @@ use OCP\Util;
 /**
  * @template-implements IEventListener<LoadViewer>
  */
-class LoadViewerListener implements IEventListener {
-	public function handle(Event $event): void {
-		if (!$event instanceof LoadViewer) {
-			return;
-		}
+class LoadViewerListener implements IEventListener
+{
+    public function handle(Event $event): void
+    {
+        if (!$event instanceof LoadViewer) {
+            return;
+        }
 
-		Util::addScript('threedviewer', 'threedviewer-main', 'viewer');
-	}
+        Util::addScript('threedviewer', 'threedviewer-main', 'viewer');
+    }
 }

@@ -18,7 +18,8 @@ use Psr\Log\LoggerInterface;
 /**
  * Base controller with common functionality for 3D viewer controllers
  */
-abstract class BaseController extends Controller {
+abstract class BaseController extends Controller
+{
     protected ResponseBuilder $responseBuilder;
     protected ModelFileSupport $modelFileSupport;
     protected LoggerInterface $logger;
@@ -42,7 +43,8 @@ abstract class BaseController extends Controller {
      * @return int Validated file ID
      * @throws \InvalidArgumentException If file ID is invalid
      */
-    protected function validateFileId($fileId): int {
+    protected function validateFileId($fileId): int
+    {
         if ($fileId === null || $fileId === '') {
             throw new \InvalidArgumentException('File ID is required');
         }
@@ -61,9 +63,10 @@ abstract class BaseController extends Controller {
      * @return string Validated extension
      * @throws UnsupportedFileTypeException If extension is not supported
      */
-    protected function validateFileExtension(string $extension): string {
+    protected function validateFileExtension(string $extension): string
+    {
         $normalizedExt = strtolower($extension);
-        
+
         if (!$this->modelFileSupport->isSupported($normalizedExt)) {
             throw new UnsupportedFileTypeException(
                 'Unsupported file type: ' . $extension
@@ -79,10 +82,11 @@ abstract class BaseController extends Controller {
      * @return File Validated file
      * @throws UnsupportedFileTypeException If file type is not supported
      */
-    protected function validateFile(File $file): File {
+    protected function validateFile(File $file): File
+    {
         $extension = strtolower($file->getExtension());
         $this->validateFileExtension($extension);
-        
+
         return $file;
     }
 
@@ -91,7 +95,8 @@ abstract class BaseController extends Controller {
      * @param \Throwable $exception - Exception to handle
      * @return JSONResponse Error response
      */
-    protected function handleException(\Throwable $exception): JSONResponse {
+    protected function handleException(\Throwable $exception): JSONResponse
+    {
         $this->logger->error('Controller exception', [
             'exception' => $exception->getMessage(),
             'trace' => $exception->getTraceAsString(),
@@ -134,7 +139,8 @@ abstract class BaseController extends Controller {
      * @param string $action - Action being performed
      * @param array $context - Additional context
      */
-    protected function logFileAccess(File $file, string $action, array $context = []): void {
+    protected function logFileAccess(File $file, string $action, array $context = []): void
+    {
         $this->logger->info('File access', array_merge([
             'action' => $action,
             'file_id' => $file->getId(),
@@ -151,7 +157,8 @@ abstract class BaseController extends Controller {
      * @param int $maxSize - Maximum allowed size in bytes
      * @return bool Whether file size is acceptable
      */
-    protected function isFileSizeAcceptable(File $file, int $maxSize = 500 * 1024 * 1024): bool {
+    protected function isFileSizeAcceptable(File $file, int $maxSize = 500 * 1024 * 1024): bool
+    {
         return $file->getSize() <= $maxSize;
     }
 
@@ -160,12 +167,19 @@ abstract class BaseController extends Controller {
      * @param File $file - File to categorize
      * @return string Size category
      */
-    protected function getFileSizeCategory(File $file): string {
+    protected function getFileSizeCategory(File $file): string
+    {
         $size = $file->getSize();
-        
-        if ($size <= 10 * 1024 * 1024) return 'small';
-        if ($size <= 50 * 1024 * 1024) return 'medium';
-        if ($size <= 100 * 1024 * 1024) return 'large';
+
+        if ($size <= 10 * 1024 * 1024) {
+            return 'small';
+        }
+        if ($size <= 50 * 1024 * 1024) {
+            return 'medium';
+        }
+        if ($size <= 100 * 1024 * 1024) {
+            return 'large';
+        }
         return 'very-large';
     }
 
@@ -174,15 +188,16 @@ abstract class BaseController extends Controller {
      * @param int $size - Size in bytes
      * @return string Formatted size
      */
-    protected function formatFileSize(int $size): string {
+    protected function formatFileSize(int $size): string
+    {
         $units = ['B', 'KB', 'MB', 'GB'];
         $unitIndex = 0;
-        
+
         while ($size >= 1024 && $unitIndex < count($units) - 1) {
             $size /= 1024;
             $unitIndex++;
         }
-        
+
         return round($size, 2) . ' ' . $units[$unitIndex];
     }
 
@@ -192,13 +207,14 @@ abstract class BaseController extends Controller {
      * @return string Validated MTL name
      * @throws \InvalidArgumentException If MTL name is invalid
      */
-    protected function validateMtlName(string $mtlName): string {
+    protected function validateMtlName(string $mtlName): string
+    {
         if (empty($mtlName)) {
             throw new \InvalidArgumentException('MTL file name is required');
         }
 
         $mtlName = trim($mtlName);
-        
+
         if (strlen($mtlName) > 255) {
             throw new \InvalidArgumentException('MTL file name is too long');
         }
@@ -215,7 +231,8 @@ abstract class BaseController extends Controller {
      * @param string $filename - Filename
      * @return string File extension
      */
-    protected function getFileExtension(string $filename): string {
+    protected function getFileExtension(string $filename): string
+    {
         return strtolower(pathinfo($filename, PATHINFO_EXTENSION));
     }
 
@@ -223,7 +240,8 @@ abstract class BaseController extends Controller {
      * Check if request is from a mobile device
      * @return bool Whether request is from mobile
      */
-    protected function isMobileRequest(): bool {
+    protected function isMobileRequest(): bool
+    {
         $userAgent = $this->request->getHeader('User-Agent') ?? '';
         return preg_match('/Mobile|Android|iPhone|iPad/', $userAgent) === 1;
     }
@@ -232,7 +250,8 @@ abstract class BaseController extends Controller {
      * Get client IP address
      * @return string Client IP
      */
-    protected function getClientIp(): string {
+    protected function getClientIp(): string
+    {
         $headers = [
             'HTTP_CF_CONNECTING_IP',
             'HTTP_X_FORWARDED_FOR',
@@ -260,29 +279,30 @@ abstract class BaseController extends Controller {
      * @param int $windowSeconds - Time window in seconds
      * @return bool Whether request is allowed
      */
-    protected function checkRateLimit(string $identifier, int $maxRequests = 100, int $windowSeconds = 3600): bool {
+    protected function checkRateLimit(string $identifier, int $maxRequests = 100, int $windowSeconds = 3600): bool
+    {
         // This is a basic implementation - in production, use a proper rate limiting service
         $cacheKey = 'rate_limit_' . md5($identifier);
         $currentTime = time();
         $windowStart = $currentTime - $windowSeconds;
-        
+
         // Get existing requests from cache (simplified)
         $requests = json_decode($_SESSION[$cacheKey] ?? '[]', true);
-        
+
         // Filter requests within the time window
-        $requests = array_filter($requests, function($timestamp) use ($windowStart) {
+        $requests = array_filter($requests, function ($timestamp) use ($windowStart) {
             return $timestamp > $windowStart;
         });
-        
+
         // Check if limit exceeded
         if (count($requests) >= $maxRequests) {
             return false;
         }
-        
+
         // Add current request
         $requests[] = $currentTime;
         $_SESSION[$cacheKey] = json_encode($requests);
-        
+
         return true;
     }
 }

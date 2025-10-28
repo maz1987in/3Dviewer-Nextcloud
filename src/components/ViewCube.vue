@@ -264,15 +264,15 @@ export default {
 .view-cube-container {
 	position: absolute;
 	bottom: 20px;
-	right: 20px;
+	inset-inline-end: 20px;
 	width: 120px;
 	height: 120px;
 	z-index: 100;
 	pointer-events: auto;
-	background: rgba(0, 0, 0, 0.3);
+	background: rgb(0 0 0 / 30%);
 	border-radius: 8px;
-	border: 2px solid rgba(255, 255, 255, 0.2);
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+	border: 2px solid rgb(255 255 255 / 20%);
+	box-shadow: 0 4px 12px rgb(0 0 0 / 30%);
 	backdrop-filter: blur(10px);
 	display: flex;
 	align-items: center;
@@ -283,7 +283,7 @@ export default {
 	width: 80px;
 	height: 80px;
 	bottom: 80px;
-	right: 10px;
+	inset-inline-end: 10px;
 }
 
 .view-cube-container canvas {
@@ -292,30 +292,28 @@ export default {
 
 /* Hover effect */
 .view-cube-container:hover {
-	background: rgba(0, 0, 0, 0.4);
-	border-color: rgba(255, 255, 255, 0.4);
+	background: rgb(0 0 0 / 40%);
+	border-color: rgb(255 255 255 / 40%);
 	transform: scale(1.05);
 	transition: all 0.2s ease;
 }
 
 /* Responsive adjustments */
-@media (max-width: 768px) {
+@media (width <= 768px) {
 	.view-cube-container {
 		width: 80px;
 		height: 80px;
 		bottom: 80px;
-		right: 10px;
+		inset-inline-end: 10px;
 	}
 }
 
 /* RTL support */
 [dir="rtl"] .view-cube-container {
-	right: auto;
-	left: 20px;
+	inset-inline: 20px auto;
 }
 
 [dir="rtl"] .view-cube-container.mobile {
-	right: auto;
-	left: 10px;
+	inset-inline: 10px auto;
 }
 </style>

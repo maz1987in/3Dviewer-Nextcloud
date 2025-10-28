@@ -9,4 +9,6 @@ use RuntimeException;
 /**
  * Thrown when the current request has no authenticated user context.
  */
-class UnauthorizedException extends RuntimeException {}
+class UnauthorizedException extends RuntimeException
+{
+}

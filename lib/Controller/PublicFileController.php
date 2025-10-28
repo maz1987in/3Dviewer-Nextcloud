@@ -23,12 +23,13 @@ use RuntimeException;
  *
  * @psalm-suppress UnusedClass Routed via attribute registration in Nextcloud runtime.
  */
-class PublicFileController extends Controller {
+class PublicFileController extends Controller
+{
     public function __construct(
         string $appName,
         IRequest $request,
-    private readonly ShareFileService $shareFileService,
-    private readonly ModelFileSupport $support,
+        private readonly ShareFileService $shareFileService,
+        private readonly ModelFileSupport $support,
     ) {
         parent::__construct($appName, $request);
     }
@@ -36,7 +37,8 @@ class PublicFileController extends Controller {
     #[PublicPage]
     #[NoCSRFRequired]
     #[ApiRoute(verb: 'GET', url: '/public/file/{token}/{fileId}')] // fileId optional? kept required for determinism
-    public function stream(string $token, int $fileId): StreamResponse|JSONResponse {
+    public function stream(string $token, int $fileId): StreamResponse|JSONResponse
+    {
         try {
             $file = $this->shareFileService->getFileFromShare($token, $fileId);
         } catch (NotFoundException $e) {
@@ -51,7 +53,7 @@ class PublicFileController extends Controller {
             return new JSONResponse(['error' => 'Failed to open file'], Http::STATUS_INTERNAL_SERVER_ERROR);
         }
         $response = new StreamResponse($stream);
-    $response->addHeader('Content-Type', $this->support->mapContentType(strtolower($file->getExtension())));
+        $response->addHeader('Content-Type', $this->support->mapContentType(strtolower($file->getExtension())));
         $response->addHeader('Content-Length', (string)$file->getSize());
         $response->addHeader('Content-Disposition', 'inline; filename="' . addslashes($file->getName()) . '"');
         $response->addHeader('Cache-Control', 'no-store');
@@ -61,7 +63,8 @@ class PublicFileController extends Controller {
     #[PublicPage]
     #[NoCSRFRequired]
     #[ApiRoute(verb: 'GET', url: '/public/file/{token}/{fileId}/mtl/{mtlName}')]
-    public function streamSiblingMtl(string $token, int $fileId, string $mtlName): StreamResponse|JSONResponse {
+    public function streamSiblingMtl(string $token, int $fileId, string $mtlName): StreamResponse|JSONResponse
+    {
         try {
             $file = $this->shareFileService->getSiblingMaterialFromShare($token, $fileId, $mtlName);
         } catch (NotFoundException $e) {
