@@ -4,18 +4,17 @@ declare(strict_types=1);
 
 namespace OCA\ThreeDViewer\Tests\Unit\Service;
 
-use OCA\ThreeDViewer\Service\FileService;
-use OCP\Files\File;
-use OCA\ThreeDViewer\Service\ModelFileSupport;
 use OCA\ThreeDViewer\Service\Exception\UnsupportedFileTypeException;
+use OCA\ThreeDViewer\Service\FileService;
+use OCA\ThreeDViewer\Service\ModelFileSupport;
+use OCP\Files\File;
+use OCP\Files\Folder;
 use OCP\Files\IRootFolder;
 use OCP\Files\Node;
-use OCP\Files\Folder;
 use OCP\Files\NotFoundException;
 use OCP\IUser;
 use OCP\IUserSession;
 use PHPUnit\Framework\TestCase;
-use RuntimeException;
 
 /**
  * Focused tests for FileService::getSiblingMaterialFile logic using simple mocks.
@@ -27,6 +26,7 @@ class FileServiceSiblingTest extends TestCase
     {
         $session = $this->createMock(IUserSession::class);
         $session->method('getUser')->willReturn($user);
+
         return $session;
     }
 
@@ -37,6 +37,7 @@ class FileServiceSiblingTest extends TestCase
         $file->method('getName')->willReturn($name);
         $file->method('getParent')->willReturn($parent);
         $file->method('fopen')->willReturn(fopen('php://memory', 'r'));
+
         return $file;
     }
 

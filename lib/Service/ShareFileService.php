@@ -5,14 +5,12 @@ declare(strict_types=1);
 namespace OCA\ThreeDViewer\Service;
 
 use OCA\ThreeDViewer\Service\Exception\UnsupportedFileTypeException;
-use OCA\ThreeDViewer\Service\ModelFileSupport;
 use OCP\Files\File;
 use OCP\Files\Folder;
 use OCP\Files\Node;
 use OCP\Files\NotFoundException;
 use OCP\Share\IManager as ShareManager;
 use OCP\Share\IShare;
-use RuntimeException;
 
 /**
  * Resolve 3D model files through a public share token (anonymous access path).
@@ -54,6 +52,7 @@ class ShareFileService
         if (!$this->support->isSupported($ext)) {
             throw new UnsupportedFileTypeException('Unsupported file type');
         }
+
         return $node;
     }
 
@@ -65,6 +64,7 @@ class ShareFileService
     public function getSiblingMaterialFromShare(string $token, int $objFileId, string $mtlName): File
     {
         $obj = $this->getFileFromShare($token, $objFileId);
+
         return $this->support->findSiblingMtl($obj, $mtlName);
     }
 
@@ -85,6 +85,7 @@ class ShareFileService
                 }
             }
         }
+
         return null;
     }
 
@@ -95,10 +96,11 @@ class ShareFileService
     {
         // Some Nextcloud versions expose getShareByToken(string $token): ?IShare
         $share = $this->shareManager->getShareByToken($token);
-        /** @psalm-suppress DocblockTypeContradiction Legacy interface may return null */
+        /* @psalm-suppress DocblockTypeContradiction Legacy interface may return null */
         if ($share === null) {
             throw new NotFoundException('Share not found');
         }
+
         return $share;
     }
 }

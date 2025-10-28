@@ -7,7 +7,6 @@ namespace OCA\ThreeDViewer\Service;
 use OCA\ThreeDViewer\Service\Exception\UnsupportedFileTypeException;
 use OCP\Files\File;
 use OCP\Files\Folder;
-use OCP\Files\Node;
 use OCP\Files\NotFoundException;
 
 /**
@@ -29,7 +28,7 @@ use OCP\Files\NotFoundException;
 class ModelFileSupport
 {
     /** @var list<string> */
-    private array $supported = ['glb','gltf','obj','stl','ply','dae','mtl','fbx','3mf','3ds','x3d','vrml','wrl','bin','png','jpg','jpeg','tga','bmp','webp'];
+    private array $supported = ['glb', 'gltf', 'obj', 'stl', 'ply', 'dae', 'mtl', 'fbx', '3mf', '3ds', 'x3d', 'vrml', 'wrl', 'bin', 'png', 'jpg', 'jpeg', 'tga', 'bmp', 'webp'];
 
     /** @return list<string> */
     public function getSupportedExtensions(): array
@@ -78,7 +77,7 @@ class ModelFileSupport
             throw new UnsupportedFileTypeException('Not an OBJ file');
         }
         $parent = $objFile->getParent();
-        /** @psalm-suppress DocblockTypeContradiction */
+        /* @psalm-suppress DocblockTypeContradiction */
         if ($parent === null) {
             throw new NotFoundException('Parent folder missing');
         }
@@ -87,9 +86,11 @@ class ModelFileSupport
                 if (strtolower($node->getExtension()) !== 'mtl') {
                     throw new UnsupportedFileTypeException('Sibling is not an MTL file');
                 }
+
                 return $node;
             }
         }
+
         throw new NotFoundException('MTL not found');
     }
 }

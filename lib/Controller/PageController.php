@@ -12,7 +12,6 @@ use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\Attribute\OpenAPI;
 use OCP\AppFramework\Http\TemplateResponse;
-use OCP\AppFramework\Services\InitialStateProvider;
 use OCP\IRequest;
 
 /**
@@ -50,7 +49,7 @@ class PageController extends Controller
 
     /**
      * Viewer page for specific file
-     * URL: /apps/threedviewer/{fileId}?dir=/optional/path
+     * URL: /apps/threedviewer/{fileId}?dir=/optional/path.
      */
     #[NoCSRFRequired]
     #[NoAdminRequired]
@@ -68,6 +67,7 @@ class PageController extends Controller
                 TemplateResponse::RENDER_AS_ERROR
             );
             $response->setStatus(404);
+
             return $response;
         }
 

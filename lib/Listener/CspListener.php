@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace OCA\ThreeDViewer\Listener;
 
+use OCP\AppFramework\Http\ContentSecurityPolicy;
 use OCP\AppFramework\Http\Events\BeforeTemplateRenderedEvent;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
-use OCP\AppFramework\Http\ContentSecurityPolicy;
 use Psr\Log\LoggerInterface;
 
 /**
- * Listener to modify CSP headers for 3D viewer compatibility
+ * Listener to modify CSP headers for 3D viewer compatibility.
  */
 class CspListener implements IEventListener
 {

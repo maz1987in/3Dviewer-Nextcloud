@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace OCA\ThreeDViewer\Controller;
 
-use OCA\ThreeDViewer\Service\ShareFileService;
-use OCA\ThreeDViewer\Service\ModelFileSupport;
 use OCA\ThreeDViewer\Service\Exception\UnsupportedFileTypeException;
+use OCA\ThreeDViewer\Service\ModelFileSupport;
+use OCA\ThreeDViewer\Service\ShareFileService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
-use OCP\AppFramework\Http\Attribute\PublicPage;
-use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\Attribute\ApiRoute;
+use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
+use OCP\AppFramework\Http\Attribute\PublicPage;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\Http\StreamResponse;
 use OCP\Files\NotFoundException;
@@ -54,9 +54,10 @@ class PublicFileController extends Controller
         }
         $response = new StreamResponse($stream);
         $response->addHeader('Content-Type', $this->support->mapContentType(strtolower($file->getExtension())));
-        $response->addHeader('Content-Length', (string)$file->getSize());
+        $response->addHeader('Content-Length', (string) $file->getSize());
         $response->addHeader('Content-Disposition', 'inline; filename="' . addslashes($file->getName()) . '"');
         $response->addHeader('Cache-Control', 'no-store');
+
         return $response;
     }
 
@@ -80,8 +81,9 @@ class PublicFileController extends Controller
         }
         $response = new StreamResponse($stream);
         $response->addHeader('Content-Type', 'text/plain');
-        $response->addHeader('Content-Length', (string)$file->getSize());
+        $response->addHeader('Content-Length', (string) $file->getSize());
         $response->addHeader('Cache-Control', 'no-store');
+
         return $response;
     }
 }

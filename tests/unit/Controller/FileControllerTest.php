@@ -5,19 +5,18 @@ declare(strict_types=1);
 namespace OCA\ThreeDViewer\Tests\Unit\Controller;
 
 use OCA\ThreeDViewer\Controller\FileController;
+use OCA\ThreeDViewer\Service\Exception\UnauthorizedException;
+use OCA\ThreeDViewer\Service\Exception\UnsupportedFileTypeException;
 use OCA\ThreeDViewer\Service\FileService;
 use OCA\ThreeDViewer\Service\ModelFileSupport;
 use OCP\AppFramework\Http;
-use OCP\AppFramework\Http\StreamResponse;
 use OCP\AppFramework\Http\JSONResponse;
+use OCP\AppFramework\Http\StreamResponse;
 use OCP\Files\File;
-use OCA\ThreeDViewer\Service\Exception\UnsupportedFileTypeException;
-use OCA\ThreeDViewer\Service\Exception\UnauthorizedException;
 use OCP\Files\NotFoundException;
 use OCP\IRequest;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use RuntimeException;
 
 class FileControllerTest extends TestCase
 {

@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace OCA\ThreeDViewer\Controller;
 
+use OCA\ThreeDViewer\Service\Exception\UnauthorizedException;
+use OCA\ThreeDViewer\Service\Exception\UnsupportedFileTypeException;
+use OCA\ThreeDViewer\Service\FileService;
+use OCA\ThreeDViewer\Service\ModelFileSupport;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\ApiRoute;
@@ -11,12 +15,8 @@ use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\AppFramework\Http\StreamResponse;
-use OCP\IRequest;
-use OCA\ThreeDViewer\Service\FileService;
-use OCA\ThreeDViewer\Service\ModelFileSupport;
-use OCA\ThreeDViewer\Service\Exception\UnsupportedFileTypeException;
-use OCA\ThreeDViewer\Service\Exception\UnauthorizedException;
 use OCP\Files\NotFoundException;
+use OCP\IRequest;
 
 /**
  * Returns a placeholder thumbnail for supported 3D model files. Future implementation may
@@ -59,6 +59,7 @@ class ThumbnailController extends Controller
             $resp = new StreamResponse($stream);
             $resp->addHeader('Content-Type', 'image/png');
             $resp->addHeader('Cache-Control', 'public, max-age=300');
+
             return $resp;
         }
         $stream = fopen($path, 'rb');
@@ -68,6 +69,7 @@ class ThumbnailController extends Controller
         $resp = new StreamResponse($stream);
         $resp->addHeader('Content-Type', 'image/png');
         $resp->addHeader('Cache-Control', 'public, max-age=300');
+
         return $resp;
     }
 }

@@ -5,11 +5,10 @@ declare(strict_types=1);
 namespace OCA\ThreeDViewer\Controller;
 
 use OCP\AppFramework\Controller;
-use OCP\AppFramework\Http\DataResponse;
-use OCP\AppFramework\Http\FileDisplayResponse;
 use OCP\AppFramework\Http\Attribute\FrontpageRoute;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\Attribute\PublicPage;
+use OCP\AppFramework\Http\FileDisplayResponse;
 use OCP\IRequest;
 use OCP\IURLGenerator;
 
@@ -24,7 +23,7 @@ class AssetController extends Controller
 
     /**
      * Serve decoder assets (WASM files, etc.)
-     * Supports: /apps/threedviewer/draco/{filename} and /apps/threedviewer/basis/{filename}
+     * Supports: /apps/threedviewer/draco/{filename} and /apps/threedviewer/basis/{filename}.
      */
     #[NoCSRFRequired]
     #[PublicPage]
@@ -50,7 +49,7 @@ class AssetController extends Controller
     }
 
     /**
-     * Serve decoder files directly from root
+     * Serve decoder files directly from root.
      * @NoCSRFRequired
      * @PublicPage
      */

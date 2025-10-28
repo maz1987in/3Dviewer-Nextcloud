@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace OCA\ThreeDViewer\Repair;
 
-require \OC::$SERVERROOT . "/3rdparty/autoload.php";
+require \OC::$SERVERROOT . '/3rdparty/autoload.php';
 
-use OCP\Files\IMimeTypeLoader;
-use OCP\Migration\IRepairStep;
-use OCP\Migration\IOutput;
 use OC\Core\Command\Maintenance\Mimetype\UpdateJS;
+use OCP\Files\IMimeTypeLoader;
+use OCP\Migration\IOutput;
+use OCP\Migration\IRepairStep;
 use Symfony\Component\Console\Input\StringInput;
 use Symfony\Component\Console\Output\ConsoleOutput;
 
@@ -35,7 +35,7 @@ class RegisterThreeDMimeTypes implements IRepairStep
     private const CUSTOM_MIMETYPEALIASES = 'mimetypealiases.json';
 
     /**
-     * Extension to MIME type mappings for 3D model formats
+     * Extension to MIME type mappings for 3D model formats.
      *
      * SYNC NOTE: The complete list of supported formats is defined in
      *            src/config/viewer-config.js (SUPPORTED_FORMATS) as the single source of truth.
@@ -100,7 +100,7 @@ class RegisterThreeDMimeTypes implements IRepairStep
     }
 
     /**
-     * Register MIME types in Nextcloud's database and update file cache
+     * Register MIME types in Nextcloud's database and update file cache.
      */
     private function registerInFileCache(IOutput $output): void
     {
@@ -124,7 +124,7 @@ class RegisterThreeDMimeTypes implements IRepairStep
     }
 
     /**
-     * Create or update config/mimetypemapping.json and config/mimetypealiases.json
+     * Create or update config/mimetypemapping.json and config/mimetypealiases.json.
      */
     private function updateConfigFiles(IOutput $output): void
     {
@@ -143,14 +143,14 @@ class RegisterThreeDMimeTypes implements IRepairStep
         // Regenerate JavaScript MIME type mappings
         try {
             $this->updateJS->run(new StringInput(''), new ConsoleOutput());
-            $output->info("  ✓ Regenerated JavaScript MIME type mappings");
+            $output->info('  ✓ Regenerated JavaScript MIME type mappings');
         } catch (\Throwable $e) {
             $output->warning("  ✗ Failed to regenerate JS mappings: {$e->getMessage()}");
         }
     }
 
     /**
-     * Append entries to mimetypemapping.json (extension => [mime types])
+     * Append entries to mimetypemapping.json (extension => [mime types]).
      */
     private function appendToFileMapping(string $filename, array $data): void
     {
@@ -178,7 +178,7 @@ class RegisterThreeDMimeTypes implements IRepairStep
     }
 
     /**
-     * Append entries to mimetypealiases.json (mime type => extension for icons)
+     * Append entries to mimetypealiases.json (mime type => extension for icons).
      */
     private function appendToFileAliases(string $filename, array $data): void
     {

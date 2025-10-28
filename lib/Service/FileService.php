@@ -4,19 +4,18 @@ declare(strict_types=1);
 
 namespace OCA\ThreeDViewer\Service;
 
+use OCA\ThreeDViewer\Service\Exception\UnauthorizedException;
+use OCA\ThreeDViewer\Service\Exception\UnsupportedFileTypeException;
 use OCP\Files\File;
 use OCP\Files\IRootFolder;
 use OCP\Files\Node;
 use OCP\Files\NotFoundException;
 use OCP\IUserSession;
 use RuntimeException;
-use OCA\ThreeDViewer\Service\Exception\UnsupportedFileTypeException;
-use OCA\ThreeDViewer\Service\Exception\UnauthorizedException;
-use OCA\ThreeDViewer\Service\ModelFileSupport;
 
 /**
  * Service responsible for resolving & validating 3D model files.
- * (Public share token support to be added later.)
+ * (Public share token support to be added later.).
  */
 /**
  * @psalm-suppress MissingDependency Nextcloud runtime provides dependent classes in full environment.
@@ -60,6 +59,7 @@ class FileService
         if (!$this->support->isSupported($ext)) {
             throw new UnsupportedFileTypeException('Unsupported file type');
         }
+
         return $node;
     }
 
@@ -75,6 +75,7 @@ class FileService
     public function getSiblingMaterialFile(int $objFileId, string $mtlName): File
     {
         $objFile = $this->getValidatedFile($objFileId);
+
         return $this->support->findSiblingMtl($objFile, $mtlName);
     }
 

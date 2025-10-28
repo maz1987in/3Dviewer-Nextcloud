@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace OCA\ThreeDViewer\Controller;
 
-use OCA\ThreeDViewer\Service\ResponseBuilder;
-use OCA\ThreeDViewer\Service\ModelFileSupport;
-use OCA\ThreeDViewer\Service\Exception\UnsupportedFileTypeException;
 use OCA\ThreeDViewer\Service\Exception\UnauthorizedException;
+use OCA\ThreeDViewer\Service\Exception\UnsupportedFileTypeException;
+use OCA\ThreeDViewer\Service\ModelFileSupport;
+use OCA\ThreeDViewer\Service\ResponseBuilder;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\Files\File;
@@ -16,7 +16,7 @@ use OCP\IRequest;
 use Psr\Log\LoggerInterface;
 
 /**
- * Base controller with common functionality for 3D viewer controllers
+ * Base controller with common functionality for 3D viewer controllers.
  */
 abstract class BaseController extends Controller
 {
@@ -38,7 +38,7 @@ abstract class BaseController extends Controller
     }
 
     /**
-     * Validate file ID parameter
+     * Validate file ID parameter.
      * @param mixed $fileId - File ID to validate
      * @return int Validated file ID
      * @throws \InvalidArgumentException If file ID is invalid
@@ -49,7 +49,7 @@ abstract class BaseController extends Controller
             throw new \InvalidArgumentException('File ID is required');
         }
 
-        $id = (int)$fileId;
+        $id = (int) $fileId;
         if ($id <= 0) {
             throw new \InvalidArgumentException('File ID must be a positive integer');
         }
@@ -58,7 +58,7 @@ abstract class BaseController extends Controller
     }
 
     /**
-     * Validate file extension
+     * Validate file extension.
      * @param string $extension - Extension to validate
      * @return string Validated extension
      * @throws UnsupportedFileTypeException If extension is not supported
@@ -77,7 +77,7 @@ abstract class BaseController extends Controller
     }
 
     /**
-     * Validate file object
+     * Validate file object.
      * @param File $file - File to validate
      * @return File Validated file
      * @throws UnsupportedFileTypeException If file type is not supported
@@ -91,7 +91,7 @@ abstract class BaseController extends Controller
     }
 
     /**
-     * Handle common exceptions and return appropriate responses
+     * Handle common exceptions and return appropriate responses.
      * @param \Throwable $exception - Exception to handle
      * @return JSONResponse Error response
      */
@@ -100,7 +100,7 @@ abstract class BaseController extends Controller
         $this->logger->error('Controller exception', [
             'exception' => $exception->getMessage(),
             'trace' => $exception->getTraceAsString(),
-            'controller' => static::class
+            'controller' => static::class,
         ]);
 
         if ($exception instanceof UnauthorizedException) {
@@ -128,13 +128,13 @@ abstract class BaseController extends Controller
             \OCP\AppFramework\Http::STATUS_INTERNAL_SERVER_ERROR,
             [
                 'type' => get_class($exception),
-                'message' => $exception->getMessage()
+                'message' => $exception->getMessage(),
             ]
         );
     }
 
     /**
-     * Log file access for security auditing
+     * Log file access for security auditing.
      * @param File $file - File being accessed
      * @param string $action - Action being performed
      * @param array $context - Additional context
@@ -147,12 +147,12 @@ abstract class BaseController extends Controller
             'file_name' => $file->getName(),
             'file_size' => $file->getSize(),
             'file_path' => $file->getPath(),
-            'mime_type' => $file->getMimeType()
+            'mime_type' => $file->getMimeType(),
         ], $context));
     }
 
     /**
-     * Check if file size is within limits
+     * Check if file size is within limits.
      * @param File $file - File to check
      * @param int $maxSize - Maximum allowed size in bytes
      * @return bool Whether file size is acceptable
@@ -163,7 +163,7 @@ abstract class BaseController extends Controller
     }
 
     /**
-     * Get file size category
+     * Get file size category.
      * @param File $file - File to categorize
      * @return string Size category
      */
@@ -180,11 +180,12 @@ abstract class BaseController extends Controller
         if ($size <= 100 * 1024 * 1024) {
             return 'large';
         }
+
         return 'very-large';
     }
 
     /**
-     * Format file size for logging
+     * Format file size for logging.
      * @param int $size - Size in bytes
      * @return string Formatted size
      */
@@ -202,7 +203,7 @@ abstract class BaseController extends Controller
     }
 
     /**
-     * Validate MTL file name
+     * Validate MTL file name.
      * @param string $mtlName - MTL file name to validate
      * @return string Validated MTL name
      * @throws \InvalidArgumentException If MTL name is invalid
@@ -227,7 +228,7 @@ abstract class BaseController extends Controller
     }
 
     /**
-     * Get file extension from filename
+     * Get file extension from filename.
      * @param string $filename - Filename
      * @return string File extension
      */
@@ -237,17 +238,18 @@ abstract class BaseController extends Controller
     }
 
     /**
-     * Check if request is from a mobile device
+     * Check if request is from a mobile device.
      * @return bool Whether request is from mobile
      */
     protected function isMobileRequest(): bool
     {
         $userAgent = $this->request->getHeader('User-Agent') ?? '';
+
         return preg_match('/Mobile|Android|iPhone|iPad/', $userAgent) === 1;
     }
 
     /**
-     * Get client IP address
+     * Get client IP address.
      * @return string Client IP
      */
     protected function getClientIp(): string
@@ -259,12 +261,13 @@ abstract class BaseController extends Controller
             'HTTP_X_CLUSTER_CLIENT_IP',
             'HTTP_FORWARDED_FOR',
             'HTTP_FORWARDED',
-            'REMOTE_ADDR'
+            'REMOTE_ADDR',
         ];
 
         foreach ($headers as $header) {
             if (!empty($_SERVER[$header])) {
                 $ips = explode(',', $_SERVER[$header]);
+
                 return trim($ips[0]);
             }
         }
@@ -273,7 +276,7 @@ abstract class BaseController extends Controller
     }
 
     /**
-     * Rate limiting check (basic implementation)
+     * Rate limiting check (basic implementation).
      * @param string $identifier - Client identifier
      * @param int $maxRequests - Maximum requests per window
      * @param int $windowSeconds - Time window in seconds

@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace OCA\ThreeDViewer\Repair;
 
-require \OC::$SERVERROOT . "/3rdparty/autoload.php";
+require \OC::$SERVERROOT . '/3rdparty/autoload.php';
 
-use OCP\Files\IMimeTypeLoader;
-use OCP\Migration\IRepairStep;
-use OCP\Migration\IOutput;
 use OC\Core\Command\Maintenance\Mimetype\UpdateJS;
+use OCP\Files\IMimeTypeLoader;
+use OCP\Migration\IOutput;
+use OCP\Migration\IRepairStep;
 use Symfony\Component\Console\Input\StringInput;
 use Symfony\Component\Console\Output\ConsoleOutput;
 
@@ -34,7 +34,7 @@ class UnregisterThreeDMimeTypes implements IRepairStep
 
     /**
      * Extension to MIME type mappings for 3D model formats
-     * Must match RegisterThreeDMimeTypes::EXT_MIME_MAP
+     * Must match RegisterThreeDMimeTypes::EXT_MIME_MAP.
      */
     private const EXT_MIME_MAP = [
         'glb' => ['model/gltf-binary'],
@@ -81,7 +81,7 @@ class UnregisterThreeDMimeTypes implements IRepairStep
     }
 
     /**
-     * Reset MIME types in database to application/octet-stream (downloadable)
+     * Reset MIME types in database to application/octet-stream (downloadable).
      */
     private function unregisterInFileCache(IOutput $output): void
     {
@@ -95,7 +95,7 @@ class UnregisterThreeDMimeTypes implements IRepairStep
     }
 
     /**
-     * Remove entries from config files and regenerate JavaScript
+     * Remove entries from config files and regenerate JavaScript.
      */
     private function updateConfigFiles(IOutput $output): void
     {
@@ -117,11 +117,11 @@ class UnregisterThreeDMimeTypes implements IRepairStep
 
         // Regenerate JavaScript MIME type mappings
         $this->updateJS->run(new StringInput(''), new ConsoleOutput());
-        $output->info("  ✓ Regenerated JavaScript MIME type mappings");
+        $output->info('  ✓ Regenerated JavaScript MIME type mappings');
     }
 
     /**
-     * Remove extension entries from mimetypemapping.json
+     * Remove extension entries from mimetypemapping.json.
      *
      * @param string $filename Path to mimetypemapping.json
      * @param array $data Extension to MIME type mappings to remove
@@ -148,7 +148,7 @@ class UnregisterThreeDMimeTypes implements IRepairStep
     }
 
     /**
-     * Remove MIME type entries from mimetypealiases.json
+     * Remove MIME type entries from mimetypealiases.json.
      *
      * @param string $filename Path to mimetypealiases.json
      * @param array $data Extension to MIME type mappings to remove

@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace OCA\ThreeDViewer\AppInfo;
 
+use OCA\ThreeDViewer\Listener\CspListener;
+use OCA\ThreeDViewer\Listener\LoadFilesListener;
+use OCA\ThreeDViewer\Listener\LoadViewerListener;
 use OCP\AppFramework\App;
 use OCP\AppFramework\Bootstrap\IBootContext;
 use OCP\AppFramework\Bootstrap\IBootstrap;
 use OCP\AppFramework\Bootstrap\IRegistrationContext;
 use OCP\AppFramework\Http\Events\BeforeTemplateRenderedEvent;
-use OCA\ThreeDViewer\Listener\LoadViewerListener;
-use OCA\ThreeDViewer\Listener\LoadFilesListener;
-use OCA\ThreeDViewer\Listener\CspListener;
 
 class Application extends App implements IBootstrap
 {

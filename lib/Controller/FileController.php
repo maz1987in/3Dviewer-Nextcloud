@@ -13,13 +13,12 @@ use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\Http\StreamResponse;
 use OCP\Files\IRootFolder;
-use OCP\Files\NotFoundException;
 use OCP\IRequest;
 use OCP\IUserSession;
 use Psr\Log\LoggerInterface;
 
 /**
- * Controller for serving 3D files using Nextcloud filesystem API
+ * Controller for serving 3D files using Nextcloud filesystem API.
  */
 class FileController extends BaseController
 {
@@ -36,7 +35,7 @@ class FileController extends BaseController
     }
 
     /**
-     * Test endpoint to verify routing is working
+     * Test endpoint to verify routing is working.
      */
     #[NoAdminRequired]
     #[NoCSRFRequired]
@@ -47,7 +46,7 @@ class FileController extends BaseController
     }
 
     /**
-     * Serve a 3D file by ID using Nextcloud filesystem API
+     * Serve a 3D file by ID using Nextcloud filesystem API.
      */
     #[NoAdminRequired]
     #[NoCSRFRequired]
@@ -92,7 +91,7 @@ class FileController extends BaseController
                     Http::STATUS_REQUEST_ENTITY_TOO_LARGE,
                     [
                         'file_size' => $this->formatFileSize($file->getSize()),
-                        'max_size' => $this->formatFileSize(500 * 1024 * 1024)
+                        'max_size' => $this->formatFileSize(500 * 1024 * 1024),
                     ]
                 );
             }
@@ -101,20 +100,20 @@ class FileController extends BaseController
             $this->logFileAccess($file, 'serve', [
                 'size_category' => $this->getFileSizeCategory($file),
                 'client_ip' => $this->getClientIp(),
-                'is_mobile' => $this->isMobileRequest()
+                'is_mobile' => $this->isMobileRequest(),
             ]);
 
             // Build and return response
             $extension = strtolower($file->getExtension());
-            return $this->responseBuilder->buildStreamResponse($file, $extension);
 
+            return $this->responseBuilder->buildStreamResponse($file, $extension);
         } catch (\Throwable $e) {
             return $this->handleException($e);
         }
     }
 
     /**
-     * List 3D files in user's folder
+     * List 3D files in user's folder.
      */
     #[NoAdminRequired]
     #[NoCSRFRequired]
@@ -146,18 +145,17 @@ class FileController extends BaseController
             $this->logger->info('File list requested', [
                 'user_id' => $user->getUID(),
                 'total_files' => count($files),
-                'client_ip' => $this->getClientIp()
+                'client_ip' => $this->getClientIp(),
             ]);
 
             return $this->responseBuilder->createFileListResponse($files, count($files));
-
         } catch (\Throwable $e) {
             return $this->handleException($e);
         }
     }
 
     /**
-     * Recursively find 3D files in a folder
+     * Recursively find 3D files in a folder.
      */
     private function find3DFiles(\OCP\Files\Folder $folder, array &$files): void
     {
@@ -175,7 +173,7 @@ class FileController extends BaseController
                         'mtime' => $node->getMTime(),
                         'extension' => $extension,
                         'size_category' => $this->getFileSizeCategory($node),
-                        'formatted_size' => $this->formatFileSize($node->getSize())
+                        'formatted_size' => $this->formatFileSize($node->getSize()),
                     ];
                 }
             } elseif ($node instanceof \OCP\Files\Folder) {
@@ -185,7 +183,7 @@ class FileController extends BaseController
     }
 
     /**
-     * List files in a specific directory
+     * List files in a specific directory.
      */
     private function listFilesInDirectory($userFolder, string $path): JSONResponse
     {
@@ -209,19 +207,19 @@ class FileController extends BaseController
                     'size' => $node->getSize(),
                     'mtime' => $node->getMTime(),
                     'isFile' => $node instanceof \OCP\Files\File,
-                    'isFolder' => $node instanceof \OCP\Files\Folder
+                    'isFolder' => $node instanceof \OCP\Files\Folder,
                 ];
             }
 
             return new JSONResponse($files);
-
         } catch (\OCP\Files\NotFoundException $e) {
             return new JSONResponse(['error' => 'Directory not found: ' . $path], Http::STATUS_NOT_FOUND);
         } catch (\Exception $e) {
             $this->logger->error('Error listing directory: ' . $e->getMessage(), [
                 'path' => $path,
-                'exception' => $e
+                'exception' => $e,
             ]);
+
             return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_INTERNAL_SERVER_ERROR);
         }
     }

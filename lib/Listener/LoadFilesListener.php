@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 /**
  * Listener for Files app - loads our viewer handler script
- * This ensures our 3D model viewer is available when Files app renders
+ * This ensures our 3D model viewer is available when Files app renders.
  *
  * @copyright Copyright (c) 2025
  * @license AGPL-3.0-or-later

@@ -5,14 +5,13 @@ declare(strict_types=1);
 namespace OCA\ThreeDViewer\Service;
 
 use OCP\AppFramework\Http;
+use OCP\AppFramework\Http\ContentSecurityPolicy;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\Http\StreamResponse;
-use OCP\AppFramework\Http\ContentSecurityPolicy;
 use OCP\Files\File;
-use OCA\ThreeDViewer\Service\ModelFileSupport;
 
 /**
- * Service for building standardized HTTP responses
+ * Service for building standardized HTTP responses.
  */
 class ResponseBuilder
 {
@@ -24,7 +23,7 @@ class ResponseBuilder
     }
 
     /**
-     * Build a stream response for a 3D file
+     * Build a stream response for a 3D file.
      * @param File $file - File to stream
      * @param string $extension - File extension
      * @param array $options - Additional options
@@ -55,7 +54,7 @@ class ResponseBuilder
     }
 
     /**
-     * Add standard headers to a stream response
+     * Add standard headers to a stream response.
      * @param StreamResponse $response - Response to modify
      * @param File $file - File being served
      * @param string $extension - File extension
@@ -63,7 +62,7 @@ class ResponseBuilder
     public function addStandardHeaders(StreamResponse $response, File $file, string $extension): void
     {
         $response->addHeader('Content-Type', $this->modelFileSupport->mapContentType($extension));
-        $response->addHeader('Content-Length', (string)$file->getSize());
+        $response->addHeader('Content-Length', (string) $file->getSize());
         $response->addHeader('Content-Disposition', 'inline; filename="' . addslashes($file->getName()) . '"');
         $response->addHeader('Cache-Control', 'no-store');
         $response->addHeader('X-Content-Type-Options', 'nosniff');
@@ -74,7 +73,7 @@ class ResponseBuilder
     }
 
     /**
-     * Create an error response
+     * Create an error response.
      * @param string $message - Error message
      * @param int $code - HTTP status code
      * @param array $details - Additional error details
@@ -85,7 +84,7 @@ class ResponseBuilder
         $data = [
             'error' => $message,
             'code' => $code,
-            'timestamp' => date('c')
+            'timestamp' => date('c'),
         ];
 
         if (!empty($details)) {
@@ -96,7 +95,7 @@ class ResponseBuilder
     }
 
     /**
-     * Create a not found response
+     * Create a not found response.
      * @param string $message - Error message
      * @return JSONResponse
      */
@@ -106,7 +105,7 @@ class ResponseBuilder
     }
 
     /**
-     * Create an unauthorized response
+     * Create an unauthorized response.
      * @param string $message - Error message
      * @return JSONResponse
      */
@@ -116,7 +115,7 @@ class ResponseBuilder
     }
 
     /**
-     * Create an unsupported media type response
+     * Create an unsupported media type response.
      * @param string $message - Error message
      * @param string $extension - Unsupported extension
      * @return JSONResponse
@@ -133,7 +132,7 @@ class ResponseBuilder
     }
 
     /**
-     * Create a bad request response
+     * Create a bad request response.
      * @param string $message - Error message
      * @param array $details - Additional details
      * @return JSONResponse
@@ -144,7 +143,7 @@ class ResponseBuilder
     }
 
     /**
-     * Create a success response with data
+     * Create a success response with data.
      * @param mixed $data - Response data
      * @param int $code - HTTP status code
      * @return JSONResponse
@@ -155,7 +154,7 @@ class ResponseBuilder
     }
 
     /**
-     * Create a file list response
+     * Create a file list response.
      * @param array $files - List of files
      * @param int $total - Total count
      * @param int $offset - Offset
@@ -169,38 +168,39 @@ class ResponseBuilder
             'total' => $total,
             'offset' => $offset,
             'limit' => $limit,
-            'hasMore' => $total > ($offset + $limit)
+            'hasMore' => $total > ($offset + $limit),
         ];
 
         return $this->createSuccessResponse($data);
     }
 
     /**
-     * Create a validation error response
+     * Create a validation error response.
      * @param array $errors - Validation errors
      * @return JSONResponse
      */
     public function createValidationErrorResponse(array $errors): JSONResponse
     {
         return $this->createErrorResponse('Validation failed', Http::STATUS_BAD_REQUEST, [
-            'validation_errors' => $errors
+            'validation_errors' => $errors,
         ]);
     }
 
     /**
-     * Create a rate limit response
+     * Create a rate limit response.
      * @param int $retryAfter - Seconds to wait before retry
      * @return JSONResponse
      */
     public function createRateLimitResponse(int $retryAfter = 60): JSONResponse
     {
         $response = $this->createErrorResponse('Rate limit exceeded', Http::STATUS_TOO_MANY_REQUESTS);
-        $response->addHeader('Retry-After', (string)$retryAfter);
+        $response->addHeader('Retry-After', (string) $retryAfter);
+
         return $response;
     }
 
     /**
-     * Create a maintenance mode response
+     * Create a maintenance mode response.
      * @param string $message - Maintenance message
      * @return JSONResponse
      */
@@ -208,11 +208,12 @@ class ResponseBuilder
     {
         $response = $this->createErrorResponse($message, Http::STATUS_SERVICE_UNAVAILABLE);
         $response->addHeader('Retry-After', '300'); // 5 minutes
+
         return $response;
     }
 
     /**
-     * Add CORS headers to response
+     * Add CORS headers to response.
      * @param JSONResponse|StreamResponse $response - Response to modify
      * @param array $allowedOrigins - Allowed origins
      */
@@ -229,7 +230,7 @@ class ResponseBuilder
     }
 
     /**
-     * Add security headers to response
+     * Add security headers to response.
      * @param JSONResponse|StreamResponse $response - Response to modify
      */
     public function addSecurityHeaders($response): void
@@ -241,7 +242,7 @@ class ResponseBuilder
     }
 
     /**
-     * Add Content Security Policy headers for 3D viewer
+     * Add Content Security Policy headers for 3D viewer.
      * @param JSONResponse|StreamResponse $response - Response to modify
      */
     public function addCspHeaders($response): void
@@ -260,7 +261,7 @@ class ResponseBuilder
     }
 
     /**
-     * Add cache headers to response
+     * Add cache headers to response.
      * @param JSONResponse|StreamResponse $response - Response to modify
      * @param int $maxAge - Max age in seconds
      * @param bool $public - Whether response is public
@@ -275,7 +276,7 @@ class ResponseBuilder
     }
 
     /**
-     * Add no-cache headers to response
+     * Add no-cache headers to response.
      * @param JSONResponse|StreamResponse $response - Response to modify
      */
     public function addNoCacheHeaders($response): void

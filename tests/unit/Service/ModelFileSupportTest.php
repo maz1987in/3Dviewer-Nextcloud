@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace OCA\ThreeDViewer\Tests\Unit\Service;
 
+use OCA\ThreeDViewer\Service\Exception\UnsupportedFileTypeException;
 use OCA\ThreeDViewer\Service\ModelFileSupport;
 use OCP\Files\File;
 use OCP\Files\Folder;
 use OCP\Files\NotFoundException;
-use OCA\ThreeDViewer\Service\Exception\UnsupportedFileTypeException;
-use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\TestCase;
 
 class ModelFileSupportTest extends TestCase
 {

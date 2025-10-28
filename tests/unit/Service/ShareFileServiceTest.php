@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace OCA\ThreeDViewer\Tests\Unit\Service;
 
-use OCA\ThreeDViewer\Service\ShareFileService;
-use OCA\ThreeDViewer\Service\ModelFileSupport;
 use OCA\ThreeDViewer\Service\Exception\UnsupportedFileTypeException;
+use OCA\ThreeDViewer\Service\ModelFileSupport;
+use OCA\ThreeDViewer\Service\ShareFileService;
 use OCP\Files\File;
-use OCP\Files\Folder;
 use OCP\Files\NotFoundException;
 use OCP\Share\IManager;
 use OCP\Share\IShare;

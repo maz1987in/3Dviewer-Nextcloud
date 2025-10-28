@@ -13,7 +13,6 @@ use OCP\AppFramework\OCSController;
 use OCP\Files\IRootFolder;
 use OCP\IRequest;
 use OCP\IUserSession;
-use OCP\AppFramework\Db\DoesNotExistException;
 
 /**
  * @psalm-suppress UnusedClass
@@ -34,7 +33,7 @@ class ApiController extends OCSController
     }
 
     /**
-     * An example API endpoint
+     * An example API endpoint.
      *
      * @return DataResponse<Http::STATUS_OK, array{message: string}, array{}>
      *
@@ -50,14 +49,18 @@ class ApiController extends OCSController
     }
 
     /**
-     * Get a file by ID
+     * Get a file by ID.
      *
-     * @param int $fileId
+     * @param int $fileId File identifier
      * @return StreamResponse<Http::STATUS_OK, array{}>
      *   | DataResponse<Http::STATUS_UNAUTHORIZED, array{error: string}, array{}>
      *   | DataResponse<Http::STATUS_FORBIDDEN, array{error: string}, array{}>
      *   | DataResponse<Http::STATUS_NOT_FOUND, array{error: string}, array{}>
      *   | DataResponse<Http::STATUS_INTERNAL_SERVER_ERROR, array{error: string}, array{}>
+     *
+     * 200: File streamed successfully
+     * 403: File not readable or access denied
+     * 404: File not found
      */
     #[NoAdminRequired]
     #[ApiRoute(verb: 'GET', url: '/api/file/{fileId}')]
@@ -90,19 +93,18 @@ class ApiController extends OCSController
 
         $response = new StreamResponse($stream);
         $response->addHeader('Content-Type', $file->getMimeType());
-        $response->addHeader('Content-Length', (string)$file->getSize());
+        $response->addHeader('Content-Length', (string) $file->getSize());
         $response->addHeader('Content-Disposition', 'inline; filename="' . addslashes($file->getName()) . '"');
         $response->addHeader('Cache-Control', 'public, max-age=3600');
 
         return $response;
     }
 
-
     /**
-     * List 3D files
+     * List 3D files.
      *
      * @return DataResponse<Http::STATUS_OK, array{
-     *   files: array<array{
+     *   files: list<array{
      *     id: int,
      *     name: string,
      *     path: string,
@@ -111,6 +113,8 @@ class ApiController extends OCSController
      *     mimetype: string
      *   }>
      * }, array{}>
+     *
+     * 200: Files returned
      */
     #[NoAdminRequired]
     #[ApiRoute(verb: 'GET', url: '/api/files')]
@@ -133,7 +137,7 @@ class ApiController extends OCSController
     }
 
     /**
-     * Recursively scan for 3D files
+     * Recursively scan for 3D files.
      */
     private function scanFor3DFiles($folder, array $extensions, array &$files): void
     {
@@ -149,7 +153,7 @@ class ApiController extends OCSController
                         'path' => $node->getPath(),
                         'size' => $node->getSize(),
                         'mtime' => $node->getMTime(),
-                        'mimetype' => $node->getMimeType()
+                        'mimetype' => $node->getMimeType(),
                     ];
                 }
             } elseif ($node->getType() === \OCP\Files\FileInfo::TYPE_FOLDER) {
