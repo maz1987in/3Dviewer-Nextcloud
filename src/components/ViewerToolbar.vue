@@ -208,9 +208,9 @@ export default {
 .viewer-toolbar {
 	position: absolute;
 	top: 8px;
-	left: 8px;
+	inset-inline-start: 8px;
 	z-index: 10;
-	background: rgba(0,0,0,0.45);
+	background: rgb(0 0 0 / 45%);
 	backdrop-filter: blur(8px);
 	padding: 6px 8px;
 	border-radius: 8px;
@@ -219,8 +219,8 @@ export default {
 	gap: 6px;
 	align-items: center;
 	transition: all 0.3s ease;
-	border: 1px solid rgba(255, 255, 255, 0.1);
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+	border: 1px solid rgb(255 255 255 / 10%);
+	box-shadow: 0 4px 12px rgb(0 0 0 / 15%);
 }
 
 .toolbar-main {
@@ -252,7 +252,7 @@ export default {
 	touch-action: manipulation;
 	min-height: 32px;
 	font-weight: 500;
-	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+	box-shadow: 0 2px 4px rgb(0 0 0 / 10%);
 	position: relative;
 	overflow: hidden;
 }
@@ -261,15 +261,15 @@ export default {
 	content: '';
 	position: absolute;
 	top: 0;
-	left: -100%;
+	inset-inline-start: -100%;
 	width: 100%;
 	height: 100%;
-	background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+	background: linear-gradient(90deg, transparent, rgb(255 255 255 / 20%), transparent);
 	transition: left 0.5s;
 }
 
 .tb:hover::before {
-	left: 100%;
+	inset-inline-start: 100%;
 }
 
 .tb-icon {
@@ -325,9 +325,9 @@ export default {
 .preset-select {
 	font-size: 10px;
 	padding: 4px 6px;
-	border: 1px solid rgba(255, 255, 255, 0.3);
+	border: 1px solid rgb(255 255 255 / 30%);
 	border-radius: 4px;
-	background: rgba(255, 255, 255, 0.1);
+	background: rgb(255 255 255 / 10%);
 	color: white;
 	cursor: pointer;
 	min-width: 100px;
@@ -346,8 +346,7 @@ export default {
 /* Mobile-specific styles */
 .viewer-toolbar.mobile {
 	top: 4px;
-	left: 4px;
-	right: 4px;
+	inset-inline: 4px;
 	flex-direction: row;
 	justify-content: space-between;
 	padding: 6px 8px;
@@ -390,11 +389,10 @@ export default {
 }
 
 /* Landscape mobile optimization */
-@media (max-width: 768px) and (orientation: landscape) {
+@media (width <= 768px) and (orientation: landscape) {
 	.viewer-toolbar.mobile {
 		top: 2px;
-		left: 2px;
-		right: 2px;
+		inset-inline: 2px;
 		padding: 4px 6px;
 	}
 
@@ -410,7 +408,7 @@ export default {
 }
 
 /* Very small screens */
-@media (max-width: 480px) {
+@media (width <= 480px) {
 	.viewer-toolbar.mobile .tb-text {
 		display: none; /* Hide text on very small screens, show only icons */
 	}
@@ -424,9 +422,9 @@ export default {
 
 /* Dark theme support */
 .dark-theme .viewer-toolbar {
-	background: rgba(30, 30, 30, 0.8);
-	border-color: rgba(255, 255, 255, 0.2);
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+	background: rgb(30 30 30 / 80%);
+	border-color: rgb(255 255 255 / 20%);
+	box-shadow: 0 4px 12px rgb(0 0 0 / 30%);
 }
 
 .dark-theme .tb {
@@ -444,8 +442,8 @@ export default {
 }
 
 .dark-theme .preset-select {
-	background: rgba(255, 255, 255, 0.1);
-	border-color: rgba(255, 255, 255, 0.3);
+	background: rgb(255 255 255 / 10%);
+	border-color: rgb(255 255 255 / 30%);
 	color: white;
 }
 
@@ -460,17 +458,17 @@ export default {
 .preset-select:focus-visible {
 	outline: 2px solid var(--color-primary, #0d47a1);
 	outline-offset: 2px;
-	box-shadow: 0 0 0 4px rgba(13, 71, 161, 0.2);
+	box-shadow: 0 0 0 4px rgb(13 71 161 / 20%);
 }
 
 /* High contrast mode */
 @media (prefers-contrast: high) {
 	.tb {
-		border: 2px solid currentColor;
+		border: 2px solid currentcolor;
 	}
 
 	.viewer-toolbar {
-		border: 2px solid rgba(255, 255, 255, 0.5);
+		border: 2px solid rgb(255 255 255 / 50%);
 	}
 }
 

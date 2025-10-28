@@ -21,7 +21,8 @@ use Psr\Log\LoggerInterface;
 /**
  * Controller for serving 3D files using Nextcloud filesystem API
  */
-class FileController extends BaseController {
+class FileController extends BaseController
+{
     public function __construct(
         string $appName,
         IRequest $request,
@@ -40,7 +41,8 @@ class FileController extends BaseController {
     #[NoAdminRequired]
     #[NoCSRFRequired]
     #[FrontpageRoute(verb: 'GET', url: '/api/test')]
-    public function test(): JSONResponse {
+    public function test(): JSONResponse
+    {
         return new JSONResponse(['status' => 'ok', 'message' => 'FileController is working']);
     }
 
@@ -50,11 +52,12 @@ class FileController extends BaseController {
     #[NoAdminRequired]
     #[NoCSRFRequired]
     #[FrontpageRoute(verb: 'GET', url: '/api/file/{fileId}')]
-    public function serveFile(int $fileId): StreamResponse|JSONResponse {
+    public function serveFile(int $fileId): StreamResponse|JSONResponse
+    {
         try {
             // Validate file ID
             $fileId = $this->validateFileId($fileId);
-            
+
             // Check authentication
             $user = $this->userSession->getUser();
             if ($user === null) {
@@ -64,7 +67,7 @@ class FileController extends BaseController {
             // Get user's folder and find file
             $userFolder = $this->rootFolder->getUserFolder($user->getUID());
             $files = $userFolder->getById($fileId);
-            
+
             if (empty($files)) {
                 return $this->responseBuilder->createNotFoundResponse('File not found');
             }
@@ -77,11 +80,11 @@ class FileController extends BaseController {
             // Validate file (skip validation for dependency files like bin, png, jpg, etc.)
             $extension = strtolower($file->getExtension());
             $dependencyExtensions = ['bin', 'png', 'jpg', 'jpeg', 'tif', 'tiff', 'tga', 'bmp', 'webp'];
-            
+
             if (!in_array($extension, $dependencyExtensions)) {
                 $this->validateFile($file);
             }
-            
+
             // Check file size
             if (!$this->isFileSizeAcceptable($file)) {
                 return $this->responseBuilder->createErrorResponse(
@@ -116,7 +119,8 @@ class FileController extends BaseController {
     #[NoAdminRequired]
     #[NoCSRFRequired]
     #[FrontpageRoute(verb: 'GET', url: '/api/files/list')]
-    public function listFiles(): JSONResponse {
+    public function listFiles(): JSONResponse
+    {
         try {
             // Check authentication
             $user = $this->userSession->getUser();
@@ -125,14 +129,14 @@ class FileController extends BaseController {
             }
 
             $userFolder = $this->rootFolder->getUserFolder($user->getUID());
-            
+
             // Check if a specific path is requested
             $path = $this->request->getParam('path');
             if ($path) {
                 // List files in specific directory
                 return $this->listFilesInDirectory($userFolder, $path);
             }
-            
+
             $files = [];
 
             // Recursively find all 3D files (original behavior)
@@ -155,9 +159,10 @@ class FileController extends BaseController {
     /**
      * Recursively find 3D files in a folder
      */
-    private function find3DFiles(\OCP\Files\Folder $folder, array &$files): void {
+    private function find3DFiles(\OCP\Files\Folder $folder, array &$files): void
+    {
         $children = $folder->getDirectoryListing();
-        
+
         foreach ($children as $node) {
             if ($node instanceof \OCP\Files\File) {
                 $extension = strtolower($node->getExtension());
@@ -182,18 +187,19 @@ class FileController extends BaseController {
     /**
      * List files in a specific directory
      */
-    private function listFilesInDirectory($userFolder, string $path): JSONResponse {
+    private function listFilesInDirectory($userFolder, string $path): JSONResponse
+    {
         try {
             // Normalize path (remove leading slash if present)
             $normalizedPath = ltrim($path, '/');
-            
+
             // Get the directory
             $directory = $userFolder->get($normalizedPath);
-            
+
             if (!$directory instanceof \OCP\Files\Folder) {
                 return new JSONResponse(['error' => 'Path is not a directory'], Http::STATUS_BAD_REQUEST);
             }
-            
+
             $files = [];
             foreach ($directory->getDirectoryListing() as $node) {
                 $files[] = [
@@ -206,9 +212,9 @@ class FileController extends BaseController {
                     'isFolder' => $node instanceof \OCP\Files\Folder
                 ];
             }
-            
+
             return new JSONResponse($files);
-            
+
         } catch (\OCP\Files\NotFoundException $e) {
             return new JSONResponse(['error' => 'Directory not found: ' . $path], Http::STATUS_NOT_FOUND);
         } catch (\Exception $e) {

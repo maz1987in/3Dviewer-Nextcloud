@@ -119,17 +119,16 @@ export default {
 	position: relative;
 	width: 100%;
 	height: 100vh;
-	background: var(--color-main-background, #ffffff);
+	background: var(--color-main-background, #fff);
 	overflow: hidden;
 }
 
 .modal-toolbar {
 	position: absolute;
 	top: 0;
-	left: 0;
-	right: 0;
+	inset-inline: 0;
 	z-index: 1000;
-	background: rgba(255, 255, 255, 0.95);
+	background: rgb(255 255 255 / 95%);
 	backdrop-filter: blur(10px);
 	border-bottom: 1px solid var(--color-border, #e0e0e0);
 }
@@ -140,7 +139,7 @@ export default {
 }
 
 .theme--dark .modal-toolbar {
-	background: rgba(30, 30, 30, 0.95);
+	background: rgb(30 30 30 / 95%);
 	border-bottom-color: var(--color-border, #404040);
 }
 </style>

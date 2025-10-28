@@ -21,19 +21,22 @@ use RuntimeException;
 /**
  * @psalm-suppress PossiblyUnusedMethod Constructed by DI container runtime.
  */
-class ShareFileService {
+class ShareFileService
+{
     /** @psalm-suppress PossiblyUnusedMethod Constructed via DI container */
     public function __construct(
         private readonly ShareManager $shareManager,
         private readonly ModelFileSupport $support,
-    ) {}
+    ) {
+    }
 
     /**
      * Resolve the shared node then optionally narrow to a child file by id.
      * @throws NotFoundException
      * @throws UnsupportedFileTypeException
      */
-    public function getFileFromShare(string $token, ?int $fileId = null): File {
+    public function getFileFromShare(string $token, ?int $fileId = null): File
+    {
         $share = $this->loadLinkShare($token);
         $node = $share->getNode();
         if ($fileId !== null) {
@@ -59,7 +62,8 @@ class ShareFileService {
      * @throws NotFoundException
      * @throws UnsupportedFileTypeException
      */
-    public function getSiblingMaterialFromShare(string $token, int $objFileId, string $mtlName): File {
+    public function getSiblingMaterialFromShare(string $token, int $objFileId, string $mtlName): File
+    {
         $obj = $this->getFileFromShare($token, $objFileId);
         return $this->support->findSiblingMtl($obj, $mtlName);
     }
@@ -68,14 +72,17 @@ class ShareFileService {
      * Depth-first search for a file by id inside a folder (small share trees assumed).
      * @return File|null
      */
-    private function searchInFolderById(Folder $folder, int $fileId): ?File {
+    private function searchInFolderById(Folder $folder, int $fileId): ?File
+    {
         foreach ($folder->getDirectoryListing() as $child) {
             if ($child->getId() === $fileId && $child instanceof File) {
                 return $child;
             }
             if ($child instanceof Folder) {
                 $found = $this->searchInFolderById($child, $fileId);
-                if ($found) return $found;
+                if ($found) {
+                    return $found;
+                }
             }
         }
         return null;
@@ -84,7 +91,8 @@ class ShareFileService {
     /**
      * @throws NotFoundException
      */
-    private function loadLinkShare(string $token): IShare {
+    private function loadLinkShare(string $token): IShare
+    {
         // Some Nextcloud versions expose getShareByToken(string $token): ?IShare
         $share = $this->shareManager->getShareByToken($token);
         /** @psalm-suppress DocblockTypeContradiction Legacy interface may return null */

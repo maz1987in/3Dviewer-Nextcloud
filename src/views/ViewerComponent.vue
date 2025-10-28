@@ -917,14 +917,14 @@ export default {
 .threedviewer-progress {
 	position: absolute;
 	top: 50%;
-	left: 50%;
+	inset-inline-start: 50%;
 	transform: translate(-50%, -50%);
 	text-align: center;
 	min-width: 300px;
 }
 
 .threedviewer-progress p {
-	color: #ffffff;
+	color: #fff;
 	font-weight: 500;
 	margin: 8px 0;
 }
@@ -933,13 +933,13 @@ export default {
 .open-in-app-button {
 	position: absolute !important;
 	top: 16px;
-	right: 16px;
+	inset-inline-end: 16px;
 	z-index: 1000;
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+	box-shadow: 0 2px 8px rgb(0 0 0 / 30%);
 }
 
 .open-in-app-button:hover {
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+	box-shadow: 0 4px 12px rgb(0 0 0 / 40%);
 }
 
 /* Hide Nextcloud Viewer's loading spinner when our progress bar is showing */

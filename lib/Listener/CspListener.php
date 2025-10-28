@@ -13,36 +13,39 @@ use Psr\Log\LoggerInterface;
 /**
  * Listener to modify CSP headers for 3D viewer compatibility
  */
-class CspListener implements IEventListener {
-	private LoggerInterface $logger;
+class CspListener implements IEventListener
+{
+    private LoggerInterface $logger;
 
-	public function __construct(LoggerInterface $logger) {
-		$this->logger = $logger;
-	}
+    public function __construct(LoggerInterface $logger)
+    {
+        $this->logger = $logger;
+    }
 
-	public function handle(Event $event): void {
-		if (!($event instanceof BeforeTemplateRenderedEvent)) {
-			return;
-		}
+    public function handle(Event $event): void
+    {
+        if (!($event instanceof BeforeTemplateRenderedEvent)) {
+            return;
+        }
 
-		$response = $event->getResponse();
-		
-		// Apply CSP modifications for all requests to allow blob URLs for 3D viewer
-		$this->logger->info('[ThreeDViewer] Applying CSP modifications for 3D viewer compatibility');
-		
-		$csp = new ContentSecurityPolicy();
-		
-		// Allow blob URLs for GLTF texture loading and WebGL contexts
-		$csp->addAllowedConnectDomain('blob:');
-		$csp->addAllowedConnectDomain('data:');  // Allow data URIs for embedded GLTF buffers
-		$csp->addAllowedImageDomain('blob:');
-		$csp->addAllowedImageDomain('data:');
-		
-		// Allow workers with blob URLs
-		$csp->addAllowedChildSrcDomain('blob:');
-		
-		$response->setContentSecurityPolicy($csp);
-		
-		$this->logger->info('[ThreeDViewer] CSP headers applied successfully');
-	}
+        $response = $event->getResponse();
+
+        // Apply CSP modifications for all requests to allow blob URLs for 3D viewer
+        $this->logger->info('[ThreeDViewer] Applying CSP modifications for 3D viewer compatibility');
+
+        $csp = new ContentSecurityPolicy();
+
+        // Allow blob URLs for GLTF texture loading and WebGL contexts
+        $csp->addAllowedConnectDomain('blob:');
+        $csp->addAllowedConnectDomain('data:');  // Allow data URIs for embedded GLTF buffers
+        $csp->addAllowedImageDomain('blob:');
+        $csp->addAllowedImageDomain('data:');
+
+        // Allow workers with blob URLs
+        $csp->addAllowedChildSrcDomain('blob:');
+
+        $response->setContentSecurityPolicy($csp);
+
+        $this->logger->info('[ThreeDViewer] CSP headers applied successfully');
+    }
 }

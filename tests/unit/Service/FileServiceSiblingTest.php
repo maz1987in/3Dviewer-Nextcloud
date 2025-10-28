@@ -21,14 +21,17 @@ use RuntimeException;
  * Focused tests for FileService::getSiblingMaterialFile logic using simple mocks.
  * We do not spin up full Nextcloud; rely on interface existence in test bootstrap.
  */
-class FileServiceSiblingTest extends TestCase {
-    private function makeUserSession(?IUser $user): IUserSession {
+class FileServiceSiblingTest extends TestCase
+{
+    private function makeUserSession(?IUser $user): IUserSession
+    {
         $session = $this->createMock(IUserSession::class);
         $session->method('getUser')->willReturn($user);
         return $session;
     }
 
-    private function makeFile(int $id, string $name, ?Node $parent = null): File {
+    private function makeFile(int $id, string $name, ?Node $parent = null): File
+    {
         $file = $this->createMock(File::class);
         $file->method('getExtension')->willReturn(pathinfo($name, PATHINFO_EXTENSION));
         $file->method('getName')->willReturn($name);
@@ -37,7 +40,8 @@ class FileServiceSiblingTest extends TestCase {
         return $file;
     }
 
-    public function testSiblingMaterialFound(): void {
+    public function testSiblingMaterialFound(): void
+    {
         if (!interface_exists(IRootFolder::class)) {
             $this->markTestSkipped('OCP interfaces not available');
         }
@@ -76,7 +80,8 @@ class FileServiceSiblingTest extends TestCase {
         */
     }
 
-    public function testSiblingMaterialNotFound(): void {
+    public function testSiblingMaterialNotFound(): void
+    {
         if (!interface_exists(IRootFolder::class)) {
             $this->markTestSkipped('OCP interfaces not available');
         }
@@ -84,22 +89,23 @@ class FileServiceSiblingTest extends TestCase {
         $user->method('getUID')->willReturn('u1');
         $session = $this->makeUserSession($user);
         $root = $this->createMock(IRootFolder::class);
-    $userFolder = $this->createMock(Folder::class);
+        $userFolder = $this->createMock(Folder::class);
         $root->method('getUserFolder')->willReturn($userFolder);
         $obj = $this->makeFile(1, 'chair.obj');
         $folder = $this->createMock(Folder::class);
         $obj->method('getParent')->willReturn($folder);
         $folder->method('getDirectoryListing')->willReturn([$obj]);
         $userFolder->method('getById')->willReturn([$obj]);
-    $support = $this->createMock(ModelFileSupport::class);
-    $support->method('isSupported')->willReturnCallback(fn($ext)=> $ext === 'obj');
-    $support->method('findSiblingMtl')->willThrowException(new NotFoundException('MTL not found'));
-    $service = new FileService($root, $session, $support);
-    $this->expectException(NotFoundException::class);
+        $support = $this->createMock(ModelFileSupport::class);
+        $support->method('isSupported')->willReturnCallback(fn ($ext) => $ext === 'obj');
+        $support->method('findSiblingMtl')->willThrowException(new NotFoundException('MTL not found'));
+        $service = new FileService($root, $session, $support);
+        $this->expectException(NotFoundException::class);
         $service->getSiblingMaterialFile(1, 'chair.mtl');
     }
 
-    public function testSiblingMaterialWrongType(): void {
+    public function testSiblingMaterialWrongType(): void
+    {
         if (!interface_exists(IRootFolder::class)) {
             $this->markTestSkipped('OCP interfaces not available');
         }
@@ -107,13 +113,13 @@ class FileServiceSiblingTest extends TestCase {
         $user->method('getUID')->willReturn('u1');
         $session = $this->makeUserSession($user);
         $root = $this->createMock(IRootFolder::class);
-    $userFolder = $this->createMock(Folder::class);
+        $userFolder = $this->createMock(Folder::class);
         $root->method('getUserFolder')->willReturn($userFolder);
         $glb = $this->makeFile(1, 'scene.glb');
         $userFolder->method('getById')->willReturn([$glb]);
-    $support = $this->createMock(ModelFileSupport::class);
-    $support->method('isSupported')->willReturnCallback(fn($ext)=> $ext === 'glb');
-    $support->method('findSiblingMtl')->willThrowException(new UnsupportedFileTypeException('Not an OBJ file'));
+        $support = $this->createMock(ModelFileSupport::class);
+        $support->method('isSupported')->willReturnCallback(fn ($ext) => $ext === 'glb');
+        $support->method('findSiblingMtl')->willThrowException(new UnsupportedFileTypeException('Not an OBJ file'));
         $service = new FileService($root, $session, $support);
         $this->expectException(UnsupportedFileTypeException::class);
         $service->getSiblingMaterialFile(1, 'scene.mtl');

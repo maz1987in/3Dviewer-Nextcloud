@@ -2008,13 +2008,15 @@ export default {
 .annotation-overlay {
 	/* Ensure panels are positioned below any header/toolbar */
 	top: 80px !important;
+
 	/* Ensure panels don't extend beyond viewport */
 	max-width: 280px !important;
+
 	/* Ensure proper z-index */
 	z-index: 250 !important;
 }
 
-@media (max-width: 768px) {
+@media (width <= 768px) {
 	.measurement-overlay,
 	.annotation-overlay {
 		top: 140px !important;
@@ -2033,10 +2035,9 @@ export default {
 .loading {
 	position: absolute;
 	top: 0;
-	left: 0;
-	right: 0;
+	inset-inline: 0;
 	bottom: 0;
-	background: rgba(0, 0, 0, 0.8);
+	background: rgb(0 0 0 / 80%);
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -2083,7 +2084,7 @@ export default {
 .loading-spinner {
 	width: 40px;
 	height: 40px;
-	border: 4px solid rgba(255, 255, 255, 0.3);
+	border: 4px solid rgb(255 255 255 / 30%);
 	border-top: 4px solid white;
 	border-radius: 50%;
 	animation: spin 1s linear infinite;
@@ -2099,10 +2100,9 @@ export default {
 .export-progress-overlay {
 	position: absolute;
 	top: 0;
-	left: 0;
-	right: 0;
+	inset-inline: 0;
 	bottom: 0;
-	background: rgba(0, 0, 0, 0.85);
+	background: rgb(0 0 0 / 85%);
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -2115,10 +2115,10 @@ export default {
 	color: white;
 	max-width: 400px;
 	padding: 30px;
-	background: rgba(0, 0, 0, 0.7);
+	background: rgb(0 0 0 / 70%);
 	border-radius: 12px;
-	border: 1px solid rgba(255, 255, 255, 0.1);
-	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+	border: 1px solid rgb(255 255 255 / 10%);
+	box-shadow: 0 8px 32px rgb(0 0 0 / 30%);
 }
 
 .export-icon {
@@ -2136,7 +2136,7 @@ export default {
 	font-size: 16px;
 	font-weight: 500;
 	margin-bottom: 12px;
-	color: #ffffff;
+	color: #fff;
 }
 
 .export-percentage {
@@ -2167,18 +2167,18 @@ export default {
 .model-stats-overlay {
 	position: absolute;
 	top: 80px;
-	left: 20px;
+	inset-inline-start: 20px;
 	width: 320px;
 	max-height: 600px;
-	background: rgba(0, 0, 0, 0.9);
-	border: 1px solid rgba(255, 255, 255, 0.2);
+	background: rgb(0 0 0 / 90%);
+	border: 1px solid rgb(255 255 255 / 20%);
 	border-radius: 8px;
 	color: white;
 	z-index: 300;
 	overflow: hidden;
 	display: flex;
 	flex-direction: column;
-	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+	box-shadow: 0 8px 32px rgb(0 0 0 / 40%);
 }
 
 .stats-panel-header {
@@ -2186,8 +2186,8 @@ export default {
 	justify-content: space-between;
 	align-items: center;
 	padding: 16px 20px;
-	background: rgba(0, 0, 0, 0.5);
-	border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+	background: rgb(0 0 0 / 50%);
+	border-bottom: 1px solid rgb(255 255 255 / 20%);
 }
 
 .stats-title-group {
@@ -2224,7 +2224,7 @@ export default {
 }
 
 .close-stats-btn:hover {
-	background: rgba(255, 255, 255, 0.1);
+	background: rgb(255 255 255 / 10%);
 }
 
 .stats-panel-content {
@@ -2236,7 +2236,7 @@ export default {
 .stats-section {
 	margin-bottom: 20px;
 	padding-bottom: 16px;
-	border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+	border-bottom: 1px solid rgb(255 255 255 / 10%);
 }
 
 .stats-section:last-child {
@@ -2245,10 +2245,10 @@ export default {
 }
 
 .stats-section h4 {
-	margin: 0 0 12px 0;
+	margin: 0 0 12px;
 	font-size: 14px;
 	font-weight: 600;
-	color: rgba(255, 255, 255, 0.9);
+	color: rgb(255 255 255 / 90%);
 }
 
 .stat-row {
@@ -2260,12 +2260,12 @@ export default {
 }
 
 .stat-row span:first-child {
-	color: rgba(255, 255, 255, 0.7);
+	color: rgb(255 255 255 / 70%);
 }
 
 .stat-row .stat-value {
 	font-weight: 600;
-	color: #ffffff;
+	color: #fff;
 	font-family: 'Courier New', monospace;
 }
 
@@ -2279,30 +2279,30 @@ export default {
 	display: flex;
 	justify-content: space-between;
 	padding: 8px 12px;
-	background: rgba(255, 255, 255, 0.05);
+	background: rgb(255 255 255 / 5%);
 	border-radius: 4px;
 	font-size: 12px;
 }
 
 .material-name {
-	color: #ffffff;
+	color: #fff;
 	font-weight: 500;
 }
 
 .material-type {
-	color: rgba(255, 255, 255, 0.6);
+	color: rgb(255 255 255 / 60%);
 	font-size: 11px;
 }
 
 .no-items {
-	color: rgba(255, 255, 255, 0.5);
+	color: rgb(255 255 255 / 50%);
 	font-style: italic;
 	font-size: 12px;
 	padding: 8px 0;
 }
 
 .more-items {
-	color: rgba(255, 255, 255, 0.6);
+	color: rgb(255 255 255 / 60%);
 	font-size: 12px;
 	padding: 8px 12px;
 	text-align: center;
@@ -2312,8 +2312,7 @@ export default {
 /* Mobile adjustments for stats panel */
 .model-stats-overlay.mobile {
 	top: 60px;
-	left: 10px;
-	right: 10px;
+	inset-inline: 10px;
 	width: auto;
 	max-height: 500px;
 }
@@ -2333,9 +2332,8 @@ export default {
 .error-display {
 	position: absolute;
 	top: 20px;
-	left: 20px;
-	right: 20px;
-	background: rgba(255, 0, 0, 0.9);
+	inset-inline: 20px;
+	background: rgb(255 0 0 / 90%);
 	color: white;
 	padding: 20px;
 	border-radius: 8px;
@@ -2346,8 +2344,8 @@ export default {
 .texture-progress-indicator {
 	position: absolute;
 	bottom: 10px;
-	right: 10px;
-	background: rgba(0, 0, 0, 0.85);
+	inset-inline-end: 10px;
+	background: rgb(0 0 0 / 85%);
 	color: white;
 	padding: 12px 16px;
 	border-radius: 8px;
@@ -2356,8 +2354,8 @@ export default {
 	display: flex;
 	align-items: center;
 	gap: 8px;
-	border: 1px solid rgba(255, 255, 255, 0.2);
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+	border: 1px solid rgb(255 255 255 / 20%);
+	box-shadow: 0 4px 12px rgb(0 0 0 / 30%);
 	backdrop-filter: blur(10px);
 	min-width: 200px;
 }
@@ -2370,13 +2368,13 @@ export default {
 .texture-status {
 	flex: 1;
 	font-size: 11px;
-	color: rgba(255, 255, 255, 0.9);
+	color: rgb(255 255 255 / 90%);
 }
 
 .mini-progress-bar {
 	width: 80px;
 	height: 4px;
-	background: rgba(255, 255, 255, 0.2);
+	background: rgb(255 255 255 / 20%);
 	border-radius: 2px;
 	overflow: hidden;
 }
@@ -2390,8 +2388,7 @@ export default {
 
 .texture-progress-indicator.mobile {
 	bottom: 60px;
-	right: 10px;
-	left: 10px;
+	inset-inline: 10px;
 	font-size: 11px;
 }
 
@@ -2399,17 +2396,17 @@ export default {
 .performance-stats {
 	position: absolute !important;
 	bottom: 10px !important;
-	left: 10px !important;
-	background: rgba(0, 0, 0, 0.85) !important;
-	color: #ffffff !important;
+	inset-inline-start: 10px !important;
+	background: rgb(0 0 0 / 85%) !important;
+	color: #fff !important;
 	padding: 12px !important;
 	border-radius: 8px !important;
 	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
 	font-size: 12px !important;
 	z-index: 900 !important;
 	min-width: 180px !important;
-	border: 1px solid rgba(255, 255, 255, 0.2) !important;
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+	border: 1px solid rgb(255 255 255 / 20%) !important;
+	box-shadow: 0 4px 12px rgb(0 0 0 / 30%) !important;
 	display: block !important;
 	backdrop-filter: blur(10px) !important;
 }
@@ -2420,7 +2417,7 @@ export default {
 	gap: 8px;
 	margin-bottom: 10px;
 	padding-bottom: 8px;
-	border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+	border-bottom: 1px solid rgb(255 255 255 / 20%);
 }
 
 .stats-icon {
@@ -2442,27 +2439,27 @@ export default {
 }
 
 .stats-mode.mode-low {
-	background: rgba(255, 193, 7, 0.3);
+	background: rgb(255 193 7 / 30%);
 	color: #ffc107;
 }
 
 .stats-mode.mode-balanced {
-	background: rgba(76, 175, 80, 0.3);
+	background: rgb(76 175 80 / 30%);
 	color: #4caf50;
 }
 
 .stats-mode.mode-high {
-	background: rgba(33, 150, 243, 0.3);
+	background: rgb(33 150 243 / 30%);
 	color: #2196f3;
 }
 
 .stats-mode.mode-ultra {
-	background: rgba(156, 39, 176, 0.3);
+	background: rgb(156 39 176 / 30%);
 	color: #9c27b0;
 }
 
 .stats-mode.mode-auto {
-	background: rgba(158, 158, 158, 0.3);
+	background: rgb(158 158 158 / 30%);
 	color: #9e9e9e;
 }
 
@@ -2480,14 +2477,14 @@ export default {
 }
 
 .stat-label {
-	color: rgba(255, 255, 255, 0.7);
+	color: rgb(255 255 255 / 70%);
 	font-size: 11px;
 }
 
 .stat-value {
 	font-weight: bold;
 	font-size: 12px;
-	color: #ffffff;
+	color: #fff;
 }
 
 .stat-value.good {
@@ -2505,9 +2502,9 @@ export default {
 .comparison-controls {
 	position: absolute;
 	top: 60px; /* Position below main toolbar */
-	right: 8px;
+	inset-inline-end: 8px;
 	z-index: 10;
-	background: rgba(0,0,0,0.45);
+	background: rgb(0 0 0 / 45%);
 	backdrop-filter: blur(8px);
 	padding: 6px 8px;
 	border-radius: 8px;
@@ -2516,8 +2513,8 @@ export default {
 	gap: 6px;
 	align-items: center;
 	transition: all 0.3s ease;
-	border: 1px solid rgba(255, 255, 255, 0.1);
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+	border: 1px solid rgb(255 255 255 / 10%);
+	box-shadow: 0 4px 12px rgb(0 0 0 / 15%);
 }
 
 .comparison-buttons {
@@ -2543,7 +2540,7 @@ export default {
 	touch-action: manipulation;
 	min-height: 32px;
 	font-weight: 500;
-	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+	box-shadow: 0 2px 4px rgb(0 0 0 / 10%);
 	position: relative;
 	overflow: hidden;
 }
@@ -2552,15 +2549,15 @@ export default {
 	content: '';
 	position: absolute;
 	top: 0;
-	left: -100%;
+	inset-inline-start: -100%;
 	width: 100%;
 	height: 100%;
-	background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+	background: linear-gradient(90deg, transparent, rgb(255 255 255 / 20%), transparent);
 	transition: left 0.5s;
 }
 
 .comparison-btn:hover::before {
-	left: 100%;
+	inset-inline-start: 100%;
 }
 
 .comparison-btn:hover {
@@ -2586,8 +2583,7 @@ export default {
 /* Mobile-specific styles for comparison controls */
 .comparison-controls.mobile {
 	top: 50px; /* Adjust for mobile toolbar height */
-	right: 4px;
-	left: 4px;
+	inset-inline: 4px;
 	flex-direction: row;
 	justify-content: space-between;
 	padding: 6px 8px;
@@ -2615,11 +2611,10 @@ export default {
 }
 
 /* Landscape mobile optimization */
-@media (max-width: 768px) and (orientation: landscape) {
+@media (width <= 768px) and (orientation: landscape) {
 	.comparison-controls.mobile {
 		top: 40px;
-		left: 2px;
-		right: 2px;
+		inset-inline: 2px;
 		padding: 4px 6px;
 	}
 
@@ -2630,7 +2625,7 @@ export default {
 }
 
 /* Very small screens */
-@media (max-width: 480px) {
+@media (width <= 480px) {
 	.comparison-controls.mobile .btn-text {
 		display: none; /* Hide text on very small screens, show only icons */
 	}
@@ -2644,9 +2639,9 @@ export default {
 
 /* Dark theme support for comparison controls */
 .dark-theme .comparison-controls {
-	background: rgba(30, 30, 30, 0.8);
-	border-color: rgba(255, 255, 255, 0.2);
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+	background: rgb(30 30 30 / 80%);
+	border-color: rgb(255 255 255 / 20%);
+	box-shadow: 0 4px 12px rgb(0 0 0 / 30%);
 }
 
 .dark-theme .comparison-btn {
@@ -2662,17 +2657,17 @@ export default {
 .comparison-btn:focus-visible {
 	outline: 2px solid var(--color-primary, #0d47a1);
 	outline-offset: 2px;
-	box-shadow: 0 0 0 4px rgba(13, 71, 161, 0.2);
+	box-shadow: 0 0 0 4px rgb(13 71 161 / 20%);
 }
 
 /* High contrast mode for comparison controls */
 @media (prefers-contrast: high) {
 	.comparison-btn {
-		border: 2px solid currentColor;
+		border: 2px solid currentcolor;
 	}
 
 	.comparison-controls {
-		border: 2px solid rgba(255, 255, 255, 0.5);
+		border: 2px solid rgb(255 255 255 / 50%);
 	}
 }
 
@@ -2694,8 +2689,7 @@ export default {
 .mobile-hints {
 	position: absolute;
 	bottom: 20px;
-	left: 20px;
-	right: 20px;
+	inset-inline: 20px;
 	display: flex;
 	justify-content: space-around;
 	z-index: 100;
@@ -2707,7 +2701,7 @@ export default {
 	align-items: center;
 	gap: 5px;
 	color: white;
-	background: rgba(0, 0, 0, 0.7);
+	background: rgb(0 0 0 / 70%);
 	padding: 10px;
 	border-radius: 5px;
 }
@@ -2720,7 +2714,7 @@ export default {
 	font-size: 12px;
 }
 
-@media (max-width: 768px) {
+@media (width <= 768px) {
 .mobile-hints {
 		flex-direction: column;
 		gap: 10px;
@@ -2736,9 +2730,9 @@ export default {
 .measurement-overlay {
 	position: absolute;
 	top: var(--overlay-top-spacing);
-	right: var(--overlay-side-spacing);
-	background: rgba(0, 0, 0, 0.8);
-	border: 1px solid #00ff00;
+	inset-inline-end: var(--overlay-side-spacing);
+	background: rgb(0 0 0 / 80%);
+	border: 1px solid #0f0;
 	border-radius: 8px;
 	padding: 15px;
 	max-width: 300px;
@@ -2747,6 +2741,7 @@ export default {
 	z-index: 200;
 	color: white;
 	font-family: Arial, sans-serif;
+
 	/* Ensure panel stays within bounds */
 	min-width: 250px;
 	width: auto;
@@ -2758,13 +2753,13 @@ export default {
 	align-items: center;
 	margin-bottom: 10px;
 	padding-bottom: 10px;
-	border-bottom: 1px solid #00ff00;
+	border-bottom: 1px solid #0f0;
 }
 
 .measurement-header h3 {
 	margin: 0;
 	font-size: 16px;
-	color: #00ff00;
+	color: #0f0;
 }
 
 .measurement-controls {
@@ -2775,8 +2770,8 @@ export default {
 
 .unit-selector {
 	background: #2a2a2a;
-	color: #00ff00;
-	border: 1px solid #00ff00;
+	color: #0f0;
+	border: 1px solid #0f0;
 	padding: 5px 10px;
 	border-radius: 4px;
 	font-size: 12px;
@@ -2788,7 +2783,7 @@ export default {
 }
 
 .clear-measurements-btn {
-	background: #ff4444;
+	background: #f44;
 	color: white;
 	border: none;
 	padding: 5px 10px;
@@ -2798,7 +2793,7 @@ export default {
 }
 
 .clear-measurements-btn:hover {
-	background: #ff6666;
+	background: #f66;
 }
 
 .measurement-list {
@@ -2808,8 +2803,8 @@ export default {
 }
 
 .measurement-item {
-	background: rgba(0, 255, 0, 0.1);
-	border: 1px solid rgba(0, 255, 0, 0.3);
+	background: rgb(0 255 0 / 10%);
+	border: 1px solid rgb(0 255 0 / 30%);
 	border-radius: 4px;
 	padding: 10px;
 }
@@ -2824,11 +2819,11 @@ export default {
 .measurement-label {
 	font-weight: bold;
 	font-size: 14px;
-	color: #00ff00;
+	color: #0f0;
 }
 
 .delete-measurement-btn {
-	background: #ff4444;
+	background: #f44;
 	color: white;
 	border: none;
 	padding: 3px 8px;
@@ -2838,13 +2833,13 @@ export default {
 }
 
 .delete-measurement-btn:hover {
-	background: #ff6666;
+	background: #f66;
 }
 
 .measurement-distance {
 	font-size: 16px;
 	font-weight: bold;
-	color: #ffffff;
+	color: #fff;
 }
 
 .measurement-details {
@@ -2861,20 +2856,19 @@ export default {
 
 .point-label {
 	font-size: 12px;
-	color: #cccccc;
+	color: #ccc;
 }
 
 .point-coords {
 	font-size: 11px;
-	color: #aaaaaa;
+	color: #aaa;
 	font-family: monospace;
 }
 
-@media (max-width: 768px) {
+@media (width <= 768px) {
 	.measurement-overlay {
 		top: var(--overlay-mobile-top-spacing);
-		right: var(--overlay-mobile-side-spacing);
-		left: var(--overlay-mobile-side-spacing);
+		inset-inline: var(--overlay-mobile-side-spacing);
 		max-width: none;
 		max-height: 300px;
 	}
@@ -2895,9 +2889,9 @@ export default {
 .annotation-overlay {
 	position: absolute;
 	top: var(--overlay-top-spacing);
-	left: var(--overlay-side-spacing);
-	background: rgba(0, 0, 0, 0.8);
-	border: 1px solid #ff0000;
+	inset-inline-start: var(--overlay-side-spacing);
+	background: rgb(0 0 0 / 80%);
+	border: 1px solid #f00;
 	border-radius: 8px;
 	padding: 15px;
 	max-width: 300px;
@@ -2914,17 +2908,17 @@ export default {
 	align-items: center;
 	margin-bottom: 10px;
 	padding-bottom: 10px;
-	border-bottom: 1px solid #ff0000;
+	border-bottom: 1px solid #f00;
 }
 
 .annotation-header h3 {
 	margin: 0;
 	font-size: 16px;
-	color: #ff0000;
+	color: #f00;
 }
 
 .clear-annotations-btn {
-	background: #ff4444;
+	background: #f44;
 	color: white;
 	border: none;
 	padding: 5px 10px;
@@ -2934,7 +2928,7 @@ export default {
 }
 
 .clear-annotations-btn:hover {
-	background: #ff6666;
+	background: #f66;
 }
 
 .annotation-list {
@@ -2944,8 +2938,8 @@ export default {
 }
 
 .annotation-item {
-	background: rgba(255, 0, 0, 0.1);
-	border: 1px solid rgba(255, 0, 0, 0.3);
+	background: rgb(255 0 0 / 10%);
+	border: 1px solid rgb(255 0 0 / 30%);
 	border-radius: 4px;
 	padding: 10px;
 }
@@ -2960,11 +2954,11 @@ export default {
 .annotation-label {
 	font-weight: bold;
 	font-size: 14px;
-	color: #ff0000;
+	color: #f00;
 }
 
 .delete-annotation-btn {
-	background: #ff4444;
+	background: #f44;
 	color: white;
 	border: none;
 	padding: 3px 8px;
@@ -2974,7 +2968,7 @@ export default {
 }
 
 .delete-annotation-btn:hover {
-	background: #ff6666;
+	background: #f66;
 }
 
 .annotation-details {
@@ -2984,8 +2978,8 @@ export default {
 }
 
 .annotation-text-input {
-	background: rgba(255, 255, 255, 0.1);
-	border: 1px solid rgba(255, 0, 0, 0.5);
+	background: rgb(255 255 255 / 10%);
+	border: 1px solid rgb(255 0 0 / 50%);
 	border-radius: 3px;
 	padding: 5px 8px;
 	color: white;
@@ -2994,13 +2988,13 @@ export default {
 }
 
 .annotation-text-input::placeholder {
-	color: #cccccc;
+	color: #ccc;
 }
 
 .annotation-text-input:focus {
 	outline: none;
-	border-color: #ff0000;
-	background: rgba(255, 255, 255, 0.15);
+	border-color: #f00;
+	background: rgb(255 255 255 / 15%);
 }
 
 .annotation-point {
@@ -3011,20 +3005,19 @@ export default {
 
 .point-label {
 	font-size: 12px;
-	color: #cccccc;
+	color: #ccc;
 }
 
 .point-coords {
 	font-size: 11px;
-	color: #aaaaaa;
+	color: #aaa;
 	font-family: monospace;
 }
 
-@media (max-width: 768px) {
+@media (width <= 768px) {
 	.annotation-overlay {
 		top: var(--overlay-mobile-top-spacing);
-		left: var(--overlay-mobile-side-spacing);
-		right: var(--overlay-mobile-side-spacing);
+		inset-inline: var(--overlay-mobile-side-spacing);
 		max-width: none;
 		max-height: 300px;
 	}
@@ -3043,8 +3036,7 @@ export default {
 
 /* RTL (Right-to-Left) Support */
 [dir="rtl"] .model-stats-overlay {
-	left: auto;
-	right: 20px;
+	inset-inline: auto 20px;
 }
 
 [dir="rtl"] .export-progress-overlay {
@@ -3052,13 +3044,11 @@ export default {
 }
 
 [dir="rtl"] .texture-progress-indicator {
-	right: auto;
-	left: 10px;
+	inset-inline: 10px auto;
 }
 
 [dir="rtl"] .performance-stats {
-	left: auto;
-	right: 10px;
+	inset-inline: auto 10px;
 }
 
 [dir="rtl"] .measurement-overlay,

@@ -18,129 +18,143 @@ use OCP\AppFramework\Db\DoesNotExistException;
 /**
  * @psalm-suppress UnusedClass
  */
-class ApiController extends OCSController {
-	private IRootFolder $rootFolder;
-	private IUserSession $userSession;
+class ApiController extends OCSController
+{
+    private IRootFolder $rootFolder;
+    private IUserSession $userSession;
 
-	public function __construct(
-		IRequest $request,
-		IRootFolder $rootFolder,
-		IUserSession $userSession
-	) {
-		parent::__construct('threedviewer', $request);
-		$this->rootFolder = $rootFolder;
-		$this->userSession = $userSession;
-	}
+    public function __construct(
+        IRequest $request,
+        IRootFolder $rootFolder,
+        IUserSession $userSession
+    ) {
+        parent::__construct('threedviewer', $request);
+        $this->rootFolder = $rootFolder;
+        $this->userSession = $userSession;
+    }
 
-	/**
-	 * An example API endpoint
-	 *
-	 * @return DataResponse<Http::STATUS_OK, array{message: string}, array{}>
-	 *
-	 * 200: Data returned
-	 */
-	#[NoAdminRequired]
-	#[ApiRoute(verb: 'GET', url: '/api')]
-	public function index(): DataResponse {
-		return new DataResponse(
-			['message' => 'Hello world!']
-		);
-	}
+    /**
+     * An example API endpoint
+     *
+     * @return DataResponse<Http::STATUS_OK, array{message: string}, array{}>
+     *
+     * 200: Data returned
+     */
+    #[NoAdminRequired]
+    #[ApiRoute(verb: 'GET', url: '/api')]
+    public function index(): DataResponse
+    {
+        return new DataResponse(
+            ['message' => 'Hello world!']
+        );
+    }
 
-	/**
-	 * Get a file by ID
-	 *
-	 * @return StreamResponse|DataResponse
-	 *
-	 * 200: File returned
-	 * 404: File not found
-	 */
-	#[NoAdminRequired]
-	#[ApiRoute(verb: 'GET', url: '/api/file/{fileId}')]
-	public function getFile(int $fileId): StreamResponse|DataResponse {
-		$user = $this->userSession->getUser();
-		if (!$user) {
-			return new DataResponse(['error' => 'User not authenticated'], Http::STATUS_UNAUTHORIZED);
-		}
+    /**
+     * Get a file by ID
+     *
+     * @param int $fileId
+     * @return StreamResponse<Http::STATUS_OK, array{}>
+     *   | DataResponse<Http::STATUS_UNAUTHORIZED, array{error: string}, array{}>
+     *   | DataResponse<Http::STATUS_FORBIDDEN, array{error: string}, array{}>
+     *   | DataResponse<Http::STATUS_NOT_FOUND, array{error: string}, array{}>
+     *   | DataResponse<Http::STATUS_INTERNAL_SERVER_ERROR, array{error: string}, array{}>
+     */
+    #[NoAdminRequired]
+    #[ApiRoute(verb: 'GET', url: '/api/file/{fileId}')]
+    public function getFile(int $fileId): StreamResponse|DataResponse
+    {
+        $user = $this->userSession->getUser();
+        if (!$user) {
+            return new DataResponse(['error' => 'User not authenticated'], Http::STATUS_UNAUTHORIZED);
+        }
 
-		$userFolder = $this->rootFolder->getUserFolder($user->getUID());
-		
-		// Try to find the file by ID
-		$files = $userFolder->getById($fileId);
-		
-		if (empty($files)) {
-			return new DataResponse(['error' => 'File not found'], Http::STATUS_NOT_FOUND);
-		}
+        $userFolder = $this->rootFolder->getUserFolder($user->getUID());
 
-		$file = $files[0];
-		
-		if (!$file->isReadable()) {
-			return new DataResponse(['error' => 'File not readable'], Http::STATUS_FORBIDDEN);
-		}
+        // Try to find the file by ID
+        $files = $userFolder->getById($fileId);
 
-		$stream = $file->fopen('r');
-		if ($stream === false) {
-			return new DataResponse(['error' => 'Failed to open file'], Http::STATUS_INTERNAL_SERVER_ERROR);
-		}
+        if (empty($files)) {
+            return new DataResponse(['error' => 'File not found'], Http::STATUS_NOT_FOUND);
+        }
 
-		$response = new StreamResponse($stream);
-		$response->addHeader('Content-Type', $file->getMimeType());
-		$response->addHeader('Content-Length', (string)$file->getSize());
-		$response->addHeader('Content-Disposition', 'inline; filename="' . addslashes($file->getName()) . '"');
-		$response->addHeader('Cache-Control', 'public, max-age=3600');
-		
-		return $response;
-	}
+        $file = $files[0];
+
+        if (!$file->isReadable()) {
+            return new DataResponse(['error' => 'File not readable'], Http::STATUS_FORBIDDEN);
+        }
+
+        $stream = $file->fopen('r');
+        if ($stream === false) {
+            return new DataResponse(['error' => 'Failed to open file'], Http::STATUS_INTERNAL_SERVER_ERROR);
+        }
+
+        $response = new StreamResponse($stream);
+        $response->addHeader('Content-Type', $file->getMimeType());
+        $response->addHeader('Content-Length', (string)$file->getSize());
+        $response->addHeader('Content-Disposition', 'inline; filename="' . addslashes($file->getName()) . '"');
+        $response->addHeader('Cache-Control', 'public, max-age=3600');
+
+        return $response;
+    }
 
 
-	/**
-	 * List 3D files
-	 *
-	 * @return DataResponse<Http::STATUS_OK, array{files: array}, array{}>
-	 *
-	 * 200: Files returned
-	 */
-	#[NoAdminRequired]
-	#[ApiRoute(verb: 'GET', url: '/api/files')]
-	public function listFiles(): DataResponse {
-		$user = $this->userSession->getUser();
-		if (!$user) {
-			throw new \Exception('User not authenticated');
-		}
+    /**
+     * List 3D files
+     *
+     * @return DataResponse<Http::STATUS_OK, array{
+     *   files: array<array{
+     *     id: int,
+     *     name: string,
+     *     path: string,
+     *     size: int,
+     *     mtime: int,
+     *     mimetype: string
+     *   }>
+     * }, array{}>
+     */
+    #[NoAdminRequired]
+    #[ApiRoute(verb: 'GET', url: '/api/files')]
+    public function listFiles(): DataResponse
+    {
+        $user = $this->userSession->getUser();
+        if (!$user) {
+            throw new \Exception('User not authenticated');
+        }
 
-		$userFolder = $this->rootFolder->getUserFolder($user->getUID());
-		
-		// Supported 3D file extensions
-		$supportedExtensions = ['glb', 'gltf', 'obj', 'stl', 'ply', 'fbx', '3mf', '3ds', 'dae', 'x3d', 'vrml', 'wrl'];
-		
-		$files = [];
-		$this->scanFor3DFiles($userFolder, $supportedExtensions, $files);
-		
-		return new DataResponse(['files' => $files]);
-	}
+        $userFolder = $this->rootFolder->getUserFolder($user->getUID());
 
-	/**
-	 * Recursively scan for 3D files
-	 */
-	private function scanFor3DFiles($folder, array $extensions, array &$files): void {
-		$nodes = $folder->getDirectoryListing();
-		
-		foreach ($nodes as $node) {
-			if ($node->getType() === \OCP\Files\FileInfo::TYPE_FILE) {
-				$extension = strtolower(pathinfo($node->getName(), PATHINFO_EXTENSION));
-				if (in_array($extension, $extensions)) {
-					$files[] = [
-						'id' => $node->getId(),
-						'name' => $node->getName(),
-						'path' => $node->getPath(),
-						'size' => $node->getSize(),
-						'mtime' => $node->getMTime(),
-						'mimetype' => $node->getMimeType()
-					];
-				}
-			} elseif ($node->getType() === \OCP\Files\FileInfo::TYPE_FOLDER) {
-				$this->scanFor3DFiles($node, $extensions, $files);
-			}
-		}
-	}
+        // Supported 3D file extensions
+        $supportedExtensions = ['glb', 'gltf', 'obj', 'stl', 'ply', 'fbx', '3mf', '3ds', 'dae', 'x3d', 'vrml', 'wrl'];
+
+        $files = [];
+        $this->scanFor3DFiles($userFolder, $supportedExtensions, $files);
+
+        return new DataResponse(['files' => $files]);
+    }
+
+    /**
+     * Recursively scan for 3D files
+     */
+    private function scanFor3DFiles($folder, array $extensions, array &$files): void
+    {
+        $nodes = $folder->getDirectoryListing();
+
+        foreach ($nodes as $node) {
+            if ($node->getType() === \OCP\Files\FileInfo::TYPE_FILE) {
+                $extension = strtolower(pathinfo($node->getName(), PATHINFO_EXTENSION));
+                if (in_array($extension, $extensions)) {
+                    $files[] = [
+                        'id' => $node->getId(),
+                        'name' => $node->getName(),
+                        'path' => $node->getPath(),
+                        'size' => $node->getSize(),
+                        'mtime' => $node->getMTime(),
+                        'mimetype' => $node->getMimeType()
+                    ];
+                }
+            } elseif ($node->getType() === \OCP\Files\FileInfo::TYPE_FOLDER) {
+                $this->scanFor3DFiles($node, $extensions, $files);
+            }
+        }
+    }
 }

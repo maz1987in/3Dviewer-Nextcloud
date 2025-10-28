@@ -21,25 +21,29 @@ use OCP\Files\NotFoundException;
  *            - Model formats from SUPPORTED_FORMATS (glb, gltf, obj, stl, ply, fbx, 3mf, 3ds, dae, x3d, vrml, wrl)
  *            - Dependency files: mtl (materials), bin (GLTF buffers)
  *            - Texture formats: png, jpg, jpeg, tga, bmp, webp
- * 
+ *
  * NOTE: This list MUST stay synchronized with:
  *       - RegisterThreeDMimeTypes::EXT_MIME_MAP
  *       - src/config/viewer-config.js::SUPPORTED_FORMATS
  */
-class ModelFileSupport {
+class ModelFileSupport
+{
     /** @var list<string> */
     private array $supported = ['glb','gltf','obj','stl','ply','dae','mtl','fbx','3mf','3ds','x3d','vrml','wrl','bin','png','jpg','jpeg','tga','bmp','webp'];
 
     /** @return list<string> */
-    public function getSupportedExtensions(): array {
+    public function getSupportedExtensions(): array
+    {
         return $this->supported;
     }
 
-    public function isSupported(string $ext): bool {
+    public function isSupported(string $ext): bool
+    {
         return in_array(strtolower($ext), $this->supported, true);
     }
 
-    public function mapContentType(string $ext): string {
+    public function mapContentType(string $ext): string
+    {
         return match (strtolower($ext)) {
             'glb' => 'model/gltf-binary',
             'gltf' => 'model/gltf+json',
@@ -68,7 +72,8 @@ class ModelFileSupport {
      * @throws NotFoundException
      * @throws UnsupportedFileTypeException
      */
-    public function findSiblingMtl(File $objFile, string $mtlName): File {
+    public function findSiblingMtl(File $objFile, string $mtlName): File
+    {
         if (strtolower($objFile->getExtension()) !== 'obj') {
             throw new UnsupportedFileTypeException('Not an OBJ file');
         }

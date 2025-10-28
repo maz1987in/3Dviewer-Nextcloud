@@ -23,7 +23,8 @@ use OCP\Files\NotFoundException;
  * render an actual preview (server-side or cached client render). For now this simply
  * validates file access & type, then streams a static PNG placeholder.
  */
-class ThumbnailController extends Controller {
+class ThumbnailController extends Controller
+{
     public function __construct(
         string $appName,
         IRequest $request,
@@ -35,8 +36,9 @@ class ThumbnailController extends Controller {
 
     #[NoAdminRequired]
     #[NoCSRFRequired]
-    #[ApiRoute(verb: 'GET', url: '/thumb/{fileId}')] 
-    public function placeholder(int $fileId): StreamResponse|DataResponse {
+    #[ApiRoute(verb: 'GET', url: '/thumb/{fileId}')]
+    public function placeholder(int $fileId): StreamResponse|DataResponse
+    {
         try {
             $file = $this->fileService->getValidatedFile($fileId); // validates ext & permissions
         } catch (NotFoundException $e) {

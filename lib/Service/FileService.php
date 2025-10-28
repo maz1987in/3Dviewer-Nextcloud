@@ -22,13 +22,15 @@ use OCA\ThreeDViewer\Service\ModelFileSupport;
  * @psalm-suppress MissingDependency Nextcloud runtime provides dependent classes in full environment.
  * @psalm-suppress PossiblyUnusedMethod Service constructed via DI container runtime, not visible to static scanner.
  */
-class FileService {
+class FileService
+{
     /** @psalm-suppress PossiblyUnusedMethod Constructed via DI container */
     public function __construct(
         private readonly IRootFolder $rootFolder,
         private readonly IUserSession $userSession,
         private readonly ModelFileSupport $support,
-    ) {}
+    ) {
+    }
 
     /**
      * Resolve a file by numeric fileId ensuring current user has access and extension is supported.
@@ -41,15 +43,16 @@ class FileService {
      * @throws UnauthorizedException
      * @throws UnsupportedFileTypeException
      */
-    public function getValidatedFile(int $fileId): File {
+    public function getValidatedFile(int $fileId): File
+    {
         $user = $this->userSession->getUser();
         if ($user === null) {
             throw new UnauthorizedException('No authenticated user');
         }
-    $userFolder = $this->rootFolder->getUserFolder($user->getUID());
-    /** @psalm-var list<Node> $byId */
-    $byId = $userFolder->getById($fileId);
-    $node = $byId[0] ?? null;
+        $userFolder = $this->rootFolder->getUserFolder($user->getUID());
+        /** @psalm-var list<Node> $byId */
+        $byId = $userFolder->getById($fileId);
+        $node = $byId[0] ?? null;
         if (!$node instanceof File) {
             throw new NotFoundException('File not found');
         }
@@ -69,7 +72,8 @@ class FileService {
      * @throws UnauthorizedException
      * @throws UnsupportedFileTypeException
      */
-    public function getSiblingMaterialFile(int $objFileId, string $mtlName): File {
+    public function getSiblingMaterialFile(int $objFileId, string $mtlName): File
+    {
         $objFile = $this->getValidatedFile($objFileId);
         return $this->support->findSiblingMtl($objFile, $mtlName);
     }
@@ -78,5 +82,8 @@ class FileService {
      * @return list<string>
      */
     /** @psalm-suppress PossiblyUnusedMethod Used by future features & documentation endpoints */
-    public function getSupportedExtensions(): array { return $this->support->getSupportedExtensions(); }
+    public function getSupportedExtensions(): array
+    {
+        return $this->support->getSupportedExtensions();
+    }
 }

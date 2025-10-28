@@ -472,10 +472,9 @@ export default {
 .panel-backdrop {
 	position: fixed;
 	top: 0;
-	left: 0;
-	right: 0;
+	inset-inline: 0;
 	bottom: 0;
-	background: rgba(0, 0, 0, 0.5);
+	background: rgb(0 0 0 / 50%);
 	z-index: 1001;
 	backdrop-filter: blur(4px);
 }
@@ -484,12 +483,12 @@ export default {
 .slide-out-panel {
 	position: fixed;
 	top: 50px; /* Account for Nextcloud header */
-	right: 0;
+	inset-inline-end: 0;
 	bottom: 0;
 	width: 320px;
 	background: var(--color-main-background);
 	color: var(--color-main-text);
-	box-shadow: -4px 0 20px rgba(0, 0, 0, 0.1);
+	box-shadow: -4px 0 20px rgb(0 0 0 / 10%);
 	z-index: 1002;
 	display: flex;
 	flex-direction: column;
@@ -532,8 +531,7 @@ export default {
 /* Panel Content */
 .panel-content {
 	flex: 1;
-	overflow-y: auto;
-	overflow-x: hidden;
+	overflow: hidden auto;
 	padding: 8px;
 }
 
@@ -543,22 +541,22 @@ export default {
 }
 
 .panel-content::-webkit-scrollbar-track {
-	background: rgba(255, 255, 255, 0.05);
+	background: rgb(255 255 255 / 5%);
 }
 
 .panel-content::-webkit-scrollbar-thumb {
-	background: rgba(255, 255, 255, 0.2);
+	background: rgb(255 255 255 / 20%);
 	border-radius: 4px;
 }
 
 .panel-content::-webkit-scrollbar-thumb:hover {
-	background: rgba(255, 255, 255, 0.3);
+	background: rgb(255 255 255 / 30%);
 }
 
 /* Panel Sections */
 .panel-section {
 	margin-bottom: 8px;
-	background: rgba(255, 255, 255, 0.05);
+	background: rgb(255 255 255 / 5%);
 	border-radius: 8px;
 	overflow: hidden;
 }
@@ -576,7 +574,7 @@ export default {
 	font-weight: 600;
 	cursor: pointer;
 	transition: background 0.2s ease;
-	text-align: left;
+	text-align: start;
 }
 
 .section-header:hover {
@@ -615,7 +613,7 @@ export default {
 	cursor: pointer;
 	transition: all 0.2s ease;
 	margin-bottom: 6px;
-	text-align: left;
+	text-align: start;
 }
 
 .tool-btn:hover {
@@ -727,7 +725,7 @@ export default {
 .color-input {
 	flex: 1;
 	height: 36px;
-	border: 1px solid rgba(255, 255, 255, 0.2);
+	border: 1px solid rgb(255 255 255 / 20%);
 	border-radius: 4px;
 	cursor: pointer;
 	background: transparent;
@@ -735,30 +733,30 @@ export default {
 
 .reset-color-btn {
 	padding: 8px 12px;
-	background: rgba(255, 255, 255, 0.1);
-	border: 1px solid rgba(255, 255, 255, 0.2);
+	background: rgb(255 255 255 / 10%);
+	border: 1px solid rgb(255 255 255 / 20%);
 	border-radius: 4px;
-	color: #ffffff;
+	color: #fff;
 	font-size: 12px;
 	cursor: pointer;
 	transition: all 0.2s ease;
 }
 
 .reset-color-btn:hover {
-	background: rgba(255, 255, 255, 0.15);
+	background: rgb(255 255 255 / 15%);
 }
 
 /* Panel Footer */
 .panel-footer {
 	padding: 12px 20px;
 	background: #2a2a2a;
-	border-top: 1px solid rgba(255, 255, 255, 0.1);
+	border-top: 1px solid rgb(255 255 255 / 10%);
 	text-align: center;
 }
 
 .keyboard-hint {
 	font-size: 12px;
-	color: rgba(255, 255, 255, 0.5);
+	color: rgb(255 255 255 / 50%);
 	font-style: italic;
 }
 
@@ -779,9 +777,8 @@ export default {
 /* Mobile Styles */
 .slide-out-panel.mobile {
 	top: auto;
-	right: 0;
+	inset-inline: 0;
 	bottom: 0;
-	left: 0;
 	width: 100%;
 	max-height: 70vh;
 	border-radius: 16px 16px 0 0;
@@ -806,14 +803,12 @@ export default {
 
 /* RTL (Right-to-Left) Support */
 [dir="rtl"] .slide-out-panel {
-	right: auto;
-	left: 0;
-	box-shadow: 4px 0 20px rgba(0, 0, 0, 0.1);
+	inset-inline: 0 auto;
+	box-shadow: 4px 0 20px rgb(0 0 0 / 10%);
 }
 
 [dir="rtl"] .panel-toggle-btn {
-	right: auto;
-	left: 10px;
+	inset-inline: 10px auto;
 }
 
 [dir="rtl"] .panel-toggle-btn .toggle-icon {
@@ -837,6 +832,7 @@ export default {
 	from {
 		transform: translateX(-100%);
 	}
+
 	to {
 		transform: translateX(0);
 	}
@@ -846,6 +842,7 @@ export default {
 	from {
 		transform: translateX(0);
 	}
+
 	to {
 		transform: translateX(-100%);
 	}
