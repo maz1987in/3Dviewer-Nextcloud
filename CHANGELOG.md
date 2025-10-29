@@ -15,6 +15,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **View Snapping**: Animated camera transitions to predefined views (Front, Back, Left, Right, Top, Bottom)
 - **Controller Persistence**: Save and restore controller position and visibility preferences
 - **Smooth Animations**: Eased camera transitions with customizable duration and easing functions
+- **Face Labels**: Orientation markers (TOP, BOTTOM, FRONT, BACK, LEFT, RIGHT) on model faces
+- **Export Functionality**: Export models to GLB, STL, and OBJ formats
+- **Camera Projection Toggle**: Switch between perspective and orthographic views
+- **Progressive Texture Loading**: Background texture loading for improved performance
+- **Dependency Caching**: IndexedDB caching system for faster multi-file model loading
+- **Model Statistics Panel**: Detailed information about loaded models
+- **Help Panel**: Comprehensive in-app documentation and controls guide
+- **Theme Customization**: Enhanced theme switching with RTL support
+- **Performance Overlay**: Visual performance stats display with real-time monitoring
+- **KTX2 Texture Support**: GPU texture compression for better performance
 
 ## [1.7.7] - 2025-10-11
 

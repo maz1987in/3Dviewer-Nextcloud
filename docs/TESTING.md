@@ -327,6 +327,55 @@ test('viewer loads and displays canvas', async ({ page }) => {
   - [ ] X3D files load correctly
   - [ ] VRML files load correctly
 
+- [ ] **3D Camera Controller**
+  - [ ] Circular controller appears when enabled
+  - [ ] Drag rotation works correctly
+  - [ ] Zoom control functions properly
+  - [ ] Directional arrows snap to views
+  - [ ] Controller position persists across sessions
+  - [ ] Controller visibility toggle works
+  - [ ] Smooth animations between views
+  - [ ] Mobile touch interactions work
+
+- [ ] **Face Labels**
+  - [ ] Labels appear on model faces when enabled
+  - [ ] Labels show correct orientation (TOP, BOTTOM, FRONT, BACK, LEFT, RIGHT)
+  - [ ] Labels toggle on/off correctly
+  - [ ] Labels update when model changes
+  - [ ] Labels are styled correctly (background, border, text)
+  - [ ] Labels render with CSS2D for crisp display
+
+- [ ] **Export Functionality**
+  - [ ] GLB export works correctly
+  - [ ] STL export works correctly
+  - [ ] OBJ export works correctly
+  - [ ] Export progress is tracked
+  - [ ] Export errors are handled gracefully
+  - [ ] Materials are preserved in exports
+  - [ ] File downloads automatically
+
+- [ ] **Camera Projection Toggle**
+  - [ ] Perspective mode works correctly
+  - [ ] Orthographic mode works correctly
+  - [ ] Toggle between modes functions
+  - [ ] Camera controls work in both modes
+  - [ ] View fitting works in both modes
+
+- [ ] **Progressive Texture Loading**
+  - [ ] Geometry loads before textures
+  - [ ] Textures load progressively in background
+  - [ ] Progress tracking works correctly
+  - [ ] Failed texture loads are handled gracefully
+  - [ ] Batch loading is efficient
+
+- [ ] **Dependency Caching**
+  - [ ] MTL files are cached correctly
+  - [ ] Texture files are cached correctly
+  - [ ] Cache invalidation works on file changes
+  - [ ] Cache size limits are respected
+  - [ ] Expired cache entries are cleaned up
+  - [ ] Cache improves loading performance
+
 - [ ] **Error Handling**
   - [ ] Unsupported file types show appropriate error
   - [ ] Corrupted files show appropriate error

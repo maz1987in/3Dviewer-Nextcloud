@@ -1,15 +1,35 @@
 # TODO - 3D Viewer Next Steps
 
-**Last Updated**: October 14, 2025  
-**Current Status**: Documentation consolidation complete ✅
+**Last Updated**: October 28, 2025  
+**Current Status**: All major features implemented ✅
 
 ---
 
 ## 🎯 High Priority
 
-### 1. Comprehensive Multi-File Testing ⏳
+### 1. Vue 3 Migration Planning ⏳
 
-**Priority**: HIGH | **Effort**: 2-3h
+**Priority**: HIGH | **Effort**: 2-3 weeks
+
+Plan migration from Vue 2.7 to Vue 3 to enable dependency updates.
+
+**Action Items**:
+- [ ] Create migration branch
+- [ ] Update Vue core and dependencies
+- [ ] Migrate all 15 composables
+- [ ] Update all 11 components
+- [ ] Test compatibility
+- [ ] Update build configuration
+
+**See**: [VUE3_MIGRATION_GUIDE.md](VUE3_MIGRATION_GUIDE.md)
+
+---
+
+## 🔧 Medium Priority
+
+### 2. Comprehensive Multi-File Testing ⏳
+
+**Priority**: MEDIUM | **Effort**: 2-3h
 
 Need real-world test files to validate implementation.
 
@@ -21,33 +41,17 @@ Need real-world test files to validate implementation.
 
 **Test Directory**: `tests/fixtures/multi-file/`
 
----
-
-## 🔧 Medium Priority
-
-### 2. Dependency Caching Enhancement
-
-**Priority**: MEDIUM | **Effort**: 2-3h
-
-Improve caching to avoid re-downloading MTL/textures.
-
-**Action Items**:
-- [x] Implement IndexedDB caching
-- [ ] Add cache size limits and LRU eviction
-- [ ] Add cache clearing UI
-- [ ] Test cache persistence
-
-### 3. Progressive Texture Loading Improvements
+### 3. Cache Management UI
 
 **Priority**: MEDIUM | **Effort**: 1-2h
 
-Enhance texture loading experience.
+Add user interface for cache management.
 
 **Action Items**:
-- [x] Show geometry immediately
-- [x] Load textures in background
-- [ ] Add loading progress indicator
-- [ ] Optimize batch size and timing
+- [ ] Add cache size limits and LRU eviction
+- [ ] Add cache clearing UI
+- [ ] Test cache persistence
+- [ ] Add cache statistics display
 
 ---
 
@@ -74,17 +78,18 @@ Enhance texture loading experience.
 
 ## ✅ Recently Completed
 
-- [x] **Help Panel** (Oct 10, 2025) - Comprehensive in-app documentation
-- [x] **Theme Customization with RTL Support** (Oct 10, 2025)
-- [x] **KTX2 Texture Compression Support** (Oct 10, 2025)
-- [x] **Auto-Rotate + Zoom Fix** (Oct 10, 2025)
-- [x] **Progressive Texture Loading** (Oct 10, 2025)
-- [x] **Dependency Caching System** (Oct 10, 2025)
-- [x] **Enhanced Model Statistics Panel** (Oct 10, 2025)
-- [x] **Multi-Format Export** (Oct 10, 2025) - GLB, STL, OBJ
-- [x] **Camera Projection Toggle** (Oct 10, 2025) - Perspective ↔ Orthographic
-- [x] **Performance Monitoring System** (Oct 9, 2025)
-- [x] **Documentation Consolidation** (Oct 14, 2025) - Reduced duplicate content
+- [x] **3D Camera Controller** (Oct 28, 2025) - Circular controller interface for intuitive navigation
+- [x] **Face Labels** (Oct 28, 2025) - Orientation markers on model faces
+- [x] **Export Functionality** (Oct 28, 2025) - GLB, STL, OBJ export capabilities
+- [x] **Camera Projection Toggle** (Oct 28, 2025) - Perspective ↔ Orthographic views
+- [x] **Progressive Texture Loading** (Oct 28, 2025) - Background texture loading
+- [x] **Dependency Caching System** (Oct 28, 2025) - IndexedDB caching for performance
+- [x] **Model Statistics Panel** (Oct 28, 2025) - Detailed model information display
+- [x] **Help Panel** (Oct 28, 2025) - Comprehensive in-app documentation
+- [x] **Theme Customization with RTL Support** (Oct 28, 2025)
+- [x] **KTX2 Texture Compression Support** (Oct 28, 2025)
+- [x] **Performance Monitoring System with Overlay** (Oct 28, 2025)
+- [x] **Documentation Consolidation** (Oct 28, 2025) - Updated all documentation
 
 ---
 

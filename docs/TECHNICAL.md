@@ -91,14 +91,24 @@ GET /ocs/v2.php/apps/threedviewer/public/file/{token}/{id}/mtl/{mtlName}
 #### Component Structure
 
 ```
-ThreeViewer.vue (Main component: comparison, measurement, annotations)
-└── ViewerToolbar.vue (Toolbar)
+ThreeViewer.vue (Main component: comparison, measurement, annotations, export, face labels)
+├── CircularController.vue (3D camera navigation widget)
+├── ViewerToolbar.vue (Toolbar with all controls)
+├── HelpPanel.vue (In-app documentation)
+├── MinimalTopBar.vue (Minimal interface)
+├── SlideOutToolPanel.vue (Collapsible tool panel)
+├── ToastContainer.vue (Notification system)
+├── ViewCube.vue (3D navigation cube)
+└── ViewerModal.vue (Modal wrapper)
 ```
 
 #### State and Composables
 
-- Composition API with refs/computed: `useCamera`, `useModelLoading`, `useComparison`, `useMeasurement`, `useAnnotation`
-- Emits include: `model-loaded`, `error`, `toggle-comparison`, etc.
+- Composition API with refs/computed: All 15 composables for comprehensive state management
+- Core composables: `useCamera`, `useModelLoading`, `useComparison`, `useMeasurement`, `useAnnotation`
+- UI composables: `useController`, `useExport`, `useFaceLabels`, `useModelStats`, `useProgressiveTextures`, `useTheme`, `useUI`
+- Utility composables: `useMobile`, `usePerformance`, `useScene`
+- Emits include: `model-loaded`, `error`, `toggle-comparison`, `export-complete`, etc.
 
 #### Three.js Integration
 
@@ -599,6 +609,129 @@ const {
 } = useMobile()
 ```
 
+#### useController
+
+**Purpose:** Manage the 3D camera controller widget and navigation.
+
+**API:**
+```javascript
+const {
+  // State refs
+  controllerVisible,    // ref<boolean>
+  controllerPosition,   // ref<{ x, y }>
+  controllerSize,       // ref<number>
+  snapViews,           // ref<boolean>
+  
+  // Methods
+  toggleController,     // () => void
+  setControllerPosition, // (x, y) => void
+  snapToView,          // (viewName) => void
+  savePreferences,     // () => void
+  loadPreferences,     // () => void
+} = useController()
+```
+
+#### useExport
+
+**Purpose:** Export 3D models in various formats (GLB, STL, OBJ).
+
+**API:**
+```javascript
+const {
+  // State refs
+  isExporting,         // ref<boolean>
+  exportProgress,      // ref<number>
+  exportFormat,        // ref<string>
+  exportError,         // ref<string | null>
+  
+  // Methods
+  exportModel,         // (format, options) => Promise<Blob>
+  getSupportedFormats, // () => string[]
+  validateExport,      // (model) => boolean
+} = useExport()
+```
+
+#### useFaceLabels
+
+**Purpose:** Display orientation markers on model faces.
+
+**API:**
+```javascript
+const {
+  // State refs
+  labelsEnabled,       // ref<boolean>
+  labels,             // ref<Array>
+  labelRenderer,      // ref<CSS2DRenderer>
+  
+  // Methods
+  addFaceLabels,      // (model, scene) => void
+  clearLabels,        // (scene) => void
+  toggleLabels,       // (model, scene) => void
+  initLabelRenderer,  // (container, width, height) => void
+  renderLabels,       // (scene, camera) => void
+  dispose,            // () => void
+} = useFaceLabels()
+```
+
+#### useModelStats
+
+**Purpose:** Display detailed statistics about loaded models.
+
+**API:**
+```javascript
+const {
+  // State refs
+  modelStats,         // ref<Object>
+  statsVisible,       // ref<boolean>
+  
+  // Methods
+  calculateStats,     // (model) => Object
+  toggleStats,        // () => void
+  getModelInfo,       // () => Object
+} = useModelStats()
+```
+
+#### useProgressiveTextures
+
+**Purpose:** Load textures progressively for better performance.
+
+**API:**
+```javascript
+const {
+  // State refs
+  isProgressiveLoading, // ref<boolean>
+  textureProgress,      // ref<number>
+  loadedTextures,       // ref<number>
+  totalTextures,        // ref<number>
+  
+  // Methods
+  loadTexturesProgressive, // (textures) => Promise<void>
+  pauseLoading,           // () => void
+  resumeLoading,          // () => void
+  cancelLoading,          // () => void
+} = useProgressiveTextures()
+```
+
+#### useTheme
+
+**Purpose:** Manage theme switching and RTL support.
+
+**API:**
+```javascript
+const {
+  // State refs
+  currentTheme,        // ref<string>
+  isRTL,              // ref<boolean>
+  customColors,       // ref<Object>
+  
+  // Methods
+  setTheme,           // (theme) => void
+  toggleRTL,          // () => void
+  setCustomColor,     // (key, color) => void
+  resetTheme,         // () => void
+} = useTheme()
+```
+
 ### Usage Patterns
 
 #### Pattern 1: Composition API (Recommended)
@@ -888,6 +1021,95 @@ export async function loadModelByExtension(ext, arrayBuffer, context) {
 - Only loads needed loaders (smaller initial bundle)
 - Lazy loading on first use of each format
 - Extensible (easy to add new formats)
+
+## Dependency Caching System
+
+### Overview
+
+The 3D Viewer implements an IndexedDB-based caching system for multi-file model dependencies (MTL files, textures, binary data) to improve loading performance and reduce network requests.
+
+### Architecture
+
+#### Cache Storage
+- **Storage Backend**: IndexedDB for persistent client-side storage
+- **Cache Key**: File path + modification time for cache invalidation
+- **Storage Limits**: Configurable size limits with LRU eviction
+- **Expiration**: Automatic cleanup of expired entries
+
+#### Cache Operations
+```javascript
+// Cache initialization
+import { initCache, clearExpired, clearAll, getCacheStats } from '../utils/dependencyCache.js'
+
+// Initialize cache with size limits
+await initCache({
+  maxSize: 100 * 1024 * 1024, // 100MB
+  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+})
+
+// Cache operations
+const cached = await getCachedFile(path, mtime)
+if (cached) {
+  return cached.data
+}
+
+// Store in cache after fetch
+await setCachedFile(path, mtime, data)
+```
+
+### Integration with Multi-File Loading
+
+The caching system integrates seamlessly with the multi-file loading architecture:
+
+1. **Check Cache**: Before fetching dependencies, check if cached version exists
+2. **Cache Hit**: Use cached data if available and not expired
+3. **Cache Miss**: Fetch from server and store in cache
+4. **Cache Update**: Update cache when files are modified
+
+### Performance Benefits
+
+- **Faster Loading**: Subsequent loads of the same model are significantly faster
+- **Reduced Bandwidth**: Avoid re-downloading unchanged dependencies
+- **Offline Support**: Cached files available when offline
+- **Smart Invalidation**: Automatic cache updates when files change
+
+## KTX2 Texture Compression Support
+
+### Overview
+
+The viewer supports KTX2/Basis Universal texture compression for improved performance and reduced bandwidth usage.
+
+### Implementation
+
+#### Decoder Integration
+- **Basis Transcoder**: `basis_transcoder.js` and `basis_transcoder.wasm`
+- **Auto-Detection**: Automatically detects KTX2 support at runtime
+- **Fallback**: Graceful degradation when KTX2 not available
+- **Dynamic Loading**: Transcoder loaded only when needed
+
+#### Build Integration
+```javascript
+// Build script copies transcoder files
+// scripts/copy-decoders.mjs
+const basisFiles = [
+  'basis_transcoder.js',
+  'basis_transcoder.wasm'
+]
+
+// Runtime detection
+const hasKTX2Support = await detectKTX2Support()
+if (hasKTX2Support) {
+  const KTX2Loader = await import('three/examples/jsm/loaders/KTX2Loader')
+  gltfLoader.setKTX2Loader(KTX2Loader.KTX2Loader)
+}
+```
+
+### Benefits
+
+- **Smaller Files**: Up to 90% reduction in texture size
+- **Faster Loading**: Reduced bandwidth and faster texture uploads
+- **Better Quality**: GPU-optimized texture formats
+- **Wide Support**: Works across different devices and browsers
 
 ## Advanced Viewer Wiring
 

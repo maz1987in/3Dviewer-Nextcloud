@@ -57,7 +57,15 @@ A comprehensive 3D model viewer application for Nextcloud that supports multiple
 - **Dynamic Grid System** - Automatically adapts to model size and position
 - **Model Comparison** - Side-by-side model viewing with synchronized controls
 - **Advanced Tooling** - Annotations, measurements, and analysis tools
-- **Performance Optimized** - Code splitting, dynamic imports, and quality modes
+- **3D Camera Controller** - Intuitive circular controller for precise camera navigation
+- **Face Labels** - Orientation markers (TOP, BOTTOM, FRONT, BACK, LEFT, RIGHT) on model faces
+- **Export Functionality** - Export models to GLB, STL, and OBJ formats
+- **Camera Projection Toggle** - Switch between perspective and orthographic views
+- **Progressive Texture Loading** - Background loading for improved performance
+- **Dependency Caching** - IndexedDB caching for faster multi-file model loading
+- **Model Statistics Panel** - Detailed information about loaded models
+- **Help Panel** - Comprehensive in-app documentation and controls guide
+- **Performance Optimized** - Code splitting, dynamic imports, and quality modes with visual overlay
 - **Theme Integration** - Respects Nextcloud light/dark themes with RTL support
 - **Accessibility** - ARIA labels and keyboard navigation
 - **Compression Support** - DRACO geometry and KTX2/Basis texture compression

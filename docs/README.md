@@ -37,6 +37,10 @@ A comprehensive 3D model viewer application for Nextcloud that supports multiple
 - **Dynamic grid system**: Automatically adapts to model size and position
 - **Model comparison**: Load a second model, position side-by-side, fit both to view
 - **Measurement and annotations**: Create distance measurements and text notes
+- **3D Camera Controller**: Intuitive circular controller for precise camera navigation
+- **Face Labels**: Orientation markers on model faces (TOP, BOTTOM, FRONT, BACK, LEFT, RIGHT)
+- **Export functionality**: Export models to GLB, STL, and OBJ formats
+- **Camera projection toggle**: Switch between perspective and orthographic views
 - **Performance optimization**: Dynamic imports, decoder auto-detection (DRACO/Basis)
 - **Theme integration**: Works with light/dark themes, ARIA roles
 
@@ -174,9 +178,14 @@ php occ files:scan --all
 - **Fit to View** (📐) - Frame the model optimally
 - **Grid/Axes** toggles - Show/hide reference helpers
 - **Wireframe** toggle - Switch between solid and wireframe rendering
+- **Face Labels** toggle - Show/hide orientation markers
+- **3D Controller** toggle - Enable/disable circular camera controller
+- **Camera Projection** toggle - Switch between perspective and orthographic views
+- **Export** button - Export model in various formats
 - **Comparison mode** (⚖️) - Load and compare two models
-- **Performance** (⚡) - Adjust rendering quality
+- **Performance** (⚡) - Adjust rendering quality with visual overlay
 - **Background** - Change background color
+- **Help** (❓) - Open comprehensive help panel
 
 #### Comparison Mode
 1. **Enable Comparison** - Click the comparison button
@@ -186,7 +195,7 @@ php occ files:scan --all
 
 ### Performance Settings
 
-The viewer includes intelligent performance monitoring with 5 quality presets:
+The viewer includes intelligent performance monitoring with 5 quality presets and visual overlay:
 
 | Mode | Pixel Ratio | Shadows | Antialias | Target FPS | Use Case |
 |------|-------------|---------|-----------|------------|----------|
@@ -195,6 +204,68 @@ The viewer includes intelligent performance monitoring with 5 quality presets:
 | **Balanced** | 1.0x | ✅ | ✅ | 60 | Mid-range systems |
 | **High** | 1.5x | ✅ | ✅ | 60 | Good desktops (recommended) |
 | **Ultra** | 2.0x | ✅ | ✅ | 120 | High-end gaming PCs |
+
+### 3D Camera Controller
+
+The circular controller provides intuitive camera navigation:
+
+#### Controller Features
+- **Circular Interface**: Drag around the circle to rotate the camera
+- **Zoom Control**: Use the center wheel or scroll to zoom in/out
+- **Directional Nudging**: Click directional arrows for precise positioning
+- **View Snapping**: Quick access to predefined views (Front, Back, Left, Right, Top, Bottom)
+- **Smooth Animations**: Eased transitions between camera positions
+- **Persistence**: Controller position and visibility preferences are saved
+
+#### Usage
+1. **Enable Controller**: Click the controller toggle button in the toolbar
+2. **Rotate**: Drag around the circular interface
+3. **Zoom**: Use the center wheel or mouse scroll
+4. **Snap Views**: Click the directional arrows for quick positioning
+5. **Customize**: Right-click for additional options
+
+### Face Labels
+
+Display orientation markers on model faces:
+
+#### Features
+- **Automatic Positioning**: Labels appear on each face of the model's bounding box
+- **Clear Markers**: TOP, BOTTOM, FRONT, BACK, LEFT, RIGHT labels
+- **Styled Display**: Semi-transparent background with white text and green border
+- **Toggle Control**: Show/hide labels as needed
+- **Performance Optimized**: Uses CSS2D rendering for crisp display
+
+#### Usage
+1. **Enable Labels**: Click the face labels toggle in the toolbar
+2. **View Orientations**: Labels automatically appear on visible faces
+3. **Toggle Off**: Click again to hide labels
+
+### Export Functionality
+
+Export models in various formats:
+
+#### Supported Formats
+- **GLB**: Binary glTF format (recommended)
+- **STL**: 3D printing format
+- **OBJ**: Wavefront format with materials
+
+#### Usage
+1. **Open Export**: Click the export button in the toolbar
+2. **Select Format**: Choose GLB, STL, or OBJ
+3. **Download**: File downloads automatically
+
+### Camera Projection Toggle
+
+Switch between camera projection modes:
+
+#### Projection Types
+- **Perspective**: Natural 3D view with depth perception
+- **Orthographic**: Technical view without perspective distortion
+
+#### Usage
+1. **Toggle Projection**: Click the projection button in the toolbar
+2. **Perspective Mode**: Default view for general viewing
+3. **Orthographic Mode**: Better for technical analysis and measurements
 
 ### Visual Features
 

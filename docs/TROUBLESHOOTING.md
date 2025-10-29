@@ -605,6 +605,116 @@ console.log('Toolbar mounted:', this.$refs.toolbar);
 - Check for styling conflicts
 - Verify responsive design
 
+### 3D Camera Controller Issues
+
+#### Symptoms
+- Controller doesn't appear when enabled
+- Drag interactions don't work
+- Controller position not saved
+- Mobile touch events not working
+
+#### Solutions
+
+**Check Controller Visibility:**
+```javascript
+// Verify controller is enabled
+console.log('Controller visible:', this.controllerVisible);
+console.log('Controller position:', this.controllerPosition);
+```
+
+**Verify Touch Events:**
+- Ensure touch events are properly bound
+- Check for CSS pointer-events conflicts
+- Verify mobile detection is working
+
+**Check Persistence:**
+- Verify localStorage is available
+- Check if preferences are being saved
+- Clear cache if preferences are corrupted
+
+### Face Labels Not Displaying
+
+#### Symptoms
+- Labels don't appear when enabled
+- Labels show incorrect orientations
+- Labels are positioned incorrectly
+- Labels don't update with model changes
+
+#### Solutions
+
+**Check Label State:**
+```javascript
+// Verify labels are enabled
+console.log('Labels enabled:', this.labelsEnabled);
+console.log('Label count:', this.labels.length);
+```
+
+**Verify CSS2D Renderer:**
+- Ensure CSS2DRenderer is initialized
+- Check if label renderer is attached to scene
+- Verify renderer is being called in animation loop
+
+**Check Model Bounding Box:**
+```javascript
+// Verify model has proper bounding box
+const box = new THREE.Box3().setFromObject(this.model);
+console.log('Model bounds:', box);
+```
+
+### Export Functionality Issues
+
+#### Symptoms
+- Export button doesn't work
+- Export fails with errors
+- Downloaded files are corrupted
+- Export progress not shown
+
+#### Solutions
+
+**Check Export State:**
+```javascript
+// Verify export composable is working
+console.log('Exporting:', this.isExporting);
+console.log('Export format:', this.exportFormat);
+```
+
+**Verify Model Compatibility:**
+- Check if model is compatible with export format
+- Ensure model has been loaded successfully
+- Verify materials are available for OBJ export
+
+**Check Browser Support:**
+- Ensure Blob API is supported
+- Check if download is blocked by browser
+- Verify file size limits
+
+### Performance Overlay Issues
+
+#### Symptoms
+- Performance stats not visible
+- Overlay doesn't toggle
+- Stats show incorrect values
+- Overlay interferes with UI
+
+#### Solutions
+
+**Check Overlay State:**
+```javascript
+// Verify performance monitoring is active
+console.log('Performance overlay:', this.showPerformanceStats);
+console.log('Current FPS:', this.currentFPS);
+```
+
+**Verify Performance Monitoring:**
+- Ensure performance composable is initialized
+- Check if renderer is being monitored
+- Verify animation loop is running
+
+**Check CSS Positioning:**
+- Ensure overlay is positioned correctly
+- Check for z-index conflicts
+- Verify responsive positioning
+
 ---
 
 ## API and Networking Issues
