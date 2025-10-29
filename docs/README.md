@@ -1,5 +1,7 @@
 # 3D Viewer for Nextcloud
 
+Copyright © 2025 Mazin Al Saadi. Licensed under AGPL-3.0-or-later.
+
 A comprehensive 3D model viewer application for Nextcloud that supports multiple 3D file formats with advanced viewing capabilities.
 
 ## 📚 Table of Contents

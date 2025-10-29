@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.9] - 2025-10-28
+
+### Added
+- **3D Camera Controller**: New circular controller interface for intuitive 3D model navigation
+- **Camera Control Methods**: Advanced camera manipulation including rotation, zoom, and directional nudging
+- **View Snapping**: Animated camera transitions to predefined views (Front, Back, Left, Right, Top, Bottom)
+- **Controller Persistence**: Save and restore controller position and visibility preferences
+- **Smooth Animations**: Eased camera transitions with customizable duration and easing functions
+
 ## [1.7.7] - 2025-10-11
 
 ### Added

@@ -1,6 +1,6 @@
 # 3D Viewer for Nextcloud
 
-[![Version](https://img.shields.io/badge/version-1.7.7-blue)](https://github.com/maz1987in/3Dviewer-Nextcloud/releases)
+[![Version](https://img.shields.io/badge/version-1.7.9-blue)](https://github.com/maz1987in/3Dviewer-Nextcloud/releases)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-orange)](LICENSE)
 [![Nextcloud](https://img.shields.io/badge/Nextcloud-30--32-0082c9)](https://nextcloud.com)
 
@@ -153,6 +153,8 @@ Contributions are welcome! Please see our [Contributing Guide](CONTRIBUTING.md) 
 
 ## 📄 License
 
+Copyright © 2025 Mazin Al Saadi. Licensed under AGPL-3.0-or-later.
+
 This project is licensed under the **AGPL-3.0 License**. See [LICENSE](LICENSE) for details.
 
 ## 🔗 Links
@@ -164,8 +166,8 @@ This project is licensed under the **AGPL-3.0 License**. See [LICENSE](LICENSE) 
 
 ## 📊 Version
 
-**Current Version**: 1.7.7  
-**Released**: October 11, 2025
+**Current Version**: 1.7.9  
+**Released**: October 28, 2025
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed release notes and version history.
 
