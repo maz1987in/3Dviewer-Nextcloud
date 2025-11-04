@@ -90,6 +90,5 @@ jobs:
           app_name: threedviewer
           appstore_token: ${{ secrets.APPSTORE_TOKEN }}
           app_private_key: ${{ secrets.APP_PRIVATE_KEY }}
-          app_public_cert: ${{ secrets.APP_CERTIFICATE }}
-          download: https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/threedviewer-${{ github.ref_name }}.zip
+          download_url: https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/threedviewer-${{ github.ref_name }}.zip
 
