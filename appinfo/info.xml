@@ -3,22 +3,39 @@
 	  xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
 	<id>threedviewer</id>
 	<name>Three D Viewer</name>
-	<summary>View 3D models directly in Nextcloud with advanced rendering</summary>
+	<summary>🎨 View, analyze &amp; export 3D models with 10+ format support, annotations, measurements &amp; advanced rendering ✨</summary>
 	<description><![CDATA[A comprehensive 3D model viewer that allows you to view, interact with, and analyze 3D models directly within Nextcloud. Supports 10+ formats including GLB, GLTF, OBJ, STL, PLY, FBX, 3MF, and 3DS with full material and texture support.
 
-**Key Features:**
-- Support for multiple 3D file formats (GLB, GLTF, OBJ+MTL, STL, PLY, FBX, 3MF, 3DS, VRML, X3D)
-- Interactive 3D viewer with orbit controls and zoom
-- Wireframe and measurement tools
-- Model comparison with synchronized controls
-- Dynamic grid system that adapts to model size
-- Light and dark theme support
-- Multi-file support (OBJ+MTL+textures, GLTF+bins+images)
-- Performance optimized with code splitting and dynamic imports
-- Works with public shares and authenticated users
-- Accessibility features with keyboard navigation
+**📦 Format Support:**
+- 🎨 Multi-format support: GLB, GLTF, OBJ+MTL, STL, PLY, FBX, 3MF, 3DS, DAE, X3D, VRML
+- 📁 Multi-file models: Full support for OBJ+MTL+textures and GLTF+bins+images
+- 🗜️ Compression: DRACO geometry and KTX2/Basis texture compression (needs more work)
 
-Built with Three.js for high-performance WebGL rendering.]]></description>
+**🎮 Interactive Features:**
+- 🎯 3D Camera Controller: Intuitive circular controller for precise camera navigation
+- 🔄 Model comparison: Side-by-side viewing with synchronized controls
+- 📝 Annotations: Add notes and markers to specific points on models
+- 📏 Measurements: Distance and angle measurement tools
+- 🧭 Face labels: Orientation markers (TOP, BOTTOM, FRONT, BACK, LEFT, RIGHT)
+- 👁️ Camera projection toggle: Switch between perspective and orthographic views
+
+**⚡ Export & Tools:**
+- 💾 Export models to GLB, STL, and OBJ formats
+- 📊 Model statistics panel with detailed information
+- 🔲 Wireframe and bounding box visualization
+- 📐 Dynamic grid system that adapts to model size and position
+- ❓ Help panel with comprehensive in-app documentation
+
+**🚀 Performance & UX:**
+- 🖼️ Progressive texture loading for improved performance
+- 💿 Dependency caching using IndexedDB for faster multi-file loading
+- ⚙️ Performance modes with visual quality overlay
+- 📦 Code splitting and dynamic imports
+- 🌓 Light and dark theme support with RTL layout
+- 🔗 Works with public shares and authenticated users
+- ♿ Accessibility features with keyboard navigation and ARIA labels
+
+Built with Three.js for high-performance WebGL rendering. ✨]]></description>
 	<version>1.7.9</version>
 	<licence>agpl</licence>
 	<author mail="maz1987in@gmail.com" homepage="https://github.com/maz1987in">Mazin Al Saadi</author>

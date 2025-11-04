@@ -9,7 +9,7 @@
 		<transition name="slide-panel">
 			<div v-if="isOpen"
 				class="slide-out-panel"
-				:class="{ 'mobile': isMobile }"
+				:class="{ 'mobile': isMobile, 'dark-theme': isDarkTheme }"
 				role="complementary"
 				:aria-label="t('threedviewer', 'Tools panel')">
 				<!-- Panel Header -->
@@ -212,7 +212,7 @@
 </template>
 
 <script>
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
 
 export default {
@@ -274,6 +274,11 @@ export default {
 			display: true,
 			tools: true,
 			settings: true,
+		})
+
+		// Computed property to check if dark theme is active
+		const isDarkTheme = computed(() => {
+			return props.themeMode === 'dark'
 		})
 
 		/**
@@ -448,6 +453,7 @@ export default {
 			isOpen,
 			sections,
 			exportSelect,
+			isDarkTheme,
 			togglePanel,
 			closePanel,
 			toggleSection,
@@ -474,7 +480,7 @@ export default {
 	top: 0;
 	inset-inline: 0;
 	bottom: 0;
-	background: rgb(0 0 0 / 50%);
+	background: rgba(0, 0, 0, 0.5);
 	z-index: 1001;
 	backdrop-filter: blur(4px);
 }
@@ -488,11 +494,12 @@ export default {
 	width: 320px;
 	background: var(--color-main-background);
 	color: var(--color-main-text);
-	box-shadow: -4px 0 20px rgb(0 0 0 / 10%);
+	box-shadow: -4px 0 20px rgba(0, 0, 0, 0.2);
 	z-index: 1002;
 	display: flex;
 	flex-direction: column;
 	overflow: hidden;
+	border-left: 1px solid var(--color-border);
 }
 
 /* Panel Header */
@@ -501,7 +508,7 @@ export default {
 	align-items: center;
 	justify-content: space-between;
 	padding: 16px 20px;
-	background: var(--color-main-background);
+	background: var(--color-background-dark);
 	border-bottom: 1px solid var(--color-border);
 }
 
@@ -541,22 +548,22 @@ export default {
 }
 
 .panel-content::-webkit-scrollbar-track {
-	background: rgb(255 255 255 / 5%);
+	background: var(--color-background-dark);
 }
 
 .panel-content::-webkit-scrollbar-thumb {
-	background: rgb(255 255 255 / 20%);
+	background: var(--color-border);
 	border-radius: 4px;
 }
 
 .panel-content::-webkit-scrollbar-thumb:hover {
-	background: rgb(255 255 255 / 30%);
+	background: var(--color-border-dark);
 }
 
 /* Panel Sections */
 .panel-section {
 	margin-bottom: 8px;
-	background: rgb(255 255 255 / 5%);
+	background: var(--color-background-hover);
 	border-radius: 8px;
 	overflow: hidden;
 }
@@ -641,14 +648,14 @@ export default {
 
 .toggle-indicator {
 	font-size: 16px;
-	color: #4287f5;
+	color: var(--color-primary-element);
 	font-weight: bold;
 }
 
 .active-badge {
 	padding: 2px 8px;
-	background: #4287f5;
-	color: white;
+	background: var(--color-primary-element);
+	color: var(--color-primary-element-text);
 	font-size: 11px;
 	font-weight: 600;
 	border-radius: 10px;
@@ -701,7 +708,7 @@ export default {
 .export-select:focus {
 	outline: none;
 	border-color: var(--color-primary-element);
-	box-shadow: 0 0 0 2px rgba(var(--color-primary-element-rgb), 0.2);
+	box-shadow: 0 0 0 2px var(--color-primary-element-light);
 }
 
 .export-select:disabled {
@@ -725,7 +732,7 @@ export default {
 .color-input {
 	flex: 1;
 	height: 36px;
-	border: 1px solid rgb(255 255 255 / 20%);
+	border: 1px solid var(--color-border);
 	border-radius: 4px;
 	cursor: pointer;
 	background: transparent;
@@ -733,30 +740,31 @@ export default {
 
 .reset-color-btn {
 	padding: 8px 12px;
-	background: rgb(255 255 255 / 10%);
-	border: 1px solid rgb(255 255 255 / 20%);
+	background: var(--color-background-hover);
+	border: 1px solid var(--color-border);
 	border-radius: 4px;
-	color: #fff;
+	color: var(--color-main-text);
 	font-size: 12px;
 	cursor: pointer;
 	transition: all 0.2s ease;
 }
 
 .reset-color-btn:hover {
-	background: rgb(255 255 255 / 15%);
+	background: var(--color-primary-element);
+	color: var(--color-primary-element-text);
 }
 
 /* Panel Footer */
 .panel-footer {
 	padding: 12px 20px;
-	background: #2a2a2a;
-	border-top: 1px solid rgb(255 255 255 / 10%);
+	background: var(--color-background-dark);
+	border-top: 1px solid var(--color-border);
 	text-align: center;
 }
 
 .keyboard-hint {
 	font-size: 12px;
-	color: rgb(255 255 255 / 50%);
+	color: var(--color-text-maxcontrast);
 	font-style: italic;
 }
 
@@ -789,7 +797,143 @@ export default {
 	transform: translateY(100%);
 }
 
-/* CSS variables automatically handle theme switching */
+/* Dark theme support - Component-level class binding */
+.slide-out-panel.dark-theme {
+	background: #2a2a2a !important;
+	color: #ffffff !important;
+	box-shadow: -4px 0 20px rgba(0, 0, 0, 0.4) !important;
+	border-left-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.slide-out-panel.dark-theme .panel-header {
+	background: #2a2a2a !important;
+	border-bottom-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.slide-out-panel.dark-theme .panel-title,
+.slide-out-panel.dark-theme .close-btn {
+	color: #ffffff !important;
+}
+
+.slide-out-panel.dark-theme .close-btn:hover {
+	background: rgba(255, 255, 255, 0.1) !important;
+}
+
+.slide-out-panel.dark-theme .panel-content::-webkit-scrollbar-track {
+	background: rgba(255, 255, 255, 0.05) !important;
+}
+
+.slide-out-panel.dark-theme .panel-content::-webkit-scrollbar-thumb {
+	background: rgba(255, 255, 255, 0.2) !important;
+}
+
+.slide-out-panel.dark-theme .panel-content::-webkit-scrollbar-thumb:hover {
+	background: rgba(255, 255, 255, 0.3) !important;
+}
+
+.slide-out-panel.dark-theme .panel-section {
+	background: rgba(255, 255, 255, 0.05) !important;
+}
+
+.slide-out-panel.dark-theme .section-header {
+	color: #ffffff !important;
+}
+
+.slide-out-panel.dark-theme .section-header:hover {
+	background: rgba(255, 255, 255, 0.1) !important;
+}
+
+.slide-out-panel.dark-theme .tool-btn {
+	background: #333333 !important;
+	border-color: rgba(255, 255, 255, 0.2) !important;
+	color: #ffffff !important;
+}
+
+.slide-out-panel.dark-theme .tool-btn:hover {
+	background: rgba(255, 255, 255, 0.15) !important;
+	border-color: #4287f5 !important;
+}
+
+.slide-out-panel.dark-theme .tool-btn.active {
+	background: #4287f5 !important;
+	border-color: #4287f5 !important;
+	color: #ffffff !important;
+}
+
+.slide-out-panel.dark-theme .tool-group {
+	background: #333333 !important;
+	border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.slide-out-panel.dark-theme .tool-group:hover {
+	background: rgba(255, 255, 255, 0.1) !important;
+	border-color: #4287f5 !important;
+}
+
+.slide-out-panel.dark-theme .tool-label-small {
+	color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.slide-out-panel.dark-theme .preset-select,
+.slide-out-panel.dark-theme .export-select {
+	background: #333333 !important;
+	border-color: rgba(255, 255, 255, 0.2) !important;
+	color: #ffffff !important;
+}
+
+.slide-out-panel.dark-theme .preset-select:hover,
+.slide-out-panel.dark-theme .export-select:hover:not(:disabled) {
+	background: rgba(255, 255, 255, 0.1) !important;
+	border-color: #4287f5 !important;
+}
+
+.slide-out-panel.dark-theme .preset-select option,
+.slide-out-panel.dark-theme .export-select option {
+	background: #2a2a2a !important;
+	color: #ffffff !important;
+}
+
+.slide-out-panel.dark-theme .color-input {
+	border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.slide-out-panel.dark-theme .reset-color-btn {
+	background: rgba(255, 255, 255, 0.1) !important;
+	border-color: rgba(255, 255, 255, 0.2) !important;
+	color: #ffffff !important;
+}
+
+.slide-out-panel.dark-theme .reset-color-btn:hover {
+	background: rgba(255, 255, 255, 0.2) !important;
+}
+
+.slide-out-panel.dark-theme .panel-footer {
+	background: #1f1f1f !important;
+	border-top-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.slide-out-panel.dark-theme .keyboard-hint {
+	color: rgba(255, 255, 255, 0.6) !important;
+}
+
+.slide-out-panel.dark-theme .toggle-indicator {
+	color: #4287f5 !important;
+}
+
+.slide-out-panel.dark-theme .active-badge {
+	background: #4287f5 !important;
+	color: #ffffff !important;
+}
+
+.slide-out-panel.dark-theme .expand-icon {
+	color: rgba(255, 255, 255, 0.6) !important;
+}
+
+/* Light theme support - Subtle shadow for light backgrounds */
+:global(.theme--light) .slide-out-panel {
+	box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15);
+	border-left-color: rgba(0, 0, 0, 0.1);
+}
 
 /* Accessibility */
 @media (prefers-reduced-motion: reduce) {
