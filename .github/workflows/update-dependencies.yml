@@ -139,7 +139,7 @@ jobs:
         id: composer-update
         run: |
           composer install
-          composer update --no-dev
+          composer update
           
           # Check if there are any changes
           if git diff --quiet composer.json composer.lock; then
@@ -155,27 +155,32 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           title: 'Failed to update composer dependencies'
-          body: 'Please check the output of the GitHub action and manually resolve the issues<br>${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}<br>${{ steps.codeowners.outputs.codeowners }}'
+          body: |
+            Please check the output of the GitHub action and manually resolve the issues
+            
+            **Run**: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            
+            **Codeowners**: ${{ steps.codeowners.outputs.codeowners }}
 
       - name: Reset checkout 3rdparty
         if: steps.composer-update.outputs.has_changes == 'true'
         run: |
-          git clean -f 3rdparty
-          git checkout 3rdparty
+          git clean -fd 3rdparty
+          git restore 3rdparty
         continue-on-error: true
 
       - name: Reset checkout vendor
         if: steps.composer-update.outputs.has_changes == 'true'
         run: |
-          git clean -f vendor
-          git checkout vendor
+          git clean -fd vendor
+          git restore vendor
         continue-on-error: true
 
       - name: Reset checkout vendor-bin
         if: steps.composer-update.outputs.has_changes == 'true'
         run: |
-          git clean -f vendor-bin
-          git checkout vendor-bin
+          git clean -fd vendor-bin
+          git restore vendor-bin
         continue-on-error: true
 
       - name: Create Pull Request for composer updates
