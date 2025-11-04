@@ -913,12 +913,32 @@ export default {
 
 				scene.value.add(grid.value)
 
-				logger.info('ThreeViewer', 'Grid size updated', {
+				// Update axes size and position to match model scale
+				if (axes.value && props.showAxes) {
+					// Remove old axes
+					scene.value.remove(axes.value)
+					
+					// Calculate axes size based on model dimensions (25% of max dimension, minimum 5)
+					const axesSize = Math.max(maxDim * 0.25, 5)
+					
+					// Create new axes with appropriate size
+					axes.value = new THREE.AxesHelper(axesSize)
+					
+					// Position at bottom of model
+					axes.value.position.set(center.x, gridY, center.z)
+					
+					// Add to scene
+					scene.value.add(axes.value)
+				}
+
+				logger.info('ThreeViewer', 'Grid and axes updated', {
 					gridSize,
 					divisions,
 					maxDim,
+					axesSize: axes.value ? Math.max(maxDim * 0.25, 5) : 'not visible',
 					modelCenter: { x: center.x, y: center.y, z: center.z },
 					gridPosition: { x: center.x, y: gridY, z: center.z },
+					axesPosition: axes.value ? { x: center.x, y: gridY, z: center.z } : 'not visible',
 				})
 			} catch (error) {
 				logger.error('ThreeViewer', 'Failed to update grid size', error)
