@@ -49,7 +49,8 @@ jobs:
 
       - name: Prepare artifact directory
         run: |
-          APP_DIR="threedviewer-${GITHUB_REF_NAME}"
+          APP_DIR="threedviewer"
+          ARTIFACT_NAME="threedviewer-${GITHUB_REF_NAME}.tar.gz"
           mkdir "$APP_DIR"
           rsync -a ./ "$APP_DIR" \
             --exclude ".git/" \
@@ -67,8 +68,8 @@ jobs:
             --exclude "threedviewer-app/" \
             --exclude "threedviewer-*/" \
             --exclude "*.map"
-          tar -czf "${APP_DIR}.tar.gz" "$APP_DIR"
-          echo "ARTIFACT=${APP_DIR}.tar.gz" >> $GITHUB_ENV
+          tar -czf "$ARTIFACT_NAME" "$APP_DIR"
+          echo "ARTIFACT=$ARTIFACT_NAME" >> $GITHUB_ENV
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
