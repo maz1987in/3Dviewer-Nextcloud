@@ -85,11 +85,11 @@ jobs:
 
     steps:
       - name: Publish to Nextcloud App Store
-        uses: nextcloud/nextcloud-appstore-push-action@v1
+        uses: R0Wi/nextcloud-appstore-push-action@v1
         with:
-          app-name: threedviewer
-          appstore-token: ${{ secrets.APPSTORE_TOKEN }}
-          certificate: ${{ secrets.APP_CERTIFICATE }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          app_name: threedviewer
+          appstore_token: ${{ secrets.APPSTORE_TOKEN }}
+          app_private_key: ${{ secrets.APP_PRIVATE_KEY }}
+          app_public_cert: ${{ secrets.APP_CERTIFICATE }}
           download: https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/threedviewer-${{ github.ref_name }}.zip
 
