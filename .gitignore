@@ -125,6 +125,11 @@ pids
 .env.test
 .env.production
 
+# ---- App Signing & Certificates ----
+# Private keys for app signing (NEVER commit these!)
+*.key
+*.pem
+
 # ---- parcel-bundler cache ----
 .cache
 .parcel-cache
