@@ -391,6 +391,7 @@
 import { ref, onMounted, onBeforeUnmount, watch, computed, nextTick } from 'vue'
 import * as THREE from 'three'
 import { NcProgressBar, NcButton } from '@nextcloud/vue'
+import { generateUrl } from '@nextcloud/router'
 import CircularController from './CircularController.vue'
 import { useCamera } from '../composables/useCamera.js'
 import { useModelLoading } from '../composables/useModelLoading.js'
@@ -760,11 +761,12 @@ export default {
 			try {
 				const demoGroup = new THREE.Group()
 
-				// Load the app logo texture
-				const textureLoader = new THREE.TextureLoader()
-				const logoTexture = textureLoader.load('./img/app-color.svg', undefined, undefined, (error) => {
-					logger.warn('ThreeViewer', 'Failed to load app logo, using fallback', error)
-				})
+			// Load the app logo texture
+			const textureLoader = new THREE.TextureLoader()
+			const logoPath = generateUrl('/apps/threedviewer/img/app-color.svg')
+			const logoTexture = textureLoader.load(logoPath, undefined, undefined, (error) => {
+				logger.warn('ThreeViewer', 'Failed to load app logo, using fallback', error)
+			})
 
 				// 1. Center piece - Logo on a plane with depth
 				const logoPlaneGeometry = new THREE.PlaneGeometry(2, 2)
