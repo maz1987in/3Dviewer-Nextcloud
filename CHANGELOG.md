@@ -7,18 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.7.11] - 2025-01-04
+## [1.7.12] - 2025-01-04
 
 ### Fixed
 - **Viewer Integration**: Fixed `files()` method not storing files list, causing "No files provided, skipping update" error
 - **File Loading**: Fixed `TypeError: Cannot read properties of undefined (reading 'filename')` when opening 3D files
 - **Static Assets**: Fixed 500 error when loading app-color.svg due to route conflicts
 - **Route Structure**: Changed viewer route from `/{fileId}` to `/f/{fileId}` to prevent conflicts with static assets
+- **Axes Positioning**: Axes helper now positioned at bottom center of models, aligned with grid
+- **Axes Scaling**: Made axes size dynamic (25% of model's largest dimension, minimum 5 units)
+- **Logo Loading**: Fixed app logo path in demo scene to use generateUrl() for correct URL resolution
 
 ### Changed
 - Enhanced `files()` method in ViewerComponent with fallback logic to create synthetic file from props
 - Simplified PageController by removing unnecessary `is_numeric()` checks
 - Updated URL structure for better RESTful design: `/apps/threedviewer/f/{fileId}`
+- Axes now recreate on model load to ensure proper sizing and positioning
+
+## [1.7.11] - 2025-01-04
+
+### Fixed
+- **Dark Theme Support**: Fixed slide-out toolbar panel not responding to theme changes
+- **Theme Switching**: Implemented reactive theme binding using Vue computed properties
+- **CSS Integration**: Converted base styles to use Nextcloud CSS variables for better theme integration
+- **UI Consistency**: Toolbar panel now properly switches between Light, Dark, and Auto themes
+
+### Changed
+- Improved maintainability by using Nextcloud's standard color system throughout the toolbar
+- Enhanced theme responsiveness with component-level class binding
 
 ## [1.7.10] - 2025-11-04
 
