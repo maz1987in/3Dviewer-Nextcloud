@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.10] - 2025-11-04
+
+### Fixed
+- **Dark Theme Support**: Fixed slide-out toolbar panel not responding to theme changes
+- **Theme Switching**: Implemented reactive theme binding using Vue computed properties
+- **CSS Integration**: Converted base styles to use Nextcloud CSS variables for better theme integration
+- **UI Consistency**: Toolbar panel now properly switches between Light, Dark, and Auto themes
+
+### Changed
+- Improved maintainability by using Nextcloud's standard color system throughout the toolbar
+- Enhanced theme responsiveness with component-level class binding
+
 ## [1.7.9] - 2025-10-28
 
 ### Added
