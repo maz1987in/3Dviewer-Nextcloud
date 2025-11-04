@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.11] - 2025-01-04
+
+### Fixed
+- **Viewer Integration**: Fixed `files()` method not storing files list, causing "No files provided, skipping update" error
+- **File Loading**: Fixed `TypeError: Cannot read properties of undefined (reading 'filename')` when opening 3D files
+- **Static Assets**: Fixed 500 error when loading app-color.svg due to route conflicts
+- **Route Structure**: Changed viewer route from `/{fileId}` to `/f/{fileId}` to prevent conflicts with static assets
+
+### Changed
+- Enhanced `files()` method in ViewerComponent with fallback logic to create synthetic file from props
+- Simplified PageController by removing unnecessary `is_numeric()` checks
+- Updated URL structure for better RESTful design: `/apps/threedviewer/f/{fileId}`
+
 ## [1.7.10] - 2025-11-04
 
 ### Fixed
