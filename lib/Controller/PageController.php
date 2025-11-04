@@ -49,28 +49,15 @@ class PageController extends Controller
 
     /**
      * Viewer page for specific file
-     * URL: /apps/threedviewer/{fileId}?dir=/optional/path.
+     * URL: /apps/threedviewer/f/{fileId}?dir=/optional/path
+     * Note: Using /f/ prefix to avoid conflicts with static assets (img/, css/, js/).
      */
     #[NoCSRFRequired]
     #[NoAdminRequired]
     #[OpenAPI(OpenAPI::SCOPE_IGNORE)]
-    #[FrontpageRoute(verb: 'GET', url: '/{fileId}')]
+    #[FrontpageRoute(verb: 'GET', url: '/f/{fileId}')]
     public function viewer(string $fileId): TemplateResponse
     {
-        // Only handle numeric file IDs to avoid conflicts with static assets
-        if (!is_numeric($fileId)) {
-            // Return 404 for non-numeric paths (like img/app-color.png)
-            $response = new TemplateResponse(
-                'core',
-                '404',
-                [],
-                TemplateResponse::RENDER_AS_ERROR
-            );
-            $response->setStatus(404);
-
-            return $response;
-        }
-
         $response = new TemplateResponse(
             Application::APP_ID,
             'index',

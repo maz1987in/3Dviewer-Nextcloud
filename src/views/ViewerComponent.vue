@@ -109,6 +109,7 @@ export default {
 			loadingCancelled: false, // Flag to cancel ongoing loads
 			animationFrameId: null, // Track animation frame for cleanup
 			cleanupTimeoutId: null, // Track cleanup timeout for proper disposal
+			internalFilesList: [], // Store files list for Viewer API
 		}
 	},
 
@@ -157,12 +158,6 @@ export default {
 				this.hasLoaded = false
 				this.loadingCancelled = false
 				this.initViewer()
-			}
-		},
-		// Watch files prop to suppress Viewer warning
-		files(newFiles) {
-			if (newFiles && newFiles.length > 0) {
-				logger.info('ViewerComponent', 'Files list updated', { count: newFiles.length })
 			}
 		},
 	},
@@ -260,21 +255,42 @@ export default {
 		/**
 		 * Called by Viewer app to update the files list
 		 * This is part of the Viewer API contract for multi-file navigation
-		 * MUST return the fileList for Viewer to know which files are available
-		 * @param fileList
+		 * MUST store and return the fileList for Viewer to know which files are available
+		 * @param fileList - Array of file objects from Viewer
+		 * @returns Array of files (same as input)
 		 */
 		files(fileList) {
 			logger.info('ViewerComponent', 'Files method called', { count: fileList?.length || 0 })
 
-			// IMPORTANT: Must return the fileList for Viewer to call update()
-			// If we don't return it, Viewer thinks there are no files and skips activation
-			if (fileList && fileList.length > 0) {
-				logger.info('ViewerComponent', 'Returning file list', { count: fileList.length })
+			// Store the files list internally for Viewer API
+			if (fileList && Array.isArray(fileList) && fileList.length > 0) {
+				this.internalFilesList = fileList
+				logger.info('ViewerComponent', 'Files list stored and returned', { 
+					count: fileList.length,
+					firstFile: fileList[0]?.basename || 'unknown'
+				})
 				return fileList
 			}
 
-			// Return empty array if no files provided
-			logger.info('ViewerComponent', 'No files provided, returning empty array')
+			// If fileList is invalid, try to construct from props
+			if (this.fileid && this.filename && this.basename) {
+				const syntheticFile = {
+					fileid: this.fileid,
+					filename: this.filename,
+					basename: this.basename,
+					mime: this.mime,
+					davPath: this.davPath,
+				}
+				this.internalFilesList = [syntheticFile]
+				logger.info('ViewerComponent', 'Created synthetic file list from props', { 
+					filename: this.filename 
+				})
+				return [syntheticFile]
+			}
+
+			// Last resort: return empty array (but log warning)
+			logger.warn('ViewerComponent', 'No valid files list available, returning empty array')
+			this.internalFilesList = []
 			return []
 		},
 

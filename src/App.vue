@@ -155,13 +155,13 @@ export default {
 	},
 	methods: {
 		parseFileId() {
-			// First try data attribute from template (RESTful route: /apps/threedviewer/{fileId})
+			// First try data attribute from template (RESTful route: /apps/threedviewer/f/{fileId})
 			const appRoot = document.getElementById('threedviewer')
 			if (appRoot && appRoot.dataset.fileId) {
 				return Number(appRoot.dataset.fileId)
 			}
 
-			// Fallback: Try query params (legacy: /apps/threedviewer/?fileId=123)
+			// Fallback: Try query params (index page: /apps/threedviewer/?fileId=123)
 			const params = new URLSearchParams(window.location.search)
 			const id = params.get('fileId')
 			return id ? Number(id) : null

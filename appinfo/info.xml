@@ -71,11 +71,7 @@ Built with Three.js for high-performance WebGL rendering. ✨]]></description>
 			<param name="fileId" default="" />
 		</route>
 		<route name="threedviewer.files.list" url="/api/files/list" verb="GET" controller="FileController" action="listFiles" />
-		<route name="threedviewer.page.viewer" url="/{fileId}" verb="GET" controller="PageController" action="viewer">
-			<requirements>
-				<requirements fileId="\d+"/>
-			</requirements>
-		</route>
+		<route name="threedviewer.page.viewer" url="/f/{fileId}" verb="GET" controller="PageController" action="viewer" />
 	</routes>
 	<repair-steps>
 		<install>
