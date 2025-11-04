@@ -67,8 +67,8 @@ jobs:
             --exclude "threedviewer-app/" \
             --exclude "threedviewer-*/" \
             --exclude "*.map"
-          zip -r "${APP_DIR}.zip" "$APP_DIR"
-          echo "ARTIFACT=${APP_DIR}.zip" >> $GITHUB_ENV
+          tar -czf "${APP_DIR}.tar.gz" "$APP_DIR"
+          echo "ARTIFACT=${APP_DIR}.tar.gz" >> $GITHUB_ENV
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -91,5 +91,5 @@ jobs:
           app_name: threedviewer
           appstore_token: ${{ secrets.APPSTORE_TOKEN }}
           app_private_key: ${{ secrets.APP_PRIVATE_KEY }}
-          download_url: https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/threedviewer-${{ github.ref_name }}.zip
+          download_url: https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/threedviewer-${{ github.ref_name }}.tar.gz
 
