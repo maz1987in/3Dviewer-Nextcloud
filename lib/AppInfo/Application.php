@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace OCA\ThreeDViewer\AppInfo;
 
-use OCA\ThreeDViewer\Listener\CspListener;
 use OCA\ThreeDViewer\Listener\LoadFilesListener;
 use OCA\ThreeDViewer\Listener\LoadViewerListener;
 use OCP\AppFramework\App;
@@ -34,8 +33,8 @@ class Application extends App implements IBootstrap
         // This ensures our viewer handler is registered before Files app renders
         $context->registerEventListener(BeforeTemplateRenderedEvent::class, LoadFilesListener::class);
 
-        // Register CSP listener to allow blob URLs for 3D viewer
-        $context->registerEventListener(BeforeTemplateRenderedEvent::class, CspListener::class);
+        // CSP modifications are now only applied to 3D viewer routes via PageController
+        // This prevents conflicts with other apps' CSP requirements
     }
 
     public function boot(IBootContext $context): void

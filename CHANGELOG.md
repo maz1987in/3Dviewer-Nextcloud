@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.13] - 2025-01-05
+
+### Fixed
+- **CSP Conflicts**: Removed global CSP listener that was breaking other Nextcloud apps (Memories, etc.)
+- **File Icons**: Fixed custom file type icons not displaying by copying them to correct location
+- **App Compatibility**: CSP modifications now only apply to 3D viewer routes, allowing other apps to function normally
+
+### Changed
+- CSP headers now scoped to specific 3D viewer routes instead of globally
+- Added automatic icon copying during build process (scripts/copy-icons.mjs)
+- Removed `lib/Listener/CspListener.php` (no longer needed)
+
 ## [1.7.12] - 2025-01-04
 
 ### Fixed

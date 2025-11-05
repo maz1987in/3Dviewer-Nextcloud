@@ -1,18 +1,19 @@
 {
   "name": "threedviewer",
-  "version": "1.7.12",
+  "version": "1.7.13",
   "license": "AGPL-3.0-or-later",
   "engines": {
     "node": "^22.0.0",
     "npm": "^10.5.0"
   },
   "scripts": {
-    "prebuild": "node scripts/clean-build.mjs && node scripts/copy-decoders.mjs",
+    "prebuild": "node scripts/clean-build.mjs && node scripts/copy-decoders.mjs && node scripts/copy-icons.mjs",
     "build": "vite build",
     "postbuild": "npm run size:check",
     "dev": "vite --mode development build",
     "watch": "vite --mode development build --watch",
     "copy-decoders": "node scripts/copy-decoders.mjs",
+    "copy-icons": "node scripts/copy-icons.mjs",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
     "stylelint": "stylelint src/**/*.vue src/**/*.scss src/**/*.css",
