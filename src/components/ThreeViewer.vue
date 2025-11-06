@@ -405,6 +405,7 @@ import { useProgressiveTextures } from '../composables/useProgressiveTextures.js
 import { useTheme } from '../composables/useTheme.js'
 import { useFaceLabels } from '../composables/useFaceLabels.js'
 import { useController } from '../composables/useController.js'
+import { useScreenshot } from '../composables/useScreenshot.js'
 import { logger } from '../utils/logger.js'
 import { getIconForFilename } from '../utils/iconHelpers.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
@@ -461,6 +462,7 @@ export default {
 		const themeComposable = useTheme()
 		const faceLabels = useFaceLabels()
 		const controller = useController()
+		const screenshot = useScreenshot()
 
 		// Computed properties
 		const isMobile = computed(() => camera.isMobile.value)
@@ -561,12 +563,13 @@ export default {
 				const containerWidth = container.value.clientWidth || container.value.offsetWidth || 800
 				const containerHeight = container.value.clientHeight || container.value.offsetHeight || 600
 
-				// Create renderer
-				renderer.value = new THREE.WebGLRenderer({
-					antialias: true,
-					alpha: true,
-					powerPreference: 'high-performance',
-				})
+			// Create renderer
+			renderer.value = new THREE.WebGLRenderer({
+				antialias: true,
+				alpha: true,
+				powerPreference: 'high-performance',
+				preserveDrawingBuffer: true, // Required for screenshots
+			})
 
 				// Set initial size - this will set pixel ratio to window.devicePixelRatio by default
 				// but initPerformance() will immediately override it with the detected optimal ratio
@@ -947,6 +950,22 @@ export default {
 			}
 		}
 
+	/**
+		 * Update billboard text labels to always face the camera
+		 * This ensures text remains readable from any viewing angle
+		 */
+		const updateBillboards = () => {
+			if (!scene.value || !camera.camera.value) return
+
+			// Traverse scene and update all billboard-marked meshes
+			scene.value.traverse((object) => {
+				if (object.userData && object.userData.isBillboard === true) {
+					// Make the text mesh face the camera
+					object.lookAt(camera.camera.value.position)
+				}
+			})
+		}
+
 		const animate = () => {
 			animationFrameId.value = requestAnimationFrame(animate)
 
@@ -960,11 +979,14 @@ export default {
 				return
 			}
 
-			// Update controls
-			camera.updateControls()
+		// Update controls
+		camera.updateControls()
 
-			// Render scene
-			camera.render(renderer.value, scene.value)
+		// Update billboard text labels to face camera
+		updateBillboards()
+
+		// Render scene
+		camera.render(renderer.value, scene.value)
 
 			// Render face labels
 			faceLabels.renderLabels(scene.value, camera.camera.value)
@@ -1198,6 +1220,64 @@ export default {
 					type: 'error',
 					title: 'Clear Cache Failed',
 					message: error.message || 'Failed to clear cache',
+				})
+			}
+		}
+
+		/**
+		 * Handle screenshot capture
+		 * @param {object} options - Screenshot options
+		 */
+		const handleScreenshot = async (options = {}) => {
+			if (!renderer.value) {
+				logger.warn('ThreeViewer', 'No renderer available for screenshot')
+				emit('push-toast', {
+					type: 'error',
+					title: 'Screenshot Failed',
+					message: 'Renderer not initialized',
+				})
+				return
+			}
+
+			try {
+				logger.info('ThreeViewer', 'Capturing screenshot', options)
+
+				// Default options
+				const screenshotOptions = {
+					format: 'png',
+					quality: 0.95,
+					filename: null,
+					...options,
+				}
+
+				// Generate filename if not provided
+				if (!screenshotOptions.filename) {
+					const baseFilename = props.filename
+						? props.filename.replace(/\.[^/.]+$/, '')
+						: '3dviewer'
+					const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5)
+					const extension = screenshotOptions.format === 'png' ? 'png' : 'jpg'
+					screenshotOptions.filename = `${baseFilename}-screenshot-${timestamp}.${extension}`
+				}
+
+				// Capture and download screenshot
+				await screenshot.captureAndDownload(renderer.value, screenshotOptions)
+
+				logger.info('ThreeViewer', 'Screenshot captured successfully', {
+					filename: screenshotOptions.filename,
+				})
+
+				emit('push-toast', {
+					type: 'success',
+					title: 'Screenshot Captured',
+					message: `Screenshot saved as ${screenshotOptions.filename}`,
+				})
+			} catch (error) {
+				logger.error('ThreeViewer', 'Failed to capture screenshot', error)
+				emit('push-toast', {
+					type: 'error',
+					title: 'Screenshot Failed',
+					message: error.message || 'Failed to capture screenshot',
 				})
 			}
 		}
@@ -2002,6 +2082,7 @@ export default {
 			toggleModelStats,
 			handleExport,
 			handleClearCache,
+			handleScreenshot,
 			toggleFaceLabels,
 			handleViewCubeFaceClick,
 			toggleController,

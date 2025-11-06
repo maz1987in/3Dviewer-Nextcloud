@@ -297,12 +297,8 @@ export default {
 			this.background = val
 		},
 		onTakeScreenshot() {
-			// TODO: Implement screenshot functionality
-			this.pushToast({
-				type: 'info',
-				title: this.t('threedviewer', 'Screenshot'),
-				message: this.t('threedviewer', 'Screenshot feature coming soon'),
-			})
+			// Trigger screenshot on the viewer
+			this.$refs.viewer?.handleScreenshot?.()
 		},
 		onToggleHelp() {
 			// Toggle help panel visibility

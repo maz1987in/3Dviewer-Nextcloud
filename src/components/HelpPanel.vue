@@ -206,7 +206,7 @@
 							<span class="help-icon">📷</span>
 							<div class="help-text">
 								<h4>{{ t('threedviewer', 'Screenshot') }}</h4>
-								<p>{{ t('threedviewer', 'Capture the current view as an image file.') }}</p>
+								<p>{{ t('threedviewer', 'Capture high-quality screenshots of the current 3D view. Screenshots are saved as PNG images with the model name and timestamp.') }}</p>
 							</div>
 						</div>
 					</div>

@@ -59,6 +59,7 @@ A comprehensive 3D model viewer application for Nextcloud that supports multiple
 - **Advanced Tooling** - Annotations, measurements, and analysis tools
 - **3D Camera Controller** - Intuitive circular controller for precise camera navigation
 - **Face Labels** - Orientation markers (TOP, BOTTOM, FRONT, BACK, LEFT, RIGHT) on model faces
+- **Screenshot Capture** - Take high-quality PNG/JPEG screenshots of 3D models
 - **Export Functionality** - Export models to GLB, STL, and OBJ formats
 - **Camera Projection Toggle** - Switch between perspective and orthographic views
 - **Progressive Texture Loading** - Background loading for improved performance

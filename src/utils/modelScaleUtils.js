@@ -262,8 +262,8 @@ export function createTextMesh(text, position, options = {}) {
 		textMesh.name = name
 		textMesh.renderOrder = renderOrder
 
-		// Make text face camera (simplified - point towards origin)
-		textMesh.lookAt(0, 0, 0)
+		// Mark as billboard - will be updated to face camera in animation loop
+		textMesh.userData.isBillboard = true
 
 		return textMesh
 

@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.0] - 2025-01-05
+
+### Added
+- **Screenshot Feature**: Capture high-quality screenshots of 3D models directly from the viewer
+  - PNG and JPEG format support with configurable quality
+  - Automatic filename generation with timestamp
+  - Accessible from toolbar and tools panel
+  - Download screenshots directly to local device
+  - Fixed WebGL renderer configuration to enable screenshot capture (`preserveDrawingBuffer: true`)
+- **Billboard Text Labels**: Annotation and measurement text now always faces the camera
+  - Text remains readable from any viewing angle
+  - No more reversed/mirrored text when viewing from behind
+  - Smooth rotation as camera moves around the model
+  - Improved user experience for annotations and measurements
+
+### Changed
+- Updated app version to 1.8.0
+- Enhanced info.xml with new feature descriptions
+- Updated English translations for screenshot and billboard features
+
 ## [1.7.13] - 2025-01-05
 
 ### Fixed

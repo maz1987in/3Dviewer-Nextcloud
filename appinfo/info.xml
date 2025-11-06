@@ -14,12 +14,13 @@
 **🎮 Interactive Features:**
 - 🎯 3D Camera Controller: Intuitive circular controller for precise camera navigation
 - 🔄 Model comparison: Side-by-side viewing with synchronized controls
-- 📝 Annotations: Add notes and markers to specific points on models
-- 📏 Measurements: Distance and angle measurement tools
+- 📝 Annotations: Add notes and markers to specific points on models (always readable, faces camera)
+- 📏 Measurements: Distance and angle measurement tools (with billboard text)
 - 🧭 Face labels: Orientation markers (TOP, BOTTOM, FRONT, BACK, LEFT, RIGHT)
 - 👁️ Camera projection toggle: Switch between perspective and orthographic views
 
 **⚡ Export & Tools:**
+- 📷 Screenshot capture: Take high-quality PNG/JPEG screenshots of your models
 - 💾 Export models to GLB, STL, and OBJ formats
 - 📊 Model statistics panel with detailed information
 - 🔲 Wireframe and bounding box visualization
@@ -36,7 +37,7 @@
 - ♿ Accessibility features with keyboard navigation and ARIA labels
 
 Built with Three.js for high-performance WebGL rendering. ✨]]></description>
-	<version>1.7.13</version>
+	<version>1.8.0</version>
 	<licence>agpl</licence>
 	<author mail="maz1987in@gmail.com" homepage="https://github.com/maz1987in">Mazin Al Saadi</author>
 	<donation title="Donate to the developers with PayPal" type="paypal">https://www.paypal.com/ncp/payment/KZCB3XTCHGKZC</donation>

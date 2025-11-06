@@ -358,14 +358,14 @@ export default {
 				// Store in composable for state management
 				this.sceneComposable.scene.value = this.scene
 
-				// Create renderer
-				this.renderer = new THREE.WebGLRenderer({
-					canvas: this.$refs.canvas,
-					antialias: true,
-					alpha: false,
-					premultipliedAlpha: false,
-					preserveDrawingBuffer: false,
-					powerPreference: 'high-performance',
+			// Create renderer
+			this.renderer = new THREE.WebGLRenderer({
+				canvas: this.$refs.canvas,
+				antialias: true,
+				alpha: false,
+				premultipliedAlpha: false,
+				preserveDrawingBuffer: true, // Required for screenshots
+				powerPreference: 'high-performance',
 					failIfMajorPerformanceCaveat: false,
 					desynchronized: true,
 				})
