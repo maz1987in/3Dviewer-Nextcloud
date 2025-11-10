@@ -176,8 +176,8 @@ This project is licensed under the **AGPL-3.0 License**. See [LICENSE](LICENSE) 
 
 ## 📊 Version
 
-**Current Version**: 1.7.12  
-**Released**: January 4, 2025
+**Current Version**: 1.9.0  
+**Released**: November 10, 2025
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed release notes and version history.
 
