@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.0] - 2025-11-10
+
+### Added
+- **🖨️ Slicer Integration**: Send 3D models directly to slicer applications for 3D printing
+  - Support for PrusaSlicer, UltiMaker Cura, BambuStudio, OrcaSlicer, Simplify3D, and Eufy Studio
+  - One-click export with URL scheme integration
+  - Automatic STL conversion and temporary share link creation
+  - Professional slicer logos with brand-matched colors
+  - Last used slicer appears first for quick access
+  - Smart detection of uninstalled slicers with user-friendly error messages
+  - Auto-download fallback when slicer app is not registered
+  - Temporary file cleanup after 2 minutes
+  - Share links expire after 24 hours for security
+- **SlicerController API**: Backend controller for handling slicer exports
+  - POST `/api/slicer/temp` - Upload STL and create temporary share link
+  - GET `/api/slicer/temp/{fileId}` - Download temporary file
+  - DELETE `/api/slicer/temp/{fileId}` - Delete temporary file and share
+  - Automatic cleanup of old temporary files
+  - Proper filename sanitization for paths and special characters
+  - CORS headers for slicer application compatibility
+
+### Changed
+- Updated app version to 1.9.0
+- Enhanced toolbar with "Send to Slicer" button
+- Added slicer integration to slide-out tools panel
+- Improved error handling with toast notifications
+- Updated translations for all supported languages
+
+### Technical
+- Created `appinfo/routes.php` for route registration
+- Added `@NoCSRFRequired` annotations for API endpoints
+- Implemented Nextcloud native share system for temporary URLs
+- Fixed filename handling for files with paths and special characters
+- Added proper authentication and cleanup mechanisms
+
 ## [1.8.0] - 2025-01-05
 
 ### Added

@@ -6,6 +6,16 @@
 			<!-- Help Panel -->
 			<HelpPanel v-if="showHelp" @close="showHelp = false" />
 
+			<!-- Slicer Modal -->
+			<SlicerModal
+				:is-open="showSlicerModal"
+				:model-object="getModelObject()"
+				:model-name="getModelName()"
+				:is-dark-theme="themeMode === 'dark'"
+				@close="showSlicerModal = false"
+				@success="onSlicerSuccess"
+				@error="onSlicerError" />
+
 			<!-- Minimal Top Bar -->
 			<MinimalTopBar
 				:model-name="filename"
@@ -54,6 +64,7 @@
 				@toggle-stats="onToggleStats"
 				@take-screenshot="onTakeScreenshot"
 				@export-model="onExportModel"
+				@send-to-slicer="onSendToSlicer"
 				@clear-cache="onClearCache"
 				@toggle-help="onToggleHelp" />
 
@@ -86,6 +97,7 @@ import ThreeViewer from './components/ThreeViewer.vue'
 import MinimalTopBar from './components/MinimalTopBar.vue'
 import SlideOutToolPanel from './components/SlideOutToolPanel.vue'
 import HelpPanel from './components/HelpPanel.vue'
+import SlicerModal from './components/SlicerModal.vue'
 import { NcAppContent } from '@nextcloud/vue'
 
 export default {
@@ -97,6 +109,7 @@ export default {
 		MinimalTopBar,
 		SlideOutToolPanel,
 		HelpPanel,
+		SlicerModal,
 	},
 	data() {
 		return {
@@ -129,6 +142,7 @@ export default {
 			showPerformance: true,
 			showHelp: false,
 			isMobile: false,
+			showSlicerModal: false,
 		}
 	},
 	watch: {
@@ -286,6 +300,58 @@ export default {
 		onExportModel(format) {
 		// Trigger export on the viewer
 			this.$refs.viewer?.handleExport?.(format)
+		},
+
+		onSendToSlicer() {
+			// Open the slicer modal
+			if (this.modelLoaded) {
+				this.showSlicerModal = true
+			} else {
+				this.pushToast({
+					message: 'No model loaded',
+					type: 'error',
+					duration: 3000,
+				})
+			}
+		},
+
+		getModelObject() {
+			// Get the model object from the viewer
+			return this.$refs.viewer?.getModelObject?.() || null
+		},
+
+		getModelName() {
+			// Return filename without extension for export
+			if (!this.filename) return 'model'
+			
+			// Extract just the filename (remove path)
+			const parts = this.filename.split('/')
+			const filenameOnly = parts[parts.length - 1]
+			
+			// Remove extension
+			const lastDot = filenameOnly.lastIndexOf('.')
+			return lastDot > 0 ? filenameOnly.substring(0, lastDot) : filenameOnly
+		},
+
+		onSlicerSuccess({ slicerId, method }) {
+			// Show success toast
+			this.pushToast({
+				message: method === 'url-scheme'
+					? 'Model sent to slicer'
+					: 'STL downloaded successfully',
+				type: 'success',
+				duration: 3000,
+			})
+			this.showSlicerModal = false
+		},
+
+		onSlicerError(error) {
+			// Show error toast
+			this.pushToast({
+				message: `Failed to send to slicer: ${error.message}`,
+				type: 'error',
+				duration: 5000,
+			})
 		},
 
 		onClearCache() {

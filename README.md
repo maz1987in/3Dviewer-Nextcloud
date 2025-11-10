@@ -1,6 +1,6 @@
 # 3D Viewer for Nextcloud
 
-[![Version](https://img.shields.io/badge/version-1.7.12-blue)](https://github.com/maz1987in/3Dviewer-Nextcloud/releases)
+[![Version](https://img.shields.io/badge/version-1.9.0-blue)](https://github.com/maz1987in/3Dviewer-Nextcloud/releases)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-orange)](LICENSE)
 [![Nextcloud](https://img.shields.io/badge/Nextcloud-30--32-0082c9)](https://nextcloud.com)
 
@@ -61,6 +61,7 @@ A comprehensive 3D model viewer application for Nextcloud that supports multiple
 - **Face Labels** - Orientation markers (TOP, BOTTOM, FRONT, BACK, LEFT, RIGHT) on model faces
 - **Screenshot Capture** - Take high-quality PNG/JPEG screenshots of 3D models
 - **Export Functionality** - Export models to GLB, STL, and OBJ formats
+- **Slicer Integration** - Send models directly to PrusaSlicer, Cura, BambuStudio, OrcaSlicer, Simplify3D, and Eufy Studio
 - **Camera Projection Toggle** - Switch between perspective and orthographic views
 - **Progressive Texture Loading** - Background loading for improved performance
 - **Dependency Caching** - IndexedDB caching for faster multi-file model loading

@@ -1346,6 +1346,14 @@ export default {
 			}
 		}
 
+		/**
+		 * Get the current model object for external use (e.g., slicer modal)
+		 * @returns {THREE.Object3D|null} The model object or null if not loaded
+		 */
+		const getModelObject = () => {
+			return modelRoot.value
+		}
+
 		const deleteAnnotation = (annotationId) => {
 			annotation.deleteAnnotation(annotationId)
 		}
@@ -2081,6 +2089,7 @@ export default {
 			togglePerformanceStats,
 			toggleModelStats,
 			handleExport,
+			getModelObject,
 			handleClearCache,
 			handleScreenshot,
 			toggleFaceLabels,
