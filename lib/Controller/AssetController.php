@@ -22,8 +22,8 @@ class AssetController extends Controller
     }
 
     /**
-     * Serve decoder assets (WASM files, etc.)
-     * Supports: /apps/threedviewer/draco/{filename} and /apps/threedviewer/basis/{filename}.
+     * Serve decoder assets (WASM files, etc.) and images
+     * Supports: /apps/threedviewer/draco/{filename}, /apps/threedviewer/basis/{filename}, and /apps/threedviewer/img/{subdir}/{filename}.
      */
     #[NoCSRFRequired]
     #[PublicPage]
@@ -31,13 +31,20 @@ class AssetController extends Controller
     public function serveAsset(string $type, string $filename): FileDisplayResponse
     {
         $appRoot = dirname(__DIR__, 2);
-        $allowedTypes = ['draco', 'basis'];
-
-        if (!in_array($type, $allowedTypes)) {
-            throw new \InvalidArgumentException('Invalid asset type');
+        
+        // Handle img/slicers/ subdirectory
+        if ($type === 'img') {
+            // $filename could be "slicers/prusaslicer.png"
+            $filePath = $appRoot . '/img/' . $filename;
+        } else {
+            $allowedTypes = ['draco', 'basis'];
+            
+            if (!in_array($type, $allowedTypes)) {
+                throw new \InvalidArgumentException('Invalid asset type');
+            }
+            
+            $filePath = $appRoot . '/' . $type . '/' . $filename;
         }
-
-        $filePath = $appRoot . '/' . $type . '/' . $filename;
 
         if (!file_exists($filePath)) {
             throw new \InvalidArgumentException('Asset not found');
@@ -74,6 +81,11 @@ class AssetController extends Controller
         return match ($extension) {
             'wasm' => 'application/wasm',
             'js' => 'application/javascript',
+            'png' => 'image/png',
+            'jpg', 'jpeg' => 'image/jpeg',
+            'svg' => 'image/svg+xml',
+            'gif' => 'image/gif',
+            'webp' => 'image/webp',
             default => 'application/octet-stream'
         };
     }
