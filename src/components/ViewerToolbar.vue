@@ -105,6 +105,15 @@
 				<span class="tb-icon">⚖️</span>
 				<span class="tb-text">{{ t('threedviewer','Compare') }}</span>
 			</button>
+			<button :aria-label="t('threedviewer','Send to Slicer')"
+				class="tb"
+				type="button"
+				:title="t('threedviewer','Send model to 3D printing slicer')"
+				:disabled="!modelLoaded"
+				@click="$emit('send-to-slicer')">
+				<span class="tb-icon">🖨️</span>
+				<span class="tb-text">{{ t('threedviewer','Send to Slicer') }}</span>
+			</button>
 			<button :aria-label="t('threedviewer','Performance settings')"
 				class="tb"
 				type="button"
@@ -138,6 +147,7 @@ export default {
 		annotationMode: { type: Boolean, default: false },
 		comparisonMode: { type: Boolean, default: false },
 		performanceMode: { type: String, default: 'auto' },
+		modelLoaded: { type: Boolean, default: false },
 	},
 	data() {
 		return {
@@ -291,9 +301,15 @@ export default {
 	outline-offset: 2px;
 }
 
-.tb:hover {
+.tb:hover:not(:disabled) {
 	background: var(--color-primary-element-hover, #1565c0);
 	transform: translateY(-1px);
+}
+
+.tb:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+	background: var(--color-background-dark, #ccc);
 }
 
 .color-picker {

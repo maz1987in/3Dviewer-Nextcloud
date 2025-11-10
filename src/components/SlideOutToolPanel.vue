@@ -170,6 +170,12 @@
 								<span class="tool-icon">📷</span>
 								<span class="tool-label">{{ t('threedviewer', 'Screenshot') }}</span>
 							</button>
+							<button class="tool-btn"
+								:disabled="!modelLoaded"
+								@click="emit('send-to-slicer')">
+								<span class="tool-icon">🖨️</span>
+								<span class="tool-label">{{ t('threedviewer', 'Send to Slicer') }}</span>
+							</button>
 							<div class="tool-group">
 								<label class="tool-label-small">{{ t('threedviewer', 'Export Model') }}</label>
 								<select ref="exportSelect"
@@ -260,6 +266,7 @@ export default {
 		'toggle-stats',
 		'take-screenshot',
 		'export-model',
+		'send-to-slicer',
 		'clear-cache',
 		'toggle-help',
 	],

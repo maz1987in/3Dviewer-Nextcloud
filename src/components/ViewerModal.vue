@@ -1,5 +1,15 @@
 <template>
 	<div class="viewer-modal">
+		<!-- Slicer Modal -->
+		<SlicerModal
+			:is-open="showSlicerModal"
+			:model-object="getModelObject()"
+			:model-name="getModelName()"
+			:is-dark-theme="false"
+			@close="showSlicerModal = false"
+			@success="onSlicerSuccess"
+			@error="onSlicerError" />
+
 		<ThreeViewer
 			ref="viewer"
 			:file-id="fileId"
@@ -15,25 +25,29 @@
 			:face-labels="faceLabels"
 			:wireframe="wireframe"
 			:background="background"
+			:model-loaded="modelLoaded"
 			class="modal-toolbar"
 			@reset-view="onReset"
 			@toggle-grid="grid = !grid"
 			@toggle-axes="axes = !axes"
 			@toggle-face-labels="toggleFaceLabels"
 			@toggle-wireframe="wireframe = !wireframe"
-			@change-background="onBackgroundChange" />
+			@change-background="onBackgroundChange"
+			@send-to-slicer="onSendToSlicer" />
 	</div>
 </template>
 
 <script>
 import ThreeViewer from './ThreeViewer.vue'
 import ViewerToolbar from './ViewerToolbar.vue'
+import SlicerModal from './SlicerModal.vue'
 
 export default {
 	name: 'ViewerModal',
 	components: {
 		ThreeViewer,
 		ViewerToolbar,
+		SlicerModal,
 	},
 	props: {
 		fileId: { type: [Number, String], required: true },
@@ -48,6 +62,8 @@ export default {
 			wireframe: false,
 			background: '#f5f5f5',
 			_prefsLoaded: false,
+			showSlicerModal: false,
+			modelLoaded: false,
 		}
 	},
 	watch: {
@@ -103,12 +119,45 @@ export default {
 			this.background = val
 		},
 		onModelLoaded(meta) {
+			// Set model loaded flag
+			this.modelLoaded = true
 			// Emit event for parent components
 			this.$emit('model-loaded', meta)
 		},
 		onError(msg) {
 			// Emit event for parent components
 			this.$emit('error', msg)
+		},
+		onSendToSlicer() {
+			// Open the slicer modal
+			if (this.modelLoaded) {
+				this.showSlicerModal = true
+			}
+		},
+		getModelObject() {
+			// Get the model object from the viewer
+			return this.$refs.viewer?.getModelObject?.() || null
+		},
+		getModelName() {
+			// Return filename without extension for export
+			if (!this.file?.name) return 'model'
+			
+			// Extract just the filename (remove any path)
+			const fullPath = this.file.name
+			const parts = fullPath.split('/')
+			const filenameOnly = parts[parts.length - 1]
+			
+			// Remove extension
+			const lastDot = filenameOnly.lastIndexOf('.')
+			return lastDot > 0 ? filenameOnly.substring(0, lastDot) : filenameOnly
+		},
+		onSlicerSuccess() {
+			// Close modal on success
+			this.showSlicerModal = false
+		},
+		onSlicerError(error) {
+			// Log error
+			console.error('Slicer error:', error)
 		},
 	},
 }

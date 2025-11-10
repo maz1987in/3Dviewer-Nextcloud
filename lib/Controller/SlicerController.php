@@ -1,0 +1,376 @@
+<?php
+
+declare(strict_types=1);
+
+namespace OCA\ThreeDViewer\Controller;
+
+use OCP\AppFramework\Controller;
+use OCP\AppFramework\Http;
+use OCP\AppFramework\Http\JSONResponse;
+use OCP\Files\IRootFolder;
+use OCP\IRequest;
+use OCP\IUserSession;
+use OCP\IURLGenerator;
+use OCP\Share\IManager as ShareManager;
+use OCP\Share\IShare;
+use Psr\Log\LoggerInterface;
+
+/**
+ * Controller for handling slicer integration
+ */
+class SlicerController extends Controller
+{
+    private const TEMP_FOLDER = '.3dviewer_temp';
+    private const MAX_TEMP_FILE_AGE = 3600; // 1 hour
+
+    private IRootFolder $rootFolder;
+    private IUserSession $userSession;
+    private IURLGenerator $urlGenerator;
+    private ShareManager $shareManager;
+    private LoggerInterface $logger;
+
+    public function __construct(
+        string $appName,
+        IRequest $request,
+        IRootFolder $rootFolder,
+        IUserSession $userSession,
+        IURLGenerator $urlGenerator,
+        ShareManager $shareManager,
+        LoggerInterface $logger
+    ) {
+        parent::__construct($appName, $request);
+        $this->rootFolder = $rootFolder;
+        $this->userSession = $userSession;
+        $this->urlGenerator = $urlGenerator;
+        $this->shareManager = $shareManager;
+        $this->logger = $logger;
+    }
+
+    /**
+     * Test endpoint to verify controller is working
+     *
+     * @NoAdminRequired
+     * @NoCSRFRequired
+     * @return JSONResponse
+     */
+    public function test(): JSONResponse
+    {
+        return new JSONResponse([
+            'status' => 'ok',
+            'message' => 'SlicerController is working',
+            'timestamp' => time()
+        ]);
+    }
+
+    /**
+     * Create a temporary public share link for exported STL file
+     * Uses Nextcloud's native share system
+     *
+     * @NoAdminRequired
+     * @NoCSRFRequired
+     * @return JSONResponse
+     */
+    public function saveTempFile(): JSONResponse
+    {
+        try {
+            $this->logger->info('SlicerController: saveTempFile called');
+            
+            // Check authentication
+            $user = $this->userSession->getUser();
+            if ($user === null) {
+                $this->logger->error('SlicerController: User not authenticated');
+                return new JSONResponse(['error' => 'User not authenticated'], Http::STATUS_UNAUTHORIZED);
+            }
+
+            $this->logger->info('SlicerController: User authenticated', ['user' => $user->getUID()]);
+
+            // Get the uploaded file data
+            $fileData = file_get_contents('php://input');
+            if ($fileData === false || empty($fileData)) {
+                $this->logger->error('SlicerController: No file data in request');
+                return new JSONResponse(['error' => 'No file data provided'], Http::STATUS_BAD_REQUEST);
+            }
+
+            $this->logger->info('SlicerController: Received file data', ['size' => strlen($fileData)]);
+
+            // Get filename from query parameter
+            $filename = $this->request->getParam('filename', 'model.stl');
+            
+            // Extract just the filename (remove any path components)
+            // Handle both Unix (/) and Windows (\) path separators
+            $filename = basename(str_replace('\\', '/', $filename));
+            
+            // Remove any remaining path separators
+            $filename = str_replace(['/', '\\'], '_', $filename);
+            
+            // Sanitize filename (remove invalid characters, keep dots and hyphens)
+            $filename = preg_replace('/[^a-zA-Z0-9_\-\.]/', '_', $filename);
+            
+            // Remove multiple consecutive underscores
+            $filename = preg_replace('/_+/', '_', $filename);
+            
+            // Ensure filename ends with .stl
+            if (substr(strtolower($filename), -4) !== '.stl') {
+                $filename .= '.stl';
+            }
+
+            // Get user folder
+            $userFolder = $this->rootFolder->getUserFolder($user->getUID());
+            $this->logger->info('SlicerController: Got user folder');
+
+            // Create or get temp folder
+            try {
+                $tempFolder = $userFolder->get(self::TEMP_FOLDER);
+                $this->logger->info('SlicerController: Found existing temp folder');
+            } catch (\OCP\Files\NotFoundException $e) {
+                $this->logger->info('SlicerController: Creating new temp folder');
+                $tempFolder = $userFolder->newFolder(self::TEMP_FOLDER);
+                $this->logger->info('SlicerController: Created temp folder');
+            }
+
+            // Clean up old files and shares
+            $this->cleanupOldTempFiles($tempFolder);
+
+            // Generate unique filename with timestamp
+            $uniqueFilename = time() . '_' . $filename;
+
+            // Save the file
+            $file = $tempFolder->newFile($uniqueFilename);
+            $file->putContent($fileData);
+
+            $this->logger->info('SlicerController: File saved', ['fileId' => $file->getId()]);
+
+            // Create a temporary public share link (Nextcloud native way)
+            $share = $this->shareManager->newShare();
+            $share->setNode($file);
+            $share->setShareType(IShare::TYPE_LINK);
+            $share->setSharedBy($user->getUID());
+            $share->setPermissions(\OCP\Constants::PERMISSION_READ);
+            
+            // Set expiration to tomorrow (Nextcloud requires date at midnight, not time)
+            $expirationDate = new \DateTime('tomorrow');
+            $share->setExpirationDate($expirationDate);
+            
+            // Create the share
+            $share = $this->shareManager->createShare($share);
+            $token = $share->getToken();
+
+            $this->logger->info('SlicerController: Share created', ['token' => $token]);
+
+            // Generate public download URL using the share token
+            // Add filename as query parameter so slicers recognize the file type
+            $downloadUrl = $this->urlGenerator->linkToRouteAbsolute(
+                'files_sharing.sharecontroller.downloadShare',
+                ['token' => $token]
+            ) . '?filename=' . urlencode($uniqueFilename);
+
+            $this->logger->info('Temporary STL file shared for slicer', [
+                'user' => $user->getUID(),
+                'filename' => $uniqueFilename,
+                'size' => $file->getSize(),
+                'fileId' => $file->getId(),
+                'shareToken' => $token,
+                'downloadUrl' => $downloadUrl,
+            ]);
+
+            return new JSONResponse([
+                'success' => true,
+                'fileId' => $file->getId(),
+                'shareToken' => $token,
+                'downloadUrl' => $downloadUrl,
+                'filename' => $uniqueFilename,
+                'size' => $file->getSize(),
+                'expiresAt' => $expirationDate->format('c'),
+            ]);
+
+        } catch (\Throwable $e) {
+            $this->logger->error('Failed to save temporary STL file', [
+                'error' => $e->getMessage(),
+                'type' => get_class($e),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return new JSONResponse([
+                'error' => 'Failed to save file: ' . $e->getMessage(),
+                'details' => get_class($e)
+            ], Http::STATUS_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Get temporary file for download
+     *
+     * @NoAdminRequired
+     * @NoCSRFRequired
+     * @param int $fileId File ID
+     * @return Http\DataDownloadResponse|JSONResponse
+     */
+    public function getTempFile(int $fileId)
+    {
+        try {
+            // Check authentication
+            $user = $this->userSession->getUser();
+            if ($user === null) {
+                return new JSONResponse(['error' => 'User not authenticated'], Http::STATUS_UNAUTHORIZED);
+            }
+
+            // Get user folder
+            $userFolder = $this->rootFolder->getUserFolder($user->getUID());
+
+            // Get file by ID
+            $files = $userFolder->getById($fileId);
+            
+            if (empty($files)) {
+                return new JSONResponse(['error' => 'File not found'], Http::STATUS_NOT_FOUND);
+            }
+
+            $file = $files[0];
+
+            // Verify file is in temp folder
+            if (strpos($file->getPath(), '/' . self::TEMP_FOLDER . '/') === false) {
+                return new JSONResponse(['error' => 'Access denied'], Http::STATUS_FORBIDDEN);
+            }
+
+            // Get file content
+            $content = $file->getContent();
+
+            $this->logger->info('Temporary STL file downloaded', [
+                'user' => $user->getUID(),
+                'fileId' => $fileId,
+                'filename' => $file->getName(),
+            ]);
+
+            // Return file as download
+            $response = new Http\DataDownloadResponse(
+                $content,
+                $file->getName(),
+                'application/octet-stream'
+            );
+
+            // Add headers for slicer apps
+            $response->addHeader('Content-Length', (string) strlen($content));
+            $response->addHeader('Access-Control-Allow-Origin', '*');
+            $response->addHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+
+            return $response;
+
+        } catch (\Throwable $e) {
+            $this->logger->error('Failed to get temporary STL file', [
+                'fileId' => $fileId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return new JSONResponse([
+                'error' => 'Failed to get file: ' . $e->getMessage()
+            ], Http::STATUS_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Delete temporary file and its share
+     *
+     * @NoAdminRequired
+     * @NoCSRFRequired
+     * @param int $fileId File ID to delete
+     * @return JSONResponse
+     */
+    public function deleteTempFile(int $fileId): JSONResponse
+    {
+        try {
+            // Check authentication
+            $user = $this->userSession->getUser();
+            if ($user === null) {
+                return new JSONResponse(['error' => 'User not authenticated'], Http::STATUS_UNAUTHORIZED);
+            }
+
+            // Get user folder
+            $userFolder = $this->rootFolder->getUserFolder($user->getUID());
+
+            // Get file by ID
+            $files = $userFolder->getById($fileId);
+            
+            if (empty($files)) {
+                return new JSONResponse(['success' => true]); // Already deleted
+            }
+
+            $file = $files[0];
+
+            // Verify file is in temp folder
+            if (strpos($file->getPath(), '/' . self::TEMP_FOLDER . '/') === false) {
+                return new JSONResponse(['error' => 'Access denied'], Http::STATUS_FORBIDDEN);
+            }
+
+            // Delete all shares for this file
+            $shares = $this->shareManager->getSharesBy($user->getUID(), IShare::TYPE_LINK, $file, false, -1, 0);
+            foreach ($shares as $share) {
+                $this->shareManager->deleteShare($share);
+                $this->logger->debug('Deleted share', ['token' => $share->getToken()]);
+            }
+
+            // Delete the file
+            $file->delete();
+
+            $this->logger->info('Temporary STL file and shares deleted', [
+                'user' => $user->getUID(),
+                'fileId' => $fileId,
+                'sharesDeleted' => count($shares),
+            ]);
+
+            return new JSONResponse(['success' => true]);
+
+        } catch (\Throwable $e) {
+            $this->logger->error('Failed to delete temporary STL file', [
+                'fileId' => $fileId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return new JSONResponse([
+                'error' => 'Failed to delete file: ' . $e->getMessage()
+            ], Http::STATUS_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Clean up old temporary files and their shares
+     *
+     * @param mixed $tempFolder
+     * @return void
+     */
+    private function cleanupOldTempFiles($tempFolder): void
+    {
+        try {
+            $now = time();
+            $files = $tempFolder->getDirectoryListing();
+            $user = $this->userSession->getUser();
+
+            foreach ($files as $file) {
+                // Delete files older than MAX_TEMP_FILE_AGE
+                $age = $now - $file->getMTime();
+                if ($age > self::MAX_TEMP_FILE_AGE) {
+                    // Delete shares first
+                    if ($user) {
+                        $shares = $this->shareManager->getSharesBy($user->getUID(), IShare::TYPE_LINK, $file, false, -1, 0);
+                        foreach ($shares as $share) {
+                            $this->shareManager->deleteShare($share);
+                        }
+                    }
+                    
+                    // Delete the file
+                    $file->delete();
+                    $this->logger->debug('Cleaned up old temp file', [
+                        'filename' => $file->getName(),
+                        'age' => $age,
+                    ]);
+                }
+            }
+        } catch (\Throwable $e) {
+            // Log but don't fail the request
+            $this->logger->warning('Failed to cleanup old temp files', [
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+}
+

@@ -22,6 +22,7 @@
 **⚡ Export & Tools:**
 - 📷 Screenshot capture: Take high-quality PNG/JPEG screenshots of your models
 - 💾 Export models to GLB, STL, and OBJ formats
+- 🖨️ Slicer integration: Send models directly to PrusaSlicer, Cura, BambuStudio, OrcaSlicer, Simplify3D, and Eufy Studio
 - 📊 Model statistics panel with detailed information
 - 🔲 Wireframe and bounding box visualization
 - 📐 Dynamic grid system that adapts to model size and position
@@ -37,7 +38,7 @@
 - ♿ Accessibility features with keyboard navigation and ARIA labels
 
 Built with Three.js for high-performance WebGL rendering. ✨]]></description>
-	<version>1.8.0</version>
+	<version>1.9.0</version>
 	<licence>agpl</licence>
 	<author mail="maz1987in@gmail.com" homepage="https://github.com/maz1987in">Mazin Al Saadi</author>
 	<donation title="Donate to the developers with PayPal" type="paypal">https://www.paypal.com/ncp/payment/KZCB3XTCHGKZC</donation>
@@ -73,6 +74,14 @@ Built with Three.js for high-performance WebGL rendering. ✨]]></description>
 		</route>
 		<route name="threedviewer.files.list" url="/api/files/list" verb="GET" controller="FileController" action="listFiles" />
 		<route name="threedviewer.page.viewer" url="/f/{fileId}" verb="GET" controller="PageController" action="viewer" />
+		<route name="threedviewer.slicer.test" url="/api/slicer/test" verb="GET" controller="SlicerController" action="test" />
+		<route name="threedviewer.slicer.saveTempFile" url="/api/slicer/temp" verb="POST" controller="SlicerController" action="saveTempFile" />
+		<route name="threedviewer.slicer.getTempFile" url="/api/slicer/temp/{fileId}" verb="GET" controller="SlicerController" action="getTempFile">
+			<param name="fileId" default="" />
+		</route>
+		<route name="threedviewer.slicer.deleteTempFile" url="/api/slicer/temp/{fileId}" verb="DELETE" controller="SlicerController" action="deleteTempFile">
+			<param name="fileId" default="" />
+		</route>
 	</routes>
 	<repair-steps>
 		<install>
