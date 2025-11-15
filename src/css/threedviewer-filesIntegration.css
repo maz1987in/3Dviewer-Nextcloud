@@ -1,35 +1,5 @@
 /* 3D Viewer Files Integration Styles */
 
-.files-list .filename .thumbnail[src*=".glb"],
-.files-list .filename .thumbnail[src*=".gltf"],
-.files-list .filename .thumbnail[src*=".obj"],
-.files-list .filename .thumbnail[src*=".stl"],
-.files-list .filename .thumbnail[src*=".ply"],
-.files-list .filename .thumbnail[src*=".fbx"],
-.files-list .filename .thumbnail[src$="=glb"],
-.files-list .filename .thumbnail[src$="=gltf"],
-.files-list .filename .thumbnail[src$="=obj"],
-.files-list .filename .thumbnail[src$="=stl"],
-.files-list .filename .thumbnail[src$="=ply"],
-.files-list .filename .thumbnail[src$="=fbx"] {
-	background-image: url('../img/app.svg');
-	background-size: cover;
-	background-position: center;
-	filter: none !important;
-}
-
-.files-list .filename .thumbnail[src*=".glb"],
-.files-list .filename .thumbnail[src*=".gltf"],
-.files-list .filename .thumbnail[src*=".obj"],
-.files-list .filename .thumbnail[src*=".stl"],
-.files-list .filename .thumbnail[src*=".ply"],
-.files-list .filename .thumbnail[src*=".fbx"] {
-	content: '';
-	border: 1px solid var(--color-border);
-	border-radius: 4px;
-	background-color: var(--color-background-darker);
-}
-
 .fileActionsMenu .action-view3d,
 .fileActionsMenu .action-view3d-extension {
 	background-image: url('../img/file-3d.svg');

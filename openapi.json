@@ -511,12 +511,12 @@
             "description": "Public (unauthenticated) streaming of shared 3D files via share token."
         },
         {
-            "name": "thumbnail",
-            "description": "Returns a placeholder thumbnail for supported 3D model files. Future implementation may render an actual preview (server-side or cached client render). For now this simply validates file access & type, then streams a static PNG placeholder."
-        },
-        {
             "name": "file",
             "description": "Controller for serving 3D files using Nextcloud filesystem API."
+        },
+        {
+            "name": "preview",
+            "description": "Preview provider for 3D model files. Can be enabled/disabled by admins via enabledPreviewProviders config. When enabled, uses IPreviewProvider interface. When disabled, Nextcloud automatically uses custom filetype SVG icons."
         }
     ]
 }

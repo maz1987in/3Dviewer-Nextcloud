@@ -108,7 +108,6 @@ export const API_ENDPOINTS = {
 	FILES: '/ocs/v2.php/apps/threedviewer/api/files',
 	FILE: '/ocs/v2.php/apps/threedviewer/api/file',
 	MTL: '/ocs/v2.php/apps/threedviewer/api/file',
-	THUMBNAIL: '/ocs/v2.php/apps/threedviewer/api/thumb',
 	PUBLIC_FILE: '/ocs/v2.php/apps/threedviewer/api/public/file',
 }
 
