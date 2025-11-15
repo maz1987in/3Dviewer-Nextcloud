@@ -62,13 +62,8 @@ Built with Three.js for high-performance WebGL rendering. ✨]]></description>
 		</navigation>
 	</navigations>
 	<routes>
-		<route name="threedviewer.asset.serve" url="/asset/{type}/{filename}" verb="GET" controller="AssetController" action="serveAsset">
-			<param name="type" default="" />
-			<param name="filename" default="" />
-		</route>
-		<route name="threedviewer.decoder.serve" url="/decoder/{filename}" verb="GET" controller="AssetController" action="serveDecoder">
-			<param name="filename" default="" />
-		</route>
+		<!-- Asset routes are handled via FrontpageRoute attributes in AssetController -->
+		<!-- They are accessible at /apps/threedviewer/asset/{type}/... paths -->
 		<route name="threedviewer.file.serve" url="/file/{fileId}" verb="GET" controller="FileController" action="serveFile">
 			<param name="fileId" default="" />
 		</route>

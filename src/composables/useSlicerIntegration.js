@@ -4,14 +4,17 @@
  */
 
 import { ref, readonly } from 'vue'
+import { generateUrl } from '@nextcloud/router'
 import { logger } from '../utils/logger.js'
 
 // Slicer configuration with URL schemes and metadata
+// Generate slicer configs using Nextcloud's generateUrl helper
+// This ensures correct paths in all environments (local, production, subdirectory installations)
 const SLICER_CONFIGS = [
 	{
 		id: 'prusaslicer',
 		name: 'PrusaSlicer',
-		icon: '/apps/threedviewer/img/slicers/prusaslicer.png',
+		icon: generateUrl('/apps/threedviewer/img/slicers/prusaslicer.png'),
 		urlScheme: 'prusaslicer',
 		description: 'Open-source slicer from Prusa Research',
 		supportLevel: 'full', // full, partial, download-only
@@ -20,7 +23,7 @@ const SLICER_CONFIGS = [
 	{
 		id: 'cura',
 		name: 'UltiMaker Cura',
-		icon: '/apps/threedviewer/img/slicers/cura.png',
+		icon: generateUrl('/apps/threedviewer/img/slicers/cura.png'),
 		urlScheme: 'cura',
 		description: 'Popular open-source slicer',
 		supportLevel: 'full',
@@ -29,7 +32,7 @@ const SLICER_CONFIGS = [
 	{
 		id: 'bambu',
 		name: 'BambuStudio',
-		icon: '/apps/threedviewer/img/slicers/bambu.png',
+		icon: generateUrl('/apps/threedviewer/img/slicers/bambu.png'),
 		urlScheme: 'bambustudio',
 		description: 'Slicer for Bambu Lab printers',
 		supportLevel: 'full',
@@ -38,7 +41,7 @@ const SLICER_CONFIGS = [
 	{
 		id: 'orca',
 		name: 'OrcaSlicer',
-		icon: '/apps/threedviewer/img/slicers/orca.png',
+		icon: generateUrl('/apps/threedviewer/img/slicers/orca.png'),
 		urlScheme: 'orcaslicer',
 		description: 'Fork of BambuStudio with advanced features',
 		supportLevel: 'full',
@@ -47,7 +50,7 @@ const SLICER_CONFIGS = [
 	{
 		id: 'simplify3d',
 		name: 'Simplify3D',
-		icon: '/apps/threedviewer/img/slicers/simplify3d.png',
+		icon: generateUrl('/apps/threedviewer/img/slicers/simplify3d.png'),
 		urlScheme: 'simplify3d',
 		description: 'Professional 3D printing software',
 		supportLevel: 'partial',
@@ -56,7 +59,7 @@ const SLICER_CONFIGS = [
 	{
 		id: 'eufystudio',
 		name: 'Eufy Studio',
-		icon: '/apps/threedviewer/img/slicers/eufystudio.png',
+		icon: generateUrl('/apps/threedviewer/img/slicers/eufystudio.png'),
 		urlScheme: 'eufystudio',
 		description: 'Slicer for Eufy 3D printers',
 		supportLevel: 'full',
