@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.1] - 2025-11-15
+
+### Added
+- **Preview Provider Implementation**: Implemented Nextcloud `IPreviewProvider` interface for 3D model previews
+  - Admins can enable/disable via `enabledPreviewProviders` config in `config/config.php`
+  - Integrates with Nextcloud's native preview system
+  - When enabled, provider is registered and ready for future preview rendering implementation
+  - When disabled, Nextcloud automatically uses custom filetype SVG icons
+
+### Changed
+- Updated dependencies:
+  - `three`: ^0.181.0 → ^0.181.1 (patch update)
+  - `@nextcloud/router`: ^3.0.1 → ^3.1.0 (minor update)
+  - `vite`: ^7.1.12 → ^7.2.2 (patch update)
+  - `@nextcloud/browserslist-config`: ^3.1.1 → ^3.1.2 (patch update)
+- Improved duplicate registration prevention:
+  - Added guards to prevent duplicate file action registration
+  - Added guards to prevent duplicate viewer handler registration
+  - Enhanced error handling with try-catch blocks
+
+### Removed
+- **ThumbnailController**: Removed custom thumbnail controller endpoint
+  - Replaced by proper Nextcloud `IPreviewProvider` implementation
+  - No longer needed as Nextcloud handles previews natively
+- **Thumbnail Placeholder**: Removed dependency on `thumbnail-placeholder.png`
+  - Nextcloud automatically uses custom filetype icons when previews are disabled
+  - Custom icons already registered via `mimetypemapping.json`
+- **CSS Thumbnail Overrides**: Removed CSS rules that forced `app.svg` background on thumbnails
+  - Allows Nextcloud's preview system to work properly
+  - Custom filetype icons display correctly when previews are unavailable
+
+### Fixed
+- **Duplicate Registration Warnings**: Fixed console warnings about duplicate settings/registrations
+  - Added registration guards using window/globalThis flags
+  - Improved handler registration checks
+  - Better error handling for duplicate registrations
+
+### Technical
+- Created `lib/Preview/ModelPreviewProvider.php` implementing `IPreviewProvider`
+- Registered preview provider in `Application.php` bootstrap
+- Removed `THUMBNAIL` endpoint from constants and API documentation
+- Updated `openapi.json` with preview provider documentation
+
 ## [1.9.0] - 2025-11-10
 
 ### Added
