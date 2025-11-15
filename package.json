@@ -44,7 +44,7 @@
     "@nextcloud/dialogs": "^7.1.0",
     "@nextcloud/router": "^3.0.1",
     "@nextcloud/vue": "^8.29.2",
-    "three": "^0.181.0",
+    "three": "^0.181.1",
     "vue": "^2.7.16"
   },
   "devDependencies": {
