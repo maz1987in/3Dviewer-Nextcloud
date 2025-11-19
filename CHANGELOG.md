@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.3] - 2025-11-19
+
+### Fixed
+- **Preview Provider Registration**: Fixed `ArgumentCountError` during app service registration
+  - `registerPreviewProvider()` requires 2 arguments (MIME type and provider class)
+  - Now registers `ModelPreviewProvider` for each supported MIME type individually
+  - Resolves error: "Too few arguments to function registerPreviewProvider(), 1 passed and exactly 2 expected"
+
 ## [1.9.2] - 2025-11-19
 
 ### Added
