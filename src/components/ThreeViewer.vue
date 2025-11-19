@@ -392,6 +392,7 @@ import { ref, onMounted, onBeforeUnmount, watch, computed, nextTick } from 'vue'
 import * as THREE from 'three'
 import { NcProgressBar, NcButton } from '@nextcloud/vue'
 import { generateUrl } from '@nextcloud/router'
+import axios from '@nextcloud/axios'
 import CircularController from './CircularController.vue'
 import { useCamera } from '../composables/useCamera.js'
 import { useModelLoading } from '../composables/useModelLoading.js'
@@ -448,6 +449,7 @@ export default {
 		const initializing = ref(true) // Show loading during initial setup
 		const animationFrameId = ref(null) // Track animation frame for cleanup
 		const showPerformanceStats = ref(true) // Toggle for performance stats overlay
+		const isInitialized = ref(false) // Guard to prevent multiple initializations
 
 		// Composables
 		const camera = useCamera()
@@ -501,6 +503,13 @@ export default {
 				await setupScene()
 
 				// Initialize camera
+				// Container should already be available from setupScene, but check again
+				if (!container.value) {
+					await nextTick()
+					if (!container.value) {
+						throw new Error('Container element not found')
+					}
+				}
 				const width = container.value.clientWidth || container.value.offsetWidth || 800
 				const height = container.value.clientHeight || container.value.offsetHeight || 600
 				camera.initCamera(width, height, isMobile.value)
@@ -530,7 +539,15 @@ export default {
 
 				// Load model if fileId provided, otherwise show demo
 				if (props.fileId) {
+					try {
 					await loadModel(props.fileId)
+					} catch (error) {
+						// Only show demo if initialization failed and it's not an abort
+						if (error.name !== 'AbortError') {
+							logger.warn('ThreeViewer', 'Failed to load initial model, showing demo scene', error)
+							createDemoScene()
+						}
+					}
 				} else {
 					// Show demo scene when no file is specified
 					createDemoScene()
@@ -553,6 +570,31 @@ export default {
 
 		const setupScene = async () => {
 			try {
+			// Ensure container is available and ready (should be ready from onMounted, but double-check)
+				const isContainerReady = () => {
+					if (!container.value) return false
+					if (!(container.value instanceof HTMLElement)) return false
+					if (!container.value.isConnected) return false
+					return true
+				}
+				
+				if (!isContainerReady()) {
+					// Wait a bit more and try again
+					await nextTick()
+					await new Promise(resolve => setTimeout(resolve, 100))
+					if (!isContainerReady()) {
+						// Last attempt - wait a bit longer
+						await new Promise(resolve => setTimeout(resolve, 200))
+						if (!isContainerReady()) {
+							// Final check
+							await nextTick()
+							if (!isContainerReady()) {
+								throw new Error('Container element not found or not connected to DOM')
+							}
+						}
+					}
+				}
+				
 			// Create scene
 				scene.value = new THREE.Scene()
 
@@ -665,23 +707,51 @@ export default {
 		 */
 		const loadModel = async (fileId) => {
 			try {
-				// Get the filename from props or URL
-				const fullPath = props.filename ? decodeURIComponent(props.filename) : 'model.glb'
+				// Get the filename from props
+				// If filename is not provided, fetch file info from backend
+				let fullPath = props.filename ? decodeURIComponent(props.filename) : null
+				let dirPath = props.dir || null
+
+				// If filename not provided, fetch file info from backend
+				if (!fullPath && fileId) {
+					// Try to get file info from the file list API
+					try {
+						const fileListUrl = generateUrl('/apps/threedviewer/api/files/list') + '?sort=list'
+						const fileListResponse = await axios.get(fileListUrl)
+						if (fileListResponse.data && fileListResponse.data.files) {
+							const file = fileListResponse.data.files.find(f => f.id === fileId)
+							if (file) {
+								fullPath = file.path || file.name
+								dirPath = file.folder_path || null
+								logger.info('ThreeViewer', 'Retrieved file info from API', { fileId, fullPath, dirPath })
+							}
+						}
+					} catch (apiError) {
+						logger.warn('ThreeViewer', 'Failed to fetch file info from API, using defaults', apiError)
+					}
+				}
+
+				// Fallback to default if still no filename
+				if (!fullPath) {
+					fullPath = 'model.glb'
+					logger.warn('ThreeViewer', 'No filename provided, using default', { fileId })
+				}
 
 				// Extract directory and filename
 				// fullPath might be like "/3d_test/capsule/capsule.obj" or just "model.obj"
 				const pathParts = fullPath.split('/').filter(p => p) // Remove empty strings
-				const filename = pathParts.pop() // Get the actual filename
+				const filename = pathParts.pop() || 'model.glb' // Get the actual filename
 
 				// Reconstruct directory path with leading slash if it was present
-				let dirPath
+				if (!dirPath) {
 				if (fullPath.startsWith('/')) {
 					dirPath = '/' + pathParts.join('/')
 				} else {
-					dirPath = pathParts.join('/') || (props.dir || 'Models')
+						dirPath = pathParts.join('/') || 'Models'
+					}
 				}
 
-				const extension = filename.split('.').pop().toLowerCase()
+				const extension = filename.split('.').pop()?.toLowerCase() || 'glb'
 
 				logger.info('ThreeViewer', 'Loading model', {
 					fileId,
@@ -691,6 +761,7 @@ export default {
 					extension,
 					userId: window.OC?.getCurrentUser?.()?.uid || 'admin',
 					propsFilename: props.filename,
+					propsDir: props.dir,
 				})
 
 				// Use the model loading composable which has proper progress tracking
@@ -748,15 +819,18 @@ export default {
 					emit('model-loaded', { fileId, filename })
 					logger.info('ThreeViewer', 'Model loaded successfully')
 				} else {
-					// Fallback to demo scene if model loading failed
-					createDemoScene(fileId)
+					// Don't fallback to demo scene - let error state handle it
+					throw new Error('Model loaded but no object3D returned')
 				}
 			} catch (error) {
 				// Don't log error if it was a user-initiated cancellation
 				if (error.name !== 'AbortError') {
 					logger.error('ThreeViewer', 'Failed to load model', error)
 					emit('error', error)
+					// Don't show demo scene - let error state handle it so user knows file failed
 				}
+				// Re-throw error so caller knows it failed
+				throw error
 			}
 		}
 
@@ -1007,6 +1081,9 @@ export default {
 		}
 
 		const onWindowResize = () => {
+			if (!container.value) {
+				return
+			}
 			const width = container.value.clientWidth
 			const height = container.value.clientHeight
 
@@ -1924,8 +2001,96 @@ export default {
 			}
 		})
 
-		// Lifecycle
-		onMounted(async () => {
+		// Watch for fileId changes to reload model when file is selected from navigation
+		// Also watch filename and dir to ensure they're updated before loading
+		watch([() => props.fileId, () => props.filename, () => props.dir], async ([newFileId, newFilename, newDir], [oldFileId]) => {
+			// Only reload if fileId actually changed and is valid, and not during initialization
+			if (newFileId && newFileId !== oldFileId && !initializing.value) {
+				// Wait for Vue to update all props before loading
+				await nextTick()
+				
+				logger.info('ThreeViewer', 'File changed, reloading model', { 
+					oldFileId, 
+					newFileId,
+					filename: newFilename || props.filename,
+					dir: newDir || props.dir
+				})
+				
+				// Clear previous model
+				if (modelRoot.value) {
+					scene.value.remove(modelRoot.value)
+					modelRoot.value = null
+				}
+				
+				// Clear model stats
+				modelStatsComposable.clearStats()
+				
+				// Load new model (loadModel will use updated props.filename and props.dir)
+				try {
+					await loadModel(newFileId)
+				} catch (error) {
+					logger.error('ThreeViewer', 'Failed to load model after file selection', error)
+					emit('error', error)
+					// Don't show demo scene on error - let error state handle it
+				}
+			}
+		}, { immediate: false })
+
+		// Helper function to verify container is ready
+		const isContainerReady = () => {
+			if (!container.value) return false
+			if (!(container.value instanceof HTMLElement)) return false
+			// Check if element is actually in the DOM
+			if (!container.value.isConnected) return false
+			// Check if element has dimensions (is visible)
+			if (container.value.clientWidth === 0 && container.value.clientHeight === 0) return false
+			return true
+		}
+
+		// Watch container ref as fallback initialization
+		watch(container, async (newContainer, oldContainer) => {
+			// Only initialize if container changed from null to a value, and not already initialized
+			if (newContainer && !oldContainer && !isInitialized.value) {
+				logger.info('ThreeViewer', 'Container ref became available, waiting for DOM...')
+				// Wait a bit to ensure the DOM element is fully ready
+				await nextTick()
+				await new Promise(resolve => setTimeout(resolve, 150))
+				
+				// Retry checking if container is ready
+				let retries = 0
+				const maxRetries = 10
+				while (!isContainerReady() && retries < maxRetries && !isInitialized.value) {
+					await nextTick()
+					await new Promise(resolve => setTimeout(resolve, 50))
+					retries++
+				}
+				
+				// Double-check that container is ready
+				if (isContainerReady() && !isInitialized.value) {
+					logger.info('ThreeViewer', 'Container DOM element ready, initializing...', {
+						width: container.value.clientWidth,
+						height: container.value.clientHeight,
+						isConnected: container.value.isConnected,
+					})
+					isInitialized.value = true
+					initializing.value = true
+					await initializeViewer()
+				} else if (!isContainerReady()) {
+					const logFn = typeof logger.debug === 'function' ? logger.debug : logger.info
+					logFn('ThreeViewer', 'Container ref was set but DOM element is not ready yet, will retry', {
+						hasContainer: !!container.value,
+						isHTMLElement: container.value instanceof HTMLElement,
+						isConnected: container.value?.isConnected,
+						width: container.value?.clientWidth,
+						height: container.value?.clientHeight,
+					})
+				}
+			}
+		})
+
+		// Initialization function
+		const initializeViewer = async () => {
+			try {
 		// Initialize dependency cache
 			try {
 				await initCache()
@@ -1947,10 +2112,60 @@ export default {
 					retryLoad,
 				})
 			}
-			init()
+				await init()
 
 			// Adjust overlay positioning to avoid toolbar overlap
 			adjustOverlayPositioning()
+			} catch (error) {
+				logger.error('ThreeViewer', 'Initialization failed', error)
+				initializing.value = false
+				isInitialized.value = false
+			}
+		}
+
+		// Lifecycle
+	onMounted(async () => {
+	// Wait for container to be available before initializing
+		await nextTick()
+		// Wait for parent wrapper to be in DOM first
+		let wrapperRetries = 0
+		const maxWrapperRetries = 20
+		while (!document.getElementById('viewer-wrapper') && wrapperRetries < maxWrapperRetries) {
+			await nextTick()
+			await new Promise(resolve => setTimeout(resolve, 50))
+			wrapperRetries++
+		}
+		
+		// Wait a bit more to ensure DOM is fully ready
+		await new Promise(resolve => setTimeout(resolve, 100))
+		
+		// Now wait for container ref to be available
+		let retries = 0
+		const maxRetries = 30 // Increased retries
+		while (!container.value && retries < maxRetries) {
+			await nextTick()
+			await new Promise(resolve => setTimeout(resolve, 50))
+			retries++
+		}
+		
+		if (!container.value) {
+			logger.warn('ThreeViewer', 'Container not available after waiting, will retry when container ref is set', {
+				retries,
+				maxRetries,
+				wrapperRetries,
+				containerRef: container,
+				parentWrapper: document.getElementById('viewer-wrapper'),
+				containerElement: container.value,
+			})
+			// Don't initialize yet - the watch on container will handle it when it becomes available
+			return
+		}
+		
+		// Container is available, initialize if not already initialized
+		if (!isInitialized.value) {
+			isInitialized.value = true
+			await initializeViewer()
+		}
 		})
 
 		onBeforeUnmount(() => {

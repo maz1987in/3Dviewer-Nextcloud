@@ -7,6 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.2] - 2025-11-19
+
+### Added
+- **Database-Backed File Indexing**: New `tv_file_index` database table for fast folder, type, date, and favorites navigation
+  - Automatic indexing via filesystem event listeners (`NodeCreated`, `NodeWritten`, `NodeDeleted`)
+  - Manual reindexing via `php occ threedviewer:index-files [userId]` command or `/apps/threedviewer/api/files/index` endpoint
+  - Migration automatically creates the index table on upgrade
+- **Smart File Browser**: Complete file navigation system with multiple view modes
+  - Viewer mode: Opens 3D viewer by default on app load
+  - Folders mode: Hierarchical folder navigation with recursive folder structure
+  - Type mode: Browse files grouped by extension (GLB, GLTF, OBJ, etc.)
+  - Date mode: Browse files organized by year and month
+  - Favorites mode: View all favorited 3D files using Nextcloud system tags
+  - Breadcrumb navigation for easy navigation back through folder/type/date hierarchies
+  - Consistent card-based UI for folders, types, dates, and files
+- **Per-User Configuration**: Remembers user preferences via `ConfigController`
+  - Saves preferred sort mode (viewer/folders/type/date/favorites)
+  - Remembers last opened file ID for session persistence
+- Mobile experience: automatically hides the circular 3D controller when the viewer detects a small/mobile viewport, preventing overlap with the canvas controls.
+
+### Changed
+- Viewer opens by default on app load; the file browser now appears only when a user explicitly selects a navigation mode.
+- `GET /apps/threedviewer/api/files/list` now serves hierarchical payloads from the database index (folders, types, dates, favorites) instead of scanning filesystem
+  - Supports `includeDependencies=1` parameter to return all files including textures and nested subfolders for multi-file model loading
+  - Dramatically reduces filesystem scans and improves performance
+- Navigation data is loaded lazily per sort mode and cached so switching between viewer and browser modes no longer blocks on loading every file upfront.
+- File browser UI refinements:
+  - File cards now share the same compact layout as folder cards (consistent padding, thumbnail sizing, fonts, and grid spacing).
+  - Type view heading and breadcrumbs no longer show a leading dot (e.g. `GLB` instead of `.GLB`).
+  - Breadcrumb component now handles clicks directly via `NcBreadcrumb` to improve reliability.
+- Remembered folder/type state is cleared when returning to the root via breadcrumbs to ensure a fresh reload.
+
+### Fixed
+- Newly uploaded, edited, or deleted 3D files (and favorites) appear instantly in every navigation mode because the indexing listener reacts to filesystem events instead of relying on manual rescans.
+- Root breadcrumb ("Home") navigation restores the folder list correctly, even after drilling into nested folders.
+- Multi-file dependency loading:
+  - Backend `listFiles` now supports `includeDependencies=1` to return every file (including textures) and nested subfolders.
+  - The dependency crawler recursively searches texture subdirectories so 3DS/FBX models with textured assets load successfully.
+- Texture search now uses the updated backend response structure to avoid missing files and 404 fetches.
+
+### Technical
+- Created `lib/Db/FileIndex.php` and `lib/Db/FileIndexMapper.php` for database operations
+- Created `lib/Service/FileIndexService.php` for indexing logic
+- Created `lib/Listener/FileIndexListener.php` for automatic index updates
+- Created `lib/Command/IndexFiles.php` for manual reindexing command
+- Created `lib/Controller/ConfigController.php` for user preference storage
+- Created `lib/Migration/Version010902Date20251116061241.php` for database schema migration
+- Created `src/components/FileNavigation.vue` and `src/components/FileBrowser.vue` for new navigation UI
+- Updated `lib/Controller/FileController.php` with new `listFiles()` and `indexFiles()` endpoints
+
 ## [1.9.1] - 2025-11-15
 
 ### Added

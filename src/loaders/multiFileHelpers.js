@@ -103,37 +103,80 @@ export async function getFileIdByPath(filePath) {
 			return null
 		}
 
-		// List files in the directory
-		const listUrl = `/apps/threedviewer/api/files/list?path=${encodeURIComponent(dirPath)}`
-		const response = await fetch(listUrl)
+		// Normalize dirPath: remove leading slash and handle root case
+		const normalizedDirPath = dirPath === '/' ? '' : dirPath.replace(/^\//, '')
 
-		if (!response.ok) {
-			logger.warn('MultiFileHelpers', ' Failed to list files:', response.status, response.statusText)
-			return null
+		// First, try to find the file directly by full path (for dependency files like MTL)
+		const fullPath = normalizedDirPath ? `${normalizedDirPath}/${filename}` : filename
+		try {
+			const findUrl = `/apps/threedviewer/api/files/find?path=${encodeURIComponent(fullPath)}`
+			const findResponse = await fetch(findUrl)
+			
+			if (findResponse.ok) {
+				const fileData = await findResponse.json()
+				if (fileData && fileData.id) {
+					logger.info('MultiFileHelpers', ' Found file by path:', fullPath, 'id:', fileData.id)
+					return fileData.id
+				}
+			} else {
+				logger.debug('MultiFileHelpers', ' Direct path lookup returned:', findResponse.status, 'for:', fullPath)
+			}
+		} catch (findError) {
+			// If direct path lookup fails, continue with directory listing
+			logger.debug('MultiFileHelpers', ' Direct path lookup failed, trying directory listing:', findError)
 		}
 
-		const files = await response.json()
+		// Try to list files in the directory, but don't fail if it doesn't work
+		let files = []
+		let folders = []
+		try {
+			const params = new URLSearchParams()
+			if (normalizedDirPath) {
+				params.set('folder', normalizedDirPath)
+			}
+			params.set('includeDependencies', '1')
+			const listUrl = `/apps/threedviewer/api/files/list?${params.toString()}`
+			const response = await fetch(listUrl)
 
-		logger.info('MultiFileHelpers', ' Files in directory:', files.map(f => f.name))
-		logger.info('MultiFileHelpers', ' Looking for file:', filename)
+			if (response.ok) {
+				const data = await response.json()
+				// Backend returns { files: [], folders: [] } structure
+				// Ensure files and folders are arrays
+				files = Array.isArray(data?.files) ? data.files : (data?.files ? Object.values(data.files) : [])
+				folders = Array.isArray(data?.folders) ? data.folders : (data?.folders ? Object.values(data.folders) : [])
+				logger.warn('MultiFileHelpers', ' Files in directory:', Array.isArray(files) ? files.map(f => f?.name || f) : 'not an array')
+			} else {
+				logger.warn('MultiFileHelpers', ' Failed to list files:', response.status, response.statusText)
+			}
+		} catch (listError) {
+			logger.warn('MultiFileHelpers', ' Error listing directory, will try texture subdirectories:', listError)
+		}
+
+		logger.warn('MultiFileHelpers', ' Looking for file:', filename, 'in path:', normalizedDirPath)
+
+		// Ensure files is an array before using .find()
+		if (!Array.isArray(files)) {
+			files = []
+		}
 
 		// Find the file by name (case-insensitive to handle Windows/Linux differences)
-		let file = files.find(f => f.name.toLowerCase() === filename.toLowerCase())
+		let file = files.find(f => f?.name && f.name.toLowerCase() === filename.toLowerCase())
 
 		// If not found in root, search in subdirectories (like "Texture", "textures", "images", etc.)
 		if (!file) {
-		// Filter for directories - check isFolder field or other directory indicators
-			const subdirs = files.filter(f => f.isFolder === true || f.type === 'directory' || f.type === 'dir' || f.mime === 'httpd/unix-directory')
-			logger.info('MultiFileHelpers', ' File not in root, checking subdirectories:', subdirs.map(d => d.name))
+			const folderNames = Array.isArray(folders) ? folders.map(d => d?.name || d?.path || d) : []
+			logger.warn('MultiFileHelpers', ' File not in root, checking subdirectories:', folderNames)
 
-			for (const subdir of subdirs) {
+			// First, search in folders returned by the API
+			for (const subdir of folders) {
 				try {
-					const subdirPath = `${dirPath}/${subdir.name}`
-					const subdirListUrl = `/apps/threedviewer/api/files/list?path=${encodeURIComponent(subdirPath)}`
+					const subdirPath = subdir.path || (normalizedDirPath ? `${normalizedDirPath}/${subdir.name}` : subdir.name)
+					const subdirListUrl = `/apps/threedviewer/api/files/list?folder=${encodeURIComponent(subdirPath)}`
 					const subdirResponse = await fetch(subdirListUrl)
 
 					if (subdirResponse.ok) {
-						const subdirFiles = await subdirResponse.json()
+						const subdirData = await subdirResponse.json()
+						const subdirFiles = subdirData?.files || []
 						file = subdirFiles.find(f => f.name.toLowerCase() === filename.toLowerCase())
 
 						if (file) {
@@ -147,13 +190,79 @@ export async function getFileIdByPath(filePath) {
 			}
 		}
 
+		// If still not found, try common texture subdirectory names using the find endpoint
+		// Include both lowercase and capitalized versions
+		// This should ALWAYS run, even if directory listing failed
 		if (!file) {
-			logger.warn('MultiFileHelpers', ' File not found:', filename, 'Available files:', files.map(f => f.name))
+			try {
+				logger.warn('MultiFileHelpers', ' File not found in API folders, trying common texture subdirectories for:', filename, 'in:', normalizedDirPath)
+				const commonTextureDirs = ['textures', 'texture', 'Texture', 'TEXTURE', 'TEXTURES', 'images', 'image', 'Image', 'IMAGE', 'tex', 'Tex', 'TEX', 'maps', 'map', 'Map', 'MAP']
+				for (const textureDir of commonTextureDirs) {
+					try {
+						const textureDirPath = normalizedDirPath ? `${normalizedDirPath}/${textureDir}` : textureDir
+						const textureFilePath = `${textureDirPath}/${filename}`
+						const findUrl = `/apps/threedviewer/api/files/find?path=${encodeURIComponent(textureFilePath)}`
+						logger.warn('MultiFileHelpers', ' Trying texture path:', textureFilePath)
+						const findResponse = await fetch(findUrl)
+						
+						if (findResponse.ok) {
+							const fileData = await findResponse.json()
+							if (fileData && fileData.id) {
+								logger.warn('MultiFileHelpers', ' ✓ Found file in texture subdirectory:', textureDir, '/', filename, 'id:', fileData.id)
+								return fileData.id
+							}
+						} else {
+							logger.warn('MultiFileHelpers', ' Texture path not found:', textureFilePath, 'status:', findResponse.status)
+						}
+					} catch (findError) {
+						logger.warn('MultiFileHelpers', ' Error trying texture path:', textureDir, findError)
+						// Continue searching
+					}
+				}
+				logger.warn('MultiFileHelpers', ' ✗ File not found in any common texture subdirectories:', filename)
+			} catch (textureSearchError) {
+				logger.warn('MultiFileHelpers', ' Error in texture subdirectory search:', textureSearchError)
+			}
+		}
+
+		if (!file) {
+			try {
+				const fileNames = Array.isArray(files) ? files.map(f => f?.name || f) : []
+				logger.warn('MultiFileHelpers', ' File not found:', filename, 'Available files:', fileNames)
+			} catch (logError) {
+				logger.warn('MultiFileHelpers', ' File not found:', filename, '(error logging available files)')
+			}
 		}
 
 		return file ? file.id : null
 	} catch (error) {
 		logger.warn('MultiFileHelpers', ' Error getting file ID for path:', filePath, error)
+		// Even if there's an error, try the texture subdirectory search as a last resort
+		try {
+			logger.warn('MultiFileHelpers', ' Attempting texture subdirectory search as fallback for:', filename, 'in:', normalizedDirPath)
+			const commonTextureDirs = ['textures', 'texture', 'Texture', 'TEXTURE', 'TEXTURES', 'images', 'image', 'Image', 'IMAGE', 'tex', 'Tex', 'TEX', 'maps', 'map', 'Map', 'MAP']
+			for (const textureDir of commonTextureDirs) {
+				try {
+					const textureDirPath = normalizedDirPath ? `${normalizedDirPath}/${textureDir}` : textureDir
+					const textureFilePath = `${textureDirPath}/${filename}`
+					const findUrl = `/apps/threedviewer/api/files/find?path=${encodeURIComponent(textureFilePath)}`
+					logger.warn('MultiFileHelpers', ' Trying texture path (fallback):', textureFilePath)
+					const findResponse = await fetch(findUrl)
+					
+					if (findResponse.ok) {
+						const fileData = await findResponse.json()
+						if (fileData && fileData.id) {
+							logger.warn('MultiFileHelpers', ' ✓ Found file in texture subdirectory (fallback):', textureDir, '/', filename, 'id:', fileData.id)
+							return fileData.id
+						}
+					}
+				} catch (findError) {
+					// Continue searching
+				}
+			}
+		} catch (fallbackError) {
+			logger.warn('MultiFileHelpers', ' Fallback texture search also failed:', fallbackError)
+		}
 		return null
 	}
 }
@@ -403,42 +512,55 @@ export async function fetchGltfDependencies(gltfContent, baseFilename, fileId, d
  */
 async function fetchFbxDependencies(baseFilename, fileId, dirPath) {
 	const dependencies = []
-	const missingFiles = [] // FBX speculatively loads all textures, so missing is usually empty
+	const missingFiles = [] // FBX/3DS speculatively loads all textures, so missing is usually empty
 
-	try {
-		// Common texture extensions used by FBX
-		const textureExtensions = ['png', 'jpg', 'jpeg', 'tga', 'tif', 'tiff', 'bmp']
+	const textureExtensions = ['png', 'jpg', 'jpeg', 'tga', 'tif', 'tiff', 'bmp', 'gif']
+	const visited = new Set()
 
-		// List all files in the directory
-		const listUrl = `/apps/threedviewer/api/files/list?path=${encodeURIComponent(dirPath)}`
+	const collectTexturesFromFolder = async (folderPath) => {
+		const normalizedPath = folderPath ? folderPath.replace(/^\//, '') : ''
+		const visitKey = normalizedPath || '/'
+		if (visited.has(visitKey)) {
+			return []
+		}
+		visited.add(visitKey)
+
+		const params = new URLSearchParams()
+		if (normalizedPath) {
+			params.set('folder', normalizedPath)
+		}
+		params.set('includeDependencies', '1')
+
+		const listUrl = `/apps/threedviewer/api/files/list?${params.toString()}`
 		const response = await fetch(listUrl)
 
 		if (!response.ok) {
-			logger.warn('FBXDependencies', 'Failed to list directory files', { dirPath, status: response.status })
-			return dependencies
+			logger.warn('FBXDependencies', 'Failed to list directory files', { dirPath: normalizedPath, status: response.status })
+			return []
 		}
 
-		const allFiles = await response.json()
+		const data = await response.json()
+		const files = Array.isArray(data?.files) ? data.files : []
+		const folders = Array.isArray(data?.folders) ? data.folders : []
 
-		// Filter for image files based on extension
-		const imageFiles = allFiles.filter(file => {
-			const ext = file.name.split('.').pop().toLowerCase()
+		const imageFiles = files.filter(file => {
+			const ext = (file.name?.split('.').pop() || '').toLowerCase()
 			return textureExtensions.includes(ext)
 		})
 
 		logger.info('FBXDependencies', 'Found potential texture files', {
+			folder: normalizedPath || '/',
 			count: imageFiles.length,
 			files: imageFiles.map(f => f.name),
 		})
 
-		// Fetch all image files
 		const texturePromises = imageFiles.map(async (file) => {
 			try {
 				const url = `/apps/threedviewer/api/file/${file.id}`
-				const response = await fetch(url)
-				if (response.ok) {
-					const arrayBuffer = await response.arrayBuffer()
-					const ext = file.name.split('.').pop().toLowerCase()
+				const texResponse = await fetch(url)
+				if (texResponse.ok) {
+					const arrayBuffer = await texResponse.arrayBuffer()
+					const ext = (file.name?.split('.').pop() || '').toLowerCase()
 					const mimeType = `image/${ext === 'jpg' ? 'jpeg' : ext}`
 					const blob = new Blob([arrayBuffer], { type: mimeType })
 					return new File([blob], file.name, { type: mimeType })
@@ -451,13 +573,27 @@ async function fetchFbxDependencies(baseFilename, fileId, dirPath) {
 		})
 
 		const results = await Promise.allSettled(texturePromises)
-		dependencies.push(...getFulfilledValues(results))
+		const foundTextures = getFulfilledValues(results)
 
-		logger.info('FBXDependencies', 'Found textures in directory', {
+		for (const subfolder of folders) {
+			const childPath = subfolder.path || (normalizedPath ? `${normalizedPath}/${subfolder.name}` : subfolder.name)
+			if (childPath) {
+				const childTextures = await collectTexturesFromFolder(childPath)
+				foundTextures.push(...childTextures)
+			}
+		}
+
+		return foundTextures
+	}
+
+	try {
+		const initialTextures = await collectTexturesFromFolder(dirPath || '')
+		dependencies.push(...initialTextures)
+
+		logger.info('FBXDependencies', 'Found textures in directory tree', {
 			count: dependencies.length,
 			files: dependencies.map(f => f.name),
 		})
-
 	} catch (err) {
 		logger.error('FBXDependencies', 'Error fetching FBX dependencies', err)
 	}

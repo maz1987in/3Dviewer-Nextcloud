@@ -126,7 +126,7 @@ export default {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 12px 16px;
+	padding: 12px 16px 12px 45px;
 	background: rgb(0 0 0 / 85%);
 	border-bottom: 1px solid rgb(255 255 255 / 20%);
 	z-index: 100;

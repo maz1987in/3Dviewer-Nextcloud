@@ -1,6 +1,6 @@
 # 3D Viewer for Nextcloud
 
-[![Version](https://img.shields.io/badge/version-1.9.1-blue)](https://github.com/maz1987in/3Dviewer-Nextcloud/releases)
+[![Version](https://img.shields.io/badge/version-1.9.2-blue)](https://github.com/maz1987in/3Dviewer-Nextcloud/releases)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-orange)](LICENSE)
 [![Nextcloud](https://img.shields.io/badge/Nextcloud-30--32-0082c9)](https://nextcloud.com)
 
@@ -54,6 +54,7 @@ A comprehensive 3D model viewer application for Nextcloud that supports multiple
 
 - **Multi-Format Support** - GLB, GLTF, OBJ (+MTL), STL, PLY, FBX, 3MF, 3DS, DAE, X3D, VRML
 - **Multi-File Models** - Full support for OBJ+MTL+textures and GLTF+bins+images
+- **Smart File Browser** - Toggle between Viewer, Folders, Type, Date, and Favorites modes with breadcrumbs, Nextcloud-style navigation, and lazy loading
 - **Dynamic Grid System** - Automatically adapts to model size and position
 - **Model Comparison** - Side-by-side model viewing with synchronized controls
 - **Advanced Tooling** - Annotations, measurements, and analysis tools
@@ -71,6 +72,7 @@ A comprehensive 3D model viewer application for Nextcloud that supports multiple
 - **Theme Integration** - Respects Nextcloud light/dark themes with RTL support
 - **Accessibility** - ARIA labels and keyboard navigation
 - **Compression Support** - DRACO geometry and KTX2/Basis texture compression
+- **Live File Indexing** - Database-backed index updates automatically via filesystem events with CLI/REST helpers for bulk reindexing
 
 ## 🚀 Quick Start
 
@@ -121,6 +123,17 @@ php occ files:scan --all
    - **Reset**: Double-click (or double-tap)
 
 For detailed usage instructions, see the [User Guide](docs/README.md).
+
+### Rebuilding the 3D File Index
+
+The new navigation views are powered by a dedicated `tv_file_index` table. Newly uploaded, edited, or deleted 3D files are indexed automatically, but if you install the app on an instance that already contains models you can rebuild the index with:
+
+```bash
+php occ threedviewer:index-files          # Reindex all users
+php occ threedviewer:index-files alice    # Reindex a single user
+```
+
+The UI will also call `POST /apps/threedviewer/api/files/index` the first time it notices an empty index, so admins rarely need to run the command manually.
 
 ## 📦 Supported Formats
 
@@ -176,8 +189,8 @@ This project is licensed under the **AGPL-3.0 License**. See [LICENSE](LICENSE) 
 
 ## 📊 Version
 
-**Current Version**: 1.9.1  
-**Released**: November 15, 2025
+**Current Version**: 1.9.2  
+**Released**: November 19, 2025
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed release notes and version history.
 

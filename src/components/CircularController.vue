@@ -162,6 +162,7 @@ export default {
 		const movementInterval = ref(null)
 		const movementDirection = ref({ x: 0, y: 0 })
 		const zoomInterval = ref(null)
+		const rotationInterval = ref(null)
 
 		// Three.js cube gizmo
 		const cubeScene = ref(null)

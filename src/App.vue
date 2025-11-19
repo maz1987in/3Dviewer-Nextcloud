@@ -1,6 +1,38 @@
 <template>
+	<NcContent app-name="threedviewer">
+		<FileNavigation
+			ref="fileNavigation"
+			:selected-file-id="fileId"
+			:default-sort="defaultSort"
+			:restore-sort-state="handleRestoreSortState"
+			@select-file="onSelectFile"
+			@navigate-folder="onNavigateFolder"
+			@navigate-type="onNavigateType"
+			@navigate-date="onNavigateDate"
+			@navigate-viewer="onNavigateViewer"
+			@navigate-all="onNavigateAll" />
 	<NcAppContent>
-		<div id="viewer-wrapper">
+		<!-- File Browser View -->
+		<FileBrowser
+			v-if="showFileBrowser"
+			:files="browserFiles"
+			:folders="browserFolders"
+			:types="browserTypes"
+			:dates="browserDates"
+			:sort="browserSort"
+			:loading="browserLoading"
+			:current-path="browserPath"
+			:current-type="browserType"
+			:current-date="browserDate"
+			:selected-file-id="fileId"
+			@select-file="onSelectFile"
+			@navigate-folder="onNavigateFolder"
+			@navigate-type="onNavigateType"
+			@navigate-date="onNavigateDate"
+			@navigate-all="onNavigateAll" />
+		
+		<!-- 3D Viewer -->
+		<div v-else id="viewer-wrapper" key="viewer-wrapper">
 			<ToastContainer :toasts="toasts" @dismiss="dismissToast" />
 
 			<!-- Help Panel -->
@@ -70,6 +102,7 @@
 
 			<!-- 3D Viewer -->
 			<ThreeViewer
+				key="three-viewer"
 				ref="viewer"
 				:file-id="fileId"
 				:filename="filename"
@@ -89,6 +122,7 @@
 				@error="onError" />
 		</div>
 	</NcAppContent>
+	</NcContent>
 </template>
 
 <script>
@@ -98,12 +132,20 @@ import MinimalTopBar from './components/MinimalTopBar.vue'
 import SlideOutToolPanel from './components/SlideOutToolPanel.vue'
 import HelpPanel from './components/HelpPanel.vue'
 import SlicerModal from './components/SlicerModal.vue'
-import { NcAppContent } from '@nextcloud/vue'
+import FileNavigation from './components/FileNavigation.vue'
+import FileBrowser from './components/FileBrowser.vue'
+import { NcContent, NcAppContent } from '@nextcloud/vue'
+import { loadState } from '@nextcloud/initial-state'
+import axios from '@nextcloud/axios'
+import { generateUrl } from '@nextcloud/router'
 
 export default {
 	name: 'App',
 	components: {
+		NcContent,
 		NcAppContent,
+		FileNavigation,
+		FileBrowser,
 		ToastContainer,
 		ThreeViewer,
 		MinimalTopBar,
@@ -111,11 +153,30 @@ export default {
 		HelpPanel,
 		SlicerModal,
 	},
-	data() {
+		data() {
+		const initialState = loadState('threedviewer', 'navigation-initial-state') || {}
 		return {
-			fileId: this.parseFileId(),
+			fileId: this.parseFileId() || null,
 			filename: this.parseFilename(),
 			dir: this.parseDir(),
+			defaultSort: 'viewer', // Always start in viewer mode regardless of prior preference
+			// File browser state
+			showFileBrowser: false, // Default to viewer, show browser only when navigating to folders/types/dates
+			browserFiles: [],
+			browserFolders: null,
+			browserTypes: null,
+			browserDates: null,
+			browserLoading: false,
+			browserPath: null,
+			browserType: null,
+			browserDate: null,
+			browserSort: null,
+			lastBrowserStates: {
+				folders: null,
+				type: null,
+				date: null,
+				favorites: null,
+			},
 			grid: true,
 			axes: true,
 			wireframe: false,
@@ -135,6 +196,7 @@ export default {
 			performanceMode: 'auto',
 			themeMode: 'auto',
 			toasts: [],
+			lastSortState: null,
 			_prefsLoaded: false,
 			// UI state
 			isLoading: false,
@@ -154,7 +216,7 @@ export default {
 	created() {
 		this.loadPrefs()
 	},
-	mounted() {
+		mounted() {
 		// Test harness fallback: if no fileId parsed but a global test file id is present inject it.
 		if (!this.fileId && typeof window !== 'undefined' && window.__TEST_FILE_ID) {
 			this.fileId = Number(window.__TEST_FILE_ID)
@@ -162,6 +224,9 @@ export default {
 
 		// Detect mobile device
 		this.detectMobile()
+		if (this.isMobile) {
+			this.showController = false
+		}
 		window.addEventListener('resize', this.detectMobile)
 	},
 	beforeUnmount() {
@@ -400,6 +465,180 @@ export default {
 			// Viewer error handled - show detailed error message in toast
 			this.pushToast({ type: 'error', title: this.tErrorTitle(), message })
 		},
+		onSelectFile(file) {
+			// Load file in the same viewer area (no page reload)
+			if (file && file.id) {
+				// Remember current browser state so we can restore it later
+				if (this.showFileBrowser) {
+					this.saveBrowserStateSnapshot()
+				}
+
+				this.fileId = file.id
+				// Use path from backend response (formatFileIndex returns 'path' and 'folder_path')
+				this.filename = file.path || file.name || null
+				this.dir = file.folder_path || null
+				
+				// Switch to viewer mode
+				this.showFileBrowser = false
+				this.$refs.fileNavigation?.setActiveSort('viewer')
+				
+				// Update URL without page reload using history API
+				const url = `/apps/threedviewer/f/${file.id}`
+				window.history.pushState({ fileId: file.id }, '', url)
+				
+				// Save selected file ID to config
+				this.saveSelectedFileId(file.id)
+			}
+		},
+		onNavigateFolder(folder) {
+			this.showFileBrowser = true
+			this.browserSort = 'folders'
+			this.browserPath = folder.path || folder.name
+			this.browserType = null
+			this.browserDate = null
+			// Ensure files is always an array
+			this.browserFiles = Array.isArray(folder.files) ? folder.files : []
+			// If subfolders are provided, show them in the browser
+			if (folder.subfolders && folder.subfolders.length > 0) {
+				// Set folders to show subfolders alongside files
+				this.browserFolders = folder.subfolders
+			} else {
+				this.browserFolders = null
+			}
+			this.saveBrowserStateSnapshot()
+		},
+		onNavigateType(type) {
+			this.showFileBrowser = true
+			this.browserSort = 'type'
+			this.browserPath = null
+			this.browserType = type.extension
+			this.browserDate = null
+			// Ensure files is always an array
+			this.browserFiles = Array.isArray(type.files) ? type.files : []
+			this.browserFolders = null
+			this.browserDates = null
+			this.browserTypes = null
+			this.saveBrowserStateSnapshot()
+		},
+		onNavigateDate(date) {
+			this.showFileBrowser = true
+			this.browserSort = 'date'
+			this.browserPath = null
+			this.browserType = null
+			this.browserDate = {
+				year: date.year,
+				month: date.month,
+			}
+			// Ensure files is always an array
+			this.browserFiles = Array.isArray(date.files) ? date.files : []
+			this.browserFolders = null
+			this.browserTypes = null
+			this.saveBrowserStateSnapshot()
+		},
+		onNavigateViewer() {
+			// Switch to viewer mode - hide file browser and show 3D viewer in default/empty state
+			this.showFileBrowser = false
+			this.fileId = null
+			this.filename = null
+			this.dir = null
+			this.selectedFileId = null
+			// Update URL to remove file ID and show default viewer
+			window.history.pushState({}, '', generateUrl('/apps/threedviewer/'))
+		},
+		onNavigateAll(data) {
+			if (data.resetState) {
+				this.lastSortState = null
+			}
+			this.showFileBrowser = true
+			this.browserPath = null
+			this.browserType = null
+			this.browserDate = null
+			this.browserSort = data.sort
+			// For folders/type/date modes, show the structure first, not files
+			// Only show files directly for favorites mode
+			if (data.sort === 'favorites') {
+				// Ensure files is always an array
+				this.browserFiles = Array.isArray(data.files) ? data.files : []
+				this.browserFolders = null
+				this.browserTypes = null
+				this.browserDates = null
+			} else {
+				// Show folders/types/dates structure, not files
+				this.browserFiles = []
+				// If folders/types/dates are not provided OR this is from a breadcrumb click,
+				// trigger FileNavigation to reload
+				// This happens when navigating from breadcrumb click in FileBrowser
+				if ((!data.folders && !data.types && !data.dates) || data.fromBreadcrumb) {
+					// Trigger FileNavigation to reload and emit navigate-all with the structure
+					// Pass forceReload=true to reload even if already in this sort mode
+					if (this.$refs.fileNavigation) {
+						this.$refs.fileNavigation.changeSort(data.sort, null, true).catch(err => {
+							console.error('Error in changeSort:', err)
+						})
+					}
+				} else {
+					this.browserFolders = data.folders || null
+					this.browserTypes = data.types || null
+					this.browserDates = data.dates || null
+				}
+			}
+			this.saveBrowserStateSnapshot()
+		},
+		saveBrowserStateSnapshot() {
+			if (!this.showFileBrowser || !this.browserSort) {
+				return
+			}
+			this.lastSortState = {
+				sort: this.browserSort,
+				browserPath: this.browserPath,
+				browserType: this.browserType,
+				browserDate: this.cloneData(this.browserDate),
+				browserFolders: this.cloneData(this.browserFolders),
+				browserFiles: this.cloneData(this.browserFiles),
+				browserTypes: this.cloneData(this.browserTypes),
+				browserDates: this.cloneData(this.browserDates),
+			}
+		},
+		handleRestoreSortState(sort) {
+			if (!this.lastSortState || this.lastSortState.sort !== sort) {
+				return false
+			}
+			const state = this.lastSortState
+			this.browserSort = state.sort
+			this.browserPath = state.browserPath || null
+			this.browserType = state.browserType || null
+			this.browserDate = this.cloneData(state.browserDate) || null
+			this.browserFolders = this.cloneData(state.browserFolders) || null
+			this.browserFiles = this.cloneData(state.browserFiles) || []
+			this.browserTypes = this.cloneData(state.browserTypes) || null
+			this.browserDates = this.cloneData(state.browserDates) || null
+			this.showFileBrowser = true
+			return true
+		},
+		cloneData(value) {
+			if (value === null || value === undefined) {
+				return value
+			}
+			try {
+				if (typeof structuredClone === 'function') {
+					return structuredClone(value)
+				}
+				return JSON.parse(JSON.stringify(value))
+			} catch (error) {
+				return Array.isArray(value) ? value.slice() : value
+			}
+		},
+		saveSelectedFileId(fileId) {
+			// Save to user config via API
+			const url = generateUrl('/apps/threedviewer/config')
+			axios.put(url, {
+				values: {
+					selected_file_id: String(fileId),
+				},
+			}).catch(error => {
+				console.error('Failed to save selected file ID:', error)
+			})
+		},
 		pushToast({ type = 'info', title, message, timeout = null }) {
 			const id = Date.now() + Math.random()
 
@@ -432,7 +671,11 @@ export default {
 			this.toasts = this.toasts.filter(t => t.id !== id)
 		},
 		detectMobile() {
+			const wasMobile = this.isMobile
 			this.isMobile = window.innerWidth <= 768
+			if (this.isMobile && !wasMobile) {
+				this.showController = false
+			}
 		},
 		tSuccessTitle() { return this.t('threedviewer', 'Model loaded') },
 		tLoadedMessage(name) { return this.t('threedviewer', 'Loaded {file}', { file: name }) },
@@ -442,9 +685,30 @@ export default {
 </script>
 
 <style scoped lang="scss">
+// Remove gap between toolbar and content
+:deep(.app-content) {
+	margin-top: 0 !important;
+	padding-top: 0 !important;
+}
+
+:deep(.app-content-list) {
+	margin-top: 0 !important;
+	padding-top: 0 !important;
+}
+
+:deep(.app-content-wrapper) {
+	margin-top: 0 !important;
+	padding-top: 0 !important;
+}
+
+.content {
+	margin-top: 0 !important;
+}
+
 #viewer-wrapper {
 	width: 100%;
 	height: 100%;
 	padding: 0;
+	margin: 0;
 }
 </style>

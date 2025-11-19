@@ -32,8 +32,9 @@ class GltfLoader extends BaseLoader {
 			await this.setupResourceManager(additionalFiles)
 		}
 
-		// Parse the model
-		const gltf = await this.parseModel(arrayBuffer)
+		// Parse the model (pass extension for format detection)
+		const extension = context.fileExtension || 'gltf'
+		const gltf = await this.parseModel(arrayBuffer, extension)
 
 		// Process the result
 		return this.processModel(gltf.scene, context)
@@ -141,22 +142,62 @@ class GltfLoader extends BaseLoader {
 	/**
 	 * Parse the GLTF model
 	 * @param {ArrayBuffer} arrayBuffer - File data
+	 * @param {string} extension - File extension (glb or gltf)
 	 * @return {Promise<object>} Parsed GLTF
 	 */
-	async parseModel(arrayBuffer) {
+	async parseModel(arrayBuffer, extension = null) {
 		return new Promise((resolve, reject) => {
-			this.loader.parse(arrayBuffer, '', (gltf) => {
-				this.logInfo('GLTF model parsed successfully', {
-					scenes: gltf.scenes?.length || 0,
-					animations: gltf.animations?.length || 0,
-					materials: gltf.materials?.length || 0,
+			try {
+				// Check if this is a GLB file (binary format)
+				// GLB files start with magic number 0x46546C67 ("glTF" in ASCII)
+				const isGLB = this.isGLBFormat(arrayBuffer, extension)
+				
+				if (isGLB) {
+					this.logInfo('Detected GLB binary format', { size: arrayBuffer.byteLength })
+				} else {
+					this.logInfo('Detected GLTF JSON format', { size: arrayBuffer.byteLength })
+				}
+				
+				this.loader.parse(arrayBuffer, '', (gltf) => {
+					this.logInfo('GLTF model parsed successfully', {
+						scenes: gltf.scenes?.length || 0,
+						animations: gltf.animations?.length || 0,
+						materials: gltf.materials?.length || 0,
+					})
+					resolve(gltf)
+				}, (error) => {
+					this.logError('Failed to parse GLTF model', error)
+					reject(error)
 				})
-				resolve(gltf)
-			}, (error) => {
-				this.logError('Failed to parse GLTF model', error)
+			} catch (error) {
+				this.logError('Error in parseModel', error)
 				reject(error)
-			})
+			}
 		})
+	}
+
+	/**
+	 * Detect if arrayBuffer is GLB format (binary) or GLTF format (JSON)
+	 * @param {ArrayBuffer} arrayBuffer - File data
+	 * @param {string} extension - File extension hint
+	 * @return {boolean} True if GLB (binary), false if GLTF (JSON)
+	 */
+	isGLBFormat(arrayBuffer, extension = null) {
+		// Check file extension first
+		if (extension) {
+			return extension.toLowerCase() === 'glb'
+		}
+		
+		// Check magic number: GLB files start with 0x46546C67 ("glTF" in ASCII)
+		if (arrayBuffer.byteLength < 4) {
+			return false
+		}
+		
+		const view = new DataView(arrayBuffer)
+		const magic = view.getUint32(0, true) // Little-endian
+		const GLB_MAGIC = 0x46546C67 // "glTF" in ASCII
+		
+		return magic === GLB_MAGIC
 	}
 
 }
