@@ -52,8 +52,9 @@ class Version010902Date20251116061241 extends SimpleMigrationStep
 			$table->addColumn('path', Types::TEXT, [
 				'notnull' => true,
 			]);
-			$table->addColumn('folder_path', Types::TEXT, [
+			$table->addColumn('folder_path', Types::STRING, [
 				'notnull' => true,
+				'length' => 512,
 			]);
 			$table->addColumn('extension', Types::STRING, [
 				'notnull' => true,
