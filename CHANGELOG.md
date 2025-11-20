@@ -7,13 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.9.3] - 2025-11-19
+## [1.9.4] - 2025-11-20
 
 ### Fixed
 - **Preview Provider Registration**: Fixed `ArgumentCountError` during app service registration
   - `registerPreviewProvider()` requires 2 arguments (MIME type and provider class)
   - Now registers `ModelPreviewProvider` for each supported MIME type individually
   - Resolves error: "Too few arguments to function registerPreviewProvider(), 1 passed and exactly 2 expected"
+- **Migration Class Declaration**: Fixed missing class declaration in migration file
+  - Added `class Version010902Date20251116061241 extends SimpleMigrationStep` declaration
+  - Resolves syntax error: "unexpected token \"public\", expecting end of file"
 
 ## [1.9.2] - 2025-11-19
 
