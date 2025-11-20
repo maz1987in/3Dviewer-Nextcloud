@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Migration Class Declaration**: Fixed missing class declaration in migration file
   - Added `class Version010902Date20251116061241 extends SimpleMigrationStep` declaration
   - Resolves syntax error: "unexpected token \"public\", expecting end of file"
+- **Folder Path Length**: Removed the 512-character limit by hashing folder paths for indexing
+  - Restored `folder_path` to `TEXT` and added a `folder_path_hash` column with a new migration
+  - Existing rows are backfilled automatically so deep folder structures continue to work
 
 ## [1.9.2] - 2025-11-19
 

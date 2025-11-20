@@ -53,10 +53,12 @@ class FileIndexMapper extends QBMapper
 	 */
 	public function getFilesByFolder(string $userId, string $folderPath): array
 	{
+		$folderHash = hash('sha256', $folderPath);
 		$qb = $this->db->getQueryBuilder();
 		$qb->select('*')
 			->from($this->getTableName())
 			->where($qb->expr()->eq('user_id', $qb->createNamedParameter($userId, IQueryBuilder::PARAM_STR)))
+			->andWhere($qb->expr()->eq('folder_path_hash', $qb->createNamedParameter($folderHash, IQueryBuilder::PARAM_STR)))
 			->andWhere($qb->expr()->eq('folder_path', $qb->createNamedParameter($folderPath, IQueryBuilder::PARAM_STR)));
 
 		return $this->findEntities($qb);

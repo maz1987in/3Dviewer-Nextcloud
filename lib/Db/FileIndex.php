@@ -29,6 +29,8 @@ use OCP\AppFramework\Db\Entity;
  * @method void setMonth(int $month)
  * @method int getIndexedAt()
  * @method void setIndexedAt(int $indexedAt)
+ * @method string getFolderPathHash()
+ * @method void setFolderPathHash(string $folderPathHash)
  */
 class FileIndex extends Entity implements \JsonSerializable
 {
@@ -37,6 +39,7 @@ class FileIndex extends Entity implements \JsonSerializable
 	protected $name;
 	protected $path;
 	protected $folderPath;
+	protected $folderPathHash;
 	protected $extension;
 	protected $mtime;
 	protected $size;
@@ -51,6 +54,7 @@ class FileIndex extends Entity implements \JsonSerializable
 		$this->addType('name', 'string');
 		$this->addType('path', 'string');
 		$this->addType('folderPath', 'string');
+		$this->addType('folderPathHash', 'string');
 		$this->addType('extension', 'string');
 		$this->addType('mtime', 'integer');
 		$this->addType('size', 'integer');
@@ -69,6 +73,7 @@ class FileIndex extends Entity implements \JsonSerializable
 			'name' => $this->name,
 			'path' => $this->path,
 			'folder_path' => $this->folderPath,
+			'folder_path_hash' => $this->folderPathHash,
 			'extension' => $this->extension,
 			'mtime' => $this->mtime,
 			'size' => $this->size,

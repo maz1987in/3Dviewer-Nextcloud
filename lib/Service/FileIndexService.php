@@ -67,6 +67,7 @@ class FileIndexService
 			$fileIndex->setName($file->getName());
 			$fileIndex->setPath($relativePath);
 			$fileIndex->setFolderPath($folderPath);
+			$fileIndex->setFolderPathHash($this->hashFolderPath($folderPath));
 			$fileIndex->setExtension($extension);
 			$fileIndex->setMtime($mtime);
 			$fileIndex->setSize($file->getSize());
@@ -148,6 +149,11 @@ class FileIndexService
 				'exception' => $e,
 			]);
 		}
+	}
+
+	private function hashFolderPath(string $folderPath): string
+	{
+		return hash('sha256', $folderPath);
 	}
 }
 
