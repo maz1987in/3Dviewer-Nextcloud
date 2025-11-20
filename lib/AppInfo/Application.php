@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace OCA\ThreeDViewer\AppInfo;
 
-use OCA\ThreeDViewer\Command\IndexFiles;
 use OCA\ThreeDViewer\Listener\FileIndexListener;
 use OCA\ThreeDViewer\Listener\LoadFilesListener;
 use OCA\ThreeDViewer\Listener\LoadViewerListener;
@@ -63,13 +62,6 @@ class Application extends App implements IBootstrap
         $context->registerEventListener(NodeCreatedEvent::class, FileIndexListener::class);
         $context->registerEventListener(NodeWrittenEvent::class, FileIndexListener::class);
         $context->registerEventListener(NodeDeletedEvent::class, FileIndexListener::class);
-
-        // Register console command for indexing files
-        // Commands are auto-discovered if they extend Command and are in Command namespace
-        // But we also explicitly register it for clarity
-        if (method_exists($context, 'registerCommand')) {
-            $context->registerCommand(IndexFiles::class);
-        }
 
         // CSP modifications are now only applied to 3D viewer routes via PageController
         // This prevents conflicts with other apps' CSP requirements

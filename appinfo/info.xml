@@ -92,4 +92,7 @@ Built with Three.js for high-performance WebGL rendering. ✨]]></description>
 	<types>
 		<type>model</type>
 	</types>
+	<commands>
+		<command>OCA\ThreeDViewer\Command\IndexFiles</command>
+	</commands>
 </info>

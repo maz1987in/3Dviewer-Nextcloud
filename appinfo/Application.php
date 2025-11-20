@@ -32,6 +32,7 @@ class Application extends App implements IBootstrap
         // Register listener to load our script on every page (Files app context)
         // This ensures our viewer handler is registered before Files app renders
         $context->registerEventListener(BeforeTemplateRenderedEvent::class, LoadFilesListener::class);
+
     }
 
     public function boot(IBootContext $context): void
