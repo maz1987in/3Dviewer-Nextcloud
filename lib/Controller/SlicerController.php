@@ -21,7 +21,7 @@ use Psr\Log\LoggerInterface;
 class SlicerController extends Controller
 {
     private const TEMP_FOLDER = '.3dviewer_temp';
-    private const MAX_TEMP_FILE_AGE = 3600; // 1 hour
+    private const MAX_TEMP_FILE_AGE = 86400; // 24 hours
 
     private IRootFolder $rootFolder;
     private IUserSession $userSession;

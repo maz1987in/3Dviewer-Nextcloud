@@ -133,6 +133,26 @@ class FileIndexService
 	private function indexFolder(\OCP\Files\Folder $folder, string $userId): void
 	{
 		try {
+			$folderName = $folder->getName();
+
+			// 1. Skip hidden folders (starting with dot), including .3dviewer_temp
+			if (str_starts_with($folderName, '.') && $folderName !== '') {
+				$this->logger->debug('Skipping hidden folder from index', [
+					'folder' => $folder->getPath(),
+					'user_id' => $userId
+				]);
+				return;
+			}
+
+			// 2. Check for .no3d marker file
+			if ($folder->nodeExists('.no3d')) {
+				$this->logger->debug('Skipping folder with .no3d marker', [
+					'folder' => $folder->getPath(),
+					'user_id' => $userId
+				]);
+				return;
+			}
+
 			$children = $folder->getDirectoryListing();
 
 			foreach ($children as $node) {

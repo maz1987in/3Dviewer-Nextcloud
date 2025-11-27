@@ -4,17 +4,17 @@
  */
 
 import { ref, readonly } from 'vue'
-import { generateUrl } from '@nextcloud/router'
+import { imagePath } from '@nextcloud/router'
 import { logger } from '../utils/logger.js'
 
 // Slicer configuration with URL schemes and metadata
-// Generate slicer configs using Nextcloud's generateUrl helper
+// Generate slicer configs using Nextcloud's imagePath helper
 // This ensures correct paths in all environments (local, production, subdirectory installations)
 const SLICER_CONFIGS = [
 	{
 		id: 'prusaslicer',
 		name: 'PrusaSlicer',
-		icon: generateUrl('/apps/threedviewer/img/slicers/prusaslicer.png'),
+		icon: imagePath('threedviewer', 'slicers/prusaslicer.png'),
 		urlScheme: 'prusaslicer',
 		description: 'Open-source slicer from Prusa Research',
 		supportLevel: 'full', // full, partial, download-only
@@ -23,7 +23,7 @@ const SLICER_CONFIGS = [
 	{
 		id: 'cura',
 		name: 'UltiMaker Cura',
-		icon: generateUrl('/apps/threedviewer/img/slicers/cura.png'),
+		icon: imagePath('threedviewer', 'slicers/cura.png'),
 		urlScheme: 'cura',
 		description: 'Popular open-source slicer',
 		supportLevel: 'full',
@@ -32,7 +32,7 @@ const SLICER_CONFIGS = [
 	{
 		id: 'bambu',
 		name: 'BambuStudio',
-		icon: generateUrl('/apps/threedviewer/img/slicers/bambu.png'),
+		icon: imagePath('threedviewer', 'slicers/bambu.png'),
 		urlScheme: 'bambustudio',
 		description: 'Slicer for Bambu Lab printers',
 		supportLevel: 'full',
@@ -41,7 +41,7 @@ const SLICER_CONFIGS = [
 	{
 		id: 'orca',
 		name: 'OrcaSlicer',
-		icon: generateUrl('/apps/threedviewer/img/slicers/orca.png'),
+		icon: imagePath('threedviewer', 'slicers/orca.png'),
 		urlScheme: 'orcaslicer',
 		description: 'Fork of BambuStudio with advanced features',
 		supportLevel: 'full',
@@ -50,7 +50,7 @@ const SLICER_CONFIGS = [
 	{
 		id: 'simplify3d',
 		name: 'Simplify3D',
-		icon: generateUrl('/apps/threedviewer/img/slicers/simplify3d.png'),
+		icon: imagePath('threedviewer', 'slicers/simplify3d.png'),
 		urlScheme: 'simplify3d',
 		description: 'Professional 3D printing software',
 		supportLevel: 'partial',
@@ -59,11 +59,20 @@ const SLICER_CONFIGS = [
 	{
 		id: 'eufystudio',
 		name: 'Eufy Studio',
-		icon: generateUrl('/apps/threedviewer/img/slicers/eufystudio.png'),
+		icon: imagePath('threedviewer', 'slicers/eufystudio.png'),
 		urlScheme: 'eufystudio',
 		description: 'Slicer for Eufy 3D printers',
 		supportLevel: 'full',
 		color: '#E91E63', // Eufy pink
+	},
+	{
+		id: 'anycubicslicer',
+		name: 'AnycubicSlicer',
+		icon: imagePath('threedviewer', 'slicers/anycubicslicer.png'),
+		urlScheme: 'anycubicslicer',
+		description: 'Slicer for Anycubic 3D printers',
+		supportLevel: 'full',
+		color: '#FF6B00', // Anycubic orange
 	},
 ]
 
@@ -244,6 +253,10 @@ export function useSlicerIntegration() {
 			} else {
 				url = `${slicer.urlScheme}://open/?file=${encodeURIComponent(filePath)}&name=${encodeURIComponent(fileName)}`
 			}
+			break
+		case 'anycubicslicer':
+			// AnycubicSlicer: anycubicslicer://open?file=path
+			url = `${slicer.urlScheme}://open?file=${encodeURIComponent(filePath)}`
 			break
 		default:
 			// Generic format

@@ -41,22 +41,21 @@ class Application extends App implements IBootstrap
         // Register preview provider for 3D model files
         // Can be enabled/disabled by admins via enabledPreviewProviders config
         // Must register for each MIME type individually
+        
+        // NOTE: Preview provider registration is currently disabled to prevent "Delimiter must not be alphanumeric"
+        // errors in Nextcloud's PreviewManager regex matching. 
+        // 3D files will automatically use the custom SVG icons registered via mimetypemapping.json/mimetypealiases.json
+        // which provides the desired behavior without the server logs spam.
+        /*
         $supportedMimes = [
-            'model/gltf-binary',        // .glb
-            'model/gltf+json',          // .gltf
-            'model/obj',                // .obj
-            'model/stl',                // .stl
-            'application/sla',          // .stl alternative
-            'model/ply',                // .ply
-            'model/vnd.collada+xml',    // .dae
-            'model/3mf',                // .3mf
-            'model/x3d+xml',            // .x3d
-            'model/vrml',               // .vrml, .wrl
-            'application/octet-stream',  // Used for fbx, 3ds (with extension check)
+            'model/gltf-binary', 'model/gltf+json', 'model/obj', 'model/stl', 
+            'application/sla', 'model/ply', 'model/vnd.collada+xml', 'model/3mf', 
+            'model/x3d+xml', 'model/vrml', 'application/octet-stream'
         ];
         foreach ($supportedMimes as $mimeType) {
             $context->registerPreviewProvider($mimeType, ModelPreviewProvider::class);
         }
+        */
 
         // Register file index listener to automatically update index on file changes
         $context->registerEventListener(NodeCreatedEvent::class, FileIndexListener::class);

@@ -685,8 +685,12 @@ export default {
 </script>
 
 <style scoped lang="scss">
-// Remove gap between toolbar and content
+// Ensure content takes full width and removes gap
 :deep(.app-content) {
+	// Allow content to fill available space (whether flex or grid)
+	flex: 1 1 auto;
+	width: 100%; 
+	min-width: 0; // Prevent flex/grid item from overflowing
 	margin-top: 0 !important;
 	padding-top: 0 !important;
 }
@@ -702,6 +706,7 @@ export default {
 }
 
 .content {
+	// Do not force display:flex as it breaks Nextcloud's grid layout
 	margin-top: 0 !important;
 }
 

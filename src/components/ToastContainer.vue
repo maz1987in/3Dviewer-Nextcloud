@@ -134,9 +134,9 @@ export default {
 <style scoped>
 .toast-container {
 	position: fixed;
-	top: 12px;
+	top: 60px;
 	inset-inline-end: 12px;
-	z-index: 2000;
+	z-index: 10000;
 	max-width: 320px;
 	display: flex;
 	flex-direction: column;

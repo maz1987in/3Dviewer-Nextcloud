@@ -22,7 +22,7 @@
 **⚡ Export & Tools:**
 - 📷 Screenshot capture: Take high-quality PNG/JPEG screenshots of your models
 - 💾 Export models to GLB, STL, and OBJ formats
-- 🖨️ Slicer integration: Send models directly to PrusaSlicer, Cura, BambuStudio, OrcaSlicer, Simplify3D, and Eufy Studio
+- 🖨️ Slicer integration: Send models directly to PrusaSlicer, Cura, BambuStudio, OrcaSlicer, Simplify3D, Eufy Studio, and AnycubicSlicer
 - 📊 Model statistics panel with detailed information
 - 🔲 Wireframe and bounding box visualization
 - 📐 Dynamic grid system that adapts to model size and position
@@ -38,7 +38,7 @@
 - ♿ Accessibility features with keyboard navigation and ARIA labels
 
 Built with Three.js for high-performance WebGL rendering. ✨]]></description>
-	<version>1.9.6</version>
+	<version>1.9.7</version>
 	<licence>agpl</licence>
 	<author mail="maz1987in@gmail.com" homepage="https://github.com/maz1987in">Mazin Al Saadi</author>
 	<donation title="Donate to the developers with PayPal" type="paypal">https://www.paypal.com/ncp/payment/KZCB3XTCHGKZC</donation>
@@ -92,6 +92,9 @@ Built with Three.js for high-performance WebGL rendering. ✨]]></description>
 	<types>
 		<type>model</type>
 	</types>
+	<background-jobs>
+		<job>OCA\ThreeDViewer\Cron\CleanupTempFiles</job>
+	</background-jobs>
 	<commands>
 		<command>OCA\ThreeDViewer\Command\IndexFiles</command>
 	</commands>

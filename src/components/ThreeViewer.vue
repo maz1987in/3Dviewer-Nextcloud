@@ -1073,6 +1073,20 @@ export default {
 
 		const setupEventListeners = () => {
 			window.addEventListener('resize', onWindowResize)
+			
+			// Setup ResizeObserver to handle container size changes (e.g. sidebar toggle)
+			if (container.value && typeof ResizeObserver !== 'undefined') {
+				const resizeObserver = new ResizeObserver((entries) => {
+					// Debounce resize to prevent excessive updates
+					requestAnimationFrame(() => {
+						onWindowResize()
+					})
+				})
+				resizeObserver.observe(container.value)
+				
+				// Store observer for cleanup
+				container.value._resizeObserver = resizeObserver
+			}
 
 			// Add click handler for measurement and annotation
 			if (renderer.value && renderer.value.domElement) {
@@ -1089,9 +1103,9 @@ export default {
 
 			camera.onWindowResize(width, height)
 
-			// Preserve pixel ratio by using setSize with updateStyle=false
-			// This prevents setSize from resetting pixel ratio to window.devicePixelRatio
-			renderer.value.setSize(width, height, false)
+			// Update renderer size
+			// We allow setSize to update the style to keep DOM and internal size in sync
+			renderer.value.setSize(width, height)
 
 			// Resize label renderer
 			faceLabels.onWindowResize(width, height)
@@ -2177,6 +2191,12 @@ export default {
 
 			// Cleanup event listeners
 			window.removeEventListener('resize', onWindowResize)
+			
+			// Clean up ResizeObserver
+			if (container.value && container.value._resizeObserver) {
+				container.value._resizeObserver.disconnect()
+				delete container.value._resizeObserver
+			}
 
 			// Remove canvas click listener - check domElement exists
 			if (renderer.value?.domElement) {
@@ -2357,6 +2377,14 @@ export default {
 	height: 100%;
 	min-height: 400px; /* Ensure minimum height for proper canvas sizing */
 	overflow: hidden;
+}
+
+/* Ensure canvas always fills container */
+:deep(canvas) {
+	width: 100% !important;
+	height: 100% !important;
+	display: block;
+	outline: none;
 }
 
 .loading {

@@ -482,32 +482,22 @@ class FileController extends BaseController
         // Convert tree to flat list structure
         $flattened = $this->flattenFolderTree($tree);
         
-        // Log before filtering
-        $this->logger->info('Folder structure before filtering', [
+        // Log before filtering with detailed structure
+        $this->logger->debug('Folder structure before filtering', [
             'user_id' => $userId,
             'total_files' => count($files),
             'total_folders' => count($flattened),
-            'folder_names' => array_map(function($f) { return $f['name'] ?? 'unknown'; }, $flattened),
-            'folder_paths' => array_map(function($f) { return $f['path'] ?? 'unknown'; }, $flattened),
-            'folders_with_files' => array_map(function($f) { 
-                return [
-                    'name' => $f['name'] ?? 'unknown',
-                    'path' => $f['path'] ?? 'unknown',
-                    'files_count' => isset($f['files']) ? count($f['files']) : 0,
-                ];
-            }, $flattened),
         ]);
         
         // Filter out folders without 3D files
         $filtered = $this->filterFoldersWith3DFiles($flattened);
         
         // Log after filtering
-        $this->logger->info('Folder structure after filtering', [
+        $this->logger->debug('Folder structure after filtering', [
             'user_id' => $userId,
             'total_folders_before' => count($flattened),
             'total_folders_after' => count($filtered),
             'folder_names_after' => array_map(function($f) { return $f['name'] ?? 'unknown'; }, $filtered),
-            'folder_paths_after' => array_map(function($f) { return $f['path'] ?? 'unknown'; }, $filtered),
         ]);
         
         return $filtered;
@@ -822,6 +812,10 @@ class FileController extends BaseController
         $filtered = [];
         $supportedExtensions = ['glb', 'gltf', 'obj', 'stl', 'ply', 'fbx', '3mf', '3ds', 'dae', 'x3d', 'vrml', 'wrl'];
         
+        $this->logger->debug('filterFoldersWith3DFiles called', [
+            'folders_count' => count($folders),
+        ]);
+        
         foreach ($folders as $folder) {
             $folderName = $folder['name'] ?? 'unknown';
             $folderPath = $folder['path'] ?? 'unknown';
@@ -829,30 +823,42 @@ class FileController extends BaseController
             // Check if this folder has 3D files directly (not just any files)
             $has3DFiles = false;
             $fileExtensions = [];
-            if (isset($folder['files']) && is_array($folder['files'])) {
+            if (isset($folder['files']) && is_array($folder['files']) && count($folder['files']) > 0) {
                 foreach ($folder['files'] as $file) {
                     // Handle both array and object formats, and check multiple possible extension fields
                     $ext = '';
                     if (is_array($file)) {
                         // Try extension first, then type (which might be uppercase)
-                        $ext = strtolower($file['extension'] ?? $file['type'] ?? '');
-                        // Remove leading dot if present
-                        $ext = ltrim($ext, '.');
+                        $ext = $file['extension'] ?? $file['type'] ?? '';
+                        if (is_string($ext)) {
+                            $ext = strtolower(trim($ext));
+                            // Remove leading dot if present
+                            $ext = ltrim($ext, '.');
+                        } else {
+                            $ext = '';
+                        }
+                        // If still empty, try to extract from filename
+                        if (empty($ext) && isset($file['name'])) {
+                            $fileName = $file['name'];
+                            $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+                        }
                     } elseif (is_object($file)) {
                         // Handle object format if needed
                         if (method_exists($file, 'getExtension')) {
-                            $ext = strtolower($file->getExtension() ?? '');
+                            $ext = strtolower(trim($file->getExtension() ?? ''));
                         } elseif (isset($file->extension)) {
-                            $ext = strtolower($file->extension ?? '');
+                            $ext = strtolower(trim($file->extension ?? ''));
+                        } elseif (isset($file->name)) {
+                            $ext = strtolower(pathinfo($file->name, PATHINFO_EXTENSION));
                         }
                     }
                     
-                    if ($ext) {
+                    if (!empty($ext)) {
                         $fileExtensions[] = $ext;
-                    }
-                    
-                    if ($ext && in_array($ext, $supportedExtensions, true)) {
-                        $has3DFiles = true;
+                        
+                        if (in_array($ext, $supportedExtensions, true)) {
+                            $has3DFiles = true;
+                        }
                     }
                 }
             }
@@ -865,31 +871,34 @@ class FileController extends BaseController
             
             // Only include folder if it has 3D files OR has filtered children with files
             // This ensures intermediate folders that lead to 3D files are included
-            if ($has3DFiles || count($filteredChildren) > 0) {
+            $shouldInclude = $has3DFiles || count($filteredChildren) > 0;
+            
+            if ($shouldInclude) {
                 // Ensure files is always an array (not an object)
                 if (isset($folder['files'])) {
                     $folder['files'] = is_array($folder['files']) ? $folder['files'] : array_values((array)$folder['files']);
+                } else {
+                    $folder['files'] = [];
                 }
                 $folder['children'] = $filteredChildren;
                 $filtered[] = $folder;
                 
                 // Log folders that are being included
-                $this->logger->debug('Including folder', [
+                $this->logger->debug('Including folder in By Folders view', [
                     'folder_name' => $folderName,
                     'folder_path' => $folderPath,
                     'has_3d_files' => $has3DFiles,
-                    'files_count' => isset($folder['files']) ? count($folder['files']) : 0,
-                    'file_extensions' => array_unique($fileExtensions),
+                    'files_count' => count($folder['files']),
+                    'children_count_before' => isset($folder['children']) ? count($folder['children']) : 0,
                     'filtered_children_count' => count($filteredChildren),
                 ]);
             } else {
                 // Log folders that are being filtered out for debugging
-                $this->logger->debug('Filtering out folder (no 3D files)', [
+                $this->logger->debug('Filtering out folder (no 3D files and no valid children)', [
                     'folder_name' => $folderName,
                     'folder_path' => $folderPath,
                     'files_count' => isset($folder['files']) ? count($folder['files']) : 0,
-                    'file_extensions' => array_unique($fileExtensions),
-                    'children_count' => isset($folder['children']) ? count($folder['children']) : 0,
+                    'children_count_before' => isset($folder['children']) ? count($folder['children']) : 0,
                     'filtered_children_count' => count($filteredChildren),
                 ]);
             }
