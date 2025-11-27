@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.9.7] - 2025-11-27
 
 ### Added
-- **AnycubicSlicer Support**: Added integration for AnycubicSlicer with custom icon and URL scheme.
+- **AnycubicSlicer Support**: Added integration for AnycubicSlicer with custom icon and URL scheme. (#52)
 - **Folder Exclusion**: Added support for `.no3d` marker file to exclude specific folders from 3D file scanning.
 - **Hidden Folder Exclusion**: Automatically exclude hidden folders (starting with `.`) from the file index.
 - **Temp File Cleanup**: Implemented background job to automatically clean up `.3dviewer_temp` files older than 24 hours.
