@@ -391,7 +391,7 @@
 import { ref, onMounted, onBeforeUnmount, watch, computed, nextTick } from 'vue'
 import * as THREE from 'three'
 import { NcProgressBar, NcButton } from '@nextcloud/vue'
-import { generateUrl } from '@nextcloud/router'
+import { generateUrl, imagePath } from '@nextcloud/router'
 import axios from '@nextcloud/axios'
 import CircularController from './CircularController.vue'
 import { useCamera } from '../composables/useCamera.js'
@@ -840,7 +840,7 @@ export default {
 
 			// Load the app logo texture
 			const textureLoader = new THREE.TextureLoader()
-			const logoPath = generateUrl('/apps/threedviewer/img/app-color.svg')
+			const logoPath = imagePath('threedviewer', 'app-color.svg')
 			const logoTexture = textureLoader.load(logoPath, undefined, undefined, (error) => {
 				logger.warn('ThreeViewer', 'Failed to load app logo, using fallback', error)
 			})
