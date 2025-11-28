@@ -65,6 +65,7 @@ const SLICER_CONFIGS = [
 		supportLevel: 'full',
 		color: '#E91E63', // Eufy pink
 	},
+	/*
 	{
 		id: 'anycubicslicer',
 		name: 'AnycubicSlicer',
@@ -74,6 +75,7 @@ const SLICER_CONFIGS = [
 		supportLevel: 'full',
 		color: '#FF6B00', // Anycubic orange
 	},
+	*/
 ]
 
 export function useSlicerIntegration() {
@@ -254,10 +256,12 @@ export function useSlicerIntegration() {
 				url = `${slicer.urlScheme}://open/?file=${encodeURIComponent(filePath)}&name=${encodeURIComponent(fileName)}`
 			}
 			break
+		/*
 		case 'anycubicslicer':
 			// AnycubicSlicer: anycubicslicer://open?file=path
 			url = `${slicer.urlScheme}://open?file=${encodeURIComponent(filePath)}`
 			break
+		*/
 		default:
 			// Generic format
 			url = `${slicer.urlScheme}://open?file=${encodeURIComponent(filePath)}`
