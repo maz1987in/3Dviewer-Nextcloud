@@ -200,6 +200,10 @@
 								<span class="tool-icon">🗑️</span>
 								<span class="tool-label">{{ t('threedviewer', 'Clear Cache') }}</span>
 							</button>
+							<button class="tool-btn" @click="emit('reindex-files')">
+								<span class="tool-icon">🔄</span>
+								<span class="tool-label">{{ t('threedviewer', 'Re-index Files') }}</span>
+							</button>
 							<button class="tool-btn" @click="emit('toggle-help')">
 								<span class="tool-icon">ⓘ</span>
 								<span class="tool-label">{{ t('threedviewer', 'Help') }}</span>
@@ -268,6 +272,7 @@ export default {
 		'export-model',
 		'send-to-slicer',
 		'clear-cache',
+		'reindex-files',
 		'toggle-help',
 	],
 

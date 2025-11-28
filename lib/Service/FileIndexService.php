@@ -46,7 +46,12 @@ class FileIndexService
 			
 			// Remove user folder path from file path to get relative path
 			if (str_starts_with($path, $userFolderPath)) {
-				$relativePath = substr($path, strlen($userFolderPath) + 1);
+				// Handle trailing slash in user folder path if present
+				$prefixLength = strlen($userFolderPath);
+				if (!str_ends_with($userFolderPath, '/')) {
+					$prefixLength++; // Account for the slash separator
+				}
+				$relativePath = substr($path, $prefixLength);
 			} else {
 				$relativePath = $path;
 			}
@@ -61,6 +66,15 @@ class FileIndexService
 			$dateTime = new DateTime('@' . $mtime);
 			$year = (int)$dateTime->format('Y');
 			$month = (int)$dateTime->format('n'); // 1-12 without leading zeros
+			
+			$this->logger->debug('Indexing file', [
+				'file_id' => $file->getId(),
+				'user_id' => $userId,
+				'path' => $path,
+				'relative_path' => $relativePath,
+				'folder_path' => $folderPath,
+				'extension' => $extension,
+			]);
 
 			$fileIndex->setFileId($file->getId());
 			$fileIndex->setUserId($userId);
@@ -116,6 +130,11 @@ class FileIndexService
 
 			// Get user folder
 			$userFolder = $this->rootFolder->getUserFolder($userId);
+			
+			$this->logger->debug('Starting full re-index for user', [
+				'user_id' => $userId,
+				'root_path' => $userFolder->getPath(),
+			]);
 
 			// Recursively index all 3D files
 			$this->indexFolder($userFolder, $userId);
@@ -176,4 +195,3 @@ class FileIndexService
 		return hash('sha256', $folderPath);
 	}
 }
-

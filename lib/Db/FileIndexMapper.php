@@ -121,9 +121,8 @@ class FileIndexMapper extends QBMapper
 			$escapedParent = $qb->escapeLikeParameter($parentFolder);
 			$qb->andWhere($qb->expr()->like('folder_path', $qb->createNamedParameter($escapedParent . '/%', IQueryBuilder::PARAM_STR)));
 		} else {
-			// Get root-level folders (no / in folder_path, meaning single-level folders)
-			$qb->andWhere($qb->expr()->notLike('folder_path', $qb->createNamedParameter('%/%', IQueryBuilder::PARAM_STR)))
-				->andWhere($qb->expr()->neq('folder_path', $qb->createNamedParameter('', IQueryBuilder::PARAM_STR)));
+			// Get all folders (not just root-level) to support deep structures like Group Folders
+			$qb->andWhere($qb->expr()->neq('folder_path', $qb->createNamedParameter('', IQueryBuilder::PARAM_STR)));
 		}
 
 		$qb->orderBy('folder_path', 'ASC');
@@ -136,11 +135,8 @@ class FileIndexMapper extends QBMapper
 		$result->closeCursor();
 
 		// Extract immediate children and intermediate folders
-		if ($parentFolder !== null && $parentFolder !== '') {
-			return $this->extractImmediateChildren($allFolderPaths, $parentFolder);
-		}
-
-		return $allFolderPaths;
+		// If parentFolder is null/empty, we extract top-level folders
+		return $this->extractImmediateChildren($allFolderPaths, $parentFolder ?? '');
 	}
 
 	/**

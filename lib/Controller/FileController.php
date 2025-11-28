@@ -210,14 +210,6 @@ class FileController extends BaseController
                 // Build folder structure for subfolders recursively
                 $subfolders = $this->buildFolderStructureForPath($userId, $folderPath, $favoriteFileIds);
                 
-                // Log for debugging
-                $this->logger->info('Folder navigation response', [
-                    'user_id' => $userId,
-                    'folder_path' => $folderPath,
-                    'files_count' => count($formattedFiles),
-                    'subfolders_count' => count($subfolders),
-                ]);
-                
                 return new JSONResponse([
                     'files' => $formattedFiles,
                     'folders' => $subfolders,
@@ -229,15 +221,6 @@ class FileController extends BaseController
 
             // Build hierarchical structure based on sort mode
             $response = $this->buildHierarchicalResponse($files, $sort, $userId, $favoriteFileIds);
-
-            // Log file listing
-            $this->logger->info('File list requested', [
-                'user_id' => $userId,
-                'sort' => $sort,
-                'filter_favorites' => $filterFavorites,
-                'total_files' => count($files),
-                'client_ip' => $this->getClientIp(),
-            ]);
 
             return new JSONResponse($response);
         } catch (\Throwable $e) {
@@ -482,23 +465,8 @@ class FileController extends BaseController
         // Convert tree to flat list structure
         $flattened = $this->flattenFolderTree($tree);
         
-        // Log before filtering with detailed structure
-        $this->logger->debug('Folder structure before filtering', [
-            'user_id' => $userId,
-            'total_files' => count($files),
-            'total_folders' => count($flattened),
-        ]);
-        
         // Filter out folders without 3D files
         $filtered = $this->filterFoldersWith3DFiles($flattened);
-        
-        // Log after filtering
-        $this->logger->debug('Folder structure after filtering', [
-            'user_id' => $userId,
-            'total_folders_before' => count($flattened),
-            'total_folders_after' => count($filtered),
-            'folder_names_after' => array_map(function($f) { return $f['name'] ?? 'unknown'; }, $filtered),
-        ]);
         
         return $filtered;
     }
@@ -515,42 +483,35 @@ class FileController extends BaseController
 
         $pathParts = explode('/', $folderPath);
         $current = &$tree;
+        $count = count($pathParts);
+        $index = 0;
 
-        // Navigate to the folder
         foreach ($pathParts as $part) {
             if (empty($part)) {
+                $index++;
                 continue;
             }
+            
+            // Ensure node exists
             if (!isset($current[$part])) {
-                // This shouldn't happen if we built the tree correctly, but handle it anyway
-                $currentPath = '';
-                foreach ($pathParts as $p) {
-                    if ($p === $part) break;
-                    $currentPath = $currentPath === '' ? $p : $currentPath . '/' . $p;
-                }
+                // Should have been created in first pass, but safeguard
                 $current[$part] = [
                     'name' => $part,
-                    'path' => $currentPath === '' ? $part : $currentPath . '/' . $part,
+                    'path' => '', // We can't easily reconstruct full path here without tracking, but purely structural integrity is key
                     'children' => [],
                     'files' => [],
                 ];
             }
-            $current = &$current[$part]['children'];
-        }
 
-        // Go back to parent to add file
-        $parent = &$tree;
-        foreach ($pathParts as $part) {
-            if (empty($part)) {
-                continue;
+            if ($index === $count - 1) {
+                // Target folder reached
+                $current[$part]['files'][] = $file;
+            } else {
+                // Go deeper
+                $current = &$current[$part]['children'];
             }
-            if (!isset($parent[$part])) {
-                // Shouldn't happen, but handle gracefully
-                return;
-            }
-            $parent = &$parent[$part];
+            $index++;
         }
-        $parent['files'][] = $file;
     }
 
     /**
@@ -694,15 +655,6 @@ class FileController extends BaseController
         // Get immediate child folders (this now includes intermediate folders)
         $subfolderPaths = $this->fileIndexMapper->getFolders($userId, $normalizedParentPath);
         
-        // Log for debugging
-        $this->logger->debug('Building folder structure', [
-            'user_id' => $userId,
-            'parent_path' => $parentPath,
-            'normalized_parent_path' => $normalizedParentPath,
-            'subfolder_paths_count' => count($subfolderPaths),
-            'subfolder_paths' => $subfolderPaths,
-        ]);
-        
         $folders = [];
         foreach ($subfolderPaths as $subfolderPath) {
             // Extract immediate child name (first part after parent path)
@@ -812,10 +764,6 @@ class FileController extends BaseController
         $filtered = [];
         $supportedExtensions = ['glb', 'gltf', 'obj', 'stl', 'ply', 'fbx', '3mf', '3ds', 'dae', 'x3d', 'vrml', 'wrl'];
         
-        $this->logger->debug('filterFoldersWith3DFiles called', [
-            'folders_count' => count($folders),
-        ]);
-        
         foreach ($folders as $folder) {
             $folderName = $folder['name'] ?? 'unknown';
             $folderPath = $folder['path'] ?? 'unknown';
@@ -882,25 +830,6 @@ class FileController extends BaseController
                 }
                 $folder['children'] = $filteredChildren;
                 $filtered[] = $folder;
-                
-                // Log folders that are being included
-                $this->logger->debug('Including folder in By Folders view', [
-                    'folder_name' => $folderName,
-                    'folder_path' => $folderPath,
-                    'has_3d_files' => $has3DFiles,
-                    'files_count' => count($folder['files']),
-                    'children_count_before' => isset($folder['children']) ? count($folder['children']) : 0,
-                    'filtered_children_count' => count($filteredChildren),
-                ]);
-            } else {
-                // Log folders that are being filtered out for debugging
-                $this->logger->debug('Filtering out folder (no 3D files and no valid children)', [
-                    'folder_name' => $folderName,
-                    'folder_path' => $folderPath,
-                    'files_count' => isset($folder['files']) ? count($folder['files']) : 0,
-                    'children_count_before' => isset($folder['children']) ? count($folder['children']) : 0,
-                    'filtered_children_count' => count($filteredChildren),
-                ]);
             }
         }
         

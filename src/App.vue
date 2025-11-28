@@ -98,6 +98,7 @@
 				@export-model="onExportModel"
 				@send-to-slicer="onSendToSlicer"
 				@clear-cache="onClearCache"
+				@reindex-files="onReindexFiles"
 				@toggle-help="onToggleHelp" />
 
 			<!-- 3D Viewer -->
@@ -422,6 +423,47 @@ export default {
 		onClearCache() {
 		// Clear dependency cache
 			this.$refs.viewer?.handleClearCache?.()
+		},
+
+		async onReindexFiles() {
+			try {
+				this.pushToast({
+					type: 'info',
+					message: this.t('threedviewer', 'Indexing files...'),
+					timeout: 2000,
+				})
+				
+				const url = generateUrl('/apps/threedviewer/api/files/index')
+				await axios.post(url)
+				
+				this.pushToast({
+					type: 'success',
+					message: this.t('threedviewer', 'Files indexed successfully'),
+				})
+				
+				// Reload file navigation if available
+				if (this.$refs.fileNavigation) {
+					// Force reload of files
+					await this.$refs.fileNavigation.loadFiles()
+					// If we are currently browsing files, we should also refresh the current view
+					// by re-emitting the navigation event if needed, but loadFiles updates the data
+					// which should reactively update the view if bound correctly.
+					// However, FileNavigation emits 'navigate-all' after loading.
+					// We might want to trigger a refresh of the current view in App.vue too.
+					
+					// If browser is open, refresh the view
+					if (this.showFileBrowser && this.browserSort) {
+						// Trigger changeSort with forceReload=true to refresh the main content
+						this.$refs.fileNavigation.changeSort(this.browserSort, null, true)
+					}
+				}
+			} catch (error) {
+				console.error('Failed to re-index files:', error)
+				this.pushToast({
+					type: 'error',
+					message: this.t('threedviewer', 'Failed to re-index files'),
+				})
+			}
 		},
 
 		onBackgroundChange(val) {

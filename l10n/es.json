@@ -68,6 +68,7 @@
     "Processing geometry...": "Procesando geometría...",
     "Generating file...": "Generando archivo...",
     "Clear Cache": "Limpiar caché",
+    "Re-index Files": "Reindexar archivos",
     "Cache cleared successfully": "Caché limpiada exitosamente",
     "Failed to clear cache": "Error al limpiar caché",
     "Measurement tools": "Herramientas de medición",

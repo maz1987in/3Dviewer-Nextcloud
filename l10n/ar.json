@@ -68,6 +68,7 @@
     "Processing geometry...": "جارٍ معالجة الهندسة...",
     "Generating file...": "جارٍ إنشاء الملف...",
     "Clear Cache": "مسح ذاكرة التخزين المؤقت",
+    "Re-index Files": "إعادة فهرسة الملفات",
     "Cache cleared successfully": "تم مسح ذاكرة التخزين المؤقت بنجاح",
     "Failed to clear cache": "فشل مسح ذاكرة التخزين المؤقت",
     "Measurement tools": "أدوات القياس",
