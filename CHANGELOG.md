@@ -7,10 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.8] - 2025-11-28
+
+### Changed
+- **Dependencies**: Updated development and runtime dependencies
+  - `three`: ^0.181.1 → ^0.181.2 (patch update)
+  - `stylelint`: ^16.25.0 → ^16.26.0 (dev)
+  - `vite`: ^7.2.2 → ^7.2.4 (dev)
+
 ## [1.9.7] - 2025-11-27
 
 ### Added
-- **AnycubicSlicer Support**: Added integration for AnycubicSlicer with custom icon and URL scheme. (#52)
 - **Folder Exclusion**: Added support for `.no3d` marker file to exclude specific folders from 3D file scanning.
 - **Hidden Folder Exclusion**: Automatically exclude hidden folders (starting with `.`) from the file index.
 - **Temp File Cleanup**: Implemented background job to automatically clean up `.3dviewer_temp` files older than 24 hours.
@@ -18,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **Layout Issue**: Fixed white empty space when hiding the navigation sidebar by ensuring correct flexbox behavior and explicit slot usage.
 - **Viewer Resizing**: Fixed 3D canvas visual resizing issue by syncing internal resolution with CSS dimensions (`width: 100%`).
+- **App Logo**: Fixed broken app logo in demo scene by using correct asset path helper.
 - **Slicer Icons**: Fixed missing slicer icons by using the correct `imagePath` helper for asset URLs.
 - **"By Folder" Navigation**: improved folder indexing logic to correctly build hierarchy and handle edge cases.
 - **Server Error**: Resolved persistent `preg_match` error in `PreviewManager` by disabling unused app preview provider registration.
