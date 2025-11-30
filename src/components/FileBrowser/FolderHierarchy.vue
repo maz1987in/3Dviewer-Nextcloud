@@ -93,20 +93,20 @@ export default {
 			return this.hasFiles ? this.getFilesArray : []
 		},
 	},
-		mounted() {
-			// Debug: Log folder data to see what backend is sending
-			if (this.folder && (!this.hasFiles && !this.hasChildren)) {
-				console.log('Folder with 0 items:', {
-					name: this.folder.name,
-					path: this.folder.path,
-					files: this.folder.files,
-					children: this.folder.children,
-					hasFiles: this.hasFiles,
-					hasChildren: this.hasChildren,
-				})
-			}
-		},
-		methods: {
+	mounted() {
+		// Debug: Log folder data to see what backend is sending
+		if (this.folder && (!this.hasFiles && !this.hasChildren)) {
+			console.log('Folder with 0 items:', {
+				name: this.folder.name,
+				path: this.folder.path,
+				files: this.folder.files,
+				children: this.folder.children,
+				hasFiles: this.hasFiles,
+				hasChildren: this.hasChildren,
+			})
+		}
+	},
+	methods: {
 		handleFolderClick() {
 			// Always navigate to the folder (click to open, not expand)
 			this.$emit('navigate-folder', this.folder)
@@ -182,7 +182,6 @@ export default {
 	justify-content: center;
 }
 
-
 .file-card {
 	background: var(--color-main-background, #fff);
 	border: 2px solid var(--color-border, #ddd);
@@ -239,4 +238,3 @@ export default {
 	white-space: nowrap;
 }
 </style>
-

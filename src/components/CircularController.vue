@@ -122,7 +122,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, onBeforeUnmount, watch, getCurrentInstance } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import * as THREE from 'three'
 import { logger } from '../utils/logger.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
@@ -146,6 +146,10 @@ export default {
 			type: Boolean,
 			default: false,
 		},
+		persistPosition: {
+			type: Boolean,
+			default: true,
+		},
 	},
 	emits: ['camera-rotate', 'camera-zoom', 'snap-to-view', 'position-changed', 'nudge-camera', 'cameraPan', 'testPan'],
 	setup(props, { emit }) {
@@ -154,7 +158,7 @@ export default {
 		const cubeContainerRef = ref(null)
 
 		// State
-		const position = ref({ x: 20, y: 20 }) // x: right offset, y: top offset
+		const position = ref({ x: 20, y: 80 }) // x: left offset, y: top offset
 		const isDragging = ref(false)
 		const fadeIn = ref(false)
 		const dragOffset = ref({ x: 0, y: 0 })
@@ -202,7 +206,7 @@ export default {
 		// Computed style for positioning
 		const controllerStyle = computed(() => ({
 			top: `${position.value.y}px`,
-			right: `${position.value.x}px`,
+			left: `${position.value.x}px`,
 		}))
 
 		/**
@@ -1072,8 +1076,8 @@ export default {
 			isDragging.value = true
 			const rect = controllerRef.value.getBoundingClientRect()
 			dragOffset.value = {
-				x: event.clientX - rect.right + window.scrollX,
-				y: event.clientY - rect.top + window.scrollY,
+				x: event.clientX - rect.left,
+				y: event.clientY - rect.top,
 			}
 
 			document.addEventListener('mousemove', handleDragMove)
@@ -1087,13 +1091,17 @@ export default {
 		const handleDragMove = (event) => {
 			if (!isDragging.value) return
 
+			// Current mouse position minus the offset within the controller
+			const targetX = event.clientX - dragOffset.value.x
+			const targetY = event.clientY - dragOffset.value.y
+
 			const newX = Math.max(0, Math.min(
 				window.innerWidth - controllerSize.value,
-				window.innerWidth - event.clientX + dragOffset.value.x,
+				targetX,
 			))
 			const newY = Math.max(0, Math.min(
 				window.innerHeight - controllerSize.value,
-				event.clientY - dragOffset.value.y,
+				targetY,
 			))
 
 			position.value = { x: newX, y: newY }
@@ -1123,8 +1131,8 @@ export default {
 			isDragging.value = true
 			const rect = controllerRef.value.getBoundingClientRect()
 			dragOffset.value = {
-				x: touch.clientX - rect.right + window.scrollX,
-				y: touch.clientY - rect.top + window.scrollY,
+				x: touch.clientX - rect.left,
+				y: touch.clientY - rect.top,
 			}
 
 			document.addEventListener('touchmove', handleDragTouchMove, { passive: false })
@@ -1141,13 +1149,17 @@ export default {
 			event.preventDefault()
 			const touch = event.touches[0]
 
+			// Current touch position minus the offset within the controller
+			const targetX = touch.clientX - dragOffset.value.x
+			const targetY = touch.clientY - dragOffset.value.y
+
 			const newX = Math.max(0, Math.min(
 				window.innerWidth - controllerSize.value,
-				window.innerWidth - touch.clientX + dragOffset.value.x,
+				targetX,
 			))
 			const newY = Math.max(0, Math.min(
 				window.innerHeight - controllerSize.value,
-				touch.clientY - dragOffset.value.y,
+				targetY,
 			))
 
 			position.value = { x: newX, y: newY }
@@ -1170,7 +1182,7 @@ export default {
 		 * Load controller position from localStorage
 		 */
 		const loadPosition = () => {
-			if (!config.persistPosition) return
+			if (!props.persistPosition) return
 
 			try {
 				const saved = localStorage.getItem('threedviewer:controller-position')
@@ -1190,7 +1202,7 @@ export default {
 		 * Save controller position to localStorage
 		 */
 		const savePosition = () => {
-			if (!config.persistPosition) return
+			if (!props.persistPosition) return
 
 			try {
 				localStorage.setItem('threedviewer:controller-position', JSON.stringify(position.value))

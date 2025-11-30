@@ -65,12 +65,12 @@ export function useScene() {
 			const width = container.clientWidth
 			const height = container.clientHeight
 
-		renderer.value = new THREE.WebGLRenderer({
-			antialias: options.antialias ?? true,
-			alpha: options.alpha ?? true,
-			powerPreference: options.powerPreference ?? 'high-performance',
-			preserveDrawingBuffer: true, // Required for screenshots
-		})
+			renderer.value = new THREE.WebGLRenderer({
+				antialias: options.antialias ?? true,
+				alpha: options.alpha ?? true,
+				powerPreference: options.powerPreference ?? 'high-performance',
+				preserveDrawingBuffer: true, // Required for screenshots
+			})
 
 			renderer.value.setSize(width, height)
 			renderer.value.setPixelRatio(Math.min(window.devicePixelRatio, 2))

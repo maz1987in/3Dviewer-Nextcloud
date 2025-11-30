@@ -151,13 +151,13 @@ class GltfLoader extends BaseLoader {
 				// Check if this is a GLB file (binary format)
 				// GLB files start with magic number 0x46546C67 ("glTF" in ASCII)
 				const isGLB = this.isGLBFormat(arrayBuffer, extension)
-				
+
 				if (isGLB) {
 					this.logInfo('Detected GLB binary format', { size: arrayBuffer.byteLength })
 				} else {
 					this.logInfo('Detected GLTF JSON format', { size: arrayBuffer.byteLength })
 				}
-				
+
 				this.loader.parse(arrayBuffer, '', (gltf) => {
 					this.logInfo('GLTF model parsed successfully', {
 						scenes: gltf.scenes?.length || 0,
@@ -187,16 +187,16 @@ class GltfLoader extends BaseLoader {
 		if (extension) {
 			return extension.toLowerCase() === 'glb'
 		}
-		
+
 		// Check magic number: GLB files start with 0x46546C67 ("glTF" in ASCII)
 		if (arrayBuffer.byteLength < 4) {
 			return false
 		}
-		
+
 		const view = new DataView(arrayBuffer)
 		const magic = view.getUint32(0, true) // Little-endian
 		const GLB_MAGIC = 0x46546C67 // "glTF" in ASCII
-		
+
 		return magic === GLB_MAGIC
 	}
 

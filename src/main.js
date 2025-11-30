@@ -35,10 +35,10 @@ const VIEWER_HANDLER_ID = 'threedviewer'
 const VIEWER_REGISTRATION_KEY = '__threedviewer_viewer_handler_registered'
 
 // Check if already registered using multiple methods
-const isHandlerAlreadyRegistered =
-	window[VIEWER_REGISTRATION_KEY] === true ||
-	globalThis[VIEWER_REGISTRATION_KEY] === true ||
-	(OCA?.Viewer?.handlers?.[VIEWER_HANDLER_ID])
+const isHandlerAlreadyRegistered
+	= window[VIEWER_REGISTRATION_KEY] === true
+	|| globalThis[VIEWER_REGISTRATION_KEY] === true
+	|| (OCA?.Viewer?.handlers?.[VIEWER_HANDLER_ID])
 
 if (OCA?.Viewer && !isHandlerAlreadyRegistered) {
 	// Set flag IMMEDIATELY to prevent race conditions
@@ -56,9 +56,9 @@ if (OCA?.Viewer && !isHandlerAlreadyRegistered) {
 		console.debug('[ThreeDViewer] Viewer handler registered')
 	} catch (error) {
 		// Silently catch duplicate registration errors
-		if (error?.message?.includes('already registered') ||
-		    error?.message?.includes('duplicate') ||
-		    error?.message?.includes('same name')) {
+		if (error?.message?.includes('already registered')
+		    || error?.message?.includes('duplicate')
+		    || error?.message?.includes('same name')) {
 			console.debug('[ThreeDViewer] Viewer handler already registered, skipping')
 		} else {
 			console.error('[ThreeDViewer] Failed to register viewer handler:', error)

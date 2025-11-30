@@ -252,12 +252,12 @@ export default {
 			}
 		},
 
-		/**
+		/*
 		 * Called by Viewer app to update the files list
 		 * This is part of the Viewer API contract for multi-file navigation
 		 * MUST store and return the fileList for Viewer to know which files are available
-		 * @param fileList - Array of file objects from Viewer
-		 * @returns Array of files (same as input)
+		 * @param {Array} fileList - Array of file objects from Viewer
+		 * @return {Array} Array of files (same as input)
 		 */
 		files(fileList) {
 			logger.info('ViewerComponent', 'Files method called', { count: fileList?.length || 0 })
@@ -265,9 +265,9 @@ export default {
 			// Store the files list internally for Viewer API
 			if (fileList && Array.isArray(fileList) && fileList.length > 0) {
 				this.internalFilesList = fileList
-				logger.info('ViewerComponent', 'Files list stored and returned', { 
+				logger.info('ViewerComponent', 'Files list stored and returned', {
 					count: fileList.length,
-					firstFile: fileList[0]?.basename || 'unknown'
+					firstFile: fileList[0]?.basename || 'unknown',
 				})
 				return fileList
 			}
@@ -282,8 +282,8 @@ export default {
 					davPath: this.davPath,
 				}
 				this.internalFilesList = [syntheticFile]
-				logger.info('ViewerComponent', 'Created synthetic file list from props', { 
-					filename: this.filename 
+				logger.info('ViewerComponent', 'Created synthetic file list from props', {
+					filename: this.filename,
 				})
 				return [syntheticFile]
 			}
@@ -358,14 +358,14 @@ export default {
 				// Store in composable for state management
 				this.sceneComposable.scene.value = this.scene
 
-			// Create renderer
-			this.renderer = new THREE.WebGLRenderer({
-				canvas: this.$refs.canvas,
-				antialias: true,
-				alpha: false,
-				premultipliedAlpha: false,
-				preserveDrawingBuffer: true, // Required for screenshots
-				powerPreference: 'high-performance',
+				// Create renderer
+				this.renderer = new THREE.WebGLRenderer({
+					canvas: this.$refs.canvas,
+					antialias: true,
+					alpha: false,
+					premultipliedAlpha: false,
+					preserveDrawingBuffer: true, // Required for screenshots
+					powerPreference: 'high-performance',
 					failIfMajorPerformanceCaveat: false,
 					desynchronized: true,
 				})

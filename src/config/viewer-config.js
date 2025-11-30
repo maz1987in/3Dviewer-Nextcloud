@@ -98,6 +98,8 @@ export const AXES_SETTINGS = {
 export const PERFORMANCE_SETTINGS = {
 	maxFrameRate: 60,
 	targetFrameRate: 30,
+	enableShadows: true, // Master toggle for shadows
+	enableAntialiasing: true, // Toggle for MSAA
 	memoryWarningThreshold: 100 * 1024 * 1024, // 100MB
 	maxRetries: 3,
 	retryDelay: 1000,
@@ -185,6 +187,7 @@ export const ERROR_SETTINGS = {
  * Theme settings
  */
 export const THEME_SETTINGS = {
+	mode: 'auto', // 'auto', 'light', 'dark'
 	light: {
 		background: '#ffffff',
 		gridColor: '#00ff00',
@@ -526,7 +529,7 @@ export function getEnvironmentConfig(environment = 'production') {
  */
 export const CONTROLLER_SETTINGS = {
 	defaultVisible: true,
-	defaultPosition: { x: 20, y: 20 }, // offset from bottom-right
+	defaultPosition: { x: 20, y: 80 }, // offset from top-left
 	size: {
 		desktop: 180, // Reduced from 250
 		mobile: 140, // Reduced from 180
@@ -613,8 +616,12 @@ export const INTERACTION_SETTINGS = {
 	cubeDragSensitivity: 0.005,
 	rotationSensitivity: 0.02,
 	panSensitivity: 0.3,
+	panSpeed: 1.0, // OrbitControls pan speed
 	zoomSensitivity: 0.1,
+	zoomSpeed: 1.0, // OrbitControls zoom speed
 	zoomInterval: 100, // ms for continuous zoom
+	dampingFactor: 0.05, // OrbitControls damping factor
+	enableDamping: true, // Enable smooth movement by default
 	movementInterval: 16, // ms for continuous movement (~60fps)
 }
 

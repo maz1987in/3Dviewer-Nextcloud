@@ -8,9 +8,13 @@ use OCA\ThreeDViewer\Listener\FileIndexListener;
 use OCA\ThreeDViewer\Listener\LoadFilesListener;
 use OCA\ThreeDViewer\Listener\LoadViewerListener;
 use OCA\ThreeDViewer\Preview\ModelPreviewProvider;
+use OCA\ThreeDViewer\Settings\Personal;
+use OCA\ThreeDViewer\Settings\Section;
 use OCP\AppFramework\App;
 use OCP\AppFramework\Bootstrap\IBootContext;
 use OCP\AppFramework\Bootstrap\IBootstrap;
+use OCP\IL10N;
+use OCP\IURLGenerator;
 use OCP\AppFramework\Bootstrap\IRegistrationContext;
 use OCP\AppFramework\Http\Events\BeforeTemplateRenderedEvent;
 use OCP\Files\Events\Node\NodeCreatedEvent;
@@ -28,6 +32,17 @@ class Application extends App implements IBootstrap
 
     public function register(IRegistrationContext $context): void
     {
+        // Register Settings
+        $context->registerService(Personal::class, function ($c) {
+            return new Personal();
+        });
+        $context->registerService(Section::class, function ($c) {
+            return new Section(
+                $c->query(IURLGenerator::class),
+                $c->query(IL10N::class)
+            );
+        });
+
         // Register listener for when Viewer app loads
         // This follows the pattern from files_pdfviewer
         if (class_exists('OCA\Viewer\Event\LoadViewer')) {

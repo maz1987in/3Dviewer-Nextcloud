@@ -372,10 +372,10 @@
 
 		<!-- Circular 3D Controller -->
 		<CircularController
-			ref="circularControllerRef"
 			:main-camera="camera.camera.value"
 			:main-controls="camera.controls.value"
 			:visible="showController"
+			:persist-position="persistControllerPosition"
 			:is-mobile="isMobile"
 			@camera-rotate="handleControllerRotate"
 			@camera-zoom="handleControllerZoom"
@@ -432,7 +432,18 @@ export default {
 		annotationMode: { type: Boolean, default: false },
 		comparisonMode: { type: Boolean, default: false },
 		performanceMode: { type: String, default: 'auto' },
+		themeMode: { type: String, default: 'auto' },
 		showController: { type: Boolean, default: true },
+		persistControllerPosition: { type: Boolean, default: true },
+		autoRotate: { type: Boolean, default: false },
+		autoRotateSpeed: { type: Number, default: 2.0 },
+		zoomSpeed: { type: Number, default: 1.0 },
+		panSpeed: { type: Number, default: 1.0 },
+		enableDamping: { type: Boolean, default: true },
+		enableShadows: { type: Boolean, default: true },
+		enableAntialiasing: { type: Boolean, default: true },
+		ambientLightIntensity: { type: Number, default: 2.0 },
+		directionalLightIntensity: { type: Number, default: 1.0 },
 	},
 	emits: ['model-loaded', 'error', 'view-reset', 'fit-to-view', 'toggle-auto-rotate', 'toggle-projection', 'change-preset', 'toggle-grid', 'axes-toggle', 'wireframe-toggle', 'background-change', 'toggle-measurement', 'toggle-annotation', 'toggle-comparison', 'toggle-performance', 'dismiss', 'push-toast', 'loading-state-changed', 'fps-updated'],
 	setup(props, { emit }) {
@@ -444,7 +455,6 @@ export default {
 		const grid = ref(null)
 		const axes = ref(null)
 		const modelRoot = ref(null)
-		const circularControllerRef = ref(null)
 		const aborting = ref(false)
 		const initializing = ref(true) // Show loading during initial setup
 		const animationFrameId = ref(null) // Track animation frame for cleanup
@@ -502,6 +512,16 @@ export default {
 				// Setup Three.js scene
 				await setupScene()
 
+				// Apply initial theme background to scene
+				if (themeComposable.resolvedTheme.value) {
+					const currentTheme = themeComposable.resolvedTheme.value
+					const themeColors = VIEWER_CONFIG.theme[currentTheme] || VIEWER_CONFIG.theme.light
+					if (themeColors.background && scene.value) {
+						scene.value.background = new THREE.Color(themeColors.background)
+						logger.info('ThreeViewer', 'Initial scene theme applied', { theme: currentTheme, background: themeColors.background })
+					}
+				}
+
 				// Initialize camera
 				// Container should already be available from setupScene, but check again
 				if (!container.value) {
@@ -516,6 +536,9 @@ export default {
 
 				// Setup controls
 				await camera.setupControls(renderer.value)
+				camera.setZoomSpeed(props.zoomSpeed)
+				camera.setPanSpeed(props.panSpeed)
+				camera.setDamping(props.enableDamping)
 
 				// Initialize measurement system
 				measurement.init(scene.value)
@@ -540,7 +563,7 @@ export default {
 				// Load model if fileId provided, otherwise show demo
 				if (props.fileId) {
 					try {
-					await loadModel(props.fileId)
+						await loadModel(props.fileId)
 					} catch (error) {
 						// Only show demo if initialization failed and it's not an abort
 						if (error.name !== 'AbortError') {
@@ -577,7 +600,7 @@ export default {
 					if (!container.value.isConnected) return false
 					return true
 				}
-				
+
 				if (!isContainerReady()) {
 					// Wait a bit more and try again
 					await nextTick()
@@ -594,8 +617,8 @@ export default {
 						}
 					}
 				}
-				
-			// Create scene
+
+				// Create scene
 				scene.value = new THREE.Scene()
 
 				// Background will be set via props or remain null (transparent)
@@ -605,13 +628,13 @@ export default {
 				const containerWidth = container.value.clientWidth || container.value.offsetWidth || 800
 				const containerHeight = container.value.clientHeight || container.value.offsetHeight || 600
 
-			// Create renderer
-			renderer.value = new THREE.WebGLRenderer({
-				antialias: true,
-				alpha: true,
-				powerPreference: 'high-performance',
-				preserveDrawingBuffer: true, // Required for screenshots
-			})
+				// Create renderer
+				renderer.value = new THREE.WebGLRenderer({
+					antialias: true,
+					alpha: true,
+					powerPreference: 'high-performance',
+					preserveDrawingBuffer: true, // Required for screenshots
+				})
 
 				// Set initial size - this will set pixel ratio to window.devicePixelRatio by default
 				// but initPerformance() will immediately override it with the detected optimal ratio
@@ -639,18 +662,18 @@ export default {
 		}
 
 		const setupLighting = () => {
-		// Ambient light - use config values
+		// Ambient light - use props with config as fallback defaults
 			const lightingConfig = VIEWER_CONFIG.lighting
 			const ambientLight = new THREE.AmbientLight(
 				lightingConfig.ambient.color,
-				lightingConfig.ambient.intensity,
+				props.ambientLightIntensity,
 			)
 			scene.value.add(ambientLight)
 
-			// Directional light - use config values
+			// Directional light - use props with config as fallback defaults
 			const directionalLight = new THREE.DirectionalLight(
 				lightingConfig.directional.color,
-				lightingConfig.directional.intensity,
+				props.directionalLightIntensity,
 			)
 			directionalLight.position.set(
 				lightingConfig.directional.position.x,
@@ -683,8 +706,8 @@ export default {
 		const setupHelpers = () => {
 			// Grid helper - use config values for consistency
 			if (props.showGrid) {
-				const gridSize = VIEWER_CONFIG.grid?.size || 10
-				const gridDivisions = VIEWER_CONFIG.grid?.divisions || 10
+				const gridSize = VIEWER_CONFIG.grid?.defaultSize || 10
+				const gridDivisions = VIEWER_CONFIG.grid?.defaultDivisions || 10
 				const gridColor = VIEWER_CONFIG.grid?.colorGrid || 0x00ff00
 
 				grid.value = new THREE.GridHelper(gridSize, gridDivisions, gridColor, gridColor)
@@ -744,9 +767,9 @@ export default {
 
 				// Reconstruct directory path with leading slash if it was present
 				if (!dirPath) {
-				if (fullPath.startsWith('/')) {
-					dirPath = '/' + pathParts.join('/')
-				} else {
+					if (fullPath.startsWith('/')) {
+						dirPath = '/' + pathParts.join('/')
+					} else {
 						dirPath = pathParts.join('/') || 'Models'
 					}
 				}
@@ -838,12 +861,12 @@ export default {
 			try {
 				const demoGroup = new THREE.Group()
 
-			// Load the app logo texture
-			const textureLoader = new THREE.TextureLoader()
-			const logoPath = imagePath('threedviewer', 'app-color.svg')
-			const logoTexture = textureLoader.load(logoPath, undefined, undefined, (error) => {
-				logger.warn('ThreeViewer', 'Failed to load app logo, using fallback', error)
-			})
+				// Load the app logo texture
+				const textureLoader = new THREE.TextureLoader()
+				const logoPath = imagePath('threedviewer', 'app-color.svg')
+				const logoTexture = textureLoader.load(logoPath, undefined, undefined, (error) => {
+					logger.warn('ThreeViewer', 'Failed to load app logo, using fallback', error)
+				})
 
 				// 1. Center piece - Logo on a plane with depth
 				const logoPlaneGeometry = new THREE.PlaneGeometry(2, 2)
@@ -953,8 +976,18 @@ export default {
 				const maxDim = Math.max(size.x, size.y, size.z)
 
 				// Dynamic grid sizing based on model size
+				// Check if user has customized the grid size (default is 10)
+				// If customized, respect the user setting instead of auto-sizing
+				const userGridSize = VIEWER_CONFIG.grid?.defaultSize || 10
+				const isUserCustomized = userGridSize !== 10
+
 				let gridSize, divisions
-				if (maxDim < 5) {
+
+				if (isUserCustomized) {
+					gridSize = userGridSize
+					divisions = userGridSize // 1 unit per cell
+					logger.info('ThreeViewer', 'Using custom grid size', { gridSize })
+				} else if (maxDim < 5) {
 					gridSize = 10
 					divisions = 10
 				} else if (maxDim < 20) {
@@ -996,16 +1029,16 @@ export default {
 				if (axes.value && props.showAxes) {
 					// Remove old axes
 					scene.value.remove(axes.value)
-					
+
 					// Calculate axes size based on model dimensions (25% of max dimension, minimum 5)
 					const axesSize = Math.max(maxDim * 0.25, 5)
-					
+
 					// Create new axes with appropriate size
 					axes.value = new THREE.AxesHelper(axesSize)
-					
+
 					// Position at bottom of model
 					axes.value.position.set(center.x, gridY, center.z)
-					
+
 					// Add to scene
 					scene.value.add(axes.value)
 				}
@@ -1024,7 +1057,7 @@ export default {
 			}
 		}
 
-	/**
+		/**
 		 * Update billboard text labels to always face the camera
 		 * This ensures text remains readable from any viewing angle
 		 */
@@ -1040,12 +1073,37 @@ export default {
 			})
 		}
 
-		const animate = () => {
+		// Animation loop with FPS throttling
+		let lastFrameTime = 0
+		const animate = (time) => {
 			animationFrameId.value = requestAnimationFrame(animate)
+
+			// Handle initial call or missing time argument
+			if (!time) {
+				time = window.performance.now()
+			}
 
 			// Only proceed if camera and renderer are properly initialized
 			if (!camera.camera.value || !camera.controls.value || !renderer.value || !scene.value) {
 				return
+			}
+
+			// FPS Throttling logic
+			// Get target FPS from performance settings (respects user "Max Frame Rate")
+			const targetFPS = performance.targetFrameRate.value || 60
+			const interval = 1000 / targetFPS
+			const delta = time - lastFrameTime
+
+			if (delta < interval) {
+				return
+			}
+
+			// Adjust for timer drift
+			// If delta is huge (e.g. tab switch), just reset
+			if (delta > 2000) {
+				lastFrameTime = time
+			} else {
+				lastFrameTime = time - (delta % interval)
 			}
 
 			// Skip rendering if paused (e.g., during comparison model initialization)
@@ -1053,14 +1111,14 @@ export default {
 				return
 			}
 
-		// Update controls
-		camera.updateControls()
+			// Update controls
+			camera.updateControls()
 
-		// Update billboard text labels to face camera
-		updateBillboards()
+			// Update billboard text labels to face camera
+			updateBillboards()
 
-		// Render scene
-		camera.render(renderer.value, scene.value)
+			// Render scene
+			camera.render(renderer.value, scene.value)
 
 			// Render face labels
 			faceLabels.renderLabels(scene.value, camera.camera.value)
@@ -1073,7 +1131,7 @@ export default {
 
 		const setupEventListeners = () => {
 			window.addEventListener('resize', onWindowResize)
-			
+
 			// Setup ResizeObserver to handle container size changes (e.g. sidebar toggle)
 			if (container.value && typeof ResizeObserver !== 'undefined') {
 				const resizeObserver = new ResizeObserver((entries) => {
@@ -1083,7 +1141,7 @@ export default {
 					})
 				})
 				resizeObserver.observe(container.value)
-				
+
 				// Store observer for cleanup
 				container.value._resizeObserver = resizeObserver
 			}
@@ -1128,7 +1186,6 @@ export default {
 			nextTick(() => {
 				setTimeout(() => {
 					const toolbar = document.querySelector('.minimal-top-bar')
-					const appHeader = document.querySelector('#header')
 					const nextcloudHeader = document.querySelector('#header')
 
 					let totalHeaderHeight = 0
@@ -1439,7 +1496,7 @@ export default {
 
 		/**
 		 * Get the current model object for external use (e.g., slicer modal)
-		 * @returns {THREE.Object3D|null} The model object or null if not loaded
+		 * @return {THREE.Object3D|null} The model object or null if not loaded
 		 */
 		const getModelObject = () => {
 			return modelRoot.value
@@ -1748,9 +1805,8 @@ export default {
 		 * Handle test pan event
 		 * @param data
 		 */
-		const handleTestPan = (data) => {
-			console.log('TEST PAN EVENT RECEIVED:', data)
-			console.log('ThreeViewer mounted:', !!camera.camera.value, !!camera.controls.value)
+		const handleTestPan = () => {
+			// Test pan handler - placeholder
 		}
 
 		/**
@@ -1758,9 +1814,7 @@ export default {
 		 * @param panDelta
 		 */
 		const directPan = (panDelta) => {
-			console.log('DIRECT PAN CALLED:', panDelta)
 			if (!camera.camera.value || !camera.controls.value) {
-				console.log('Camera or controls not ready for direct pan')
 				return
 			}
 
@@ -1780,9 +1834,7 @@ export default {
 		 * @param root0.y
 		 */
 		const handleControllerPan = ({ x, y }) => {
-			console.log('PAN EVENT RECEIVED:', { x, y })
 			if (!camera.camera.value || !camera.controls.value) {
-				console.log('Camera or controls not ready')
 				return
 			}
 
@@ -1911,18 +1963,6 @@ export default {
 			}
 		}
 
-		/**
-		 * Update face labels for the current model
-		 */
-		const updateFaceLabels = () => {
-			if (!scene.value || !modelRoot.value) return
-
-			// Add or update face labels using the composable
-			if (faceLabels.labelsEnabled.value) {
-				faceLabels.addFaceLabels(modelRoot.value, scene.value)
-			}
-		}
-
 		// Watchers
 		watch(() => props.showGrid, (val) => {
 			if (grid.value) {
@@ -1967,6 +2007,74 @@ export default {
 			// setPerformanceMode already calls applyPerformanceSettings internally
 				performance.setPerformanceMode(mode, renderer.value)
 				logger.info('ThreeViewer', 'Performance mode changed', { mode })
+			}
+		})
+
+		watch(() => props.themeMode, (mode) => {
+			themeComposable.setTheme(mode)
+		})
+
+		// Watch for ambient light intensity changes
+		watch(() => props.ambientLightIntensity, (newIntensity) => {
+			if (scene.value) {
+				const ambientLight = scene.value.children.find(child => child.isAmbientLight)
+				if (ambientLight) {
+					ambientLight.intensity = newIntensity
+					logger.info('ThreeViewer', 'Ambient light intensity updated', { intensity: newIntensity })
+				}
+			}
+		})
+
+		// Watch for directional light intensity changes
+		watch(() => props.directionalLightIntensity, (newIntensity) => {
+			if (scene.value) {
+				const directionalLight = scene.value.children.find(child => child.isDirectionalLight)
+				if (directionalLight) {
+					directionalLight.intensity = newIntensity
+					logger.info('ThreeViewer', 'Directional light intensity updated', { intensity: newIntensity })
+				}
+			}
+		})
+
+		// Watch for autoRotate prop changes
+		watch(() => props.autoRotate, (newValue) => {
+			if (newValue !== camera.autoRotate.value) {
+				camera.toggleAutoRotate()
+			}
+		})
+
+		// Watch for autoRotateSpeed prop changes
+		watch(() => props.autoRotateSpeed, (newSpeed) => {
+			camera.setAutoRotateSpeed(newSpeed)
+		})
+
+		// Watch for zoomSpeed prop changes
+		watch(() => props.zoomSpeed, (newSpeed) => {
+			camera.setZoomSpeed(newSpeed)
+		})
+
+		// Watch for panSpeed prop changes
+		watch(() => props.panSpeed, (newSpeed) => {
+			camera.setPanSpeed(newSpeed)
+		})
+
+		// Watch for enableDamping prop changes
+		watch(() => props.enableDamping, (enabled) => {
+			camera.setDamping(enabled)
+		})
+
+		// Watch for shadow/AA changes (requires renderer update)
+		watch(() => props.enableShadows, (enabled) => {
+			if (renderer.value) {
+				renderer.value.shadowMap.enabled = enabled
+				// Re-traverse scene to update materials
+				if (scene.value) {
+					scene.value.traverse((child) => {
+						if (child.isMesh && child.material) {
+							child.material.needsUpdate = true
+						}
+					})
+				}
 			}
 		})
 
@@ -2022,23 +2130,23 @@ export default {
 			if (newFileId && newFileId !== oldFileId && !initializing.value) {
 				// Wait for Vue to update all props before loading
 				await nextTick()
-				
-				logger.info('ThreeViewer', 'File changed, reloading model', { 
-					oldFileId, 
+
+				logger.info('ThreeViewer', 'File changed, reloading model', {
+					oldFileId,
 					newFileId,
 					filename: newFilename || props.filename,
-					dir: newDir || props.dir
+					dir: newDir || props.dir,
 				})
-				
+
 				// Clear previous model
 				if (modelRoot.value) {
 					scene.value.remove(modelRoot.value)
 					modelRoot.value = null
 				}
-				
+
 				// Clear model stats
 				modelStatsComposable.clearStats()
-				
+
 				// Load new model (loadModel will use updated props.filename and props.dir)
 				try {
 					await loadModel(newFileId)
@@ -2069,7 +2177,7 @@ export default {
 				// Wait a bit to ensure the DOM element is fully ready
 				await nextTick()
 				await new Promise(resolve => setTimeout(resolve, 150))
-				
+
 				// Retry checking if container is ready
 				let retries = 0
 				const maxRetries = 10
@@ -2078,7 +2186,7 @@ export default {
 					await new Promise(resolve => setTimeout(resolve, 50))
 					retries++
 				}
-				
+
 				// Double-check that container is ready
 				if (isContainerReady() && !isInitialized.value) {
 					logger.info('ThreeViewer', 'Container DOM element ready, initializing...', {
@@ -2105,32 +2213,61 @@ export default {
 		// Initialization function
 		const initializeViewer = async () => {
 			try {
-		// Initialize dependency cache
-			try {
-				await initCache()
-				await clearExpired()
-				const stats = await getCacheStats()
-				logger.info('ThreeViewer', 'Cache initialized', stats)
-			} catch (error) {
-				logger.warn('ThreeViewer', 'Cache init failed, continuing without cache', error)
-			}
+				// Initialize dependency cache
+				try {
+					await initCache()
+					await clearExpired()
+					const stats = await getCacheStats()
+					logger.info('ThreeViewer', 'Cache initialized', stats)
+				} catch (error) {
+					logger.warn('ThreeViewer', 'Cache init failed, continuing without cache', error)
+				}
 
-			// Initialize theme system
-			themeComposable.initTheme()
+				// Initialize theme system
+				themeComposable.initTheme()
+				if (props.themeMode && props.themeMode !== 'auto') {
+					themeComposable.setTheme(props.themeMode)
+				}
 
-			// Test hooks for Playwright/testing
-			if (typeof window !== 'undefined') {
-				window.__LOAD_STARTED = true
-				window.__THREEDVIEWER_VIEWER = Object.assign({}, window.__THREEDVIEWER_VIEWER, {
-					cancelLoad,
-					retryLoad,
-				})
-			}
+				// Initialize camera auto-rotate from props
+				if (props.autoRotate && !camera.autoRotate.value) {
+					camera.toggleAutoRotate()
+				}
+
+				// Initialize controller visibility from props (if explicitly set to false)
+				if (props.showController === false) {
+					controller.controllerVisible.value = false
+				}
+
+				// Initialize controller persist position from props
+				// We only need to check if it's explicitly false since it defaults to true in useController
+				if (props.persistControllerPosition === false) {
+				// We don't have a direct setter for this config in useController,
+				// but we can just not load the position if we want to respect the setting immediately
+				// However, useController loads position on init.
+				// Let's rely on useController checking the config, but we need to update the config
+				// or pass this prop down to CircularController.
+				}
+
+				// Initialize rotation speed
+				if (props.autoRotateSpeed) {
+					camera.setAutoRotateSpeed(props.autoRotateSpeed)
+				}
+
+				// Test hooks for Playwright/testing
+				if (typeof window !== 'undefined') {
+					window.__LOAD_STARTED = true
+					window.__THREEDVIEWER_VIEWER = Object.assign({}, window.__THREEDVIEWER_VIEWER, {
+						cancelLoad,
+						retryLoad,
+					})
+				}
 				await init()
 
-			// Adjust overlay positioning to avoid toolbar overlap
-			adjustOverlayPositioning()
+				// Adjust overlay positioning to avoid toolbar overlap
+				adjustOverlayPositioning()
 			} catch (error) {
+				console.error('ThreeViewer: Initialization failed', error)
 				logger.error('ThreeViewer', 'Initialization failed', error)
 				initializing.value = false
 				isInitialized.value = false
@@ -2138,48 +2275,49 @@ export default {
 		}
 
 		// Lifecycle
-	onMounted(async () => {
-	// Wait for container to be available before initializing
-		await nextTick()
-		// Wait for parent wrapper to be in DOM first
-		let wrapperRetries = 0
-		const maxWrapperRetries = 20
-		while (!document.getElementById('viewer-wrapper') && wrapperRetries < maxWrapperRetries) {
+		onMounted(async () => {
+			// Wait for container to be available before initializing
 			await nextTick()
-			await new Promise(resolve => setTimeout(resolve, 50))
-			wrapperRetries++
-		}
-		
-		// Wait a bit more to ensure DOM is fully ready
-		await new Promise(resolve => setTimeout(resolve, 100))
-		
-		// Now wait for container ref to be available
-		let retries = 0
-		const maxRetries = 30 // Increased retries
-		while (!container.value && retries < maxRetries) {
-			await nextTick()
-			await new Promise(resolve => setTimeout(resolve, 50))
-			retries++
-		}
-		
-		if (!container.value) {
-			logger.warn('ThreeViewer', 'Container not available after waiting, will retry when container ref is set', {
-				retries,
-				maxRetries,
-				wrapperRetries,
-				containerRef: container,
-				parentWrapper: document.getElementById('viewer-wrapper'),
-				containerElement: container.value,
-			})
-			// Don't initialize yet - the watch on container will handle it when it becomes available
-			return
-		}
-		
-		// Container is available, initialize if not already initialized
-		if (!isInitialized.value) {
-			isInitialized.value = true
-			await initializeViewer()
-		}
+			// Wait for parent wrapper to be in DOM first
+			let wrapperRetries = 0
+			const maxWrapperRetries = 20
+			while (!document.getElementById('viewer-wrapper') && wrapperRetries < maxWrapperRetries) {
+				await nextTick()
+				await new Promise(resolve => setTimeout(resolve, 50))
+				wrapperRetries++
+			}
+
+			// Wait a bit more to ensure DOM is fully ready
+			await new Promise(resolve => setTimeout(resolve, 100))
+
+			// Now wait for container ref to be available
+			let retries = 0
+			const maxRetries = 30 // Increased retries
+			while (!container.value && retries < maxRetries) {
+				await nextTick()
+				await new Promise(resolve => setTimeout(resolve, 50))
+				retries++
+			}
+
+			if (!container.value) {
+				console.warn('ThreeViewer: Container ref missing after waiting')
+				logger.warn('ThreeViewer', 'Container not available after waiting, will retry when container ref is set', {
+					retries,
+					maxRetries,
+					wrapperRetries,
+					containerRef: container,
+					parentWrapper: document.getElementById('viewer-wrapper'),
+					containerElement: container.value,
+				})
+				// Don't initialize yet - the watch on container will handle it when it becomes available
+				return
+			}
+
+			// Container is available, initialize if not already initialized
+			if (!isInitialized.value) {
+				isInitialized.value = true
+				await initializeViewer()
+			}
 		})
 
 		onBeforeUnmount(() => {
@@ -2191,7 +2329,7 @@ export default {
 
 			// Cleanup event listeners
 			window.removeEventListener('resize', onWindowResize)
-			
+
 			// Clean up ResizeObserver
 			if (container.value && container.value._resizeObserver) {
 				container.value._resizeObserver.disconnect()
@@ -2842,16 +2980,29 @@ export default {
 	color: #fff;
 }
 
+.stat-value.good,
+.stat-value.warning,
+.stat-value.poor {
+	padding: 2px 6px !important;
+	border-radius: 4px !important;
+	line-height: normal !important;
+	min-height: auto !important;
+	margin: 0 !important;
+}
+
 .stat-value.good {
-	color: #4caf50;
+	background: rgb(76 175 80 / 20%);
+	color: #81c784;
 }
 
 .stat-value.warning {
-	color: #ffc107;
+	background: rgb(255 178 0 / 86%) !important;
+	color: #000000 !important;
 }
 
 .stat-value.poor {
-	color: #f44336;
+	background: rgb(244 67 54 / 20%);
+	color: #e57373;
 }
 
 .comparison-controls {

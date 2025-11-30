@@ -51,6 +51,10 @@ Built with Three.js for high-performance WebGL rendering. ✨]]></description>
 	<screenshot>https://raw.githubusercontent.com/maz1987in/3Dviewer-Nextcloud/main/img/screenshots/03-toolbar-features.png</screenshot>
 	<screenshot>https://raw.githubusercontent.com/maz1987in/3Dviewer-Nextcloud/main/img/screenshots/04-multi-file-support.png</screenshot>
 	<screenshot>https://raw.githubusercontent.com/maz1987in/3Dviewer-Nextcloud/main/img/screenshots/05-dark-theme.png</screenshot>
+	<settings>
+		<personal>OCA\ThreeDViewer\Settings\Personal</personal>
+		<personal-section>OCA\ThreeDViewer\Settings\Section</personal-section>
+	</settings>
 	<dependencies>
 		<nextcloud min-version="30" max-version="32"/>
 	</dependencies>

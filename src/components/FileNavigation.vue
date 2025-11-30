@@ -131,8 +131,7 @@ export default {
 		},
 	},
 
-
-		async mounted() {
+	async mounted() {
 		// Don't load files if in viewer mode
 		if (this.currentSort !== 'viewer') {
 			await this.loadFiles()
@@ -232,7 +231,7 @@ export default {
 				event.preventDefault()
 				event.stopPropagation()
 			}
-			
+
 			// Always allow switching to viewer mode, even if already in viewer mode
 			// This allows users to return to viewer from file browser
 			if (mode === 'viewer') {
@@ -241,7 +240,7 @@ export default {
 				this.$emit('navigate-viewer')
 				return
 			}
-			
+
 			// If already in this mode and not forcing reload, return early
 			if (this.currentSort === mode && !forceReload) {
 				return
@@ -256,10 +255,10 @@ export default {
 
 			this.currentSort = mode
 			this.saveSortPreference(mode)
-			
+
 			// Load files first, then emit navigation event
 			await this.loadFiles()
-			
+
 			// Emit navigation event with folder/type/date structure for main content
 			// Don't include files for folders/type/date modes - show structure first
 			this.$emit('navigate-all', {
@@ -270,7 +269,7 @@ export default {
 				files: mode === 'favorites' ? this.favoriteFiles : [], // Empty for folders/type/date, only files for favorites
 			})
 		},
-		
+
 		getAllFilesForSort(sort) {
 			switch (sort) {
 			case 'folders':
@@ -278,8 +277,8 @@ export default {
 			case 'type':
 				return this.typeItems.flatMap(type => type.files || [])
 			case 'date':
-				return this.dateItems.flatMap(year => 
-					(year.months || []).flatMap(month => month.files || [])
+				return this.dateItems.flatMap(year =>
+					(year.months || []).flatMap(month => month.files || []),
 				)
 			case 'favorites':
 				return this.favoriteFiles
@@ -287,7 +286,7 @@ export default {
 				return []
 			}
 		},
-		
+
 		getAllFilesFromFolders(items) {
 			const files = []
 			items.forEach(item => {
@@ -333,4 +332,3 @@ export default {
 	}
 }
 </style>
-

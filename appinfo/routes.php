@@ -1,15 +1,9 @@
 <?php
-/**
- * Routes for threedviewer app
- */
 
 return [
 	'routes' => [
-		// Slicer routes
-		['name' => 'slicer#test', 'url' => '/api/slicer/test', 'verb' => 'GET'],
-		['name' => 'slicer#saveTempFile', 'url' => '/api/slicer/temp', 'verb' => 'POST'],
-		['name' => 'slicer#getTempFile', 'url' => '/api/slicer/temp/{fileId}', 'verb' => 'GET'],
-		['name' => 'slicer#deleteTempFile', 'url' => '/api/slicer/temp/{fileId}', 'verb' => 'DELETE'],
-	]
+		['name' => 'settings#get_settings', 'url' => '/settings', 'verb' => 'GET'],
+		['name' => 'settings#save_settings', 'url' => '/settings', 'verb' => 'PUT'],
+		['name' => 'settings#reset_settings', 'url' => '/settings', 'verb' => 'DELETE'],
+	],
 ];
-

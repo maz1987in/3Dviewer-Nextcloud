@@ -9,7 +9,7 @@ import { logger } from '../utils/logger.js'
 export function useController() {
 	// Controller visibility and position state
 	const controllerVisible = ref(true)
-	const controllerPosition = ref({ x: 20, y: 20 }) // offset from bottom-right
+	const controllerPosition = ref({ x: 20, y: 80 }) // offset from top-left
 
 	/**
 	 * Rotate camera around the model center

@@ -1,7 +1,7 @@
 /**
  * Register file action for 3D model files
  * This tells Nextcloud Files app to open these files in the Viewer instead of downloading
- * 
+ *
  * Note: Script may load multiple times (Files app + direct access)
  * Check if action is already registered to prevent duplicate registration warnings
  */
@@ -32,11 +32,11 @@ const REGISTRATION_KEY = '__threedviewer_fileaction_registered'
 const REGISTRATION_SYMBOL = Symbol.for('threedviewer.fileaction.registered')
 
 // Check if already registered - try multiple methods for reliability
-const isAlreadyRegistered = 
-	window[REGISTRATION_KEY] === FILE_ACTION_ID ||
-	window[REGISTRATION_SYMBOL] === true ||
-	(globalThis[REGISTRATION_KEY] === FILE_ACTION_ID) ||
-	(globalThis[REGISTRATION_SYMBOL] === true)
+const isAlreadyRegistered
+	= window[REGISTRATION_KEY] === FILE_ACTION_ID
+	|| window[REGISTRATION_SYMBOL] === true
+	|| (globalThis[REGISTRATION_KEY] === FILE_ACTION_ID)
+	|| (globalThis[REGISTRATION_SYMBOL] === true)
 
 if (!isAlreadyRegistered) {
 	// Set flag IMMEDIATELY to prevent race conditions (before async registration)
@@ -79,9 +79,9 @@ if (!isAlreadyRegistered) {
 		console.info('[ThreeDViewer] File action registered for 3D models')
 	} catch (error) {
 		// Silently catch duplicate registration errors
-		if (error?.message?.includes('already registered') || 
-		    error?.message?.includes('duplicate') ||
-		    error?.message?.includes('same name')) {
+		if (error?.message?.includes('already registered')
+		    || error?.message?.includes('duplicate')
+		    || error?.message?.includes('same name')) {
 			// Mark as registered even if error occurred (it was already registered)
 			window[REGISTRATION_KEY] = FILE_ACTION_ID
 			window[REGISTRATION_SYMBOL] = true

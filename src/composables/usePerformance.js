@@ -273,7 +273,7 @@ export function usePerformance() {
 
 			lodEnabled.value = true
 			frustumCulling.value = true
-			targetFPS.value = 60
+			targetFPS.value = VIEWER_CONFIG.performance.maxFrameRate || 60
 			autoOptimize.value = false // Disable auto-optimization (detection already chose optimal settings)
 			break
 		}
@@ -310,10 +310,19 @@ export function usePerformance() {
 			renderer.setSize(currentSize.x, currentSize.y, false)
 		}
 
-		// Set antialias
-		if (renderer.antialias !== antialias.value) {
+		// Check antialias consistency
+		// Note: We can't easily check the renderer's internal antialias state directly from the instance properties
+		// in standard Three.js without getting the context.
+		const context = renderer.getContext()
+		const contextAttributes = context.getContextAttributes()
+		const currentAntialias = contextAttributes ? contextAttributes.antialias : false
+
+		if (currentAntialias !== antialias.value) {
 			// Note: antialias can't be changed after renderer creation
-			logger.warn('usePerformance', 'Antialias setting requires renderer recreation')
+			logger.warn('usePerformance', 'Antialias setting requires renderer recreation', {
+				current: currentAntialias,
+				requested: antialias.value,
+			})
 		}
 
 		// Set shadows

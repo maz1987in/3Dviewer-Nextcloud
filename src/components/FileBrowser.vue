@@ -16,8 +16,7 @@
 					:title="item.label"
 					:href="index < breadcrumbItems.length - 1 ? `#breadcrumb-${index}` : null"
 					:disable-drop="true"
-					@click.native="handleBreadcrumbClick(index, item, $event)">
-				</NcBreadcrumb>
+					@click.native="handleBreadcrumbClick(index, item, $event)" />
 			</NcBreadcrumbs>
 		</div>
 
@@ -30,57 +29,57 @@
 		<!-- Folders/Types/Dates Grid (only show when no specific folder/type/date is selected) -->
 		<template v-else-if="!loading && (folders || types || dates) && !currentPath && !currentType && !currentDate">
 			<div class="file-grid">
-			<!-- Folders - Show hierarchical structure -->
-			<template v-if="folders">
-				<FolderHierarchy
-					v-for="folder in folders"
-					:key="folder.path || 'root'"
-					:folder="folder"
-					@navigate-folder="navigateFolder"
-					@select-file="selectFile" />
-			</template>
+				<!-- Folders - Show hierarchical structure -->
+				<template v-if="folders">
+					<FolderHierarchy
+						v-for="folder in folders"
+						:key="folder.path || 'root'"
+						:folder="folder"
+						@navigate-folder="navigateFolder"
+						@select-file="selectFile" />
+				</template>
 
-			<!-- Types -->
-			<template v-if="types">
-				<div
-					v-for="type in types"
-					:key="type.extension"
-					class="folder-card"
-					@click="navigateType(type)">
-					<div class="folder-thumbnail">
-						<FileTypeIcon :size="48" />
-					</div>
-					<div class="folder-info">
-						<div class="folder-name" :title="type.name">
-							{{ type.name }}
+				<!-- Types -->
+				<template v-if="types">
+					<div
+						v-for="type in types"
+						:key="type.extension"
+						class="folder-card"
+						@click="navigateType(type)">
+						<div class="folder-thumbnail">
+							<FileTypeIcon :size="48" />
 						</div>
-						<div class="folder-meta">
-							<span>{{ type.files?.length || 0 }} {{ t('threedviewer', 'files') }}</span>
+						<div class="folder-info">
+							<div class="folder-name" :title="type.name">
+								{{ type.name }}
+							</div>
+							<div class="folder-meta">
+								<span>{{ type.files?.length || 0 }} {{ t('threedviewer', 'files') }}</span>
+							</div>
 						</div>
 					</div>
-				</div>
-			</template>
+				</template>
 
-			<!-- Dates - Show years -->
-			<template v-if="dates">
-				<div
-					v-for="year in dates"
-					:key="year.year"
-					class="folder-card"
-					@click="navigateDate(year)">
-					<div class="folder-thumbnail">
-						<CalendarIcon :size="48" />
-					</div>
-					<div class="folder-info">
-						<div class="folder-name" :title="year.name">
-							{{ year.name }}
+				<!-- Dates - Show years -->
+				<template v-if="dates">
+					<div
+						v-for="year in dates"
+						:key="year.year"
+						class="folder-card"
+						@click="navigateDate(year)">
+						<div class="folder-thumbnail">
+							<CalendarIcon :size="48" />
 						</div>
-						<div class="folder-meta">
-							<span>{{ year.months?.length || 0 }} {{ t('threedviewer', 'months') }}</span>
+						<div class="folder-info">
+							<div class="folder-name" :title="year.name">
+								{{ year.name }}
+							</div>
+							<div class="folder-meta">
+								<span>{{ year.months?.length || 0 }} {{ t('threedviewer', 'months') }}</span>
+							</div>
 						</div>
 					</div>
-				</div>
-			</template>
+				</template>
 			</div>
 		</template>
 
@@ -130,7 +129,7 @@
 					@navigate-folder="navigateFolder"
 					@select-file="selectFile" />
 			</template>
-			
+
 			<!-- Show files -->
 			<template v-if="filteredFiles.length > 0">
 				<div
@@ -139,20 +138,24 @@
 					class="file-card"
 					:class="{ 'selected': file.id === selectedFileId }"
 					@click="selectFile(file)">
-				<div class="file-thumbnail">
-					<FileIcon :size="48" />
-					<div class="file-extension">{{ file.extension.toUpperCase() }}</div>
-				</div>
-				<div class="file-info">
-					<div class="file-name" :title="file.name">{{ file.name }}</div>
-					<div class="file-meta">
-						<span v-if="file.size">{{ formatFileSize(file.size) }}</span>
-						<span v-if="file.mtime" class="file-date">{{ formatDate(file.mtime) }}</span>
+					<div class="file-thumbnail">
+						<FileIcon :size="48" />
+						<div class="file-extension">
+							{{ file.extension.toUpperCase() }}
+						</div>
+					</div>
+					<div class="file-info">
+						<div class="file-name" :title="file.name">
+							{{ file.name }}
+						</div>
+						<div class="file-meta">
+							<span v-if="file.size">{{ formatFileSize(file.size) }}</span>
+							<span v-if="file.mtime" class="file-date">{{ formatDate(file.mtime) }}</span>
+						</div>
 					</div>
 				</div>
-				</div>
 			</template>
-			
+
 			<!-- Empty state if no files and no folders -->
 			<div v-if="(!folders || folders.length === 0) && filteredFiles.length === 0" class="file-browser-empty">
 				<p>{{ t('threedviewer', 'No 3D files in this folder') }}</p>
@@ -266,12 +269,12 @@ export default {
 		},
 		breadcrumbItems() {
 			const items = []
-			
+
 			// Ensure sort is defined
 			if (!this.sort) {
 				return items
 			}
-			
+
 			// Root breadcrumb based on sort mode
 			if (this.sort === 'folders') {
 				items.push({
@@ -298,7 +301,7 @@ export default {
 					sort: 'favorites',
 				})
 			}
-			
+
 			// Add folder path breadcrumbs
 			if (this.currentPath) {
 				const pathParts = this.currentPath.split('/').filter(part => part.length > 0)
@@ -313,7 +316,7 @@ export default {
 					})
 				})
 			}
-			
+
 			// Add type breadcrumb
 			if (this.currentType) {
 				items.push({
@@ -322,7 +325,7 @@ export default {
 					extension: this.currentType,
 				})
 			}
-			
+
 			// Add date breadcrumbs
 			if (this.currentDate) {
 				if (this.currentDate.year) {
@@ -342,7 +345,7 @@ export default {
 					})
 				}
 			}
-			
+
 			return items
 		},
 		hasBreadcrumbs() {
@@ -374,22 +377,22 @@ export default {
 				if (!Array.isArray(subfolders) && typeof subfolders === 'object') {
 					subfolders = Object.values(subfolders)
 				}
-				
+
 				console.log('Navigating to folder:', {
 					path: folder.path,
 					name: folder.name,
 					filesCount: files.length,
 					subfoldersCount: subfolders.length,
-					files: files,
-					subfolders: subfolders,
+					files,
+					subfolders,
 				})
-				
+
 				// Emit with both files and subfolders
 				this.$emit('navigate-folder', {
 					path: folder.path,
 					name: folder.name,
-					files: files,
-					subfolders: subfolders,
+					files,
+					subfolders,
 				})
 			} catch (error) {
 				console.error('Failed to fetch folder files:', error)
@@ -440,7 +443,7 @@ export default {
 		navigateMonth(year, month) {
 			// When clicking a month, show files
 			this.$emit('navigate-date', {
-				year: year,
+				year,
 				month: month.name,
 				files: month.files || [],
 			})
@@ -727,4 +730,3 @@ export default {
 	}
 }
 </style>
-

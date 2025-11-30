@@ -3,6 +3,7 @@
  */
 
 import * as THREE from 'three'
+import { logger } from './logger.js'
 
 /**
  * Create a standard material with consistent defaults

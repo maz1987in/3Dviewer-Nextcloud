@@ -28,11 +28,11 @@
 
 		<!-- Month Level -->
 		<div v-if="month" class="month-item" @click.stop>
-		<NcAppNavigationItem
-			:name="month.name"
-			:to="null"
-			:class="{ 'selected': isMonthExpanded }"
-			@click.native.prevent.stop="toggleMonthExpand">
+			<NcAppNavigationItem
+				:name="month.name"
+				:to="null"
+				:class="{ 'selected': isMonthExpanded }"
+				@click.native.prevent.stop="toggleMonthExpand">
 				<template #icon>
 					<CalendarIcon />
 				</template>
@@ -132,4 +132,3 @@ export default {
 	font-size: 0.9em;
 }
 </style>
-

@@ -111,7 +111,7 @@ export async function getFileIdByPath(filePath) {
 		try {
 			const findUrl = `/apps/threedviewer/api/files/find?path=${encodeURIComponent(fullPath)}`
 			const findResponse = await fetch(findUrl)
-			
+
 			if (findResponse.ok) {
 				const fileData = await findResponse.json()
 				if (fileData && fileData.id) {
@@ -204,7 +204,7 @@ export async function getFileIdByPath(filePath) {
 						const findUrl = `/apps/threedviewer/api/files/find?path=${encodeURIComponent(textureFilePath)}`
 						logger.warn('MultiFileHelpers', ' Trying texture path:', textureFilePath)
 						const findResponse = await fetch(findUrl)
-						
+
 						if (findResponse.ok) {
 							const fileData = await findResponse.json()
 							if (fileData && fileData.id) {
@@ -248,7 +248,7 @@ export async function getFileIdByPath(filePath) {
 					const findUrl = `/apps/threedviewer/api/files/find?path=${encodeURIComponent(textureFilePath)}`
 					logger.warn('MultiFileHelpers', ' Trying texture path (fallback):', textureFilePath)
 					const findResponse = await fetch(findUrl)
-					
+
 					if (findResponse.ok) {
 						const fileData = await findResponse.json()
 						if (fileData && fileData.id) {

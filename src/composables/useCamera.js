@@ -124,6 +124,14 @@ export function useCamera() {
 			isMobile.value = mobile
 			const fov = mobile ? 75 : VIEWER_CONFIG.camera.fov
 
+			logger.info('useCamera', 'Initializing camera with settings', {
+				fov,
+				near: VIEWER_CONFIG.camera.near,
+				far: VIEWER_CONFIG.camera.far,
+				isMobile: mobile,
+				configFov: VIEWER_CONFIG.camera.fov,
+			})
+
 			// Create perspective camera
 			perspectiveCamera.value = new THREE.PerspectiveCamera(fov, width / height, VIEWER_CONFIG.camera.near, VIEWER_CONFIG.camera.far)
 			perspectiveCamera.value.position.set(2, 2, 2)
@@ -759,6 +767,39 @@ export function useCamera() {
 	}
 
 	/**
+	 * Set zoom speed
+	 * @param {number} speed - Zoom speed (default: 1.0)
+	 */
+	const setZoomSpeed = (speed) => {
+		if (controls.value) {
+			controls.value.zoomSpeed = speed
+			logger.info('useCamera', 'Zoom speed set', { speed })
+		}
+	}
+
+	/**
+	 * Set pan speed
+	 * @param {number} speed - Pan speed (default: 1.0)
+	 */
+	const setPanSpeed = (speed) => {
+		if (controls.value) {
+			controls.value.panSpeed = speed
+			logger.info('useCamera', 'Pan speed set', { speed })
+		}
+	}
+
+	/**
+	 * Set damping (smooth movement)
+	 * @param {boolean} enabled - Enable damping
+	 */
+	const setDamping = (enabled) => {
+		if (controls.value) {
+			controls.value.enableDamping = enabled
+			logger.info('useCamera', 'Damping set', { enabled })
+		}
+	}
+
+	/**
 	 * Cancel ongoing animations
 	 */
 	const cancelAnimations = () => {
@@ -783,7 +824,6 @@ export function useCamera() {
 			const currentCamera = camera.value
 			const currentPosition = currentCamera.position.clone()
 			const currentTarget = controls.value.target.clone()
-			const currentZoom = currentCamera.zoom || 1
 
 			// Switch camera type
 			const newType = cameraType.value === 'perspective' ? 'orthographic' : 'perspective'
@@ -1082,6 +1122,9 @@ export function useCamera() {
 		fitToView,
 		toggleAutoRotate,
 		setAutoRotateSpeed,
+		setZoomSpeed,
+		setPanSpeed,
+		setDamping,
 		animateToPreset,
 		smoothZoom,
 		onWindowResize,

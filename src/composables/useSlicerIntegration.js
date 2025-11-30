@@ -86,7 +86,7 @@ export function useSlicerIntegration() {
 
 	/**
 	 * Get all available slicer configurations
-	 * @returns {Array} Array of slicer configurations
+	 * @return {Array} Array of slicer configurations
 	 */
 	const getSlicers = () => {
 		return SLICER_CONFIGS
@@ -95,7 +95,7 @@ export function useSlicerIntegration() {
 	/**
 	 * Get slicer configuration by ID
 	 * @param {string} slicerId - Slicer ID
-	 * @returns {Object|null} Slicer configuration or null
+	 * @return {object | null} Slicer configuration or null
 	 */
 	const getSlicerById = (slicerId) => {
 		return SLICER_CONFIGS.find(s => s.id === slicerId) || null
@@ -136,7 +136,7 @@ export function useSlicerIntegration() {
 
 	/**
 	 * Check if browser supports File System Access API
-	 * @returns {boolean} True if supported
+	 * @return {boolean} True if supported
 	 */
 	const supportsFileSystemAccess = () => {
 		return 'showSaveFilePicker' in window
@@ -144,7 +144,7 @@ export function useSlicerIntegration() {
 
 	/**
 	 * Check if browser supports custom URL schemes
-	 * @returns {boolean} True if supported
+	 * @return {boolean} True if supported
 	 */
 	const supportsUrlSchemes = () => {
 		// Most modern browsers support custom URL schemes
@@ -156,7 +156,7 @@ export function useSlicerIntegration() {
 	 * Save blob to local file system using File System Access API
 	 * @param {Blob} blob - File blob to save
 	 * @param {string} suggestedName - Suggested filename
-	 * @returns {Promise<string|null>} File path or null if cancelled
+	 * @return {Promise<string|null>} File path or null if cancelled
 	 */
 	const saveToLocalFileSystem = async (blob, suggestedName) => {
 		if (!supportsFileSystemAccess()) {
@@ -167,7 +167,7 @@ export function useSlicerIntegration() {
 		try {
 			// Show save file picker
 			const handle = await window.showSaveFilePicker({
-				suggestedName: suggestedName,
+				suggestedName,
 				types: [
 					{
 						description: 'STL Files',
@@ -205,7 +205,7 @@ export function useSlicerIntegration() {
 	 * Attempt to open file in slicer using URL scheme
 	 * @param {string} slicerId - Slicer ID
 	 * @param {string} filePath - Path or URL to the STL file
-	 * @returns {Promise<boolean>} True if successful, false if needs fallback
+	 * @return {Promise<boolean>} True if successful, false if needs fallback
 	 */
 	const openInSlicer = async (slicerId, filePath) => {
 		const slicer = getSlicerById(slicerId)
@@ -275,14 +275,14 @@ export function useSlicerIntegration() {
 			// Set up timeout to detect if URL scheme failed
 			let schemeCheckTimeout
 			let hasFocusLost = false
-			
+
 			const focusLostHandler = () => {
 				hasFocusLost = true
 				clearTimeout(schemeCheckTimeout)
 			}
-			
+
 			window.addEventListener('blur', focusLostHandler, { once: true })
-			
+
 			// If window doesn't lose focus in 2 seconds, scheme likely failed
 			schemeCheckTimeout = setTimeout(() => {
 				window.removeEventListener('blur', focusLostHandler)
@@ -293,16 +293,16 @@ export function useSlicerIntegration() {
 					logger.warn('useSlicerIntegration', 'URL scheme not registered', { slicerId, slicer: slicer.name })
 				}
 			}, 2000)
-			
+
 			window.location.href = url
-			
+
 			// Save as last used slicer (only if it might have worked)
 			setTimeout(() => {
 				if (hasFocusLost) {
 					saveLastUsedSlicer(slicerId)
 				}
 			}, 100)
-			
+
 			processing.value = false
 			return true
 		} catch (e) {
@@ -316,7 +316,7 @@ export function useSlicerIntegration() {
 	/**
 	 * Create a temporary blob URL for the STL file
 	 * @param {Blob} blob - STL file blob
-	 * @returns {string} Blob URL
+	 * @return {string} Blob URL
 	 */
 	const createBlobUrl = (blob) => {
 		return URL.createObjectURL(blob)
@@ -372,4 +372,3 @@ export function useSlicerIntegration() {
 		reset,
 	}
 }
-

@@ -20,7 +20,7 @@ export function useScreenshot() {
 	 * @param {number} options.width - Custom width (null for canvas size)
 	 * @param {number} options.height - Custom height (null for canvas size)
 	 * @param {string} options.filename - Custom filename
-	 * @returns {Promise<Blob>} Screenshot blob
+	 * @return {Promise<Blob>} Screenshot blob
 	 */
 	const captureScreenshot = async (renderer, options = {}) => {
 		if (!renderer || !renderer.domElement) {
@@ -70,7 +70,7 @@ export function useScreenshot() {
 							}
 						},
 						mimeType,
-						quality
+						quality,
 					)
 				} catch (error) {
 					reject(error)
@@ -106,7 +106,7 @@ export function useScreenshot() {
 	 * @param {HTMLCanvasElement} sourceCanvas - Source canvas
 	 * @param {number} width - Target width
 	 * @param {number} height - Target height
-	 * @returns {HTMLCanvasElement} Resized canvas
+	 * @return {HTMLCanvasElement} Resized canvas
 	 */
 	const resizeCanvas = (sourceCanvas, width, height) => {
 		const tempCanvas = document.createElement('canvas')
@@ -166,7 +166,7 @@ export function useScreenshot() {
 	 * Capture and download screenshot in one operation
 	 * @param {THREE.WebGLRenderer} renderer - Three.js renderer
 	 * @param {object} options - Screenshot options
-	 * @returns {Promise<void>}
+	 * @return {Promise<void>}
 	 */
 	const captureAndDownload = async (renderer, options = {}) => {
 		try {
@@ -183,7 +183,7 @@ export function useScreenshot() {
 	/**
 	 * Copy screenshot to clipboard (if supported)
 	 * @param {Blob} blob - Screenshot blob
-	 * @returns {Promise<boolean>} Success status
+	 * @return {Promise<boolean>} Success status
 	 */
 	const copyToClipboard = async (blob) => {
 		if (!blob) {
@@ -216,7 +216,7 @@ export function useScreenshot() {
 	/**
 	 * Get data URL from blob
 	 * @param {Blob} blob - Screenshot blob
-	 * @returns {Promise<string>} Data URL
+	 * @return {Promise<string>} Data URL
 	 */
 	const blobToDataURL = async (blob) => {
 		return new Promise((resolve, reject) => {
@@ -252,4 +252,3 @@ export function useScreenshot() {
 		cleanup,
 	}
 }
-

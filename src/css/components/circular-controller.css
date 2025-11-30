@@ -4,7 +4,7 @@
  */
 
 .circular-controller {
-	position: absolute;
+	position: fixed;
 	width: 250px;
 	height: 250px;
 	pointer-events: auto;

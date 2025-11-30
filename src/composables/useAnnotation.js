@@ -5,6 +5,7 @@
 
 import { ref, computed, readonly } from 'vue'
 import * as THREE from 'three'
+import { logger } from '../utils/logger.js'
 import { logError } from '../utils/error-handler.js'
 import {
 	calculateModelScale,

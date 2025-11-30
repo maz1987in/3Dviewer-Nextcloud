@@ -5,10 +5,10 @@
 			:to="null"
 			:class="{ 'selected': file.id === selectedFileId }"
 			@click.native.prevent.stop="handleClick">
-		<template #icon>
-			<StarIcon v-if="file.isFavorite" />
-			<FileIcon v-else />
-		</template>
+			<template #icon>
+				<StarIcon v-if="file.isFavorite" />
+				<FileIcon v-else />
+			</template>
 		</NcAppNavigationItem>
 	</div>
 </template>
@@ -55,4 +55,3 @@ export default {
 	}
 }
 </style>
-

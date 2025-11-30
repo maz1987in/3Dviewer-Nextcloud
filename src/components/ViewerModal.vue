@@ -141,12 +141,12 @@ export default {
 		getModelName() {
 			// Return filename without extension for export
 			if (!this.file?.name) return 'model'
-			
+
 			// Extract just the filename (remove any path)
 			const fullPath = this.file.name
 			const parts = fullPath.split('/')
 			const filenameOnly = parts[parts.length - 1]
-			
+
 			// Remove extension
 			const lastDot = filenameOnly.lastIndexOf('.')
 			return lastDot > 0 ? filenameOnly.substring(0, lastDot) : filenameOnly

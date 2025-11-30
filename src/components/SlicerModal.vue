@@ -41,11 +41,11 @@
 						class="slicer-card"
 						:class="{ 'last-used': slicer.id === lastUsedSlicer }"
 						:style="{ '--slicer-color': slicer.color }">
-					<div class="slicer-icon">
-						<img :src="slicer.icon" 
-							:alt="slicer.name"
-							@error="handleImageError">
-					</div>
+						<div class="slicer-icon">
+							<img :src="slicer.icon"
+								:alt="slicer.name"
+								@error="handleImageError">
+						</div>
 						<div class="slicer-info">
 							<h3 class="slicer-name">
 								{{ slicer.name }}
@@ -86,7 +86,6 @@ import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
 import { showWarning } from '@nextcloud/dialogs'
 import { useSlicerIntegration } from '../composables/useSlicerIntegration.js'
-import { useExport } from '../composables/useExport.js'
 import { logger } from '../utils/logger.js'
 
 export default {
@@ -116,7 +115,6 @@ export default {
 	setup(props, { emit }) {
 		// Composables
 		const slicerIntegration = useSlicerIntegration()
-		const exportComposable = useExport()
 
 		// Local state
 		const exporting = ref(false)
@@ -128,11 +126,11 @@ export default {
 		const slicers = computed(() => {
 			const allSlicers = slicerIntegration.getSlicers()
 			const lastUsed = slicerIntegration.lastUsedSlicer.value
-			
+
 			if (!lastUsed) {
 				return allSlicers
 			}
-			
+
 			// Sort to put last used slicer first
 			return [...allSlicers].sort((a, b) => {
 				if (a.id === lastUsed) return -1
@@ -165,6 +163,7 @@ export default {
 
 		/**
 		 * Handle image load error (fallback to text)
+		 * @param event
 		 */
 		const handleImageError = (event) => {
 			// On error, replace with a simple colored circle
@@ -174,6 +173,7 @@ export default {
 
 		/**
 		 * Handle ESC key to close modal
+		 * @param event
 		 */
 		const handleKeyPress = (event) => {
 			if (event.key === 'Escape' && props.isOpen && !exporting.value) {
@@ -183,7 +183,7 @@ export default {
 
 		/**
 		 * Export model as STL and return blob
-		 * @returns {Promise<Blob>} STL blob
+		 * @return {Promise<Blob>} STL blob
 		 */
 		const exportModelAsSTL = async () => {
 			if (!props.modelObject) {
@@ -233,17 +233,17 @@ export default {
 		const handleOpenInSlicer = async (slicerId) => {
 			try {
 				const slicer = slicerIntegration.getSlicerById(slicerId)
-				
+
 				exportMessage.value = t('threedviewer', 'Preparing file for {name}...', { name: slicer.name })
-				
+
 				// Export the model as STL
 				const blob = await exportModelAsSTL()
 				const filename = `${props.modelName}_for_${slicer.name.replace(/\s+/g, '_')}.stl`
-				
+
 				// Upload to Nextcloud to get a public share URL
 				// This uses Nextcloud's native share system (like sharing a file)
 				exportMessage.value = t('threedviewer', 'Creating temporary share link...')
-				
+
 				try {
 					const response = await fetch(`/apps/threedviewer/api/slicer/temp?filename=${encodeURIComponent(filename)}`, {
 						method: 'POST',
@@ -258,70 +258,70 @@ export default {
 					}
 
 					const data = await response.json()
-					
+
 					if (!data.success || !data.downloadUrl) {
 						throw new Error('Server did not return download URL')
 					}
 
-					logger.info('SlicerModal', 'Got public share URL', { 
+					logger.info('SlicerModal', 'Got public share URL', {
 						url: data.downloadUrl,
 						token: data.shareToken,
-						expiresAt: data.expiresAt
+						expiresAt: data.expiresAt,
 					})
 
-				exportMessage.value = t('threedviewer', 'Opening in {name}...', { name: slicer.name })
-				
-				// Try to open in slicer with public Nextcloud URL
-				// This will trigger the URL scheme and set up error detection
-				slicerIntegration.openInSlicer(slicerId, data.downloadUrl)
-				
-				// Wait for the error detection timeout (2 seconds in useSlicerIntegration)
-				await new Promise(resolve => setTimeout(resolve, 2500))
-				
-				// Check if there was an error (scheme not registered)
-				if (slicerIntegration.error.value) {
-					logger.info('SlicerModal', 'Detected slicer not installed, showing notification', { 
-						slicerId, 
-						hasError: !!slicerIntegration.error.value,
-						error: slicerIntegration.error.value 
-					})
-					
-					// Show error message to user with notification
-					showWarning(
-						t('threedviewer', '{name} is not installed on your system. Downloading the file instead...', { name: slicer.name }),
-						{ timeout: 8000 }
-					)
-					
-					exportMessage.value = t('threedviewer', '{name} not found - downloading file...', { name: slicer.name })
-					
-					// Wait a bit then offer download
-					await new Promise(resolve => setTimeout(resolve, 500))
-					
-					// Auto-download as fallback
-					window.open(data.downloadUrl, '_blank')
-					logger.warn('SlicerModal', 'Slicer not installed, downloading file', { slicerId })
-					
-					await new Promise(resolve => setTimeout(resolve, 2000))
-					exporting.value = false
-					
-					// Clear error for next attempt
-					slicerIntegration.clearError()
-					return
-				}
-				
-				// If no error, slicer opened successfully
-				const success = true
+					exportMessage.value = t('threedviewer', 'Opening in {name}...', { name: slicer.name })
 
-				if (success) {
-					exportMessage.value = t('threedviewer', 'Opened in {name}!', { name: slicer.name })
-					logger.info('SlicerModal', 'Slicer launched with URL', { slicerId })
-				} else {
-					exportMessage.value = t('threedviewer', 'Opening download link...', { name: slicer.name })
-					// Fallback: Open in browser tab
-					window.open(data.downloadUrl, '_blank')
-					logger.info('SlicerModal', 'Opened in browser (URL scheme not supported)', { slicerId })
-				}
-					
+					// Try to open in slicer with public Nextcloud URL
+					// This will trigger the URL scheme and set up error detection
+					slicerIntegration.openInSlicer(slicerId, data.downloadUrl)
+
+					// Wait for the error detection timeout (2 seconds in useSlicerIntegration)
+					await new Promise(resolve => setTimeout(resolve, 2500))
+
+					// Check if there was an error (scheme not registered)
+					if (slicerIntegration.error.value) {
+						logger.info('SlicerModal', 'Detected slicer not installed, showing notification', {
+							slicerId,
+							hasError: !!slicerIntegration.error.value,
+							error: slicerIntegration.error.value,
+						})
+
+						// Show error message to user with notification
+						showWarning(
+							t('threedviewer', '{name} is not installed on your system. Downloading the file instead...', { name: slicer.name }),
+							{ timeout: 8000 },
+						)
+
+						exportMessage.value = t('threedviewer', '{name} not found - downloading file...', { name: slicer.name })
+
+						// Wait a bit then offer download
+						await new Promise(resolve => setTimeout(resolve, 500))
+
+						// Auto-download as fallback
+						window.open(data.downloadUrl, '_blank')
+						logger.warn('SlicerModal', 'Slicer not installed, downloading file', { slicerId })
+
+						await new Promise(resolve => setTimeout(resolve, 2000))
+						exporting.value = false
+
+						// Clear error for next attempt
+						slicerIntegration.clearError()
+						return
+					}
+
+					// If no error, slicer opened successfully
+					const success = true
+
+					if (success) {
+						exportMessage.value = t('threedviewer', 'Opened in {name}!', { name: slicer.name })
+						logger.info('SlicerModal', 'Slicer launched with URL', { slicerId })
+					} else {
+						exportMessage.value = t('threedviewer', 'Opening download link...', { name: slicer.name })
+						// Fallback: Open in browser tab
+						window.open(data.downloadUrl, '_blank')
+						logger.info('SlicerModal', 'Opened in browser (URL scheme not supported)', { slicerId })
+					}
+
 					await new Promise(resolve => setTimeout(resolve, 2000))
 
 					emit('success', { slicerId, method: success ? 'url-scheme' : 'download', shareToken: data.shareToken })
@@ -341,10 +341,10 @@ export default {
 				} catch (serverError) {
 					// Server approach failed, fallback to direct download
 					logger.warn('SlicerModal', 'Server upload failed, using direct download', serverError)
-					
+
 					exportMessage.value = t('threedviewer', 'Downloading file...')
 					await new Promise(resolve => setTimeout(resolve, 200))
-					
+
 					const url = URL.createObjectURL(blob)
 					const link = document.createElement('a')
 					link.href = url
@@ -880,4 +880,3 @@ export default {
 	}
 }
 </style>
-

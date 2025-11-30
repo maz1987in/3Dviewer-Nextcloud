@@ -172,13 +172,20 @@ export function useTheme() {
 
 		// Load saved theme preference or default to 'auto'
 		let savedTheme = 'auto'
-		try {
-			const stored = localStorage.getItem('threedviewer:theme')
-			if (stored && ['auto', 'light', 'dark'].includes(stored)) {
-				savedTheme = stored
+
+		// Check VIEWER_CONFIG first (backend settings)
+		if (THEME_SETTINGS.mode && ['auto', 'light', 'dark'].includes(THEME_SETTINGS.mode)) {
+			savedTheme = THEME_SETTINGS.mode
+		} else {
+			// Fallback to localStorage
+			try {
+				const stored = localStorage.getItem('threedviewer:theme')
+				if (stored && ['auto', 'light', 'dark'].includes(stored)) {
+					savedTheme = stored
+				}
+			} catch (error) {
+				logger.warn('useTheme', 'Failed to load theme preference', error)
 			}
-		} catch (error) {
-			logger.warn('useTheme', 'Failed to load theme preference', error)
 		}
 
 		// Load saved direction or detect from locale

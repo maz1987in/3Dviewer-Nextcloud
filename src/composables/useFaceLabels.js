@@ -3,7 +3,7 @@
  * Handles labeling of visible faces (TOP, BOTTOM, FRONT, BACK, LEFT, RIGHT)
  */
 
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import * as THREE from 'three'
 import { CSS2DRenderer, CSS2DObject } from 'three/examples/jsm/renderers/CSS2DRenderer.js'
 import { logger } from '../utils/logger.js'

@@ -11,118 +11,129 @@
 			@navigate-date="onNavigateDate"
 			@navigate-viewer="onNavigateViewer"
 			@navigate-all="onNavigateAll" />
-	<NcAppContent>
-		<!-- File Browser View -->
-		<FileBrowser
-			v-if="showFileBrowser"
-			:files="browserFiles"
-			:folders="browserFolders"
-			:types="browserTypes"
-			:dates="browserDates"
-			:sort="browserSort"
-			:loading="browserLoading"
-			:current-path="browserPath"
-			:current-type="browserType"
-			:current-date="browserDate"
-			:selected-file-id="fileId"
-			@select-file="onSelectFile"
-			@navigate-folder="onNavigateFolder"
-			@navigate-type="onNavigateType"
-			@navigate-date="onNavigateDate"
-			@navigate-all="onNavigateAll" />
-		
-		<!-- 3D Viewer -->
-		<div v-else id="viewer-wrapper" key="viewer-wrapper">
-			<ToastContainer :toasts="toasts" @dismiss="dismissToast" />
-
-			<!-- Help Panel -->
-			<HelpPanel v-if="showHelp" @close="showHelp = false" />
-
-			<!-- Slicer Modal -->
-			<SlicerModal
-				:is-open="showSlicerModal"
-				:model-object="getModelObject()"
-				:model-name="getModelName()"
-				:is-dark-theme="themeMode === 'dark'"
-				@close="showSlicerModal = false"
-				@success="onSlicerSuccess"
-				@error="onSlicerError" />
-
-			<!-- Minimal Top Bar -->
-			<MinimalTopBar
-				:model-name="filename"
-				:is-loading="isLoading"
-				:fps="fps"
-				:show-performance="showPerformance"
-				:show-controller="showController"
-				:is-mobile="isMobile"
-				@reset-view="onReset"
-				@fit-to-view="onFitToView"
-				@toggle-performance="onTogglePerformance"
-				@toggle-controller="onToggleController"
-				@take-screenshot="onTakeScreenshot"
-				@toggle-help="onToggleHelp"
-				@toggle-tools="onToggleTools" />
-
-			<!-- Slide-Out Tool Panel -->
-			<SlideOutToolPanel
-				ref="toolsPanel"
-				:auto-rotate="autoRotate"
-				:camera-type="cameraType"
-				:grid="grid"
-				:axes="axes"
-				:wireframe="wireframe"
-				:background-color="background"
-				:measurement-mode="measurementMode"
-				:annotation-mode="annotationMode"
-				:comparison-mode="comparisonMode"
-				:model-loaded="modelLoaded"
-				:performance-mode="performanceMode"
-				:theme-mode="themeMode"
-				:is-mobile="isMobile"
-				@reset-view="onReset"
-				@fit-to-view="onFitToView"
-				@toggle-auto-rotate="onToggleAutoRotate"
-				@toggle-projection="onToggleProjection"
-				@toggle-grid="grid = !grid"
-				@toggle-axes="axes = !axes"
-				@toggle-wireframe="wireframe = !wireframe"
-				@change-background="onBackgroundChange"
-				@toggle-measurement="onToggleMeasurement"
-				@toggle-annotation="onToggleAnnotation"
-				@toggle-comparison="onToggleComparison"
-				@cycle-performance-mode="onCyclePerformanceMode"
-				@cycle-theme="onCycleTheme"
-				@toggle-stats="onToggleStats"
-				@take-screenshot="onTakeScreenshot"
-				@export-model="onExportModel"
-				@send-to-slicer="onSendToSlicer"
-				@clear-cache="onClearCache"
-				@reindex-files="onReindexFiles"
-				@toggle-help="onToggleHelp" />
+		<NcAppContent>
+			<!-- File Browser View -->
+			<FileBrowser
+				v-if="showFileBrowser"
+				:files="browserFiles"
+				:folders="browserFolders"
+				:types="browserTypes"
+				:dates="browserDates"
+				:sort="browserSort"
+				:loading="browserLoading"
+				:current-path="browserPath"
+				:current-type="browserType"
+				:current-date="browserDate"
+				:selected-file-id="fileId"
+				@select-file="onSelectFile"
+				@navigate-folder="onNavigateFolder"
+				@navigate-type="onNavigateType"
+				@navigate-date="onNavigateDate"
+				@navigate-all="onNavigateAll" />
 
 			<!-- 3D Viewer -->
-			<ThreeViewer
-				key="three-viewer"
-				ref="viewer"
-				:file-id="fileId"
-				:filename="filename"
-				:dir="dir"
-				:show-grid="grid"
-				:show-axes="axes"
-				:wireframe="wireframe"
-				:background="background"
-				:show-controller="showController"
-				:measurement-mode="measurementMode"
-				:annotation-mode="annotationMode"
-				:comparison-mode="comparisonMode"
-				:performance-mode="performanceMode"
-				@model-loaded="onModelLoaded"
-				@loading-state-changed="onLoadingStateChanged"
-				@fps-updated="onFpsUpdated"
-				@error="onError" />
-		</div>
-	</NcAppContent>
+			<div v-else id="viewer-wrapper" key="viewer-wrapper">
+				<ToastContainer :toasts="toasts" @dismiss="dismissToast" />
+
+				<!-- Help Panel -->
+				<HelpPanel v-if="showHelp" @close="showHelp = false" />
+
+				<!-- Slicer Modal -->
+				<SlicerModal
+					:is-open="showSlicerModal"
+					:model-object="getModelObject()"
+					:model-name="getModelName()"
+					:is-dark-theme="themeMode === 'dark'"
+					@close="showSlicerModal = false"
+					@success="onSlicerSuccess"
+					@error="onSlicerError" />
+
+				<!-- Minimal Top Bar -->
+				<MinimalTopBar
+					:model-name="filename"
+					:is-loading="isLoading"
+					:fps="fps"
+					:show-performance="showPerformance"
+					:show-controller="showController"
+					:is-mobile="isMobile"
+					@reset-view="onReset"
+					@fit-to-view="onFitToView"
+					@toggle-performance="onTogglePerformance"
+					@toggle-controller="onToggleController"
+					@take-screenshot="onTakeScreenshot"
+					@toggle-help="onToggleHelp"
+					@toggle-tools="onToggleTools" />
+
+				<!-- Slide-Out Tool Panel -->
+				<SlideOutToolPanel
+					ref="toolsPanel"
+					:auto-rotate="autoRotate"
+					:camera-type="cameraType"
+					:grid="grid"
+					:axes="axes"
+					:wireframe="wireframe"
+					:background-color="background"
+					:measurement-mode="measurementMode"
+					:annotation-mode="annotationMode"
+					:comparison-mode="comparisonMode"
+					:model-loaded="modelLoaded"
+					:performance-mode="performanceMode"
+					:theme-mode="themeMode"
+					:is-mobile="isMobile"
+					@reset-view="onReset"
+					@fit-to-view="onFitToView"
+					@toggle-auto-rotate="onToggleAutoRotate"
+					@toggle-projection="onToggleProjection"
+					@toggle-grid="grid = !grid"
+					@toggle-axes="axes = !axes"
+					@toggle-wireframe="wireframe = !wireframe"
+					@change-background="onBackgroundChange"
+					@toggle-measurement="onToggleMeasurement"
+					@toggle-annotation="onToggleAnnotation"
+					@toggle-comparison="onToggleComparison"
+					@cycle-performance-mode="onCyclePerformanceMode"
+					@cycle-theme="onCycleTheme"
+					@toggle-stats="onToggleStats"
+					@take-screenshot="onTakeScreenshot"
+					@export-model="onExportModel"
+					@send-to-slicer="onSendToSlicer"
+					@clear-cache="onClearCache"
+					@reindex-files="onReindexFiles"
+					@toggle-help="onToggleHelp" />
+
+				<!-- 3D Viewer -->
+				<ThreeViewer
+					v-if="prefsLoaded"
+					key="three-viewer"
+					ref="viewer"
+					:file-id="fileId"
+					:filename="filename"
+					:dir="dir"
+					:show-grid="grid"
+					:show-axes="axes"
+					:wireframe="wireframe"
+					:background="background"
+					:show-controller="showController"
+					:persist-controller-position="persistControllerPosition"
+					:auto-rotate="autoRotate"
+					:auto-rotate-speed="autoRotateSpeed"
+					:ambient-light-intensity="ambientLightIntensity"
+					:directional-light-intensity="directionalLightIntensity"
+					:zoom-speed="zoomSpeed"
+					:pan-speed="panSpeed"
+					:enable-damping="enableDamping"
+					:enable-shadows="enableShadows"
+					:enable-antialiasing="enableAntialiasing"
+					:measurement-mode="measurementMode"
+					:annotation-mode="annotationMode"
+					:comparison-mode="comparisonMode"
+					:performance-mode="performanceMode"
+					@model-loaded="onModelLoaded"
+					@loading-state-changed="onLoadingStateChanged"
+					@fps-updated="onFpsUpdated"
+					@error="onError" />
+			</div>
+		</NcAppContent>
 	</NcContent>
 </template>
 
@@ -139,6 +150,7 @@ import { NcContent, NcAppContent } from '@nextcloud/vue'
 import { loadState } from '@nextcloud/initial-state'
 import axios from '@nextcloud/axios'
 import { generateUrl } from '@nextcloud/router'
+import { VIEWER_CONFIG } from './config/viewer-config.js'
 
 export default {
 	name: 'App',
@@ -155,7 +167,7 @@ export default {
 		SlicerModal,
 	},
 		data() {
-		const initialState = loadState('threedviewer', 'navigation-initial-state') || {}
+		loadState('threedviewer', 'navigation-initial-state') || {}
 		return {
 			fileId: this.parseFileId() || null,
 			filename: this.parseFilename(),
@@ -183,10 +195,22 @@ export default {
 			wireframe: false,
 			background: '#f5f5f5',
 			autoRotate: false,
+			autoRotateSpeed: 2.0,
 			cameraType: 'perspective',
+			// Lighting
+			ambientLightIntensity: VIEWER_CONFIG.lighting.ambient.intensity,
+			directionalLightIntensity: VIEWER_CONFIG.lighting.directional.intensity,
+			// Interaction
+			zoomSpeed: VIEWER_CONFIG.interaction.zoomSpeed,
+			panSpeed: VIEWER_CONFIG.interaction.panSpeed,
+			enableDamping: VIEWER_CONFIG.interaction.enableDamping,
+			// Performance
+			enableShadows: VIEWER_CONFIG.performance.enableShadows,
+			enableAntialiasing: VIEWER_CONFIG.performance.enableAntialiasing,
 			animationPresets: [],
 			currentPreset: '',
 			showController: true,
+			persistControllerPosition: true,
 			lastError: null,
 			modelMeta: null,
 			modelLoaded: false,
@@ -198,7 +222,7 @@ export default {
 			themeMode: 'auto',
 			toasts: [],
 			lastSortState: null,
-			_prefsLoaded: false,
+			prefsLoaded: false,
 			// UI state
 			isLoading: false,
 			fps: 0,
@@ -217,7 +241,7 @@ export default {
 	created() {
 		this.loadPrefs()
 	},
-		mounted() {
+	mounted() {
 		// Test harness fallback: if no fileId parsed but a global test file id is present inject it.
 		if (!this.fileId && typeof window !== 'undefined' && window.__TEST_FILE_ID) {
 			this.fileId = Number(window.__TEST_FILE_ID)
@@ -261,25 +285,83 @@ export default {
 			const params = new URLSearchParams(window.location.search)
 			return params.get('dir') || null
 		},
-		loadPrefs() {
+		async loadPrefs() {
+			let timeoutId
+			// Set a timeout to ensure viewer loads even if API hangs
+			const timeoutPromise = new Promise(resolve => {
+				timeoutId = setTimeout(() => {
+					console.warn('App: Settings load timed out, using defaults')
+					resolve(null)
+				}, 5000)
+			})
+
 			try {
-				const raw = localStorage.getItem('threedviewer:prefs')
-				if (!raw) return
-				const parsed = JSON.parse(raw)
-				if (typeof parsed === 'object' && parsed) {
-					if (typeof parsed.grid === 'boolean') this.grid = parsed.grid
-					if (typeof parsed.axes === 'boolean') this.axes = parsed.axes
-					if (typeof parsed.wireframe === 'boolean') this.wireframe = parsed.wireframe
-					if (typeof parsed.background === 'string' && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(parsed.background)) {
-						this.background = parsed.background
+				const responsePromise = axios.get(generateUrl('/apps/threedviewer/settings'))
+
+				// Race between API call and timeout
+				const response = await Promise.race([responsePromise, timeoutPromise])
+
+				// Clear timeout if request succeeded to prevent false warning
+				clearTimeout(timeoutId)
+
+				if (response && response.data) {
+					const settings = response.data.settings || {}
+
+					// Deep merge settings into VIEWER_CONFIG
+					this.deepMerge(VIEWER_CONFIG, settings)
+
+					// Update App state props that control the viewer
+					if (settings.grid && typeof settings.grid.visible === 'boolean') this.grid = settings.grid.visible
+					if (settings.axes && typeof settings.axes.visible === 'boolean') this.axes = settings.axes.visible
+					if (settings.controller) {
+						if (typeof settings.controller.defaultVisible === 'boolean') this.showController = settings.controller.defaultVisible
+						if (typeof settings.controller.persistPosition === 'boolean') this.persistControllerPosition = settings.controller.persistPosition
+					}
+					if (settings.animation && settings.animation.autoRotate) {
+						if (typeof settings.animation.autoRotate.enabled === 'boolean') this.autoRotate = settings.animation.autoRotate.enabled
+						if (typeof settings.animation.autoRotate.speed === 'number') this.autoRotateSpeed = settings.animation.autoRotate.speed
+					}
+					if (settings.theme && settings.theme.mode) {
+						this.themeMode = settings.theme.mode
+					}
+					// Lighting
+					if (settings.lighting) {
+						if (settings.lighting.ambient && typeof settings.lighting.ambient.intensity === 'number') {
+							this.ambientLightIntensity = settings.lighting.ambient.intensity
+						}
+						if (settings.lighting.directional && typeof settings.lighting.directional.intensity === 'number') {
+							this.directionalLightIntensity = settings.lighting.directional.intensity
+						}
+					}
+					if (settings.interaction) {
+						if (typeof settings.interaction.zoomSpeed === 'number') this.zoomSpeed = settings.interaction.zoomSpeed
+						if (typeof settings.interaction.panSpeed === 'number') this.panSpeed = settings.interaction.panSpeed
+						if (typeof settings.interaction.enableDamping === 'boolean') this.enableDamping = settings.interaction.enableDamping
+					}
+					if (settings.performance) {
+						if (typeof settings.performance.enableShadows === 'boolean') this.enableShadows = settings.performance.enableShadows
+						if (typeof settings.performance.enableAntialiasing === 'boolean') this.enableAntialiasing = settings.performance.enableAntialiasing
 					}
 				}
-				this._prefsLoaded = true
-			} catch (e) { /* ignore corrupted prefs */ }
+			} catch (e) {
+				console.error('App: Failed to load settings', e)
+			} finally {
+				this.prefsLoaded = true
+			}
+		},
+		deepMerge(target, source) {
+			for (const key in source) {
+				if (source[key] instanceof Object && !Array.isArray(source[key]) && key in target) {
+					Object.assign(target[key], this.deepMerge(target[key], source[key]))
+				} else {
+					target[key] = source[key]
+				}
+			}
+			return target
 		},
 		savePrefs() {
 			// Avoid saving before initial load to prevent overwriting valid existing settings prematurely
-			if (!this._prefsLoaded) return
+			if (!this.prefsLoaded) return
 			try {
 				const data = {
 					grid: this.grid,
@@ -389,11 +471,11 @@ export default {
 		getModelName() {
 			// Return filename without extension for export
 			if (!this.filename) return 'model'
-			
+
 			// Extract just the filename (remove path)
 			const parts = this.filename.split('/')
 			const filenameOnly = parts[parts.length - 1]
-			
+
 			// Remove extension
 			const lastDot = filenameOnly.lastIndexOf('.')
 			return lastDot > 0 ? filenameOnly.substring(0, lastDot) : filenameOnly
@@ -432,15 +514,15 @@ export default {
 					message: this.t('threedviewer', 'Indexing files...'),
 					timeout: 2000,
 				})
-				
+
 				const url = generateUrl('/apps/threedviewer/api/files/index')
 				await axios.post(url)
-				
+
 				this.pushToast({
 					type: 'success',
 					message: this.t('threedviewer', 'Files indexed successfully'),
 				})
-				
+
 				// Reload file navigation if available
 				if (this.$refs.fileNavigation) {
 					// Force reload of files
@@ -450,7 +532,7 @@ export default {
 					// which should reactively update the view if bound correctly.
 					// However, FileNavigation emits 'navigate-all' after loading.
 					// We might want to trigger a refresh of the current view in App.vue too.
-					
+
 					// If browser is open, refresh the view
 					if (this.showFileBrowser && this.browserSort) {
 						// Trigger changeSort with forceReload=true to refresh the main content
@@ -519,15 +601,15 @@ export default {
 				// Use path from backend response (formatFileIndex returns 'path' and 'folder_path')
 				this.filename = file.path || file.name || null
 				this.dir = file.folder_path || null
-				
+
 				// Switch to viewer mode
 				this.showFileBrowser = false
 				this.$refs.fileNavigation?.setActiveSort('viewer')
-				
+
 				// Update URL without page reload using history API
 				const url = `/apps/threedviewer/f/${file.id}`
 				window.history.pushState({ fileId: file.id }, '', url)
-				
+
 				// Save selected file ID to config
 				this.saveSelectedFileId(file.id)
 			}
@@ -731,7 +813,7 @@ export default {
 :deep(.app-content) {
 	// Allow content to fill available space (whether flex or grid)
 	flex: 1 1 auto;
-	width: 100%; 
+	width: 100%;
 	min-width: 0; // Prevent flex/grid item from overflowing
 	margin-top: 0 !important;
 	padding-top: 0 !important;
