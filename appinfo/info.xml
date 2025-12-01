@@ -3,7 +3,7 @@
 	  xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
 	<id>threedviewer</id>
 	<name>3D Viewer</name>
-	<summary>🎨 View, analyze &amp; export 3D models with 10+ format support, personal settings, enhanced loaders, annotations, measurements &amp; advanced rendering ✨</summary>
+	<summary>View, analyze &amp; export 3D models with 10+ formats, personal settings, enhanced loaders, annotations, measurements &amp; rendering</summary>
 	<description><![CDATA[A comprehensive 3D model viewer that allows you to view, interact with, and analyze 3D models directly within Nextcloud. Supports 10+ formats including GLB, GLTF, OBJ, STL, PLY, FBX, 3MF, and 3DS with full material and texture support.
 
 **📦 Format Support:**

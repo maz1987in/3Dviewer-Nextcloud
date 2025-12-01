@@ -351,6 +351,16 @@ export default {
 		},
 		deepMerge(target, source) {
 			for (const key in source) {
+				// Guard against prototype pollution by blocking dangerous property names
+				if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+					continue
+				}
+				
+				// Only process own properties
+				if (!Object.prototype.hasOwnProperty.call(source, key)) {
+					continue
+				}
+				
 				if (source[key] instanceof Object && !Array.isArray(source[key]) && key in target) {
 					Object.assign(target[key], this.deepMerge(target[key], source[key]))
 				} else {
