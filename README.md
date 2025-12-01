@@ -4,6 +4,7 @@
 [![License](https://img.shields.io/badge/license-AGPL--3.0-orange)](LICENSE)
 [![Nextcloud](https://img.shields.io/badge/Nextcloud-30--32-0082c9)](https://nextcloud.com)
 [![Update nextcloud/ocp](https://github.com/maz1987in/3Dviewer-Nextcloud/actions/workflows/update-nextcloud-ocp-matrix.yml/badge.svg)](https://github.com/maz1987in/3Dviewer-Nextcloud/actions/workflows/update-nextcloud-ocp-matrix.yml)
+[![Release](https://github.com/maz1987in/3Dviewer-Nextcloud/actions/workflows/release.yml/badge.svg)](https://github.com/maz1987in/3Dviewer-Nextcloud/actions/workflows/release.yml)
 
 A comprehensive 3D model viewer application for Nextcloud that supports multiple 3D file formats with advanced features like dynamic grid sizing, model comparison, and real-time streaming.
 

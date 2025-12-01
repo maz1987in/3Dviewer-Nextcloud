@@ -1,6 +1,6 @@
 # TODO - 3D Viewer Next Steps
 
-**Last Updated**: October 28, 2025  
+**Last Updated**: January 2025  
 **Current Status**: All major features implemented ✅
 
 ---
@@ -90,6 +90,10 @@ Add user interface for cache management.
 - [x] **KTX2 Texture Compression Support** (Oct 28, 2025)
 - [x] **Performance Monitoring System with Overlay** (Oct 28, 2025)
 - [x] **Documentation Consolidation** (Oct 28, 2025) - Updated all documentation
+- [x] **Flexible Texture Matching** (Jan 2025) - Generic matching logic for FBX and OBJ textures with space/underscore normalization, prefix removal, singular/plural handling, and color/body mapping
+- [x] **MTL File Matching Improvements** (Jan 2025) - Flexible matching for OBJ MTL files to handle naming variations (e.g., "Wolf_done_obj.mtl" → "Wolf_obj.mtl")
+- [x] **FBX 6.1 Compatibility Attempt** (Jan 2025) - Version patching for FBX 6.1 files (6100 → 7000/6400) with clear error messages for structural incompatibilities
+- [x] **Model Positioning Fixes** (Jan 2025) - Ensured all models (OBJ, FBX, DAE, X3D, VRML, demo scene) sit correctly on grid with bottom at y=0 using proper `updateMatrixWorld(true)` calls
 
 ---
 
