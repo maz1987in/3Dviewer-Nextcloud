@@ -4,10 +4,19 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (e.g., v2.0.0)'
+        required: true
+        type: string
 
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
+
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
 
     permissions:
       contents: write
@@ -15,6 +24,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -47,10 +58,21 @@ jobs:
       - name: Install PHP dependencies (no dev)
         run: composer install --no-dev --optimize-autoloader --prefer-dist
 
+      - name: Set tag name
+        id: tag
+        run: |
+          if [ -n "${{ github.event.inputs.tag }}" ]; then
+            TAG_NAME="${{ github.event.inputs.tag }}"
+          else
+            TAG_NAME="${GITHUB_REF_NAME}"
+          fi
+          echo "tag=${TAG_NAME}" >> $GITHUB_OUTPUT
+          echo "Using tag: ${TAG_NAME}"
+
       - name: Prepare artifact directory
         run: |
           APP_DIR="threedviewer"
-          ARTIFACT_NAME="threedviewer-${GITHUB_REF_NAME}.tar.gz"
+          ARTIFACT_NAME="threedviewer-${{ steps.tag.outputs.tag }}.tar.gz"
           mkdir "$APP_DIR"
           rsync -a ./ "$APP_DIR" \
             --exclude ".git/" \
@@ -76,7 +98,7 @@ jobs:
         with:
           files: ${{ env.ARTIFACT }}
           draft: false
-          prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') }}
+          prerelease: ${{ contains(steps.tag.outputs.tag, '-rc') || contains(steps.tag.outputs.tag, '-beta') || contains(steps.tag.outputs.tag, '-alpha') }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -92,5 +114,5 @@ jobs:
           app_name: threedviewer
           appstore_token: ${{ secrets.APPSTORE_TOKEN }}
           app_private_key: ${{ secrets.APP_PRIVATE_KEY }}
-          download_url: https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/threedviewer-${{ github.ref_name }}.tar.gz
+          download_url: https://github.com/${{ github.repository }}/releases/download/${{ needs.build-and-release.outputs.tag }}/threedviewer-${{ needs.build-and-release.outputs.tag }}.tar.gz
 
