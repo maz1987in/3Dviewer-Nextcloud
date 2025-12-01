@@ -26,6 +26,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.inputs.tag || github.ref }}
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -96,6 +98,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.tag.outputs.tag }}
           files: ${{ env.ARTIFACT }}
           draft: false
           prerelease: ${{ contains(steps.tag.outputs.tag, '-rc') || contains(steps.tag.outputs.tag, '-beta') || contains(steps.tag.outputs.tag, '-alpha') }}
