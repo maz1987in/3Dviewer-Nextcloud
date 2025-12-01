@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2025-12-01
+
+### Added
+- **Personal Settings**: Added personal settings page for user-specific preferences
+  - SettingsController and PersonalSettings view for managing user preferences
+  - Settings routes and configuration updates
+- **Enhanced File Loaders**: Significantly improved loader capabilities
+  - Enhanced FBX loader with additional features and better support
+  - Improved VRML loader with expanded capabilities
+  - Updated DAE loader for better compatibility
+  - Enhanced multi-file loading helpers for improved dependency resolution
+
+### Changed
+- **Viewer Enhancements**: Enhanced ThreeViewer component with improved controls and features
+- **Camera Improvements**: Updated camera composable with additional functionality
+- **Circular Controller**: Enhanced circular controller with better user experience
+- **Theme and Performance**: Updated theme and performance composables
+- **Major Version Bump**: Version 2.0.0 introduces significant improvements and new features
+
+### Technical
+- Updated GitHub workflows with improved condition syntax
+- Updated Dependabot timezone to Asia/Muscat
+- Added change detection to prevent unnecessary PRs in workflows
+- Updated stylelint to 16.26.1
+
 ## [1.9.8] - 2025-11-28
 
 ### Changed

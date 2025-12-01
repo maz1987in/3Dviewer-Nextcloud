@@ -1,6 +1,6 @@
 # 3D Viewer for Nextcloud
 
-[![Version](https://img.shields.io/badge/version-1.9.7-blue)](https://github.com/maz1987in/3Dviewer-Nextcloud/releases)
+[![Version](https://img.shields.io/badge/version-2.0.0-blue)](https://github.com/maz1987in/3Dviewer-Nextcloud/releases)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-orange)](LICENSE)
 [![Nextcloud](https://img.shields.io/badge/Nextcloud-30--32-0082c9)](https://nextcloud.com)
 
@@ -53,17 +53,20 @@ A comprehensive 3D model viewer application for Nextcloud that supports multiple
 ## ✨ Key Features
 
 - **Multi-Format Support** - GLB, GLTF, OBJ (+MTL), STL, PLY, FBX, 3MF, 3DS, DAE, X3D, VRML
+- **Enhanced File Loaders** - Significantly improved FBX, VRML, and DAE loaders with better material and texture support
 - **Multi-File Models** - Full support for OBJ+MTL+textures and GLTF+bins+images
+- **Personal Settings** - User-specific preferences and settings page integrated with Nextcloud personal settings
 - **Smart File Browser** - Toggle between Viewer, Folders, Type, Date, and Favorites modes with breadcrumbs, Nextcloud-style navigation, and lazy loading
 - **Dynamic Grid System** - Automatically adapts to model size and position
 - **Model Comparison** - Side-by-side model viewing with synchronized controls
 - **Advanced Tooling** - Annotations, measurements, and analysis tools
-- **3D Camera Controller** - Intuitive circular controller for precise camera navigation
+- **3D Camera Controller** - Enhanced intuitive circular controller for precise camera navigation with improved controls
 - **Face Labels** - Orientation markers (TOP, BOTTOM, FRONT, BACK, LEFT, RIGHT) on model faces
 - **Screenshot Capture** - Take high-quality PNG/JPEG screenshots of 3D models
 - **Export Functionality** - Export models to GLB, STL, and OBJ formats
 - **Slicer Integration** - Send models directly to PrusaSlicer, Cura, BambuStudio, OrcaSlicer, Simplify3D, Eufy Studio, and AnycubicSlicer
 - **Camera Projection Toggle** - Switch between perspective and orthographic views
+- **Enhanced Camera Controls** - Improved camera composable with additional functionality and better user experience
 - **Progressive Texture Loading** - Background loading for improved performance
 - **Dependency Caching** - IndexedDB caching for faster multi-file model loading
 - **Model Statistics Panel** - Detailed information about loaded models
@@ -189,8 +192,8 @@ This project is licensed under the **AGPL-3.0 License**. See [LICENSE](LICENSE) 
 
 ## 📊 Version
 
-**Current Version**: 1.9.7  
-**Released**: November 27, 2025
+**Current Version**: 2.0.0  
+**Released**: December 01, 2025
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed release notes and version history.
 
