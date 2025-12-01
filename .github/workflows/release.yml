@@ -113,6 +113,7 @@ jobs:
     steps:
       - name: Publish to Nextcloud App Store
         uses: R0Wi/nextcloud-appstore-push-action@v1
+        continue-on-error: true
         with:
           app_name: threedviewer
           appstore_token: ${{ secrets.APPSTORE_TOKEN }}
