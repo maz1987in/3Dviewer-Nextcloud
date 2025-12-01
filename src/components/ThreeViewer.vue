@@ -568,12 +568,12 @@ export default {
 						// Only show demo if initialization failed and it's not an abort
 						if (error.name !== 'AbortError') {
 							logger.warn('ThreeViewer', 'Failed to load initial model, showing demo scene', error)
-							createDemoScene()
+							await createDemoScene()
 						}
 					}
 				} else {
 					// Show demo scene when no file is specified
-					createDemoScene()
+					await createDemoScene()
 				}
 
 				// Initialization complete - hide loading indicator
@@ -796,12 +796,91 @@ export default {
 				})
 
 				if (loadedModel && loadedModel.object3D) {
-					// Add the loaded model to the scene
+					// Add the loaded model to the scene first
 					modelRoot.value = loadedModel.object3D
 					scene.value.add(modelRoot.value)
 
-					// Fit camera to object
-					camera.fitCameraToObject(modelRoot.value)
+					// Center the model horizontally at the origin, but sit on the grid vertically
+					// This ensures the model aligns with the grid and rotation feels natural
+					// Update matrix world first to account for any rotations/transformations (especially for DAE files)
+					modelRoot.value.updateMatrixWorld(true)
+					
+					// Calculate bounding box after adding to scene and updating matrix to ensure accurate measurements
+					const box = new THREE.Box3().setFromObject(modelRoot.value)
+					if (!box.isEmpty()) {
+						const center = box.getCenter(new THREE.Vector3())
+						const size = box.getSize(new THREE.Vector3())
+						
+						// Log bounding box info for debugging (especially for DAE files)
+						logger.info('ThreeViewer', 'Model bounding box before positioning', {
+							min: { x: box.min.x, y: box.min.y, z: box.min.z },
+							max: { x: box.max.x, y: box.max.y, z: box.max.z },
+							center: { x: center.x, y: center.y, z: center.z },
+							size: { x: size.x, y: size.y, z: size.z },
+							extension: filename.split('.').pop(),
+						})
+						
+						// Move model so:
+						// X, Z are centered at 0
+						// Y bottom sits at 0 (on top of grid)
+						const yOffset = box.min.y
+						
+						// Log positioning calculation for debugging
+						logger.info('ThreeViewer', 'Positioning calculation', {
+							filename,
+							extension: filename.split('.').pop(),
+							beforePosition: { x: modelRoot.value.position.x, y: modelRoot.value.position.y, z: modelRoot.value.position.z },
+							center: { x: center.x, y: center.y, z: center.z },
+							boxMin: { x: box.min.x, y: box.min.y, z: box.min.z },
+							yOffset,
+						})
+						
+						modelRoot.value.position.x -= center.x
+						modelRoot.value.position.y -= yOffset
+						modelRoot.value.position.z -= center.z
+						
+						// Update matrix again after repositioning
+						modelRoot.value.updateMatrixWorld(true)
+						
+						// Verify the positioning worked correctly
+						const verifyBox = new THREE.Box3().setFromObject(modelRoot.value)
+						if (!verifyBox.isEmpty()) {
+							// If the model is still below the grid, force it up
+							if (verifyBox.min.y < -0.01) {
+								logger.warn('ThreeViewer', 'Model positioned below grid, correcting', {
+									filename,
+									extension: filename.split('.').pop(),
+									actualBottomY: verifyBox.min.y,
+									correction: -verifyBox.min.y,
+								})
+								modelRoot.value.position.y -= verifyBox.min.y
+								modelRoot.value.updateMatrixWorld(true)
+								// Recalculate after correction
+								const correctedBox = new THREE.Box3().setFromObject(modelRoot.value)
+								logger.info('ThreeViewer', 'Model bounding box after positioning (corrected)', {
+									min: { x: correctedBox.min.x, y: correctedBox.min.y, z: correctedBox.min.z },
+									max: { x: correctedBox.max.x, y: correctedBox.max.y, z: correctedBox.max.z },
+									expectedBottomY: 0,
+									actualBottomY: correctedBox.min.y,
+								})
+							} else {
+								logger.info('ThreeViewer', 'Model bounding box after positioning', {
+									min: { x: verifyBox.min.x, y: verifyBox.min.y, z: verifyBox.min.z },
+									max: { x: verifyBox.max.x, y: verifyBox.max.y, z: verifyBox.max.z },
+									expectedBottomY: 0,
+									actualBottomY: verifyBox.min.y,
+								})
+							}
+						}
+					}
+
+					// Fit camera to object (wait for next tick to ensure scene graph is settled)
+					await nextTick()
+					
+					// Calculate new center for camera target (it will be at y = height/2)
+					const newBox = new THREE.Box3().setFromObject(modelRoot.value)
+					const newCenter = newBox.getCenter(new THREE.Vector3())
+					camera.fitCameraToObject(modelRoot.value, newCenter)
 
 					// Update grid size
 					updateGridSize(modelRoot.value)
@@ -857,7 +936,7 @@ export default {
 			}
 		}
 
-		const createDemoScene = (fileId = 'demo') => {
+		const createDemoScene = async (fileId = 'demo') => {
 			try {
 				const demoGroup = new THREE.Group()
 
@@ -940,8 +1019,71 @@ export default {
 				modelRoot.value = demoGroup
 				scene.value.add(modelRoot.value)
 
+				// Apply the same positioning logic as regular models
+				// Update matrix world first to ensure accurate measurements
+				modelRoot.value.updateMatrixWorld(true)
+
+				// Calculate bounding box and position on grid
+				const box = new THREE.Box3().setFromObject(modelRoot.value)
+				if (!box.isEmpty()) {
+					const center = box.getCenter(new THREE.Vector3())
+					const size = box.getSize(new THREE.Vector3())
+
+					// Log bounding box info for debugging
+					logger.info('ThreeViewer', 'Demo scene bounding box before positioning', {
+						min: { x: box.min.x, y: box.min.y, z: box.min.z },
+						max: { x: box.max.x, y: box.max.y, z: box.max.z },
+						center: { x: center.x, y: center.y, z: center.z },
+						size: { x: size.x, y: size.y, z: size.z },
+					})
+
+					// Move model so:
+					// X, Z are centered at 0
+					// Y bottom sits at 0 (on top of grid)
+					const yOffset = box.min.y
+
+					modelRoot.value.position.x -= center.x
+					modelRoot.value.position.y -= yOffset
+					modelRoot.value.position.z -= center.z
+
+					// Update matrix again after repositioning
+					modelRoot.value.updateMatrixWorld(true)
+
+					// Verify positioning
+					const verifyBox = new THREE.Box3().setFromObject(modelRoot.value)
+					if (!verifyBox.isEmpty()) {
+						if (verifyBox.min.y < -0.01) {
+							// Correct if still below grid
+							logger.warn('ThreeViewer', 'Demo scene positioned below grid, correcting', {
+								actualBottomY: verifyBox.min.y,
+								correction: -verifyBox.min.y,
+							})
+							modelRoot.value.position.y -= verifyBox.min.y
+							modelRoot.value.updateMatrixWorld(true)
+							// Recalculate after correction
+							const correctedBox = new THREE.Box3().setFromObject(modelRoot.value)
+							logger.info('ThreeViewer', 'Demo scene bounding box after positioning (corrected)', {
+								min: { x: correctedBox.min.x, y: correctedBox.min.y, z: correctedBox.min.z },
+								max: { x: correctedBox.max.x, y: correctedBox.max.y, z: correctedBox.max.z },
+								expectedBottomY: 0,
+								actualBottomY: correctedBox.min.y,
+							})
+						} else {
+							logger.info('ThreeViewer', 'Demo scene bounding box after positioning', {
+								min: { x: verifyBox.min.x, y: verifyBox.min.y, z: verifyBox.min.z },
+								max: { x: verifyBox.max.x, y: verifyBox.max.y, z: verifyBox.max.z },
+								expectedBottomY: 0,
+								actualBottomY: verifyBox.min.y,
+							})
+						}
+					}
+				}
+
 				// Fit camera
-				camera.fitCameraToObject(modelRoot.value)
+				await nextTick()
+				const newBox = new THREE.Box3().setFromObject(modelRoot.value)
+				const newCenter = newBox.getCenter(new THREE.Vector3())
+				camera.fitCameraToObject(modelRoot.value, newCenter)
 				updateGridSize(modelRoot.value)
 
 				// Analyze demo model for stats
@@ -1004,14 +1146,8 @@ export default {
 					divisions = 100
 				}
 
-				// Calculate grid position at the bottom of the model
-				const gridY = center.y - (size.y / 2) - 0.1 // Slightly below the bottom of the model
-
-				// Validate grid position to prevent NaN
-				if (!isFinite(gridY) || !isFinite(center.x) || !isFinite(center.z)) {
-					logger.error('ThreeViewer', 'Invalid grid position calculated', { gridY, center })
-					return
-				}
+				// Calculate grid position (always at y=0)
+				const gridY = 0
 
 				// Update grid
 				scene.value.remove(grid.value)
@@ -1020,25 +1156,25 @@ export default {
 				grid.value.material.opacity = 1.0
 				grid.value.material.transparent = false
 
-				// Position grid at the bottom of the model
-				grid.value.position.set(center.x, gridY, center.z)
+				// Position grid at the origin
+				grid.value.position.set(0, gridY, 0)
 
 				scene.value.add(grid.value)
 
-				// Update axes size and position to match model scale
+				// Update axes size and position
 				if (axes.value && props.showAxes) {
 					// Remove old axes
 					scene.value.remove(axes.value)
-
+					
 					// Calculate axes size based on model dimensions (25% of max dimension, minimum 5)
 					const axesSize = Math.max(maxDim * 0.25, 5)
-
+					
 					// Create new axes with appropriate size
 					axes.value = new THREE.AxesHelper(axesSize)
-
-					// Position at bottom of model
-					axes.value.position.set(center.x, gridY, center.z)
-
+					
+					// Position at origin
+					axes.value.position.set(0, gridY, 0)
+					
 					// Add to scene
 					scene.value.add(axes.value)
 				}
@@ -1048,9 +1184,8 @@ export default {
 					divisions,
 					maxDim,
 					axesSize: axes.value ? Math.max(maxDim * 0.25, 5) : 'not visible',
-					modelCenter: { x: center.x, y: center.y, z: center.z },
-					gridPosition: { x: center.x, y: gridY, z: center.z },
-					axesPosition: axes.value ? { x: center.x, y: gridY, z: center.z } : 'not visible',
+					gridPosition: { x: 0, y: gridY, z: 0 },
+					axesPosition: axes.value ? { x: 0, y: gridY, z: 0 } : 'not visible',
 				})
 			} catch (error) {
 				logger.error('ThreeViewer', 'Failed to update grid size', error)

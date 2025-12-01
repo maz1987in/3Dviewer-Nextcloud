@@ -255,9 +255,10 @@ export function useCamera() {
 	/**
 	 * Fit camera to an object
 	 * @param {THREE.Object3D} obj - Object to fit camera to
+	 * @param {THREE.Vector3} [forcedCenter] - Optional forced center to look at (skips bounding box center calculation for target)
 	 * @throws {Error} If camera or controls not initialized
 	 */
-	const fitCameraToObject = (obj) => {
+	const fitCameraToObject = (obj, forcedCenter = null) => {
 		// Input validation
 		if (!camera.value) {
 			logger.error('useCamera', 'Camera not initialized')
@@ -280,7 +281,7 @@ export function useCamera() {
 			}
 
 			const size = box.getSize(new THREE.Vector3())
-			const center = box.getCenter(new THREE.Vector3())
+			const center = forcedCenter ? forcedCenter.clone() : box.getCenter(new THREE.Vector3())
 			const maxDim = Math.max(size.x, size.y, size.z)
 
 			// Calculate optimal camera distance based on camera type

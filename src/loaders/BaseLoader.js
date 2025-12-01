@@ -139,6 +139,10 @@ export class BaseLoader {
 			applyWireframe(object3D, true)
 		}
 
+		// Update matrix world to ensure all transformations (rotations, scales) are applied
+		// This is especially important for DAE files which have a Z-up to Y-up rotation
+		object3D.updateMatrixWorld(true)
+
 		// Calculate bounding box
 		const { box, center, size } = calculateBoundingBox(object3D)
 

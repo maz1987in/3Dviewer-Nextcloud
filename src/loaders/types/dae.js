@@ -39,16 +39,20 @@ class DaeLoader extends BaseLoader {
 		// Rotate to Y-up (Three.js standard) by rotating -90° around X-axis
 		daeScene.rotation.x = -Math.PI / 2
 
+		// Access animations through scene.animations (new way) to avoid deprecation warning
+		// Do not access collada.animations directly as it triggers deprecation warnings
+		const animations = daeScene.animations || []
+
 		this.logInfo('DAE model loaded successfully', {
-			animations: collada.animations?.length || 0,
+			animations: animations.length,
 		})
 
 		// Process the result
 		const result = this.processModel(daeScene, context)
 
 		// Add animations if available
-		if (collada.animations && collada.animations.length > 0) {
-			result.animations = collada.animations
+		if (animations.length > 0) {
+			result.animations = animations
 		}
 
 		return result
