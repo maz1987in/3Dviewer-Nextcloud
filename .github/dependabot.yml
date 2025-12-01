@@ -6,7 +6,7 @@ updates:
       interval: weekly
       day: saturday
       time: "03:00"
-      timezone: Europe/Paris
+      timezone: Asia/Muscat
     open-pull-requests-limit: 10
   - package-ecosystem: composer
     directory: "/vendor-bin/cs-fixer"
@@ -14,7 +14,7 @@ updates:
       interval: weekly
       day: saturday
       time: "03:00"
-      timezone: Europe/Paris
+      timezone: Asia/Muscat
     open-pull-requests-limit: 10
   - package-ecosystem: composer
     directory: "/vendor-bin/openapi-extractor"
@@ -22,7 +22,7 @@ updates:
       interval: weekly
       day: saturday
       time: "03:00"
-      timezone: Europe/Paris
+      timezone: Asia/Muscat
     open-pull-requests-limit: 10
   - package-ecosystem: composer
     directory: "/vendor-bin/phpunit"
@@ -30,7 +30,7 @@ updates:
       interval: weekly
       day: saturday
       time: "03:00"
-      timezone: Europe/Paris
+      timezone: Asia/Muscat
     open-pull-requests-limit: 10
   - package-ecosystem: composer
     directory: "/vendor-bin/psalm"
@@ -38,7 +38,7 @@ updates:
       interval: weekly
       day: saturday
       time: "03:00"
-      timezone: Europe/Paris
+      timezone: Asia/Muscat
     open-pull-requests-limit: 10
   - package-ecosystem: npm
     directory: "/"
@@ -46,5 +46,5 @@ updates:
       interval: weekly
       day: saturday
       time: "03:00"
-      timezone: Europe/Paris
+      timezone: Asia/Muscat
     open-pull-requests-limit: 10

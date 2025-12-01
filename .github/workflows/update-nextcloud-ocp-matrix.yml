@@ -61,7 +61,7 @@ jobs:
 
       - name: Raise on issue on failure
         uses: dacbd/create-issue-action@cdb57ab6ff8862aa09fee2be6ba77a59581921c2 # v2.0.0
-        if: ${{ failure() && steps.update_branch.conclusion == 'failure' }}
+        if: failure() && steps.update_branch.outcome == 'failure'
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           title: 'Failed to update nextcloud/ocp package'
@@ -85,7 +85,20 @@ jobs:
           git checkout vendor-bin
         continue-on-error: true
 
+      - name: Check for changes
+        id: verify-changed-files
+        run: |
+          if git diff --quiet composer.json composer.lock 2>/dev/null; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "No changes detected in composer.json or composer.lock"
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "Changes detected"
+            git diff composer.json composer.lock || true
+          fi
+
       - name: Create Pull Request
+        if: steps.verify-changed-files.outputs.changed == 'true'
         uses: peter-evans/create-pull-request@271a8d0340265f705b14b6d32b9829c1cb33d45e # v7.0.8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
