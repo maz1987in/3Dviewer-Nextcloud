@@ -717,6 +717,51 @@ console.log('Current FPS:', this.currentFPS);
 
 ---
 
+### Slicer Integration Issues
+
+#### Symptoms
+- "Open in Slicer" button does nothing
+- Browser asks to open an application but fails
+- Slicer opens but model doesn't load
+
+#### Solutions
+
+**Check Installed Software:**
+- Ensure a compatible slicer (Cura, PrusaSlicer, Bambu Studio) is installed.
+- Verify the slicer supports URL schemes (e.g., `cura://`).
+
+**Check Browser Permissions:**
+- Browsers often block external app launches. Check the address bar for a "Pop-up blocked" or "Application launch blocked" icon.
+- Allow the site to open external applications.
+
+**Verify URL Scheme:**
+- Open the browser console (F12).
+- Look for the log: `Opening slicer with URL: ...`
+- Manually copy that URL into a new tab to test if it triggers the app.
+
+### Personal Settings Issues
+
+#### Symptoms
+- Settings changes are not saved
+- Settings reset after page reload
+- "Loading settings..." spinner never disappears
+
+#### Solutions
+
+**Check Network Requests:**
+- Open Network tab in DevTools.
+- Filter for `settings`.
+- Check if `PUT /apps/threedviewer/settings` returns 200 OK.
+- If it returns 403/404/500, check server logs.
+
+**Clear Local State:**
+- Although settings are server-side, the frontend caches them.
+- Try a hard refresh (Ctrl+F5).
+
+**Check Database:**
+- Ensure the `oc_preferences` table is writable.
+- Check if `user_preferences` key exists for your user.
+
 ## API and Networking Issues
 
 ### 401/403 Responses

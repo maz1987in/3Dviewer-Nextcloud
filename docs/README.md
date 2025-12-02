@@ -48,6 +48,8 @@ A comprehensive 3D model viewer application for Nextcloud that supports multiple
 - **Dual-mode architecture**: Quick preview (Files app) + Full-featured standalone viewer
 - **Multi-file loading**: Automatic MTL/texture loading for OBJ models
 - **Performance monitoring**: Real-time FPS, memory usage, quality settings
+- **Slicer Integration**: Open models directly in desktop slicing software (Cura, PrusaSlicer, etc.)
+- **Personal Settings**: Customize appearance, controls, and performance preferences
 - **Mobile support**: Touch gestures, responsive design
 - **Error handling**: Graceful degradation, retry mechanisms
 

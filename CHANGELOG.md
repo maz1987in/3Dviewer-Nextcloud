@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Documentation
+- Corrected repository URLs and upstream fork instructions in `CONTRIBUTING.md` (replaced placeholders with `maz1987in/3Dviewer-Nextcloud`).
+- Updated `TECHNICAL.md` with new controllers (`SettingsController`, `SlicerController`), components (`PersonalSettings.vue`, `SlicerModal.vue`), and detailed Personal Settings + File Browser implementation sections.
+- Expanded `IMPLEMENTATION.md`: added Slicer Integration & Personal Settings System sections; reorganized and deduplicated legacy "Code Audit and Cleanup" content; refreshed Table of Contents.
+- Updated `README.md` (docs version) advanced features list to include Slicer Integration and Personal Settings.
+- Added troubleshooting sections for Slicer Integration and Personal Settings in `TROUBLESHOOTING.md`.
+- Expanded test coverage notes in `TESTING.md` to include new controllers (Settings/Slicer) and components (PersonalSettings/SlicerModal).
+- Normalized wording and removed outdated dual-mode duplication in implementation documentation.
+
+### Fixed
+- Settings page image/logo path resolution: replaced hardcoded asset URL with `imagePath()` helper in `PersonalSettings.vue` to ensure correct loading under all deployment paths.
+
 ## [2.0.0] - 2025-12-01
 
 ### Added

@@ -135,7 +135,7 @@
 
 <script>
 import { NcSettingsSection, NcButton, NcCheckboxRadioSwitch, NcTextField, NcSelect } from '@nextcloud/vue'
-import { generateUrl } from '@nextcloud/router'
+import { generateUrl, imagePath } from '@nextcloud/router'
 import axios from '@nextcloud/axios'
 import { showSuccess, showError } from '@nextcloud/dialogs'
 import ContentSave from 'vue-material-design-icons/ContentSave.vue'
@@ -171,7 +171,7 @@ export default {
 	data() {
 		return {
 			docUrl: 'https://github.com/maz1987in/3Dviewer-Nextcloud',
-			logoUrl: generateUrl('/apps/threedviewer/img/app-dark.svg'),
+			logoUrl: imagePath('threedviewer', 'app-dark.svg'),
 			loading: true,
 			saving: false,
 			reindexing: false,

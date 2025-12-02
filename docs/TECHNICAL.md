@@ -55,6 +55,8 @@ The 3D Viewer is a Nextcloud application that provides 3D model viewing capabili
 - **`PublicFileController`**: Public share streaming (`/public/file/{token}/{id}`, sibling MTL)
 - **`AssetController`**: Serves decoder and asset files
 - **`PageController`**: Frontpage route returning the app shell
+- **`SettingsController`**: User settings management (`/settings`)
+- **`SlicerController`**: Slicer integration and temporary file handling (`/api/slicer/temp`)
 
 **Services:**
 - **`FileService`**: File operations and validation
@@ -90,17 +92,26 @@ GET /ocs/v2.php/apps/threedviewer/public/file/{token}/{id}/mtl/{mtlName}
 
 #### Component Structure
 
-```
-ThreeViewer.vue (Main component: comparison, measurement, annotations, export, face labels)
-├── CircularController.vue (3D camera navigation widget)
-├── ViewerToolbar.vue (Toolbar with all controls)
-├── HelpPanel.vue (In-app documentation)
-├── MinimalTopBar.vue (Minimal interface)
-├── SlideOutToolPanel.vue (Collapsible tool panel)
-├── ToastContainer.vue (Notification system)
-├── ViewCube.vue (3D navigation cube)
-└── ViewerModal.vue (Modal wrapper)
-```
+**Views:**
+- **`ViewerComponent.vue`**: Main entry point for the viewer application. Handles routing and initialization.
+- **`PersonalSettings.vue`**: User settings interface for configuring appearance, performance, and controls.
+
+**Core Components:**
+- **`ThreeViewer.vue`**: Main 3D rendering component. Handles scene setup, model loading, and interaction.
+  - **`CircularController.vue`**: 3D camera navigation widget.
+  - **`ViewerToolbar.vue`**: Main toolbar containing all viewer controls.
+  - **`ViewCube.vue`**: Interactive 3D orientation cube.
+  - **`SlicerModal.vue`**: Interface for sending models to 3D slicing software.
+  - **`HelpPanel.vue`**: In-app documentation and keyboard shortcuts.
+  - **`MinimalTopBar.vue`**: Minimal interface for embedded/mobile views.
+  - **`SlideOutToolPanel.vue`**: Collapsible panel for advanced tools.
+  - **`ToastContainer.vue`**: System for displaying notifications.
+
+**File Management:**
+- **`FileBrowser.vue`**: Integrated file browser for navigating 3D models.
+  - **`FileBrowser/FolderHierarchy.vue`**: Recursive folder structure component.
+- **`FileNavigation.vue`**: Navigation component for file lists.
+- **`ViewerModal.vue`**: Modal wrapper for displaying the viewer in overlay mode.
 
 #### State and Composables
 
@@ -1364,6 +1375,37 @@ Supported extension logic, MIME type mapping, and OBJ→MTL sibling resolution a
 2. Update MIME registration in `RegisterThreeDMimeTypes`
 3. Add frontend loader in `src/loaders/types/`
 4. Register loader in `src/loaders/registry.js`
+
+### Personal Settings Implementation
+
+The application provides a comprehensive user-specific configuration system that allows users to customize their viewing experience.
+
+**Backend Storage:**
+- Settings are stored in the `oc_preferences` table using Nextcloud's `IConfig` service.
+- The `SettingsController` handles `GET`, `PUT`, and `DELETE` requests to `/settings`.
+- Settings are stored as a JSON blob under the `user_preferences` key to support complex nested structures.
+
+**Frontend Integration:**
+- `PersonalSettings.vue` provides the UI for modifying settings.
+- Configuration defaults are defined in `src/config/viewer-config.js`.
+- The frontend merges user preferences with default settings at runtime.
+- Settings are applied reactively to the `ThreeViewer` component using composables (e.g., `useCamera`, `useTheme`).
+
+### File Browser Implementation
+
+The integrated File Browser allows users to navigate and manage 3D models directly within the viewer application, providing a specialized interface optimized for 3D content.
+
+**Architecture:**
+- **Frontend**: `FileBrowser.vue` serves as the main container, managing state for current path, filter mode (folder, type, date), and selection.
+- **Backend**: `FileController` provides specialized endpoints:
+  - `GET /api/files/list`: Returns files and folders for a specific path or filter.
+  - `GET /api/files/find`: Searches for files based on criteria.
+- **Navigation**: Implements a breadcrumb-based navigation system similar to Nextcloud Files.
+- **Filtering**:
+  - **Folders**: Hierarchical navigation.
+  - **Types**: Groups files by extension (e.g., all .obj files).
+  - **Dates**: Groups files by year and month.
+- **Performance**: Uses lazy loading to fetch folder contents only when requested, ensuring scalability with large file sets.
 
 ---
 

@@ -74,10 +74,9 @@
 		<div v-if="showModelStats && modelStats" class="model-stats-overlay" :class="{ 'mobile': isMobile }">
 			<div class="stats-panel-header">
 				<div class="stats-title-group">
-					<img v-if="formatIcon"
-						:src="formatIcon"
-						class="format-icon"
-						alt="Format icon">
+					<span v-if="modelStats.format" class="format-icon-text">
+						{{ modelStats.format.toUpperCase() }}
+					</span>
 					<h3>{{ t('threedviewer', 'Model Statistics') }}</h3>
 				</div>
 				<button class="close-stats-btn" @click="toggleModelStats">
@@ -408,7 +407,6 @@ import { useFaceLabels } from '../composables/useFaceLabels.js'
 import { useController } from '../composables/useController.js'
 import { useScreenshot } from '../composables/useScreenshot.js'
 import { logger } from '../utils/logger.js'
-import { getIconForFilename } from '../utils/iconHelpers.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
 import { initCache, clearExpired, clearAll, getCacheStats } from '../utils/dependencyCache.js'
 
@@ -495,12 +493,6 @@ export default {
 		const currentUnitModel = computed({
 			get: () => measurement.currentUnit.value,
 			set: (value) => { measurement.currentUnit.value = value },
-		})
-
-		// Format icon for current model
-		const formatIcon = computed(() => {
-			const filename = modelStatsComposable.modelStats.value?.filename || props.filename || ''
-			return getIconForFilename(filename)
 		})
 
 		// Methods
@@ -2558,7 +2550,6 @@ export default {
 			// Model stats
 			modelStats: modelStatsComposable.modelStats,
 			showModelStats: modelStatsComposable.showStats,
-			formatIcon,
 
 			// Progressive textures
 			loadingTextures: progressiveTexturesComposable.loadingTextures,
@@ -2824,12 +2815,18 @@ export default {
 	gap: 12px;
 }
 
-.stats-title-group .format-icon {
-	width: 24px;
-	height: 24px;
-	object-fit: contain;
-	filter: brightness(0) invert(1); /* Make icon white for dark bg */
-	opacity: 0.9;
+.stats-title-group .format-icon-text {
+	font-size: 12px;
+	font-weight: 700;
+	line-height: 1;
+	padding: 4px 8px;
+	background: rgba(255, 255, 255, 0.2);
+	border-radius: 4px;
+	letter-spacing: 0.5px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 40px;
 }
 
 .stats-panel-header h3 {

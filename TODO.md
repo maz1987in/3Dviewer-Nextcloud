@@ -1,99 +1,201 @@
 # TODO - 3D Viewer Next Steps
 
-**Last Updated**: January 2025  
-**Current Status**: All major features implemented ✅
+**Last Updated**: 2025-12-02  
+**Current Status**: Core feature set (settings, slicer, indexing, export, performance tooling) implemented. Focus shifts to consolidation, quality, and forward-looking migration.
 
 ---
 
 ## 🎯 High Priority
 
-### 1. Vue 3 Migration Planning ⏳
-
-**Priority**: HIGH | **Effort**: 2-3 weeks
-
-Plan migration from Vue 2.7 to Vue 3 to enable dependency updates.
+### 1. Standalone Advanced Viewer Wiring
+The advanced (App.vue-driven) standalone mode exists but is not fully mounted when visiting `/apps/threedviewer/{fileId}`.
 
 **Action Items**:
-- [ ] Create migration branch
-- [ ] Update Vue core and dependencies
-- [ ] Migrate all 15 composables
-- [ ] Update all 11 components
-- [ ] Test compatibility
-- [ ] Update build configuration
+- [ ] Add conditional mount in `src/main.js` for `#threedviewer` root
+- [ ] Pass `fileId` & `dir` via data attributes (already in template) and verify parse
+- [ ] Replace placeholder cubes with actual loader-driven model pipeline in simple & advanced modes
+- [ ] Add loading / error states harmonized between modes
+- [ ] Document dual-mode flow in README & TECHNICAL (viewer lifecycle diagram)
 
-**See**: [VUE3_MIGRATION_GUIDE.md](VUE3_MIGRATION_GUIDE.md)
+### 2. ModelFileSupport / MIME Sync
+`dae` present in MIME registration but missing in `ModelFileSupport` supported list.
+
+**Action Items**:
+- [ ] Add `dae` to supported extensions
+- [ ] Create single shared constant for formats (avoid divergence)
+- [ ] Add unit test asserting MIME ↔ validation parity
+- [ ] Update TECHNICAL with sync procedure
+
+### 3. Controller & Service Test Expansion
+New controllers (`SettingsController`, `SlicerController`) and services (`FileIndexService`) need dedicated tests.
+
+**Action Items**:
+- [ ] Unit tests: happy path + error cases
+- [ ] Slicer temp lifecycle test (create → download → cleanup)
+- [ ] Settings round-trip persistence test
+- [ ] File index listener event tests (simulate create/update/delete)
+- [ ] Coverage thresholds updated in CI report
+
+### 4. Composables Documentation & Cleanup
+Refactored composables lack a consolidated API reference.
+
+**Action Items**:
+- [ ] Create `docs/COMPOSABLES_API.md`
+- [ ] Remove residual debug logging (search `console.` in `src/composables/`)
+- [ ] Add usage examples (Options API vs Composition API)
+- [ ] Mark migration considerations for Vue 3
+
+### 5. Cache Management & User Controls
+IndexedDB dependency cache exists without UI controls.
+
+**Action Items**:
+- [ ] Add Settings panel section: show size, clear cache button
+- [ ] Implement LRU enforcement (configurable max size / item count)
+- [ ] Add metric to performance overlay (cache hits/misses)
+- [ ] Document privacy considerations (local only)
+
+### 6. Security Review: Slicer Temporary Files
+Assess lifetime & access scope of temporary share links.
+
+**Action Items**:
+- [ ] Confirm 24h expiry enforced server-side
+- [ ] Validate path sanitization & extension restrictions
+- [ ] Add size limit & mime validation prior to temp copy
+- [ ] Log creation/deletion events (audit trail)
+- [ ] Document security posture in TECHNICAL.md
+
+### 7. Performance Scaling for Large Models
+Implement optional LOD / simplification strategies for very large meshes.
+
+**Action Items**:
+- [ ] Detect triangle count threshold post-load
+- [ ] Offer “Performance Mode” suggestion toast
+- [ ] Integrate mesh decimation (optional dependency or worker)
+- [ ] Benchmark before/after FPS & memory
+
+### 8. Vue 3 Migration Pre-Work (Defer Full Migration)
+Lay groundwork to reduce friction later while staying on Vue 2 for now.
+
+**Action Items**:
+- [ ] Eliminate patterns incompatible with Vue 3 (implicit `$listeners`, deprecated lifecycle usage)
+- [ ] Ensure all components use explicit emits declarations
+- [ ] Add migration notes section to COMPOSABLES_API.md
+- [ ] Audit dependencies for Vue 3 compatibility matrix
+
+### 9. Automated Bundle Budget Enforcement
+Budgets exist informally; enforce via build script.
+
+**Action Items**:
+- [ ] Add size check script (compare gzip sizes to thresholds)
+- [ ] Fail CI if budget exceeded
+- [ ] Record historical size trend (JSON artifact)
+
+### 10. Simple Viewer Parity Enhancements
+Bring minimal modal viewer closer (select subset) to advanced features without weight bloat.
+
+**Action Items**:
+- [ ] Add lightweight stats panel & screenshot button
+- [ ] Share core loader code (avoid duplication)
+- [ ] Provide quick jump to standalone view (CTA button)
+- [ ] Measure added bundle impact
 
 ---
 
 ## 🔧 Medium Priority
 
-### 2. Comprehensive Multi-File Testing ⏳
-
-**Priority**: MEDIUM | **Effort**: 2-3h
-
-Need real-world test files to validate implementation.
+### 11. Multi-File & Dependency Edge Case Test Suite
+Core multi-file logic shipped; expand edge coverage.
 
 **Action Items**:
-- [ ] Create test fixtures (OBJ+MTL+textures, GLTF+bins)
-- [ ] Test edge cases (missing files, case sensitivity)
-- [ ] Add Playwright tests
-- [ ] Document test results
+- [ ] Fixtures: mixed-case extensions, missing MTL, orphaned textures
+- [ ] Test fallback logic for flexible texture name matching
+- [ ] Playwright scenario: cancel mid-load, then retry
+- [ ] Document matrix of tested combinations in TESTING.md
 
-**Test Directory**: `tests/fixtures/multi-file/`
-
-### 3. Cache Management UI
-
-**Priority**: MEDIUM | **Effort**: 1-2h
-
-Add user interface for cache management.
+### 12. Export Functionality Robustness
+Current exports (GLB/STL/OBJ) need validation & error boundaries.
 
 **Action Items**:
-- [ ] Add cache size limits and LRU eviction
-- [ ] Add cache clearing UI
-- [ ] Test cache persistence
-- [ ] Add cache statistics display
+- [ ] Add size / vertex count warnings for STL
+- [ ] Handle multi-material OBJ edge cases
+- [ ] Unit tests for exporter selection & blob creation
+- [ ] Verify mime types & download names
+
+### 13. Help Panel & In-App Docs Refresh
+Align text with new settings & slicer actions.
+
+**Action Items**:
+- [ ] Add section for sending to slicer
+- [ ] Add section for cache management once implemented
+- [ ] Link to COMPOSABLES_API.md in developer help
+
+### 14. Internationalization Audit
+Ensure new strings (settings, slicer, indexing) are translatable.
+
+**Action Items**:
+- [ ] Run extraction tool & diff
+- [ ] Add missing keys (`l10n/en.json` baseline)
+- [ ] Mark newly added strings in PR
+
+### 15. Accessibility Review
+Check ARIA roles / keyboard navigation for new components.
+
+**Action Items**:
+- [ ] Stats panel & slicer modal focus order
+- [ ] High-contrast mode test
+- [ ] Add skip-to-viewer shortcut
 
 ---
 
 ## 💡 Future Ideas (Low Priority)
 
-### New Features
-1. **Screenshot/Thumbnail Generation** - Capture current view as image
-2. **Enhanced Annotation System** - Add notes/labels to model points
-3. **Advanced Comparison Mode** - Side-by-side view with diff highlighting
-4. **Animation Timeline** - Better controls for animated models
-5. **Model Transformation Tools** - Scale, rotate, translate
-6. **Measurement Enhancements** - Area calculation, volume estimation
-7. **Cross-section View** - Cut plane visualization
-8. **Exploded View** - Separate parts visualization
-9. **VR/AR Preview** - WebXR integration
+### Feature Concepts
+1. Cross-section plane tool (clipping)  
+2. Exploded view (group separation animation)  
+3. Basic transform gizmos (translate / rotate / scale)  
+4. Volume & surface area measurement  
+5. WebXR preview (VR mode)  
+6. ZIP packaging of multi-file models (+ dependencies)  
+7. Texture optimization pipeline (resample / compress)  
+8. Annotation export / import JSON schema  
+9. View state bookmarking (camera + toggles)  
+10. Scene comparison diff overlay (bounding box / vertex count changes)
 
-### Performance & Optimization
-10. **Custom Color Schemes** - Beyond light/dark themes
-11. **Lazy Loading for Large Texture Sets** - On-demand texture loading
-12. **Multi-file Export/Download as ZIP** - Bundle all related files
-13. **Batch Texture Optimization** - Optimize textures on upload
+### Optimization / UX
+11. Custom user color themes beyond system (schema & palette editor)  
+12. Adaptive texture streaming (prioritize visible materials)  
+13. Parallel decoder loading / worker pool tuning  
+14. Automatic memory pressure detection & quality step-down  
+15. Background indexing status indicator / progress API
 
 ---
 
-## ✅ Recently Completed
+## ✅ Recently Completed (Already in CHANGELOG)
 
-- [x] **3D Camera Controller** (Oct 28, 2025) - Circular controller interface for intuitive navigation
-- [x] **Face Labels** (Oct 28, 2025) - Orientation markers on model faces
-- [x] **Export Functionality** (Oct 28, 2025) - GLB, STL, OBJ export capabilities
-- [x] **Camera Projection Toggle** (Oct 28, 2025) - Perspective ↔ Orthographic views
-- [x] **Progressive Texture Loading** (Oct 28, 2025) - Background texture loading
-- [x] **Dependency Caching System** (Oct 28, 2025) - IndexedDB caching for performance
-- [x] **Model Statistics Panel** (Oct 28, 2025) - Detailed model information display
-- [x] **Help Panel** (Oct 28, 2025) - Comprehensive in-app documentation
-- [x] **Theme Customization with RTL Support** (Oct 28, 2025)
-- [x] **KTX2 Texture Compression Support** (Oct 28, 2025)
-- [x] **Performance Monitoring System with Overlay** (Oct 28, 2025)
-- [x] **Documentation Consolidation** (Oct 28, 2025) - Updated all documentation
-- [x] **Flexible Texture Matching** (Jan 2025) - Generic matching logic for FBX and OBJ textures with space/underscore normalization, prefix removal, singular/plural handling, and color/body mapping
-- [x] **MTL File Matching Improvements** (Jan 2025) - Flexible matching for OBJ MTL files to handle naming variations (e.g., "Wolf_done_obj.mtl" → "Wolf_obj.mtl")
-- [x] **FBX 6.1 Compatibility Attempt** (Jan 2025) - Version patching for FBX 6.1 files (6100 → 7000/6400) with clear error messages for structural incompatibilities
-- [x] **Model Positioning Fixes** (Jan 2025) - Ensured all models (OBJ, FBX, DAE, X3D, VRML, demo scene) sit correctly on grid with bottom at y=0 using proper `updateMatrixWorld(true)` calls
+### November–December 2025
+- [x] Personal Settings system (controller + persistence + UI)
+- [x] Slicer integration (temp files + protocol handler logic)
+- [x] DB-backed file indexing (folder/type/date/favorites navigation)
+- [x] Temp file cleanup cron job
+- [x] Folder exclusion via `.no3d` marker & hidden folder skip logic
+- [x] Preview provider registration & error fixes
+- [x] File logo asset path & toolbar refinements
+- [x] Documentation overhaul (technical, implementation, troubleshooting, testing)
+
+### October 2025 Core Feature Wave
+- [x] 3D Camera Controller & face labels
+- [x] Export functionality (GLB/STL/OBJ)
+- [x] Camera projection toggle
+- [x] Progressive texture loading
+- [x] Dependency caching system (IndexedDB)
+- [x] Model statistics panel & help panel
+- [x] Theme customization (light/dark/RTL) & performance overlay
+- [x] KTX2 texture support & flexible texture matching
+
+### Early 2025
+- [x] MTL file matching improvements
+- [x] FBX 6.1 compatibility attempt
+- [x] Model positioning fixes across formats
 
 ---
 
@@ -108,12 +210,10 @@ For detailed information, see:
 
 ---
 
-## 🎯 Recommended Next Action
+## 🎯 Recommended Immediate Next Action
 
-**Start with #1: Comprehensive Multi-File Testing** to ensure robustness of the current implementation.
-
-After testing is solid, move to **#2: Dependency Caching Enhancement** for better performance.
+Begin with **High Priority #1 (Standalone Advanced Viewer Wiring)** to unlock full dual-mode experience, then proceed to **#2 (ModelFileSupport/MIME Sync)** to eliminate format divergence and test gaps.
 
 ---
 
-*Keep this file focused on actionable items. Move completed items to CHANGELOG.md.*
+*Keep this file focused on actionable items. Completed items should be mirrored in CHANGELOG.md (already done for listed features).*

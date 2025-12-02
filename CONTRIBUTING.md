@@ -30,15 +30,15 @@ This project adheres to the [Nextcloud Code of Conduct](https://nextcloud.com/co
 ### Fork and Clone
 
 1. **Fork** the repository on GitHub
-2. **Clone** your fork:
+2. **Clone** your fork (replace `<your-github-username>`):
    ```bash
-   git clone https://github.com/your-username/3Dviewer-Nextcloud.git
+   git clone https://github.com/<your-github-username>/3Dviewer-Nextcloud.git
    cd 3Dviewer-Nextcloud
    ```
 
-3. **Add upstream** remote:
+3. **Add upstream** remote (canonical repository):
    ```bash
-   git remote add upstream https://github.com/original-owner/3Dviewer-Nextcloud.git
+   git remote add upstream https://github.com/maz1987in/3Dviewer-Nextcloud.git
    ```
 
 ## Development Setup

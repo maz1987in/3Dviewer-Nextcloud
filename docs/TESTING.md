@@ -39,7 +39,7 @@ composer test:coverage
 ```
 
 **Test Coverage:**
-- Controllers: `FileController`, `ApiController`, `PublicFileController`
+- Controllers: `FileController`, `ApiController`, `PublicFileController`, `SettingsController`, `SlicerController`
 - Services: `FileService`, `ShareFileService`, `ModelFileSupport`
 - Response builders and validators
 
@@ -61,7 +61,7 @@ npm run test:coverage
 > **Note**: Jest configuration is defined in `package.json` under the `"jest"` key, using `@vue/vue2-jest` for Vue component testing.
 
 **Test Coverage:**
-- Components: Vue components and utilities
+- Components: Vue components (`ThreeViewer`, `PersonalSettings`, `SlicerModal`) and utilities
 - Composables: `useScene`, `useCamera`, `useModelLoading`, etc.
 - Loaders: Format-specific loader modules
 - Utilities: Helper functions and validators
