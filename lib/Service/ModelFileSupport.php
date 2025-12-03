@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OCA\ThreeDViewer\Service;
 
+use OCA\ThreeDViewer\Constants\SupportedFormats;
 use OCA\ThreeDViewer\Service\Exception\UnsupportedFileTypeException;
 use OCP\Files\File;
 use OCP\Files\Folder;
@@ -15,55 +16,27 @@ use OCP\Files\NotFoundException;
  *  - Content type mapping
  *  - Sibling MTL resolution
  *
- * SYNC NOTE: The 3D model format list is defined in src/config/viewer-config.js (SUPPORTED_FORMATS)
- *            as the single source of truth. This PHP list includes:
- *            - Model formats from SUPPORTED_FORMATS (glb, gltf, obj, stl, ply, fbx, 3mf, 3ds, dae, x3d, vrml, wrl)
- *            - Dependency files: mtl (materials), bin (GLTF buffers)
- *            - Texture formats: png, jpg, jpeg, tga, bmp, webp
- *
- * NOTE: This list MUST stay synchronized with:
- *       - RegisterThreeDMimeTypes::EXT_MIME_MAP
- *       - src/config/viewer-config.js::SUPPORTED_FORMATS
+ * SYNC NOTE: Format definitions now centralized in lib/Constants/SupportedFormats.php
+ *            which MUST stay synchronized with:
+ *            - src/config/viewer-config.js::SUPPORTED_FORMATS (frontend)
+ *            - appinfo/mimetypemapping.json (Nextcloud file mapping)
  */
 class ModelFileSupport
 {
-    /** @var list<string> */
-    private array $supported = ['glb', 'gltf', 'obj', 'stl', 'ply', 'dae', 'mtl', 'fbx', '3mf', '3ds', 'x3d', 'vrml', 'wrl', 'bin', 'png', 'jpg', 'jpeg', 'tga', 'bmp', 'webp'];
-
     /** @return list<string> */
     public function getSupportedExtensions(): array
     {
-        return $this->supported;
+        return SupportedFormats::getAllSupportedExtensions();
     }
 
     public function isSupported(string $ext): bool
     {
-        return in_array(strtolower($ext), $this->supported, true);
+        return SupportedFormats::isSupported($ext);
     }
 
     public function mapContentType(string $ext): string
     {
-        return match (strtolower($ext)) {
-            'glb' => 'model/gltf-binary',
-            'gltf' => 'model/gltf+json',
-            'obj' => 'model/obj',
-            'stl' => 'model/stl',
-            'ply' => 'model/ply',
-            'dae' => 'model/vnd.collada+xml', // COLLADA format
-            'mtl' => 'text/plain',
-            'fbx' => 'application/octet-stream', // No well-standardized registered model MIME; using generic
-            '3mf' => 'model/3mf',
-            '3ds' => 'application/octet-stream', // Legacy 3D Studio format
-            'x3d' => 'model/x3d+xml',
-            'vrml', 'wrl' => 'model/vrml', // VRML format (both extensions)
-            'bin' => 'application/octet-stream', // Binary data for GLTF buffers
-            'png' => 'image/png',
-            'jpg', 'jpeg' => 'image/jpeg',
-            'tga' => 'image/x-tga',
-            'bmp' => 'image/bmp',
-            'webp' => 'image/webp',
-            default => 'application/octet-stream',
-        };
+        return SupportedFormats::getContentType($ext);
     }
 
     /**

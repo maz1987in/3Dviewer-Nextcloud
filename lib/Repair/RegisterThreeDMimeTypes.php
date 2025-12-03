@@ -7,6 +7,7 @@ namespace OCA\ThreeDViewer\Repair;
 require \OC::$SERVERROOT . '/3rdparty/autoload.php';
 
 use OC\Core\Command\Maintenance\Mimetype\UpdateJS;
+use OCA\ThreeDViewer\Constants\SupportedFormats;
 use OCP\Files\IMimeTypeLoader;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
@@ -33,40 +34,6 @@ class RegisterThreeDMimeTypes implements IRepairStep
 {
     private const CUSTOM_MIMETYPEMAPPING = 'mimetypemapping.json';
     private const CUSTOM_MIMETYPEALIASES = 'mimetypealiases.json';
-
-    /**
-     * Extension to MIME type mappings for 3D model formats.
-     *
-     * SYNC NOTE: The complete list of supported formats is defined in
-     *            src/config/viewer-config.js (SUPPORTED_FORMATS) as the single source of truth.
-     *            This PHP constant registers MIME types for Nextcloud's file system.
-     *
-     * MUST stay synchronized with:
-     *  - src/config/viewer-config.js::SUPPORTED_FORMATS
-     *  - lib/Service/ModelFileSupport.php::$supported
-     *
-     * @see https://www.iana.org/assignments/media-types/media-types.xhtml
-     */
-    private const EXT_MIME_MAP = [
-        // Critical formats - must be registered for viewer to work
-        'glb' => ['model/gltf-binary'],
-        'gltf' => ['model/gltf+json'],
-        'obj' => ['model/obj'],
-        'stl' => ['model/stl'],
-        'ply' => ['model/ply'],
-
-        // Additional supported formats
-        'dae' => ['model/vnd.collada+xml'],
-        '3mf' => ['model/3mf'],
-        'fbx' => ['model/x.fbx'],
-        '3ds' => ['application/x-3ds'],
-        'x3d' => ['model/x3d+xml'],
-        'vrml' => ['model/vrml'],
-        'wrl' => ['model/vrml'], // VRML alternative extension
-
-        // Material/texture files
-        'mtl' => ['text/plain'],
-    ];
 
     /** @var IMimeTypeLoader */
     private $mimeTypeLoader;
@@ -104,7 +71,7 @@ class RegisterThreeDMimeTypes implements IRepairStep
      */
     private function registerInFileCache(IOutput $output): void
     {
-        foreach (self::EXT_MIME_MAP as $ext => $mimes) {
+        foreach (SupportedFormats::EXT_MIME_MAP as $ext => $mimes) {
             $mimes = is_array($mimes) ? $mimes : [$mimes];
 
             foreach ($mimes as $mime) {
@@ -133,11 +100,11 @@ class RegisterThreeDMimeTypes implements IRepairStep
         $mimetypealiasesFile = $configDir . self::CUSTOM_MIMETYPEALIASES;
 
         // Update mimetypemapping.json (extension => [mime types])
-        $this->appendToFileMapping($mimetypemappingFile, self::EXT_MIME_MAP);
+        $this->appendToFileMapping($mimetypemappingFile, SupportedFormats::EXT_MIME_MAP);
         $output->info("  ✓ Updated: $mimetypemappingFile");
 
         // Update mimetypealiases.json (mime type => extension for icons)
-        $this->appendToFileAliases($mimetypealiasesFile, self::EXT_MIME_MAP);
+        $this->appendToFileAliases($mimetypealiasesFile, SupportedFormats::EXT_MIME_MAP);
         $output->info("  ✓ Updated: $mimetypealiasesFile");
 
         // Regenerate JavaScript MIME type mappings

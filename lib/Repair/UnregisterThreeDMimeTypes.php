@@ -7,6 +7,7 @@ namespace OCA\ThreeDViewer\Repair;
 require \OC::$SERVERROOT . '/3rdparty/autoload.php';
 
 use OC\Core\Command\Maintenance\Mimetype\UpdateJS;
+use OCA\ThreeDViewer\Constants\SupportedFormats;
 use OCP\Files\IMimeTypeLoader;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
@@ -31,23 +32,6 @@ class UnregisterThreeDMimeTypes implements IRepairStep
 {
     private const CUSTOM_MIMETYPEMAPPING = 'mimetypemapping.json';
     private const CUSTOM_MIMETYPEALIASES = 'mimetypealiases.json';
-
-    /**
-     * Extension to MIME type mappings for 3D model formats
-     * Must match RegisterThreeDMimeTypes::EXT_MIME_MAP.
-     */
-    private const EXT_MIME_MAP = [
-        'glb' => ['model/gltf-binary'],
-        'gltf' => ['model/gltf+json'],
-        'obj' => ['model/obj'],
-        'stl' => ['model/stl'],
-        'ply' => ['model/ply'],
-        'dae' => ['model/vnd.collada+xml'],
-        '3mf' => ['model/3mf'],
-        'fbx' => ['model/x.fbx'],
-        '3ds' => ['application/x-3ds'],
-        'mtl' => ['text/plain'],
-    ];
 
     private IMimeTypeLoader $mimeTypeLoader;
     private UpdateJS $updateJS;
@@ -88,7 +72,7 @@ class UnregisterThreeDMimeTypes implements IRepairStep
         // Force back to downloadable type in cache
         $defaultMimeTypeId = $this->mimeTypeLoader->getId('application/octet-stream');
 
-        foreach (array_keys(self::EXT_MIME_MAP) as $ext) {
+        foreach (array_keys(SupportedFormats::EXT_MIME_MAP) as $ext) {
             $this->mimeTypeLoader->updateFilecache($ext, $defaultMimeTypeId);
             $output->info("  ✓ Reset: .{$ext} => application/octet-stream");
         }
@@ -104,13 +88,13 @@ class UnregisterThreeDMimeTypes implements IRepairStep
         $mimetypealiasesFile = $configDir . self::CUSTOM_MIMETYPEALIASES;
 
         // Remove from mimetypemapping.json
-        $this->removeFromFileMapping($mimetypemappingFile, self::EXT_MIME_MAP);
+        $this->removeFromFileMapping($mimetypemappingFile, SupportedFormats::EXT_MIME_MAP);
         if (file_exists($mimetypemappingFile)) {
             $output->info("  ✓ Updated: {$mimetypemappingFile}");
         }
 
         // Remove from mimetypealiases.json
-        $this->removeFromFileAliases($mimetypealiasesFile, self::EXT_MIME_MAP);
+        $this->removeFromFileAliases($mimetypealiasesFile, SupportedFormats::EXT_MIME_MAP);
         if (file_exists($mimetypealiasesFile)) {
             $output->info("  ✓ Updated: {$mimetypealiasesFile}");
         }

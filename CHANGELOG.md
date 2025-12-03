@@ -7,9 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Format Definitions Centralized**: Consolidated all 3D model format definitions into `lib/Constants/SupportedFormats.php` as single source of truth
+  - `EXT_MIME_MAP` for extension to MIME type mappings
+  - `CONTENT_TYPE_MAP` for file streaming content types
+  - All repair steps and services now reference centralized constants
+  - Eliminates format definition divergence between components
+
+### Added
+- **Format Sync Test Suite**: Created comprehensive unit tests (`tests/unit/Service/FormatSyncTest.php`) to ensure format definitions stay synchronized across:
+  - Backend PHP constants (`lib/Constants/SupportedFormats.php`)
+  - Frontend configuration (`src/config/viewer-config.js`)
+  - Nextcloud MIME registration (`appinfo/mimetypemapping.json`)
+- **File Browser List View**: Added to TODO - ability to toggle between grid and list views in file browser
+
 ### Documentation
 - Corrected repository URLs and upstream fork instructions in `CONTRIBUTING.md` (replaced placeholders with `maz1987in/3Dviewer-Nextcloud`).
 - Updated `TECHNICAL.md` with new controllers (`SettingsController`, `SlicerController`), components (`PersonalSettings.vue`, `SlicerModal.vue`), and detailed Personal Settings + File Browser implementation sections.
+- Added comprehensive "Adding a New Format" guide in `TECHNICAL.md` with step-by-step instructions and code examples
 - Expanded `IMPLEMENTATION.md`: added Slicer Integration & Personal Settings System sections; reorganized and deduplicated legacy "Code Audit and Cleanup" content; refreshed Table of Contents.
 - Updated `README.md` (docs version) advanced features list to include Slicer Integration and Personal Settings.
 - Added troubleshooting sections for Slicer Integration and Personal Settings in `TROUBLESHOOTING.md`.

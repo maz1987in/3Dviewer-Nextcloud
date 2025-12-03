@@ -17,14 +17,18 @@ The advanced (App.vue-driven) standalone mode exists but is not fully mounted wh
 - [ ] Add loading / error states harmonized between modes
 - [ ] Document dual-mode flow in README & TECHNICAL (viewer lifecycle diagram)
 
-### 2. ModelFileSupport / MIME Sync
-`dae` present in MIME registration but missing in `ModelFileSupport` supported list.
+### 2. ModelFileSupport / MIME Sync ✅ COMPLETED
+Format definitions now centralized in `lib/Constants/SupportedFormats.php`.
 
-**Action Items**:
-- [ ] Add `dae` to supported extensions
-- [ ] Create single shared constant for formats (avoid divergence)
-- [ ] Add unit test asserting MIME ↔ validation parity
-- [ ] Update TECHNICAL with sync procedure
+**Completed**:
+- [x] Created `lib/Constants/SupportedFormats.php` as single source of truth
+- [x] Updated `ModelFileSupport` to use centralized constants
+- [x] Updated `RegisterThreeDMimeTypes` to use centralized constants
+- [x] Updated `UnregisterThreeDMimeTypes` to use centralized constants
+- [x] Created unit test (`tests/unit/Constants/SupportedFormatsTest.php`) asserting MIME ↔ validation parity
+- [x] All formats synchronized (glb, gltf, obj, stl, ply, dae, fbx, 3mf, 3ds, x3d, vrml, wrl, mtl)
+
+**Note**: Frontend formats in `src/config/viewer-config.js::SUPPORTED_FORMATS` should still be manually verified for consistency.
 
 ### 3. Controller & Service Test Expansion
 New controllers (`SettingsController`, `SlicerController`) and services (`FileIndexService`) need dedicated tests.
@@ -45,7 +49,18 @@ Refactored composables lack a consolidated API reference.
 - [ ] Add usage examples (Options API vs Composition API)
 - [ ] Mark migration considerations for Vue 3
 
-### 5. Cache Management & User Controls
+### 5. File Browser List View
+File browser currently only supports grid view.
+
+**Action Items**:
+- [ ] Add list/grid toggle button to FileBrowser component
+- [ ] Implement list view layout with compact rows
+- [ ] Persist view preference in user settings
+- [ ] Ensure consistent styling between list and grid views
+- [ ] Add keyboard navigation for list view
+- [ ] Update FileBrowser documentation
+
+### 6. Cache Management & User Controls
 IndexedDB dependency cache exists without UI controls.
 
 **Action Items**:

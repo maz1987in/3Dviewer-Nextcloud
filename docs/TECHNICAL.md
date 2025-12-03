@@ -61,7 +61,11 @@ The 3D Viewer is a Nextcloud application that provides 3D model viewing capabili
 **Services:**
 - **`FileService`**: File operations and validation
 - **`ShareFileService`**: Public share file handling
-- **`ModelFileSupport`**: 3D format support and MIME types
+- **`ModelFileSupport`**: 3D format support wrapper (delegates to `SupportedFormats`)
+- **`FileIndexService`**: Database-backed file indexing for navigation
+
+**Constants:**
+- **`SupportedFormats`**: Centralized format definitions and MIME type mappings (single source of truth)
 
 **Models:**
 - **`Application`**: App configuration and metadata
@@ -996,17 +1000,82 @@ Object added to scene, camera auto-fitted
 
 ### Loader Registry
 
+**Format Definitions - Single Source of Truth:**
+
+All 3D model format definitions are centralized in `lib/Constants/SupportedFormats.php` to ensure consistency across the application:
+
+- **Backend PHP**: `lib/Constants/SupportedFormats.php`
+  - `EXT_MIME_MAP`: Extension to MIME type mappings for registration
+  - `CONTENT_TYPE_MAP`: Extension to content type for file streaming
+  - Used by `ModelFileSupport`, `RegisterThreeDMimeTypes`, `UnregisterThreeDMimeTypes`
+
+- **Frontend JavaScript**: `src/config/viewer-config.js`
+  - `SUPPORTED_FORMATS`: Format metadata with display names, features, icons
+  - Derives `MODEL_EXTENSIONS`, `MULTI_FILE_FORMATS`, `FORMATS_DISPLAY_LIST`
+
+- **Nextcloud Registration**: `appinfo/mimetypemapping.json`
+  - Maps extensions to MIME types for Nextcloud's file system
+
 **Supported Formats:**
-- **GLTF/GLB**: glb, gltf → `types/gltf.js`
-- **Wavefront**: obj → `types/obj.js`
-- **STL**: stl → `types/stl.js`
-- **PLY**: ply → `types/ply.js`
-- **COLLADA**: dae → `types/dae.js`
-- **FBX**: fbx → `types/fbx.js`
-- **3MF**: 3mf → `types/threeMF.js`
-- **3DS**: 3ds → `types/threeDS.js`
-- **X3D**: x3d → `types/x3d.js`
-- **VRML**: vrml, wrl → `types/vrml.js`
+- **GLTF/GLB**: glb, gltf → `types/gltf.js` (model/gltf-binary, model/gltf+json)
+- **Wavefront**: obj → `types/obj.js` (model/obj)
+- **STL**: stl → `types/stl.js` (model/stl)
+- **PLY**: ply → `types/ply.js` (model/ply)
+- **COLLADA**: dae → `types/dae.js` (model/vnd.collada+xml)
+- **FBX**: fbx → `types/fbx.js` (model/x.fbx)
+- **3MF**: 3mf → `types/threeMF.js` (model/3mf)
+- **3DS**: 3ds → `types/threeDS.js` (application/x-3ds)
+- **X3D**: x3d → `types/x3d.js` (model/x3d+xml)
+- **VRML**: vrml, wrl → `types/vrml.js` (model/vrml)
+
+**Adding a New Format:**
+
+1. Update `lib/Constants/SupportedFormats.php`:
+   ```php
+   public const EXT_MIME_MAP = [
+       'newext' => ['model/newext'],  // Add MIME mapping
+   ];
+   
+   public const CONTENT_TYPE_MAP = [
+       'newext' => 'model/newext',    // Add content type
+   ];
+   ```
+
+2. Update `appinfo/mimetypemapping.json`:
+   ```json
+   {
+     "mappings": {
+       "newext": "model/newext"
+     }
+   }
+   ```
+
+3. Update `src/config/viewer-config.js`:
+   ```javascript
+   export const SUPPORTED_FORMATS = {
+       newext: {
+           name: 'NEWEXT',
+           description: 'New Format Description',
+           mimeType: 'model/newext',
+           features: ['materials'],
+           multiFile: false,
+           displayOrder: 13,
+           icon: '/apps/threedviewer/img/filetypes/newext.svg',
+       },
+   }
+   ```
+
+4. Create loader in `src/loaders/types/newext.js`
+
+5. Run unit tests to verify synchronization:
+   ```bash
+   vendor/bin/phpunit tests/unit/Service/FormatSyncTest.php
+   ```
+
+6. Run repair step to register MIME types:
+   ```bash
+   php occ maintenance:repair
+   ```
 
 **Dynamic Import (code-splitting):**
 ```javascript
@@ -1358,23 +1427,66 @@ Large 3D assets (especially `fbx`, `3mf`, or high-poly `gltf`) can be slow to do
 
 ### Centralized Model File Support
 
-Supported extension logic, MIME type mapping, and OBJ→MTL sibling resolution are centralized in `ModelFileSupport`. Both authenticated and public share services (`FileService`, `ShareFileService`) delegate to this class to avoid duplication and ensure consistent behavior.
+Format definitions and MIME type mappings are centralized in **`lib/Constants/SupportedFormats.php`**, which serves as the single source of truth for all PHP backend format support. The `ModelFileSupport` service wraps this class and provides additional functionality like MTL sibling resolution.
 
-**Purpose:** Single source of truth for all 3D format support decisions.
+**Architecture:**
 
-**Key Methods:**
+```
+lib/Constants/SupportedFormats.php (PHP)
+    ↓ (used by)
+lib/Service/ModelFileSupport.php
+    ↓ (used by)
+lib/Repair/RegisterThreeDMimeTypes.php
+lib/Repair/UnregisterThreeDMimeTypes.php
+lib/Controller/*Controller.php
 
-- `getSupportedExtensions()` - Returns array of supported file extensions
-- `isSupportedExtension($extension)` - Validates if extension is supported
-- `mapContentType($extension)` - Maps extension to MIME type for HTTP headers
-- `resolveMtlFile($objNode, $mtlName)` - Finds MTL sibling for OBJ files
+src/config/viewer-config.js (JavaScript)
+    ↓ (used by)
+Frontend loaders and components
+```
+
+**SupportedFormats Class:**
+
+The `SupportedFormats` constant class provides:
+
+- `EXT_MIME_MAP` - Extension to MIME type mappings for registration
+- `CONTENT_TYPE_MAP` - Extension to content type for HTTP streaming
+- `getModelExtensions()` - List of 3D model formats only
+- `getAllSupportedExtensions()` - All supported extensions (models + textures + dependencies)
+- `isModelFormat($ext)` - Check if extension is a 3D model format
+- `isSupported($ext)` - Check if extension is supported (any type)
+- `getContentType($ext)` - Get content type for streaming
+- `getMimeTypes($ext)` - Get MIME types for registration
+
+**ModelFileSupport Service:**
+
+Delegates to `SupportedFormats` and provides additional functionality:
+
+- `getSupportedExtensions()` - Returns all supported extensions (delegates to `SupportedFormats`)
+- `isSupported($extension)` - Validates if extension is supported (delegates to `SupportedFormats`)
+- `mapContentType($extension)` - Maps extension to MIME type for HTTP headers (delegates to `SupportedFormats`)
+- `findSiblingMtl($objFile, $mtlName)` - Finds MTL sibling for OBJ files (custom logic)
 
 **When adding a new 3D format:**
 
-1. Update `getSupportedExtensions()` and `mapContentType()` in `ModelFileSupport`
-2. Update MIME registration in `RegisterThreeDMimeTypes`
-3. Add frontend loader in `src/loaders/types/`
-4. Register loader in `src/loaders/registry.js`
+1. Update `SupportedFormats::EXT_MIME_MAP` and `SupportedFormats::CONTENT_TYPE_MAP` in `lib/Constants/SupportedFormats.php`
+2. Run unit test: `vendor-bin/phpunit/vendor/bin/phpunit tests/unit/Constants/SupportedFormatsTest.php`
+3. Update frontend `SUPPORTED_FORMATS` in `src/config/viewer-config.js`
+4. Add frontend loader in `src/loaders/types/`
+5. Register loader in `src/loaders/registry.js`
+6. Update `appinfo/mimetypemapping.json` if needed
+7. Run MIME registration: `php occ maintenance:repair`
+
+**Format Synchronization:**
+
+The unit test `tests/unit/Constants/SupportedFormatsTest.php` validates:
+- All model extensions have MIME types
+- All supported extensions have content types
+- Critical formats (glb, gltf, obj, stl, etc.) are present
+- Dependency files (mtl, bin) and textures are supported
+- MIME type mappings are valid
+- Case-insensitive handling works correctly
+- EXT_MIME_MAP and CONTENT_TYPE_MAP are synchronized
 
 ### Personal Settings Implementation
 
