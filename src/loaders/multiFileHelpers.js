@@ -195,7 +195,7 @@ export async function getFileIdByPath(filePath) {
 					if (searchNormalized === candidateNormalized) {
 						logger.info('MultiFileHelpers', ' Matched texture (normalized spaces):', filename, '->', candidate.name)
 						file = candidate
-						break
+						break // Exit outer loop immediately
 					}
 
 					// Strategy 2: Remove common word prefixes and compare
@@ -234,14 +234,17 @@ export async function getFileIdByPath(filePath) {
 						[searchBaseNoPrefix, candidateBaseNoPrefix],
 					]
 
+					// Use a flag to track if we found a match in the inner loop
+					let foundMatch = false
 					for (const [searchStr, candidateStr] of combinations) {
 						const searchNormalizedPlural = normalizePlural(searchStr)
 						const candidateNormalizedPlural = normalizePlural(candidateStr)
 
 						if (searchNormalizedPlural === candidateNormalizedPlural) {
 							logger.info('MultiFileHelpers', ' Matched texture (normalized plural):', filename, '->', candidate.name)
-							file = candidate // Use the file object from outer loop, not the string
-							break
+							file = candidate
+							foundMatch = true
+							break // Exit inner loop
 						}
 
 						// Strategy 4: Partial matching with length check
@@ -251,13 +254,17 @@ export async function getFileIdByPath(filePath) {
 							const avgLength = (searchNormalizedPlural.length + candidateNormalizedPlural.length) / 2
 							if (avgLength > 0 && lengthDiff / avgLength < 0.3) {
 								logger.info('MultiFileHelpers', ' Matched texture (partial):', filename, '->', candidate.name)
-								file = candidate // Use the file object from outer loop, not the string
-								break
+								file = candidate
+								foundMatch = true
+								break // Exit inner loop
 							}
 						}
 					}
 
-					if (file) break
+					// If match found in inner loop, exit outer loop
+					if (foundMatch) {
+						break
+					}
 
 					// Strategy 5: Color/body mapping (col/color -> body/diffuse)
 					const colorTerms = ['col', 'color', 'colour', 'diffuse', 'base', 'albedo']
@@ -269,7 +276,7 @@ export async function getFileIdByPath(filePath) {
 					if (searchIsColor && candidateIsBody) {
 						logger.info('MultiFileHelpers', ' Matched texture (color=body):', filename, '->', candidate.name)
 						file = candidate
-						break
+						break // Exit outer loop
 					}
 				} else {
 					// For non-image files (like MTL), use simpler matching

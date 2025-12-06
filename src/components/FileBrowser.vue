@@ -344,9 +344,7 @@ export default {
 	},
 	watch: {
 		viewMode(newVal, oldVal) {
-			console.log('viewMode watcher triggered:', oldVal, '->', newVal)
-			console.log('filteredFiles.length:', this.filteredFiles.length)
-			console.log('Container class should be:', newVal === 'list' ? 'file-list' : 'file-grid')
+			// View mode changed - Vue will handle the re-render automatically
 		},
 		// Watch for changes in userSettings to update view mode if setting changes
 		'userSettings.fileBrowser.defaultView'(newVal) {
@@ -528,18 +526,12 @@ export default {
 			}
 		},
 		setViewMode(mode) {
-			console.log('setViewMode called with:', mode, 'current viewMode:', this.viewMode)
 			if (mode === 'grid' || mode === 'list') {
 				this.viewMode = mode
 				// Save to localStorage - this represents an explicit user choice
 				localStorage.setItem('threedviewer:fileBrowserView', mode)
 				// Reset focus when switching views
 				this.focusedIndex = -1
-				console.log('viewMode set to:', this.viewMode)
-				// Force Vue to update by triggering a re-render
-				this.$nextTick(() => {
-					console.log('After nextTick, viewMode:', this.viewMode)
-				})
 			}
 		},
 		handleKeydown(event) {

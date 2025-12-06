@@ -194,15 +194,16 @@ class VrmlLoader extends BaseLoader {
 	 * @return {string} Preprocessed VRML text
 	 */
 	preprocessVrmlText(text, minimal = false) {
-		// Remove BOM if present
+		// Apply minimal safe fixes first
+		// Remove BOM if present (always safe)
 		if (text.charCodeAt(0) === 0xFEFF) {
 			text = text.slice(1)
 		}
 
-		// Normalize line endings
+		// Normalize line endings (always safe)
 		text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
-
-		// Remove null bytes that might cause issues
+		
+		// Remove null bytes (always safe)
 		text = text.replace(/\0/g, '')
 
 		// Fix common encoding issues - replace common problematic characters
@@ -211,16 +212,6 @@ class VrmlLoader extends BaseLoader {
 		text = text.replace(/[\u201C\u201D]/g, '"') // Smart double quotes
 		text = text.replace(/\u2013/g, '-') // En dash
 		text = text.replace(/\u2014/g, '--') // Em dash
-
-		// Apply minimal safe fixes first
-		// Remove BOM and normalize line endings (always safe)
-		if (text.charCodeAt(0) === 0xFEFF) {
-			text = text.slice(1)
-		}
-		text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
-		
-		// Remove null bytes (always safe)
-		text = text.replace(/\0/g, '')
 
 		// If minimal mode, only apply the safest fixes
 		if (minimal) {

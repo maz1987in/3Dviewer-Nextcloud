@@ -524,12 +524,6 @@ export default {
 
 				// Load model using the registry
 				const { loadModelByExtension } = await import('../loaders/registry.js')
-
-				// Check for texture loading issues after model loads
-				// This allows time for texture loading attempts to complete
-				setTimeout(() => {
-					this.checkForTextureIssues()
-				}, 2000)
 				const modelResult = await loadModelByExtension(extension, arrayBuffer, context)
 
 				if (modelResult && modelResult.object3D) {
@@ -573,6 +567,12 @@ export default {
 						fileId: this.fileid,
 						dependencies: result.dependencies.length,
 					})
+
+					// Check for texture loading issues after model loads successfully
+					// This allows time for texture loading attempts to complete
+					setTimeout(() => {
+						this.checkForTextureIssues()
+					}, 2000)
 				} else {
 					throw new Error('No valid 3D object returned from loader')
 				}

@@ -42,6 +42,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Settings page image/logo path resolution: replaced hardcoded asset URL with `imagePath()` helper in `PersonalSettings.vue` to ensure correct loading under all deployment paths.
+- **VRML preprocessing duplication**: Removed duplicate preprocessing code in `preprocessVrmlText()` that was applying BOM removal, line ending normalization, and null byte removal twice, causing inconsistent preprocessing behavior.
+- **Flexible texture matching loop control**: Fixed nested loop control flow in texture matching logic (`multiFileHelpers.js`) by adding `foundMatch` flag to properly exit outer loop when match is found in inner loop, preventing valid texture matches from being skipped.
+- **Premature texture issue check**: Moved `checkForTextureIssues()` setTimeout call in `ViewerComponent.vue` to execute after model successfully loads and is added to scene, ensuring accurate texture loading status assessment.
+- **Debug logging cleanup**: Removed `console.log` statements from `FileBrowser.vue` component (viewMode watcher and setViewMode method) to improve production code quality.
 
 ## [2.0.0] - 2025-12-01
 
