@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2025-12-06
+
 ### Added
 - **File Browser Default View Setting**: Added user preference for default file browser view mode (Grid or List)
   - New setting in Personal Settings → File Browser → Default View
