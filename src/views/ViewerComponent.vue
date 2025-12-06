@@ -15,9 +15,30 @@
 			</p>
 		</div>
 
+		<!-- CSP Texture Warning Banner -->
+		<div v-if="hasLoaded && showTextureWarning" class="texture-warning-banner">
+			<div class="texture-warning-content">
+				<svg class="texture-warning-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+					<line x1="12" y1="9" x2="12" y2="13"></line>
+					<line x1="12" y1="17" x2="12.01" y2="17"></line>
+				</svg>
+				<div class="texture-warning-text">
+					<strong>{{ t('threedviewer', 'Textures not supported in preview') }}</strong>
+					<p>{{ t('threedviewer', 'Some textures may not load in this preview. For full texture support, open the model in the main 3D Viewer.') }}</p>
+				</div>
+				<NcButton
+					type="primary"
+					class="texture-warning-button"
+					@click.prevent="openInFullViewer">
+					{{ t('threedviewer', 'Open in 3D Viewer') }} ↗
+				</NcButton>
+			</div>
+		</div>
+
 		<!-- Open in full viewer button -->
 		<NcButton
-			v-if="hasLoaded"
+			v-if="hasLoaded && !showTextureWarning"
 			type="primary"
 			class="open-in-app-button"
 			@click.prevent="openInFullViewer">
@@ -91,7 +112,7 @@ export default {
 		}
 	},
 
-	data() {
+		data() {
 		return {
 			scene: null,
 			camera: null,
@@ -110,6 +131,8 @@ export default {
 			animationFrameId: null, // Track animation frame for cleanup
 			cleanupTimeoutId: null, // Track cleanup timeout for proper disposal
 			internalFilesList: [], // Store files list for Viewer API
+			showTextureWarning: false, // Show warning if textures fail due to CSP
+			cspErrorListener: null, // Listener for CSP errors
 		}
 	},
 
@@ -170,6 +193,9 @@ export default {
 			active: this.active,
 		})
 
+		// Set up CSP error listener to detect texture loading failures
+		this.setupCSPErrorListener()
+
 		// Check if we're already active on mount (initial file)
 		if (this.active) {
 			logger.info('ViewerComponent', 'Instance is active on mount, starting load', { filename: this.filename })
@@ -184,6 +210,12 @@ export default {
 	},
 
 	beforeDestroy() {
+		// Restore console error handler
+		if (this.cspErrorListener && this.cspErrorListener.restore) {
+			this.cspErrorListener.restore()
+			this.cspErrorListener = null
+		}
+
 		// Cancel animation loop
 		if (this.animationFrameId !== null) {
 			cancelAnimationFrame(this.animationFrameId)
@@ -492,6 +524,12 @@ export default {
 
 				// Load model using the registry
 				const { loadModelByExtension } = await import('../loaders/registry.js')
+
+				// Check for texture loading issues after model loads
+				// This allows time for texture loading attempts to complete
+				setTimeout(() => {
+					this.checkForTextureIssues()
+				}, 2000)
 				const modelResult = await loadModelByExtension(extension, arrayBuffer, context)
 
 				if (modelResult && modelResult.object3D) {
@@ -679,6 +717,21 @@ export default {
 					this.fitCameraToModel(result.object3D, THREE)
 
 					logger.info('ViewerComponent', 'Model loaded successfully')
+
+					// For GLB/GLTF files in modal viewer, show texture warning automatically
+					// These formats often have embedded textures that fail due to CSP
+					if (extension === 'glb' || extension === 'gltf') {
+						// Wait a bit for texture loading attempts, then show warning
+						setTimeout(() => {
+							this.showTextureWarning = true
+							logger.info('ViewerComponent', 'Showing texture warning for GLB/GLTF in modal viewer')
+						}, 2500)
+					} else {
+						// For other formats, check for texture issues
+						setTimeout(() => {
+							this.checkForTextureIssues()
+						}, 2000)
+					}
 				} else {
 					throw new Error('Loader did not return a valid object3D')
 				}
@@ -910,6 +963,104 @@ export default {
 			// Dispose the material itself
 			material.dispose()
 		},
+
+		/**
+		 * Set up listener to detect CSP errors for texture loading
+		 */
+		setupCSPErrorListener() {
+			// Track CSP errors
+			let cspErrorCount = 0
+			const maxErrors = 2 // Show warning after 2 CSP errors
+
+			// Listen for console errors (CSP violations appear in console)
+			const originalError = console.error
+			const originalWarn = console.warn
+
+			const cspErrorHandler = (message, ...args) => {
+				const messageStr = String(message || '')
+				const argsStr = args.map(arg => String(arg || '')).join(' ')
+				const fullMessage = messageStr + ' ' + argsStr
+				
+				// Check for CSP-related errors - be more lenient with matching
+				if (fullMessage.includes('Content Security Policy') ||
+				    fullMessage.includes('CSP') ||
+				    fullMessage.includes('violates') ||
+				    (fullMessage.includes('blob:') && (fullMessage.includes('violates') || fullMessage.includes('Refused'))) ||
+				    fullMessage.includes('THREE.GLTFLoader: Couldn\'t load texture blob:')) {
+					cspErrorCount++
+					logger.warn('ViewerComponent', 'CSP error detected for texture loading', { 
+						count: cspErrorCount,
+						message: messageStr.substring(0, 100)
+					})
+
+					// Show warning after detecting CSP errors
+					if (cspErrorCount >= maxErrors && !this.showTextureWarning) {
+						this.showTextureWarning = true
+						logger.info('ViewerComponent', 'Showing texture warning banner due to CSP errors', { count: cspErrorCount })
+					}
+				}
+
+				// Call original error handler
+				originalError.apply(console, [message, ...args])
+			}
+
+			// Override console.error temporarily
+			console.error = cspErrorHandler
+
+			// Store original for cleanup
+			this.cspErrorListener = {
+				restore: () => {
+					console.error = originalError
+					console.warn = originalWarn
+				},
+			}
+		},
+
+		/**
+		 * Check for texture loading issues after model loads
+		 * This detects missing textures that may have failed due to CSP
+		 */
+		checkForTextureIssues() {
+			if (!this.scene) return
+
+			let missingTextures = 0
+			let totalTextures = 0
+
+			this.scene.traverse((object) => {
+				if (object.material) {
+					const materials = Array.isArray(object.material) ? object.material : [object.material]
+
+					materials.forEach((material) => {
+						// Check common texture properties
+						const textureProps = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'emissiveMap', 'aoMap']
+						textureProps.forEach((prop) => {
+							if (material[prop]) {
+								totalTextures++
+								const texture = material[prop]
+								// Check if texture image failed to load
+								if (!texture.image || texture.image.width === 0 || texture.image.height === 0) {
+									missingTextures++
+								}
+							}
+						})
+					})
+				}
+			})
+
+			// If we have textures but many are missing, likely CSP issue
+			if (totalTextures > 0 && missingTextures > 0) {
+				const missingRatio = missingTextures / totalTextures
+				// Show warning if more than 50% of textures are missing
+				if (missingRatio > 0.5) {
+					this.showTextureWarning = true
+					logger.info('ViewerComponent', 'Texture warning shown due to missing textures', {
+						missing: missingTextures,
+						total: totalTextures,
+						ratio: missingRatio.toFixed(2),
+					})
+				}
+			}
+		},
 	},
 }
 </script>
@@ -962,5 +1113,70 @@ export default {
 .showing-progress .icon-loading,
 .showing-progress [class*="loading"] {
 	display: none !important;
+}
+
+/* Texture warning banner - lighter, less prominent */
+.texture-warning-banner {
+	position: absolute;
+	top: 10px;
+	left: 10px;
+	right: 10px;
+	z-index: 20;
+	background: rgba(255, 193, 7, 0.15); /* Light yellow/orange with transparency */
+	border: 1px solid rgba(255, 193, 7, 0.3);
+	border-radius: var(--border-radius-large, 8px);
+	padding: 10px 14px;
+	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+	max-width: 500px;
+	margin: 0 auto;
+	backdrop-filter: blur(4px);
+}
+
+.texture-warning-content {
+	display: flex;
+	align-items: flex-start;
+	gap: 10px;
+}
+
+.texture-warning-icon {
+	flex-shrink: 0;
+	margin-top: 2px;
+	color: var(--color-warning, #ffa500);
+	opacity: 0.8;
+}
+
+.texture-warning-text {
+	flex: 1;
+	color: var(--color-main-text, #222);
+}
+
+.texture-warning-text strong {
+	display: block;
+	margin-bottom: 3px;
+	font-size: 13px;
+	font-weight: 500;
+	color: var(--color-main-text, #222);
+}
+
+.texture-warning-text p {
+	margin: 0;
+	font-size: 12px;
+	line-height: 1.4;
+	opacity: 0.85;
+	color: var(--color-main-text, #666);
+}
+
+.texture-warning-button {
+	flex-shrink: 0;
+	margin-left: auto;
+	padding: 6px 12px !important;
+	font-size: 12px !important;
+	background: var(--color-primary-element, #0082c9) !important;
+	color: #fff !important;
+	border-color: var(--color-primary-element, #0082c9) !important;
+}
+
+.texture-warning-button:hover {
+	opacity: 0.85;
 }
 </style>

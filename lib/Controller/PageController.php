@@ -13,6 +13,7 @@ use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\Attribute\OpenAPI;
 use OCP\AppFramework\Http\TemplateResponse;
 use OCP\AppFramework\Services\IInitialState;
+use OCP\Files\IRootFolder;
 use OCP\IConfig;
 use OCP\IRequest;
 use OCP\IUserSession;
@@ -30,7 +31,8 @@ class PageController extends Controller
         ResponseBuilder $responseBuilder,
         private IInitialState $initialState,
         private IConfig $config,
-        private ?IUserSession $userSession
+        private ?IUserSession $userSession,
+        private IRootFolder $rootFolder
     ) {
         parent::__construct($appName, $request);
         $this->responseBuilder = $responseBuilder;
@@ -91,6 +93,36 @@ class PageController extends Controller
         // Get default sort preference
         $defaultSort = $this->config->getUserValue($userId ?? '', Application::APP_ID, 'file_sort', 'folders');
 
+        // Try to fetch file information to get filename and directory path
+        $filename = null;
+        $dir = null;
+        if ($user) {
+            try {
+                $userFolder = $this->rootFolder->getUserFolder($user->getUID());
+                $files = $userFolder->getById((int)$fileId);
+                if (!empty($files) && $files[0] instanceof \OCP\Files\File) {
+                    $file = $files[0];
+                    $filename = $file->getName();
+                    // Extract directory path from file path
+                    $filePath = $file->getPath();
+                    $userPath = $userFolder->getPath();
+                    // Remove user folder path prefix to get relative path
+                    if (strpos($filePath, $userPath) === 0) {
+                        $relativePath = substr($filePath, strlen($userPath));
+                        $dir = dirname($relativePath);
+                        // Normalize: remove leading slash and handle root
+                        $dir = ltrim($dir, '/');
+                        if ($dir === '.' || $dir === '') {
+                            $dir = null;
+                        }
+                    }
+                }
+            } catch (\Throwable $e) {
+                // If file lookup fails, continue without filename - App.vue will handle gracefully
+                // This allows the route to work even if file is deleted or inaccessible
+            }
+        }
+
         // Provide initial state
         $initialState = [
             'defaultSort' => $defaultSort,
@@ -105,6 +137,8 @@ class PageController extends Controller
             'index',
             [
                 'fileId' => $fileId,
+                'filename' => $filename,
+                'dir' => $dir,
             ]
         );
 

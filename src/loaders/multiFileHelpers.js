@@ -783,7 +783,39 @@ export async function loadModelWithDependencies(fileId, filename, extension, dir
 	const response = await fetch(`/apps/threedviewer/api/file/${fileId}`)
 
 	if (!response.ok) {
-		throw new Error(`Failed to fetch model: ${response.status} ${response.statusText}`)
+		// Try to extract error message from response
+		let errorMessage = `Failed to fetch model: ${response.status} ${response.statusText}`
+		try {
+			const errorData = await response.json()
+			if (errorData?.error || errorData?.message) {
+				errorMessage = errorData.error || errorData.message
+			}
+		} catch (e) {
+			// Response is not JSON, use status text
+		}
+
+		logger.error('MultiFileHelpers', 'Failed to fetch main model file', {
+			fileId,
+			filename,
+			status: response.status,
+			statusText: response.statusText,
+			errorMessage,
+		})
+
+		// Provide more helpful error messages based on status code
+		if (response.status === 404) {
+			throw new Error(
+				`File not found (ID: ${fileId}, name: ${filename}). ` +
+				`The file may have been deleted, moved, or you may not have access to it.`
+			)
+		} else if (response.status === 403) {
+			throw new Error(
+				`Access denied to file (ID: ${fileId}, name: ${filename}). ` +
+				`You may not have permission to access this file.`
+			)
+		} else {
+			throw new Error(errorMessage)
+		}
 	}
 
 	const arrayBuffer = await response.arrayBuffer()

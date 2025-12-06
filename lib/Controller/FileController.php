@@ -48,7 +48,78 @@ class FileController extends BaseController
     #[FrontpageRoute(verb: 'GET', url: '/api/test')]
     public function test(): JSONResponse
     {
-        return new JSONResponse(['status' => 'ok', 'message' => 'FileController is working']);
+        $user = $this->userSession->getUser();
+        return new JSONResponse([
+            'status' => 'ok',
+            'message' => 'FileController is working',
+            'timestamp' => time(),
+            'user' => $user ? $user->getUID() : 'anonymous',
+            'routes' => [
+                'test' => '/apps/threedviewer/api/test',
+                'file' => '/apps/threedviewer/api/file/{fileId}',
+                'files_list' => '/apps/threedviewer/api/files/list',
+                'files_find' => '/apps/threedviewer/api/files/find',
+            ],
+        ]);
+    }
+
+    /**
+     * Diagnostic endpoint to test file access by ID.
+     * Useful for debugging 404 errors.
+     */
+    #[NoAdminRequired]
+    #[NoCSRFRequired]
+    #[FrontpageRoute(verb: 'GET', url: '/api/file/{fileId}/diagnostic')]
+    public function diagnosticFile(int $fileId): JSONResponse
+    {
+        try {
+            $user = $this->userSession->getUser();
+            if ($user === null) {
+                return new JSONResponse([
+                    'status' => 'error',
+                    'error' => 'User not authenticated',
+                    'fileId' => $fileId,
+                ], Http::STATUS_UNAUTHORIZED);
+            }
+
+            $userFolder = $this->rootFolder->getUserFolder($user->getUID());
+            $files = $userFolder->getById($fileId);
+
+            if (empty($files)) {
+                return new JSONResponse([
+                    'status' => 'error',
+                    'error' => 'File not found',
+                    'fileId' => $fileId,
+                    'userId' => $user->getUID(),
+                    'userFolderPath' => $userFolder->getPath(),
+                    'suggestion' => 'The file may have been deleted or you may not have access to it.',
+                ], Http::STATUS_NOT_FOUND);
+            }
+
+            $file = $files[0];
+            $isFile = $file instanceof \OCP\Files\File;
+
+            return new JSONResponse([
+                'status' => 'ok',
+                'fileId' => $fileId,
+                'found' => true,
+                'isFile' => $isFile,
+                'fileName' => $isFile ? $file->getName() : 'N/A',
+                'filePath' => $file->getPath(),
+                'fileSize' => $isFile ? $file->getSize() : 0,
+                'extension' => $isFile ? strtolower($file->getExtension()) : 'N/A',
+                'mimeType' => $isFile ? $file->getMimeType() : 'N/A',
+                'readable' => $isFile ? $file->isReadable() : false,
+                'userId' => $user->getUID(),
+            ]);
+        } catch (\Throwable $e) {
+            return new JSONResponse([
+                'status' => 'error',
+                'error' => $e->getMessage(),
+                'exception' => get_class($e),
+                'fileId' => $fileId,
+            ], Http::STATUS_INTERNAL_SERVER_ERROR);
+        }
     }
 
     /**
@@ -60,25 +131,51 @@ class FileController extends BaseController
     public function serveFile(int $fileId): StreamResponse|JSONResponse
     {
         try {
+            // Log route access for debugging
+            $this->logger->info('FileController::serveFile called', [
+                'fileId' => $fileId,
+                'requestUri' => $this->request->getRequestUri(),
+                'method' => $this->request->getMethod(),
+            ]);
+
             // Validate file ID
             $fileId = $this->validateFileId($fileId);
 
             // Check authentication
             $user = $this->userSession->getUser();
             if ($user === null) {
+                $this->logger->warning('FileController::serveFile - User not authenticated', [
+                    'fileId' => $fileId,
+                ]);
                 return $this->responseBuilder->createUnauthorizedResponse('User not authenticated');
             }
+
+            $this->logger->debug('FileController::serveFile - User authenticated', [
+                'fileId' => $fileId,
+                'userId' => $user->getUID(),
+            ]);
 
             // Get user's folder and find file
             $userFolder = $this->rootFolder->getUserFolder($user->getUID());
             $files = $userFolder->getById($fileId);
 
             if (empty($files)) {
-                return $this->responseBuilder->createNotFoundResponse('File not found');
+                $this->logger->warning('FileController::serveFile - File not found', [
+                    'fileId' => $fileId,
+                    'userId' => $user->getUID(),
+                    'userFolderPath' => $userFolder->getPath(),
+                ]);
+                return $this->responseBuilder->createNotFoundResponse(
+                    "File not found (ID: {$fileId}). The file may have been deleted or you may not have access to it."
+                );
             }
 
             $file = $files[0];
             if (!$file instanceof \OCP\Files\File) {
+                $this->logger->warning('FileController::serveFile - Not a file', [
+                    'fileId' => $fileId,
+                    'nodeType' => get_class($file),
+                ]);
                 return $this->responseBuilder->createBadRequestResponse('Not a file');
             }
 
@@ -109,11 +206,39 @@ class FileController extends BaseController
                 'is_mobile' => $this->isMobileRequest(),
             ]);
 
+            $this->logger->info('FileController::serveFile - File found and validated', [
+                'fileId' => $fileId,
+                'fileName' => $file->getName(),
+                'fileSize' => $file->getSize(),
+                'extension' => strtolower($file->getExtension()),
+            ]);
+
             // Build and return response
             $extension = strtolower($file->getExtension());
 
             return $this->responseBuilder->buildStreamResponse($file, $extension);
+        } catch (\InvalidArgumentException $e) {
+            $this->logger->error('FileController::serveFile - Invalid argument', [
+                'fileId' => $fileId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return $this->handleException($e);
+        } catch (\OCP\Files\NotFoundException $e) {
+            $this->logger->error('FileController::serveFile - File not found exception', [
+                'fileId' => $fileId,
+                'error' => $e->getMessage(),
+            ]);
+            return $this->responseBuilder->createNotFoundResponse(
+                "File not found: {$e->getMessage()}"
+            );
         } catch (\Throwable $e) {
+            $this->logger->error('FileController::serveFile - Unexpected error', [
+                'fileId' => $fileId,
+                'error' => $e->getMessage(),
+                'exception' => get_class($e),
+                'trace' => $e->getTraceAsString(),
+            ]);
             return $this->handleException($e);
         }
     }

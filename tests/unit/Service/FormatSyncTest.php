@@ -104,14 +104,20 @@ class FormatSyncTest extends TestCase
     public function testGetContentTypeCoversAllFormats(): void
     {
         $modelExtensions = SupportedFormats::getModelExtensions();
+        // fbx and 3ds legitimately use application/octet-stream as they don't have standard MIME types
+        $allowedOctetStream = ['fbx', '3ds'];
 
         foreach ($modelExtensions as $ext) {
             $contentType = SupportedFormats::getContentType($ext);
-            $this->assertNotEquals(
-                'application/octet-stream',
-                $contentType,
-                "Extension '$ext' should have a specific content type, not generic octet-stream (unless explicitly defined)"
-            );
+            
+            if (!in_array($ext, $allowedOctetStream)) {
+                $this->assertNotEquals(
+                    'application/octet-stream',
+                    $contentType,
+                    "Extension '$ext' should have a specific content type, not generic octet-stream (unless explicitly defined)"
+                );
+            }
+            
             $this->assertNotEmpty($contentType, "Content type for '$ext' should not be empty");
         }
     }
@@ -139,9 +145,12 @@ class FormatSyncTest extends TestCase
     public function testNoPlaceholderMimeTypes(): void
     {
         $allowedOctetStream = ['fbx', '3ds']; // These legitimately use octet-stream
+        $allowedTextPlain = ['mtl']; // MTL files are text files, not 3D models
 
         foreach (SupportedFormats::CONTENT_TYPE_MAP as $ext => $contentType) {
-            if (in_array($ext, $allowedOctetStream) || !in_array($ext, SupportedFormats::getModelExtensions())) {
+            if (in_array($ext, $allowedOctetStream) || 
+                in_array($ext, $allowedTextPlain) || 
+                !in_array($ext, SupportedFormats::getModelExtensions())) {
                 continue;
             }
 

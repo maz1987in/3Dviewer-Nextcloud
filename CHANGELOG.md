@@ -7,19 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **File Browser Default View Setting**: Added user preference for default file browser view mode (Grid or List)
+  - New setting in Personal Settings → File Browser → Default View
+  - FileBrowser component now loads and respects the default view from user settings
+  - Setting takes precedence over localStorage, ensuring consistent default behavior
+  - Manual view changes are still saved to localStorage for session persistence
+- **Format Sync Test Suite**: Created comprehensive unit tests (`tests/unit/Service/FormatSyncTest.php`) to ensure format definitions stay synchronized across:
+  - Backend PHP constants (`lib/Constants/SupportedFormats.php`)
+  - Frontend configuration (`src/config/viewer-config.js`)
+  - Nextcloud MIME registration (`appinfo/mimetypemapping.json`)
+- **File Browser List View**: Added ability to toggle between grid and list views in file browser
+
 ### Changed
 - **Format Definitions Centralized**: Consolidated all 3D model format definitions into `lib/Constants/SupportedFormats.php` as single source of truth
   - `EXT_MIME_MAP` for extension to MIME type mappings
   - `CONTENT_TYPE_MAP` for file streaming content types
   - All repair steps and services now reference centralized constants
   - Eliminates format definition divergence between components
-
-### Added
-- **Format Sync Test Suite**: Created comprehensive unit tests (`tests/unit/Service/FormatSyncTest.php`) to ensure format definitions stay synchronized across:
-  - Backend PHP constants (`lib/Constants/SupportedFormats.php`)
-  - Frontend configuration (`src/config/viewer-config.js`)
-  - Nextcloud MIME registration (`appinfo/mimetypemapping.json`)
-- **File Browser List View**: Added to TODO - ability to toggle between grid and list views in file browser
+- **File Browser Grid Padding**: Updated file grid padding to consistent 20px on all sides for better visual spacing
 
 ### Documentation
 - Corrected repository URLs and upstream fork instructions in `CONTRIBUTING.md` (replaced placeholders with `maz1987in/3Dviewer-Nextcloud`).
@@ -30,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added troubleshooting sections for Slicer Integration and Personal Settings in `TROUBLESHOOTING.md`.
 - Expanded test coverage notes in `TESTING.md` to include new controllers (Settings/Slicer) and components (PersonalSettings/SlicerModal).
 - Normalized wording and removed outdated dual-mode duplication in implementation documentation.
+- Documented dual-mode viewer architecture in `TECHNICAL.md` with viewer lifecycle diagram (standalone vs modal modes).
 
 ### Fixed
 - Settings page image/logo path resolution: replaced hardcoded asset URL with `imagePath()` helper in `PersonalSettings.vue` to ensure correct loading under all deployment paths.
@@ -37,6 +44,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.0.0] - 2025-12-01
 
 ### Added
+- **Standalone Advanced Viewer**: Full-featured standalone viewer mode accessible via `/apps/threedviewer/f/{fileId}`
+  - Dual-mode architecture: simple modal viewer (ViewerComponent) and advanced standalone viewer (App.vue)
+  - Conditional mounting in `src/main.js` for `#threedviewer` root element
+  - Props-based data flow: `fileId`, `filename`, and `dir` passed via data attributes from template to App.vue
+  - Loader-driven model pipeline works in both simple and advanced modes
+  - Enhanced error handling with specific messages for 404, 403, network, and parsing errors
+  - PageController automatically fetches filename and directory from fileId for robustness
+  - User-friendly loading and error states harmonized between both viewer modes
 - **Personal Settings**: Added personal settings page for user-specific preferences
   - SettingsController and PersonalSettings view for managing user preferences
   - Settings routes and configuration updates

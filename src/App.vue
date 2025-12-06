@@ -166,12 +166,21 @@ export default {
 		HelpPanel,
 		SlicerModal,
 	},
-		data() {
+	props: {
+		fileId: { type: [Number, String], default: null },
+		filename: { type: String, default: null },
+		dir: { type: String, default: null },
+	},
+	data() {
 		loadState('threedviewer', 'navigation-initial-state') || {}
+		// Prefer props if provided (from main.js), otherwise parse from DOM/query params
+		const initialFileId = this.fileId || this.parseFileId() || null
+		const initialFilename = this.filename || this.parseFilename()
+		const initialDir = this.dir || this.parseDir()
 		return {
-			fileId: this.parseFileId() || null,
-			filename: this.parseFilename(),
-			dir: this.parseDir(),
+			fileId: initialFileId,
+			filename: initialFilename,
+			dir: initialDir,
 			defaultSort: 'viewer', // Always start in viewer mode regardless of prior preference
 			// File browser state
 			showFileBrowser: false, // Default to viewer, show browser only when navigating to folders/types/dates
@@ -242,6 +251,30 @@ export default {
 		this.loadPrefs()
 	},
 	mounted() {
+		// If fileId wasn't provided via props, try parsing from DOM/query params now that DOM is ready
+		if (!this.fileId) {
+			const parsedFileId = this.parseFileId()
+			if (parsedFileId) {
+				this.fileId = parsedFileId
+			}
+		}
+
+		// If filename wasn't provided via props, try parsing now
+		if (!this.filename) {
+			const parsedFilename = this.parseFilename()
+			if (parsedFilename) {
+				this.filename = parsedFilename
+			}
+		}
+
+		// If dir wasn't provided via props, try parsing now
+		if (!this.dir) {
+			const parsedDir = this.parseDir()
+			if (parsedDir) {
+				this.dir = parsedDir
+			}
+		}
+
 		// Test harness fallback: if no fileId parsed but a global test file id is present inject it.
 		if (!this.fileId && typeof window !== 'undefined' && window.__TEST_FILE_ID) {
 			this.fileId = Number(window.__TEST_FILE_ID)
@@ -594,10 +627,47 @@ export default {
 		},
 		onError(error) {
 			// Extract message from error object or use as string
-			const message = error?.message || error || 'Unknown error occurred'
+			let message = error?.message || error || 'Unknown error occurred'
 			this.lastError = message
-			// Viewer error handled - show detailed error message in toast
-			this.pushToast({ type: 'error', title: this.tErrorTitle(), message })
+
+			// Provide user-friendly error messages for common error types
+			if (typeof message === 'string') {
+				// Handle 404 errors
+				if (message.includes('404') || message.includes('not found') || message.includes('File not found')) {
+					message = this.t('threedviewer', 'File not found. The file may have been deleted, moved, or you may not have access to it.')
+				}
+				// Handle 403 errors
+				else if (message.includes('403') || message.includes('Access denied') || message.includes('permission')) {
+					message = this.t('threedviewer', 'Access denied. You may not have permission to access this file.')
+				}
+				// Handle 401 errors
+				else if (message.includes('401') || message.includes('authentication') || message.includes('not authenticated')) {
+					message = this.t('threedviewer', 'Authentication required. Please log in again.')
+				}
+				// Handle network errors
+				else if (message.includes('Failed to fetch') || message.includes('network') || message.includes('NetworkError')) {
+					message = this.t('threedviewer', 'Network error. Please check your connection and try again.')
+				}
+				// Handle unsupported format errors
+				else if (message.includes('Unsupported') || message.includes('unsupported file')) {
+					message = this.t('threedviewer', 'Unsupported file format. Please try a different file.')
+				}
+			}
+
+			// Log error for debugging
+			console.error('App: Model loading error:', error)
+
+			// Show error in toast with longer timeout for reading
+			this.pushToast({ 
+				type: 'error', 
+				title: this.tErrorTitle(), 
+				message,
+				timeout: 10000 // 10 seconds for error messages
+			})
+
+			// Reset loading state
+			this.isLoading = false
+			this.modelLoaded = false
 		},
 		onSelectFile(file) {
 			// Load file in the same viewer area (no page reload)

@@ -8,18 +8,82 @@
 
 		<!-- Breadcrumbs -->
 		<div v-if="hasBreadcrumbs" class="breadcrumbs-wrapper">
-			<NcBreadcrumbs>
-				<NcBreadcrumb
-					v-for="(item, index) in breadcrumbItems"
-					:key="`breadcrumb-${index}`"
-					:name="item.label"
-					:title="item.label"
-					:href="index < breadcrumbItems.length - 1 ? `#breadcrumb-${index}` : null"
-					:disable-drop="true"
-					@click.native="handleBreadcrumbClick(index, item, $event)" />
-			</NcBreadcrumbs>
+			<div class="breadcrumbs-content">
+				<NcBreadcrumbs>
+					<NcBreadcrumb
+						v-for="(item, index) in breadcrumbItems"
+						:key="`breadcrumb-${index}`"
+						:name="item.label"
+						:title="item.label"
+						:href="index < breadcrumbItems.length - 1 ? `#breadcrumb-${index}` : null"
+						:disable-drop="true"
+						@click.native="handleBreadcrumbClick(index, item, $event)" />
+				</NcBreadcrumbs>
+				<!-- View Toggle (always show in breadcrumb area) -->
+				<div v-if="showViewToggle" class="view-toggle">
+					<button
+						v-if="viewMode === 'grid'"
+						:class="{ 'active': viewMode === 'grid' }"
+						:aria-label="t('threedviewer', 'Switch to list view')"
+						:title="t('threedviewer', 'Switch to list view')"
+						@click.stop.prevent="setViewMode('list')">
+						<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+							<rect x="1" y="1" width="6" height="6" rx="1"/>
+							<rect x="9" y="1" width="6" height="6" rx="1"/>
+							<rect x="1" y="9" width="6" height="6" rx="1"/>
+							<rect x="9" y="9" width="6" height="6" rx="1"/>
+						</svg>
+					</button>
+					<button
+						v-else
+						:class="{ 'active': viewMode === 'list' }"
+						:aria-label="t('threedviewer', 'Switch to grid view')"
+						:title="t('threedviewer', 'Switch to grid view')"
+						@click.stop.prevent="setViewMode('grid')">
+						<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+							<rect x="1" y="2" width="14" height="2" rx="0.5"/>
+							<rect x="1" y="7" width="14" height="2" rx="0.5"/>
+							<rect x="1" y="12" width="14" height="2" rx="0.5"/>
+						</svg>
+					</button>
+				</div>
+			</div>
 		</div>
-
+		
+		<!-- Breadcrumb area (always show, even without breadcrumbs) for view toggle -->
+		<div v-else class="breadcrumbs-wrapper">
+			<div class="breadcrumbs-content">
+				<!-- View Toggle (always show in breadcrumb area when no breadcrumbs) -->
+				<div v-if="showViewToggle" class="view-toggle" style="margin-left: auto;">
+					<button
+						v-if="viewMode === 'grid'"
+						:class="{ 'active': viewMode === 'grid' }"
+						:aria-label="t('threedviewer', 'Switch to list view')"
+						:title="t('threedviewer', 'Switch to list view')"
+						@click.stop.prevent="setViewMode('list')">
+						<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+							<rect x="1" y="1" width="6" height="6" rx="1"/>
+							<rect x="9" y="1" width="6" height="6" rx="1"/>
+							<rect x="1" y="9" width="6" height="6" rx="1"/>
+							<rect x="9" y="9" width="6" height="6" rx="1"/>
+						</svg>
+					</button>
+					<button
+						v-else
+						:class="{ 'active': viewMode === 'list' }"
+						:aria-label="t('threedviewer', 'Switch to grid view')"
+						:title="t('threedviewer', 'Switch to grid view')"
+						@click.stop.prevent="setViewMode('grid')">
+						<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+							<rect x="1" y="2" width="14" height="2" rx="0.5"/>
+							<rect x="1" y="7" width="14" height="2" rx="0.5"/>
+							<rect x="1" y="12" width="14" height="2" rx="0.5"/>
+						</svg>
+					</button>
+				</div>
+			</div>
+		</div>
+		
 		<!-- Loading State -->
 		<div v-if="loading" class="file-browser-loading">
 			<h2 class="icon-loading-small" />
@@ -28,7 +92,7 @@
 
 		<!-- Folders/Types/Dates Grid (only show when no specific folder/type/date is selected) -->
 		<template v-else-if="!loading && (folders || types || dates) && !currentPath && !currentType && !currentDate">
-			<div class="file-grid">
+			<div :class="viewMode === 'list' ? 'file-list' : 'file-grid'" :key="`overview-container-${viewMode}`">
 				<!-- Folders - Show hierarchical structure -->
 				<template v-if="folders">
 					<FolderHierarchy
@@ -85,7 +149,7 @@
 
 		<!-- Months Grid (show when a year is selected but no month) -->
 		<template v-else-if="!loading && currentDate && currentDate.year && !currentDate.month && dates">
-			<div class="file-grid">
+			<div :class="viewMode === 'list' ? 'file-list' : 'file-grid'" :key="`months-container-${viewMode}`">
 				<template v-for="year in dates" :key="year.year">
 					<template v-if="year.year === currentDate.year && year.months">
 						<div
@@ -118,8 +182,12 @@
 			</template>
 		</NcEmptyContent>
 
-		<!-- File Grid (show files and subfolders when a folder/type/date is selected) -->
-		<div v-else-if="!loading && (currentPath || currentType || (currentDate && currentDate.month))" class="file-grid">
+		<!-- File Grid/List (show files and subfolders when a folder/type/date is selected) -->
+		<div v-else-if="!loading && (currentPath || currentType || (currentDate && currentDate.month))" 
+			:key="`file-container-${viewMode}`"
+			:class="viewMode === 'list' ? 'file-list' : 'file-grid'"
+			:tabindex="viewMode === 'list' ? 0 : -1"
+			@keydown="handleKeydown">
 			<!-- Show subfolders if available -->
 			<template v-if="folders && folders.length > 0">
 				<FolderHierarchy
@@ -130,11 +198,11 @@
 					@select-file="selectFile" />
 			</template>
 
-			<!-- Show files -->
-			<template v-if="filteredFiles.length > 0">
+			<!-- Show files - Grid View -->
+			<template v-if="filteredFiles.length > 0 && viewMode === 'grid'" :key="'grid-template'">
 				<div
 					v-for="file in filteredFiles"
-					:key="file.id"
+					:key="`grid-${file.id}`"
 					class="file-card"
 					:class="{ 'selected': file.id === selectedFileId }"
 					@click="selectFile(file)">
@@ -150,6 +218,36 @@
 						</div>
 						<div class="file-meta">
 							<span v-if="file.size">{{ formatFileSize(file.size) }}</span>
+							<span v-if="file.mtime" class="file-date">{{ formatDate(file.mtime) }}</span>
+						</div>
+					</div>
+				</div>
+			</template>
+			
+			<!-- Show files - List View -->
+			<template v-if="filteredFiles.length > 0 && viewMode === 'list'" :key="'list-template'">
+				<div
+					v-for="(file, index) in filteredFiles"
+					:key="`list-${file.id}`"
+					class="file-list-item"
+					:class="{ 'selected': file.id === selectedFileId, 'focused': focusedIndex === index }"
+					:tabindex="0"
+					@click="selectFile(file)"
+					@keydown.enter="selectFile(file)"
+					@keydown.space.prevent="selectFile(file)"
+					@focus="focusedIndex = index">
+					<div class="file-list-thumbnail">
+						<FileIcon :size="32" />
+						<div class="file-extension-small">
+							{{ file.extension.toUpperCase() }}
+						</div>
+					</div>
+					<div class="file-list-info">
+						<div class="file-list-name" :title="file.name">
+							{{ file.name }}
+						</div>
+						<div class="file-list-meta">
+							<span v-if="file.size" class="file-size">{{ formatFileSize(file.size) }}</span>
 							<span v-if="file.mtime" class="file-date">{{ formatDate(file.mtime) }}</span>
 						</div>
 					</div>
@@ -228,6 +326,38 @@ export default {
 		selectedFileId: {
 			type: Number,
 			default: null,
+		},
+	},
+	data() {
+		// Start with localStorage value, will be updated from settings in mounted
+		const savedViewMode = localStorage.getItem('threedviewer:fileBrowserView')
+		return {
+			viewMode: savedViewMode === 'list' ? 'list' : (savedViewMode === 'grid' ? 'grid' : 'grid'),
+			focusedIndex: -1, // For keyboard navigation
+			userSettings: {}, // Store user settings
+			settingsLoaded: false, // Track if settings have been loaded
+		}
+	},
+	mounted() {
+		// Load user settings to get default view preference
+		this.loadUserSettings()
+	},
+	watch: {
+		viewMode(newVal, oldVal) {
+			console.log('viewMode watcher triggered:', oldVal, '->', newVal)
+			console.log('filteredFiles.length:', this.filteredFiles.length)
+			console.log('Container class should be:', newVal === 'list' ? 'file-list' : 'file-grid')
+		},
+		// Watch for changes in userSettings to update view mode if setting changes
+		'userSettings.fileBrowser.defaultView'(newVal) {
+			if (this.settingsLoaded && newVal) {
+				const settingViewMode = newVal === 'list' ? 'list' : 'grid'
+				// Only update if it's different from current view
+				if (this.viewMode !== settingViewMode) {
+					this.viewMode = settingViewMode
+					localStorage.setItem('threedviewer:fileBrowserView', settingViewMode)
+				}
+			}
 		},
 	},
 	computed: {
@@ -352,8 +482,121 @@ export default {
 			// Check if we have valid breadcrumb items to display
 			return this.breadcrumbItems && Array.isArray(this.breadcrumbItems) && this.breadcrumbItems.length > 0
 		},
+		showViewToggle() {
+			// Show toggle when we have files, folders, types, or dates to display
+			// This allows switching views for any content
+			const hasFiles = this.filteredFiles.length > 0
+			const hasFolders = this.folders && this.folders.length > 0
+			const hasTypes = this.types && this.types.length > 0
+			const hasDates = this.dates && this.dates.length > 0
+			return hasFiles || hasFolders || hasTypes || hasDates
+		},
 	},
 	methods: {
+		async loadUserSettings() {
+			try {
+				const response = await axios.get(generateUrl('/apps/threedviewer/settings'))
+				const settings = response.data.settings || {}
+				this.userSettings = settings
+				this.settingsLoaded = true
+				
+				// Get the default view from settings (this is the source of truth)
+				const defaultView = settings?.fileBrowser?.defaultView || 'grid'
+				const settingViewMode = defaultView === 'list' ? 'list' : 'grid'
+				
+				// Always use the setting as the default
+				// The setting is the source of truth - if user changes it, we should respect it
+				// localStorage is only used if settings haven't loaded yet
+				this.viewMode = settingViewMode
+				// Update localStorage to match the setting so it persists
+				localStorage.setItem('threedviewer:fileBrowserView', settingViewMode)
+				
+				console.log('FileBrowser: Loaded default view from settings', {
+					setting: defaultView,
+					viewMode: settingViewMode,
+				})
+			} catch (error) {
+				console.warn('Failed to load user settings, using localStorage or default view', error)
+				this.settingsLoaded = true // Mark as loaded even on error to prevent retries
+				// If settings fail to load, keep the current viewMode (from localStorage or default 'grid')
+				const savedViewMode = localStorage.getItem('threedviewer:fileBrowserView')
+				if (savedViewMode) {
+					this.viewMode = savedViewMode === 'list' ? 'list' : 'grid'
+				} else {
+					this.viewMode = 'grid' // Final fallback
+				}
+			}
+		},
+		setViewMode(mode) {
+			console.log('setViewMode called with:', mode, 'current viewMode:', this.viewMode)
+			if (mode === 'grid' || mode === 'list') {
+				this.viewMode = mode
+				// Save to localStorage - this represents an explicit user choice
+				localStorage.setItem('threedviewer:fileBrowserView', mode)
+				// Reset focus when switching views
+				this.focusedIndex = -1
+				console.log('viewMode set to:', this.viewMode)
+				// Force Vue to update by triggering a re-render
+				this.$nextTick(() => {
+					console.log('After nextTick, viewMode:', this.viewMode)
+				})
+			}
+		},
+		handleKeydown(event) {
+			if (this.viewMode !== 'list' || this.filteredFiles.length === 0) {
+				return
+			}
+
+			const files = this.filteredFiles
+			let newIndex = this.focusedIndex
+
+			switch (event.key) {
+				case 'ArrowDown':
+					event.preventDefault()
+					newIndex = this.focusedIndex < files.length - 1 ? this.focusedIndex + 1 : 0
+					this.focusedIndex = newIndex
+					// Focus the element
+					this.$nextTick(() => {
+						const items = this.$el.querySelectorAll('.file-list-item')
+						if (items[newIndex]) {
+							items[newIndex].focus()
+						}
+					})
+					break
+				case 'ArrowUp':
+					event.preventDefault()
+					newIndex = this.focusedIndex > 0 ? this.focusedIndex - 1 : files.length - 1
+					this.focusedIndex = newIndex
+					// Focus the element
+					this.$nextTick(() => {
+						const items = this.$el.querySelectorAll('.file-list-item')
+						if (items[newIndex]) {
+							items[newIndex].focus()
+						}
+					})
+					break
+				case 'Home':
+					event.preventDefault()
+					this.focusedIndex = 0
+					this.$nextTick(() => {
+						const items = this.$el.querySelectorAll('.file-list-item')
+						if (items[0]) {
+							items[0].focus()
+						}
+					})
+					break
+				case 'End':
+					event.preventDefault()
+					this.focusedIndex = files.length - 1
+					this.$nextTick(() => {
+						const items = this.$el.querySelectorAll('.file-list-item')
+						if (items[files.length - 1]) {
+							items[files.length - 1].focus()
+						}
+					})
+					break
+			}
+		},
 		selectFile(file) {
 			this.$emit('select-file', file)
 		},
@@ -557,13 +800,74 @@ export default {
 		color: var(--color-text-maxcontrast, #666);
 		font-size: 14px;
 	}
+
+.view-toggle {
+	display: flex !important;
+	gap: 4px;
+	background: var(--color-background-dark, #f5f5f5);
+	border-radius: 6px;
+	padding: 2px;
+	flex-shrink: 0;
+	opacity: 1 !important;
+	visibility: visible !important;
+	position: relative !important;
+	z-index: 1000 !important;
+	margin-left: auto !important;
+
+		button {
+			background: transparent;
+			border: none;
+			padding: 6px 8px;
+			cursor: pointer;
+			border-radius: 4px;
+			color: var(--color-text-maxcontrast, #666);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			transition: all 0.2s ease;
+
+			&:hover {
+				background: var(--color-background-hover, #e5e5e5);
+				color: var(--color-main-text, #333);
+			}
+
+			&.active {
+				background: var(--color-primary-element, #0082c9);
+				color: white;
+
+				&:hover {
+					background: var(--color-primary-element-hover, #006ba3);
+				}
+			}
+
+			&:focus {
+				outline: 2px solid var(--color-primary-element, #0082c9);
+				outline-offset: 2px;
+			}
+		}
+	}
 }
 
 .breadcrumbs-wrapper {
-	/* padding: 12px 20px; */
 	border-bottom: 1px solid var(--color-border, #ddd);
 	background: var(--color-background-dark, #f5f5f5);
-	padding-left: 0;
+}
+
+.breadcrumbs-content {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	width: 100%;
+}
+
+.view-toggle-header {
+	padding: 12px 20px;
+	padding-left: 40px;
+	border-bottom: 1px solid var(--color-border, #ddd);
+	background: var(--color-background-dark, #f5f5f5);
+	display: flex;
+	justify-content: flex-end;
 }
 
 .file-browser-loading {
@@ -594,7 +898,6 @@ export default {
 	align-content: flex-start;
 	grid-auto-rows: minmax(190px, auto);
 	max-height: calc(100vh - 100px);
-	padding-left: 0;
 }
 
 .folder-card {
@@ -618,6 +921,79 @@ export default {
 	&.selected {
 		border-color: var(--color-primary, #0082c9);
 		background: var(--color-primary-light, #e6f3ff);
+	}
+}
+
+/* List view styling for folder cards (types, dates, folders) */
+.file-list .folder-card {
+	flex-direction: row;
+	align-items: center;
+	justify-content: flex-start;
+	padding: 12px 20px;
+	border: none;
+	border-bottom: 1px solid var(--color-border, #e5e5e5);
+	border-radius: 0;
+	box-shadow: none;
+	gap: 12px;
+	background: var(--color-main-background, #fff);
+	cursor: pointer;
+	transition: all 0.15s ease;
+
+	&:hover {
+		background: var(--color-background-hover, #f5f5f5);
+		border-color: transparent;
+		border-bottom-color: var(--color-border, #e5e5e5);
+		transform: none;
+		box-shadow: none;
+	}
+
+	&.selected {
+		background: var(--color-primary-light, #e6f3ff);
+		border-left: 3px solid var(--color-primary-element, #0082c9);
+		padding-left: 17px;
+		border-bottom-color: var(--color-border, #e5e5e5);
+	}
+
+	.folder-thumbnail {
+		flex-shrink: 0;
+		width: 48px;
+		height: 48px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: var(--color-background-dark, #f5f5f5);
+		border-radius: 4px;
+		position: relative;
+	}
+
+	.folder-info {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		align-items: flex-start;
+		text-align: left;
+	}
+
+	.folder-name {
+		font-weight: 500;
+		font-size: 14px;
+		color: var(--color-main-text, #333);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		width: 100%;
+		line-height: 1.3;
+	}
+
+	.folder-meta {
+		font-size: 12px;
+		color: var(--color-text-maxcontrast, #666);
+		line-height: 1.3;
+		text-align: left;
+		justify-content: flex-start;
+		display: flex;
 	}
 }
 
@@ -721,6 +1097,183 @@ export default {
 	font-size: 12px;
 	color: var(--color-text-maxcontrast, #666);
 	line-height: 1.3;
+
+	.file-date {
+		&::before {
+			content: '•';
+			margin-right: 8px;
+		}
+	}
+}
+
+/* List View Styles */
+.file-list {
+	flex: 1;
+	overflow-y: auto;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	max-height: calc(100vh - 100px);
+	outline: none;
+}
+
+.file-list-item {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 12px 20px;
+	border-bottom: 1px solid var(--color-border, #e5e5e5);
+	cursor: pointer;
+	transition: all 0.15s ease;
+	background: var(--color-main-background, #fff);
+
+	&:hover {
+		background: var(--color-background-hover, #f5f5f5);
+	}
+
+	&.selected {
+		background: var(--color-primary-light, #e6f3ff);
+		border-left: 3px solid var(--color-primary-element, #0082c9);
+		padding-left: 17px; // Adjust for border
+	}
+
+	&.focused {
+		outline: 2px solid var(--color-primary-element, #0082c9);
+		outline-offset: -2px;
+	}
+
+	&:focus {
+		outline: 2px solid var(--color-primary-element, #0082c9);
+		outline-offset: -2px;
+	}
+
+	&:last-child {
+		border-bottom: none;
+	}
+}
+
+.file-list .folder-card:last-child {
+	border-bottom: none;
+}
+
+/* Override FolderHierarchy styles in list view */
+.file-list ::v-deep .folder-hierarchy-item {
+	margin-bottom: 0;
+}
+
+.file-list ::v-deep .folder-hierarchy-item .folder-card {
+	flex-direction: row;
+	align-items: center;
+	justify-content: flex-start;
+	padding: 12px 20px;
+	border: none;
+	border-bottom: 1px solid var(--color-border, #e5e5e5);
+	border-radius: 0;
+	box-shadow: none;
+	gap: 16px;
+	width: 100%;
+
+	&:hover {
+		background: var(--color-background-hover, #f5f5f5);
+		border-color: transparent;
+		border-bottom-color: var(--color-border, #e5e5e5);
+		transform: none;
+		box-shadow: none;
+	}
+
+	&.selected {
+		background: var(--color-primary-light, #e6f3ff);
+		border-left: 3px solid var(--color-primary-element, #0082c9);
+		padding-left: 17px;
+		border-bottom-color: var(--color-border, #e5e5e5);
+	}
+
+	.folder-thumbnail {
+		width: 48px;
+		height: 48px;
+		flex-shrink: 0;
+	}
+
+	.folder-info {
+		flex: 1;
+		min-width: 0;
+		text-align: left;
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
+
+	.folder-name {
+		font-weight: 500;
+		font-size: 14px;
+		color: var(--color-main-text, #333);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		margin-bottom: 0;
+	}
+
+	.folder-meta {
+		font-size: 12px;
+		color: var(--color-text-maxcontrast, #666);
+		justify-content: flex-start;
+	}
+}
+
+.file-list ::v-deep .folder-hierarchy-item:last-child .folder-card {
+	border-bottom: none;
+}
+
+.file-list-thumbnail {
+	position: relative;
+	width: 48px;
+	height: 48px;
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: var(--color-background-dark, #f5f5f5);
+	border-radius: 4px;
+
+	.file-extension-small {
+		position: absolute;
+		bottom: 2px;
+		right: 2px;
+		background: var(--color-primary, #0082c9);
+		color: white;
+		font-size: 8px;
+		font-weight: bold;
+		padding: 1px 4px;
+		border-radius: 2px;
+	}
+}
+
+.file-list-info {
+	flex: 1;
+	min-width: 0; // Allow text truncation
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.file-list-name {
+	font-weight: 500;
+	font-size: 14px;
+	color: var(--color-main-text, #333);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.file-list-meta {
+	display: flex;
+	gap: 12px;
+	font-size: 12px;
+	color: var(--color-text-maxcontrast, #666);
+
+	.file-size {
+		font-weight: 500;
+	}
 
 	.file-date {
 		&::before {

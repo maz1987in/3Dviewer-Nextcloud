@@ -243,19 +243,28 @@ class ResponseBuilder
 
     /**
      * Add Content Security Policy headers for 3D viewer.
-     * @param JSONResponse|StreamResponse $response - Response to modify
+     * Merges with existing CSP if present, otherwise creates new policy.
+     * @param JSONResponse|StreamResponse|TemplateResponse $response - Response to modify
      */
     public function addCspHeaders($response): void
     {
-        $csp = new ContentSecurityPolicy();
+        // Get existing CSP or create new one
+        $csp = $response->getContentSecurityPolicy();
+        if ($csp === null) {
+            $csp = new ContentSecurityPolicy();
+        }
 
         // Allow blob URLs for GLTF texture loading and WebGL contexts
+        // These are needed when GLTFLoader extracts embedded textures from GLB files
         $csp->addAllowedConnectDomain('blob:');
         $csp->addAllowedImageDomain('blob:');
         $csp->addAllowedImageDomain('data:');
 
-        // Allow workers with blob URLs
+        // Allow workers with blob URLs (for Web Workers)
         $csp->addAllowedChildSrcDomain('blob:');
+        
+        // Also allow blob: in script-src for dynamic imports if needed
+        $csp->addAllowedScriptDomain('blob:');
 
         $response->setContentSecurityPolicy($csp);
     }

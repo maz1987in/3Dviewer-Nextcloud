@@ -31,9 +31,9 @@ class SupportedFormats
         'stl' => ['model/stl'],
         'ply' => ['model/ply'],
         'dae' => ['model/vnd.collada+xml'],
-        'fbx' => ['model/x.fbx'],
+        'fbx' => ['model/x.fbx', 'application/octet-stream'], // Both MIME types for compatibility
         '3mf' => ['model/3mf'],
-        '3ds' => ['application/x-3ds'],
+        '3ds' => ['application/x-3ds', 'application/octet-stream'], // Both MIME types for compatibility
         'x3d' => ['model/x3d+xml'],
         'vrml' => ['model/vrml'],
         'wrl' => ['model/vrml'], // VRML alternative extension

@@ -49,58 +49,6 @@ class ApiController extends OCSController
     }
 
     /**
-     * Get a file by ID.
-     *
-     * @param int $fileId File identifier
-     * @return StreamResponse<Http::STATUS_OK, array{}>
-     *   | DataResponse<Http::STATUS_UNAUTHORIZED, array{error: string}, array{}>
-     *   | DataResponse<Http::STATUS_FORBIDDEN, array{error: string}, array{}>
-     *   | DataResponse<Http::STATUS_NOT_FOUND, array{error: string}, array{}>
-     *   | DataResponse<Http::STATUS_INTERNAL_SERVER_ERROR, array{error: string}, array{}>
-     *
-     * 200: File streamed successfully
-     * 403: File not readable or access denied
-     * 404: File not found
-     */
-    #[NoAdminRequired]
-    #[ApiRoute(verb: 'GET', url: '/api/file/{fileId}')]
-    public function getFile(int $fileId): StreamResponse|DataResponse
-    {
-        $user = $this->userSession->getUser();
-        if (!$user) {
-            return new DataResponse(['error' => 'User not authenticated'], Http::STATUS_UNAUTHORIZED);
-        }
-
-        $userFolder = $this->rootFolder->getUserFolder($user->getUID());
-
-        // Try to find the file by ID
-        $files = $userFolder->getById($fileId);
-
-        if (empty($files)) {
-            return new DataResponse(['error' => 'File not found'], Http::STATUS_NOT_FOUND);
-        }
-
-        $file = $files[0];
-
-        if (!$file->isReadable()) {
-            return new DataResponse(['error' => 'File not readable'], Http::STATUS_FORBIDDEN);
-        }
-
-        $stream = $file->fopen('r');
-        if ($stream === false) {
-            return new DataResponse(['error' => 'Failed to open file'], Http::STATUS_INTERNAL_SERVER_ERROR);
-        }
-
-        $response = new StreamResponse($stream);
-        $response->addHeader('Content-Type', $file->getMimeType());
-        $response->addHeader('Content-Length', (string) $file->getSize());
-        $response->addHeader('Content-Disposition', 'inline; filename="' . addslashes($file->getName()) . '"');
-        $response->addHeader('Cache-Control', 'public, max-age=3600');
-
-        return $response;
-    }
-
-    /**
      * List 3D files.
      *
      * @return DataResponse<Http::STATUS_OK, array{

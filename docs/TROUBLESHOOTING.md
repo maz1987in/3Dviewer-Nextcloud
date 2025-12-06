@@ -798,23 +798,79 @@ fetch('/ocs/v2.php/apps/threedviewer/api/files', {
 ### 404 Not Found Errors
 
 #### Symptoms
-- File not found errors
+- File not found errors when loading 3D models
+- "Failed to fetch model: 404 Not Found" error in browser console
 - API endpoints not responding
 - Missing resources
 
 #### Solutions
 
-**Check File Exists:**
+**1. Test Routing (Diagnostic Endpoint):**
+First, verify that routing is working correctly:
+```bash
+# Test if the app routes are accessible
+curl https://your-domain.com/apps/threedviewer/api/test
+```
+
+Expected response:
+```json
+{
+  "status": "ok",
+  "message": "FileController is working",
+  "timestamp": 1234567890,
+  "user": "your-username",
+  "routes": {
+    "test": "/apps/threedviewer/api/test",
+    "file": "/apps/threedviewer/api/file/{fileId}",
+    "files_list": "/apps/threedviewer/api/files/list",
+    "files_find": "/apps/threedviewer/api/files/find"
+  }
+}
+```
+
+**2. Test File Access (Diagnostic Endpoint):**
+Test if a specific file can be accessed:
+```bash
+# Replace {fileId} with the actual file ID from the error
+curl https://your-domain.com/apps/threedviewer/api/file/{fileId}/diagnostic
+```
+
+This will return detailed information about:
+- Whether the file exists
+- File permissions
+- File metadata
+- Access issues
+
+**3. Check File Exists:**
 ```bash
 # Verify file exists in Nextcloud
 ls -la /path/to/nextcloud/data/username/files/model.glb
 ```
 
-**Verify API Endpoints:**
+**4. Verify API Endpoints:**
 ```bash
 # Test API endpoint
-curl -I https://your-domain.com/apps/threedviewer/api/files
+curl -I https://your-domain.com/apps/threedviewer/api/files/list
 ```
+
+**5. Clear Nextcloud Route Cache:**
+If routes are not working, try clearing the route cache:
+```bash
+php occ route:list | grep threedviewer  # Verify routes exist
+php occ files:cleanup  # Clear cache
+```
+
+**6. Check Nextcloud Logs:**
+Enhanced logging has been added to help diagnose issues. Check your Nextcloud logs for:
+- `FileController::serveFile called` - Route is being accessed
+- `FileController::serveFile - File not found` - File ID lookup failed
+- `FileController::serveFile - User not authenticated` - Authentication issue
+
+**7. Common Causes:**
+- **File was deleted or moved**: The file ID may reference a file that no longer exists
+- **Permission issues**: User may not have access to the file
+- **Route conflicts**: Ensure only one controller handles `/api/file/{fileId}` (should be `FileController`)
+- **App not enabled**: Verify the app is enabled in Nextcloud settings
 
 **Check App Routes:**
 ```bash

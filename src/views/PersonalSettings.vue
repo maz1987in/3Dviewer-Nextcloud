@@ -328,6 +328,22 @@ export default {
 						},
 					},
 				},
+				fileBrowser: {
+					title: this.t('threedviewer', 'File Browser'),
+					description: this.t('threedviewer', 'Configure the file browser display preferences.'),
+					fields: {
+						'fileBrowser.defaultView': {
+							label: this.t('threedviewer', 'Default View'),
+							description: this.t('threedviewer', 'Choose the default view mode for the file browser (Grid or List).'),
+							type: 'select',
+							default: 'grid',
+							options: [
+								{ value: 'grid', label: this.t('threedviewer', 'Grid View') },
+								{ value: 'list', label: this.t('threedviewer', 'List View') },
+							],
+						},
+					},
+				},
 				controller: {
 					title: this.t('threedviewer', 'Camera Controller'),
 					description: this.t('threedviewer', 'Settings for the on-screen navigation controller.'),

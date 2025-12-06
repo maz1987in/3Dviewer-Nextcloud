@@ -73,6 +73,7 @@ if (OCA?.Viewer && !isHandlerAlreadyRegistered) {
 const appRoot = document.getElementById('threedviewer')
 if (appRoot) {
 	const fileId = appRoot.dataset.fileId
+	const filename = appRoot.dataset.filename
 	const dir = appRoot.dataset.dir
 
 	// Dynamically import Vue and App component
@@ -92,8 +93,9 @@ if (appRoot) {
 			el: '#threedviewer',
 			render: h => h(App, {
 				props: {
-					fileId,
-					dir,
+					fileId: fileId || null,
+					filename: filename || null,
+					dir: dir || null,
 				},
 			}),
 		})

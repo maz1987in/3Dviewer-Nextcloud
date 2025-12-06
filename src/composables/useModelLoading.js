@@ -218,7 +218,42 @@ export function useModelLoading() {
 			})
 
 			if (!response.ok) {
-				throw new Error(`Failed to fetch model: ${response.status} ${response.statusText}`)
+				// Try to extract error message from response
+				let errorMessage = `Failed to fetch model: ${response.status} ${response.statusText}`
+				try {
+					const errorData = await response.json()
+					if (errorData?.error || errorData?.message) {
+						errorMessage = errorData.error || errorData.message
+					}
+				} catch (e) {
+					// Response is not JSON, use status text
+				}
+
+				logger.error('useModelLoading', 'Failed to fetch model file', {
+					fileId,
+					filename,
+					status: response.status,
+					statusText: response.statusText,
+					errorMessage,
+				})
+
+				// Provide more helpful error messages based on status code
+				if (response.status === 404) {
+					throw new Error(
+						`File not found (ID: ${fileId}). The file may have been deleted, moved, or you may not have access to it. ` +
+						`Please try refreshing the file list or contact your administrator if the problem persists.`
+					)
+				} else if (response.status === 403) {
+					throw new Error(
+						`Access denied to file (ID: ${fileId}). You may not have permission to access this file.`
+					)
+				} else if (response.status === 401) {
+					throw new Error(
+						`Authentication required. Please log in again.`
+					)
+				} else {
+					throw new Error(errorMessage)
+				}
 			}
 
 			// Get content length for progress tracking

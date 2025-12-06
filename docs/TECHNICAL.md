@@ -1199,41 +1199,75 @@ Successfully implemented **TODO #2**: Wire up the advanced viewer (App.vue) to l
 
 ### Implementation Summary
 
-#### URL Pattern
-- **Pattern**: `/apps/threedviewer/{fileId}?dir={dir}`
-- **Example**: `/apps/threedviewer/123?dir=/models`
-- **Benefits**: Clean RESTful pattern, direct file access, supports query params
+#### URL Patterns
+
+**Primary Route (RESTful):**
+- **Pattern**: `/apps/threedviewer/f/{fileId}`
+- **Example**: `/apps/threedviewer/f/123`
+- **Benefits**: Clean RESTful pattern, SEO-friendly, direct file access
+- **Note**: Uses `/f/` prefix to avoid conflicts with static assets
+
+**Query Parameter Fallback:**
+- **Pattern**: `/apps/threedviewer/?fileId={fileId}&filename={name}&dir={path}`
+- **Example**: `/apps/threedviewer/?fileId=123&filename=model.glb&dir=/models`
+- **Benefits**: Flexible, supports legacy links, easy to construct programmatically
+
+**Index Route:**
+- **Pattern**: `/apps/threedviewer/`
+- **Example**: `/apps/threedviewer/`
+- **Benefits**: Shows file browser, allows navigation without specific file
 
 #### Backend Changes
 
-**PageController Update:**
+**PageController Implementation:**
 ```php
-#[FrontpageRoute(verb: 'GET', url: '/{fileId}')]
-#[OpenAPI(OpenAPI::SCOPE_IGNORE)]
+#[FrontpageRoute(verb: 'GET', url: '/f/{fileId}')]
 public function viewer(string $fileId): TemplateResponse {
+    $user = $this->userSession?->getUser();
+    
+    // Fetch file information to get filename and directory
+    $filename = null;
+    $dir = null;
+    if ($user) {
+        $userFolder = $this->rootFolder->getUserFolder($user->getUID());
+        $files = $userFolder->getById((int)$fileId);
+        if (!empty($files) && $files[0] instanceof \OCP\Files\File) {
+            $file = $files[0];
+            $filename = $file->getName();
+            // Extract directory path from file path
+            // ... (directory extraction logic)
+        }
+    }
+    
     return new TemplateResponse(
         Application::APP_ID,
         'index',
-        ['fileId' => $fileId]
+        [
+            'fileId' => $fileId,
+            'filename' => $filename,
+            'dir' => $dir,
+        ]
     );
 }
 ```
 
 #### Frontend Changes
 
-**Template Changes:**
+**Template Implementation:**
 ```html
 <div id="threedviewer" 
      data-file-id="<?php p($_['fileId'] ?? ''); ?>" 
-     data-dir="<?php p($_GET['dir'] ?? ''); ?>"></div>
+     data-filename="<?php p($_['filename'] ?? ''); ?>"
+     data-dir="<?php p($_['dir'] ?? $_GET['dir'] ?? ''); ?>"></div>
 ```
 
-**Main.js Updates:**
+**Main.js Implementation:**
 ```javascript
 // Mode 2: Mount advanced viewer app when #threedviewer div exists (standalone page)
 const appRoot = document.getElementById('threedviewer')
 if (appRoot) {
     const fileId = appRoot.dataset.fileId
+    const filename = appRoot.dataset.filename
     const dir = appRoot.dataset.dir
 
     // Dynamically import Vue and App component
@@ -1245,8 +1279,9 @@ if (appRoot) {
             el: '#threedviewer',
             render: h => h(App, {
                 props: {
-                    fileId,
-                    dir,
+                    fileId: fileId || null,
+                    filename: filename || null,
+                    dir: dir || null,
                 },
             }),
         })
@@ -1256,19 +1291,143 @@ if (appRoot) {
 }
 ```
 
+**App.vue Props Declaration:**
+```javascript
+export default {
+    props: {
+        fileId: { type: [Number, String], default: null },
+        filename: { type: String, default: null },
+        dir: { type: String, default: null },
+    },
+    data() {
+        // Prefer props if provided, otherwise parse from DOM/query params
+        const initialFileId = this.fileId || this.parseFileId() || null
+        const initialFilename = this.filename || this.parseFilename()
+        const initialDir = this.dir || this.parseDir()
+        return {
+            fileId: initialFileId,
+            filename: initialFilename,
+            dir: initialDir,
+            // ... other data properties
+        }
+    },
+    mounted() {
+        // If props weren't provided, try parsing from DOM now that it's ready
+        if (!this.fileId) {
+            const parsedFileId = this.parseFileId()
+            if (parsedFileId) this.fileId = parsedFileId
+        }
+        // Similar for filename and dir...
+    }
+}
+```
+
 ### Dual-Mode Architecture
 
-#### Mode 1: Simple Viewer (Viewer API)
-- **Entry**: Click file in Files app → Viewer API modal
-- **Component**: ViewerComponent.vue (190 lines)
-- **Features**: Quick preview, basic controls, placeholder cube
-- **Status**: ✅ Working
+The 3D Viewer supports two distinct modes of operation, each optimized for different use cases:
 
-#### Mode 2: Advanced Viewer (Standalone App)
-- **Entry**: Direct URL `/apps/threedviewer/{fileId}?dir={dir}`
-- **Component**: App.vue + ecosystem (~6000 lines)
-- **Features**: Full toolbar, annotations, measurements, comparison, performance monitoring
-- **Status**: ⚠️ Wired but needs model loading implementation
+#### Mode 1: Simple Viewer (Viewer API / Modal Mode)
+- **Entry Point**: Click file in Files app → Nextcloud Viewer API modal
+- **Component**: `ViewerComponent.vue`
+- **URL Pattern**: Handled by Nextcloud Viewer API (no direct URL)
+- **Features**: 
+  - Quick preview of 3D models
+  - Basic camera controls
+  - Lightweight and fast loading
+  - Modal overlay interface
+- **Status**: ✅ Fully functional
+- **Use Case**: Quick preview when browsing files
+
+#### Mode 2: Advanced Viewer (Standalone App Mode)
+- **Entry Point**: Direct URL access
+- **Component**: `App.vue` + full component ecosystem
+- **URL Patterns**:
+  - `/apps/threedviewer/f/{fileId}` - RESTful route with fileId in path
+  - `/apps/threedviewer/?fileId={fileId}&filename={name}&dir={path}` - Query parameter fallback
+- **Features**: 
+  - Full-featured 3D viewer with all tools
+  - File browser and navigation
+  - Annotations and measurements
+  - Model comparison
+  - Performance monitoring
+  - Export functionality
+  - Slicer integration
+  - Settings and preferences
+- **Status**: ✅ Fully functional with complete model loading
+- **Use Case**: Detailed viewing, analysis, and editing of 3D models
+
+### Viewer Lifecycle
+
+#### Initialization Flow
+
+```
+1. User accesses URL
+   ├─ /apps/threedviewer/f/{fileId} → PageController::viewer()
+   └─ /apps/threedviewer/ → PageController::index()
+
+2. Backend Processing
+   ├─ PageController extracts fileId from route
+   ├─ Fetches file metadata (filename, directory path)
+   └─ Passes data to template via $_ array
+
+3. Template Rendering
+   ├─ templates/index.php renders <div id="threedviewer">
+   ├─ Sets data attributes: data-file-id, data-filename, data-dir
+   └─ Loads main.js script
+
+4. Frontend Mounting (main.js)
+   ├─ Detects #threedviewer element
+   ├─ Extracts data attributes
+   ├─ Dynamically imports Vue and App.vue
+   └─ Mounts App component with props
+
+5. App.vue Initialization
+   ├─ Receives props (fileId, filename, dir)
+   ├─ Falls back to DOM parsing if props missing
+   ├─ Loads user preferences
+   └─ Initializes ThreeViewer component
+
+6. Model Loading
+   ├─ ThreeViewer receives fileId prop
+   ├─ Watches for fileId changes
+   ├─ Calls useModelLoading composable
+   ├─ Fetches file from /apps/threedviewer/api/file/{fileId}
+   └─ Loads model using appropriate format loader
+
+7. Rendering
+   ├─ Model parsed and added to Three.js scene
+   ├─ Camera positioned to fit model
+   ├─ Grid and axes displayed
+   └─ User can interact with model
+```
+
+#### Data Flow
+
+```
+Backend (PHP)
+  PageController::viewer()
+    ↓
+  Fetches file info from IRootFolder
+    ↓
+  Template (index.php)
+    ↓
+  Sets data attributes on #threedviewer div
+    ↓
+Frontend (JavaScript)
+  main.js extracts data attributes
+    ↓
+  Passes as props to App.vue
+    ↓
+  App.vue receives props (preferred) or parses DOM (fallback)
+    ↓
+  Passes fileId to ThreeViewer component
+    ↓
+  ThreeViewer watches fileId prop
+    ↓
+  useModelLoading composable fetches and loads model
+    ↓
+  Model rendered in Three.js scene
+```
 
 ### What's Ready
 
@@ -1280,17 +1439,28 @@ if (appRoot) {
 
 #### Frontend Infrastructure ✅
 - Dual-mode mounting logic in main.js
-- App.vue parsing both data attributes and query params
+- App.vue accepts props from main.js (preferred) with DOM parsing fallback
+- Props properly declared and passed through component chain
 - Complete component ecosystem:
   - ThreeViewer.vue (main 3D renderer)
-  - ViewerToolbar.vue (all controls)
+  - MinimalTopBar.vue (top toolbar)
+  - SlideOutToolPanel.vue (side panel with all controls)
   - ToastContainer.vue (notifications)
-  - ViewerModal.vue (modal wrapper)
+  - FileBrowser.vue (file navigation)
+  - FileNavigation.vue (navigation sidebar)
 
 #### Loader System ✅
 - BaseLoader.js (base class)
 - registry.js (dynamic loader selection)
 - Format-specific loaders: gltf, obj, stl, ply, dae, fbx, 3mf, 3ds, vrml, x3d
+- Multi-file support with dependency resolution
+- Flexible texture matching for naming variations
+
+#### Error Handling ✅
+- User-friendly error messages for common scenarios (404, 403, 401, network errors)
+- Error toasts with appropriate timeout durations
+- Graceful fallback when file lookup fails
+- Comprehensive error logging for debugging
 - DRACO/KTX2 decoder assets in place
 
 #### State Management ✅
