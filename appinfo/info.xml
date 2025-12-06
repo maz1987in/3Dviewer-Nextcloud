@@ -11,6 +11,8 @@
 - 🚀 Enhanced loaders: Significantly improved FBX, VRML, and DAE loaders with better material and texture support
 - 📁 Multi-file models: Full support for OBJ+MTL+textures and GLTF+bins+images
 - 🗜️ Compression: DRACO geometry and KTX2/Basis texture compression (needs more work)
+- 🔧 Centralized format definitions: Single source of truth for all format definitions ensuring consistency
+- ✅ Format sync validation: Automated tests ensure format consistency across backend, frontend, and MIME registration
 
 **🎮 Interactive Features:**
 - 🎯 3D Camera Controller: Enhanced intuitive circular controller for precise camera navigation with improved controls
@@ -20,6 +22,14 @@
 - 🧭 Face labels: Orientation markers (TOP, BOTTOM, FRONT, BACK, LEFT, RIGHT)
 - 👁️ Camera projection toggle: Switch between perspective and orthographic views
 - ⚙️ Personal Settings: User-specific preferences and settings page in Nextcloud personal settings
+
+**📂 File Browser:**
+- 🗂️ Smart navigation: Toggle between Viewer, Folders, Type, Date, and Favorites modes
+- 📋 List and Grid views: Switch between compact list view and grid view with customizable default preference
+- ⚙️ Default view setting: Set your preferred view mode (Grid/List) in Personal Settings
+- ⌨️ Keyboard navigation: Full keyboard support for list view (Arrow keys, Home, End, Enter, Space)
+- 🍞 Breadcrumb navigation: Easy navigation back through folder/type/date hierarchies
+- 🔄 Lazy loading: Fast navigation with on-demand data loading
 
 **⚡ Export & Tools:**
 - 📷 Screenshot capture: Take high-quality PNG/JPEG screenshots of your models
