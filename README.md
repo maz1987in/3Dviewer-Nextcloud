@@ -1,6 +1,6 @@
 # 3D Viewer for Nextcloud
 
-[![Version](https://img.shields.io/badge/version-2.0.0-blue)](https://github.com/maz1987in/3Dviewer-Nextcloud/releases)
+[![Version](https://img.shields.io/badge/version-2.1.0-blue)](https://github.com/maz1987in/3Dviewer-Nextcloud/releases)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-orange)](LICENSE)
 [![Nextcloud](https://img.shields.io/badge/Nextcloud-30--32-0082c9)](https://nextcloud.com)
 [![Update nextcloud/ocp](https://github.com/maz1987in/3Dviewer-Nextcloud/actions/workflows/update-nextcloud-ocp-matrix.yml/badge.svg)](https://github.com/maz1987in/3Dviewer-Nextcloud/actions/workflows/update-nextcloud-ocp-matrix.yml)
@@ -58,7 +58,7 @@ A comprehensive 3D model viewer application for Nextcloud that supports multiple
 - **Enhanced File Loaders** - Significantly improved FBX, VRML, and DAE loaders with better material and texture support
 - **Multi-File Models** - Full support for OBJ+MTL+textures and GLTF+bins+images
 - **Personal Settings** - User-specific preferences and settings page integrated with Nextcloud personal settings
-- **Smart File Browser** - Toggle between Viewer, Folders, Type, Date, and Favorites modes with breadcrumbs, Nextcloud-style navigation, and lazy loading
+- **Smart File Browser** - Toggle between Viewer, Folders, Type, Date, and Favorites modes with breadcrumbs, Nextcloud-style navigation, lazy loading, and customizable default view (Grid/List)
 - **Dynamic Grid System** - Automatically adapts to model size and position
 - **Model Comparison** - Side-by-side model viewing with synchronized controls
 - **Advanced Tooling** - Annotations, measurements, and analysis tools
@@ -194,8 +194,15 @@ This project is licensed under the **AGPL-3.0 License**. See [LICENSE](LICENSE) 
 
 ## 📊 Version
 
-**Current Version**: 2.0.0  
-**Released**: December 01, 2025
+**Current Version**: 2.1.0  
+**Released**: December 06, 2025
+
+### What's New in 2.1.0
+- **File Browser Default View Setting** - Set your preferred view mode (Grid or List) in Personal Settings
+- **File Browser List View** - Compact list view with keyboard navigation support
+- **Format Definitions Centralized** - Single source of truth for all format definitions
+- **Format Sync Test Suite** - Automated tests to ensure format consistency across backend, frontend, and MIME registration
+- **UI Improvements** - Enhanced file browser grid padding for better visual spacing
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed release notes and version history.
 
