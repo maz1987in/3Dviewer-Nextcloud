@@ -18,6 +18,7 @@
 			:wireframe="wireframe"
 			:background="background"
 			@model-loaded="onModelLoaded"
+			@animations-initialized="onAnimationsInitialized"
 			@error="onError" />
 		<ViewerToolbar
 			:grid="grid"
@@ -26,6 +27,9 @@
 			:wireframe="wireframe"
 			:background="background"
 			:model-loaded="modelLoaded"
+			:has-animations="hasAnimations"
+			:is-animation-playing="isAnimationPlaying"
+			:is-animation-looping="isAnimationLooping"
 			class="modal-toolbar"
 			@reset-view="onReset"
 			@toggle-grid="grid = !grid"
@@ -33,7 +37,9 @@
 			@toggle-face-labels="toggleFaceLabels"
 			@toggle-wireframe="wireframe = !wireframe"
 			@change-background="onBackgroundChange"
-			@send-to-slicer="onSendToSlicer" />
+			@send-to-slicer="onSendToSlicer"
+			@toggle-animation-play="onToggleAnimationPlay"
+			@toggle-animation-loop="onToggleAnimationLoop" />
 	</div>
 </template>
 
@@ -64,6 +70,10 @@ export default {
 			_prefsLoaded: false,
 			showSlicerModal: false,
 			modelLoaded: false,
+			// Animation state (updated from viewer)
+			hasAnimations: false,
+			isAnimationPlaying: false,
+			isAnimationLooping: false,
 		}
 	},
 	watch: {
@@ -72,6 +82,20 @@ export default {
 		faceLabels() { this.savePrefs() },
 		wireframe() { this.savePrefs() },
 		background() { this.savePrefs() },
+		// Watch modelLoaded to update animation state
+		modelLoaded(newVal) {
+			if (newVal) {
+				// Update animation state when model loads
+				this.$nextTick(() => {
+					this.updateAnimationState()
+				})
+			} else {
+				// Reset animation state when model unloads
+				this.hasAnimations = false
+				this.isAnimationPlaying = false
+				this.isAnimationLooping = false
+			}
+		},
 	},
 	created() {
 		this.loadPrefs()
@@ -121,8 +145,20 @@ export default {
 		onModelLoaded(meta) {
 			// Set model loaded flag
 			this.modelLoaded = true
+			// Update animation state from viewer
+			// Primary synchronization happens via @animations-initialized event
+			// This is a fallback in case the event doesn't fire
+			this.$nextTick(() => {
+				this.updateAnimationState()
+			})
 			// Emit event for parent components
 			this.$emit('model-loaded', meta)
+		},
+		onAnimationsInitialized(data) {
+			// Called when animations are initialized in ThreeViewer
+			this.hasAnimations = data.hasAnimations || false
+			this.isAnimationPlaying = data.isPlaying || false
+			this.isAnimationLooping = data.isLooping ?? true // Default to true (animations loop by default)
 		},
 		onError(msg) {
 			// Emit event for parent components
@@ -158,6 +194,47 @@ export default {
 		onSlicerError(error) {
 			// Log error
 			console.error('Slicer error:', error)
+		},
+		onToggleAnimationPlay() {
+			if (this.$refs.viewer?.animation) {
+				this.$refs.viewer.animation.togglePlay()
+				// Update state after toggle
+				this.updateAnimationState()
+			}
+		},
+		onToggleAnimationLoop() {
+			if (this.$refs.viewer?.animation) {
+				this.$refs.viewer.animation.toggleLoop()
+				// Update state after toggle
+				this.updateAnimationState()
+			}
+		},
+		updateAnimationState() {
+			// Update animation state from viewer (called when model loads or state changes)
+			if (this.$refs.viewer) {
+				// Access computed properties from setup()
+				// Vue 3 may auto-unwrap computed refs when accessed via $refs, so handle both cases:
+				// 1. If already unwrapped (primitive boolean), use directly
+				// 2. If still a ref (object with .value), unwrap it
+				const hasAnimationsRef = this.$refs.viewer.hasAnimations
+				const isPlayingRef = this.$refs.viewer.isAnimationPlaying
+				const isLoopingRef = this.$refs.viewer.isAnimationLooping
+				
+				// Helper to safely unwrap: if it's a primitive, use it; if it's a ref, unwrap it
+				const unwrap = (val) => {
+					if (val == null) return false
+					// If it's already a primitive (boolean, number, string), use it directly
+					if (typeof val !== 'object') return Boolean(val)
+					// If it's an object with .value (ref), unwrap it
+					if ('value' in val) return Boolean(val.value)
+					// Otherwise, convert to boolean
+					return Boolean(val)
+				}
+				
+				this.hasAnimations = unwrap(hasAnimationsRef)
+				this.isAnimationPlaying = unwrap(isPlayingRef)
+				this.isAnimationLooping = unwrap(isLoopingRef)
+			}
 		},
 	},
 }

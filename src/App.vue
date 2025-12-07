@@ -139,6 +139,7 @@
 					@model-loaded="onModelLoaded"
 					@loading-state-changed="onLoadingStateChanged"
 					@fps-updated="onFpsUpdated"
+					@animations-initialized="onAnimationsInitialized"
 					@error="onError" />
 			</div>
 		</NcAppContent>
@@ -256,16 +257,7 @@ export default {
 	computed: {
 		// Computed properties that return data properties (for reactivity)
 		hasAnimationsComputed() {
-			const result = this.hasAnimations
-			// Debug logging (remove in production)
-			if (this.modelLoaded) {
-				console.log('[App.vue] hasAnimationsComputed', {
-					result,
-					dataProperty: this.hasAnimations,
-					viewerHasAnimations: this.$refs.viewer?.hasAnimations,
-				})
-			}
-			return result
+			return this.hasAnimations
 		},
 		isAnimationPlayingComputed() {
 			return this.isAnimationPlaying
@@ -370,7 +362,6 @@ export default {
 			// Set a timeout to ensure viewer loads even if API hangs
 			const timeoutPromise = new Promise(resolve => {
 				timeoutId = setTimeout(() => {
-					console.warn('App: Settings load timed out, using defaults')
 					resolve(null)
 				}, 5000)
 			})
@@ -671,33 +662,18 @@ export default {
 				this.animationPresets = this.$refs.viewer.animationPresets
 			}
 			// Update animation state from viewer
-			// Use a small delay to ensure animations are initialized
+			// Primary synchronization happens via @animations-initialized event
+			// This is a fallback in case the event doesn't fire
 			this.$nextTick(() => {
-				// Try immediately
 				this.updateAnimationState()
-				// Also try after delays to catch animations that initialize asynchronously
-				setTimeout(() => {
-					this.updateAnimationState()
-				}, 100)
-				setTimeout(() => {
-					this.updateAnimationState()
-				}, 500)
-				setTimeout(() => {
-					this.updateAnimationState()
-				}, 1000)
 			})
 			this.pushToast({ type: 'success', title: this.tSuccessTitle(), message: this.tLoadedMessage(meta.filename) })
 		},
 		onAnimationsInitialized(data) {
 			// Called when animations are initialized in ThreeViewer
-			console.log('[App.vue] Animations initialized event received', data)
 			this.hasAnimations = data.hasAnimations || false
 			this.isAnimationPlaying = data.isPlaying || false
-			console.log('[App.vue] Animation state updated from event', {
-				hasAnimations: this.hasAnimations,
-				isAnimationPlaying: this.isAnimationPlaying,
-				hasAnimationsComputed: this.hasAnimationsComputed,
-			})
+			this.isAnimationLooping = data.isLooping ?? true // Default to true (animations loop by default)
 		},
 		onError(error) {
 			// Extract message from error object or use as string
@@ -975,26 +951,28 @@ export default {
 		updateAnimationState() {
 			// Update animation state from viewer (called when model loads or state changes)
 			if (this.$refs.viewer) {
-				const viewerHasAnimations = this.$refs.viewer.hasAnimations || false
-				const viewerIsPlaying = this.$refs.viewer.isAnimationPlaying || false
-				const viewerIsLooping = this.$refs.viewer.isAnimationLooping || false
+				// Access computed properties from setup()
+				// Vue 3 may auto-unwrap computed refs when accessed via $refs, so handle both cases:
+				// 1. If already unwrapped (primitive boolean), use directly
+				// 2. If still a ref (object with .value), unwrap it
+				const hasAnimationsRef = this.$refs.viewer.hasAnimations
+				const isPlayingRef = this.$refs.viewer.isAnimationPlaying
+				const isLoopingRef = this.$refs.viewer.isAnimationLooping
 				
-				this.hasAnimations = viewerHasAnimations
-				this.isAnimationPlaying = viewerIsPlaying
-				this.isAnimationLooping = viewerIsLooping
+				// Helper to safely unwrap: if it's a primitive, use it; if it's a ref, unwrap it
+				const unwrap = (val) => {
+					if (val == null) return false
+					// If it's already a primitive (boolean, number, string), use it directly
+					if (typeof val !== 'object') return Boolean(val)
+					// If it's an object with .value (ref), unwrap it
+					if ('value' in val) return Boolean(val.value)
+					// Otherwise, convert to boolean
+					return Boolean(val)
+				}
 				
-				console.log('[App.vue] Animation state updated', {
-					hasAnimations: this.hasAnimations,
-					isAnimationPlaying: this.isAnimationPlaying,
-					isAnimationLooping: this.isAnimationLooping,
-					viewerHasAnimations,
-					viewerIsPlaying,
-					viewerIsLooping,
-					hasAnimationsComputed: this.hasAnimationsComputed,
-					isAnimationPlayingComputed: this.isAnimationPlayingComputed,
-				})
-			} else {
-				console.warn('[App.vue] Cannot update animation state: viewer ref not available')
+				this.hasAnimations = unwrap(hasAnimationsRef)
+				this.isAnimationPlaying = unwrap(isPlayingRef)
+				this.isAnimationLooping = unwrap(isLoopingRef)
 			}
 		},
 	},

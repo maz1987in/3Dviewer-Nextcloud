@@ -142,6 +142,7 @@ class GltfLoader extends BaseLoader {
 			originalXHRSend: null,
 			originalImageSrcSetter: null,
 			blobUrlMap: new Map(), // Map blob URLs to their original blobs
+			dataURICache: new Map(), // Map blob URLs to their data URIs (for synchronous access)
 		}
 
 		// Patch URL.createObjectURL to track blob-to-URL mappings
@@ -161,6 +162,24 @@ class GltfLoader extends BaseLoader {
 					blobSize: blob.size,
 					isImage
 				})
+				
+				// Pre-convert blob to data URI asynchronously for synchronous access later
+				// This allows Image.src setter to work synchronously
+				if (isImage) {
+					self.blobToDataURI(blob).then((dataURI) => {
+						patches.dataURICache.set(url, dataURI)
+						self.logInfo('GLTFLoader', 'Pre-cached data URI for blob URL', { 
+							url: url.substring(0, 50),
+							dataURILength: dataURI.length
+						})
+					}).catch((error) => {
+						self.logWarning('GLTFLoader', 'Failed to pre-cache data URI for blob URL', {
+							url: url.substring(0, 50),
+							error: error.message
+						})
+					})
+				}
+				
 				return url
 			}
 		}
@@ -181,11 +200,26 @@ class GltfLoader extends BaseLoader {
 						if (typeof value === 'string' && value.startsWith('blob:')) {
 							self.logInfo('GLTFLoader', 'Intercepting blob URL in Image.src setter', { url: value.substring(0, 50) })
 							
+							// Check if we have a cached data URI (for synchronous access)
+							const cachedDataURI = patches.dataURICache.get(value)
+							if (cachedDataURI) {
+								// Use cached data URI synchronously - this maintains THREE.js's expected behavior
+								self.logInfo('GLTFLoader', 'Using cached data URI for Image.src (synchronous)', {
+									url: value.substring(0, 50),
+									dataURILength: cachedDataURI.length
+								})
+								patches.originalImageSrcSetter.call(this, cachedDataURI)
+								return
+							}
+							
+							// If not cached, try to convert asynchronously (fallback for edge cases)
 							const originalBlob = patches.blobUrlMap.get(value)
 							if (originalBlob) {
 								// Convert blob to data URI asynchronously
 								self.blobToDataURI(originalBlob).then((dataURI) => {
-									self.logInfo('GLTFLoader', 'Converted blob URL to data URI for Image.src', {
+									// Cache it for future use
+									patches.dataURICache.set(value, dataURI)
+									self.logInfo('GLTFLoader', 'Converted blob URL to data URI for Image.src (async fallback)', {
 										url: value.substring(0, 50),
 										dataURILength: dataURI.length
 									})
@@ -196,12 +230,23 @@ class GltfLoader extends BaseLoader {
 										url: value.substring(0, 50),
 										error: error.message
 									})
-									// Fallback to original blob URL (will likely fail due to CSP)
-									patches.originalImageSrcSetter.call(this, value)
+									// Don't set the blob URL as it will be blocked by CSP
+									patches.originalImageSrcSetter.call(this, '')
+									if (this.onerror) {
+										this.onerror(new Error('Failed to convert blob URL - CSP violation prevented'))
+									}
 								})
 								return
 							} else {
-								self.logWarning('GLTFLoader', 'Blob not found in tracking map for Image.src', { url: value.substring(0, 50) })
+								self.logWarning('GLTFLoader', 'Blob not found in tracking map for Image.src - cannot convert, will not set blob URL to prevent CSP violation', { url: value.substring(0, 50) })
+								// Don't set the blob URL as it will be blocked by CSP
+								// Set an empty src or trigger an error to indicate failure
+								patches.originalImageSrcSetter.call(this, '')
+								// Trigger error event to notify the loader
+								if (this.onerror) {
+									this.onerror(new Error('Blob URL not tracked - CSP violation prevented'))
+								}
+								return
 							}
 						}
 						// For non-blob URLs, use original setter
@@ -225,10 +270,25 @@ class GltfLoader extends BaseLoader {
 						if (typeof value === 'string' && value.startsWith('blob:')) {
 							self.logInfo('GLTFLoader', 'Intercepting blob URL in Image.src (fallback)', { url: value.substring(0, 50) })
 							
+							// Check if we have a cached data URI (for synchronous access)
+							const cachedDataURI = patches.dataURICache.get(value)
+							if (cachedDataURI) {
+								// Use cached data URI synchronously
+								self.logInfo('GLTFLoader', 'Using cached data URI for Image.src (fallback, synchronous)', {
+									url: value.substring(0, 50),
+									dataURILength: cachedDataURI.length
+								})
+								this._src = cachedDataURI
+								return
+							}
+							
+							// If not cached, try to convert asynchronously (fallback for edge cases)
 							const originalBlob = patches.blobUrlMap.get(value)
 							if (originalBlob) {
 								self.blobToDataURI(originalBlob).then((dataURI) => {
-									self.logInfo('GLTFLoader', 'Converted blob URL to data URI for Image.src (fallback)', {
+									// Cache it for future use
+									patches.dataURICache.set(value, dataURI)
+									self.logInfo('GLTFLoader', 'Converted blob URL to data URI for Image.src (fallback, async)', {
 										url: value.substring(0, 50),
 										dataURILength: dataURI.length
 									})
@@ -238,8 +298,20 @@ class GltfLoader extends BaseLoader {
 										url: value.substring(0, 50),
 										error: error.message
 									})
-									this._src = value
+									// Don't set the blob URL as it will be blocked by CSP
+									this._src = ''
+									if (this.onerror) {
+										this.onerror(new Error('Failed to convert blob URL - CSP violation prevented'))
+									}
 								})
+								return
+							} else {
+								self.logWarning('GLTFLoader', 'Blob not found in tracking map for Image.src (fallback) - cannot convert, will not set blob URL', { url: value.substring(0, 50) })
+								// Don't set the blob URL as it will be blocked by CSP
+								this._src = ''
+								if (this.onerror) {
+									this.onerror(new Error('Blob URL not tracked - CSP violation prevented'))
+								}
 								return
 							}
 						}
@@ -270,17 +342,28 @@ class GltfLoader extends BaseLoader {
 					
 					const originalBlob = patches.blobUrlMap.get(url)
 					if (originalBlob) {
-						// Return the original blob as a Response (not a data URI string)
-						// The blob itself can be used directly
-						return new Response(originalBlob, {
-							status: 200,
-							statusText: 'OK',
-							headers: {
-								'Content-Type': originalBlob.type || 'application/octet-stream'
-							}
+						// Convert blob to data URI and return as Response
+						return self.blobToDataURI(originalBlob).then((dataURI) => {
+							const { buffer, type } = self.dataURIToArrayBuffer(dataURI)
+							return new Response(buffer, {
+								status: 200,
+								statusText: 'OK',
+								headers: {
+									'Content-Type': type || originalBlob.type || 'application/octet-stream'
+								}
+							})
+						}).catch((error) => {
+							self.logWarning('GLTFLoader', 'Failed to convert blob to data URI in fetch', {
+								url: url.substring(0, 50),
+								error: error.message
+							})
+							// Return error response instead of falling through to original fetch
+							return Promise.reject(new Error('Failed to convert blob URL - CSP violation prevented'))
 						})
 					} else {
-						self.logWarning('GLTFLoader', 'Blob not found in tracking map for fetch', { url: url.substring(0, 50) })
+						self.logWarning('GLTFLoader', 'Blob not found in tracking map for fetch - cannot convert, will not fetch to prevent CSP violation', { url: url.substring(0, 50) })
+						// Return rejected promise instead of falling through to original fetch
+						return Promise.reject(new Error('Blob URL not tracked - CSP violation prevented'))
 					}
 				}
 				
@@ -403,14 +486,28 @@ class GltfLoader extends BaseLoader {
 								url: blobUrl.substring(0, 50),
 								error: error.message 
 							})
-							// Fallback to original send with blob URL
-							patches.originalXHRSend.call(this, ...sendArgs)
+							// Don't send with blob URL as it will be blocked by CSP
+							// Trigger error event instead
+							if (this.onerror) {
+								this.onerror(new Error('Failed to convert blob URL - CSP violation prevented'))
+							}
+							return
 						})
+						return
+					} else {
+						// Blob not found in tracking map - cannot convert
+						self.logWarning('GLTFLoader', 'Blob not found in tracking map for XHR - cannot convert, will not send request to prevent CSP violation', { 
+							url: blobUrl.substring(0, 50)
+						})
+						// Trigger error event instead of sending the request
+						if (this.onerror) {
+							this.onerror(new Error('Blob URL not tracked - CSP violation prevented'))
+						}
 						return
 					}
 				}
 				
-				// Normal send
+				// Normal send (for non-blob URLs)
 				return patches.originalXHRSend.call(this, ...sendArgs)
 			}
 		}

@@ -905,6 +905,7 @@ export default {
 						emit('animations-initialized', {
 							hasAnimations: animation.hasAnimations.value,
 							isPlaying: animation.isPlaying.value,
+							isLooping: animation.isLooping.value,
 						})
 					} else {
 						logger.info('ThreeViewer', 'No animations found in model')

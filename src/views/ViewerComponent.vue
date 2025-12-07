@@ -579,14 +579,15 @@ export default {
 					// Initialize animations if present
 					if (modelResult.animations && modelResult.animations.length > 0) {
 						this.animationComposable.initAnimations(this.modelRoot, modelResult.animations)
-						// Update data properties for reactivity
-						this.hasAnimations = true
+						// Update data properties for reactivity - check composable's hasAnimations to ensure initialization succeeded
+						this.hasAnimations = this.animationComposable.hasAnimations.value
 						this.isAnimationPlaying = this.animationComposable.isPlaying.value
 						logger.info('ViewerComponent', 'Animations initialized', {
 							count: modelResult.animations.length,
 							clips: modelResult.animations.map(clip => clip.name || 'unnamed'),
 							hasAnimations: this.hasAnimations,
 							isAnimationPlaying: this.isAnimationPlaying,
+							composableHasAnimations: this.animationComposable.hasAnimations.value,
 						})
 					} else {
 						// Reset animation state if no animations
@@ -779,8 +780,8 @@ export default {
 					// Initialize animations if present
 					if (result.animations && result.animations.length > 0) {
 						this.animationComposable.initAnimations(result.object3D, result.animations)
-						// Update data properties for reactivity
-						this.hasAnimations = true
+						// Update data properties for reactivity - check composable's hasAnimations to ensure initialization succeeded
+						this.hasAnimations = this.animationComposable.hasAnimations.value
 						this.isAnimationPlaying = this.animationComposable.isPlaying.value
 						logger.info('ViewerComponent', 'Animations initialized', {
 							count: result.animations.length,
@@ -789,6 +790,7 @@ export default {
 							isAnimationPlaying: this.isAnimationPlaying,
 							hasLoaded: this.hasLoaded,
 							hasAnimationsComputed: this.hasAnimationsComputed,
+							composableHasAnimations: this.animationComposable.hasAnimations.value,
 						})
 					} else {
 						// Reset animation state if no animations
@@ -890,9 +892,14 @@ export default {
 			// Update animation mixer if animations are active
 			if (this.animationComposable.mixer.value && this.animationComposable.isPlaying.value) {
 				const currentTime = performance.now()
-				const deltaTime = this.lastAnimationTime > 0
-					? (currentTime - this.lastAnimationTime) / 1000 // Convert to seconds
-					: 0
+				let deltaTime = 0
+				if (this.lastAnimationTime > 0) {
+					deltaTime = (currentTime - this.lastAnimationTime) / 1000 // Convert to seconds
+				} else {
+					// First frame: use a small default delta to start animation smoothly
+					// This prevents the animation from being stuck on the first frame
+					deltaTime = 0.016 // ~60fps frame time
+				}
 				this.lastAnimationTime = currentTime
 				this.animationComposable.update(deltaTime)
 				// Sync data property (only update if changed to avoid unnecessary reactivity)

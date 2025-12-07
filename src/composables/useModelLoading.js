@@ -136,11 +136,16 @@ export function useModelLoading() {
 			// Use dirPath from context if provided, otherwise extract from filename
 			let dirPath = context.dirPath || context.dir || null
 			if (!dirPath) {
-				const extractedPath = filename.substring(0, filename.lastIndexOf('/'))
-				// If filename has a path, use it; otherwise keep null
-				if (extractedPath && extractedPath.length > 0) {
-					dirPath = extractedPath
+				const lastSlashIndex = filename.lastIndexOf('/')
+				// Only extract path if '/' exists (lastIndexOf returns -1 if not found)
+				if (lastSlashIndex >= 0) {
+					const extractedPath = filename.substring(0, lastSlashIndex)
+					// If filename has a path, use it; otherwise keep null
+					if (extractedPath && extractedPath.length > 0) {
+						dirPath = extractedPath
+					}
 				}
+				// If no '/' found, dirPath remains null (filename has no directory component)
 			}
 			
 			// Log directory path for debugging
