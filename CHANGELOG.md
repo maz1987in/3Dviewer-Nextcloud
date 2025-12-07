@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Animation Controls in UI**: Added animation play/pause controls to viewer interface
+  - Animation play/pause button in MinimalTopBar component
+  - Animation controls section in SlideOutToolPanel with play/pause and loop toggle
+  - Animation state props passed through App.vue to child components
+  - Integration of useAnimation composable in ThreeViewer component
+  - Improved directory path extraction for multi-file model loading
+
 ### Fixed
 - **CSP Compliance for Texture Loading**: Fixed Content Security Policy violations when loading GLB/GLTF models with embedded textures in Nextcloud modal viewer
   - Patched `Image.prototype.src` setter to automatically convert blob URLs to data URIs for texture loading

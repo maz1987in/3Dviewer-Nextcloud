@@ -56,13 +56,16 @@
 					:show-performance="showPerformance"
 					:show-controller="showController"
 					:is-mobile="isMobile"
+					:has-animations="hasAnimationsComputed"
+					:is-animation-playing="isAnimationPlayingComputed"
 					@reset-view="onReset"
 					@fit-to-view="onFitToView"
 					@toggle-performance="onTogglePerformance"
 					@toggle-controller="onToggleController"
 					@take-screenshot="onTakeScreenshot"
 					@toggle-help="onToggleHelp"
-					@toggle-tools="onToggleTools" />
+					@toggle-tools="onToggleTools"
+					@toggle-animation-play="onToggleAnimationPlay" />
 
 				<!-- Slide-Out Tool Panel -->
 				<SlideOutToolPanel
@@ -79,6 +82,9 @@
 					:model-loaded="modelLoaded"
 					:performance-mode="performanceMode"
 					:theme-mode="themeMode"
+					:has-animations="hasAnimations"
+					:is-animation-playing="isAnimationPlaying"
+					:is-animation-looping="isAnimationLooping"
 					:is-mobile="isMobile"
 					@reset-view="onReset"
 					@fit-to-view="onFitToView"
@@ -99,7 +105,9 @@
 					@send-to-slicer="onSendToSlicer"
 					@clear-cache="onClearCache"
 					@reindex-files="onReindexFiles"
-					@toggle-help="onToggleHelp" />
+					@toggle-help="onToggleHelp"
+					@toggle-animation-play="onToggleAnimationPlay"
+					@toggle-animation-loop="onToggleAnimationLoop" />
 
 				<!-- 3D Viewer -->
 				<ThreeViewer
@@ -239,13 +247,52 @@ export default {
 			showHelp: false,
 			isMobile: false,
 			showSlicerModal: false,
+			// Animation state (updated from viewer)
+			hasAnimations: false,
+			isAnimationPlaying: false,
+			isAnimationLooping: false,
 		}
+	},
+	computed: {
+		// Computed properties that return data properties (for reactivity)
+		hasAnimationsComputed() {
+			const result = this.hasAnimations
+			// Debug logging (remove in production)
+			if (this.modelLoaded) {
+				console.log('[App.vue] hasAnimationsComputed', {
+					result,
+					dataProperty: this.hasAnimations,
+					viewerHasAnimations: this.$refs.viewer?.hasAnimations,
+				})
+			}
+			return result
+		},
+		isAnimationPlayingComputed() {
+			return this.isAnimationPlaying
+		},
+		isAnimationLoopingComputed() {
+			return this.isAnimationLooping
+		},
 	},
 	watch: {
 		grid() { this.savePrefs() },
 		axes() { this.savePrefs() },
 		wireframe() { this.savePrefs() },
 		background() { this.savePrefs() },
+		// Watch modelLoaded to update animation state
+		modelLoaded(newVal) {
+			if (newVal) {
+				// Update animation state when model loads
+				this.$nextTick(() => {
+					this.updateAnimationState()
+				})
+			} else {
+				// Reset animation state when model unloads
+				this.hasAnimations = false
+				this.isAnimationPlaying = false
+				this.isAnimationLooping = false
+			}
+		},
 	},
 	created() {
 		this.loadPrefs()
@@ -623,7 +670,34 @@ export default {
 			if (this.$refs.viewer?.animationPresets) {
 				this.animationPresets = this.$refs.viewer.animationPresets
 			}
+			// Update animation state from viewer
+			// Use a small delay to ensure animations are initialized
+			this.$nextTick(() => {
+				// Try immediately
+				this.updateAnimationState()
+				// Also try after delays to catch animations that initialize asynchronously
+				setTimeout(() => {
+					this.updateAnimationState()
+				}, 100)
+				setTimeout(() => {
+					this.updateAnimationState()
+				}, 500)
+				setTimeout(() => {
+					this.updateAnimationState()
+				}, 1000)
+			})
 			this.pushToast({ type: 'success', title: this.tSuccessTitle(), message: this.tLoadedMessage(meta.filename) })
+		},
+		onAnimationsInitialized(data) {
+			// Called when animations are initialized in ThreeViewer
+			console.log('[App.vue] Animations initialized event received', data)
+			this.hasAnimations = data.hasAnimations || false
+			this.isAnimationPlaying = data.isPlaying || false
+			console.log('[App.vue] Animation state updated from event', {
+				hasAnimations: this.hasAnimations,
+				isAnimationPlaying: this.isAnimationPlaying,
+				hasAnimationsComputed: this.hasAnimationsComputed,
+			})
 		},
 		onError(error) {
 			// Extract message from error object or use as string
@@ -884,6 +958,45 @@ export default {
 		tSuccessTitle() { return this.t('threedviewer', 'Model loaded') },
 		tLoadedMessage(name) { return this.t('threedviewer', 'Loaded {file}', { file: name }) },
 		tErrorTitle() { return this.t('threedviewer', 'Error loading model') },
+		onToggleAnimationPlay() {
+			if (this.$refs.viewer?.animation) {
+				this.$refs.viewer.animation.togglePlay()
+				// Update state after toggle
+				this.updateAnimationState()
+			}
+		},
+		onToggleAnimationLoop() {
+			if (this.$refs.viewer?.animation) {
+				this.$refs.viewer.animation.toggleLoop()
+				// Update state after toggle
+				this.updateAnimationState()
+			}
+		},
+		updateAnimationState() {
+			// Update animation state from viewer (called when model loads or state changes)
+			if (this.$refs.viewer) {
+				const viewerHasAnimations = this.$refs.viewer.hasAnimations || false
+				const viewerIsPlaying = this.$refs.viewer.isAnimationPlaying || false
+				const viewerIsLooping = this.$refs.viewer.isAnimationLooping || false
+				
+				this.hasAnimations = viewerHasAnimations
+				this.isAnimationPlaying = viewerIsPlaying
+				this.isAnimationLooping = viewerIsLooping
+				
+				console.log('[App.vue] Animation state updated', {
+					hasAnimations: this.hasAnimations,
+					isAnimationPlaying: this.isAnimationPlaying,
+					isAnimationLooping: this.isAnimationLooping,
+					viewerHasAnimations,
+					viewerIsPlaying,
+					viewerIsLooping,
+					hasAnimationsComputed: this.hasAnimationsComputed,
+					isAnimationPlayingComputed: this.isAnimationPlayingComputed,
+				})
+			} else {
+				console.warn('[App.vue] Cannot update animation state: viewer ref not available')
+			}
+		},
 	},
 }
 </script>

@@ -139,6 +139,25 @@
 								<span class="tool-label">{{ t('threedviewer', 'Comparison') }}</span>
 								<span v-if="comparisonMode" class="active-badge">{{ t('threedviewer', 'Active') }}</span>
 							</button>
+							<!-- Animation controls -->
+							<div v-if="hasAnimations" class="tool-group">
+								<label class="tool-label-small">{{ t('threedviewer', 'Animation') }}</label>
+								<div class="animation-controls">
+									<button class="tool-btn"
+										:class="{ 'active': isAnimationPlaying }"
+										@click="emit('toggle-animation-play')">
+										<span class="tool-icon">{{ isAnimationPlaying ? '⏸️' : '▶️' }}</span>
+										<span class="tool-label">{{ isAnimationPlaying ? t('threedviewer', 'Pause') : t('threedviewer', 'Play') }}</span>
+									</button>
+									<button class="tool-btn toggle-btn"
+										:class="{ 'active': isAnimationLooping }"
+										@click="emit('toggle-animation-loop')">
+										<span class="tool-icon">🔁</span>
+										<span class="tool-label">{{ t('threedviewer', 'Loop') }}</span>
+										<span class="toggle-indicator">{{ isAnimationLooping ? '✓' : '' }}</span>
+									</button>
+								</div>
+							</div>
 						</div>
 					</section>
 
@@ -243,6 +262,11 @@ export default {
 		performanceMode: { type: String, default: 'auto' },
 		themeMode: { type: String, default: 'auto' },
 
+		// Animation props
+		hasAnimations: { type: Boolean, default: false },
+		isAnimationPlaying: { type: Boolean, default: false },
+		isAnimationLooping: { type: Boolean, default: false },
+
 		// Mobile detection
 		isMobile: { type: Boolean, default: false },
 	},
@@ -269,6 +293,8 @@ export default {
 		'send-to-slicer',
 		'clear-cache',
 		'toggle-help',
+		'toggle-animation-play',
+		'toggle-animation-loop',
 	],
 
 	setup(props, { emit }) {
@@ -690,6 +716,16 @@ export default {
 	color: var(--color-text-maxcontrast);
 	margin-bottom: 8px;
 	font-weight: 500;
+}
+
+.animation-controls {
+	display: flex;
+	gap: 6px;
+}
+
+.animation-controls .tool-btn {
+	flex: 1;
+	margin-bottom: 0;
 }
 
 .preset-select,

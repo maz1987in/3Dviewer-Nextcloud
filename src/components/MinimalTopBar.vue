@@ -35,6 +35,16 @@
 
 		<!-- Right: Settings & Info -->
 		<div class="right-section">
+			<!-- Animation Play/Pause Button -->
+			<button v-if="hasAnimations"
+				:aria-label="isAnimationPlaying ? t('threedviewer', 'Pause animation') : t('threedviewer', 'Play animation')"
+				class="icon-btn"
+				:class="{ 'active': isAnimationPlaying }"
+				:title="isAnimationPlaying ? t('threedviewer', 'Pause animation') : t('threedviewer', 'Play animation')"
+				@click="$emit('toggle-animation-play')">
+				<span class="btn-icon">{{ isAnimationPlaying ? '⏸️' : '▶️' }}</span>
+			</button>
+
 			<button v-if="showPerformance"
 				:aria-label="t('threedviewer', 'Toggle performance stats')"
 				class="icon-btn"
@@ -92,6 +102,8 @@ export default {
 		showPerformance: { type: Boolean, default: false },
 		showController: { type: Boolean, default: true },
 		isMobile: { type: Boolean, default: false },
+		hasAnimations: { type: Boolean, default: false },
+		isAnimationPlaying: { type: Boolean, default: false },
 	},
 
 	emits: [
@@ -102,6 +114,7 @@ export default {
 		'take-screenshot',
 		'toggle-help',
 		'toggle-tools',
+		'toggle-animation-play',
 	],
 
 	setup(props, { emit }) {

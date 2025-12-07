@@ -406,6 +406,7 @@ import { useTheme } from '../composables/useTheme.js'
 import { useFaceLabels } from '../composables/useFaceLabels.js'
 import { useController } from '../composables/useController.js'
 import { useScreenshot } from '../composables/useScreenshot.js'
+import { useAnimation } from '../composables/useAnimation.js'
 import { logger } from '../utils/logger.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
 import { initCache, clearExpired, clearAll, getCacheStats } from '../utils/dependencyCache.js'
@@ -473,6 +474,7 @@ export default {
 		const faceLabels = useFaceLabels()
 		const controller = useController()
 		const screenshot = useScreenshot()
+		const animation = useAnimation()
 
 		// Computed properties
 		const isMobile = computed(() => camera.isMobile.value)
@@ -494,6 +496,10 @@ export default {
 			get: () => measurement.currentUnit.value,
 			set: (value) => { measurement.currentUnit.value = value },
 		})
+		// Animation computed properties (unwrapped for Options API access)
+		const hasAnimationsComputed = computed(() => animation.hasAnimations.value)
+		const isAnimationPlayingComputed = computed(() => animation.isPlaying.value)
+		const isAnimationLoopingComputed = computed(() => animation.isLooping.value)
 
 		// Methods
 		const init = async () => {
@@ -781,6 +787,7 @@ export default {
 
 				// Use the model loading composable which has proper progress tracking
 				const loadedModel = await modelLoading.loadModelFromFileId(fileId, fullPath, {
+					dirPath, // Pass the directory path explicitly
 					fileId,
 					filename,
 					dir: dirPath,
@@ -880,6 +887,27 @@ export default {
 					// Add face labels if enabled
 					if (props.showFaceLabels) {
 						faceLabels.addFaceLabels(modelRoot.value, scene.value)
+					}
+
+					// Initialize animations if present
+					if (loadedModel.animations && loadedModel.animations.length > 0) {
+						animation.initAnimations(modelRoot.value, loadedModel.animations)
+						logger.info('ThreeViewer', 'Animations initialized', {
+							count: loadedModel.animations.length,
+							clips: loadedModel.animations.map(clip => clip.name || 'unnamed'),
+							hasAnimations: animation.hasAnimations.value,
+							isPlaying: animation.isPlaying.value,
+							hasAnimationsComputed: hasAnimationsComputed.value,
+							isAnimationPlayingComputed: isAnimationPlayingComputed.value,
+						})
+						// Emit event to notify parent that animations are available
+						// This helps App.vue update its state
+						emit('animations-initialized', {
+							hasAnimations: animation.hasAnimations.value,
+							isPlaying: animation.isPlaying.value,
+						})
+					} else {
+						logger.info('ThreeViewer', 'No animations found in model')
 					}
 
 					// Calculate model statistics
@@ -1240,6 +1268,13 @@ export default {
 
 			// Update controls
 			camera.updateControls()
+
+			// Update animation mixer if animations are active
+			if (animation.mixer.value && animation.isPlaying.value) {
+				// delta is already in milliseconds, convert to seconds
+				const deltaTime = delta / 1000
+				animation.update(deltaTime)
+			}
 
 			// Update billboard text labels to face camera
 			updateBillboards()
@@ -2479,6 +2514,9 @@ export default {
 			// Dispose face labels
 			faceLabels.dispose()
 
+			// Dispose animations
+			animation.dispose()
+
 			// Dispose performance monitoring
 			if (performance && typeof performance.dispose === 'function') {
 				performance.dispose()
@@ -2538,6 +2576,12 @@ export default {
 			currentPerformanceMode: performance.currentPerformanceMode,
 			currentPixelRatio: performance.currentPixelRatio,
 			showPerformanceStats,
+
+			// Animation
+			animation,
+			hasAnimations: hasAnimationsComputed,
+			isAnimationPlaying: isAnimationPlayingComputed,
+			isAnimationLooping: isAnimationLoopingComputed,
 
 			// Camera
 			cameraType: camera.cameraType,

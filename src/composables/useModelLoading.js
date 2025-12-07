@@ -133,7 +133,24 @@ export function useModelLoading() {
 			updateProgress(0, 0, LOADING_STAGES.INITIALIZING, 'Initializing model loading...')
 
 			// Extract directory path for multi-file loading
-			const dirPath = filename.substring(0, filename.lastIndexOf('/'))
+			// Use dirPath from context if provided, otherwise extract from filename
+			let dirPath = context.dirPath || context.dir || null
+			if (!dirPath) {
+				const extractedPath = filename.substring(0, filename.lastIndexOf('/'))
+				// If filename has a path, use it; otherwise keep null
+				if (extractedPath && extractedPath.length > 0) {
+					dirPath = extractedPath
+				}
+			}
+			
+			// Log directory path for debugging
+			logger.info('useModelLoading', 'Directory path for multi-file loading', {
+				dirPath,
+				contextDirPath: context.dirPath,
+				contextDir: context.dir,
+				filename,
+				extractedFromFilename: filename.substring(0, filename.lastIndexOf('/')),
+			})
 
 			// Check if this is a multi-file format
 			const isMultiFile = ['obj', 'gltf', 'fbx', '3ds', 'dae'].includes(extension)

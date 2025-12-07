@@ -114,6 +114,27 @@
 				<span class="tb-icon">🖨️</span>
 				<span class="tb-text">{{ t('threedviewer','Send to Slicer') }}</span>
 			</button>
+			<!-- Animation controls -->
+			<button v-if="hasAnimations"
+				:aria-label="isAnimationPlaying ? t('threedviewer','Pause animation') : t('threedviewer','Play animation')"
+				class="tb"
+				type="button"
+				:title="isAnimationPlaying ? t('threedviewer','Pause animation') : t('threedviewer','Play animation')"
+				@click="$emit('toggle-animation-play')">
+				<span class="tb-icon">{{ isAnimationPlaying ? '⏸️' : '▶️' }}</span>
+				<span class="tb-text">{{ isAnimationPlaying ? t('threedviewer','Pause') : t('threedviewer','Play') }}</span>
+			</button>
+			<button v-if="hasAnimations"
+				:aria-pressed="isAnimationLooping"
+				:aria-label="t('threedviewer','Toggle animation loop')"
+				class="tb"
+				type="button"
+				:title="t('threedviewer','Toggle animation loop')"
+				:class="{ 'active': isAnimationLooping }"
+				@click="$emit('toggle-animation-loop')">
+				<span class="tb-icon">🔁</span>
+				<span class="tb-text">{{ isAnimationLooping ? t('threedviewer','Loop on') : t('threedviewer','Loop off') }}</span>
+			</button>
 			<button :aria-label="t('threedviewer','Performance settings')"
 				class="tb"
 				type="button"
@@ -148,6 +169,10 @@ export default {
 		comparisonMode: { type: Boolean, default: false },
 		performanceMode: { type: String, default: 'auto' },
 		modelLoaded: { type: Boolean, default: false },
+		// Animation props
+		hasAnimations: { type: Boolean, default: false },
+		isAnimationPlaying: { type: Boolean, default: false },
+		isAnimationLooping: { type: Boolean, default: false },
 	},
 	data() {
 		return {
