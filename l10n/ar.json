@@ -191,7 +191,10 @@
     "Tools": "الأدوات",
     "Active": "نشط",
     "Reset background": "إعادة ضبط الخلفية",
-    "Optimized for 3D printing": "محسّن للطباعة ثلاثية الأبعاد"
+    "Optimized for 3D printing": "محسّن للطباعة ثلاثية الأبعاد",
+    "Textures not supported in preview": "الخامات غير مدعومة في المعاينة",
+    "Some textures may not load in this preview. For full texture support, open the model in the main 3D Viewer.": "قد لا يتم تحميل بعض الخامات في هذه المعاينة. للحصول على دعم كامل للخامات، افتح النموذج في عارض 3D الرئيسي.",
+    "Open in 3D Viewer": "فتح في عارض 3D"
   },
   "pluralForm": "nplurals=6; plural=n==0?0:n==1?1:n==2?2:n%100>=3 && n%100<=10?3:n%100>=11 && n%100<=99?4:5;"
 }

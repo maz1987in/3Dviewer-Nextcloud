@@ -26,6 +26,15 @@
     "Toggle auto-rotate": "Toggle auto-rotate",
     "Auto-rotate on": "Auto-rotate on",
     "Auto-rotate off": "Auto-rotate off",
+    "Play animation": "Play animation",
+    "Pause animation": "Pause animation",
+    "Toggle animation loop": "Toggle animation loop",
+    "Loop on": "Loop on",
+    "Loop off": "Loop off",
+    "Animation": "Animation",
+    "Loop": "Loop",
+    "Play": "Play",
+    "Pause": "Pause",
     "Camera presets": "Camera presets",
     "View Presets": "View Presets",
     "Camera Projection": "Camera Projection",
@@ -243,7 +252,10 @@
     "Tip:": "Tip:",
     "The app creates a temporary Nextcloud share link that works with slicer applications. Link expires after 1 hour.": "The app creates a temporary Nextcloud share link that works with slicer applications. Link expires after 1 hour.",
     "{name} is not installed on your system. Downloading the file instead...": "{name} is not installed on your system. Downloading the file instead...",
-    "{name} not found - downloading file...": "{name} not found - downloading file..."
+    "{name} not found - downloading file...": "{name} not found - downloading file...",
+    "Textures not supported in preview": "Textures not supported in preview",
+    "Some textures may not load in this preview. For full texture support, open the model in the main 3D Viewer.": "Some textures may not load in this preview. For full texture support, open the model in the main 3D Viewer.",
+    "Open in 3D Viewer": "Open in 3D Viewer"
   },
   "pluralForm": "nplurals=2; plural=(n != 1);"
 }

@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **CSP Compliance for Texture Loading**: Fixed Content Security Policy violations when loading GLB/GLTF models with embedded textures in Nextcloud modal viewer
+  - Patched `Image.prototype.src` setter to automatically convert blob URLs to data URIs for texture loading
+  - Patched `URL.createObjectURL` to track blob-to-URL mappings for later conversion
+  - Patched `fetch()` and `XMLHttpRequest` to intercept blob URLs and convert them to data URIs
+  - Patched `THREE.FileLoader` to handle blob URL conversion for texture resources
+  - Automatic detection of modal viewer context (iframe or Nextcloud viewer) to apply CSP workarounds only when needed
+  - All patches are automatically restored after model loading completes
+- **CSP Compliance for Buffer Loading**: Fixed CSP violations when loading GLTF files with external `.bin` buffer files
+  - Updated `setupResourceManager` to use data URIs for buffers in modal context (instead of blob URLs)
+  - Patched `fetch()` to intercept data URI requests and decode them manually, bypassing CSP restrictions
+  - Supports both base64 and URL-encoded data URIs for maximum compatibility
+- **Animation Support for Multi-File GLTF**: Fixed missing animation initialization for GLTF files loaded with external dependencies
+  - Added animation detection and initialization to `loadModelWithFiles` function
+  - Animations now properly initialize when loading GLTF files with external `.bin` files
+  - Animation controls now appear correctly for animated multi-file GLTF models
+- **False Texture Warning**: Removed automatic texture warning banner that was incorrectly showing for all GLB/GLTF files
+  - Warning now only appears when actual CSP errors or texture loading failures are detected
+  - Improved user experience by eliminating false warnings when textures load successfully
+
 ## [2.1.0] - 2025-12-06
 
 ### Added

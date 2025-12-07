@@ -191,7 +191,10 @@
     "Tools": "Herramientas",
     "Active": "Activo",
     "Reset background": "Restablecer fondo",
-    "Optimized for 3D printing": "Optimizado para impresión 3D"
+    "Optimized for 3D printing": "Optimizado para impresión 3D",
+    "Textures not supported in preview": "Las texturas no son compatibles en la vista previa",
+    "Some textures may not load in this preview. For full texture support, open the model in the main 3D Viewer.": "Algunas texturas pueden no cargarse en esta vista previa. Para soporte completo de texturas, abra el modelo en el visor 3D principal.",
+    "Open in 3D Viewer": "Abrir en el visor 3D"
   },
   "pluralForm": "nplurals=2; plural=(n != 1);"
 }

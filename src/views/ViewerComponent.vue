@@ -44,6 +44,16 @@
 			@click.prevent="openInFullViewer">
 			{{ t('threedviewer', 'Open in 3D Viewer') }} ↗
 		</NcButton>
+
+		<!-- Animation controls (simple play/pause button) -->
+		<NcButton
+			v-if="hasLoaded && hasAnimationsComputed"
+			type="secondary"
+			class="animation-control-button"
+			:title="isAnimationPlayingComputed ? t('threedviewer', 'Pause animation') : t('threedviewer', 'Play animation')"
+			@click.prevent="toggleAnimation">
+			{{ isAnimationPlayingComputed ? '⏸️' : '▶️' }}
+		</NcButton>
 	</div>
 </template>
 
@@ -54,6 +64,7 @@ import { loadModelWithDependencies } from '../loaders/multiFileHelpers.js'
 import { removePlaceholders } from '../utils/scene-helpers.js'
 import { useScene } from '../composables/useScene.js'
 import { useCamera } from '../composables/useCamera.js'
+import { useAnimation } from '../composables/useAnimation.js'
 import { logger } from '../utils/logger.js'
 
 export default {
@@ -104,11 +115,13 @@ export default {
 		// Initialize composables
 		const sceneComposable = useScene()
 		const cameraComposable = useCamera()
+		const animationComposable = useAnimation()
 
 		// Return composables for use in Options API methods
 		return {
 			sceneComposable,
 			cameraComposable,
+			animationComposable,
 		}
 	},
 
@@ -133,6 +146,10 @@ export default {
 			internalFilesList: [], // Store files list for Viewer API
 			showTextureWarning: false, // Show warning if textures fail due to CSP
 			cspErrorListener: null, // Listener for CSP errors
+			lastAnimationTime: 0, // Track time for animation delta
+			// Animation state (for reactivity in Options API)
+			hasAnimations: false,
+			isAnimationPlaying: false,
 		}
 	},
 
@@ -146,6 +163,22 @@ export default {
 				+ `?fileId=${this.fileid}`
 				+ `&filename=${encodeURIComponent(this.filename)}`
 				+ `&dir=${encodeURIComponent(dir)}`
+		},
+
+		/**
+		 * Check if model has animations (reactive)
+		 * Returns data property for proper reactivity
+		 */
+		hasAnimationsComputed() {
+			return this.hasAnimations
+		},
+
+		/**
+		 * Check if animation is playing (reactive)
+		 * Returns data property for proper reactivity
+		 */
+		isAnimationPlayingComputed() {
+			return this.isAnimationPlaying
 		},
 	},
 
@@ -235,6 +268,12 @@ export default {
 		if (this.cameraComposable && typeof this.cameraComposable.dispose === 'function') {
 			this.cameraComposable.dispose()
 		}
+		if (this.animationComposable && typeof this.animationComposable.dispose === 'function') {
+			this.animationComposable.dispose()
+		}
+		// Reset animation state
+		this.hasAnimations = false
+		this.isAnimationPlaying = false
 
 		// Additional cleanup for any remaining resources
 		if (this.scene) {
@@ -537,6 +576,25 @@ export default {
 					this.updateProgress(true, 100, this.t('threedviewer', 'Model loaded'), '', false)
 					logger.info('ViewerComponent', 'Model loaded successfully')
 
+					// Initialize animations if present
+					if (modelResult.animations && modelResult.animations.length > 0) {
+						this.animationComposable.initAnimations(this.modelRoot, modelResult.animations)
+						// Update data properties for reactivity
+						this.hasAnimations = true
+						this.isAnimationPlaying = this.animationComposable.isPlaying.value
+						logger.info('ViewerComponent', 'Animations initialized', {
+							count: modelResult.animations.length,
+							clips: modelResult.animations.map(clip => clip.name || 'unnamed'),
+							hasAnimations: this.hasAnimations,
+							isAnimationPlaying: this.isAnimationPlaying,
+						})
+					} else {
+						// Reset animation state if no animations
+						this.hasAnimations = false
+						this.isAnimationPlaying = false
+						logger.info('ViewerComponent', 'No animations found in model')
+					}
+
 					// Check for loading warnings (missing files/textures)
 					const totalMissing = (result.missingFiles?.length || 0) + (context.missingTextures?.length || 0)
 					if (totalMissing > 0) {
@@ -718,20 +776,32 @@ export default {
 
 					logger.info('ViewerComponent', 'Model loaded successfully')
 
-					// For GLB/GLTF files in modal viewer, show texture warning automatically
-					// These formats often have embedded textures that fail due to CSP
-					if (extension === 'glb' || extension === 'gltf') {
-						// Wait a bit for texture loading attempts, then show warning
-						setTimeout(() => {
-							this.showTextureWarning = true
-							logger.info('ViewerComponent', 'Showing texture warning for GLB/GLTF in modal viewer')
-						}, 2500)
+					// Initialize animations if present
+					if (result.animations && result.animations.length > 0) {
+						this.animationComposable.initAnimations(result.object3D, result.animations)
+						// Update data properties for reactivity
+						this.hasAnimations = true
+						this.isAnimationPlaying = this.animationComposable.isPlaying.value
+						logger.info('ViewerComponent', 'Animations initialized', {
+							count: result.animations.length,
+							clips: result.animations.map(clip => clip.name || 'unnamed'),
+							hasAnimations: this.hasAnimations,
+							isAnimationPlaying: this.isAnimationPlaying,
+							hasLoaded: this.hasLoaded,
+							hasAnimationsComputed: this.hasAnimationsComputed,
+						})
 					} else {
-						// For other formats, check for texture issues
-						setTimeout(() => {
-							this.checkForTextureIssues()
-						}, 2000)
+						// Reset animation state if no animations
+						this.hasAnimations = false
+						this.isAnimationPlaying = false
+						logger.info('ViewerComponent', 'No animations found in model')
 					}
+
+					// Check for texture issues after a delay to allow textures to load
+					// The CSP error handler will show the warning if CSP errors are detected
+					setTimeout(() => {
+						this.checkForTextureIssues()
+					}, 2000)
 				} else {
 					throw new Error('Loader did not return a valid object3D')
 				}
@@ -816,6 +886,26 @@ export default {
 			}
 
 			this.animationFrameId = requestAnimationFrame(this.animate)
+
+			// Update animation mixer if animations are active
+			if (this.animationComposable.mixer.value && this.animationComposable.isPlaying.value) {
+				const currentTime = performance.now()
+				const deltaTime = this.lastAnimationTime > 0
+					? (currentTime - this.lastAnimationTime) / 1000 // Convert to seconds
+					: 0
+				this.lastAnimationTime = currentTime
+				this.animationComposable.update(deltaTime)
+				// Sync data property (only update if changed to avoid unnecessary reactivity)
+				if (!this.isAnimationPlaying) {
+					this.isAnimationPlaying = true
+				}
+			} else {
+				this.lastAnimationTime = 0
+				// Sync data property if animation stopped
+				if (this.hasAnimations && this.isAnimationPlaying) {
+					this.isAnimationPlaying = false
+				}
+			}
 
 			if (this.controls) {
 				this.controls.update()
@@ -1061,6 +1151,17 @@ export default {
 				}
 			}
 		},
+
+		/**
+		 * Toggle animation play/pause
+		 */
+		toggleAnimation() {
+			if (this.animationComposable) {
+				this.animationComposable.togglePlay()
+				// Update data property for reactivity
+				this.isAnimationPlaying = this.animationComposable.isPlaying.value
+			}
+		},
 	},
 }
 </script>
@@ -1109,6 +1210,17 @@ export default {
 	box-shadow: 0 4px 12px rgb(0 0 0 / 40%);
 }
 
+/* Animation control button */
+.animation-control-button {
+	position: absolute !important;
+	top: 16px;
+	inset-inline-start: 16px;
+	z-index: 1000;
+	box-shadow: 0 2px 8px rgb(0 0 0 / 30%);
+	min-width: 44px;
+	padding: 8px 12px !important;
+}
+
 /* Hide Nextcloud Viewer's loading spinner when our progress bar is showing */
 .showing-progress .icon-loading,
 .showing-progress [class*="loading"] {
@@ -1122,8 +1234,8 @@ export default {
 	left: 10px;
 	right: 10px;
 	z-index: 20;
-	background: rgba(255, 193, 7, 0.15); /* Light yellow/orange with transparency */
-	border: 1px solid rgba(255, 193, 7, 0.3);
+	background: rgba(255, 193, 7, 0.25); /* Increased opacity for better visibility */
+	border: 1px solid rgba(255, 193, 7, 0.5);
 	border-radius: var(--border-radius-large, 8px);
 	padding: 10px 14px;
 	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
@@ -1132,48 +1244,74 @@ export default {
 	backdrop-filter: blur(4px);
 }
 
+[dir="rtl"] .texture-warning-banner {
+	left: 10px;
+	right: 10px;
+}
+
 .texture-warning-content {
 	display: flex;
 	align-items: flex-start;
 	gap: 10px;
+	color: var(--color-main-text, #333);
+}
+
+[dir="rtl"] .texture-warning-content {
+	flex-direction: row-reverse;
 }
 
 .texture-warning-icon {
 	flex-shrink: 0;
 	margin-top: 2px;
 	color: var(--color-warning, #ffa500);
-	opacity: 0.8;
+	opacity: 1;
+}
+
+[dir="rtl"] .texture-warning-icon {
+	margin-top: 2px;
+	margin-inline-start: 0;
+	margin-inline-end: 0;
 }
 
 .texture-warning-text {
 	flex: 1;
 	color: var(--color-main-text, #222);
+	text-align: start;
+}
+
+[dir="rtl"] .texture-warning-text {
+	text-align: start;
 }
 
 .texture-warning-text strong {
 	display: block;
 	margin-bottom: 3px;
-	font-size: 13px;
-	font-weight: 500;
+	font-size: 14px;
+	font-weight: 600;
 	color: var(--color-main-text, #222);
 }
 
 .texture-warning-text p {
 	margin: 0;
-	font-size: 12px;
+	font-size: 13px;
 	line-height: 1.4;
-	opacity: 0.85;
-	color: var(--color-main-text, #666);
+	opacity: 1;
+	color: var(--color-main-text, #333);
 }
 
 .texture-warning-button {
 	flex-shrink: 0;
-	margin-left: auto;
+	margin-inline-start: auto;
 	padding: 6px 12px !important;
 	font-size: 12px !important;
 	background: var(--color-primary-element, #0082c9) !important;
 	color: #fff !important;
 	border-color: var(--color-primary-element, #0082c9) !important;
+}
+
+[dir="rtl"] .texture-warning-button {
+	margin-inline-start: auto;
+	margin-inline-end: 0;
 }
 
 .texture-warning-button:hover {
