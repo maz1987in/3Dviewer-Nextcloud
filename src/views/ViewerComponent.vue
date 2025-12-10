@@ -58,6 +58,7 @@
 </template>
 
 <script>
+import { markRaw } from 'vue'
 import { NcProgressBar, NcButton } from '@nextcloud/vue'
 import { generateUrl } from '@nextcloud/router'
 import { loadModelWithDependencies } from '../loaders/multiFileHelpers.js'
@@ -423,7 +424,7 @@ export default {
 				this.updateProgress(true, 20, this.t('threedviewer', 'Setting up 3D scene...'), '', false)
 
 				// Create scene
-				this.scene = new THREE.Scene()
+				this.scene = markRaw(new THREE.Scene())
 				this.scene.background = new THREE.Color(0xf0f0f0)
 
 				// Store in composable for state management
@@ -455,14 +456,14 @@ export default {
 				this.updateProgress(true, 25, this.t('threedviewer', 'Setting up camera...'), '', false)
 
 				const aspect = this.$refs.canvas.clientWidth / this.$refs.canvas.clientHeight
-				this.camera = new THREE.PerspectiveCamera(75, aspect, 0.1, 1000)
+				this.camera = markRaw(new THREE.PerspectiveCamera(75, aspect, 0.1, 1000))
 				this.camera.position.z = 5
 
 				// Store in composable
 				this.cameraComposable.camera.value = this.camera
 
 				// Setup controls
-				this.controls = new OrbitControls(this.camera, this.renderer.domElement)
+				this.controls = markRaw(new OrbitControls(this.camera, this.renderer.domElement))
 				this.controls.enableDamping = true
 
 				// Store in composable

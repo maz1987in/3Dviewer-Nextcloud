@@ -94,17 +94,7 @@ export default {
 		},
 	},
 	mounted() {
-		// Debug: Log folder data to see what backend is sending
-		if (this.folder && (!this.hasFiles && !this.hasChildren)) {
-			console.log('Folder with 0 items:', {
-				name: this.folder.name,
-				path: this.folder.path,
-				files: this.folder.files,
-				children: this.folder.children,
-				hasFiles: this.hasFiles,
-				hasChildren: this.hasChildren,
-			})
-		}
+		// Component mounted - folder data is ready
 	},
 	methods: {
 		handleFolderClick() {

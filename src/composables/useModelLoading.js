@@ -3,7 +3,7 @@
  * Handles model loading, file processing, and error management
  */
 
-import { ref, computed } from 'vue'
+import { ref, shallowRef, computed, markRaw } from 'vue'
 import * as THREE from 'three'
 import { loadModelByExtension, isSupportedExtension } from '../loaders/registry.js'
 import { loadModelWithDependencies } from '../loaders/multiFileHelpers.js'
@@ -34,7 +34,7 @@ export function useModelLoading() {
 	const errorState = ref(null)
 
 	// Model state
-	const modelRoot = ref(null)
+	const modelRoot = shallowRef(null)
 	const currentFileId = ref(null)
 	const abortController = ref(null)
 
@@ -199,7 +199,7 @@ export function useModelLoading() {
 					const modelResult = await loadModelByExtension(extension, arrayBuffer, loadingContext)
 
 					if (modelResult && modelResult.object3D) {
-						modelRoot.value = modelResult.object3D
+						modelRoot.value = markRaw(modelResult.object3D)
 						currentFileId.value = fileId
 
 						// Clear loading state
@@ -337,7 +337,7 @@ export function useModelLoading() {
 			const result = await loadModelByExtension(extension, arrayBuffer.buffer, loadingContext)
 
 			if (result && result.object3D) {
-				modelRoot.value = result.object3D
+				modelRoot.value = markRaw(result.object3D)
 				currentFileId.value = fileId
 
 				// Clear loading state
@@ -397,7 +397,7 @@ export function useModelLoading() {
 			const result = await loadModelByExtension(extension, arrayBuffer, loadingContext)
 
 			if (result && result.object3D) {
-				modelRoot.value = result.object3D
+				modelRoot.value = markRaw(result.object3D)
 				currentFileId.value = context.fileId || null
 
 				// Clear loading state

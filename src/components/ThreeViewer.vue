@@ -387,7 +387,7 @@
 </template>
 
 <script>
-import { ref, onMounted, onBeforeUnmount, watch, computed, nextTick } from 'vue'
+import { ref, shallowRef, markRaw, onMounted, onBeforeUnmount, watch, computed, nextTick } from 'vue'
 import * as THREE from 'three'
 import { NcProgressBar, NcButton } from '@nextcloud/vue'
 import { generateUrl, imagePath } from '@nextcloud/router'
@@ -448,12 +448,12 @@ export default {
 	setup(props, { emit }) {
 		// Refs
 		const container = ref(null)
-		const scene = ref(null)
-		const renderer = ref(null)
+		const scene = shallowRef(null)
+		const renderer = shallowRef(null)
 		const renderPaused = ref(false)
-		const grid = ref(null)
-		const axes = ref(null)
-		const modelRoot = ref(null)
+		const grid = shallowRef(null)
+		const axes = shallowRef(null)
+		const modelRoot = shallowRef(null)
 		const aborting = ref(false)
 		const initializing = ref(true) // Show loading during initial setup
 		const animationFrameId = ref(null) // Track animation frame for cleanup
@@ -627,12 +627,12 @@ export default {
 				const containerHeight = container.value.clientHeight || container.value.offsetHeight || 600
 
 				// Create renderer
-				renderer.value = new THREE.WebGLRenderer({
+				renderer.value = markRaw(new THREE.WebGLRenderer({
 					antialias: true,
 					alpha: true,
 					powerPreference: 'high-performance',
 					preserveDrawingBuffer: true, // Required for screenshots
-				})
+				}))
 
 				// Set initial size - this will set pixel ratio to window.devicePixelRatio by default
 				// but initPerformance() will immediately override it with the detected optimal ratio
@@ -708,7 +708,7 @@ export default {
 				const gridDivisions = VIEWER_CONFIG.grid?.defaultDivisions || 10
 				const gridColor = VIEWER_CONFIG.grid?.colorGrid || 0x00ff00
 
-				grid.value = new THREE.GridHelper(gridSize, gridDivisions, gridColor, gridColor)
+				grid.value = markRaw(new THREE.GridHelper(gridSize, gridDivisions, gridColor, gridColor))
 				grid.value.material.opacity = VIEWER_CONFIG.grid?.opacity || 1.0
 				grid.value.material.transparent = VIEWER_CONFIG.grid?.transparent || false
 				scene.value.add(grid.value)
@@ -717,7 +717,7 @@ export default {
 			// Axes helper - use config value for consistency
 			if (props.showAxes) {
 				const axesSize = VIEWER_CONFIG.axes?.size || 5
-				axes.value = new THREE.AxesHelper(axesSize)
+				axes.value = markRaw(new THREE.AxesHelper(axesSize))
 				scene.value.add(axes.value)
 			}
 		}
@@ -796,7 +796,7 @@ export default {
 
 				if (loadedModel && loadedModel.object3D) {
 					// Add the loaded model to the scene first
-					modelRoot.value = loadedModel.object3D
+					modelRoot.value = markRaw(loadedModel.object3D)
 					scene.value.add(modelRoot.value)
 
 					// Center the model horizontally at the origin, but sit on the grid vertically
@@ -1277,6 +1277,14 @@ export default {
 				animation.update(deltaTime)
 			}
 
+			// Update comparison model animations if mixer exists
+			// Check mixer directly instead of animations array, as mixer is what needs updating
+			if (comparison.comparisonMixer.value) {
+				// delta is already in milliseconds, convert to seconds
+				const deltaTime = delta / 1000
+				comparison.updateComparisonAnimations(deltaTime)
+			}
+
 			// Update billboard text labels to face camera
 			updateBillboards()
 
@@ -1713,19 +1721,83 @@ export default {
 
 						// Add the comparison model to the scene
 						if (comparison.comparisonModel.value) {
-							scene.value.add(comparison.comparisonModel.value)
+							// Ensure comparison model has valid matrices before adding to scene
+							// This prevents render errors with undefined matrices
+							try {
+								const comparisonModel = comparison.comparisonModel.value
+								
+								// Ensure matrices exist for the model and all its children recursively
+								// This validates the entire hierarchy before adding to scene
+								// Validates parents before children to prevent multiplyMatrices errors
+								comparison.ensureMatricesValid(comparisonModel, 0)
+								
+								// Update matrices before adding to scene
+								comparisonModel.updateMatrix()
+								
+								// Add to scene first
+								scene.value.add(comparisonModel)
+								
+								// Then update all matrices in the scene hierarchy
+								// This ensures all objects including the new model have valid world matrices
+								// All objects should now have valid matrices due to ensureMatricesValid call above
+								try {
+									scene.value.updateMatrixWorld(true)
+								} catch (updateError) {
+									logger.warn('ThreeViewer', 'Error updating scene matrices after adding comparison model', updateError)
+									// Try to recover by validating again and updating
+									comparison.ensureMatricesValid(comparisonModel, 0)
+									comparison.ensureMatricesValid(scene.value, 0)
+									scene.value.updateMatrixWorld(true)
+								}
+								
+								logger.info('ThreeViewer', 'Comparison model added to scene with validated matrices')
+							} catch (matrixError) {
+								logger.error('ThreeViewer', 'Failed to initialize comparison model matrices', matrixError)
+								// Still try to add to scene but ensure basic validation
+								const comparisonModel = comparison.comparisonModel.value
+								comparison.ensureMatricesValid(comparisonModel, 0)
+								scene.value.add(comparisonModel)
+							}
 
 							// Use triple requestAnimationFrame to ensure models are fully rendered before fitting
 							requestAnimationFrame(() => {
 								requestAnimationFrame(() => {
 									requestAnimationFrame(() => {
 										try {
+											// Ensure all scene matrices are valid before fitting
+											// This prevents render errors during positioning
+											if (scene.value) {
+												scene.value.updateMatrixWorld(true)
+											}
+											
 											// Fit both models to view after everything is ready
 											fitBothModelsToView()
+											
+											// One more matrix update after positioning to ensure everything is valid
+											if (scene.value) {
+												scene.value.updateMatrixWorld(true)
+											}
 										} catch (fitError) {
 											logger.warn('ThreeViewer', 'Failed to fit models to view', fitError)
 										} finally {
-											// Resume rendering after fitting is complete
+											// Ensure matrices are valid one final time before resuming rendering
+											try {
+												if (modelRoot.value && comparison.comparisonModel.value) {
+													if (modelRoot.value.updateMatrixWorld) {
+														modelRoot.value.updateMatrixWorld(true)
+													}
+													if (comparison.comparisonModel.value.updateMatrixWorld) {
+														comparison.comparisonModel.value.updateMatrixWorld(true)
+													}
+												}
+												if (scene.value && scene.value.updateMatrixWorld) {
+													scene.value.updateMatrixWorld(true)
+												}
+											} catch (finalUpdateError) {
+												logger.warn('ThreeViewer', 'Final matrix update failed', finalUpdateError)
+											}
+											
+											// Resume rendering after fitting is complete and matrices are validated
 											renderPaused.value = false
 										}
 									})
@@ -1777,13 +1849,27 @@ export default {
 
 			try {
 				// First position the models side by side
+				// Pass scene to ensure entire scene hierarchy is validated
 				comparison.fitBothModelsToView(modelRoot.value, comparison.comparisonModel.value, (model1, model2) => {
+					// Fit function callback
 					// Use requestAnimationFrame to defer camera updates until after current render cycle
 					requestAnimationFrame(() => {
 						try {
 							// Set flag to prevent OrbitControls from updating during this operation
 							if (camera.isPositioningCamera !== undefined) {
 								camera.isPositioningCamera.value = true
+							}
+
+							// Ensure both models have valid matrices before calculating bounding boxes
+							// This prevents render errors with undefined matrices
+							if (model1.matrix && model2.matrix) {
+								model1.updateMatrixWorld(true)
+								model2.updateMatrixWorld(true)
+							}
+							
+							// Ensure scene matrices are also updated
+							if (scene.value && scene.value.updateMatrixWorld) {
+								scene.value.updateMatrixWorld(true)
 							}
 
 							// After positioning, fit camera to the combined bounding box
@@ -1845,7 +1931,7 @@ export default {
 							}
 						}
 					})
-				})
+				}, scene.value)
 			} catch (error) {
 				logger.error('ThreeViewer', 'Failed to fit both models to view', error)
 				// Ensure flag is reset even on error

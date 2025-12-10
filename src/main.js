@@ -53,13 +53,13 @@ if (OCA?.Viewer && !isHandlerAlreadyRegistered) {
 			component: () => import(/* webpackChunkName: "threedviewer-viewer" */ './views/ViewerComponent.vue'),
 			canCompare: false,
 		})
-		console.debug('[ThreeDViewer] Viewer handler registered')
+		// Viewer handler registered successfully
 	} catch (error) {
 		// Silently catch duplicate registration errors
 		if (error?.message?.includes('already registered')
 		    || error?.message?.includes('duplicate')
 		    || error?.message?.includes('same name')) {
-			console.debug('[ThreeDViewer] Viewer handler already registered, skipping')
+			// Viewer handler already registered, skipping
 		} else {
 			console.error('[ThreeDViewer] Failed to register viewer handler:', error)
 			// Reset flag if registration failed for unknown reason

@@ -508,11 +508,6 @@ export default {
 				this.viewMode = settingViewMode
 				// Update localStorage to match the setting so it persists
 				localStorage.setItem('threedviewer:fileBrowserView', settingViewMode)
-				
-				console.log('FileBrowser: Loaded default view from settings', {
-					setting: defaultView,
-					viewMode: settingViewMode,
-				})
 			} catch (error) {
 				console.warn('Failed to load user settings, using localStorage or default view', error)
 				this.settingsLoaded = true // Mark as loaded even on error to prevent retries
@@ -613,14 +608,6 @@ export default {
 					subfolders = Object.values(subfolders)
 				}
 
-				console.log('Navigating to folder:', {
-					path: folder.path,
-					name: folder.name,
-					filesCount: files.length,
-					subfoldersCount: subfolders.length,
-					files,
-					subfolders,
-				})
 
 				// Emit with both files and subfolders
 				this.$emit('navigate-folder', {
@@ -732,14 +719,12 @@ export default {
 				})
 			} else if (item.type === 'type') {
 				// Navigate to type
-				console.log('Navigating to type:', item.extension)
 				const type = this.types?.find(t => t.extension === item.extension)
 				if (type) {
 					this.navigateType(type)
 				}
 			} else if (item.type === 'date') {
 				// Navigate to date
-				console.log('Navigating to date:', item.year, item.month)
 				if (item.month) {
 					// Navigate to month - show files
 					const year = this.dates?.find(d => d.year === item.year)

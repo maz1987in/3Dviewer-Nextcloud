@@ -182,7 +182,6 @@ export default {
 			try {
 				const url = generateUrl('/apps/threedviewer/api/files/index')
 				await axios.post(url)
-				console.log('File indexing triggered successfully')
 
 				// Reload files after indexing
 				await this.loadFiles()

@@ -16,6 +16,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Improved directory path extraction for multi-file model loading
 
 ### Fixed
+- **Model Comparison Positioning**: Fixed comparison model positioning issues where the second model's position was immutable
+  - Wrapped comparison model in a Group to neutralize baked position offset from loading
+  - Fixed parent-child relationship handling by using toRaw() to get actual Three.js objects instead of Vue proxies
+  - Ensured matrixAutoUpdate is enabled for wrapper and all children for proper render loop updates
+  - Fixed matrix validation order: validate parent matrices before child objects to prevent "Cannot read properties of undefined" errors
+  - Improved scene hierarchy validation to include all objects (grid, axes, lights) not just models
+  - Fixed matrix update sequence: call updateMatrix() on all objects before updateMatrixWorld() to ensure proper transformations
+  - Comparison models now position correctly side-by-side with proper spacing and alignment
 - **CSP Compliance for Texture Loading**: Fixed Content Security Policy violations when loading GLB/GLTF models with embedded textures in Nextcloud modal viewer
   - Patched `Image.prototype.src` setter to automatically convert blob URLs to data URIs for texture loading
   - Patched `URL.createObjectURL` to track blob-to-URL mappings for later conversion

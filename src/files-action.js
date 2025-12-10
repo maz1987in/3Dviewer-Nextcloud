@@ -87,7 +87,7 @@ if (!isAlreadyRegistered) {
 			window[REGISTRATION_SYMBOL] = true
 			globalThis[REGISTRATION_KEY] = FILE_ACTION_ID
 			globalThis[REGISTRATION_SYMBOL] = true
-			console.debug('[ThreeDViewer] File action already registered, skipping')
+			// File action already registered, skipping
 		} else {
 			console.error('[ThreeDViewer] Failed to register file action:', error)
 		}
