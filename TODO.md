@@ -109,13 +109,16 @@ Lay groundwork to reduce friction later while staying on Vue 2 for now.
 - [ ] Add migration notes section to COMPOSABLES_API.md
 - [ ] Audit dependencies for Vue 3 compatibility matrix
 
-### 9. Automated Bundle Budget Enforcement
+### 9. Automated Bundle Budget Enforcement ✅ COMPLETED
 Budgets exist informally; enforce via build script.
 
-**Action Items**:
-- [ ] Add size check script (compare gzip sizes to thresholds)
-- [ ] Fail CI if budget exceeded
-- [ ] Record historical size trend (JSON artifact)
+**Completed**:
+- [x] Enhanced size check script with comprehensive budget thresholds for all major bundles
+- [x] Script fails CI if budget exceeded (with environment variable overrides)
+- [x] Historical size trend tracking (JSON artifact with last 50 entries)
+- [x] CI workflow uploads bundle-sizes.json as artifact (90-day retention)
+- [x] Size trend comparison shows changes vs previous build
+- [x] Improved error reporting with formatted bytes and clear failure messages
 
 ### 10. Simple Viewer Parity Enhancements
 Bring minimal modal viewer closer (select subset) to advanced features without weight bloat.

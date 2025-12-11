@@ -32,6 +32,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Increased cleanup frequency from 24h to 6h for faster expiry enforcement
   - Comprehensive audit logging for creation, access, and deletion events
   - Security posture documented in TECHNICAL.md
+- **Automated Bundle Budget Enforcement**: Enhanced bundle size checking with historical tracking
+  - Comprehensive budget thresholds for all major bundles (main, loaders, app, three-core, index, nc-select)
+  - Historical size trend tracking in bundle-sizes.json (last 50 builds)
+  - CI workflow uploads bundle size history as artifact (90-day retention)
+  - Size trend comparison shows changes vs previous build
+  - Improved error reporting with formatted bytes and clear failure messages
+  - Fails CI builds when budgets are exceeded (with environment variable overrides)
 
 ### Changed
 - **Cache Statistics Updates**: Improved cache stats refresh frequency from 5 seconds to 2 seconds for more responsive UI

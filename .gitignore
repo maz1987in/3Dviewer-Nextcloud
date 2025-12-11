@@ -246,3 +246,6 @@ jspm_packages/
 
 # ---- TypeScript cache ----
 *.tsbuildinfo
+
+# ---- Bundle size tracking ----
+bundle-sizes.json
