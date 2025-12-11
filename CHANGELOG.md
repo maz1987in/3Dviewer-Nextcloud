@@ -19,8 +19,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Slide-out tools panel displays cache stats and clear-cache control with status
   - Cache stats refresh automatically during use and after model loads or cache clears
   - Cache hit/miss tracking with reset when clearing the cache
+- **Performance Scaling for Large Models**: Automatic performance mode suggestions and easy mode switching
+  - Configurable triangle count thresholds (warn: 500K, strong: 1M faces) for detecting heavy models
+  - Automatic toast notification suggesting performance mode for models exceeding thresholds
+  - Clickable performance mode label in stats overlay to cycle through modes (Auto → Low → Balanced → High → Ultra)
+  - ViewerToolbar performance button now cycles through modes instead of toggling stats
+  - Performance mode changes apply immediately with visual feedback
+- **Slicer Temp File Security Hardening**: Enhanced security for temporary file uploads
+  - File size validation: 50MB per file limit, 200MB rolling folder cap
+  - MIME type validation for STL files with header checking
+  - Rolling 24-hour expiration enforced on file access
+  - Increased cleanup frequency from 24h to 6h for faster expiry enforcement
+  - Comprehensive audit logging for creation, access, and deletion events
+  - Security posture documented in TECHNICAL.md
+
+### Changed
+- **Cache Statistics Updates**: Improved cache stats refresh frequency from 5 seconds to 2 seconds for more responsive UI
+- **Performance Mode Controls**: Enhanced performance mode switching with clickable controls
+  - Performance mode label in stats overlay is now clickable to cycle modes
+  - ViewerToolbar performance button cycles modes (preserves MinimalTopBar toggle behavior)
+  - All mode changes apply immediately with proper event propagation
 
 ### Fixed
+- **Toast Event Handling**: Fixed missing `push-toast` event handler in App.vue preventing performance suggestion toasts from displaying
+- **ViewerModal Performance Mode**: Fixed performance mode cycling in ViewerModal component by adding proper prop passing and event handling
 - **Model Comparison Positioning**: Fixed comparison model positioning issues where the second model's position was immutable
   - Wrapped comparison model in a Group to neutralize baked position offset from loading
   - Fixed parent-child relationship handling by using toRaw() to get actual Three.js objects instead of Vue proxies

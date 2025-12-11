@@ -17,6 +17,7 @@
 			:show-axes="axes"
 			:wireframe="wireframe"
 			:background="background"
+			:performance-mode="performanceMode"
 			@model-loaded="onModelLoaded"
 			@animations-initialized="onAnimationsInitialized"
 			@error="onError" />
@@ -26,6 +27,7 @@
 			:face-labels="faceLabels"
 			:wireframe="wireframe"
 			:background="background"
+			:performance-mode="performanceMode"
 			:model-loaded="modelLoaded"
 			:has-animations="hasAnimations"
 			:is-animation-playing="isAnimationPlaying"
@@ -37,6 +39,7 @@
 			@toggle-face-labels="toggleFaceLabels"
 			@toggle-wireframe="wireframe = !wireframe"
 			@change-background="onBackgroundChange"
+			@cycle-performance-mode="onCyclePerformanceMode"
 			@send-to-slicer="onSendToSlicer"
 			@toggle-animation-play="onToggleAnimationPlay"
 			@toggle-animation-loop="onToggleAnimationLoop" />
@@ -141,6 +144,10 @@ export default {
 		},
 		onBackgroundChange(val) {
 			this.background = val
+		},
+		onCyclePerformanceMode(mode) {
+			this.performanceMode = mode
+			this.$refs.viewer?.setPerformanceMode?.(mode)
 		},
 		onModelLoaded(meta) {
 			// Set model loaded flag

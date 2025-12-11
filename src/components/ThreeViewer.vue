@@ -238,7 +238,13 @@
 			<div class="stats-header">
 				<span class="stats-icon">📊</span>
 				<span class="stats-title">Performance</span>
-				<span class="stats-mode" :class="'mode-' + currentPerformanceMode">{{ currentPerformanceMode }}</span>
+				<button 
+					class="stats-mode clickable" 
+					:class="'mode-' + currentPerformanceMode"
+					:title="t('threedviewer', 'Click to cycle performance mode')"
+					@click="cyclePerformanceModeFromStats">
+					{{ currentPerformanceMode }}
+				</button>
 			</div>
 			<div class="stats-grid">
 				<div class="stat-item">
@@ -454,7 +460,7 @@ export default {
 		ambientLightIntensity: { type: Number, default: 2.0 },
 		directionalLightIntensity: { type: Number, default: 1.0 },
 	},
-	emits: ['model-loaded', 'error', 'view-reset', 'fit-to-view', 'toggle-auto-rotate', 'toggle-projection', 'change-preset', 'toggle-grid', 'axes-toggle', 'wireframe-toggle', 'background-change', 'toggle-measurement', 'toggle-annotation', 'toggle-comparison', 'toggle-performance', 'dismiss', 'push-toast', 'loading-state-changed', 'fps-updated'],
+	emits: ['model-loaded', 'error', 'view-reset', 'fit-to-view', 'toggle-auto-rotate', 'toggle-projection', 'change-preset', 'toggle-grid', 'axes-toggle', 'wireframe-toggle', 'background-change', 'toggle-measurement', 'toggle-annotation', 'toggle-comparison', 'toggle-performance', 'cycle-performance-mode', 'dismiss', 'push-toast', 'loading-state-changed', 'fps-updated'],
 	setup(props, { emit }) {
 		// Refs
 		const container = ref(null)
@@ -472,6 +478,8 @@ export default {
 		const cacheStats = ref({ enabled: false, count: 0, sizeMB: 0, hits: 0, misses: 0, hitRate: 0 }) // Cache statistics
 		let lastCacheStatsUpdate = 0 // Track last cache stats update time
 		const CACHE_STATS_UPDATE_INTERVAL = 2000 // Update cache stats every 2 seconds (more responsive)
+		const performanceSuggestionCooldown = ref(0)
+		const performanceModeAutoApplied = ref(false)
 
 		// Composables
 		const camera = useCamera()
@@ -740,11 +748,80 @@ export default {
 		}
 
 		/**
+		 * Evaluate model complexity and suggest/apply performance mode
+		 * @param {object|null} stats - Model stats (faces used as triangle approximation)
+		 */
+		const evaluatePerformanceScaling = (stats) => {
+			if (!stats) {
+				logger.debug('ThreeViewer', 'Performance scaling: No stats provided')
+				return
+			}
+
+			const scaling = VIEWER_CONFIG.performanceScaling || {}
+			const thresholds = scaling.triangleThresholds || {}
+			const warnThreshold = thresholds.warn ?? 1_000_000
+			const strongThreshold = thresholds.strong ?? 2_000_000
+			const faces = stats.faces || 0
+			const now = Date.now()
+
+			logger.info('ThreeViewer', 'Performance scaling evaluation', {
+				faces,
+				warnThreshold,
+				strongThreshold,
+				cooldownActive: now - performanceSuggestionCooldown.value,
+			})
+
+			// Strong threshold: auto-apply performance mode once per load
+			if (faces >= strongThreshold && !performanceModeAutoApplied.value) {
+				const mode = scaling.autoMode || 'low'
+				logger.info('ThreeViewer', 'Auto-applying performance mode', { faces, mode })
+				if (performance && typeof performance.setPerformanceMode === 'function') {
+					performance.setPerformanceMode(mode, renderer.value)
+					performanceModeAutoApplied.value = true
+					logger.info('ThreeViewer', 'Emitting performance mode toast', { faces, mode })
+					emit('push-toast', {
+						type: 'warning',
+						title: t('threedviewer', 'Performance mode enabled'),
+						message: t('threedviewer', 'Model is heavy (~{faces} faces). Performance mode ({mode}) applied automatically. You can switch back from the toolbar.', {
+							faces: faces.toLocaleString(),
+							mode,
+						}),
+						timeout: 6000,
+					})
+				}
+				return
+			}
+
+			// Warn threshold: suggest once per cooldown window
+			const cooldownMs = scaling.suggestionCooldownMs ?? 300000
+			if (faces >= warnThreshold && now - performanceSuggestionCooldown.value > cooldownMs) {
+				performanceSuggestionCooldown.value = now
+				logger.info('ThreeViewer', 'Emitting performance suggestion toast', { faces, warnThreshold })
+				emit('push-toast', {
+					type: 'info',
+					title: t('threedviewer', 'Heavy model detected'),
+					message: t('threedviewer', 'Model has ~{faces} faces. Enable Performance mode (⚡) to improve FPS.', {
+						faces: faces.toLocaleString(),
+					}),
+					timeout: 7000,
+				})
+			} else if (faces >= warnThreshold) {
+				logger.debug('ThreeViewer', 'Performance suggestion skipped (cooldown)', {
+					faces,
+					cooldownRemaining: cooldownMs - (now - performanceSuggestionCooldown.value),
+				})
+			}
+		}
+
+		/**
 		 * Load a 3D model from file ID
 		 * @param {string|number} fileId - Nextcloud file ID
 		 */
 		const loadModel = async (fileId) => {
 			try {
+				// Reset auto performance flags for this load
+				performanceModeAutoApplied.value = false
+
 				// Get the filename from props
 				// If filename is not provided, fetch file info from backend
 				let fullPath = props.filename ? decodeURIComponent(props.filename) : null
@@ -933,7 +1010,8 @@ export default {
 
 					// Calculate model statistics
 					const fileSize = modelLoading.progress.value.total || 0
-					modelStatsComposable.analyzeModel(modelRoot.value, filename, fileSize)
+					const stats = modelStatsComposable.analyzeModel(modelRoot.value, filename, fileSize)
+					evaluatePerformanceScaling(stats)
 
 					// Check for loading warnings (missing files/textures)
 					const missingFiles = loadedModel.missingFiles || []
@@ -1987,6 +2065,17 @@ export default {
 		}
 
 		/**
+		 * Cycle performance mode from stats overlay click
+		 */
+		const cyclePerformanceModeFromStats = () => {
+			const modes = ['auto', 'low', 'balanced', 'high', 'ultra']
+			const currentIndex = modes.indexOf(props.performanceMode)
+			const nextIndex = (currentIndex + 1) % modes.length
+			const nextMode = modes[nextIndex]
+			emit('cycle-performance-mode', nextMode)
+		}
+
+		/**
 		 * Handle view cube face click
 		 * Animates camera to the selected face view
 		 * @param {object} faceView - Face view data with position and label
@@ -2754,6 +2843,7 @@ export default {
 			toggleComparisonMode,
 			directPan,
 			setPerformanceMode,
+			cyclePerformanceModeFromStats,
 			setTheme: themeComposable.setTheme,
 			togglePerformanceStats,
 			toggleModelStats,
@@ -3232,6 +3322,22 @@ export default {
 	border-radius: 4px;
 	font-weight: bold;
 	text-transform: uppercase;
+}
+
+.stats-mode.clickable {
+	cursor: pointer;
+	border: none;
+	background: inherit;
+	transition: opacity 0.2s, transform 0.1s;
+}
+
+.stats-mode.clickable:hover {
+	opacity: 0.8;
+	transform: scale(1.05);
+}
+
+.stats-mode.clickable:active {
+	transform: scale(0.95);
 }
 
 .stats-mode.mode-low {

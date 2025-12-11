@@ -141,6 +141,8 @@
 					@loading-state-changed="onLoadingStateChanged"
 					@fps-updated="onFpsUpdated"
 					@animations-initialized="onAnimationsInitialized"
+					@push-toast="onPushToast"
+					@cycle-performance-mode="onCyclePerformanceMode"
 					@error="onError" />
 			</div>
 		</NcAppContent>
@@ -701,6 +703,15 @@ export default {
 			this.hasAnimations = data.hasAnimations || false
 			this.isAnimationPlaying = data.isPlaying || false
 			this.isAnimationLooping = data.isLooping ?? true // Default to true (animations loop by default)
+		},
+		onPushToast(toastData) {
+			// Handle toast events from ThreeViewer
+			this.pushToast({
+				type: toastData.type || 'info',
+				title: toastData.title,
+				message: toastData.message,
+				timeout: toastData.timeout,
+			})
 		},
 		onError(error) {
 			// Extract message from error object or use as string

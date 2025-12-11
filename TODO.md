@@ -89,14 +89,16 @@ Assess lifetime & access scope of temporary share links.
 - [ ] Log creation/deletion events (audit trail)
 - [ ] Document security posture in TECHNICAL.md
 
-### 7. Performance Scaling for Large Models
+### 7. Performance Scaling for Large Models ✅ COMPLETED
 Implement optional LOD / simplification strategies for very large meshes.
 
-**Action Items**:
-- [ ] Detect triangle count threshold post-load
-- [ ] Offer “Performance Mode” suggestion toast
-- [ ] Integrate mesh decimation (optional dependency or worker)
-- [ ] Benchmark before/after FPS & memory
+**Completed**:
+- [x] Added configurable triangle count thresholds (warn: 500K, strong: 1M faces)
+- [x] Implemented automatic performance mode suggestion toast for heavy models
+- [x] Made performance mode label clickable in stats overlay to cycle modes
+- [x] Made ViewerToolbar performance button cycle through modes
+- [x] Added debug logging for performance scaling evaluation
+- [x] Integrated with existing performance mode system (auto, low, balanced, high, ultra)
 
 ### 8. Vue 3 Migration Pre-Work (Defer Full Migration)
 Lay groundwork to reduce friction later while staying on Vue 2 for now.

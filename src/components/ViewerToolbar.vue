@@ -138,8 +138,8 @@
 			<button :aria-label="t('threedviewer','Performance settings')"
 				class="tb"
 				type="button"
-				:title="t('threedviewer','Performance settings')"
-				@click="$emit('toggle-performance')">
+				:title="t('threedviewer','Click to cycle performance mode')"
+				@click="cyclePerformanceMode">
 				<span class="tb-icon">⚡</span>
 				<span class="tb-text">{{ getPerformanceModeText() }}</span>
 			</button>
@@ -225,6 +225,13 @@ export default {
 			}
 		},
 
+		cyclePerformanceMode() {
+			const modes = ['auto', 'low', 'balanced', 'high', 'ultra']
+			const currentIndex = modes.indexOf(this.performanceMode)
+			const nextIndex = (currentIndex + 1) % modes.length
+			const nextMode = modes[nextIndex]
+			this.$emit('cycle-performance-mode', nextMode)
+		},
 		getPerformanceModeText() {
 			switch (this.performanceMode) {
 			case 'low': return this.t('threedviewer', 'Low')

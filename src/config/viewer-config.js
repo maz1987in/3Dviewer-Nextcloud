@@ -107,6 +107,18 @@ export const PERFORMANCE_SETTINGS = {
 }
 
 /**
+ * Performance scaling thresholds for large models
+ */
+export const PERFORMANCE_SCALING = {
+	triangleThresholds: {
+		warn: 500_000, // show suggestion (lowered for testing)
+		strong: 1_000_000, // auto-enable performance mode (lowered for testing)
+	},
+	suggestionCooldownMs: 5 * 60 * 1000, // avoid spamming suggestions
+	autoMode: 'low', // mode to apply on strong threshold
+}
+
+/**
  * Animation settings
  */
 export const ANIMATION_SETTINGS = {
@@ -722,6 +734,7 @@ export const VIEWER_CONFIG = {
 	fileSizeCategories: FILE_SIZE_CATEGORIES,
 	supportedFormats: SUPPORTED_FORMATS,
 	controller: CONTROLLER_SETTINGS,
+	performanceScaling: PERFORMANCE_SCALING,
 	limits: {
 		maxFileSize: 500 * 1024 * 1024, // 500 MB
 		maxRetries: 3,
