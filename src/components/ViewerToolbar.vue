@@ -154,6 +154,24 @@
 <script>
 export default {
 	name: 'ViewerToolbar',
+	emits: [
+		'reset-view',
+		'fit-to-view',
+		'toggle-auto-rotate',
+		'change-preset',
+		'toggle-grid',
+		'toggle-axes',
+		'toggle-face-labels',
+		'toggle-wireframe',
+		'toggle-measurement',
+		'toggle-annotation',
+		'toggle-comparison',
+		'send-to-slicer',
+		'toggle-animation-play',
+		'toggle-animation-loop',
+		'change-background',
+		'cycle-performance-mode',
+	],
 	props: {
 		grid: { type: Boolean, default: true },
 		axes: { type: Boolean, default: true },
@@ -184,7 +202,7 @@ export default {
 		window.addEventListener('resize', this.handleResize)
 		this.setupKeyboardNavigation()
 	},
-	beforeDestroy() {
+	beforeUnmount() {
 		window.removeEventListener('resize', this.handleResize)
 		this.removeKeyboardNavigation()
 	},

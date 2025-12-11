@@ -742,6 +742,28 @@ export default {
 
 The codebase uses **Vue 2.7** with the Composition API compatibility layer. All composables are written to be compatible with Vue 3 with minimal changes.
 
+### Pre-Migration Work Completed ✅
+
+The following Vue 3 incompatible patterns have been eliminated:
+
+1. **Lifecycle Hooks**: All deprecated lifecycle hooks have been replaced:
+   - `beforeDestroy` → `beforeUnmount` (in ViewerToolbar, ToastContainer, ViewerComponent, viewer-api.js)
+   - `destroyed` → `unmounted` (none found, already using beforeUnmount/unmounted)
+
+2. **Explicit Emits Declarations**: All components now have explicit `emits` declarations:
+   - `ViewerToolbar`: 16 events declared
+   - `ToastContainer`: 'dismiss' event declared
+   - `ViewerComponent`: 4 events declared
+   - `ViewerModal`: 2 events declared
+   - `FileNavigation`: 2 events declared
+   - `FileBrowser`: 5 events declared
+   - `ThreeViewer`: Already had explicit emits (23 events)
+   - `MinimalTopBar`: Already had explicit emits
+   - `SlideOutToolPanel`: Already had explicit emits
+   - Other components: Already had explicit emits or don't emit events
+
+3. **No Implicit $listeners**: Verified no usage of implicit `$listeners` (removed in Vue 3)
+
 ### Migration Considerations
 
 #### 1. Import Changes
@@ -800,22 +822,45 @@ watch(() => someRef.value, (newVal) => { ... })
 **Vue 3**:
 - Same API - ✅ No changes needed
 
+### Dependency Compatibility Matrix
+
+**Current Dependencies (Vue 2.7)**:
+- `vue`: `^2.7.16` ✅ Compatible with Vue 3 (same API)
+- `@nextcloud/vue`: `^8.33.0` ⚠️ Vue 2 only (Nextcloud 28+)
+- `vue-material-design-icons`: `^5.3.1` ✅ Compatible with Vue 3
+- `three`: `^0.181.2` ✅ Framework-agnostic, no changes needed
+
+**Vue 3 Migration Requirements**:
+- `vue`: Update to `^3.x` (API compatible, no code changes needed)
+- `@nextcloud/vue`: Update to `^9.x` (Vue 3 support, requires Nextcloud 30+)
+- `vue-material-design-icons`: ✅ Already compatible
+- `three`: ✅ No changes needed
+
+**Note**: `@nextcloud/vue` v9.x is available as alpha/beta for Vue 3 support. Full migration should align with Nextcloud 30+ release cycle.
+
 ### Required Changes for Vue 3
 
-1. **Remove Compatibility Layer**: Remove `@vue/composition-api` dependency
-2. **Update Build Config**: Update Vite/Webpack config for Vue 3
-3. **Update Nextcloud Vue**: Migrate from `@nextcloud/vue` v2 to v3 (when available)
+1. **Remove Compatibility Layer**: Remove `@vue/composition-api` dependency (if present)
+2. **Update Build Config**: Update Vite config for Vue 3 (minimal changes needed)
+3. **Update Nextcloud Vue**: Migrate from `@nextcloud/vue` v8.x to v9.x (requires Nextcloud 30+)
 4. **Test All Composables**: Verify all composables work with Vue 3 reactivity
 
 ### Migration Checklist
 
-- [ ] Remove `@vue/composition-api` dependency
-- [ ] Update `package.json` to use Vue 3
-- [ ] Update build configuration
+**Pre-Migration (Completed)**:
+- [x] Replace deprecated lifecycle hooks (`beforeDestroy` → `beforeUnmount`)
+- [x] Add explicit `emits` declarations to all components
+- [x] Verify no implicit `$listeners` usage
+- [x] Document migration notes
+
+**Future Migration Steps**:
+- [ ] Remove `@vue/composition-api` dependency (if present)
+- [ ] Update `package.json`: `vue` to `^3.x`, `@nextcloud/vue` to `^9.x`
+- [ ] Update build configuration (Vite config)
 - [ ] Test all composables with Vue 3
 - [ ] Update component usage if needed
 - [ ] Verify Options API integration still works
-- [ ] Update documentation
+- [ ] Test with Nextcloud 30+ (required for `@nextcloud/vue` v9.x)
 
 ### Breaking Changes to Watch For
 

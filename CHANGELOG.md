@@ -39,6 +39,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Size trend comparison shows changes vs previous build
   - Improved error reporting with formatted bytes and clear failure messages
   - Fails CI builds when budgets are exceeded (with environment variable overrides)
+- **Vue 3 Migration Pre-Work**: Eliminated Vue 3 incompatible patterns to prepare for future migration
+  - Replaced deprecated lifecycle hooks (`beforeDestroy` → `beforeUnmount` in ViewerToolbar, ToastContainer, ViewerComponent, viewer-api.js)
+  - Added explicit `emits` declarations to all components (ViewerToolbar, ToastContainer, ViewerComponent, ViewerModal, FileNavigation, FileBrowser)
+  - Verified no implicit `$listeners` usage (removed in Vue 3)
+  - Added comprehensive migration notes to COMPOSABLES_API.md with dependency compatibility matrix
+  - Audited dependencies: `vue` 2.7 → 3.x (API compatible), `@nextcloud/vue` 8.x → 9.x (requires Nextcloud 30+)
 
 ### Changed
 - **Cache Statistics Updates**: Improved cache stats refresh frequency from 5 seconds to 2 seconds for more responsive UI

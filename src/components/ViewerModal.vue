@@ -53,6 +53,7 @@ import SlicerModal from './SlicerModal.vue'
 
 export default {
 	name: 'ViewerModal',
+	emits: ['model-loaded', 'error'],
 	components: {
 		ThreeViewer,
 		ViewerToolbar,

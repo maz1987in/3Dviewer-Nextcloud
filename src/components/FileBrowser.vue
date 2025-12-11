@@ -276,6 +276,13 @@ import { generateUrl } from '@nextcloud/router'
 
 export default {
 	name: 'FileBrowser',
+	emits: [
+		'select-file',
+		'navigate-folder',
+		'navigate-type',
+		'navigate-date',
+		'navigate-all',
+	],
 	components: {
 		NcEmptyContent,
 		NcBreadcrumbs,

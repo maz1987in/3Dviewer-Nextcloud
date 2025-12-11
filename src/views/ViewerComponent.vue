@@ -70,7 +70,12 @@ import { logger } from '../utils/logger.js'
 
 export default {
 	name: 'ViewerComponent',
-
+	emits: [
+		'update:loaded',
+		'error',
+		'push-toast',
+		'model-loaded',
+	],
 	components: {
 		NcProgressBar,
 		NcButton,
@@ -243,7 +248,7 @@ export default {
 		}
 	},
 
-	beforeDestroy() {
+	beforeUnmount() {
 		// Restore console error handler
 		if (this.cspErrorListener && this.cspErrorListener.restore) {
 			this.cspErrorListener.restore()

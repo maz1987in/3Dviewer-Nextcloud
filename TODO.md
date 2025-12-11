@@ -100,14 +100,18 @@ Implement optional LOD / simplification strategies for very large meshes.
 - [x] Added debug logging for performance scaling evaluation
 - [x] Integrated with existing performance mode system (auto, low, balanced, high, ultra)
 
-### 8. Vue 3 Migration Pre-Work (Defer Full Migration)
+### 8. Vue 3 Migration Pre-Work (Defer Full Migration) ✅ COMPLETED
 Lay groundwork to reduce friction later while staying on Vue 2 for now.
 
-**Action Items**:
-- [ ] Eliminate patterns incompatible with Vue 3 (implicit `$listeners`, deprecated lifecycle usage)
-- [ ] Ensure all components use explicit emits declarations
-- [ ] Add migration notes section to COMPOSABLES_API.md
-- [ ] Audit dependencies for Vue 3 compatibility matrix
+**Completed**:
+- [x] Eliminated deprecated lifecycle hooks (`beforeDestroy` → `beforeUnmount` in 4 files)
+- [x] Added explicit `emits` declarations to all components (ViewerToolbar, ToastContainer, ViewerComponent, ViewerModal, FileNavigation, FileBrowser)
+- [x] Verified no implicit `$listeners` usage (none found)
+- [x] Added comprehensive migration notes section to COMPOSABLES_API.md with dependency compatibility matrix
+- [x] Audited dependencies for Vue 3 compatibility:
+  - `vue`: `^2.7.16` → `^3.x` (API compatible, no code changes needed)
+  - `@nextcloud/vue`: `^8.33.0` → `^9.x` (requires Nextcloud 30+)
+  - Other dependencies: Already compatible or framework-agnostic
 
 ### 9. Automated Bundle Budget Enforcement ✅ COMPLETED
 Budgets exist informally; enforce via build script.

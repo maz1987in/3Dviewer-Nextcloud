@@ -83,7 +83,7 @@ function createViewerComponent() {
 				}
 			},
 		},
-		beforeDestroy() {
+		beforeUnmount() {
 			// Cleanup modal instance
 			if (this.modalInstance) {
 				this.modalInstance.$destroy()

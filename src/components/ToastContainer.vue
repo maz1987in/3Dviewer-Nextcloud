@@ -29,6 +29,7 @@
 <script>
 export default {
 	name: 'ToastContainer',
+	emits: ['dismiss'],
 	props: {
 		toasts: { type: Array, required: true },
 	},
@@ -60,7 +61,7 @@ export default {
 			immediate: true,
 		},
 	},
-	beforeDestroy() {
+	beforeUnmount() {
 		// Clean up all timers
 		this.timers.forEach(timer => clearTimeout(timer))
 		this.progressIntervals.forEach(interval => clearInterval(interval))
