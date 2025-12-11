@@ -108,24 +108,31 @@ export async function getFileIdByPath(filePath) {
 		// Normalize dirPath: remove leading slash and handle root case
 		normalizedDirPath = dirPath === '/' ? '' : dirPath.replace(/^\//, '')
 
-		// First, try to find the file directly by full path (for dependency files like MTL)
-		const fullPath = normalizedDirPath ? `${normalizedDirPath}/${filename}` : filename
-		try {
-			const findUrl = `/apps/threedviewer/api/files/find?path=${encodeURIComponent(fullPath)}`
-			const findResponse = await fetch(findUrl)
+		// Check if this is a texture/image file - these are often in subdirectories
+		const fileExt = (filename.split('.').pop() || '').toLowerCase()
+		const isImageFile = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'tga', 'tiff', 'webp'].includes(fileExt)
 
-			if (findResponse.ok) {
-				const fileData = await findResponse.json()
-				if (fileData && fileData.id) {
-					logger.info('MultiFileHelpers', ' Found file by path:', fullPath, 'id:', fileData.id)
-					return fileData.id
+		// First, try to find the file directly by full path (for dependency files like MTL)
+		// Skip direct lookup for image files as they're often in subdirectories, avoiding unnecessary 404s
+		const fullPath = normalizedDirPath ? `${normalizedDirPath}/${filename}` : filename
+		if (!isImageFile) {
+			try {
+				const findUrl = `/apps/threedviewer/api/files/find?path=${encodeURIComponent(fullPath)}`
+				const findResponse = await fetch(findUrl)
+
+				if (findResponse.ok) {
+					const fileData = await findResponse.json()
+					if (fileData && fileData.id) {
+						logger.info('MultiFileHelpers', ' Found file by path:', fullPath, 'id:', fileData.id)
+						return fileData.id
+					}
+				} else {
+					logger.debug('MultiFileHelpers', ' Direct path lookup returned:', findResponse.status, 'for:', fullPath)
 				}
-			} else {
-				logger.debug('MultiFileHelpers', ' Direct path lookup returned:', findResponse.status, 'for:', fullPath)
+			} catch (findError) {
+				// If direct path lookup fails, continue with directory listing
+				logger.debug('MultiFileHelpers', ' Direct path lookup failed, trying directory listing:', findError)
 			}
-		} catch (findError) {
-			// If direct path lookup fails, continue with directory listing
-			logger.debug('MultiFileHelpers', ' Direct path lookup failed, trying directory listing:', findError)
 		}
 
 		// Try to list files in the directory, but don't fail if it doesn't work

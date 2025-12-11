@@ -267,6 +267,16 @@
 					<span class="stat-label">Triangles:</span>
 					<span class="stat-value">{{ (currentTriangles / 1000).toFixed(1) }}K</span>
 				</div>
+				<div v-if="cacheStats.enabled" class="stat-item cache-stats">
+					<span class="stat-label">Cache:</span>
+					<span class="stat-value">{{ cacheStats.sizeMB.toFixed(1) }}MB</span>
+				</div>
+				<div v-if="cacheStats.enabled && cacheStats.hits + cacheStats.misses > 0" class="stat-item cache-stats">
+					<span class="stat-label">Hit Rate:</span>
+					<span class="stat-value" :class="{ 'good': cacheStats.hitRate >= 70, 'warning': cacheStats.hitRate >= 50 && cacheStats.hitRate < 70, 'poor': cacheStats.hitRate < 50 }">
+						{{ cacheStats.hitRate.toFixed(1) }}%
+					</span>
+				</div>
 			</div>
 		</div>		<!-- Mobile gesture hints -->
 		<div v-if="isMobile && !isLoading && modelRoot" class="mobile-hints">
@@ -459,6 +469,9 @@ export default {
 		const animationFrameId = ref(null) // Track animation frame for cleanup
 		const showPerformanceStats = ref(true) // Toggle for performance stats overlay
 		const isInitialized = ref(false) // Guard to prevent multiple initializations
+		const cacheStats = ref({ enabled: false, count: 0, sizeMB: 0, hits: 0, misses: 0, hitRate: 0 }) // Cache statistics
+		let lastCacheStatsUpdate = 0 // Track last cache stats update time
+		const CACHE_STATS_UPDATE_INTERVAL = 2000 // Update cache stats every 2 seconds (more responsive)
 
 		// Composables
 		const camera = useCamera()
@@ -506,6 +519,10 @@ export default {
 			try {
 				// Initialize decoders
 				await modelLoading.initDecoders()
+
+				// Initialize cache and load initial stats
+				await initCache()
+				await updateCacheStats()
 
 				// Setup Three.js scene
 				await setupScene()
@@ -795,6 +812,9 @@ export default {
 				})
 
 				if (loadedModel && loadedModel.object3D) {
+					// Update cache stats immediately after model loads (files may have been cached)
+					await updateCacheStats()
+					
 					// Add the loaded model to the scene first
 					modelRoot.value = markRaw(loadedModel.object3D)
 					scene.value.add(modelRoot.value)
@@ -1298,6 +1318,12 @@ export default {
 			if (performance && typeof performance.updatePerformanceMetrics === 'function') {
 				performance.updatePerformanceMetrics(renderer.value, scene.value)
 			}
+
+			// Update cache stats periodically (every 5 seconds)
+			if (time - lastCacheStatsUpdate > CACHE_STATS_UPDATE_INTERVAL) {
+				updateCacheStats()
+				lastCacheStatsUpdate = time
+			}
 		}
 
 		const setupEventListeners = () => {
@@ -1519,14 +1545,26 @@ export default {
 		}
 
 		/**
+		 * Update cache statistics
+		 */
+		const updateCacheStats = async () => {
+			try {
+				const stats = await getCacheStats()
+				cacheStats.value = stats
+			} catch (error) {
+				logger.warn('ThreeViewer', 'Failed to update cache stats', error)
+			}
+		}
+
+		/**
 		 * Clear dependency cache
 		 */
 		const handleClearCache = async () => {
 			try {
 				logger.info('ThreeViewer', 'Clearing dependency cache')
 				await clearAll()
-				const stats = await getCacheStats()
-				logger.info('ThreeViewer', 'Cache cleared', stats)
+				await updateCacheStats() // Refresh stats after clearing
+				logger.info('ThreeViewer', 'Cache cleared', cacheStats.value)
 
 				emit('push-toast', {
 					type: 'success',
@@ -2663,6 +2701,7 @@ export default {
 			currentPerformanceMode: performance.currentPerformanceMode,
 			currentPixelRatio: performance.currentPixelRatio,
 			showPerformanceStats,
+			cacheStats,
 
 			// Animation
 			animation,
@@ -2721,6 +2760,7 @@ export default {
 			handleExport,
 			getModelObject,
 			handleClearCache,
+			updateCacheStats,
 			handleScreenshot,
 			toggleFaceLabels,
 			handleViewCubeFaceClick,
@@ -3230,6 +3270,12 @@ export default {
 	justify-content: space-between;
 	align-items: center;
 	padding: 2px 0;
+}
+
+.stat-item.cache-stats {
+	border-top: 1px solid rgb(255 255 255 / 20%);
+	padding-top: 6px;
+	margin-top: 4px;
 }
 
 .stat-label {

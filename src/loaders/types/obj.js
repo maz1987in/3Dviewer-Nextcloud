@@ -32,6 +32,7 @@ class ObjLoader extends BaseLoader {
 
 		// Look for MTL file reference
 		const mtlName = this.findMtlReference(objText)
+		logger.info('OBJLoader', 'MTL reference parsed from OBJ', { mtlName })
 
 		// Create loaders
 		this.objLoader = new OBJLoader()
@@ -151,7 +152,8 @@ class ObjLoader extends BaseLoader {
 			} else if (currentMaterial && command === 'map_Kd') {
 				// Store texture path for later loading, but keep material.map as null
 				// Never set material.map to a string - it must be null or THREE.Texture
-				currentMaterial._mapPath = parts[1] // Temporary storage for path
+				const texturePath = parts.slice(1).join(' ').trim() // Handle paths with spaces
+				currentMaterial._mapPath = texturePath // Temporary storage for path
 				currentMaterial.map = null // Keep as null until texture loads
 			} else if (currentMaterial && command === 'Kd') {
 				// Set diffuse color
@@ -223,6 +225,8 @@ class ObjLoader extends BaseLoader {
 			},
 		}
 
+		logger.info('OBJLoader', 'Manual MTL parse complete', { materialCount: Object.keys(materials).length, materialNames: Object.keys(materials) })
+
 		return materialsWrapper
 	}
 
@@ -244,6 +248,9 @@ class ObjLoader extends BaseLoader {
 					.then(texture => {
 						// Always set to texture or null, never leave as string
 						material.map = texture || null
+						if (texture) {
+							material.needsUpdate = true // Ensure material updates to show texture
+						}
 					})
 					.catch(error => {
 						logger.warn('OBJLoader', ' Failed to load diffuse texture for native material:', materialName, error)
@@ -256,6 +263,9 @@ class ObjLoader extends BaseLoader {
 					.then(texture => {
 						// Always set to texture or null, never leave as string
 						material.normalMap = texture || null
+						if (texture) {
+							material.needsUpdate = true
+						}
 					})
 					.catch(error => {
 						logger.warn('OBJLoader', ' Failed to load normal texture for native material:', materialName, error)
@@ -268,6 +278,9 @@ class ObjLoader extends BaseLoader {
 					.then(texture => {
 						// Always set to texture or null, never leave as string
 						material.specularMap = texture || null
+						if (texture) {
+							material.needsUpdate = true
+						}
 					})
 					.catch(error => {
 						logger.warn('OBJLoader', ' Failed to load specular texture for native material:', materialName, error)
@@ -287,7 +300,8 @@ class ObjLoader extends BaseLoader {
 		for (const line of objText.split(/\r?\n/)) {
 			const trimmedLine = line.trim()
 			if (trimmedLine.toLowerCase().startsWith('mtllib ')) {
-				const mtlName = trimmedLine.split(/\s+/)[1]?.trim()
+				// Preserve full filename (including spaces) after the first space
+				const mtlName = trimmedLine.slice(7).trim()
 				if (mtlName) {
 					// Found MTL reference
 					return mtlName
@@ -307,6 +321,7 @@ class ObjLoader extends BaseLoader {
 	 */
 	async loadMtlMaterialsFromDependencies(mtlName, additionalFiles, THREE, progressive = false) {
 		try {
+			logger.info('OBJLoader', 'loadMtlMaterialsFromDependencies start', { mtlName, availableFiles: additionalFiles.map(f => f.name), availableFilesCount: additionalFiles.length, progressive })
 			// Search for MTL file in dependencies
 
 			// Find the MTL file in the pre-fetched dependencies
@@ -319,6 +334,7 @@ class ObjLoader extends BaseLoader {
 			// MTL file found
 
 			if (mtlFile) {
+				logger.info('OBJLoader', 'MTL file found', { mtlName, mtlFileName: mtlFile.name, mtlSize: mtlFile.size })
 				// Convert the MTL file to text
 				const mtlText = await this.fileToText(mtlFile)
 
@@ -337,8 +353,10 @@ class ObjLoader extends BaseLoader {
 							if (!materials || !materials.materials || Object.keys(materials.materials).length === 0) {
 								logger.warn('OBJLoader', ' Native MTLLoader returned no materials, falling back to manual parser')
 								materials = this.parseMtlManually(mtlText, THREE)
+							logger.info('OBJLoader', 'Manual MTL parser used (native empty)', { mtlName })
 							} else {
 								logger.info('OBJLoader', ' Native MTLLoader successful:', Object.keys(materials.materials).length, 'materials')
+							logger.info('OBJLoader', 'Native MTLLoader materials', { mtlName, materialCount: Object.keys(materials.materials || {}).length, materialNames: Object.keys(materials.materials || {}) })
 								// Set up custom texture loader for native materials
 								this.setupCustomTextureLoader(materials, additionalFiles, THREE)
 							}
@@ -411,6 +429,9 @@ class ObjLoader extends BaseLoader {
 											try {
 												const texture = await this.loadTextureFromDependencies(material._mapPath, customTextureLoader, additionalFiles, THREE)
 												material.map = texture || null
+												if (texture) {
+													material.needsUpdate = true // Ensure material updates to show texture
+												}
 												delete material._mapPath // Clean up temporary property
 											} catch (error) {
 												logger.warn('OBJLoader', ' Failed to load diffuse texture for:', materialName, error)
@@ -437,6 +458,9 @@ class ObjLoader extends BaseLoader {
 											try {
 												const texture = await this.loadTextureFromDependencies(material._specularMapPath, customTextureLoader, additionalFiles, THREE)
 												material.specularMap = texture || null
+												if (texture) {
+													material.needsUpdate = true
+												}
 												delete material._specularMapPath
 											} catch (error) {
 												logger.warn('OBJLoader', ' Failed to load specular map for:', materialName, error)
@@ -515,6 +539,7 @@ class ObjLoader extends BaseLoader {
 						}
 
 						// Preload and set materials
+						logger.info('OBJLoader', 'Materials ready to set on OBJLoader', { mtlName, materialCount: Object.keys(materials.materials || {}).length, materialNames: Object.keys(materials.materials || {}), progressive })
 						materials.preload()
 						this.objLoader.setMaterials(materials)
 
@@ -582,8 +607,8 @@ class ObjLoader extends BaseLoader {
 					}
 
 					// Create a blob URL from the pre-fetched file
-					const blob = new Blob([textureFile], { type: textureFile.type })
-					const blobUrl = URL.createObjectURL(blob)
+					// File objects are already Blobs, so we can use them directly
+					const blobUrl = URL.createObjectURL(textureFile)
 
 					// Use the standard Image loader with the blob URL
 					const image = new Image()
@@ -591,7 +616,7 @@ class ObjLoader extends BaseLoader {
 						onLoad(image)
 						URL.revokeObjectURL(blobUrl) // Clean up
 					}
-					image.onerror = () => {
+					image.onerror = (error) => {
 						logger.warn('OBJLoader', ' Texture failed to load:', url)
 						onLoad(null) // Allow loading to continue without texture
 						URL.revokeObjectURL(blobUrl) // Clean up
@@ -619,6 +644,7 @@ class ObjLoader extends BaseLoader {
 	 * @return {Promise<THREE.Texture|null>} Loaded texture or null
 	 */
 	async loadTextureFromDependencies(texturePath, textureLoader, additionalFiles, THREE) {
+		logger.info('OBJLoader', 'loadTextureFromDependencies start', { texturePath, availableFiles: additionalFiles.map(f => f.name), availableFilesCount: additionalFiles.length })
 		return new Promise((resolve, reject) => {
 			try {
 				textureLoader.load(
@@ -647,6 +673,8 @@ class ObjLoader extends BaseLoader {
 						texture.format = THREE.RGBAFormat
 						texture.type = THREE.UnsignedByteType
 
+						logger.info('OBJLoader', 'loadTextureFromDependencies success', { texturePath, width: image?.width, height: image?.height })
+
 						resolve(texture)
 					},
 					(progress) => {
@@ -654,6 +682,7 @@ class ObjLoader extends BaseLoader {
 					},
 					(error) => {
 						logger.warn('OBJLoader', ' Texture loading failed:', texturePath, error)
+						logger.warn('OBJLoader', 'loadTextureFromDependencies error', { texturePath, error: error?.message })
 						resolve(null) // Return null instead of rejecting to allow graceful fallback
 					},
 				)

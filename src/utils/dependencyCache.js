@@ -11,6 +11,13 @@ let db = null
 let isInitialized = false
 let cacheEnabled = true
 
+// Cache statistics tracking
+let cacheStats = {
+	hits: 0,
+	misses: 0,
+	lastReset: Date.now(),
+}
+
 /**
  * Generate cache key from file ID and filename
  * @param {number} fileId - File ID
@@ -126,6 +133,7 @@ export async function getCached(cacheKey) {
 				const entry = request.result
 
 				if (!entry) {
+					cacheStats.misses++
 					resolve(null)
 					return
 				}
@@ -134,6 +142,7 @@ export async function getCached(cacheKey) {
 				const now = Date.now()
 				if (entry.expiresAt && entry.expiresAt < now) {
 					logger.info('DependencyCache', 'Cache entry expired', { cacheKey })
+					cacheStats.misses++
 					// Remove expired entry
 					removeCached(cacheKey).catch(() => {})
 					resolve(null)
@@ -141,6 +150,7 @@ export async function getCached(cacheKey) {
 				}
 
 				logger.info('DependencyCache', 'Cache hit', { cacheKey, size: entry.size })
+				cacheStats.hits++
 				resolve({
 					...entry,
 					expired: false,
@@ -330,6 +340,8 @@ export async function clearAll() {
 		return new Promise((resolve) => {
 			request.onsuccess = () => {
 				logger.info('DependencyCache', 'All cache entries cleared')
+				// Reset statistics when cache is cleared
+				resetCacheStats()
 				resolve(true)
 			}
 
@@ -382,7 +394,14 @@ export async function getCacheSize() {
  */
 export async function getCacheStats() {
 	if (!cacheEnabled || !isInitialized) {
-		return { enabled: false, count: 0, sizeMB: 0 }
+		return { 
+			enabled: false, 
+			count: 0, 
+			sizeMB: 0, 
+			hits: cacheStats.hits,
+			misses: cacheStats.misses,
+			hitRate: 0,
+		}
 	}
 
 	try {
@@ -397,24 +416,60 @@ export async function getCacheStats() {
 				const totalSize = entries.reduce((sum, entry) => sum + (entry.size || 0), 0)
 				const now = Date.now()
 				const expiredCount = entries.filter(e => e.expiresAt < now).length
+				
+				// Calculate hit rate
+				const totalRequests = cacheStats.hits + cacheStats.misses
+				const hitRate = totalRequests > 0 
+					? (cacheStats.hits / totalRequests * 100).toFixed(1) 
+					: 0
 
 				resolve({
 					enabled: true,
 					count: entries.length,
 					sizeMB: totalSize / (1024 * 1024),
 					expiredCount,
+					hits: cacheStats.hits,
+					misses: cacheStats.misses,
+					hitRate: parseFloat(hitRate),
+					lastReset: cacheStats.lastReset,
 				})
 			}
 
 			request.onerror = () => {
 				logger.warn('DependencyCache', 'Failed to get cache stats', request.error)
-				resolve({ enabled: false, count: 0, sizeMB: 0 })
+				resolve({ 
+					enabled: false, 
+					count: 0, 
+					sizeMB: 0,
+					hits: cacheStats.hits,
+					misses: cacheStats.misses,
+					hitRate: 0,
+				})
 			}
 		})
 	} catch (error) {
 		logger.warn('DependencyCache', 'Get cache stats error', error)
-		return { enabled: false, count: 0, sizeMB: 0 }
+		return { 
+			enabled: false, 
+			count: 0, 
+			sizeMB: 0,
+			hits: cacheStats.hits,
+			misses: cacheStats.misses,
+			hitRate: 0,
+		}
 	}
+}
+
+/**
+ * Reset cache statistics
+ */
+export function resetCacheStats() {
+	cacheStats = {
+		hits: 0,
+		misses: 0,
+		lastReset: Date.now(),
+	}
+	logger.info('DependencyCache', 'Cache statistics reset')
 }
 
 /**

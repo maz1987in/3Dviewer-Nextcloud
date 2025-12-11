@@ -26,8 +26,8 @@ class CleanupTempFiles extends TimedJob
         private LoggerInterface $logger
     ) {
         parent::__construct($time);
-        // Run once a day (approx)
-        $this->setInterval(86400);
+        // Run roughly every 6 hours for tighter expiry enforcement
+        $this->setInterval(21600);
     }
 
     protected function run($argument): void

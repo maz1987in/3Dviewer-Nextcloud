@@ -86,6 +86,7 @@
 					:is-animation-playing="isAnimationPlaying"
 					:is-animation-looping="isAnimationLooping"
 					:is-mobile="isMobile"
+					:cache-stats="cacheStats"
 					@reset-view="onReset"
 					@fit-to-view="onFitToView"
 					@toggle-auto-rotate="onToggleAutoRotate"
@@ -252,6 +253,8 @@ export default {
 			hasAnimations: false,
 			isAnimationPlaying: false,
 			isAnimationLooping: false,
+			// Cache stats (updated from viewer)
+			cacheStats: { enabled: false, count: 0, sizeMB: 0, hits: 0, misses: 0, hitRate: 0 },
 		}
 	},
 	computed: {
@@ -325,9 +328,17 @@ export default {
 			this.showController = false
 		}
 		window.addEventListener('resize', this.detectMobile)
+
+		// Periodically update cache stats from viewer
+		this.cacheStatsInterval = setInterval(() => {
+			this.updateCacheStats()
+		}, 2000) // Update every 2 seconds (more responsive)
 	},
 	beforeUnmount() {
 		window.removeEventListener('resize', this.detectMobile)
+		if (this.cacheStatsInterval) {
+			clearInterval(this.cacheStatsInterval)
+		}
 	},
 	methods: {
 		parseFileId() {
@@ -652,11 +663,27 @@ export default {
 		onFpsUpdated(fps) {
 			this.fps = fps
 		},
-		onModelLoaded(meta) {
+		async updateCacheStats() {
+			// Sync cache stats from viewer
+			if (this.$refs.viewer?.cacheStats) {
+				// Get fresh stats from viewer (it updates them)
+				if (typeof this.$refs.viewer.updateCacheStats === 'function') {
+					await this.$refs.viewer.updateCacheStats()
+				}
+				// Then sync the updated stats
+				if (this.$refs.viewer.cacheStats) {
+					this.cacheStats = { ...this.$refs.viewer.cacheStats }
+				}
+			}
+		},
+		async onModelLoaded(meta) {
 			this.modelMeta = meta
 			this.lastError = null
 			this.isLoading = false
 			this.modelLoaded = true
+			
+			// Update cache stats immediately after model loads (files may have been cached)
+			await this.updateCacheStats()
 			// Sync animation presets from viewer
 			if (this.$refs.viewer?.animationPresets) {
 				this.animationPresets = this.$refs.viewer.animationPresets

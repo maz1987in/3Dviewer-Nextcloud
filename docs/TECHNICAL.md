@@ -58,6 +58,14 @@ The 3D Viewer is a Nextcloud application that provides 3D model viewing capabili
 - **`SettingsController`**: User settings management (`/settings`)
 - **`SlicerController`**: Slicer integration and temporary file handling (`/api/slicer/temp`)
 
+**Slicer temp file security posture:**
+- Temp folder: `.3dviewer_temp` under each user’s home.
+- Expiry: 24h enforced on access and cleanup; public share expires at now+24h.
+- Cleanup: cron every ~6h plus per-request cleanup of old files/shares.
+- Limits: per-upload cap 50 MB; folder cap 200 MB; filename sanitized/forced to `.stl`.
+- Validation: MIME/header check for STL; access restricted to owner; public shares deleted on removal/expiry.
+- Headers: downloads served with no-cache and content-length; CORS allowed for slicers.
+
 **Services:**
 - **`FileService`**: File operations and validation
 - **`ShareFileService`**: Public share file handling

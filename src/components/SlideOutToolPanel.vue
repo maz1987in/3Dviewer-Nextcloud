@@ -215,7 +215,31 @@
 									</option>
 								</select>
 							</div>
-							<button class="tool-btn" @click="emit('clear-cache')">
+							<!-- Cache Management -->
+							<div v-if="cacheStats.enabled" class="tool-group cache-group">
+								<label class="tool-label-small">{{ t('threedviewer', 'Dependency Cache') }}</label>
+								<div class="cache-info">
+									<div class="cache-stat-row">
+										<span class="cache-stat-label">{{ t('threedviewer', 'Size') }}:</span>
+										<span class="cache-stat-value">{{ cacheStats.sizeMB.toFixed(1) }} MB</span>
+									</div>
+									<div class="cache-stat-row">
+										<span class="cache-stat-label">{{ t('threedviewer', 'Files') }}:</span>
+										<span class="cache-stat-value">{{ cacheStats.count }}</span>
+									</div>
+									<div v-if="cacheStats.hits + cacheStats.misses > 0" class="cache-stat-row">
+										<span class="cache-stat-label">{{ t('threedviewer', 'Hit Rate') }}:</span>
+										<span class="cache-stat-value" :class="{ 'good': cacheStats.hitRate >= 70, 'warning': cacheStats.hitRate >= 50 && cacheStats.hitRate < 70, 'poor': cacheStats.hitRate < 50 }">
+											{{ cacheStats.hitRate.toFixed(1) }}%
+										</span>
+									</div>
+								</div>
+								<button class="tool-btn cache-clear-btn" @click="emit('clear-cache')">
+									<span class="tool-icon">🗑️</span>
+									<span class="tool-label">{{ t('threedviewer', 'Clear Cache') }}</span>
+								</button>
+							</div>
+							<button v-else class="tool-btn" @click="emit('clear-cache')">
 								<span class="tool-icon">🗑️</span>
 								<span class="tool-label">{{ t('threedviewer', 'Clear Cache') }}</span>
 							</button>
@@ -269,6 +293,12 @@ export default {
 
 		// Mobile detection
 		isMobile: { type: Boolean, default: false },
+
+		// Cache stats
+		cacheStats: { 
+			type: Object, 
+			default: () => ({ enabled: false, count: 0, sizeMB: 0, hits: 0, misses: 0, hitRate: 0 }) 
+		},
 	},
 
 	emits: [
@@ -795,6 +825,62 @@ export default {
 .reset-color-btn:hover {
 	background: var(--color-primary-element);
 	color: var(--color-primary-element-text);
+}
+
+/* Cache Management */
+.cache-group {
+	margin-top: 12px;
+	padding-top: 12px;
+	border-top: 1px solid var(--color-border);
+}
+
+.cache-info {
+	background: var(--color-background-dark);
+	border: 1px solid var(--color-border);
+	border-radius: 4px;
+	padding: 10px;
+	margin-bottom: 8px;
+}
+
+.cache-stat-row {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 4px 0;
+	font-size: 12px;
+}
+
+.cache-stat-row:not(:last-child) {
+	border-bottom: 1px solid var(--color-border);
+	padding-bottom: 6px;
+	margin-bottom: 4px;
+}
+
+.cache-stat-label {
+	color: var(--color-text-maxcontrast);
+	font-weight: 500;
+}
+
+.cache-stat-value {
+	color: var(--color-main-text);
+	font-weight: 600;
+}
+
+.cache-stat-value.good {
+	color: #4caf50;
+}
+
+.cache-stat-value.warning {
+	color: #ff9800;
+}
+
+.cache-stat-value.poor {
+	color: #f44336;
+}
+
+.cache-clear-btn {
+	width: 100%;
+	margin-top: 8px;
 }
 
 /* Panel Footer */

@@ -14,6 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Animation state props passed through App.vue to child components
   - Integration of useAnimation composable in ThreeViewer component
   - Improved directory path extraction for multi-file model loading
+- **Dependency Cache Insights**: Added live cache statistics (size, entries, hit rate) to the viewer and slide-out tools
+  - Viewer performance panel now shows cache size and hit rate
+  - Slide-out tools panel displays cache stats and clear-cache control with status
+  - Cache stats refresh automatically during use and after model loads or cache clears
+  - Cache hit/miss tracking with reset when clearing the cache
 
 ### Fixed
 - **Model Comparison Positioning**: Fixed comparison model positioning issues where the second model's position was immutable
@@ -42,6 +47,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **False Texture Warning**: Removed automatic texture warning banner that was incorrectly showing for all GLB/GLTF files
   - Warning now only appears when actual CSP errors or texture loading failures are detected
   - Improved user experience by eliminating false warnings when textures load successfully
+- **Slicer Upload Safety**: Hardened temporary STL upload handling with size and MIME validation
+  - Reject uploads over 50 MB per file and enforce a 200 MB rolling temp folder cap
+  - Validate STL MIME/header before accepting; reject invalid content
+  - Enforce rolling 24h expiration on access and clean up expired shares/files
+  - Use rolling +1 day expiration for generated share links
+- **OBJ Texture Loading Robustness**: Improved OBJ/MTL parsing and texture handling
+  - Preserve texture/MTL paths with spaces and mark materials for update after textures load
+  - Use existing blob File objects for texture URLs and tighten loader logging
+  - Handle texture load failures gracefully and ensure needsUpdate flags are set
+- **Texture Dependency Lookup**: Skip direct “find by path” lookups for image textures to avoid unnecessary 404s; rely on directory listings for textures commonly stored in subfolders
 
 ## [2.1.0] - 2025-12-06
 

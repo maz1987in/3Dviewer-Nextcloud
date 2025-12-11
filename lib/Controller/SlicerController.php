@@ -22,6 +22,8 @@ class SlicerController extends Controller
 {
     private const TEMP_FOLDER = '.3dviewer_temp';
     private const MAX_TEMP_FILE_AGE = 86400; // 24 hours
+    private const MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB per file
+    private const MAX_TEMP_FOLDER_BYTES = 200 * 1024 * 1024; // 200 MB rolling cap
 
     private IRootFolder $rootFolder;
     private IUserSession $userSession;
@@ -84,6 +86,16 @@ class SlicerController extends Controller
 
             $this->logger->info('SlicerController: User authenticated', ['user' => $user->getUID()]);
 
+            // Enforce declared content-length before reading to avoid large allocations
+            $contentLengthHeader = $this->request->getHeader('Content-Length');
+            if (!empty($contentLengthHeader) && (int) $contentLengthHeader > self::MAX_UPLOAD_SIZE_BYTES) {
+                $this->logger->warning('SlicerController: Upload rejected - Content-Length exceeds limit', [
+                    'user' => $user->getUID(),
+                    'contentLength' => (int) $contentLengthHeader,
+                ]);
+                return new JSONResponse(['error' => 'File too large'], Http::STATUS_BAD_REQUEST);
+            }
+
             // Get the uploaded file data
             $fileData = file_get_contents('php://input');
             if ($fileData === false || empty($fileData)) {
@@ -91,7 +103,27 @@ class SlicerController extends Controller
                 return new JSONResponse(['error' => 'No file data provided'], Http::STATUS_BAD_REQUEST);
             }
 
-            $this->logger->info('SlicerController: Received file data', ['size' => strlen($fileData)]);
+            $fileSize = strlen($fileData);
+            if ($fileSize > self::MAX_UPLOAD_SIZE_BYTES) {
+                $this->logger->warning('SlicerController: Upload rejected - size exceeds limit', [
+                    'user' => $user->getUID(),
+                    'size' => $fileSize,
+                ]);
+                return new JSONResponse(['error' => 'File too large'], Http::STATUS_BAD_REQUEST);
+            }
+
+            // Basic MIME/format validation to reduce unexpected content
+            $finfo = new \finfo(FILEINFO_MIME_TYPE);
+            $mimeType = $finfo->buffer($fileData) ?: 'application/octet-stream';
+            if (!$this->isValidStlMime($mimeType, $fileData)) {
+                $this->logger->warning('SlicerController: Upload rejected - invalid MIME/type', [
+                    'user' => $user->getUID(),
+                    'mime' => $mimeType,
+                ]);
+                return new JSONResponse(['error' => 'Invalid STL file'], Http::STATUS_BAD_REQUEST);
+            }
+
+            $this->logger->info('SlicerController: Received file data', ['size' => $fileSize, 'mime' => $mimeType]);
 
             // Get filename from query parameter
             $filename = $this->request->getParam('filename', 'model.stl');
@@ -131,6 +163,17 @@ class SlicerController extends Controller
             // Clean up old files and shares
             $this->cleanupOldTempFiles($tempFolder);
 
+            // Enforce rolling folder size cap
+            $currentFolderSize = $this->getFolderSizeBytes($tempFolder);
+            if ($currentFolderSize + $fileSize > self::MAX_TEMP_FOLDER_BYTES) {
+                $this->logger->warning('SlicerController: Upload rejected - temp folder over cap', [
+                    'user' => $user->getUID(),
+                    'currentFolderSize' => $currentFolderSize,
+                    'attemptedSize' => $fileSize,
+                ]);
+                return new JSONResponse(['error' => 'Temporary storage quota exceeded'], Http::STATUS_BAD_REQUEST);
+            }
+
             // Generate unique filename with timestamp
             $uniqueFilename = time() . '_' . $filename;
 
@@ -147,9 +190,9 @@ class SlicerController extends Controller
             $share->setSharedBy($user->getUID());
             $share->setPermissions(\OCP\Constants::PERMISSION_READ);
             
-            // Set expiration to tomorrow (Nextcloud requires date at midnight, not time)
-            $expirationDate = new \DateTime('tomorrow');
-            $share->setExpirationDate($expirationDate);
+            // Set rolling 24h expiration
+            $expirationDate = (new \DateTimeImmutable())->modify('+1 day');
+            $share->setExpirationDate(\DateTime::createFromImmutable($expirationDate));
             
             // Create the share
             $share = $this->shareManager->createShare($share);
@@ -231,6 +274,23 @@ class SlicerController extends Controller
             // Verify file is in temp folder
             if (strpos($file->getPath(), '/' . self::TEMP_FOLDER . '/') === false) {
                 return new JSONResponse(['error' => 'Access denied'], Http::STATUS_FORBIDDEN);
+            }
+
+            // Enforce rolling 24h age on access
+            $age = time() - $file->getMTime();
+            if ($age > self::MAX_TEMP_FILE_AGE) {
+                // Delete shares first
+                $shares = $this->shareManager->getSharesBy($user->getUID(), IShare::TYPE_LINK, $file, false, -1, 0);
+                foreach ($shares as $share) {
+                    $this->shareManager->deleteShare($share);
+                }
+                $file->delete();
+                $this->logger->info('Temporary STL file expired and removed on access', [
+                    'user' => $user->getUID(),
+                    'fileId' => $fileId,
+                    'age' => $age,
+                ]);
+                return new JSONResponse(['error' => 'File expired'], Http::STATUS_GONE);
             }
 
             // Get file content
@@ -371,6 +431,42 @@ class SlicerController extends Controller
                 'error' => $e->getMessage(),
             ]);
         }
+    }
+
+    /**
+     * Calculate folder size in bytes
+     */
+    private function getFolderSizeBytes($folder): int
+    {
+        $total = 0;
+        foreach ($folder->getDirectoryListing() as $file) {
+            $total += $file->getSize();
+        }
+        return $total;
+    }
+
+    /**
+     * Basic STL validation using MIME sniff + header check
+     */
+    private function isValidStlMime(string $mime, string $data): bool
+    {
+        $allowed = [
+            'model/stl',
+            'application/sla',
+            'application/octet-stream', // common for STL uploads
+        ];
+
+        if (in_array($mime, $allowed, true)) {
+            return true;
+        }
+
+        // Fallback: check for ASCII STL starting with "solid"
+        $trimmed = ltrim(substr($data, 0, 80));
+        if (stripos($trimmed, 'solid ') === 0) {
+            return true;
+        }
+
+        return false;
     }
 }
 
