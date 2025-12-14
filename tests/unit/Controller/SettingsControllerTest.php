@@ -15,135 +15,134 @@ use PHPUnit\Framework\TestCase;
 
 class SettingsControllerTest extends TestCase
 {
-	/** @var IRequest&MockObject */
-	private $request;
-	/** @var IConfig&MockObject */
-	private $config;
-	/** @var IUserSession&MockObject */
-	private $userSession;
-	/** @var IUser&MockObject */
-	private $user;
+    /** @var IRequest&MockObject */
+    private $request;
+    /** @var IConfig&MockObject */
+    private $config;
+    /** @var IUserSession&MockObject */
+    private $userSession;
+    /** @var IUser&MockObject */
+    private $user;
 
-	protected function setUp(): void
-	{
-		parent::setUp();
-		$this->request = $this->createMock(IRequest::class);
-		$this->config = $this->createMock(IConfig::class);
-		$this->userSession = $this->createMock(IUserSession::class);
-		$this->user = $this->createMock(IUser::class);
-		$this->user->method('getUID')->willReturn('testuser');
-		$this->userSession->method('getUser')->willReturn($this->user);
-	}
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->request = $this->createMock(IRequest::class);
+        $this->config = $this->createMock(IConfig::class);
+        $this->userSession = $this->createMock(IUserSession::class);
+        $this->user = $this->createMock(IUser::class);
+        $this->user->method('getUID')->willReturn('testuser');
+        $this->userSession->method('getUser')->willReturn($this->user);
+    }
 
-	public function testGetSettingsReturnsEmptyArrayWhenNoSettings(): void
-	{
-		$this->config->method('getUserValue')
-			->with('testuser', 'threedviewer', 'user_preferences', '{}')
-			->willReturn('{}');
+    public function testGetSettingsReturnsEmptyArrayWhenNoSettings(): void
+    {
+        $this->config->method('getUserValue')
+            ->with('testuser', 'threedviewer', 'user_preferences', '{}')
+            ->willReturn('{}');
 
-		$controller = new SettingsController('threedviewer', $this->request, $this->config, $this->userSession);
-		$response = $controller->getSettings();
+        $controller = new SettingsController('threedviewer', $this->request, $this->config, $this->userSession);
+        $response = $controller->getSettings();
 
-		$this->assertInstanceOf(DataResponse::class, $response);
-		$data = $response->getData();
-		$this->assertIsArray($data);
-		$this->assertArrayHasKey('settings', $data);
-		$this->assertIsArray($data['settings']);
-		$this->assertEmpty($data['settings']);
-	}
+        $this->assertInstanceOf(DataResponse::class, $response);
+        $data = $response->getData();
+        $this->assertIsArray($data);
+        $this->assertArrayHasKey('settings', $data);
+        $this->assertIsArray($data['settings']);
+        $this->assertEmpty($data['settings']);
+    }
 
-	public function testGetSettingsReturnsSavedSettings(): void
-	{
-		$savedSettings = ['theme' => 'dark', 'autoRotate' => true];
-		$this->config->method('getUserValue')
-			->with('testuser', 'threedviewer', 'user_preferences', '{}')
-			->willReturn(json_encode($savedSettings));
+    public function testGetSettingsReturnsSavedSettings(): void
+    {
+        $savedSettings = ['theme' => 'dark', 'autoRotate' => true];
+        $this->config->method('getUserValue')
+            ->with('testuser', 'threedviewer', 'user_preferences', '{}')
+            ->willReturn(json_encode($savedSettings));
 
-		$controller = new SettingsController('threedviewer', $this->request, $this->config, $this->userSession);
-		$response = $controller->getSettings();
+        $controller = new SettingsController('threedviewer', $this->request, $this->config, $this->userSession);
+        $response = $controller->getSettings();
 
-		$data = $response->getData();
-		$this->assertEquals($savedSettings, $data['settings']);
-	}
+        $data = $response->getData();
+        $this->assertEquals($savedSettings, $data['settings']);
+    }
 
-	public function testGetSettingsHandlesInvalidJson(): void
-	{
-		$this->config->method('getUserValue')
-			->with('testuser', 'threedviewer', 'user_preferences', '{}')
-			->willReturn('invalid json');
+    public function testGetSettingsHandlesInvalidJson(): void
+    {
+        $this->config->method('getUserValue')
+            ->with('testuser', 'threedviewer', 'user_preferences', '{}')
+            ->willReturn('invalid json');
 
-		$controller = new SettingsController('threedviewer', $this->request, $this->config, $this->userSession);
-		$response = $controller->getSettings();
+        $controller = new SettingsController('threedviewer', $this->request, $this->config, $this->userSession);
+        $response = $controller->getSettings();
 
-		$data = $response->getData();
-		$this->assertIsArray($data['settings']);
-		$this->assertEmpty($data['settings']); // Should default to empty array
-	}
+        $data = $response->getData();
+        $this->assertIsArray($data['settings']);
+        $this->assertEmpty($data['settings']); // Should default to empty array
+    }
 
-	public function testSaveSettingsStoresValidSettings(): void
-	{
-		$settings = ['theme' => 'dark', 'autoRotate' => true, 'grid' => false];
-		
-		$this->request->method('getParam')
-			->with('settings')
-			->willReturn($settings);
+    public function testSaveSettingsStoresValidSettings(): void
+    {
+        $settings = ['theme' => 'dark', 'autoRotate' => true, 'grid' => false];
 
-		$this->config->expects($this->once())
-			->method('setUserValue')
-			->with('testuser', 'threedviewer', 'user_preferences', json_encode($settings));
+        $this->request->method('getParam')
+            ->with('settings')
+            ->willReturn($settings);
 
-		$controller = new SettingsController('threedviewer', $this->request, $this->config, $this->userSession);
-		$response = $controller->saveSettings();
+        $this->config->expects($this->once())
+            ->method('setUserValue')
+            ->with('testuser', 'threedviewer', 'user_preferences', json_encode($settings));
 
-		$this->assertInstanceOf(DataResponse::class, $response);
-		$data = $response->getData();
-		$this->assertIsArray($data);
-	}
+        $controller = new SettingsController('threedviewer', $this->request, $this->config, $this->userSession);
+        $response = $controller->saveSettings();
 
-	public function testSaveSettingsHandlesNullParam(): void
-	{
-		$this->request->method('getParam')
-			->with('settings')
-			->willReturn(null);
+        $this->assertInstanceOf(DataResponse::class, $response);
+        $data = $response->getData();
+        $this->assertIsArray($data);
+    }
 
-		$this->config->expects($this->once())
-			->method('setUserValue')
-			->with('testuser', 'threedviewer', 'user_preferences', json_encode([]));
+    public function testSaveSettingsHandlesNullParam(): void
+    {
+        $this->request->method('getParam')
+            ->with('settings')
+            ->willReturn(null);
 
-		$controller = new SettingsController('threedviewer', $this->request, $this->config, $this->userSession);
-		$response = $controller->saveSettings();
+        $this->config->expects($this->once())
+            ->method('setUserValue')
+            ->with('testuser', 'threedviewer', 'user_preferences', json_encode([]));
 
-		$this->assertInstanceOf(DataResponse::class, $response);
-	}
+        $controller = new SettingsController('threedviewer', $this->request, $this->config, $this->userSession);
+        $response = $controller->saveSettings();
 
-	public function testSaveSettingsHandlesNonArrayParam(): void
-	{
-		$this->request->method('getParam')
-			->with('settings')
-			->willReturn('not an array');
+        $this->assertInstanceOf(DataResponse::class, $response);
+    }
 
-		$this->config->expects($this->once())
-			->method('setUserValue')
-			->with('testuser', 'threedviewer', 'user_preferences', json_encode([]));
+    public function testSaveSettingsHandlesNonArrayParam(): void
+    {
+        $this->request->method('getParam')
+            ->with('settings')
+            ->willReturn('not an array');
 
-		$controller = new SettingsController('threedviewer', $this->request, $this->config, $this->userSession);
-		$response = $controller->saveSettings();
+        $this->config->expects($this->once())
+            ->method('setUserValue')
+            ->with('testuser', 'threedviewer', 'user_preferences', json_encode([]));
 
-		$this->assertInstanceOf(DataResponse::class, $response);
-	}
+        $controller = new SettingsController('threedviewer', $this->request, $this->config, $this->userSession);
+        $response = $controller->saveSettings();
 
-	public function testResetSettingsDeletesUserValue(): void
-	{
-		$this->config->expects($this->once())
-			->method('deleteUserValue')
-			->with('testuser', 'threedviewer', 'user_preferences');
+        $this->assertInstanceOf(DataResponse::class, $response);
+    }
 
-		$controller = new SettingsController('threedviewer', $this->request, $this->config, $this->userSession);
-		$response = $controller->resetSettings();
+    public function testResetSettingsDeletesUserValue(): void
+    {
+        $this->config->expects($this->once())
+            ->method('deleteUserValue')
+            ->with('testuser', 'threedviewer', 'user_preferences');
 
-		$this->assertInstanceOf(DataResponse::class, $response);
-		$data = $response->getData();
-		$this->assertIsArray($data);
-	}
+        $controller = new SettingsController('threedviewer', $this->request, $this->config, $this->userSession);
+        $response = $controller->resetSettings();
+
+        $this->assertInstanceOf(DataResponse::class, $response);
+        $data = $response->getData();
+        $this->assertIsArray($data);
+    }
 }
-

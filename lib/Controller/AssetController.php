@@ -25,7 +25,7 @@ class AssetController extends Controller
      * Catch-all route for /asset/* paths
      * This route matches any path starting with /asset/ and manually parses it
      * IMPORTANT: Must be registered to handle nested paths with slashes
-     * Using /asset/img pattern to match image assets with nested paths
+     * Using /asset/img pattern to match image assets with nested paths.
      */
     #[NoCSRFRequired]
     #[PublicPage]
@@ -36,45 +36,46 @@ class AssetController extends Controller
         // Nextcloud routes don't handle slashes in parameters, so we parse the full URI
         $requestUri = $this->request->getRequestUri();
         $pathInfo = parse_url($requestUri, PHP_URL_PATH);
-        
+
         // Remove /apps/threedviewer prefix if present
         $pathInfo = preg_replace('#^/apps/threedviewer#', '', $pathInfo);
-        
+
         // Extract full path after /asset/img/
         // Pattern: /asset/img/...everything after...
         // Example: /asset/img/slicers/prusaslicer.png -> type=img, path=slicers/prusaslicer.png
         if (preg_match('#^/asset/img/(.+)$#', $pathInfo, $matches)) {
             $fullPath = $matches[1];
+
             // Use the parsed path (e.g., "slicers/prusaslicer.png")
             return $this->serveAssetInternal('img', $fullPath);
         }
-        
+
         // Fallback: try to use the filename parameter if it contains slashes
         if (!empty($filename)) {
             return $this->serveAssetInternal('img', $filename);
         }
-        
+
         throw new \InvalidArgumentException("Invalid asset path: {$pathInfo}");
     }
 
     /**
-     * Internal method to serve assets
+     * Internal method to serve assets.
      */
     private function serveAssetInternal(string $type, string $filename): FileDisplayResponse
     {
         $appRoot = dirname(__DIR__, 2);
-        
+
         // Handle img/slicers/ subdirectory
         if ($type === 'img') {
             // $filename could be "slicers/prusaslicer.png"
             $filePath = $appRoot . '/img/' . $filename;
         } else {
             $allowedTypes = ['draco', 'basis'];
-            
+
             if (!in_array($type, $allowedTypes)) {
                 throw new \InvalidArgumentException("Invalid asset type: {$type}");
             }
-            
+
             $filePath = $appRoot . '/' . $type . '/' . $filename;
         }
 
@@ -86,7 +87,7 @@ class AssetController extends Controller
         // Normalize path to prevent directory traversal attacks
         $normalizedPath = realpath($filePath);
         $normalizedRoot = realpath($appRoot);
-        
+
         if ($normalizedPath === false || $normalizedRoot === false || strpos($normalizedPath, $normalizedRoot) !== 0) {
             throw new \InvalidArgumentException("Asset path invalid: {$filename}");
         }

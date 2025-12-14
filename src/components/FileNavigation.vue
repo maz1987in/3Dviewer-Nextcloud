@@ -324,10 +324,12 @@ export default {
 	margin: 8px 0;
 }
 
+/* stylelint-disable selector-pseudo-class-no-unknown */
 :deep(.active) {
 	> .app-navigation-entry {
 		background: var(--color-primary-light, lightgrey);
 		font-weight: bold;
 	}
 }
+/* stylelint-enable selector-pseudo-class-no-unknown */
 </style>

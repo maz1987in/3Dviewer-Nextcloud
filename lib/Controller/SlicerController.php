@@ -9,14 +9,14 @@ use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\Files\IRootFolder;
 use OCP\IRequest;
-use OCP\IUserSession;
 use OCP\IURLGenerator;
+use OCP\IUserSession;
 use OCP\Share\IManager as ShareManager;
 use OCP\Share\IShare;
 use Psr\Log\LoggerInterface;
 
 /**
- * Controller for handling slicer integration
+ * Controller for handling slicer integration.
  */
 class SlicerController extends Controller
 {
@@ -49,7 +49,7 @@ class SlicerController extends Controller
     }
 
     /**
-     * Test endpoint to verify controller is working
+     * Test endpoint to verify controller is working.
      *
      * @NoAdminRequired
      * @NoCSRFRequired
@@ -60,13 +60,13 @@ class SlicerController extends Controller
         return new JSONResponse([
             'status' => 'ok',
             'message' => 'SlicerController is working',
-            'timestamp' => time()
+            'timestamp' => time(),
         ]);
     }
 
     /**
      * Create a temporary public share link for exported STL file
-     * Uses Nextcloud's native share system
+     * Uses Nextcloud's native share system.
      *
      * @NoAdminRequired
      * @NoCSRFRequired
@@ -76,11 +76,12 @@ class SlicerController extends Controller
     {
         try {
             $this->logger->info('SlicerController: saveTempFile called');
-            
+
             // Check authentication
             $user = $this->userSession->getUser();
             if ($user === null) {
                 $this->logger->error('SlicerController: User not authenticated');
+
                 return new JSONResponse(['error' => 'User not authenticated'], Http::STATUS_UNAUTHORIZED);
             }
 
@@ -93,6 +94,7 @@ class SlicerController extends Controller
                     'user' => $user->getUID(),
                     'contentLength' => (int) $contentLengthHeader,
                 ]);
+
                 return new JSONResponse(['error' => 'File too large'], Http::STATUS_BAD_REQUEST);
             }
 
@@ -100,6 +102,7 @@ class SlicerController extends Controller
             $fileData = file_get_contents('php://input');
             if ($fileData === false || empty($fileData)) {
                 $this->logger->error('SlicerController: No file data in request');
+
                 return new JSONResponse(['error' => 'No file data provided'], Http::STATUS_BAD_REQUEST);
             }
 
@@ -109,6 +112,7 @@ class SlicerController extends Controller
                     'user' => $user->getUID(),
                     'size' => $fileSize,
                 ]);
+
                 return new JSONResponse(['error' => 'File too large'], Http::STATUS_BAD_REQUEST);
             }
 
@@ -120,6 +124,7 @@ class SlicerController extends Controller
                     'user' => $user->getUID(),
                     'mime' => $mimeType,
                 ]);
+
                 return new JSONResponse(['error' => 'Invalid STL file'], Http::STATUS_BAD_REQUEST);
             }
 
@@ -127,20 +132,20 @@ class SlicerController extends Controller
 
             // Get filename from query parameter
             $filename = $this->request->getParam('filename', 'model.stl');
-            
+
             // Extract just the filename (remove any path components)
             // Handle both Unix (/) and Windows (\) path separators
             $filename = basename(str_replace('\\', '/', $filename));
-            
+
             // Remove any remaining path separators
             $filename = str_replace(['/', '\\'], '_', $filename);
-            
+
             // Sanitize filename (remove invalid characters, keep dots and hyphens)
             $filename = preg_replace('/[^a-zA-Z0-9_\-\.]/', '_', $filename);
-            
+
             // Remove multiple consecutive underscores
             $filename = preg_replace('/_+/', '_', $filename);
-            
+
             // Ensure filename ends with .stl
             if (substr(strtolower($filename), -4) !== '.stl') {
                 $filename .= '.stl';
@@ -171,6 +176,7 @@ class SlicerController extends Controller
                     'currentFolderSize' => $currentFolderSize,
                     'attemptedSize' => $fileSize,
                 ]);
+
                 return new JSONResponse(['error' => 'Temporary storage quota exceeded'], Http::STATUS_BAD_REQUEST);
             }
 
@@ -189,11 +195,11 @@ class SlicerController extends Controller
             $share->setShareType(IShare::TYPE_LINK);
             $share->setSharedBy($user->getUID());
             $share->setPermissions(\OCP\Constants::PERMISSION_READ);
-            
+
             // Set rolling 24h expiration
             $expirationDate = (new \DateTimeImmutable())->modify('+1 day');
             $share->setExpirationDate(\DateTime::createFromImmutable($expirationDate));
-            
+
             // Create the share
             $share = $this->shareManager->createShare($share);
             $token = $share->getToken();
@@ -225,7 +231,6 @@ class SlicerController extends Controller
                 'size' => $file->getSize(),
                 'expiresAt' => $expirationDate->format('c'),
             ]);
-
         } catch (\Throwable $e) {
             $this->logger->error('Failed to save temporary STL file', [
                 'error' => $e->getMessage(),
@@ -237,13 +242,13 @@ class SlicerController extends Controller
 
             return new JSONResponse([
                 'error' => 'Failed to save file: ' . $e->getMessage(),
-                'details' => get_class($e)
+                'details' => get_class($e),
             ], Http::STATUS_INTERNAL_SERVER_ERROR);
         }
     }
 
     /**
-     * Get temporary file for download
+     * Get temporary file for download.
      *
      * @NoAdminRequired
      * @NoCSRFRequired
@@ -264,7 +269,7 @@ class SlicerController extends Controller
 
             // Get file by ID
             $files = $userFolder->getById($fileId);
-            
+
             if (empty($files)) {
                 return new JSONResponse(['error' => 'File not found'], Http::STATUS_NOT_FOUND);
             }
@@ -290,6 +295,7 @@ class SlicerController extends Controller
                     'fileId' => $fileId,
                     'age' => $age,
                 ]);
+
                 return new JSONResponse(['error' => 'File expired'], Http::STATUS_GONE);
             }
 
@@ -315,7 +321,6 @@ class SlicerController extends Controller
             $response->addHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
 
             return $response;
-
         } catch (\Throwable $e) {
             $this->logger->error('Failed to get temporary STL file', [
                 'fileId' => $fileId,
@@ -323,13 +328,13 @@ class SlicerController extends Controller
             ]);
 
             return new JSONResponse([
-                'error' => 'Failed to get file: ' . $e->getMessage()
+                'error' => 'Failed to get file: ' . $e->getMessage(),
             ], Http::STATUS_INTERNAL_SERVER_ERROR);
         }
     }
 
     /**
-     * Delete temporary file and its share
+     * Delete temporary file and its share.
      *
      * @NoAdminRequired
      * @NoCSRFRequired
@@ -350,7 +355,7 @@ class SlicerController extends Controller
 
             // Get file by ID
             $files = $userFolder->getById($fileId);
-            
+
             if (empty($files)) {
                 return new JSONResponse(['success' => true]); // Already deleted
             }
@@ -379,7 +384,6 @@ class SlicerController extends Controller
             ]);
 
             return new JSONResponse(['success' => true]);
-
         } catch (\Throwable $e) {
             $this->logger->error('Failed to delete temporary STL file', [
                 'fileId' => $fileId,
@@ -387,13 +391,13 @@ class SlicerController extends Controller
             ]);
 
             return new JSONResponse([
-                'error' => 'Failed to delete file: ' . $e->getMessage()
+                'error' => 'Failed to delete file: ' . $e->getMessage(),
             ], Http::STATUS_INTERNAL_SERVER_ERROR);
         }
     }
 
     /**
-     * Clean up old temporary files and their shares
+     * Clean up old temporary files and their shares.
      *
      * @param mixed $tempFolder
      * @return void
@@ -416,7 +420,7 @@ class SlicerController extends Controller
                             $this->shareManager->deleteShare($share);
                         }
                     }
-                    
+
                     // Delete the file
                     $file->delete();
                     $this->logger->debug('Cleaned up old temp file', [
@@ -434,7 +438,7 @@ class SlicerController extends Controller
     }
 
     /**
-     * Calculate folder size in bytes
+     * Calculate folder size in bytes.
      */
     private function getFolderSizeBytes($folder): int
     {
@@ -442,11 +446,12 @@ class SlicerController extends Controller
         foreach ($folder->getDirectoryListing() as $file) {
             $total += $file->getSize();
         }
+
         return $total;
     }
 
     /**
-     * Basic STL validation using MIME sniff + header check
+     * Basic STL validation using MIME sniff + header check.
      */
     private function isValidStlMime(string $mime, string $data): bool
     {
@@ -469,4 +474,3 @@ class SlicerController extends Controller
         return false;
     }
 }
-

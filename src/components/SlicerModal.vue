@@ -427,10 +427,7 @@ export default {
 /* Modal Backdrop */
 .slicer-modal-backdrop {
 	position: fixed;
-	top: 0;
-	left: 0;
-	right: 0;
-	bottom: 0;
+	inset: 0;
 	background: rgba(0, 0, 0, 0.6);
 	backdrop-filter: blur(4px);
 	z-index: 10000;
@@ -445,14 +442,16 @@ export default {
 	from {
 		opacity: 0;
 	}
+
 	to {
 		opacity: 1;
 	}
 }
 
 /* Modal Container */
+
 .slicer-modal {
-	background: var(--color-main-background, #ffffff);
+	background: var(--color-main-background, #fff);
 	border-radius: 12px;
 	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
 	max-width: 800px;
@@ -468,6 +467,7 @@ export default {
 		transform: translateY(20px);
 		opacity: 0;
 	}
+
 	to {
 		transform: translateY(0);
 		opacity: 1;
@@ -487,13 +487,13 @@ export default {
 	font-size: 22px;
 	font-weight: 600;
 	margin: 0;
-	color: var(--color-main-text, #000000);
+	color: var(--color-main-text, #000);
 }
 
 .close-btn {
 	background: transparent;
 	border: none;
-	color: var(--color-main-text, #000000);
+	color: var(--color-main-text, #000);
 	font-size: 32px;
 	line-height: 1;
 	cursor: pointer;
@@ -518,8 +518,8 @@ export default {
 }
 
 .modal-description {
-	margin: 0 0 20px 0;
-	color: var(--color-text-maxcontrast, #666666);
+	margin-bottom: 20px;
+	color: var(--color-text-maxcontrast, #666);
 	font-size: 14px;
 	line-height: 1.5;
 }
@@ -552,7 +552,7 @@ export default {
 
 .loading-state p {
 	margin: 0;
-	color: var(--color-main-text, #000000);
+	color: var(--color-main-text, #000);
 	font-size: 14px;
 }
 
@@ -573,7 +573,7 @@ export default {
 }
 
 .error-state p {
-	margin: 0 0 16px 0;
+	margin: 0 0 16px;
 	color: var(--color-error, #dc3545);
 	font-size: 14px;
 	text-align: center;
@@ -582,7 +582,7 @@ export default {
 .retry-btn {
 	padding: 8px 16px;
 	background: var(--color-primary-element, #0082c9);
-	color: var(--color-primary-element-text, #ffffff);
+	color: var(--color-primary-element-text, #fff);
 	border: none;
 	border-radius: 6px;
 	cursor: pointer;
@@ -633,7 +633,7 @@ export default {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	background: var(--color-main-background, #ffffff);
+	background: var(--color-main-background, #fff);
 	border-radius: 12px;
 	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 	padding: 8px;
@@ -674,7 +674,7 @@ export default {
 	font-size: 16px;
 	font-weight: 600;
 	margin: 0;
-	color: var(--color-main-text, #000000);
+	color: var(--color-main-text, #000);
 	display: flex;
 	align-items: center;
 	gap: 8px;
@@ -694,7 +694,7 @@ export default {
 .slicer-description {
 	margin: 0;
 	font-size: 13px;
-	color: var(--color-text-maxcontrast, #666666);
+	color: var(--color-text-maxcontrast, #666);
 	line-height: 1.4;
 }
 
@@ -751,7 +751,7 @@ export default {
 .info-text {
 	margin: 0;
 	font-size: 13px;
-	color: var(--color-text-maxcontrast, #666666);
+	color: var(--color-text-maxcontrast, #666);
 	display: flex;
 	align-items: flex-start;
 	gap: 8px;
@@ -774,7 +774,7 @@ export default {
 
 .slicer-modal.dark-theme .modal-title,
 .slicer-modal.dark-theme .close-btn {
-	color: #ffffff;
+	color: #fff;
 }
 
 .slicer-modal.dark-theme .close-btn:hover {
@@ -786,7 +786,7 @@ export default {
 }
 
 .slicer-modal.dark-theme .slicer-card {
-	background: #333333;
+	background: #333;
 	border-color: rgba(255, 255, 255, 0.2);
 }
 
@@ -803,7 +803,7 @@ export default {
 }
 
 .slicer-modal.dark-theme .slicer-name {
-	color: #ffffff;
+	color: #fff;
 }
 
 .slicer-modal.dark-theme .slicer-description {
@@ -825,7 +825,7 @@ export default {
 }
 
 .slicer-modal.dark-theme .loading-state p {
-	color: #ffffff;
+	color: #fff;
 }
 
 /* Responsive */

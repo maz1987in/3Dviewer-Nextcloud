@@ -2815,12 +2815,14 @@ export default {
 }
 
 /* Ensure canvas always fills container */
+/* stylelint-disable selector-pseudo-class-no-unknown */
 :deep(canvas) {
 	width: 100% !important;
 	height: 100% !important;
 	display: block;
 	outline: none;
 }
+/* stylelint-enable selector-pseudo-class-no-unknown */
 
 .loading {
 	position: absolute;
@@ -3306,7 +3308,7 @@ export default {
 
 .stat-value.warning {
 	background: rgb(255 178 0 / 86%) !important;
-	color: #000000 !important;
+	color: #000 !important;
 }
 
 .stat-value.poor {

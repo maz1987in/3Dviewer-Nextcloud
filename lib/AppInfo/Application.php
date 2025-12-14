@@ -13,13 +13,13 @@ use OCA\ThreeDViewer\Settings\Section;
 use OCP\AppFramework\App;
 use OCP\AppFramework\Bootstrap\IBootContext;
 use OCP\AppFramework\Bootstrap\IBootstrap;
-use OCP\IL10N;
-use OCP\IURLGenerator;
 use OCP\AppFramework\Bootstrap\IRegistrationContext;
 use OCP\AppFramework\Http\Events\BeforeTemplateRenderedEvent;
 use OCP\Files\Events\Node\NodeCreatedEvent;
 use OCP\Files\Events\Node\NodeDeletedEvent;
 use OCP\Files\Events\Node\NodeWrittenEvent;
+use OCP\IL10N;
+use OCP\IURLGenerator;
 
 class Application extends App implements IBootstrap
 {
@@ -56,15 +56,15 @@ class Application extends App implements IBootstrap
         // Register preview provider for 3D model files
         // Can be enabled/disabled by admins via enabledPreviewProviders config
         // Must register for each MIME type individually
-        
+
         // NOTE: Preview provider registration is currently disabled to prevent "Delimiter must not be alphanumeric"
-        // errors in Nextcloud's PreviewManager regex matching. 
+        // errors in Nextcloud's PreviewManager regex matching.
         // 3D files will automatically use the custom SVG icons registered via mimetypemapping.json/mimetypealiases.json
         // which provides the desired behavior without the server logs spam.
         /*
         $supportedMimes = [
-            'model/gltf-binary', 'model/gltf+json', 'model/obj', 'model/stl', 
-            'application/sla', 'model/ply', 'model/vnd.collada+xml', 'model/3mf', 
+            'model/gltf-binary', 'model/gltf+json', 'model/obj', 'model/stl',
+            'application/sla', 'model/ply', 'model/vnd.collada+xml', 'model/3mf',
             'model/x3d+xml', 'model/vrml', 'application/octet-stream'
         ];
         foreach ($supportedMimes as $mimeType) {

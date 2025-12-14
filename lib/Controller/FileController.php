@@ -49,6 +49,7 @@ class FileController extends BaseController
     public function test(): JSONResponse
     {
         $user = $this->userSession->getUser();
+
         return new JSONResponse([
             'status' => 'ok',
             'message' => 'FileController is working',
@@ -147,6 +148,7 @@ class FileController extends BaseController
                 $this->logger->warning('FileController::serveFile - User not authenticated', [
                     'fileId' => $fileId,
                 ]);
+
                 return $this->responseBuilder->createUnauthorizedResponse('User not authenticated');
             }
 
@@ -165,6 +167,7 @@ class FileController extends BaseController
                     'userId' => $user->getUID(),
                     'userFolderPath' => $userFolder->getPath(),
                 ]);
+
                 return $this->responseBuilder->createNotFoundResponse(
                     "File not found (ID: {$fileId}). The file may have been deleted or you may not have access to it."
                 );
@@ -176,6 +179,7 @@ class FileController extends BaseController
                     'fileId' => $fileId,
                     'nodeType' => get_class($file),
                 ]);
+
                 return $this->responseBuilder->createBadRequestResponse('Not a file');
             }
 
@@ -223,12 +227,14 @@ class FileController extends BaseController
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
+
             return $this->handleException($e);
         } catch (\OCP\Files\NotFoundException $e) {
             $this->logger->error('FileController::serveFile - File not found exception', [
                 'fileId' => $fileId,
                 'error' => $e->getMessage(),
             ]);
+
             return $this->responseBuilder->createNotFoundResponse(
                 "File not found: {$e->getMessage()}"
             );
@@ -239,6 +245,7 @@ class FileController extends BaseController
                 'exception' => get_class($e),
                 'trace' => $e->getTraceAsString(),
             ]);
+
             return $this->handleException($e);
         }
     }
@@ -275,7 +282,7 @@ class FileController extends BaseController
 
     /**
      * List 3D files in user's folder.
-     * Supports sorting: folders, type, date, favorites
+     * Supports sorting: folders, type, date, favorites.
      */
     #[NoAdminRequired]
     #[NoCSRFRequired]
@@ -309,32 +316,34 @@ class FileController extends BaseController
             if ($folderPath !== null && $folderPath !== '') {
                 if ($includeDependencies) {
                     $folderData = $this->listFolderWithDependencies($userId, $folderPath);
+
                     return new JSONResponse($folderData);
                 }
 
                 // Get files directly in this folder
                 $files = $this->fileIndexMapper->getFilesByFolder($userId, $folderPath);
-                
+
                 // Filter to only include 3D model files (exclude images)
                 $supportedExtensions = ['glb', 'gltf', 'obj', 'stl', 'ply', 'fbx', '3mf', '3ds', 'dae', 'x3d', 'vrml', 'wrl'];
                 $imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico', 'tiff', 'tif', 'heic', 'heif'];
-                $filteredFiles = array_filter($files, function($file) use ($supportedExtensions, $imageExtensions) {
+                $filteredFiles = array_filter($files, function ($file) use ($supportedExtensions, $imageExtensions) {
                     $ext = strtolower($file->getExtension() ?? '');
                     // Exclude image files
                     if (in_array($ext, $imageExtensions, true)) {
                         return false;
                     }
+
                     // Only include supported 3D model extensions
                     return in_array($ext, $supportedExtensions, true);
                 });
-                
+
                 $formattedFiles = array_map(function ($file) use ($favoriteFileIds) {
                     return $this->formatFileIndex($file, $favoriteFileIds);
                 }, $filteredFiles);
-                
+
                 // Build folder structure for subfolders recursively
                 $subfolders = $this->buildFolderStructureForPath($userId, $folderPath, $favoriteFileIds);
-                
+
                 return new JSONResponse([
                     'files' => $formattedFiles,
                     'folders' => $subfolders,
@@ -354,7 +363,7 @@ class FileController extends BaseController
     }
 
     /**
-     * Get favorite file IDs from Nextcloud system tags
+     * Get favorite file IDs from Nextcloud system tags.
      * @return int[]
      */
     private function getFavoriteFileIds(string $userId): array
@@ -372,11 +381,11 @@ class FileController extends BaseController
 
             $tag = $favoriteTag[0];
             $userFolder = $this->rootFolder->getUserFolder($userId);
-            
+
             // Get all files with favorite tag
             $favoriteFiles = $this->systemTagManager->getFilesWithTag($tag->getId());
             $fileIds = [];
-            
+
             foreach ($favoriteFiles as $fileId) {
                 // Verify file exists and is a 3D file
                 $nodes = $userFolder->getById($fileId);
@@ -390,18 +399,19 @@ class FileController extends BaseController
                     }
                 }
             }
-            
+
             return $fileIds;
         } catch (\Throwable $e) {
             $this->logger->error('Failed to get favorite file IDs: ' . $e->getMessage(), [
                 'exception' => $e,
             ]);
+
             return [];
         }
     }
 
     /**
-     * Query files from database index based on sort mode
+     * Query files from database index based on sort mode.
      * @param string $userId
      * @param string $sort
      * @param int[] $favoriteFileIds
@@ -445,7 +455,7 @@ class FileController extends BaseController
     }
 
     /**
-     * List all files and subfolders for dependency loading (includes non-3D assets like textures)
+     * List all files and subfolders for dependency loading (includes non-3D assets like textures).
      */
     private function listFolderWithDependencies(string $userId, string $folderPath): array
     {
@@ -500,7 +510,7 @@ class FileController extends BaseController
     }
 
     /**
-     * Build hierarchical response structure
+     * Build hierarchical response structure.
      */
     private function buildHierarchicalResponse(array $files, string $sort, string $userId, array $favoriteFileIds = []): array
     {
@@ -524,13 +534,13 @@ class FileController extends BaseController
     }
 
     /**
-     * Build folder tree structure
+     * Build folder tree structure.
      */
     private function buildFolderStructure(array $files, string $userId, array $favoriteFileIds = []): array
     {
         // Build folder tree from files (this ensures all folders with files are included)
         $tree = [];
-        
+
         // First, add all folders that contain files
         foreach ($files as $file) {
             $folderPath = $file->getFolderPath();
@@ -548,7 +558,7 @@ class FileController extends BaseController
                         continue;
                     }
                     $currentPath = $currentPath === '' ? $part : $currentPath . '/' . $part;
-                    
+
                     if (!isset($current[$part])) {
                         $current[$part] = [
                             'name' => $part,
@@ -565,7 +575,7 @@ class FileController extends BaseController
         // Now add files to their folders (filter out image files)
         $supportedExtensions = ['glb', 'gltf', 'obj', 'stl', 'ply', 'fbx', '3mf', '3ds', 'dae', 'x3d', 'vrml', 'wrl'];
         $imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico', 'tiff', 'tif', 'heic', 'heif'];
-        
+
         foreach ($files as $file) {
             $ext = strtolower($file->getExtension() ?? '');
             // Exclude image files
@@ -576,7 +586,7 @@ class FileController extends BaseController
             if (!in_array($ext, $supportedExtensions, true)) {
                 continue;
             }
-            
+
             $folderPath = $file->getFolderPath();
             if (empty($folderPath)) {
                 // Root level files - skip (we don't show root as a folder)
@@ -589,15 +599,15 @@ class FileController extends BaseController
 
         // Convert tree to flat list structure
         $flattened = $this->flattenFolderTree($tree);
-        
+
         // Filter out folders without 3D files
         $filtered = $this->filterFoldersWith3DFiles($flattened);
-        
+
         return $filtered;
     }
 
     /**
-     * Add file to folder in tree
+     * Add file to folder in tree.
      */
     private function addFileToFolder(array &$tree, string $folderPath, array $file): void
     {
@@ -616,7 +626,7 @@ class FileController extends BaseController
                 $index++;
                 continue;
             }
-            
+
             // Ensure node exists
             if (!isset($current[$part])) {
                 // Should have been created in first pass, but safeguard
@@ -640,7 +650,7 @@ class FileController extends BaseController
     }
 
     /**
-     * Flatten folder tree to list
+     * Flatten folder tree to list.
      */
     private function flattenFolderTree(array $tree): array
     {
@@ -660,18 +670,19 @@ class FileController extends BaseController
                 ];
             }
         }
+
         return $result;
     }
 
     /**
-     * Build type structure (grouped by extension)
+     * Build type structure (grouped by extension).
      */
     private function buildTypeStructure(array $files, array $favoriteFileIds = []): array
     {
         $types = [];
         $supportedExtensions = ['glb', 'gltf', 'obj', 'stl', 'ply', 'fbx', '3mf', '3ds', 'dae', 'x3d', 'vrml', 'wrl'];
         $imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico', 'tiff', 'tif', 'heic', 'heif'];
-        
+
         foreach ($files as $file) {
             $ext = strtolower($file->getExtension() ?? '');
             // Exclude image files
@@ -682,7 +693,7 @@ class FileController extends BaseController
             if (!in_array($ext, $supportedExtensions, true)) {
                 continue;
             }
-            
+
             $extension = strtoupper($file->getExtension());
             if (!isset($types[$extension])) {
                 $types[$extension] = [
@@ -699,14 +710,14 @@ class FileController extends BaseController
     }
 
     /**
-     * Build date structure (year -> month -> files)
+     * Build date structure (year -> month -> files).
      */
     private function buildDateStructure(array $files, array $favoriteFileIds = []): array
     {
         $years = [];
         $supportedExtensions = ['glb', 'gltf', 'obj', 'stl', 'ply', 'fbx', '3mf', '3ds', 'dae', 'x3d', 'vrml', 'wrl'];
         $imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico', 'tiff', 'tif', 'heic', 'heif'];
-        
+
         foreach ($files as $file) {
             $ext = strtolower($file->getExtension() ?? '');
             // Exclude image files
@@ -721,7 +732,7 @@ class FileController extends BaseController
             if (!isset($years[$year])) {
                 $years[$year] = [
                     'type' => 'year',
-                    'name' => (string)$year,
+                    'name' => (string) $year,
                     'year' => $year,
                     'months' => [],
                 ];
@@ -755,7 +766,7 @@ class FileController extends BaseController
     }
 
     /**
-     * Build simple file list
+     * Build simple file list.
      */
     private function buildFileList(array $files, string $userId, array $favoriteFileIds = []): array
     {
@@ -770,16 +781,16 @@ class FileController extends BaseController
     /**
      * Build folder structure for a specific folder path (recursive)
      * Returns immediate children folders with their files and nested children
-     * Only includes folders that have 3D files directly or in any descendant folder
+     * Only includes folders that have 3D files directly or in any descendant folder.
      */
     private function buildFolderStructureForPath(string $userId, string $parentPath, array $favoriteFileIds = []): array
     {
         // Normalize parent path (handle empty/root case)
         $normalizedParentPath = $parentPath === '' ? null : $parentPath;
-        
+
         // Get immediate child folders (this now includes intermediate folders)
         $subfolderPaths = $this->fileIndexMapper->getFolders($userId, $normalizedParentPath);
-        
+
         $folders = [];
         foreach ($subfolderPaths as $subfolderPath) {
             // Extract immediate child name (first part after parent path)
@@ -792,30 +803,31 @@ class FileController extends BaseController
                 $relativePath = str_replace($normalizedParentPath . '/', '', $subfolderPath);
                 $childName = explode('/', $relativePath)[0];
             }
-            
+
             // Get files in this folder (may be empty if it's an intermediate folder)
             $childFiles = $this->fileIndexMapper->getFilesByFolder($userId, $subfolderPath);
-            
+
             // Filter to only include 3D model files (exclude images)
             $supportedExtensions = ['glb', 'gltf', 'obj', 'stl', 'ply', 'fbx', '3mf', '3ds', 'dae', 'x3d', 'vrml', 'wrl'];
             $imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico', 'tiff', 'tif', 'heic', 'heif'];
-            $filteredChildFiles = array_filter($childFiles, function($file) use ($supportedExtensions, $imageExtensions) {
+            $filteredChildFiles = array_filter($childFiles, function ($file) use ($supportedExtensions, $imageExtensions) {
                 $ext = strtolower($file->getExtension() ?? '');
                 // Exclude image files
                 if (in_array($ext, $imageExtensions, true)) {
                     return false;
                 }
+
                 // Only include supported 3D model extensions
                 return in_array($ext, $supportedExtensions, true);
             });
-            
+
             $childFormattedFiles = array_map(function ($file) use ($favoriteFileIds) {
                 return $this->formatFileIndex($file, $favoriteFileIds);
             }, $filteredChildFiles);
-            
+
             // Recursively get nested children (this will find subfolder3 even if subfolder2 has no files)
             $nestedChildren = $this->buildFolderStructureForPath($userId, $subfolderPath, $favoriteFileIds);
-            
+
             // Check if this folder has 3D files directly (filter out non-3D files)
             $supportedExtensions = ['glb', 'gltf', 'obj', 'stl', 'ply', 'fbx', '3mf', '3ds', 'dae', 'x3d', 'vrml', 'wrl'];
             $has3DFilesDirectly = false;
@@ -826,14 +838,14 @@ class FileController extends BaseController
                     break;
                 }
             }
-            
+
             // Check if any descendant has 3D files
             $has3DFilesInDescendants = $this->has3DFilesInDescendants($nestedChildren);
-            
+
             // Only include folder if it has 3D files directly OR in any descendant
             if ($has3DFilesDirectly || $has3DFilesInDescendants) {
                 // Ensure files is always an array (not an object)
-                $filesArray = is_array($childFormattedFiles) ? $childFormattedFiles : array_values((array)$childFormattedFiles);
+                $filesArray = is_array($childFormattedFiles) ? $childFormattedFiles : array_values((array) $childFormattedFiles);
                 $folders[] = [
                     'name' => $childName,
                     'path' => $subfolderPath,
@@ -842,20 +854,20 @@ class FileController extends BaseController
                 ];
             }
         }
-        
+
         return $folders;
     }
 
     /**
-     * Check if any folder in the tree (recursively) has 3D files
-     * 
+     * Check if any folder in the tree (recursively) has 3D files.
+     *
      * @param array $folders Array of folder structures
      * @return bool True if any folder has 3D files
      */
     private function has3DFilesInDescendants(array $folders): bool
     {
         $supportedExtensions = ['glb', 'gltf', 'obj', 'stl', 'ply', 'fbx', '3mf', '3ds', 'dae', 'x3d', 'vrml', 'wrl'];
-        
+
         foreach ($folders as $folder) {
             // Check if this folder has 3D files directly (not just any files)
             if (isset($folder['files']) && is_array($folder['files'])) {
@@ -866,7 +878,7 @@ class FileController extends BaseController
                     }
                 }
             }
-            
+
             // Recursively check children
             if (isset($folder['children']) && is_array($folder['children']) && count($folder['children']) > 0) {
                 if ($this->has3DFilesInDescendants($folder['children'])) {
@@ -874,13 +886,13 @@ class FileController extends BaseController
                 }
             }
         }
-        
+
         return false;
     }
 
     /**
-     * Filter folders to only include those with 3D files (directly or in descendants)
-     * 
+     * Filter folders to only include those with 3D files (directly or in descendants).
+     *
      * @param array $folders Array of folder structures
      * @return array Filtered folders
      */
@@ -888,11 +900,11 @@ class FileController extends BaseController
     {
         $filtered = [];
         $supportedExtensions = ['glb', 'gltf', 'obj', 'stl', 'ply', 'fbx', '3mf', '3ds', 'dae', 'x3d', 'vrml', 'wrl'];
-        
+
         foreach ($folders as $folder) {
             $folderName = $folder['name'] ?? 'unknown';
             $folderPath = $folder['path'] ?? 'unknown';
-            
+
             // Check if this folder has 3D files directly (not just any files)
             $has3DFiles = false;
             $fileExtensions = [];
@@ -925,31 +937,31 @@ class FileController extends BaseController
                             $ext = strtolower(pathinfo($file->name, PATHINFO_EXTENSION));
                         }
                     }
-                    
+
                     if (!empty($ext)) {
                         $fileExtensions[] = $ext;
-                        
+
                         if (in_array($ext, $supportedExtensions, true)) {
                             $has3DFiles = true;
                         }
                     }
                 }
             }
-            
+
             // Recursively filter children FIRST (before checking if we should include this folder)
             $filteredChildren = [];
             if (isset($folder['children']) && is_array($folder['children'])) {
                 $filteredChildren = $this->filterFoldersWith3DFiles($folder['children']);
             }
-            
+
             // Only include folder if it has 3D files OR has filtered children with files
             // This ensures intermediate folders that lead to 3D files are included
             $shouldInclude = $has3DFiles || count($filteredChildren) > 0;
-            
+
             if ($shouldInclude) {
                 // Ensure files is always an array (not an object)
                 if (isset($folder['files'])) {
-                    $folder['files'] = is_array($folder['files']) ? $folder['files'] : array_values((array)$folder['files']);
+                    $folder['files'] = is_array($folder['files']) ? $folder['files'] : array_values((array) $folder['files']);
                 } else {
                     $folder['files'] = [];
                 }
@@ -957,12 +969,12 @@ class FileController extends BaseController
                 $filtered[] = $folder;
             }
         }
-        
+
         return $filtered;
     }
 
     /**
-     * Format file index to response format
+     * Format file index to response format.
      */
     private function formatFileIndex(\OCA\ThreeDViewer\Db\FileIndex $file, array $favoriteFileIds = []): array
     {
@@ -1015,7 +1027,7 @@ class FileController extends BaseController
 
     /**
      * Find a file by path (including dependency files like MTL, textures, etc.)
-     * This is used to find files that aren't indexed as 3D models
+     * This is used to find files that aren't indexed as 3D models.
      */
     #[NoAdminRequired]
     #[NoCSRFRequired]
@@ -1034,13 +1046,13 @@ class FileController extends BaseController
             }
 
             $userFolder = $this->rootFolder->getUserFolder($user->getUID());
-            
+
             // Normalize path (remove leading slash if present)
             $normalizedPath = ltrim($filePath, '/');
-            
+
             try {
                 $node = $userFolder->get($normalizedPath);
-                
+
                 if ($node instanceof \OCP\Files\File) {
                     return new JSONResponse([
                         'id' => $node->getId(),

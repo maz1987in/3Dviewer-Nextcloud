@@ -34,53 +34,52 @@ use OCP\AppFramework\Db\Entity;
  */
 class FileIndex extends Entity implements \JsonSerializable
 {
-	protected $fileId;
-	protected $userId;
-	protected $name;
-	protected $path;
-	protected $folderPath;
-	protected $folderPathHash;
-	protected $extension;
-	protected $mtime;
-	protected $size;
-	protected $year;
-	protected $month;
-	protected $indexedAt;
+    protected $fileId;
+    protected $userId;
+    protected $name;
+    protected $path;
+    protected $folderPath;
+    protected $folderPathHash;
+    protected $extension;
+    protected $mtime;
+    protected $size;
+    protected $year;
+    protected $month;
+    protected $indexedAt;
 
-	public function __construct()
-	{
-		$this->addType('fileId', 'integer');
-		$this->addType('userId', 'string');
-		$this->addType('name', 'string');
-		$this->addType('path', 'string');
-		$this->addType('folderPath', 'string');
-		$this->addType('folderPathHash', 'string');
-		$this->addType('extension', 'string');
-		$this->addType('mtime', 'integer');
-		$this->addType('size', 'integer');
-		$this->addType('year', 'integer');
-		$this->addType('month', 'integer');
-		$this->addType('indexedAt', 'integer');
-	}
+    public function __construct()
+    {
+        $this->addType('fileId', 'integer');
+        $this->addType('userId', 'string');
+        $this->addType('name', 'string');
+        $this->addType('path', 'string');
+        $this->addType('folderPath', 'string');
+        $this->addType('folderPathHash', 'string');
+        $this->addType('extension', 'string');
+        $this->addType('mtime', 'integer');
+        $this->addType('size', 'integer');
+        $this->addType('year', 'integer');
+        $this->addType('month', 'integer');
+        $this->addType('indexedAt', 'integer');
+    }
 
-	#[\ReturnTypeWillChange]
-	public function jsonSerialize()
-	{
-		return [
-			'id' => $this->id,
-			'file_id' => $this->fileId,
-			'user_id' => $this->userId,
-			'name' => $this->name,
-			'path' => $this->path,
-			'folder_path' => $this->folderPath,
-			'folder_path_hash' => $this->folderPathHash,
-			'extension' => $this->extension,
-			'mtime' => $this->mtime,
-			'size' => $this->size,
-			'year' => $this->year,
-			'month' => $this->month,
-			'indexed_at' => $this->indexedAt,
-		];
-	}
+    #[\ReturnTypeWillChange]
+    public function jsonSerialize()
+    {
+        return [
+            'id' => $this->id,
+            'file_id' => $this->fileId,
+            'user_id' => $this->userId,
+            'name' => $this->name,
+            'path' => $this->path,
+            'folder_path' => $this->folderPath,
+            'folder_path_hash' => $this->folderPathHash,
+            'extension' => $this->extension,
+            'mtime' => $this->mtime,
+            'size' => $this->size,
+            'year' => $this->year,
+            'month' => $this->month,
+            'indexed_at' => $this->indexedAt,
+        ];
+    }
 }
-

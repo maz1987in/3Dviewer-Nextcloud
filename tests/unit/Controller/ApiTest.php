@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Controller;
 
-use OCA\ThreeDViewer\AppInfo\Application;
 use OCA\ThreeDViewer\Controller\ApiController;
 use OCP\Files\IRootFolder;
 use OCP\IRequest;
@@ -18,7 +17,7 @@ final class ApiTest extends TestCase
         $request = $this->createMock(IRequest::class);
         $rootFolder = $this->createMock(IRootFolder::class);
         $userSession = $this->createMock(IUserSession::class);
-        
+
         $controller = new ApiController($request, $rootFolder, $userSession);
 
         $this->assertEquals($controller->index()->getData()['message'], 'Hello world!');
