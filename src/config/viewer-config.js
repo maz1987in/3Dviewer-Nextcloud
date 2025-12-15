@@ -255,6 +255,28 @@ export const CACHE_SETTINGS = {
 }
 
 /**
+ * Visual sizing settings for measurements and annotations.
+ * Values are expressed as percentages of the model's maximum dimension.
+ * These act as defaults and can be overridden by per-user preferences.
+ */
+export const VISUAL_SIZING_SETTINGS = {
+	measurement: {
+		// Approximate radius of measurement points (e.g. 1.5% of model size)
+		pointSizePercent: 1.5,
+		// Approximate radius of measurement lines (tube thickness), 0.8% of model size
+		lineThicknessPercent: 0.8,
+		// Approximate width of the measurement label plane, 20% of model size
+		labelWidthPercent: 20,
+	},
+	annotation: {
+		// Approximate radius of annotation points, 1.5% of model size
+		pointSizePercent: 1.5,
+		// Approximate width of the annotation label plane, 20% of model size
+		labelWidthPercent: 20,
+	},
+}
+
+/**
  * Progressive loading settings
  */
 export const PROGRESSIVE_LOADING_SETTINGS = {
@@ -720,6 +742,8 @@ export const VIEWER_CONFIG = {
 	camera: CAMERA_SETTINGS,
 	grid: GRID_SETTINGS,
 	axes: AXES_SETTINGS,
+	// Per-feature visual sizing configuration (can be overridden by per-user settings)
+	visualSizing: VISUAL_SIZING_SETTINGS,
 	performance: PERFORMANCE_SETTINGS,
 	animation: ANIMATION_SETTINGS,
 	mobile: MOBILE_SETTINGS,

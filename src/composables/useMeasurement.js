@@ -15,6 +15,13 @@ import {
 const UNIT_SCALES = VIEWER_CONFIG.measurement.unitScales
 const DEFAULT_UNIT = VIEWER_CONFIG.measurement.defaultUnit
 
+// Visual sizing configuration for measurements (percentages of model size)
+const MEASUREMENT_SIZING = (VIEWER_CONFIG.visualSizing && VIEWER_CONFIG.visualSizing.measurement) || {
+	pointSizePercent: 1.5,
+	lineThicknessPercent: 0.8,
+	labelWidthPercent: 20,
+}
+
 export function useMeasurement() {
 	// Measurement state
 	const isActive = ref(false)
@@ -72,8 +79,12 @@ export function useMeasurement() {
 
 	// Calculate and update visual scale based on model bounding box
 	const updateVisualScale = () => {
-		if (!sceneRef.value) return
-		visualScale.value = calculateModelScale(sceneRef.value)
+		if (!sceneRef.value) {
+			return
+		}
+		
+		const calculatedScale = calculateModelScale(sceneRef.value)
+		visualScale.value = calculatedScale
 	}
 
 	// Toggle measurement mode
@@ -93,7 +104,7 @@ export function useMeasurement() {
 		const realDistance = distanceInMM / unitConfig.factor
 		return {
 			value: realDistance,
-			formatted: `${realDistance.toFixed(2)} ${unitConfig.suffix}`,
+			formatted: `${realDistance.toFixed(3)} ${unitConfig.suffix}`,
 			unit: currentUnit.value,
 			suffix: unitConfig.suffix,
 		}
@@ -110,15 +121,20 @@ export function useMeasurement() {
 			throw new Error(`Invalid unit: ${unit}. Available units: ${Object.keys(UNIT_SCALES).join(', ')}`)
 		}
 
+		const oldUnit = currentUnit.value
 		currentUnit.value = unit
 		// Recalculate all existing measurements
-		measurements.value = measurements.value.map(m => ({
-			...m,
-			...convertDistance(m.distance),
-		}))
+		measurements.value = measurements.value.map(m => {
+			const converted = convertDistance(m.distance)
+			const updated = {
+				...m,
+				...converted,
+			}
+			return updated
+		})
 		// Update all text labels on 3D objects
 		updateAllTextLabels()
-		logger.info('useMeasurement', 'Unit changed', { unit })
+		logger.info('useMeasurement', 'Unit changed', { unit, oldUnit, measurementCount: measurements.value.length })
 	}
 
 	// Set model scale (how many real units = 1 Three.js unit)
@@ -149,7 +165,9 @@ export function useMeasurement() {
 
 	// Update all text labels on 3D objects with current measurement values
 	const updateAllTextLabels = () => {
-		if (!measurementGroup.value || textMeshes.value.length === 0) return
+		if (!measurementGroup.value || textMeshes.value.length === 0) {
+			return
+		}
 
 		try {
 			// Update each text mesh with corresponding measurement
@@ -158,22 +176,92 @@ export function useMeasurement() {
 					const textMesh = textMeshes.value[index]
 
 					// Use formatted value with current unit
-					const displayText = measurement.formatted || `${measurement.distance.toFixed(2)} units`
+					// If formatted is not up to date, recalculate it
+					let displayText = measurement.formatted
+					if (!displayText || !measurement.formatted) {
+						const converted = convertDistance(measurement.distance)
+						displayText = converted.formatted
+						// Update the measurement object with the correct formatted value
+						measurement.formatted = converted.formatted
+						measurement.suffix = converted.suffix
+						measurement.value = converted.value
+					}
 
-					// Create text texture using shared utility
-					const texture = createTextTexture(displayText, {
-						width: 512,
-						height: 128,
-						textColor: '#00ff00',
-						bgColor: 'rgba(0, 0, 0, 0.8)',
-						fontSize: 48,
-						fontFamily: 'Arial',
-					})
+					// Update existing texture canvas if it's a CanvasTexture, otherwise create new texture
+					const existingTexture = textMesh.material.map
+					let texture = null
+					
+					if (existingTexture && existingTexture.isCanvasTexture && existingTexture.image) {
+						// Update existing canvas texture
+						const canvas = existingTexture.image
+						const context = canvas.getContext('2d')
+						
+						// Get original font size from userData, fallback to 48 for small models
+						const originalFontSize = textMesh.userData?.originalFontSize || 48
+						
+						// Clear canvas completely first (important to prevent ghosting)
+						context.clearRect(0, 0, canvas.width, canvas.height)
+						
+						// Draw background
+						context.fillStyle = 'rgba(0, 0, 0, 0.9)'
+						context.fillRect(0, 0, canvas.width, canvas.height)
+						
+						// Draw text with original font size
+						context.fillStyle = '#ffffff'
+						context.font = `bold ${originalFontSize}px Arial`
+						context.textAlign = 'center'
+						context.textBaseline = 'middle'
+						context.fillText(displayText, canvas.width / 2, canvas.height / 2)
+						
+						// Mark texture for update - this is critical for CanvasTexture
+						existingTexture.needsUpdate = true
+						// Also ensure the material knows the texture changed
+						if (textMesh.material) {
+							textMesh.material.needsUpdate = true
+						}
+						texture = existingTexture
+					} else {
+						// Create new texture - use original dimensions and font size from userData if available
+						const originalFontSize = textMesh.userData?.originalFontSize || 48
+						const originalCanvasWidth = textMesh.userData?.originalCanvasWidth || 512
+						const originalCanvasHeight = textMesh.userData?.originalCanvasHeight || 128
+						
+						texture = createTextTexture(displayText, {
+							width: originalCanvasWidth,
+							height: originalCanvasHeight,
+							textColor: '#ffffff',
+							bgColor: 'rgba(0, 0, 0, 0.9)',
+							fontSize: originalFontSize,
+							fontFamily: 'Arial',
+						})
 
+						if (texture) {
+							// Dispose old texture to prevent memory leaks
+							if (existingTexture) {
+								existingTexture.dispose()
+							}
+							textMesh.material.map = texture
+							texture.needsUpdate = true
+						} else {
+							logError('useMeasurement', 'Failed to create texture', new Error('Texture creation failed'))
+						}
+					}
+					
+					// Always mark material for update
 					if (texture) {
-						textMesh.material.map = texture
 						textMesh.material.needsUpdate = true
 					}
+					
+					// Update position with new yOffset to position label above the line
+					// Recalculate textScale and yOffset based on current visualScale
+					const modelMaxDim = visualScale.value / 0.005 // Reverse calculate max dimension from visual scale
+					const baseTextScale = Math.max(modelMaxDim * 0.02, 2) // At least 2% of model or 2 units minimum
+					const textScale = Math.min(baseTextScale, modelMaxDim * 0.1) // Cap at 10% of model size
+					const yOffset = textScale >= 2 ? 0.15 : 0.2 // Increased offset to position label above the line
+					
+					// Reset position to midpoint and apply new yOffset
+					textMesh.position.copy(measurement.midpoint)
+					textMesh.position.y += textScale * yOffset
 				}
 			})
 		} catch (error) {
@@ -232,20 +320,57 @@ export function useMeasurement() {
 	const createPointIndicator = (point) => {
 		if (!measurementGroup.value) return
 
-		// Use shared marker sphere utility
-		const sphere = createMarkerSphere(point, {
-			scale: visualScale.value,
-			color: 0xffff00, // Bright yellow for measurements
-			sizeMultiplier: 2,
-			opacity: 0.9,
-			renderOrder: 999,
-			name: `measurementPoint_${points.value.length}`,
-		})
+		// Calculate point size - use a percentage of the *actual* model size with a minimum visible size
+		// Prefer the real bounding box over the reverse-calculated value from visualScale,
+		// because visualScale is clamped and can greatly overestimate size for tiny models.
+		let modelMaxDim = visualScale.value / 0.005 // Fallback from visualScale
 
-		if (sphere) {
-			measurementGroup.value.add(sphere)
-			pointMeshes.value.push(sphere)
+		if (sceneRef.value) {
+			const box = new THREE.Box3()
+			const meshes = []
+			sceneRef.value.traverse((child) => {
+				if (child.isMesh && !child.name?.startsWith('measurement') && !child.name?.startsWith('annotation')) {
+					meshes.push(child)
+					const meshBox = new THREE.Box3().setFromObject(child)
+					box.union(meshBox)
+				}
+			})
+
+			if (meshes.length > 0) {
+				const size = new THREE.Vector3()
+				box.getSize(size)
+				const actualMaxDim = Math.max(size.x, size.y, size.z)
+				if (actualMaxDim > 0) {
+					modelMaxDim = actualMaxDim
+				}
+			}
 		}
+
+		// Use a small percentage of the model size for the measurement point radius,
+		// driven by configuration (default ~1.5% of model size, clamped between ~1% and ~3%)
+		const basePercent = typeof MEASUREMENT_SIZING.pointSizePercent === 'number' ? MEASUREMENT_SIZING.pointSizePercent : 1.5
+		const targetRadius = modelMaxDim * (basePercent / 100)
+		const minRadius = modelMaxDim * ((basePercent * 0.666) / 100) // ~2/3 of target → ~1% when base is 1.5%
+		const maxRadius = modelMaxDim * ((basePercent * 2) / 100) // 2x target → ~3% when base is 1.5%
+		const pointRadius = Math.min(Math.max(targetRadius, minRadius), maxRadius)
+		
+		// Create sphere directly to bypass the 0.02 cap in createMarkerSphere
+		const geometry = new THREE.SphereGeometry(pointRadius, 16, 16)
+		const material = new THREE.MeshBasicMaterial({
+			color: 0xffff00, // Bright yellow for measurements
+			transparent: true,
+			opacity: 0.9,
+			depthTest: false, // Always render on top
+		})
+		const sphere = new THREE.Mesh(geometry, material)
+		sphere.position.copy(point)
+		sphere.name = `measurementPoint_${points.value.length}`
+		sphere.renderOrder = 999
+		
+		// Add to scene
+		measurementGroup.value.add(sphere)
+		pointMeshes.value.push(sphere)
+		
 	}
 
 	// Create measurement between two points
@@ -293,11 +418,44 @@ export function useMeasurement() {
 			measurement.point2,
 		])
 
-		// Use a thicker, more visible line with tube geometry for WebGL
-		// Note: linewidth doesn't work in WebGL, so we create a cylinder instead
+		// Use a thicker, more visible line with tube geometry for WebGL.
+		// Note: linewidth doesn't work in WebGL, so we create a cylinder instead.
 		const direction = new THREE.Vector3().subVectors(measurement.point2, measurement.point1)
 		const distance = direction.length()
-		const lineRadius = visualScale.value * 0.3 // Scale line thickness with model
+		// Calculate line radius - use a percentage of the *actual* model size with a minimum visible size
+		// Prefer the real bounding box over the reverse-calculated value from visualScale, because
+		// visualScale is clamped and can greatly overestimate size for tiny models.
+		let modelMaxDim = visualScale.value / 0.005 // Fallback from visualScale
+
+		if (sceneRef.value) {
+			const box = new THREE.Box3()
+			const meshes = []
+			sceneRef.value.traverse((child) => {
+				if (child.isMesh && !child.name?.startsWith('measurement') && !child.name?.startsWith('annotation')) {
+					meshes.push(child)
+					const meshBox = new THREE.Box3().setFromObject(child)
+					box.union(meshBox)
+				}
+			})
+
+			if (meshes.length > 0) {
+				const size = new THREE.Vector3()
+				box.getSize(size)
+				const actualMaxDim = Math.max(size.x, size.y, size.z)
+				if (actualMaxDim > 0) {
+					modelMaxDim = actualMaxDim
+				}
+			}
+		}
+
+		// Target radius based on configuration (default ~0.8% of model size),
+		// clamped to stay within a reasonable visible range
+		const basePercent = typeof MEASUREMENT_SIZING.lineThicknessPercent === 'number' ? MEASUREMENT_SIZING.lineThicknessPercent : 0.8
+		const targetRadius = modelMaxDim * (basePercent / 100)
+		const minRadius = modelMaxDim * ((basePercent * 0.625) / 100) // ~0.5% when base is 0.8
+		const maxRadius = modelMaxDim * ((basePercent * 1.875) / 100) // ~1.5% when base is 0.8
+		const lineRadius = Math.min(Math.max(targetRadius, minRadius), maxRadius)
+		
 		const cylinderGeometry = new THREE.CylinderGeometry(lineRadius, lineRadius, distance, 8)
 		const cylinderMaterial = new THREE.MeshBasicMaterial({
 			color: 0x00ff00,
@@ -324,26 +482,114 @@ export function useMeasurement() {
 	const createDistanceText = (measurement) => {
 		try {
 			// Use formatted value if available, otherwise show raw distance with units
-			const displayText = measurement.formatted || `${measurement.distance.toFixed(2)} units`
+			const displayText = measurement.formatted || `${measurement.distance.toFixed(3)} units`
 
+			// Calculate text size - use a percentage of actual model size with a minimum visible size
+			// Prefer the real bounding box size over the reverse-calculated value from visualScale,
+			// because visualScale is clamped (min 0.3) which can greatly overestimate size for tiny models.
+			let modelMaxDim = visualScale.value / 0.005 // Fallback: reverse calculate from visualScale
+
+			if (sceneRef.value) {
+				const box = new THREE.Box3()
+				const meshes = []
+				sceneRef.value.traverse((child) => {
+					if (child.isMesh && !child.name?.startsWith('measurement') && !child.name?.startsWith('annotation')) {
+						meshes.push(child)
+						const meshBox = new THREE.Box3().setFromObject(child)
+						box.union(meshBox)
+					}
+				})
+
+				if (meshes.length > 0) {
+					const size = new THREE.Vector3()
+					box.getSize(size)
+					const actualMaxDim = Math.max(size.x, size.y, size.z)
+					if (actualMaxDim > 0) {
+						modelMaxDim = actualMaxDim
+					}
+				}
+			}
+
+			// For very small models, use a smaller minimum text scale so labels don't cover everything
+			const minTextScale = modelMaxDim < 1 ? modelMaxDim * 0.1 : Math.min(modelMaxDim * 0.02, 2)
+			const baseTextScale = Math.max(minTextScale, modelMaxDim * 0.02) // At least 2% of model
+			const textScale = Math.min(baseTextScale, modelMaxDim * 0.1) // Cap at 10% of model size
+						
 			// Use shared text mesh utility
+			// Position text close to the line with better visibility (similar to annotations)
+			// For large models, use larger multipliers to ensure visibility
+			// Position label above the line (positive yOffset moves label upward)
+			// For large models, use a larger yOffset to ensure label is clearly above the line
+			const yOffset = textScale >= 2 ? 0.15 : 0.2 // Increased offset to position label above the line
+			// For large models, use larger canvas to ensure text quality at larger sizes
+			const canvasWidth = textScale >= 2 ? 1024 : 512
+			const canvasHeight = textScale >= 2 ? 256 : 128
+			const fontSize = textScale >= 2 ? 96 : 48 // Much larger font for large models (increased from 64)
+			
+			// For large models, reduce width but keep height for better text visibility.
+			// Width is driven by configuration as a percentage of model size, relative to a 20% baseline.
+			const baseLabelWidthPercent = 20
+			const configuredLabelWidthPercent = typeof MEASUREMENT_SIZING.labelWidthPercent === 'number'
+				? MEASUREMENT_SIZING.labelWidthPercent
+				: baseLabelWidthPercent
+			const widthScale = configuredLabelWidthPercent / baseLabelWidthPercent
+			const widthMultiplier = (textScale >= 2 ? 6 : 2) * widthScale
+			const heightMultiplier = textScale >= 2 ? 2.5 : 0.5 // Keep height the same
+			
 			const textMesh = createTextMesh(displayText, measurement.midpoint, {
-				scale: visualScale.value,
-				widthMultiplier: 30,
-				heightMultiplier: 7.5,
-				yOffset: 0, // No offset for measurements (at midpoint)
-				textColor: '#00ff00',
-				bgColor: 'rgba(0, 0, 0, 0.8)',
-				fontSize: 48,
-				canvasWidth: 512,
-				canvasHeight: 128,
-				renderOrder: 996,
+				scale: textScale, // Use calculated size directly
+				widthMultiplier: widthMultiplier, // Larger multiplier for better visibility
+				heightMultiplier: heightMultiplier, // Larger multiplier for better visibility
+				yOffset: yOffset, // Offset above the line, adjusted for large models
+				textColor: '#ffffff', // White text for better contrast
+				bgColor: 'rgba(0, 0, 0, 0.9)', // Darker background for better readability
+				fontSize: fontSize,
+				canvasWidth: canvasWidth,
+				canvasHeight: canvasHeight,
+				renderOrder: 998, // Higher render order to be in front of the line (997)
 				name: 'measurementText',
 			})
 
 			if (textMesh) {
-				measurementGroup.value.add(textMesh)
-				textMeshes.value.push(textMesh)
+				// Check if a text mesh already exists for this measurement
+				const existingMeshIndex = textMeshes.value.findIndex((mesh, idx) => {
+					return measurements.value[idx]?.id === measurement.id
+				})
+				
+				if (existingMeshIndex >= 0) {
+					// Remove existing mesh before adding new one
+					const oldMesh = textMeshes.value[existingMeshIndex]
+					if (oldMesh && oldMesh.parent) {
+						oldMesh.parent.remove(oldMesh)
+						// Dispose geometry and material
+						if (oldMesh.geometry) oldMesh.geometry.dispose()
+						if (oldMesh.material) {
+							if (oldMesh.material.map) oldMesh.material.map.dispose()
+							oldMesh.material.dispose()
+						}
+					}
+					textMeshes.value.splice(existingMeshIndex, 1)
+				}
+				
+				// Store original font size and canvas dimensions in userData for later updates
+				textMesh.userData.originalFontSize = fontSize
+				textMesh.userData.originalCanvasWidth = canvasWidth
+				textMesh.userData.originalCanvasHeight = canvasHeight
+				
+				// Double-check mesh isn't already in scene
+				if (!textMesh.parent) {
+					measurementGroup.value.add(textMesh)
+				} else if (textMesh.parent !== measurementGroup.value) {
+					// Mesh is in wrong parent, move it
+					textMesh.parent.remove(textMesh)
+					measurementGroup.value.add(textMesh)
+				}
+				
+				// Only add to array if not already present
+				if (!textMeshes.value.includes(textMesh)) {
+					textMeshes.value.push(textMesh)
+				}
+				
 			}
 		} catch (error) {
 			logError('useMeasurement', 'Failed to create distance text', error)

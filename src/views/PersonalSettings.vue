@@ -82,6 +82,30 @@
 							@input="val => updateValue(key, fieldKey, val.value)" />
 					</div>
 
+					<!-- Slider Input -->
+					<div v-else-if="field.type === 'slider'" class="setting-row">
+						<div class="setting-label">
+							<label :for="`setting-${key}-${fieldKey}`">
+								{{ field.label }}
+								<span class="slider-value">
+									({{ getValue(key, fieldKey, field.default) }}%)
+								</span>
+							</label>
+							<span v-if="field.description" class="setting-description">
+								{{ field.description }}
+							</span>
+						</div>
+						<input
+							:id="`setting-${key}-${fieldKey}`"
+							type="range"
+							class="setting-slider"
+							:min="field.min"
+							:max="field.max"
+							:step="field.step || 0.1"
+							:value="getValue(key, fieldKey, field.default)"
+							@input="e => updateValue(key, fieldKey, Number(e.target.value))">
+					</div>
+
 					<!-- Custom Re-index Field -->
 					<div v-else-if="field.type === 'custom-reindex'" class="setting-row">
 						<div class="setting-label">
@@ -153,6 +177,7 @@ import {
 	LIGHTING_SETTINGS,
 	ANIMATION_SETTINGS,
 	INTERACTION_SETTINGS,
+	VISUAL_SIZING_SETTINGS,
 } from '../config/viewer-config.js'
 
 export default {
@@ -386,6 +411,57 @@ export default {
 						},
 					},
 				},
+				visualSizing: {
+					title: this.t('threedviewer', '3D Measurements & Annotations'),
+					description: this.t('threedviewer', 'Control the relative size of measurement and annotation visuals. Values are percentages of the model size.'),
+					fields: {
+						'visualSizing.measurement.pointSizePercent': {
+							label: this.t('threedviewer', 'Measurement point size'),
+							description: this.t('threedviewer', 'Radius of measurement points as a percentage of model size.'),
+							type: 'slider',
+							default: VISUAL_SIZING_SETTINGS.measurement.pointSizePercent,
+							min: 0.5,
+							max: 5.0,
+							step: 0.1,
+						},
+						'visualSizing.measurement.lineThicknessPercent': {
+							label: this.t('threedviewer', 'Measurement line thickness'),
+							description: this.t('threedviewer', 'Thickness of measurement lines as a percentage of model size.'),
+							type: 'slider',
+							default: VISUAL_SIZING_SETTINGS.measurement.lineThicknessPercent,
+							min: 0.2,
+							max: 3.0,
+							step: 0.1,
+						},
+						'visualSizing.measurement.labelWidthPercent': {
+							label: this.t('threedviewer', 'Measurement label width'),
+							description: this.t('threedviewer', 'Width of measurement labels as a percentage of model size.'),
+							type: 'slider',
+							default: VISUAL_SIZING_SETTINGS.measurement.labelWidthPercent,
+							min: 5,
+							max: 40,
+							step: 1,
+						},
+						'visualSizing.annotation.pointSizePercent': {
+							label: this.t('threedviewer', 'Annotation point size'),
+							description: this.t('threedviewer', 'Radius of annotation points as a percentage of model size.'),
+							type: 'slider',
+							default: VISUAL_SIZING_SETTINGS.annotation.pointSizePercent,
+							min: 0.5,
+							max: 5.0,
+							step: 0.1,
+						},
+						'visualSizing.annotation.labelWidthPercent': {
+							label: this.t('threedviewer', 'Annotation label width'),
+							description: this.t('threedviewer', 'Width of annotation labels as a percentage of model size.'),
+							type: 'slider',
+							default: VISUAL_SIZING_SETTINGS.annotation.labelWidthPercent,
+							min: 5,
+							max: 40,
+							step: 1,
+						},
+					},
+				},
 				maintenance: {
 					title: this.t('threedviewer', 'Maintenance'),
 					description: this.t('threedviewer', 'Manage file indexing and database operations.'),
@@ -613,6 +689,17 @@ export default {
 .setting-description {
 	color: var(--color-text-maxcontrast);
 	font-size: 13px;
+}
+
+.setting-slider {
+	width: 220px;
+	margin-left: 10px;
+}
+
+.slider-value {
+	font-weight: normal;
+	font-size: 0.9em;
+	margin-left: 4px;
 }
 
 .setting-input-number {

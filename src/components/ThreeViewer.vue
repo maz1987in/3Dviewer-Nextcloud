@@ -1039,6 +1039,11 @@ export default {
 
 					emit('model-loaded', { fileId, filename })
 					logger.info('ThreeViewer', 'Model loaded successfully')
+					
+					// Update visual scale for measurements/annotations after model loads
+					// This ensures measurement/annotation elements are properly sized for the new model
+					measurement.updateVisualScale()
+					annotation.updateModelScale()
 				} else {
 					// Don't fallback to demo scene - let error state handle it
 					throw new Error('Model loaded but no object3D returned')
@@ -1590,8 +1595,15 @@ export default {
 			measurement.toggleMeasurement()
 		}
 
-		const handleUnitChange = () => {
-			measurement.setUnit(currentUnitModel.value)
+		const handleUnitChange = (event) => {
+			// Get the selected unit from the event target to ensure we have the correct value
+			const selectedUnit = event?.target?.value || currentUnitModel.value
+			console.log('[ThreeViewer] handleUnitChange', {
+				selectedUnit,
+				currentUnitModelValue: currentUnitModel.value,
+				eventTargetValue: event?.target?.value
+			})
+			measurement.setUnit(selectedUnit)
 		}
 
 		const deleteMeasurement = (measurementId) => {

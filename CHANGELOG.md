@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Measurement & Annotation Visual Sizing Controls**: Added per-user sliders to control measurement and annotation visuals
+  - New Personal Settings section for adjusting measurement point size, line thickness, and label width
+  - New Personal Settings sliders for annotation point size and label width
+  - Settings are stored per user via `SettingsController` and merged into `VIEWER_CONFIG.visualSizing`
+  - Measurement and annotation composables (`useMeasurement.js`, `useAnnotation.js`) now derive sizes from configurable percentages of the model size
 - **Animation Controls in UI**: Added animation play/pause controls to viewer interface
   - Animation play/pause button in MinimalTopBar component
   - Animation controls section in SlideOutToolPanel with play/pause and loop toggle

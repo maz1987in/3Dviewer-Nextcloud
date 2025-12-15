@@ -20,9 +20,9 @@ import { logError } from './error-handler.js'
  */
 export function calculateModelScale(scene, options = {}) {
 	const {
-		percentage = 0.01,
-		minScale = 0.5,
-		maxScale = 10,
+		percentage = 0.005, // Reduced from 0.01 (1%) to 0.005 (0.5%) for smaller visual elements
+		minScale = 0.3, // Reduced from 0.5
+		maxScale = 3, // Reduced from 10 to prevent oversized elements on large models
 		excludeNames = [
 			'annotationPoint',
 			'annotationText',
@@ -170,7 +170,8 @@ export function createMarkerSphere(position, options = {}) {
 	} = options
 
 	try {
-		const pointSize = scale * sizeMultiplier
+		// Cap point size to prevent oversized markers on large models
+		const pointSize = Math.min(scale * sizeMultiplier, 0.02) // Maximum 0.02 units radius (very small)
 		const geometry = new THREE.SphereGeometry(pointSize, 16, 16)
 		const material = new THREE.MeshBasicMaterial({
 			color,
@@ -239,18 +240,29 @@ export function createTextMesh(text, position, options = {}) {
 
 		if (!texture) return null
 
-		// Calculate dimensions
-		const textWidth = scale * widthMultiplier
-		const textHeight = scale * heightMultiplier
+		// Calculate dimensions proportionally to model size
+		// For all models, use the calculated dimensions directly for proportional sizing
+		const calculatedWidth = scale * widthMultiplier
+		const calculatedHeight = scale * heightMultiplier
+		
+		// Use calculated dimensions directly (no caps) for proportional sizing
+		const textWidth = calculatedWidth
+		const textHeight = calculatedHeight
+		
+		// Ensure minimum sizes for visibility (only for extremely small scales to prevent invisible text)
+		const finalWidth = Math.max(textWidth, 0.01)
+		const finalHeight = Math.max(textHeight, 0.0025)
 
 		// Create plane geometry
-		const geometry = new THREE.PlaneGeometry(textWidth, textHeight)
+		const geometry = new THREE.PlaneGeometry(finalWidth, finalHeight)
 		const material = new THREE.MeshBasicMaterial({
 			map: texture,
 			transparent: true,
 			alphaTest: 0.1,
 			depthTest: false,
+			depthWrite: false, // Don't write to depth buffer to ensure text renders on top
 			side: THREE.DoubleSide,
+			fog: false, // Disable fog for text labels
 		})
 		const textMesh = new THREE.Mesh(geometry, material)
 
