@@ -191,10 +191,10 @@ export function useAnnotation() {
 			if (sceneRef.value) {
 				const box = new THREE.Box3()
 				sceneRef.value.traverse((child) => {
-					if (child.isMesh && 
-						child.name !== 'annotationPoint' && 
-						child.name !== 'annotationText' &&
-						!child.name.startsWith('measurement')) {
+					if (child.isMesh
+						&& child.name !== 'annotationPoint'
+						&& child.name !== 'annotationText'
+						&& !child.name.startsWith('measurement')) {
 						const meshBox = new THREE.Box3().setFromObject(child)
 						box.union(meshBox)
 					}
@@ -203,30 +203,30 @@ export function useAnnotation() {
 				box.getSize(size)
 				actualMaxDim = Math.max(size.x, size.y, size.z)
 			}
-			
+
 			// Fallback to calculated modelMaxDim if we couldn't get actual size
 			const calculatedModelMaxDim = modelScale.value / 0.005
 			const modelMaxDim = actualMaxDim > 0 ? actualMaxDim : calculatedModelMaxDim
-			
+
 			// Calculate text scale proportionally to actual model size
 			// For very small models, use smaller minimum to avoid oversized labels
 			const minTextScale = modelMaxDim < 1 ? modelMaxDim * 0.1 : Math.min(modelMaxDim * 0.02, 2)
 			const baseTextScale = Math.max(minTextScale, modelMaxDim * 0.02) // At least 2% of model
 			const textScale = Math.min(baseTextScale, modelMaxDim * 0.1) // Cap at 10% of model size
-			
+
 			// Determine if this is a large model based on actual model size
 			// Use modelMaxDim > 100 as threshold for large models (similar to measurements)
 			const isLargeModel = modelMaxDim > 100
-			
+
 			// Determine font size and canvas dimensions based on model size
 			// Scale font size proportionally: 48px for small, up to 96px for very large
 			const fontSize = isLargeModel ? 96 : 48
 			const canvasWidth = isLargeModel ? 1024 : 512
 			const canvasHeight = isLargeModel ? 256 : 128
-			
+
 			// Position label above the point (positive yOffset moves label upward)
 			const yOffset = isLargeModel ? 0.25 : 0.15 // Smaller offset for tiny models so text stays near the point
-			
+
 			// Compute width/height multipliers so the final plane size is a configurable
 			// percentage of the model size. By default we target ~20% of the model width
 			// and ~5% of the model height (ratio 1:0.25).
@@ -246,12 +246,12 @@ export function useAnnotation() {
 				scale: textScale, // Use calculated textScale instead of modelScale
 				widthMultiplier,
 				heightMultiplier,
-				yOffset: yOffset,
+				yOffset,
 				textColor: '#ff0000',
 				bgColor: 'rgba(0, 0, 0, 0.8)',
-				fontSize: fontSize,
-				canvasWidth: canvasWidth,
-				canvasHeight: canvasHeight,
+				fontSize,
+				canvasWidth,
+				canvasHeight,
 				renderOrder: 1000, // Highest render order to ensure text is always on top
 				name: 'annotationText',
 			})
@@ -263,7 +263,7 @@ export function useAnnotation() {
 				textMesh.userData.originalCanvasHeight = canvasHeight
 				textMesh.userData.originalTextScale = textScale
 				textMesh.userData.originalYOffset = yOffset
-				
+
 				annotationGroup.value.add(textMesh)
 				textMeshes.value.push(textMesh)
 			}
@@ -289,30 +289,30 @@ export function useAnnotation() {
 				const originalFontSize = textMesh.userData?.originalFontSize || 48
 				const originalCanvasWidth = textMesh.userData?.originalCanvasWidth || 512
 				const originalCanvasHeight = textMesh.userData?.originalCanvasHeight || 128
-				
+
 				// Update existing texture canvas if it's a CanvasTexture, otherwise create new texture
 				const existingTexture = textMesh.material.map
 				let texture = null
-				
+
 				if (existingTexture && existingTexture.isCanvasTexture && existingTexture.image) {
 					// Update existing canvas texture
 					const canvas = existingTexture.image
 					const context = canvas.getContext('2d')
-					
+
 					// Clear canvas completely first (important to prevent ghosting)
 					context.clearRect(0, 0, canvas.width, canvas.height)
-					
+
 					// Draw background
 					context.fillStyle = 'rgba(0, 0, 0, 0.8)'
 					context.fillRect(0, 0, canvas.width, canvas.height)
-					
+
 					// Draw text with original font size
 					context.fillStyle = '#ff0000'
 					context.font = `bold ${originalFontSize}px Arial`
 					context.textAlign = 'center'
 					context.textBaseline = 'middle'
 					context.fillText(newText, canvas.width / 2, canvas.height / 2)
-					
+
 					// Mark texture for update
 					existingTexture.needsUpdate = true
 					texture = existingTexture
@@ -336,20 +336,20 @@ export function useAnnotation() {
 						texture.needsUpdate = true
 					}
 				}
-				
+
 				// Update position with current yOffset (in case model scale changed)
 				if (textMesh.userData?.originalTextScale && textMesh.userData?.originalYOffset) {
 					const textScale = textMesh.userData.originalTextScale
 					const yOffset = textMesh.userData.originalYOffset
-					
+
 					// Reset position to point and apply yOffset
 					textMesh.position.copy(annotation.point)
 					textMesh.position.y += textScale * yOffset
 				}
-				
+
 				// Ensure renderOrder is highest to keep text on top
 				textMesh.renderOrder = 1000
-				
+
 				// Always mark material for update
 				if (texture) {
 					textMesh.material.needsUpdate = true

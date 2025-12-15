@@ -394,10 +394,10 @@ export async function getCacheSize() {
  */
 export async function getCacheStats() {
 	if (!cacheEnabled || !isInitialized) {
-		return { 
-			enabled: false, 
-			count: 0, 
-			sizeMB: 0, 
+		return {
+			enabled: false,
+			count: 0,
+			sizeMB: 0,
 			hits: cacheStats.hits,
 			misses: cacheStats.misses,
 			hitRate: 0,
@@ -416,11 +416,11 @@ export async function getCacheStats() {
 				const totalSize = entries.reduce((sum, entry) => sum + (entry.size || 0), 0)
 				const now = Date.now()
 				const expiredCount = entries.filter(e => e.expiresAt < now).length
-				
+
 				// Calculate hit rate
 				const totalRequests = cacheStats.hits + cacheStats.misses
-				const hitRate = totalRequests > 0 
-					? (cacheStats.hits / totalRequests * 100).toFixed(1) 
+				const hitRate = totalRequests > 0
+					? (cacheStats.hits / totalRequests * 100).toFixed(1)
 					: 0
 
 				resolve({
@@ -437,9 +437,9 @@ export async function getCacheStats() {
 
 			request.onerror = () => {
 				logger.warn('DependencyCache', 'Failed to get cache stats', request.error)
-				resolve({ 
-					enabled: false, 
-					count: 0, 
+				resolve({
+					enabled: false,
+					count: 0,
 					sizeMB: 0,
 					hits: cacheStats.hits,
 					misses: cacheStats.misses,
@@ -449,9 +449,9 @@ export async function getCacheStats() {
 		})
 	} catch (error) {
 		logger.warn('DependencyCache', 'Get cache stats error', error)
-		return { 
-			enabled: false, 
-			count: 0, 
+		return {
+			enabled: false,
+			count: 0,
 			sizeMB: 0,
 			hits: cacheStats.hits,
 			misses: cacheStats.misses,

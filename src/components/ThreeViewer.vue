@@ -238,8 +238,8 @@
 			<div class="stats-header">
 				<span class="stats-icon">📊</span>
 				<span class="stats-title">Performance</span>
-				<button 
-					class="stats-mode clickable" 
+				<button
+					class="stats-mode clickable"
 					:class="'mode-' + currentPerformanceMode"
 					:title="t('threedviewer', 'Click to cycle performance mode')"
 					@click="cyclePerformanceModeFromStats">
@@ -891,7 +891,7 @@ export default {
 				if (loadedModel && loadedModel.object3D) {
 					// Update cache stats immediately after model loads (files may have been cached)
 					await updateCacheStats()
-					
+
 					// Add the loaded model to the scene first
 					modelRoot.value = markRaw(loadedModel.object3D)
 					scene.value.add(modelRoot.value)
@@ -900,13 +900,13 @@ export default {
 					// This ensures the model aligns with the grid and rotation feels natural
 					// Update matrix world first to account for any rotations/transformations (especially for DAE files)
 					modelRoot.value.updateMatrixWorld(true)
-					
+
 					// Calculate bounding box after adding to scene and updating matrix to ensure accurate measurements
 					const box = new THREE.Box3().setFromObject(modelRoot.value)
 					if (!box.isEmpty()) {
 						const center = box.getCenter(new THREE.Vector3())
 						const size = box.getSize(new THREE.Vector3())
-						
+
 						// Log bounding box info for debugging (especially for DAE files)
 						logger.info('ThreeViewer', 'Model bounding box before positioning', {
 							min: { x: box.min.x, y: box.min.y, z: box.min.z },
@@ -915,12 +915,12 @@ export default {
 							size: { x: size.x, y: size.y, z: size.z },
 							extension: filename.split('.').pop(),
 						})
-						
+
 						// Move model so:
 						// X, Z are centered at 0
 						// Y bottom sits at 0 (on top of grid)
 						const yOffset = box.min.y
-						
+
 						// Log positioning calculation for debugging
 						logger.info('ThreeViewer', 'Positioning calculation', {
 							filename,
@@ -930,14 +930,14 @@ export default {
 							boxMin: { x: box.min.x, y: box.min.y, z: box.min.z },
 							yOffset,
 						})
-						
+
 						modelRoot.value.position.x -= center.x
 						modelRoot.value.position.y -= yOffset
 						modelRoot.value.position.z -= center.z
-						
+
 						// Update matrix again after repositioning
 						modelRoot.value.updateMatrixWorld(true)
-						
+
 						// Verify the positioning worked correctly
 						const verifyBox = new THREE.Box3().setFromObject(modelRoot.value)
 						if (!verifyBox.isEmpty()) {
@@ -972,7 +972,7 @@ export default {
 
 					// Fit camera to object (wait for next tick to ensure scene graph is settled)
 					await nextTick()
-					
+
 					// Calculate new center for camera target (it will be at y = height/2)
 					const newBox = new THREE.Box3().setFromObject(modelRoot.value)
 					const newCenter = newBox.getCenter(new THREE.Vector3())
@@ -1039,7 +1039,7 @@ export default {
 
 					emit('model-loaded', { fileId, filename })
 					logger.info('ThreeViewer', 'Model loaded successfully')
-					
+
 					// Update visual scale for measurements/annotations after model loads
 					// This ensures measurement/annotation elements are properly sized for the new model
 					measurement.updateVisualScale()
@@ -1289,16 +1289,16 @@ export default {
 				if (axes.value && props.showAxes) {
 					// Remove old axes
 					scene.value.remove(axes.value)
-					
+
 					// Calculate axes size based on model dimensions (25% of max dimension, minimum 5)
 					const axesSize = Math.max(maxDim * 0.25, 5)
-					
+
 					// Create new axes with appropriate size
 					axes.value = new THREE.AxesHelper(axesSize)
-					
+
 					// Position at origin
 					axes.value.position.set(0, gridY, 0)
-					
+
 					// Add to scene
 					scene.value.add(axes.value)
 				}
@@ -1601,7 +1601,7 @@ export default {
 			console.log('[ThreeViewer] handleUnitChange', {
 				selectedUnit,
 				currentUnitModelValue: currentUnitModel.value,
-				eventTargetValue: event?.target?.value
+				eventTargetValue: event?.target?.value,
 			})
 			measurement.setUnit(selectedUnit)
 		}
@@ -1853,18 +1853,18 @@ export default {
 							// This prevents render errors with undefined matrices
 							try {
 								const comparisonModel = comparison.comparisonModel.value
-								
+
 								// Ensure matrices exist for the model and all its children recursively
 								// This validates the entire hierarchy before adding to scene
 								// Validates parents before children to prevent multiplyMatrices errors
 								comparison.ensureMatricesValid(comparisonModel, 0)
-								
+
 								// Update matrices before adding to scene
 								comparisonModel.updateMatrix()
-								
+
 								// Add to scene first
 								scene.value.add(comparisonModel)
-								
+
 								// Then update all matrices in the scene hierarchy
 								// This ensures all objects including the new model have valid world matrices
 								// All objects should now have valid matrices due to ensureMatricesValid call above
@@ -1877,7 +1877,7 @@ export default {
 									comparison.ensureMatricesValid(scene.value, 0)
 									scene.value.updateMatrixWorld(true)
 								}
-								
+
 								logger.info('ThreeViewer', 'Comparison model added to scene with validated matrices')
 							} catch (matrixError) {
 								logger.error('ThreeViewer', 'Failed to initialize comparison model matrices', matrixError)
@@ -1897,10 +1897,10 @@ export default {
 											if (scene.value) {
 												scene.value.updateMatrixWorld(true)
 											}
-											
+
 											// Fit both models to view after everything is ready
 											fitBothModelsToView()
-											
+
 											// One more matrix update after positioning to ensure everything is valid
 											if (scene.value) {
 												scene.value.updateMatrixWorld(true)
@@ -1924,7 +1924,7 @@ export default {
 											} catch (finalUpdateError) {
 												logger.warn('ThreeViewer', 'Final matrix update failed', finalUpdateError)
 											}
-											
+
 											// Resume rendering after fitting is complete and matrices are validated
 											renderPaused.value = false
 										}
@@ -1994,7 +1994,7 @@ export default {
 								model1.updateMatrixWorld(true)
 								model2.updateMatrixWorld(true)
 							}
-							
+
 							// Ensure scene matrices are also updated
 							if (scene.value && scene.value.updateMatrixWorld) {
 								scene.value.updateMatrixWorld(true)

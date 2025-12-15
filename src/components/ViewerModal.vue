@@ -53,7 +53,6 @@ import SlicerModal from './SlicerModal.vue'
 
 export default {
 	name: 'ViewerModal',
-	emits: ['model-loaded', 'error'],
 	components: {
 		ThreeViewer,
 		ViewerToolbar,
@@ -64,6 +63,7 @@ export default {
 		file: { type: Object, default: null },
 		attr: { type: Object, default: null },
 	},
+	emits: ['model-loaded', 'error'],
 	data() {
 		return {
 			grid: true,
@@ -227,7 +227,7 @@ export default {
 				const hasAnimationsRef = this.$refs.viewer.hasAnimations
 				const isPlayingRef = this.$refs.viewer.isAnimationPlaying
 				const isLoopingRef = this.$refs.viewer.isAnimationLooping
-				
+
 				// Helper to safely unwrap: if it's a primitive, use it; if it's a ref, unwrap it
 				const unwrap = (val) => {
 					if (val == null) return false
@@ -238,7 +238,7 @@ export default {
 					// Otherwise, convert to boolean
 					return Boolean(val)
 				}
-				
+
 				this.hasAnimations = unwrap(hasAnimationsRef)
 				this.isAnimationPlaying = unwrap(isPlayingRef)
 				this.isAnimationLooping = unwrap(isLoopingRef)

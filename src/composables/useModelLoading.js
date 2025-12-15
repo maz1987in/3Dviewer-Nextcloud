@@ -147,7 +147,7 @@ export function useModelLoading() {
 				}
 				// If no '/' found, dirPath remains null (filename has no directory component)
 			}
-			
+
 			// Log directory path for debugging
 			logger.info('useModelLoading', 'Directory path for multi-file loading', {
 				dirPath,
@@ -262,16 +262,16 @@ export function useModelLoading() {
 				// Provide more helpful error messages based on status code
 				if (response.status === 404) {
 					throw new Error(
-						`File not found (ID: ${fileId}). The file may have been deleted, moved, or you may not have access to it. ` +
-						`Please try refreshing the file list or contact your administrator if the problem persists.`
+						`File not found (ID: ${fileId}). The file may have been deleted, moved, or you may not have access to it. `
+						+ 'Please try refreshing the file list or contact your administrator if the problem persists.',
 					)
 				} else if (response.status === 403) {
 					throw new Error(
-						`Access denied to file (ID: ${fileId}). You may not have permission to access this file.`
+						`Access denied to file (ID: ${fileId}). You may not have permission to access this file.`,
 					)
 				} else if (response.status === 401) {
 					throw new Error(
-						`Authentication required. Please log in again.`
+						'Authentication required. Please log in again.',
 					)
 				} else {
 					throw new Error(errorMessage)

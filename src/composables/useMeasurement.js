@@ -82,7 +82,7 @@ export function useMeasurement() {
 		if (!sceneRef.value) {
 			return
 		}
-		
+
 		const calculatedScale = calculateModelScale(sceneRef.value)
 		visualScale.value = calculatedScale
 	}
@@ -190,29 +190,29 @@ export function useMeasurement() {
 					// Update existing texture canvas if it's a CanvasTexture, otherwise create new texture
 					const existingTexture = textMesh.material.map
 					let texture = null
-					
+
 					if (existingTexture && existingTexture.isCanvasTexture && existingTexture.image) {
 						// Update existing canvas texture
 						const canvas = existingTexture.image
 						const context = canvas.getContext('2d')
-						
+
 						// Get original font size from userData, fallback to 48 for small models
 						const originalFontSize = textMesh.userData?.originalFontSize || 48
-						
+
 						// Clear canvas completely first (important to prevent ghosting)
 						context.clearRect(0, 0, canvas.width, canvas.height)
-						
+
 						// Draw background
 						context.fillStyle = 'rgba(0, 0, 0, 0.9)'
 						context.fillRect(0, 0, canvas.width, canvas.height)
-						
+
 						// Draw text with original font size
 						context.fillStyle = '#ffffff'
 						context.font = `bold ${originalFontSize}px Arial`
 						context.textAlign = 'center'
 						context.textBaseline = 'middle'
 						context.fillText(displayText, canvas.width / 2, canvas.height / 2)
-						
+
 						// Mark texture for update - this is critical for CanvasTexture
 						existingTexture.needsUpdate = true
 						// Also ensure the material knows the texture changed
@@ -225,7 +225,7 @@ export function useMeasurement() {
 						const originalFontSize = textMesh.userData?.originalFontSize || 48
 						const originalCanvasWidth = textMesh.userData?.originalCanvasWidth || 512
 						const originalCanvasHeight = textMesh.userData?.originalCanvasHeight || 128
-						
+
 						texture = createTextTexture(displayText, {
 							width: originalCanvasWidth,
 							height: originalCanvasHeight,
@@ -246,19 +246,19 @@ export function useMeasurement() {
 							logError('useMeasurement', 'Failed to create texture', new Error('Texture creation failed'))
 						}
 					}
-					
+
 					// Always mark material for update
 					if (texture) {
 						textMesh.material.needsUpdate = true
 					}
-					
+
 					// Update position with new yOffset to position label above the line
 					// Recalculate textScale and yOffset based on current visualScale
 					const modelMaxDim = visualScale.value / 0.005 // Reverse calculate max dimension from visual scale
 					const baseTextScale = Math.max(modelMaxDim * 0.02, 2) // At least 2% of model or 2 units minimum
 					const textScale = Math.min(baseTextScale, modelMaxDim * 0.1) // Cap at 10% of model size
 					const yOffset = textScale >= 2 ? 0.15 : 0.2 // Increased offset to position label above the line
-					
+
 					// Reset position to midpoint and apply new yOffset
 					textMesh.position.copy(measurement.midpoint)
 					textMesh.position.y += textScale * yOffset
@@ -353,7 +353,7 @@ export function useMeasurement() {
 		const minRadius = modelMaxDim * ((basePercent * 0.666) / 100) // ~2/3 of target → ~1% when base is 1.5%
 		const maxRadius = modelMaxDim * ((basePercent * 2) / 100) // 2x target → ~3% when base is 1.5%
 		const pointRadius = Math.min(Math.max(targetRadius, minRadius), maxRadius)
-		
+
 		// Create sphere directly to bypass the 0.02 cap in createMarkerSphere
 		const geometry = new THREE.SphereGeometry(pointRadius, 16, 16)
 		const material = new THREE.MeshBasicMaterial({
@@ -366,11 +366,11 @@ export function useMeasurement() {
 		sphere.position.copy(point)
 		sphere.name = `measurementPoint_${points.value.length}`
 		sphere.renderOrder = 999
-		
+
 		// Add to scene
 		measurementGroup.value.add(sphere)
 		pointMeshes.value.push(sphere)
-		
+
 	}
 
 	// Create measurement between two points
@@ -455,7 +455,7 @@ export function useMeasurement() {
 		const minRadius = modelMaxDim * ((basePercent * 0.625) / 100) // ~0.5% when base is 0.8
 		const maxRadius = modelMaxDim * ((basePercent * 1.875) / 100) // ~1.5% when base is 0.8
 		const lineRadius = Math.min(Math.max(targetRadius, minRadius), maxRadius)
-		
+
 		const cylinderGeometry = new THREE.CylinderGeometry(lineRadius, lineRadius, distance, 8)
 		const cylinderMaterial = new THREE.MeshBasicMaterial({
 			color: 0x00ff00,
@@ -514,7 +514,7 @@ export function useMeasurement() {
 			const minTextScale = modelMaxDim < 1 ? modelMaxDim * 0.1 : Math.min(modelMaxDim * 0.02, 2)
 			const baseTextScale = Math.max(minTextScale, modelMaxDim * 0.02) // At least 2% of model
 			const textScale = Math.min(baseTextScale, modelMaxDim * 0.1) // Cap at 10% of model size
-						
+
 			// Use shared text mesh utility
 			// Position text close to the line with better visibility (similar to annotations)
 			// For large models, use larger multipliers to ensure visibility
@@ -525,7 +525,7 @@ export function useMeasurement() {
 			const canvasWidth = textScale >= 2 ? 1024 : 512
 			const canvasHeight = textScale >= 2 ? 256 : 128
 			const fontSize = textScale >= 2 ? 96 : 48 // Much larger font for large models (increased from 64)
-			
+
 			// For large models, reduce width but keep height for better text visibility.
 			// Width is driven by configuration as a percentage of model size, relative to a 20% baseline.
 			const baseLabelWidthPercent = 20
@@ -535,17 +535,17 @@ export function useMeasurement() {
 			const widthScale = configuredLabelWidthPercent / baseLabelWidthPercent
 			const widthMultiplier = (textScale >= 2 ? 6 : 2) * widthScale
 			const heightMultiplier = textScale >= 2 ? 2.5 : 0.5 // Keep height the same
-			
+
 			const textMesh = createTextMesh(displayText, measurement.midpoint, {
 				scale: textScale, // Use calculated size directly
-				widthMultiplier: widthMultiplier, // Larger multiplier for better visibility
-				heightMultiplier: heightMultiplier, // Larger multiplier for better visibility
-				yOffset: yOffset, // Offset above the line, adjusted for large models
+				widthMultiplier, // Larger multiplier for better visibility
+				heightMultiplier, // Larger multiplier for better visibility
+				yOffset, // Offset above the line, adjusted for large models
 				textColor: '#ffffff', // White text for better contrast
 				bgColor: 'rgba(0, 0, 0, 0.9)', // Darker background for better readability
-				fontSize: fontSize,
-				canvasWidth: canvasWidth,
-				canvasHeight: canvasHeight,
+				fontSize,
+				canvasWidth,
+				canvasHeight,
 				renderOrder: 998, // Higher render order to be in front of the line (997)
 				name: 'measurementText',
 			})
@@ -555,7 +555,7 @@ export function useMeasurement() {
 				const existingMeshIndex = textMeshes.value.findIndex((mesh, idx) => {
 					return measurements.value[idx]?.id === measurement.id
 				})
-				
+
 				if (existingMeshIndex >= 0) {
 					// Remove existing mesh before adding new one
 					const oldMesh = textMeshes.value[existingMeshIndex]
@@ -570,12 +570,12 @@ export function useMeasurement() {
 					}
 					textMeshes.value.splice(existingMeshIndex, 1)
 				}
-				
+
 				// Store original font size and canvas dimensions in userData for later updates
 				textMesh.userData.originalFontSize = fontSize
 				textMesh.userData.originalCanvasWidth = canvasWidth
 				textMesh.userData.originalCanvasHeight = canvasHeight
-				
+
 				// Double-check mesh isn't already in scene
 				if (!textMesh.parent) {
 					measurementGroup.value.add(textMesh)
@@ -584,12 +584,12 @@ export function useMeasurement() {
 					textMesh.parent.remove(textMesh)
 					measurementGroup.value.add(textMesh)
 				}
-				
+
 				// Only add to array if not already present
 				if (!textMeshes.value.includes(textMesh)) {
 					textMeshes.value.push(textMesh)
 				}
-				
+
 			}
 		} catch (error) {
 			logError('useMeasurement', 'Failed to create distance text', error)

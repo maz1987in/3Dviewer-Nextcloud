@@ -29,10 +29,10 @@
 <script>
 export default {
 	name: 'ToastContainer',
-	emits: ['dismiss'],
 	props: {
 		toasts: { type: Array, required: true },
 	},
+	emits: ['dismiss'],
 	data() {
 		return {
 			timers: new Map(),

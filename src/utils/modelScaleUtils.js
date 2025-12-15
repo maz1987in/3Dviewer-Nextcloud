@@ -244,11 +244,11 @@ export function createTextMesh(text, position, options = {}) {
 		// For all models, use the calculated dimensions directly for proportional sizing
 		const calculatedWidth = scale * widthMultiplier
 		const calculatedHeight = scale * heightMultiplier
-		
+
 		// Use calculated dimensions directly (no caps) for proportional sizing
 		const textWidth = calculatedWidth
 		const textHeight = calculatedHeight
-		
+
 		// Ensure minimum sizes for visibility (only for extremely small scales to prevent invisible text)
 		const finalWidth = Math.max(textWidth, 0.01)
 		const finalHeight = Math.max(textHeight, 0.0025)

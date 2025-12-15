@@ -62,7 +62,6 @@ import { generateUrl } from '@nextcloud/router'
 
 export default {
 	name: 'FileNavigation',
-	emits: ['navigate-all', 'navigate-viewer'],
 	components: {
 		NcAppNavigation,
 		NcAppNavigationItem,
@@ -89,6 +88,7 @@ export default {
 			default: null,
 		},
 	},
+	emits: ['navigate-all', 'navigate-viewer'],
 
 	data() {
 		return {

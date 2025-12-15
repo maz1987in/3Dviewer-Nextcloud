@@ -18,7 +18,7 @@ export function useComparison() {
 	const comparisonMode = ref(false)
 	const comparisonModel = shallowRef(null)
 	const comparisonIndicator = shallowRef(null)
-	
+
 	// Animation state for comparison model
 	const comparisonMixer = shallowRef(null)
 	const comparisonActions = ref([])
@@ -461,7 +461,7 @@ export function useComparison() {
 
 		if (result && result.object3D) {
 			comparisonModel.value = markRaw(result.object3D)
-			
+
 			// Store animations if present
 			if (result.animations && result.animations.length > 0) {
 				comparisonAnimations.value = result.animations
@@ -500,7 +500,7 @@ export function useComparison() {
 			// Comparison indicator DISABLED per user request
 			// No visual indicator - just side-by-side comparison
 			comparisonIndicator.value = null
-			
+
 			logger.info('useComparison', 'Comparison mode active (indicator disabled)', {
 				filename,
 				modelPosition: model.position,
@@ -522,7 +522,7 @@ export function useComparison() {
 	const ensureMatricesValid = (object, depth = 0, visited = new Set()) => {
 		// Prevent infinite recursion
 		if (!object || depth > 500) return
-		
+
 		// Skip if already validated
 		if (visited.has(object)) return
 		visited.add(object)
@@ -572,7 +572,7 @@ export function useComparison() {
 				const hasMatrix = typeof object.matrix !== 'undefined'
 				const hasMatrixWorld = typeof object.matrixWorld !== 'undefined'
 				const hasUpdateMethod = typeof object.updateMatrixWorld === 'function'
-				
+
 				if (hasMatrix || hasMatrixWorld || hasUpdateMethod) {
 					if (!object.matrix || !(object.matrix instanceof THREE.Matrix4)) {
 						object.matrix = new THREE.Matrix4()
@@ -612,6 +612,7 @@ export function useComparison() {
 	 * @param {THREE.Object3D} model1 - First model
 	 * @param {THREE.Object3D} model2 - Second model
 	 * @param {Function} fitFunction - Function to fit camera to both models
+	 * @param scene
 	 */
 	const fitBothModelsToView = (model1, model2, fitFunction, scene) => {
 		if (!model1 || !model2 || !fitFunction) {
@@ -626,12 +627,12 @@ export function useComparison() {
 			if (scene) {
 				ensureMatricesValid(scene, 0, new Set())
 			}
-			
+
 			// CRITICAL: Validate all matrices BEFORE calling updateMatrixWorld
 			// updateMatrixWorld multiplies with parent matrices, so all parents must be valid first
 			ensureMatricesValid(model1, 0, new Set())
 			ensureMatricesValid(model2, 0, new Set())
-			
+
 			// CRITICAL: Call updateMatrix() on all objects BEFORE updateMatrixWorld()
 			// Ensure matrices exist before calling updateMatrix()
 			const updateAllMatrices = (obj, depth = 0) => {
@@ -640,7 +641,7 @@ export function useComparison() {
 					// Check if this is an Object3D-like object that has matrices
 					const hasMatrix = typeof obj.matrix !== 'undefined'
 					const hasMatrixWorld = typeof obj.matrixWorld !== 'undefined'
-					
+
 					if (obj.isObject3D) {
 						if (!obj.matrix || !(obj.matrix instanceof THREE.Matrix4)) {
 							obj.matrix = new THREE.Matrix4()
@@ -670,13 +671,13 @@ export function useComparison() {
 							obj.matrixWorld = new THREE.Matrix4()
 							obj.matrixWorld.identity()
 						}
-						
+
 						// Only call updateMatrix() if it exists and object is Object3D-like
 						if (typeof obj.updateMatrix === 'function' && obj.isObject3D !== false) {
 							obj.updateMatrix()
 						}
 					}
-					
+
 					// Recursively process children
 					if (obj.children && Array.isArray(obj.children)) {
 						for (const child of obj.children) {
@@ -694,15 +695,15 @@ export function useComparison() {
 					// Skip objects that can't be updated (materials, geometries, etc.)
 				}
 			}
-			
+
 			// Update all local matrices first
 			updateAllMatrices(model1, 0)
 			updateAllMatrices(model2, 0)
-			
+
 			// Re-validate after updateMatrix() calls to catch any missed objects
 			ensureMatricesValid(model1, 0, new Set())
 			ensureMatricesValid(model2, 0, new Set())
-			
+
 			// Now safe to update matrices
 			try {
 				model1.updateMatrixWorld(true)
@@ -712,11 +713,11 @@ export function useComparison() {
 				// Re-validate
 				ensureMatricesValid(model1, 0, new Set())
 				ensureMatricesValid(model2, 0, new Set())
-				
+
 				// Update local matrices again before retry
 				updateAllMatrices(model1, 0)
 				updateAllMatrices(model2, 0)
-				
+
 				model1.updateMatrixWorld(true)
 				model2.updateMatrixWorld(true)
 			}
@@ -727,33 +728,33 @@ export function useComparison() {
 				model2Type: model2.type,
 				model2Position: { x: model2.position.x, y: model2.position.y, z: model2.position.z },
 			})
-			
+
 			// CRITICAL: Use toRaw to get the actual Three.js object, not Vue proxy
 			// This ensures parent-child relationships work correctly and animations work properly
 			const rawModel2 = toRaw(model2)
-			
+
 			// Store model2's current local position before wrapping
 			const model2LocalOffset = new THREE.Vector3(
 				rawModel2.position.x,
 				rawModel2.position.y,
-				rawModel2.position.z
+				rawModel2.position.z,
 			)
-			
+
 			// Remove model2 from scene
 			const originalParent = rawModel2.parent
 			if (rawModel2.parent) {
 				rawModel2.parent.remove(rawModel2)
 			}
-			
+
 			// Create a new Group to wrap model2
 			// Don't pre-position it - we'll calculate the final position after getting the bounding box
 			const model2Wrapper = new THREE.Group()
 			// CRITICAL: Ensure matrixAutoUpdate is enabled so wrapper updates during render loop
 			model2Wrapper.matrixAutoUpdate = true
-			
+
 			// Add model2 to wrapper - this should set the parent automatically
 			model2Wrapper.add(rawModel2)
-			
+
 			// CRITICAL: Force parent reference update (Three.js should do this, but ensure it's set)
 			// Check both the raw object and the proxy
 			if (rawModel2.parent !== model2Wrapper) {
@@ -763,12 +764,12 @@ export function useComparison() {
 			if (model2 !== rawModel2 && model2.parent !== model2Wrapper) {
 				model2.parent = model2Wrapper
 			}
-			
+
 			// Force matrix updates to establish parent-child relationship
 			rawModel2.updateMatrix()
 			model2Wrapper.updateMatrix()
 			model2Wrapper.updateMatrixWorld(true)
-			
+
 			// CRITICAL: Ensure wrapper and all children have matrixAutoUpdate enabled
 			// This ensures they update during the render loop
 			model2Wrapper.matrixAutoUpdate = true
@@ -783,29 +784,29 @@ export function useComparison() {
 				}
 			}
 			enableMatrixAutoUpdate(rawModel2)
-			
+
 			scene.add(model2Wrapper)
-			
+
 			// CRITICAL: Update comparisonModel.value to point to the wrapper so it's properly tracked
 			// This ensures the wrapper is part of the scene hierarchy and gets updated during rendering
 			comparisonModel.value = markRaw(model2Wrapper)
-			
+
 			// CRITICAL: Force one more matrix update after adding to scene to ensure everything is synced
 			scene.updateMatrixWorld(true)
-			
+
 			// VERIFY: Check if model2 is actually in the wrapper
 			const isInWrapper = model2.parent === model2Wrapper
 			const wrapperChildCount = model2Wrapper.children.length
 			const model2ParentUUID = model2.parent ? model2.parent.uuid : 'null'
 			const wrapperUUID = model2Wrapper.uuid
 			const model2UUID = model2.uuid
-			
+
 			// Check what's ACTUALLY in the wrapper
 			const wrapperChild0 = model2Wrapper.children[0]
 			const child0UUID = wrapperChild0 ? wrapperChild0.uuid : 'null'
 			const child0Type = wrapperChild0 ? wrapperChild0.type : 'null'
 			const isChild0Model2 = wrapperChild0 === model2
-			
+
 			logger.info('useComparison', '🔍 WRAPPING VERIFICATION (immediately after wrapper.add)', {
 				originalParentType: originalParent ? originalParent.type : 'null',
 				wrapperUUID,
@@ -820,10 +821,10 @@ export function useComparison() {
 				isChild0SameAsModel2: isChild0Model2,
 				UUIDsMatch: model2UUID === child0UUID,
 			})
-			
+
 			// Now model2Wrapper is the object we'll position (model2's local position is neutralized)
 			const model2Positionable = model2Wrapper
-			
+
 			logger.info('useComparison', 'Model2 wrapped in Group', {
 				model2LocalOffset: { x: model2LocalOffset.x, y: model2LocalOffset.y, z: model2LocalOffset.z },
 				wrapperInitialPosition: { x: model2Wrapper.position.x, y: model2Wrapper.position.y, z: model2Wrapper.position.z },
@@ -836,7 +837,7 @@ export function useComparison() {
 			model1.position.z = 0
 			model1.updateMatrix()
 			model1.updateMatrixWorld(true)
-			
+
 			// Update wrapper matrices
 			model2Wrapper.updateMatrix()
 			model2Wrapper.updateMatrixWorld(true)
@@ -844,7 +845,7 @@ export function useComparison() {
 			// Validate and ensure matrices are valid before updating
 			ensureMatricesValid(model1, 0, new Set())
 			ensureMatricesValid(model2, 0, new Set())
-			
+
 			// Update local matrices first
 			const updateLocalMatrices = (obj, depth = 0) => {
 				if (!obj || depth > 500) return
@@ -890,10 +891,10 @@ export function useComparison() {
 					// Skip objects that can't be updated
 				}
 			}
-			
+
 			updateLocalMatrices(model1, 0)
 			updateLocalMatrices(model2, 0)
-			
+
 			// Re-validate before calling updateMatrixWorld
 			ensureMatricesValid(model1, 0, new Set())
 			ensureMatricesValid(model2, 0, new Set())
@@ -974,16 +975,16 @@ export function useComparison() {
 			const targetWrapperX = separation / 2 - model2LocalOffset.x
 			const targetWrapperY = model2YOffset // DON'T subtract local offset here!
 			const targetWrapperZ = 0 - model2LocalOffset.z
-			
+
 			model2Positionable.position.x = targetWrapperX
 			model2Positionable.position.y = targetWrapperY
 			model2Positionable.position.z = targetWrapperZ
 			model2Positionable.updateMatrix()
 			model2Positionable.updateMatrixWorld(true)
-			
+
 			// Calculate expected model2 world position
 			const expectedModel2WorldY = targetWrapperY + model2LocalOffset.y
-			
+
 			logger.info('useComparison', 'Wrapper positioning calculation', {
 				model2LocalOffsetY: model2LocalOffset.y,
 				model2YOffset,
@@ -991,7 +992,7 @@ export function useComparison() {
 				expectedModel2WorldY,
 				shouldBeZero: 'expectedModel2WorldY should be close to 0!',
 			})
-			
+
 			logger.info('useComparison', 'Target positions set', {
 				model1: { x: model1.position.x, y: model1.position.y, z: model1.position.z },
 				model2Wrapper: { x: model2Positionable.position.x, y: model2Positionable.position.y, z: model2Positionable.position.z },
@@ -1006,27 +1007,27 @@ export function useComparison() {
 			})
 
 			// Reset validation cache
-			
+
 			// CRITICAL: Validate entire scene hierarchy, not just models
 			// Scene may contain grid, axes, lights, and other objects that need valid matrices
 			if (scene) {
 				ensureMatricesValid(scene, 0, new Set())
 			}
-			
+
 			// CRITICAL: Validate all matrices BEFORE calling updateMatrixWorld
 			// updateMatrixWorld multiplies with parent matrices, so all parents must be valid first
 			ensureMatricesValid(model1, 0, new Set())
 			ensureMatricesValid(model2, 0, new Set())
-			
+
 			// CRITICAL: Call updateMatrix() on all objects BEFORE updateMatrixWorld()
 			// Ensure matrices exist before calling updateMatrix()
 			updateLocalMatrices(model1, 0)
 			updateLocalMatrices(model2, 0)
-			
+
 			// Re-validate after updateMatrix() calls to catch any missed objects
 			ensureMatricesValid(model1, 0, new Set())
 			ensureMatricesValid(model2, 0, new Set())
-			
+
 			// Now safe to update all world matrices recursively
 			try {
 				model1.updateMatrixWorld(true)
@@ -1038,7 +1039,7 @@ export function useComparison() {
 				ensureMatricesValid(model2, 0, new Set())
 				updateLocalMatrices(model1, 0)
 				updateLocalMatrices(model2, 0)
-				
+
 				try {
 					model1.updateMatrixWorld(true)
 					model2.updateMatrixWorld(true)
@@ -1068,7 +1069,7 @@ export function useComparison() {
 			}
 			ensureMatricesValid(model1, 0, new Set())
 			ensureMatricesValid(model2, 0, new Set())
-			
+
 			// Log positions BEFORE fitFunction
 			logger.info('useComparison', 'Model positions BEFORE fitFunction', {
 				model1Pos: { x: model1.position.x, y: model1.position.y, z: model1.position.z },
@@ -1085,16 +1086,16 @@ export function useComparison() {
 				model1Pos: { x: model1.position.x, y: model1.position.y, z: model1.position.z },
 				model2WrapperPos: { x: model2Positionable.position.x, y: model2Positionable.position.y, z: model2Positionable.position.z },
 			})
-			
+
 			// Force scene update and verify final positions
 			model1.updateMatrixWorld(true)
 			model2Positionable.updateMatrixWorld(true)
 			model2.updateMatrixWorld(true)
-			
+
 			// Recalculate bounding boxes to verify positioning
 			const verifyBox2 = new THREE.Box3().setFromObject(model2Positionable)
 			const verifyBottom2 = verifyBox2.min.y
-			
+
 			logger.info('useComparison', '🔍 FINAL VERIFICATION after all positioning', {
 				model2WrapperWorldY: model2Positionable.position.y,
 				model2LocalY: model2.position.y,

@@ -27,11 +27,30 @@
 						:aria-label="t('threedviewer', 'Switch to list view')"
 						:title="t('threedviewer', 'Switch to list view')"
 						@click.stop.prevent="setViewMode('list')">
-						<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-							<rect x="1" y="1" width="6" height="6" rx="1"/>
-							<rect x="9" y="1" width="6" height="6" rx="1"/>
-							<rect x="1" y="9" width="6" height="6" rx="1"/>
-							<rect x="9" y="9" width="6" height="6" rx="1"/>
+						<svg width="16"
+							height="16"
+							viewBox="0 0 16 16"
+							fill="currentColor">
+							<rect x="1"
+								y="1"
+								width="6"
+								height="6"
+								rx="1" />
+							<rect x="9"
+								y="1"
+								width="6"
+								height="6"
+								rx="1" />
+							<rect x="1"
+								y="9"
+								width="6"
+								height="6"
+								rx="1" />
+							<rect x="9"
+								y="9"
+								width="6"
+								height="6"
+								rx="1" />
 						</svg>
 					</button>
 					<button
@@ -40,16 +59,31 @@
 						:aria-label="t('threedviewer', 'Switch to grid view')"
 						:title="t('threedviewer', 'Switch to grid view')"
 						@click.stop.prevent="setViewMode('grid')">
-						<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-							<rect x="1" y="2" width="14" height="2" rx="0.5"/>
-							<rect x="1" y="7" width="14" height="2" rx="0.5"/>
-							<rect x="1" y="12" width="14" height="2" rx="0.5"/>
+						<svg width="16"
+							height="16"
+							viewBox="0 0 16 16"
+							fill="currentColor">
+							<rect x="1"
+								y="2"
+								width="14"
+								height="2"
+								rx="0.5" />
+							<rect x="1"
+								y="7"
+								width="14"
+								height="2"
+								rx="0.5" />
+							<rect x="1"
+								y="12"
+								width="14"
+								height="2"
+								rx="0.5" />
 						</svg>
 					</button>
 				</div>
 			</div>
 		</div>
-		
+
 		<!-- Breadcrumb area (always show, even without breadcrumbs) for view toggle -->
 		<div v-else class="breadcrumbs-wrapper">
 			<div class="breadcrumbs-content">
@@ -61,11 +95,30 @@
 						:aria-label="t('threedviewer', 'Switch to list view')"
 						:title="t('threedviewer', 'Switch to list view')"
 						@click.stop.prevent="setViewMode('list')">
-						<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-							<rect x="1" y="1" width="6" height="6" rx="1"/>
-							<rect x="9" y="1" width="6" height="6" rx="1"/>
-							<rect x="1" y="9" width="6" height="6" rx="1"/>
-							<rect x="9" y="9" width="6" height="6" rx="1"/>
+						<svg width="16"
+							height="16"
+							viewBox="0 0 16 16"
+							fill="currentColor">
+							<rect x="1"
+								y="1"
+								width="6"
+								height="6"
+								rx="1" />
+							<rect x="9"
+								y="1"
+								width="6"
+								height="6"
+								rx="1" />
+							<rect x="1"
+								y="9"
+								width="6"
+								height="6"
+								rx="1" />
+							<rect x="9"
+								y="9"
+								width="6"
+								height="6"
+								rx="1" />
 						</svg>
 					</button>
 					<button
@@ -74,16 +127,31 @@
 						:aria-label="t('threedviewer', 'Switch to grid view')"
 						:title="t('threedviewer', 'Switch to grid view')"
 						@click.stop.prevent="setViewMode('grid')">
-						<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-							<rect x="1" y="2" width="14" height="2" rx="0.5"/>
-							<rect x="1" y="7" width="14" height="2" rx="0.5"/>
-							<rect x="1" y="12" width="14" height="2" rx="0.5"/>
+						<svg width="16"
+							height="16"
+							viewBox="0 0 16 16"
+							fill="currentColor">
+							<rect x="1"
+								y="2"
+								width="14"
+								height="2"
+								rx="0.5" />
+							<rect x="1"
+								y="7"
+								width="14"
+								height="2"
+								rx="0.5" />
+							<rect x="1"
+								y="12"
+								width="14"
+								height="2"
+								rx="0.5" />
 						</svg>
 					</button>
 				</div>
 			</div>
 		</div>
-		
+
 		<!-- Loading State -->
 		<div v-if="loading" class="file-browser-loading">
 			<h2 class="icon-loading-small" />
@@ -92,7 +160,7 @@
 
 		<!-- Folders/Types/Dates Grid (only show when no specific folder/type/date is selected) -->
 		<template v-else-if="!loading && (folders || types || dates) && !currentPath && !currentType && !currentDate">
-			<div :class="viewMode === 'list' ? 'file-list' : 'file-grid'" :key="`overview-container-${viewMode}`">
+			<div :key="`overview-container-${viewMode}`" :class="viewMode === 'list' ? 'file-list' : 'file-grid'">
 				<!-- Folders - Show hierarchical structure -->
 				<template v-if="folders">
 					<FolderHierarchy
@@ -149,7 +217,7 @@
 
 		<!-- Months Grid (show when a year is selected but no month) -->
 		<template v-else-if="!loading && currentDate && currentDate.year && !currentDate.month && dates">
-			<div :class="viewMode === 'list' ? 'file-list' : 'file-grid'" :key="`months-container-${viewMode}`">
+			<div :key="`months-container-${viewMode}`" :class="viewMode === 'list' ? 'file-list' : 'file-grid'">
 				<template v-for="year in dates" :key="year.year">
 					<template v-if="year.year === currentDate.year && year.months">
 						<div
@@ -183,7 +251,7 @@
 		</NcEmptyContent>
 
 		<!-- File Grid/List (show files and subfolders when a folder/type/date is selected) -->
-		<div v-else-if="!loading && (currentPath || currentType || (currentDate && currentDate.month))" 
+		<div v-else-if="!loading && (currentPath || currentType || (currentDate && currentDate.month))"
 			:key="`file-container-${viewMode}`"
 			:class="viewMode === 'list' ? 'file-list' : 'file-grid'"
 			:tabindex="viewMode === 'list' ? 0 : -1"
@@ -223,7 +291,7 @@
 					</div>
 				</div>
 			</template>
-			
+
 			<!-- Show files - List View -->
 			<template v-if="filteredFiles.length > 0 && viewMode === 'list'" :key="'list-template'">
 				<div
@@ -276,13 +344,6 @@ import { generateUrl } from '@nextcloud/router'
 
 export default {
 	name: 'FileBrowser',
-	emits: [
-		'select-file',
-		'navigate-folder',
-		'navigate-type',
-		'navigate-date',
-		'navigate-all',
-	],
 	components: {
 		NcEmptyContent,
 		NcBreadcrumbs,
@@ -335,6 +396,13 @@ export default {
 			default: null,
 		},
 	},
+	emits: [
+		'select-file',
+		'navigate-folder',
+		'navigate-type',
+		'navigate-date',
+		'navigate-all',
+	],
 	data() {
 		// Start with localStorage value, will be updated from settings in mounted
 		const savedViewMode = localStorage.getItem('threedviewer:fileBrowserView')
@@ -344,26 +412,6 @@ export default {
 			userSettings: {}, // Store user settings
 			settingsLoaded: false, // Track if settings have been loaded
 		}
-	},
-	mounted() {
-		// Load user settings to get default view preference
-		this.loadUserSettings()
-	},
-	watch: {
-		viewMode(newVal, oldVal) {
-			// View mode changed - Vue will handle the re-render automatically
-		},
-		// Watch for changes in userSettings to update view mode if setting changes
-		'userSettings.fileBrowser.defaultView'(newVal) {
-			if (this.settingsLoaded && newVal) {
-				const settingViewMode = newVal === 'list' ? 'list' : 'grid'
-				// Only update if it's different from current view
-				if (this.viewMode !== settingViewMode) {
-					this.viewMode = settingViewMode
-					localStorage.setItem('threedviewer:fileBrowserView', settingViewMode)
-				}
-			}
-		},
 	},
 	computed: {
 		// Backend already filters - just return files as-is
@@ -497,6 +545,26 @@ export default {
 			return hasFiles || hasFolders || hasTypes || hasDates
 		},
 	},
+	watch: {
+		viewMode(newVal, oldVal) {
+			// View mode changed - Vue will handle the re-render automatically
+		},
+		// Watch for changes in userSettings to update view mode if setting changes
+		'userSettings.fileBrowser.defaultView'(newVal) {
+			if (this.settingsLoaded && newVal) {
+				const settingViewMode = newVal === 'list' ? 'list' : 'grid'
+				// Only update if it's different from current view
+				if (this.viewMode !== settingViewMode) {
+					this.viewMode = settingViewMode
+					localStorage.setItem('threedviewer:fileBrowserView', settingViewMode)
+				}
+			}
+		},
+	},
+	mounted() {
+		// Load user settings to get default view preference
+		this.loadUserSettings()
+	},
 	methods: {
 		async loadUserSettings() {
 			try {
@@ -504,11 +572,11 @@ export default {
 				const settings = response.data.settings || {}
 				this.userSettings = settings
 				this.settingsLoaded = true
-				
+
 				// Get the default view from settings (this is the source of truth)
 				const defaultView = settings?.fileBrowser?.defaultView || 'grid'
 				const settingViewMode = defaultView === 'list' ? 'list' : 'grid'
-				
+
 				// Always use the setting as the default
 				// The setting is the source of truth - if user changes it, we should respect it
 				// localStorage is only used if settings haven't loaded yet
@@ -545,50 +613,50 @@ export default {
 			let newIndex = this.focusedIndex
 
 			switch (event.key) {
-				case 'ArrowDown':
-					event.preventDefault()
-					newIndex = this.focusedIndex < files.length - 1 ? this.focusedIndex + 1 : 0
-					this.focusedIndex = newIndex
-					// Focus the element
-					this.$nextTick(() => {
-						const items = this.$el.querySelectorAll('.file-list-item')
-						if (items[newIndex]) {
-							items[newIndex].focus()
-						}
-					})
-					break
-				case 'ArrowUp':
-					event.preventDefault()
-					newIndex = this.focusedIndex > 0 ? this.focusedIndex - 1 : files.length - 1
-					this.focusedIndex = newIndex
-					// Focus the element
-					this.$nextTick(() => {
-						const items = this.$el.querySelectorAll('.file-list-item')
-						if (items[newIndex]) {
-							items[newIndex].focus()
-						}
-					})
-					break
-				case 'Home':
-					event.preventDefault()
-					this.focusedIndex = 0
-					this.$nextTick(() => {
-						const items = this.$el.querySelectorAll('.file-list-item')
-						if (items[0]) {
-							items[0].focus()
-						}
-					})
-					break
-				case 'End':
-					event.preventDefault()
-					this.focusedIndex = files.length - 1
-					this.$nextTick(() => {
-						const items = this.$el.querySelectorAll('.file-list-item')
-						if (items[files.length - 1]) {
-							items[files.length - 1].focus()
-						}
-					})
-					break
+			case 'ArrowDown':
+				event.preventDefault()
+				newIndex = this.focusedIndex < files.length - 1 ? this.focusedIndex + 1 : 0
+				this.focusedIndex = newIndex
+				// Focus the element
+				this.$nextTick(() => {
+					const items = this.$el.querySelectorAll('.file-list-item')
+					if (items[newIndex]) {
+						items[newIndex].focus()
+					}
+				})
+				break
+			case 'ArrowUp':
+				event.preventDefault()
+				newIndex = this.focusedIndex > 0 ? this.focusedIndex - 1 : files.length - 1
+				this.focusedIndex = newIndex
+				// Focus the element
+				this.$nextTick(() => {
+					const items = this.$el.querySelectorAll('.file-list-item')
+					if (items[newIndex]) {
+						items[newIndex].focus()
+					}
+				})
+				break
+			case 'Home':
+				event.preventDefault()
+				this.focusedIndex = 0
+				this.$nextTick(() => {
+					const items = this.$el.querySelectorAll('.file-list-item')
+					if (items[0]) {
+						items[0].focus()
+					}
+				})
+				break
+			case 'End':
+				event.preventDefault()
+				this.focusedIndex = files.length - 1
+				this.$nextTick(() => {
+					const items = this.$el.querySelectorAll('.file-list-item')
+					if (items[files.length - 1]) {
+						items[files.length - 1].focus()
+					}
+				})
+				break
 			}
 		},
 		selectFile(file) {
@@ -614,7 +682,6 @@ export default {
 				if (!Array.isArray(subfolders) && typeof subfolders === 'object') {
 					subfolders = Object.values(subfolders)
 				}
-
 
 				// Emit with both files and subfolders
 				this.$emit('navigate-folder', {

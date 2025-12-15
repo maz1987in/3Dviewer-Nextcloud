@@ -295,9 +295,9 @@ export default {
 		isMobile: { type: Boolean, default: false },
 
 		// Cache stats
-		cacheStats: { 
-			type: Object, 
-			default: () => ({ enabled: false, count: 0, sizeMB: 0, hits: 0, misses: 0, hitRate: 0 }) 
+		cacheStats: {
+			type: Object,
+			default: () => ({ enabled: false, count: 0, sizeMB: 0, hits: 0, misses: 0, hitRate: 0 }),
 		},
 	},
 

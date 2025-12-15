@@ -353,10 +353,10 @@ class ObjLoader extends BaseLoader {
 							if (!materials || !materials.materials || Object.keys(materials.materials).length === 0) {
 								logger.warn('OBJLoader', ' Native MTLLoader returned no materials, falling back to manual parser')
 								materials = this.parseMtlManually(mtlText, THREE)
-							logger.info('OBJLoader', 'Manual MTL parser used (native empty)', { mtlName })
+								logger.info('OBJLoader', 'Manual MTL parser used (native empty)', { mtlName })
 							} else {
 								logger.info('OBJLoader', ' Native MTLLoader successful:', Object.keys(materials.materials).length, 'materials')
-							logger.info('OBJLoader', 'Native MTLLoader materials', { mtlName, materialCount: Object.keys(materials.materials || {}).length, materialNames: Object.keys(materials.materials || {}) })
+								logger.info('OBJLoader', 'Native MTLLoader materials', { mtlName, materialCount: Object.keys(materials.materials || {}).length, materialNames: Object.keys(materials.materials || {}) })
 								// Set up custom texture loader for native materials
 								this.setupCustomTextureLoader(materials, additionalFiles, THREE)
 							}

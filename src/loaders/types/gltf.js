@@ -44,24 +44,24 @@ class GltfLoader extends BaseLoader {
 			await this.setupResourceManager(additionalFiles, isModalContext)
 		}
 
-			try {
-				// Parse the model (pass extension for format detection)
-				const extension = context.fileExtension || 'gltf'
-				const gltf = await this.parseModel(arrayBuffer, extension)
+		try {
+			// Parse the model (pass extension for format detection)
+			const extension = context.fileExtension || 'gltf'
+			const gltf = await this.parseModel(arrayBuffer, extension)
 
-				// Process the result
-				const result = this.processModel(gltf.scene, context)
+			// Process the result
+			const result = this.processModel(gltf.scene, context)
 
-				// Add animations if available
-				if (gltf.animations && gltf.animations.length > 0) {
-					result.animations = gltf.animations
-					this.logInfo('GLTF animations extracted', {
-						count: gltf.animations.length,
-						names: gltf.animations.map(clip => clip.name || 'unnamed'),
-					})
-				}
+			// Add animations if available
+			if (gltf.animations && gltf.animations.length > 0) {
+				result.animations = gltf.animations
+				this.logInfo('GLTF animations extracted', {
+					count: gltf.animations.length,
+					names: gltf.animations.map(clip => clip.name || 'unnamed'),
+				})
+			}
 
-				return result
+			return result
 		} finally {
 			// Restore original texture loader if we patched it
 			if (textureLoaderPatch && textureLoaderPatch.restore) {
@@ -97,10 +97,10 @@ class GltfLoader extends BaseLoader {
 		const hasWrapper = document.querySelector('.threedviewer-wrapper')
 		const appRoot = document.getElementById('threedviewer')
 		const hasViewerModal = document.querySelector('.viewer-modal')
-		
+
 		// Also check if we're in Nextcloud's viewer (URL contains /apps/files/files/)
 		const isNextcloudViewer = window.location.href.includes('/apps/files/files/')
-		
+
 		if (hasWrapper && (!appRoot || !appRoot.dataset?.fileId)) {
 			this.logInfo('GLTFLoader', 'Modal context detected: ViewerComponent present without standalone app root')
 			return true
@@ -132,7 +132,7 @@ class GltfLoader extends BaseLoader {
 	 */
 	async patchTextureLoaderForCSP() {
 		this.logInfo('GLTFLoader', 'Modal viewer detected - patching texture loader to convert blob URLs to data URIs')
-		
+
 		// Store original methods and blob tracking
 		const patches = {
 			originalFileLoaderLoad: null,
@@ -150,36 +150,36 @@ class GltfLoader extends BaseLoader {
 		if (typeof URL !== 'undefined' && URL.createObjectURL) {
 			patches.originalCreateObjectURL = URL.createObjectURL
 			const self = this
-			
+
 			URL.createObjectURL = function(blob) {
 				const url = patches.originalCreateObjectURL.call(URL, blob)
 				// Store mapping so we can retrieve the blob later
 				patches.blobUrlMap.set(url, blob)
 				const isImage = blob.type && blob.type.startsWith('image/')
-				self.logInfo('GLTFLoader', 'Tracking blob URL creation', { 
+				self.logInfo('GLTFLoader', 'Tracking blob URL creation', {
 					url: url.substring(0, 50),
 					blobType: blob.type,
 					blobSize: blob.size,
-					isImage
+					isImage,
 				})
-				
+
 				// Pre-convert blob to data URI asynchronously for synchronous access later
 				// This allows Image.src setter to work synchronously
 				if (isImage) {
 					self.blobToDataURI(blob).then((dataURI) => {
 						patches.dataURICache.set(url, dataURI)
-						self.logInfo('GLTFLoader', 'Pre-cached data URI for blob URL', { 
+						self.logInfo('GLTFLoader', 'Pre-cached data URI for blob URL', {
 							url: url.substring(0, 50),
-							dataURILength: dataURI.length
+							dataURILength: dataURI.length,
 						})
 					}).catch((error) => {
 						self.logWarning('GLTFLoader', 'Failed to pre-cache data URI for blob URL', {
 							url: url.substring(0, 50),
-							error: error.message
+							error: error.message,
 						})
 					})
 				}
-				
+
 				return url
 			}
 		}
@@ -189,29 +189,29 @@ class GltfLoader extends BaseLoader {
 		// This is the most critical patch for CSP compliance
 		if (typeof Image !== 'undefined' && Image.prototype) {
 			const self = this
-			const imageSrcDescriptor = Object.getOwnPropertyDescriptor(Image.prototype, 'src') || 
-			                           Object.getOwnPropertyDescriptor(Object.getPrototypeOf(Image.prototype), 'src')
-			
+			const imageSrcDescriptor = Object.getOwnPropertyDescriptor(Image.prototype, 'src')
+			                           || Object.getOwnPropertyDescriptor(Object.getPrototypeOf(Image.prototype), 'src')
+
 			if (imageSrcDescriptor && imageSrcDescriptor.set) {
 				patches.originalImageSrcSetter = imageSrcDescriptor.set
-				
+
 				Object.defineProperty(Image.prototype, 'src', {
-					set: function(value) {
+					set(value) {
 						if (typeof value === 'string' && value.startsWith('blob:')) {
 							self.logInfo('GLTFLoader', 'Intercepting blob URL in Image.src setter', { url: value.substring(0, 50) })
-							
+
 							// Check if we have a cached data URI (for synchronous access)
 							const cachedDataURI = patches.dataURICache.get(value)
 							if (cachedDataURI) {
 								// Use cached data URI synchronously - this maintains THREE.js's expected behavior
 								self.logInfo('GLTFLoader', 'Using cached data URI for Image.src (synchronous)', {
 									url: value.substring(0, 50),
-									dataURILength: cachedDataURI.length
+									dataURILength: cachedDataURI.length,
 								})
 								patches.originalImageSrcSetter.call(this, cachedDataURI)
 								return
 							}
-							
+
 							// If not cached, try to convert asynchronously (fallback for edge cases)
 							const originalBlob = patches.blobUrlMap.get(value)
 							if (originalBlob) {
@@ -221,14 +221,14 @@ class GltfLoader extends BaseLoader {
 									patches.dataURICache.set(value, dataURI)
 									self.logInfo('GLTFLoader', 'Converted blob URL to data URI for Image.src (async fallback)', {
 										url: value.substring(0, 50),
-										dataURILength: dataURI.length
+										dataURILength: dataURI.length,
 									})
 									// Set the data URI instead
 									patches.originalImageSrcSetter.call(this, dataURI)
 								}).catch((error) => {
 									self.logWarning('GLTFLoader', 'Failed to convert blob to data URI for Image.src', {
 										url: value.substring(0, 50),
-										error: error.message
+										error: error.message,
 									})
 									// Don't set the blob URL as it will be blocked by CSP
 									patches.originalImageSrcSetter.call(this, '')
@@ -256,7 +256,7 @@ class GltfLoader extends BaseLoader {
 						return this._src || ''
 					},
 					configurable: true,
-					enumerable: true
+					enumerable: true,
 				})
 			} else {
 				// Fallback: patch using __defineSetter__ if available
@@ -265,23 +265,23 @@ class GltfLoader extends BaseLoader {
 					patches.originalImageSrcSetter = function(value) {
 						originalSrc = value
 					}
-					
+
 					Image.prototype.__defineSetter__('src', function(value) {
 						if (typeof value === 'string' && value.startsWith('blob:')) {
 							self.logInfo('GLTFLoader', 'Intercepting blob URL in Image.src (fallback)', { url: value.substring(0, 50) })
-							
+
 							// Check if we have a cached data URI (for synchronous access)
 							const cachedDataURI = patches.dataURICache.get(value)
 							if (cachedDataURI) {
 								// Use cached data URI synchronously
 								self.logInfo('GLTFLoader', 'Using cached data URI for Image.src (fallback, synchronous)', {
 									url: value.substring(0, 50),
-									dataURILength: cachedDataURI.length
+									dataURILength: cachedDataURI.length,
 								})
 								this._src = cachedDataURI
 								return
 							}
-							
+
 							// If not cached, try to convert asynchronously (fallback for edge cases)
 							const originalBlob = patches.blobUrlMap.get(value)
 							if (originalBlob) {
@@ -290,13 +290,13 @@ class GltfLoader extends BaseLoader {
 									patches.dataURICache.set(value, dataURI)
 									self.logInfo('GLTFLoader', 'Converted blob URL to data URI for Image.src (fallback, async)', {
 										url: value.substring(0, 50),
-										dataURILength: dataURI.length
+										dataURILength: dataURI.length,
 									})
 									this._src = dataURI
 								}).catch((error) => {
 									self.logWarning('GLTFLoader', 'Failed to convert blob to data URI for Image.src (fallback)', {
 										url: value.substring(0, 50),
-										error: error.message
+										error: error.message,
 									})
 									// Don't set the blob URL as it will be blocked by CSP
 									this._src = ''
@@ -317,7 +317,7 @@ class GltfLoader extends BaseLoader {
 						}
 						this._src = value
 					})
-					
+
 					Image.prototype.__defineGetter__('src', function() {
 						return this._src || ''
 					})
@@ -332,14 +332,14 @@ class GltfLoader extends BaseLoader {
 		if (typeof fetch !== 'undefined') {
 			patches.originalFetch = window.fetch
 			const self = this
-			
+
 			window.fetch = async function(input, init) {
 				const url = typeof input === 'string' ? input : (input?.url || '')
-				
+
 				// Handle blob URLs
 				if (typeof url === 'string' && url.startsWith('blob:')) {
 					self.logInfo('GLTFLoader', 'Intercepting blob URL in fetch', { url: url.substring(0, 50) })
-					
+
 					const originalBlob = patches.blobUrlMap.get(url)
 					if (originalBlob) {
 						// Convert blob to data URI and return as Response
@@ -349,13 +349,13 @@ class GltfLoader extends BaseLoader {
 								status: 200,
 								statusText: 'OK',
 								headers: {
-									'Content-Type': type || originalBlob.type || 'application/octet-stream'
-								}
+									'Content-Type': type || originalBlob.type || 'application/octet-stream',
+								},
 							})
 						}).catch((error) => {
 							self.logWarning('GLTFLoader', 'Failed to convert blob to data URI in fetch', {
 								url: url.substring(0, 50),
-								error: error.message
+								error: error.message,
 							})
 							// Return error response instead of falling through to original fetch
 							return Promise.reject(new Error('Failed to convert blob URL - CSP violation prevented'))
@@ -366,11 +366,11 @@ class GltfLoader extends BaseLoader {
 						return Promise.reject(new Error('Blob URL not tracked - CSP violation prevented'))
 					}
 				}
-				
+
 				// Handle data URIs - CSP blocks fetch() on data URIs, so we need to decode them manually
 				if (typeof url === 'string' && url.startsWith('data:')) {
 					self.logInfo('GLTFLoader', 'Intercepting data URI in fetch (CSP workaround)', { url: url.substring(0, 50) })
-					
+
 					try {
 						// Parse data URI: data:[<mediatype>][;base64],<data>
 						const dataUriMatch = url.match(/^data:([^;]*)?(;base64)?,(.*)$/)
@@ -378,7 +378,7 @@ class GltfLoader extends BaseLoader {
 							const contentType = dataUriMatch[1] || 'application/octet-stream'
 							const isBase64 = !!dataUriMatch[2]
 							const data = dataUriMatch[3]
-							
+
 							let arrayBuffer
 							if (isBase64) {
 								// Decode base64
@@ -397,32 +397,32 @@ class GltfLoader extends BaseLoader {
 								}
 								arrayBuffer = bytes.buffer
 							}
-							
+
 							self.logInfo('GLTFLoader', 'Decoded data URI to ArrayBuffer', {
 								url: url.substring(0, 50),
 								contentType,
-								size: arrayBuffer.byteLength
+								size: arrayBuffer.byteLength,
 							})
-							
+
 							return new Response(arrayBuffer, {
 								status: 200,
 								statusText: 'OK',
 								headers: {
-									'Content-Type': contentType
-								}
+									'Content-Type': contentType,
+								},
 							})
 						}
-						
+
 						// If parsing fails, fall through to original fetch (will likely fail)
 						self.logWarning('GLTFLoader', 'Failed to parse data URI', { url: url.substring(0, 50) })
 					} catch (error) {
 						self.logWarning('GLTFLoader', 'Error decoding data URI', {
 							url: url.substring(0, 50),
-							error: error.message
+							error: error.message,
 						})
 					}
 				}
-				
+
 				return patches.originalFetch.call(window, input, init)
 			}
 		}
@@ -433,7 +433,7 @@ class GltfLoader extends BaseLoader {
 			patches.originalXHROpen = XMLHttpRequest.prototype.open
 			patches.originalXHRSend = XMLHttpRequest.prototype.send
 			const self = this
-			
+
 			XMLHttpRequest.prototype.open = function(method, url, ...args) {
 				// Store the URL for later processing in send()
 				if (typeof url === 'string' && url.startsWith('blob:')) {
@@ -454,50 +454,50 @@ class GltfLoader extends BaseLoader {
 					const method = this._xhrMethod
 					const args = this._xhrArgs
 					const originalBlob = patches.blobUrlMap.get(blobUrl)
-					
+
 					// Clear the flag
 					this._blobUrlToConvert = null
 					this._xhrMethod = null
 					this._xhrArgs = null
-					
+
 					if (originalBlob) {
 						self.logInfo('GLTFLoader', 'Converting blob URL to data URI in XHR send()', { url: blobUrl.substring(0, 50) })
-						
+
 						// Convert to data URI asynchronously
 						self.blobToDataURI(originalBlob).then((dataURI) => {
 							// Create a new XHR with the data URI
 							const newXHR = new XMLHttpRequest()
 							patches.originalXHROpen.call(newXHR, method, dataURI, ...args)
-							
+
 							// Copy over event handlers and properties
 							if (this.onload) newXHR.onload = this.onload
 							if (this.onerror) newXHR.onerror = this.onerror
 							if (this.onprogress) newXHR.onprogress = this.onprogress
 							if (this.ontimeout) newXHR.ontimeout = this.ontimeout
 							newXHR.responseType = this.responseType
-							
+
 							// Replace this XHR's methods with the new one's
 							Object.setPrototypeOf(this, newXHR)
-							
+
 							// Send the new XHR
 							patches.originalXHRSend.call(newXHR, ...sendArgs)
 						}).catch((error) => {
-							self.logWarning('GLTFLoader', 'Failed to convert blob to data URI in XHR', { 
+							self.logWarning('GLTFLoader', 'Failed to convert blob to data URI in XHR', {
 								url: blobUrl.substring(0, 50),
-								error: error.message 
+								error: error.message,
 							})
 							// Don't send with blob URL as it will be blocked by CSP
 							// Trigger error event instead
 							if (this.onerror) {
 								this.onerror(new Error('Failed to convert blob URL - CSP violation prevented'))
 							}
-							return
+
 						})
 						return
 					} else {
 						// Blob not found in tracking map - cannot convert
-						self.logWarning('GLTFLoader', 'Blob not found in tracking map for XHR - cannot convert, will not send request to prevent CSP violation', { 
-							url: blobUrl.substring(0, 50)
+						self.logWarning('GLTFLoader', 'Blob not found in tracking map for XHR - cannot convert, will not send request to prevent CSP violation', {
+							url: blobUrl.substring(0, 50),
 						})
 						// Trigger error event instead of sending the request
 						if (this.onerror) {
@@ -506,7 +506,7 @@ class GltfLoader extends BaseLoader {
 						return
 					}
 				}
-				
+
 				// Normal send (for non-blob URLs)
 				return patches.originalXHRSend.call(this, ...sendArgs)
 			}
@@ -517,30 +517,30 @@ class GltfLoader extends BaseLoader {
 			const FileLoader = THREE.FileLoader
 			const originalLoad = FileLoader.prototype.load
 			const self = this
-			
+
 			patches.originalFileLoaderLoad = originalLoad
-			
+
 			FileLoader.prototype.load = function(url, onLoad, onProgress, onError) {
 				// Check if URL is a blob URL
 				if (typeof url === 'string' && url.startsWith('blob:')) {
 					self.logInfo('GLTFLoader', 'Intercepting blob URL in FileLoader, converting to data URI', { url: url.substring(0, 50) })
-					
+
 					// Try to get the original blob from our tracking map
 					const originalBlob = patches.blobUrlMap.get(url)
-					
+
 					if (originalBlob) {
 						// We have the original blob - convert it to data URI directly
 						self.blobToDataURI(originalBlob).then((dataURI) => {
-							self.logInfo('GLTFLoader', 'Converted blob URL to data URI using tracked blob', { 
+							self.logInfo('GLTFLoader', 'Converted blob URL to data URI using tracked blob', {
 								url: url.substring(0, 50),
-								dataURILength: dataURI.length 
+								dataURILength: dataURI.length,
 							})
 							// Call original load with data URI
 							originalLoad.call(this, dataURI, onLoad, onProgress, onError)
 						}).catch((error) => {
-							self.logWarning('GLTFLoader', 'Failed to convert tracked blob to data URI', { 
+							self.logWarning('GLTFLoader', 'Failed to convert tracked blob to data URI', {
 								url: url.substring(0, 50),
-								error: error.message 
+								error: error.message,
 							})
 							// Fallback: try to use original load with blob URL (might work if CSP allows)
 							try {
@@ -551,10 +551,10 @@ class GltfLoader extends BaseLoader {
 						})
 						return
 					}
-					
+
 					// Blob not in our map - try to fetch it (might fail due to CSP)
 					self.logInfo('GLTFLoader', 'Blob URL not in tracking map, attempting fetch', { url: url.substring(0, 50) })
-					
+
 					// Try fetch first
 					fetch(url).then(async (response) => {
 						if (response.ok) {
@@ -566,59 +566,59 @@ class GltfLoader extends BaseLoader {
 						}
 					}).catch((fetchError) => {
 						// Fetch failed - likely CSP blocking
-						self.logWarning('GLTFLoader', 'Fetch failed for blob URL (likely CSP), trying XHR', { 
+						self.logWarning('GLTFLoader', 'Fetch failed for blob URL (likely CSP), trying XHR', {
 							url: url.substring(0, 50),
-							error: fetchError.message 
+							error: fetchError.message,
 						})
-						
+
 						// Try XHR as fallback
 						try {
 							const xhr = new XMLHttpRequest()
 							xhr.open('GET', url)
 							xhr.responseType = 'blob'
-							
+
 							xhr.onload = async () => {
 								try {
 									const blob = xhr.response
 									const dataURI = await self.blobToDataURI(blob)
 									originalLoad.call(this, dataURI, onLoad, onProgress, onError)
 								} catch (conversionError) {
-									self.logWarning('GLTFLoader', 'Failed to convert blob to data URI', { 
+									self.logWarning('GLTFLoader', 'Failed to convert blob to data URI', {
 										url: url.substring(0, 50),
-										error: conversionError.message 
+										error: conversionError.message,
 									})
 									if (onError) onError(conversionError)
 								}
 							}
-							
+
 							xhr.onerror = () => {
 								// Both fetch and XHR failed - CSP is blocking
-								self.logWarning('GLTFLoader', 'Blob URL blocked by CSP, cannot convert to data URI', { 
-									url: url.substring(0, 50) 
+								self.logWarning('GLTFLoader', 'Blob URL blocked by CSP, cannot convert to data URI', {
+									url: url.substring(0, 50),
 								})
 								if (onError) onError(new Error('CSP blocked blob URL and conversion failed'))
 							}
-							
+
 							xhr.send()
 						} catch (xhrError) {
 							// XHR setup failed
-							self.logWarning('GLTFLoader', 'Failed to setup XHR for blob URL', { 
+							self.logWarning('GLTFLoader', 'Failed to setup XHR for blob URL', {
 								url: url.substring(0, 50),
-								error: xhrError.message 
+								error: xhrError.message,
 							})
 							if (onError) onError(xhrError)
 						}
 					})
 					return
 				}
-				
+
 				// For non-blob URLs, use original load
 				return originalLoad.call(this, url, onLoad, onProgress, onError)
 			}
 		} else {
 			this.logWarning('GLTFLoader', 'THREE.FileLoader not available, cannot patch texture loading')
 		}
-		
+
 		// Return restore function
 		return {
 			restore: () => {
@@ -642,11 +642,11 @@ class GltfLoader extends BaseLoader {
 					try {
 						Object.defineProperty(Image.prototype, 'src', {
 							set: patches.originalImageSrcSetter,
-							get: function() {
+							get() {
 								return this._src || ''
 							},
 							configurable: true,
-							enumerable: true
+							enumerable: true,
 						})
 					} catch (error) {
 						this.logWarning('GLTFLoader', 'Failed to restore Image.prototype.src', { error: error.message })
@@ -654,7 +654,7 @@ class GltfLoader extends BaseLoader {
 				}
 				patches.blobUrlMap.clear()
 				this.logInfo('GLTFLoader', 'Texture loader patches restored')
-			}
+			},
 		}
 	}
 
@@ -672,32 +672,32 @@ class GltfLoader extends BaseLoader {
 			for (const file of additionalFiles) {
 				let url
 				const isImage = file.type && file.type.startsWith('image/')
-				const isBuffer = file.type === 'application/octet-stream' || 
-				                 file.name.endsWith('.bin') || 
-				                 file.name.endsWith('.draco') ||
-				                 !file.type
-				
+				const isBuffer = file.type === 'application/octet-stream'
+				                 || file.name.endsWith('.bin')
+				                 || file.name.endsWith('.draco')
+				                 || !file.type
+
 				// In modal context (CSP restrictions), use data URIs for both images and buffers
 				// Data URIs are allowed by CSP, blob URLs are not
 				if (useDataURIs) {
 					// Convert to data URI for CSP compatibility (both images and buffers)
 					const blob = new Blob([file], { type: file.type || 'application/octet-stream' })
 					url = await this.blobToDataURI(blob)
-					this.logInfo('Created data URI for resource:', file.name, { 
-						type: file.type, 
+					this.logInfo('Created data URI for resource:', file.name, {
+						type: file.type,
 						size: file.size,
 						isBuffer,
-						isImage 
+						isImage,
 					})
 				} else {
 					// Use blob URL when not in modal context (more efficient for large files)
 					const blob = new Blob([file], { type: file.type || 'application/octet-stream' })
 					url = URL.createObjectURL(blob)
-					this.logInfo('Created blob URL for resource:', file.name, { 
-						type: file.type, 
+					this.logInfo('Created blob URL for resource:', file.name, {
+						type: file.type,
 						size: file.size,
 						isBuffer,
-						isImage 
+						isImage,
 					})
 				}
 				resourceMap.set(file.name, url)

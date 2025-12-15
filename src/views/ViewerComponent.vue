@@ -18,10 +18,22 @@
 		<!-- CSP Texture Warning Banner -->
 		<div v-if="hasLoaded && showTextureWarning" class="texture-warning-banner">
 			<div class="texture-warning-content">
-				<svg class="texture-warning-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-					<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-					<line x1="12" y1="9" x2="12" y2="13"></line>
-					<line x1="12" y1="17" x2="12.01" y2="17"></line>
+				<svg class="texture-warning-icon"
+					width="20"
+					height="20"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2">
+					<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+					<line x1="12"
+						y1="9"
+						x2="12"
+						y2="13" />
+					<line x1="12"
+						y1="17"
+						x2="12.01"
+						y2="17" />
 				</svg>
 				<div class="texture-warning-text">
 					<strong>{{ t('threedviewer', 'Textures not supported in preview') }}</strong>
@@ -70,12 +82,6 @@ import { logger } from '../utils/logger.js'
 
 export default {
 	name: 'ViewerComponent',
-	emits: [
-		'update:loaded',
-		'error',
-		'push-toast',
-		'model-loaded',
-	],
 	components: {
 		NcProgressBar,
 		NcButton,
@@ -115,6 +121,12 @@ export default {
 			default: () => [],
 		},
 	},
+	emits: [
+		'update:loaded',
+		'error',
+		'push-toast',
+		'model-loaded',
+	],
 
 	// Setup function - integrates composables with Options API
 	setup() {
@@ -131,7 +143,7 @@ export default {
 		}
 	},
 
-		data() {
+	data() {
 		return {
 			scene: null,
 			camera: null,
@@ -1083,17 +1095,17 @@ export default {
 				const messageStr = String(message || '')
 				const argsStr = args.map(arg => String(arg || '')).join(' ')
 				const fullMessage = messageStr + ' ' + argsStr
-				
+
 				// Check for CSP-related errors - be more lenient with matching
-				if (fullMessage.includes('Content Security Policy') ||
-				    fullMessage.includes('CSP') ||
-				    fullMessage.includes('violates') ||
-				    (fullMessage.includes('blob:') && (fullMessage.includes('violates') || fullMessage.includes('Refused'))) ||
-				    fullMessage.includes('THREE.GLTFLoader: Couldn\'t load texture blob:')) {
+				if (fullMessage.includes('Content Security Policy')
+				    || fullMessage.includes('CSP')
+				    || fullMessage.includes('violates')
+				    || (fullMessage.includes('blob:') && (fullMessage.includes('violates') || fullMessage.includes('Refused')))
+				    || fullMessage.includes('THREE.GLTFLoader: Couldn\'t load texture blob:')) {
 					cspErrorCount++
-					logger.warn('ViewerComponent', 'CSP error detected for texture loading', { 
+					logger.warn('ViewerComponent', 'CSP error detected for texture loading', {
 						count: cspErrorCount,
-						message: messageStr.substring(0, 100)
+						message: messageStr.substring(0, 100),
 					})
 
 					// Show warning after detecting CSP errors

@@ -19,7 +19,7 @@ class VrmlLoader extends BaseLoader {
 	 */
 	async loadModel(arrayBuffer, context) {
 		// Convert ArrayBuffer to text for parsing
-		let text = decodeTextFromBuffer(arrayBuffer)
+		const text = decodeTextFromBuffer(arrayBuffer)
 
 		// Check if it looks like a VRML file
 		if (!text.toLowerCase().includes('vrml') && !text.toLowerCase().includes('#vrml')) {
@@ -122,7 +122,7 @@ class VrmlLoader extends BaseLoader {
 
 				// Provide more helpful error messages for other errors
 				let errorMessage = `Failed to load VRML file: ${error.message}`
-				
+
 				if (error.message.includes('Parsing')) {
 					errorMessage += '. The VRML file structure may be invalid or corrupted.'
 				}
@@ -202,7 +202,7 @@ class VrmlLoader extends BaseLoader {
 
 		// Normalize line endings (always safe)
 		text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
-		
+
 		// Remove null bytes (always safe)
 		text = text.replace(/\0/g, '')
 

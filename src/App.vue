@@ -439,12 +439,12 @@ export default {
 				if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
 					continue
 				}
-				
+
 				// Only process own properties
 				if (!Object.prototype.hasOwnProperty.call(source, key)) {
 					continue
 				}
-				
+
 				if (source[key] instanceof Object && !Array.isArray(source[key]) && key in target) {
 					Object.assign(target[key], this.deepMerge(target[key], source[key]))
 				} else {
@@ -683,7 +683,7 @@ export default {
 			this.lastError = null
 			this.isLoading = false
 			this.modelLoaded = true
-			
+
 			// Update cache stats immediately after model loads (files may have been cached)
 			await this.updateCacheStats()
 			// Sync animation presets from viewer
@@ -746,11 +746,11 @@ export default {
 			console.error('App: Model loading error:', error)
 
 			// Show error in toast with longer timeout for reading
-			this.pushToast({ 
-				type: 'error', 
-				title: this.tErrorTitle(), 
+			this.pushToast({
+				type: 'error',
+				title: this.tErrorTitle(),
 				message,
-				timeout: 10000 // 10 seconds for error messages
+				timeout: 10000, // 10 seconds for error messages
 			})
 
 			// Reset loading state
@@ -996,7 +996,7 @@ export default {
 				const hasAnimationsRef = this.$refs.viewer.hasAnimations
 				const isPlayingRef = this.$refs.viewer.isAnimationPlaying
 				const isLoopingRef = this.$refs.viewer.isAnimationLooping
-				
+
 				// Helper to safely unwrap: if it's a primitive, use it; if it's a ref, unwrap it
 				const unwrap = (val) => {
 					if (val == null) return false
@@ -1007,7 +1007,7 @@ export default {
 					// Otherwise, convert to boolean
 					return Boolean(val)
 				}
-				
+
 				this.hasAnimations = unwrap(hasAnimationsRef)
 				this.isAnimationPlaying = unwrap(isPlayingRef)
 				this.isAnimationLooping = unwrap(isLoopingRef)

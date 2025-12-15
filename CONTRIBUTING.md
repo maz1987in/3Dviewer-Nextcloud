@@ -8,6 +8,7 @@ Thank you for your interest in contributing to the 3D Viewer Nextcloud app! This
 - [Getting Started](#getting-started)
 - [Development Setup](#development-setup)
 - [Making Changes](#making-changes)
+- [Pre-Commit Checks](#pre-commit-checks)
 - [Testing](#testing)
 - [Submitting Changes](#submitting-changes)
 - [Issue Reporting](#issue-reporting)
@@ -121,6 +122,56 @@ ln -s ../../.hook-checkout/post-checkout .git/hooks/post-checkout
 - Maintain **consistent naming**
 
 For code examples and architecture details, see [Technical Documentation](docs/TECHNICAL.md).
+
+## Pre-Commit Checks
+
+**IMPORTANT**: Before committing any changes, AI assistants and developers must run the following checks to ensure code quality:
+
+### Required Pre-Commit Checks
+
+1. **JavaScript/Vue Linting**:
+   ```bash
+   npm run lint
+   npm run stylelint
+   ```
+   - Fix any ESLint errors/warnings
+   - Fix any Stylelint errors/warnings
+
+2. **PHP Code Style**:
+   ```bash
+   composer run cs:fix
+   ```
+   - This will automatically fix PHP code style issues
+   - Review any changes made by the fixer
+
+3. **Build Verification** (optional but recommended):
+   ```bash
+   npm run build
+   ```
+   - Ensures the project builds without errors
+   - Catches any build-time issues
+
+### Quick Pre-Commit Command
+
+You can run all checks in sequence:
+
+```bash
+# JavaScript/Vue checks
+npm run lint && npm run stylelint
+
+# Optional: Build check
+npm run build
+```
+
+### For AI Assistants
+
+When making code changes, **always**:
+1. Run `npm run lint` and `npm run stylelint` before committing
+2. Run `composer run cs:fix` before committing PHP changes
+3. Ensure all checks pass before creating the commit
+4. If checks fail, fix the issues before proceeding
+
+> **Note**: The project has optional git hooks (see [Optional: Install Git Hooks](#optional-install-git-hooks)) that can automate these checks, but running them manually ensures you catch issues early.
 
 ## Testing
 

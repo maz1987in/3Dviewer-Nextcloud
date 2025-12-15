@@ -214,11 +214,11 @@ export async function getFileIdByPath(filePath) {
 
 					// Normalize spaces first
 					const normalizeSpacesFn = normalizeSpaces
-					
+
 					// Try matching with and without prefixes removed
-					let searchBase = normalizeSpacesFn(filenameWithoutExt)
-					let candidateBase = normalizeSpacesFn(candidateWithoutExt)
-					
+					const searchBase = normalizeSpacesFn(filenameWithoutExt)
+					const candidateBase = normalizeSpacesFn(candidateWithoutExt)
+
 					// Also try with prefixes removed
 					const searchBaseNoPrefix = normalizeSpacesFn(removePrefix(filenameWithoutExt))
 					const candidateBaseNoPrefix = normalizeSpacesFn(removePrefix(candidateWithoutExt))
@@ -255,8 +255,8 @@ export async function getFileIdByPath(filePath) {
 						}
 
 						// Strategy 4: Partial matching with length check
-						if (searchNormalizedPlural.includes(candidateNormalizedPlural) ||
-							candidateNormalizedPlural.includes(searchNormalizedPlural)) {
+						if (searchNormalizedPlural.includes(candidateNormalizedPlural)
+							|| candidateNormalizedPlural.includes(searchNormalizedPlural)) {
 							const lengthDiff = Math.abs(searchNormalizedPlural.length - candidateNormalizedPlural.length)
 							const avgLength = (searchNormalizedPlural.length + candidateNormalizedPlural.length) / 2
 							if (avgLength > 0 && lengthDiff / avgLength < 0.3) {
@@ -276,10 +276,10 @@ export async function getFileIdByPath(filePath) {
 					// Strategy 5: Color/body mapping (col/color -> body/diffuse)
 					const colorTerms = ['col', 'color', 'colour', 'diffuse', 'base', 'albedo']
 					const bodyTerms = ['body', 'diffuse', 'base', 'albedo', 'main']
-					
+
 					const searchIsColor = colorTerms.some(term => searchBaseNoPrefix.includes(term) || searchBase.includes(term))
 					const candidateIsBody = bodyTerms.some(term => candidateBaseNoPrefix.includes(term) || candidateBase.includes(term))
-					
+
 					if (searchIsColor && candidateIsBody) {
 						logger.info('MultiFileHelpers', ' Matched texture (color=body):', filename, '->', candidate.name)
 						file = candidate
@@ -288,8 +288,8 @@ export async function getFileIdByPath(filePath) {
 				} else {
 					// For non-image files (like MTL), use simpler matching
 					// Strategy 1: One name contains the other (for cases like "done_obj" vs "obj")
-					if (filenameWithoutExt.includes(candidateWithoutExt) ||
-						candidateWithoutExt.includes(filenameWithoutExt)) {
+					if (filenameWithoutExt.includes(candidateWithoutExt)
+						|| candidateWithoutExt.includes(filenameWithoutExt)) {
 						// Only match if lengths are similar (within 50% difference to avoid false matches)
 						const lengthDiff = Math.abs(filenameWithoutExt.length - candidateWithoutExt.length)
 						const avgLength = (filenameWithoutExt.length + candidateWithoutExt.length) / 2
@@ -819,13 +819,13 @@ export async function loadModelWithDependencies(fileId, filename, extension, dir
 		// Provide more helpful error messages based on status code
 		if (response.status === 404) {
 			throw new Error(
-				`File not found (ID: ${fileId}, name: ${filename}). ` +
-				`The file may have been deleted, moved, or you may not have access to it.`
+				`File not found (ID: ${fileId}, name: ${filename}). `
+				+ 'The file may have been deleted, moved, or you may not have access to it.',
 			)
 		} else if (response.status === 403) {
 			throw new Error(
-				`Access denied to file (ID: ${fileId}, name: ${filename}). ` +
-				`You may not have permission to access this file.`
+				`Access denied to file (ID: ${fileId}, name: ${filename}). `
+				+ 'You may not have permission to access this file.',
 			)
 		} else {
 			throw new Error(errorMessage)

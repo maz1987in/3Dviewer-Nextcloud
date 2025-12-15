@@ -49,7 +49,7 @@ function isFbxFormatBinary(buffer) {
 	const view = new DataView(buffer)
 	// Check for FBX binary magic: "Kaydara FBX Binary  \0" (23 bytes)
 	if (buffer.byteLength < 23) return false
-	
+
 	const magic = convertArrayBufferToString(buffer.slice(0, 23))
 	return magic.startsWith('Kaydara FBX Binary')
 }
@@ -152,22 +152,22 @@ class FbxLoader extends BaseLoader {
 			})
 
 			// Detect specific error patterns that indicate structural incompatibility
-			const isStructuralError = error.message.includes("Cannot read properties of undefined") ||
-				error.message.includes("reading 'name'") ||
-				error.message.includes("is not defined")
+			const isStructuralError = error.message.includes('Cannot read properties of undefined')
+				|| error.message.includes("reading 'name'")
+				|| error.message.includes('is not defined')
 
 			// Provide a helpful error message
-			let errorMessage = `FBX 6.1 format is not fully compatible with the Three.js FBXLoader. `
-			
+			let errorMessage = 'FBX 6.1 format is not fully compatible with the Three.js FBXLoader. '
+
 			if (isStructuralError) {
-				errorMessage += `The file structure contains elements that the loader cannot parse (missing or undefined properties). `
+				errorMessage += 'The file structure contains elements that the loader cannot parse (missing or undefined properties). '
 			} else {
-				errorMessage += `The file structure differs from supported versions (7.0+ for ASCII, 6.4+ for binary). `
+				errorMessage += 'The file structure differs from supported versions (7.0+ for ASCII, 6.4+ for binary). '
 			}
-			
-			errorMessage += `Please convert the file to a supported FBX version (7.0 or later) using Autodesk FBX Converter, Blender, or another 3D tool. ` +
-				`Alternatively, use an alternative format like glTF, OBJ, or DAE. ` +
-				`Original error: ${error.message}`
+
+			errorMessage += 'Please convert the file to a supported FBX version (7.0 or later) using Autodesk FBX Converter, Blender, or another 3D tool. '
+				+ 'Alternatively, use an alternative format like glTF, OBJ, or DAE. '
+				+ `Original error: ${error.message}`
 
 			throw new Error(errorMessage)
 		}
@@ -277,8 +277,8 @@ class FbxLoader extends BaseLoader {
 
 			// Strategy 3: Partial match (texture name contains file name or vice versa)
 			if (textureExt === fileExt) {
-				if (textureNameWithoutExt.includes(fileNameWithoutExt) ||
-					fileNameWithoutExt.includes(textureNameWithoutExt)) {
+				if (textureNameWithoutExt.includes(fileNameWithoutExt)
+					|| fileNameWithoutExt.includes(textureNameWithoutExt)) {
 					// Only use partial match if lengths are similar (within 20% difference)
 					const lengthDiff = Math.abs(textureNameWithoutExt.length - fileNameWithoutExt.length)
 					const avgLength = (textureNameWithoutExt.length + fileNameWithoutExt.length) / 2
@@ -344,8 +344,8 @@ class FbxLoader extends BaseLoader {
 				}
 
 				// Check if one contains the other (for partial matches)
-				if (textureNormalized.includes(fileNormalized) ||
-					fileNormalized.includes(textureNormalized)) {
+				if (textureNormalized.includes(fileNormalized)
+					|| fileNormalized.includes(textureNormalized)) {
 					// Only use partial match if lengths are similar (within 30% difference)
 					const lengthDiff = Math.abs(textureNormalized.length - fileNormalized.length)
 					const avgLength = (textureNormalized.length + fileNormalized.length) / 2
@@ -366,10 +366,10 @@ class FbxLoader extends BaseLoader {
 				// "col" or "color" often refers to diffuse/base/body texture
 				const colorTerms = ['col', 'color', 'colour', 'diffuse', 'base', 'albedo']
 				const bodyTerms = ['body', 'diffuse', 'base', 'albedo', 'main']
-				
+
 				const textureIsColor = colorTerms.some(term => textureBase.includes(term))
 				const fileIsBody = bodyTerms.some(term => fileBase.includes(term))
-				
+
 				if (textureIsColor && fileIsBody) {
 					logger.debug('FBXLoader', 'Matched texture (color=body mapping)', {
 						textureName,

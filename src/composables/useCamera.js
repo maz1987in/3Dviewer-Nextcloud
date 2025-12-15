@@ -22,19 +22,19 @@ if (THREE.Object3D && THREE.Object3D.prototype && !THREE.Object3D.prototype._ori
 				this.matrixWorld = new THREE.Matrix4()
 				this.matrixWorld.identity()
 			}
-			
+
 			// Ensure matrix exists (used as second argument in multiplyMatrices)
 			if (!this.matrix || !(this.matrix instanceof THREE.Matrix4)) {
 				this.matrix = new THREE.Matrix4()
 				this.matrix.identity()
 			}
-			
+
 			// Ensure parent matrixWorld exists (used as first argument in multiplyMatrices)
 			if (this.parent && (!this.parent.matrixWorld || !(this.parent.matrixWorld instanceof THREE.Matrix4))) {
 				this.parent.matrixWorld = new THREE.Matrix4()
 				this.parent.matrixWorld.identity()
 			}
-			
+
 			// Call original method
 			this._origUpdateMatrixWorld(force)
 		} catch (e) {
@@ -742,11 +742,11 @@ export function useCamera() {
 	const ensureSceneMatricesValid = (object, depth = 0, visited = new Set()) => {
 		// Prevent infinite recursion (increased limit for deep hierarchies like rigged models)
 		if (!object || depth > 5000) return
-		
+
 		// Skip if already validated in this validation pass
 		if (visited.has(object)) return
 		visited.add(object)
-		
+
 		try {
 			// CRITICAL: Validate parent matrices FIRST before validating this object
 			// updateMatrixWorld multiplies child.matrix with parent.matrixWorld
@@ -793,7 +793,7 @@ export function useCamera() {
 				const hasMatrix = typeof object.matrix !== 'undefined'
 				const hasMatrixWorld = typeof object.matrixWorld !== 'undefined'
 				const hasUpdateMethod = typeof object.updateMatrixWorld === 'function'
-				
+
 				if (hasMatrix || hasMatrixWorld || hasUpdateMethod) {
 					// Ensure matrix exists and is valid Matrix4 instance
 					if (!object.matrix || !(object.matrix instanceof THREE.Matrix4)) {
@@ -874,7 +874,7 @@ export function useCamera() {
 					}
 				}
 			}
-			
+
 			// Validate parent matrices FIRST (critical for updateMatrixWorld)
 			if (obj.parent) {
 				if (obj.parent.isObject3D) {
@@ -915,7 +915,7 @@ export function useCamera() {
 	const validateAllMatrices = (obj, visited = new Set(), depth = 0) => {
 		if (!obj || depth > 5000 || visited.has(obj)) return
 		visited.add(obj)
-		
+
 		try {
 			// Validate this object's matrices
 			if (obj.isObject3D) {
@@ -936,27 +936,27 @@ export function useCamera() {
 					obj.normalMatrix = new THREE.Matrix3()
 				}
 			} else {
-							const hasMatrix = typeof obj.matrix !== 'undefined'
-							const hasMatrixWorld = typeof obj.matrixWorld !== 'undefined'
-							const hasUpdateMethod = typeof obj.updateMatrixWorld === 'function'
+				const hasMatrix = typeof obj.matrix !== 'undefined'
+				const hasMatrixWorld = typeof obj.matrixWorld !== 'undefined'
+				const hasUpdateMethod = typeof obj.updateMatrixWorld === 'function'
 
-							if (hasMatrix || hasMatrixWorld || hasUpdateMethod) {
-								if (!obj.matrix || !(obj.matrix instanceof THREE.Matrix4)) {
-									obj.matrix = new THREE.Matrix4()
-									obj.matrix.identity()
-								}
-								if (!obj.matrixWorld || !(obj.matrixWorld instanceof THREE.Matrix4)) {
-									obj.matrixWorld = new THREE.Matrix4()
-									obj.matrixWorld.identity()
-								}
-							}
-						}
-			
+				if (hasMatrix || hasMatrixWorld || hasUpdateMethod) {
+					if (!obj.matrix || !(obj.matrix instanceof THREE.Matrix4)) {
+						obj.matrix = new THREE.Matrix4()
+						obj.matrix.identity()
+					}
+					if (!obj.matrixWorld || !(obj.matrixWorld instanceof THREE.Matrix4)) {
+						obj.matrixWorld = new THREE.Matrix4()
+						obj.matrixWorld.identity()
+					}
+				}
+			}
+
 			// Validate parent matrices FIRST (critical for updateMatrixWorld)
 			if (obj.parent && !visited.has(obj.parent)) {
 				validateAllMatrices(obj.parent, visited, depth + 1)
 			}
-			
+
 			// Then validate children
 			if (obj.children && Array.isArray(obj.children)) {
 				for (const child of obj.children) {
@@ -993,7 +993,7 @@ export function useCamera() {
 			// Check if this is an Object3D-like object that has matrices
 			const hasMatrix = typeof obj.matrix !== 'undefined'
 			const hasMatrixWorld = typeof obj.matrixWorld !== 'undefined'
-			
+
 			if (obj.isObject3D) {
 				if (!obj.matrix || !(obj.matrix instanceof THREE.Matrix4)) {
 					obj.matrix = new THREE.Matrix4()
@@ -1012,22 +1012,22 @@ export function useCamera() {
 					obj.updateMatrix()
 				}
 			} else if (hasMatrix || hasMatrixWorld || typeof obj.updateMatrixWorld === 'function') {
-							// Ensure matrices exist and are valid before calling updateMatrix()
-							if (!obj.matrix || !(obj.matrix instanceof THREE.Matrix4)) {
-								obj.matrix = new THREE.Matrix4()
-								obj.matrix.identity()
-							}
-							if (!obj.matrixWorld || !(obj.matrixWorld instanceof THREE.Matrix4)) {
-								obj.matrixWorld = new THREE.Matrix4()
-								obj.matrixWorld.identity()
-							}
-							
-							// Only call updateMatrix() if it exists and object is Object3D-like
-							if (typeof obj.updateMatrix === 'function' && obj.isObject3D !== false) {
-								obj.updateMatrix()
-							}
-						}
-			
+				// Ensure matrices exist and are valid before calling updateMatrix()
+				if (!obj.matrix || !(obj.matrix instanceof THREE.Matrix4)) {
+					obj.matrix = new THREE.Matrix4()
+					obj.matrix.identity()
+				}
+				if (!obj.matrixWorld || !(obj.matrixWorld instanceof THREE.Matrix4)) {
+					obj.matrixWorld = new THREE.Matrix4()
+					obj.matrixWorld.identity()
+				}
+
+				// Only call updateMatrix() if it exists and object is Object3D-like
+				if (typeof obj.updateMatrix === 'function' && obj.isObject3D !== false) {
+					obj.updateMatrix()
+				}
+			}
+
 			// Recursively process children
 			if (obj.children && Array.isArray(obj.children)) {
 				for (const child of obj.children) {
@@ -1055,7 +1055,7 @@ export function useCamera() {
 	const ensureAllParentMatrices = (obj, visited = new Set()) => {
 		if (!obj || visited.has(obj)) return
 		visited.add(obj)
-		
+
 		// Validate this object
 		if (obj.isObject3D) {
 			if (!obj.matrix || !(obj.matrix instanceof THREE.Matrix4)) {
@@ -1071,22 +1071,22 @@ export function useCamera() {
 				obj.modelViewMatrix = new THREE.Matrix4()
 			}
 		} else {
-							const hasMatrix = typeof obj.matrix !== 'undefined'
-							const hasMatrixWorld = typeof obj.matrixWorld !== 'undefined'
-							const hasUpdateMethod = typeof obj.updateMatrixWorld === 'function'
+			const hasMatrix = typeof obj.matrix !== 'undefined'
+			const hasMatrixWorld = typeof obj.matrixWorld !== 'undefined'
+			const hasUpdateMethod = typeof obj.updateMatrixWorld === 'function'
 
-							if (hasMatrix || hasMatrixWorld || hasUpdateMethod) {
-								if (!obj.matrix || !(obj.matrix instanceof THREE.Matrix4)) {
-									obj.matrix = new THREE.Matrix4()
-									obj.matrix.identity()
-								}
-								if (!obj.matrixWorld || !(obj.matrixWorld instanceof THREE.Matrix4)) {
-									obj.matrixWorld = new THREE.Matrix4()
-									obj.matrixWorld.identity()
-								}
-							}
-						}
-		
+			if (hasMatrix || hasMatrixWorld || hasUpdateMethod) {
+				if (!obj.matrix || !(obj.matrix instanceof THREE.Matrix4)) {
+					obj.matrix = new THREE.Matrix4()
+					obj.matrix.identity()
+				}
+				if (!obj.matrixWorld || !(obj.matrixWorld instanceof THREE.Matrix4)) {
+					obj.matrixWorld = new THREE.Matrix4()
+					obj.matrixWorld.identity()
+				}
+			}
+		}
+
 		// Recursively validate all parents up to root
 		let current = obj.parent
 		let depth = 0
@@ -1125,7 +1125,7 @@ export function useCamera() {
 			current = current.parent
 			depth++
 		}
-		
+
 		// Validate children
 		if (obj.children && Array.isArray(obj.children)) {
 			for (const child of obj.children) {
@@ -1149,7 +1149,7 @@ export function useCamera() {
 	// Helper function for safe matrix update
 	const safeUpdateMatrixWorld = (obj, force = false, depth = 0) => {
 		if (!obj || depth > 500) return
-		
+
 		try {
 			// Ensure this object's matrices are valid
 			if (obj.isObject3D) {
@@ -1170,22 +1170,22 @@ export function useCamera() {
 					obj.normalMatrix = new THREE.Matrix3()
 				}
 			} else {
-							const hasMatrix = typeof obj.matrix !== 'undefined'
-							const hasMatrixWorld = typeof obj.matrixWorld !== 'undefined'
-							const hasUpdateMethod = typeof obj.updateMatrixWorld === 'function'
+				const hasMatrix = typeof obj.matrix !== 'undefined'
+				const hasMatrixWorld = typeof obj.matrixWorld !== 'undefined'
+				const hasUpdateMethod = typeof obj.updateMatrixWorld === 'function'
 
-							if (hasMatrix || hasMatrixWorld || hasUpdateMethod) {
-								if (!obj.matrix || !(obj.matrix instanceof THREE.Matrix4)) {
-									obj.matrix = new THREE.Matrix4()
-									obj.matrix.identity()
-								}
-								if (!obj.matrixWorld || !(obj.matrixWorld instanceof THREE.Matrix4)) {
-									obj.matrixWorld = new THREE.Matrix4()
-									obj.matrixWorld.identity()
-								}
-							}
-						}
-			
+				if (hasMatrix || hasMatrixWorld || hasUpdateMethod) {
+					if (!obj.matrix || !(obj.matrix instanceof THREE.Matrix4)) {
+						obj.matrix = new THREE.Matrix4()
+						obj.matrix.identity()
+					}
+					if (!obj.matrixWorld || !(obj.matrixWorld instanceof THREE.Matrix4)) {
+						obj.matrixWorld = new THREE.Matrix4()
+						obj.matrixWorld.identity()
+					}
+				}
+			}
+
 			// Ensure parent matrices are valid before multiplying
 			if (obj.parent) {
 				if (obj.parent.isObject3D) {
@@ -1198,25 +1198,25 @@ export function useCamera() {
 					obj.parent.matrixWorld.identity()
 				}
 			}
-			
+
 			// Only call updateMatrixWorld if object has the method
 			if (typeof obj.updateMatrixWorld === 'function' && obj.isObject3D !== false) {
 				// Call updateMatrix first if needed
 				if (typeof obj.updateMatrix === 'function') {
 					obj.updateMatrix()
 				}
-				
+
 				// CRITICAL: Ensure matrixWorld is defined before calling updateMatrixWorld
 				// Some objects might have it undefined initially
 				if (!obj.matrixWorld || !(obj.matrixWorld instanceof THREE.Matrix4)) {
 					obj.matrixWorld = new THREE.Matrix4()
 					obj.matrixWorld.identity()
 				}
-				
+
 				// Then update world matrix
 				obj.updateMatrixWorld(force)
 			}
-			
+
 			// Recursively update children if force is true
 			if (force && obj.children && Array.isArray(obj.children)) {
 				for (const child of obj.children) {
@@ -1252,7 +1252,7 @@ export function useCamera() {
 		const invalidObjects = []
 		if (!obj || depth > 5000 || visited.has(obj)) return invalidObjects
 		visited.add(obj)
-		
+
 		try {
 			// Check if this is a Mesh
 			if (obj.isMesh) {
@@ -1282,14 +1282,14 @@ export function useCamera() {
 					}
 				}
 			}
-			
+
 			// Recursively check children
 			if (obj.children && Array.isArray(obj.children)) {
 				for (const child of obj.children) {
 					invalidObjects.push(...validateGeometriesAndBoundingSpheres(child, depth + 1, visited))
 				}
 			}
-			
+
 			// Check skeleton bones for SkinnedMesh
 			if (obj.isSkinnedMesh && obj.skeleton && Array.isArray(obj.skeleton.bones)) {
 				for (const bone of obj.skeleton.bones) {
@@ -1299,7 +1299,7 @@ export function useCamera() {
 		} catch (e) {
 			// Skip objects that can't be validated
 		}
-		
+
 		return invalidObjects
 	}
 
@@ -1312,7 +1312,7 @@ export function useCamera() {
 		if (!renderer || !scene || !camera.value) {
 			return
 		}
-		
+
 		// CRITICAL: Validate geometries and bounding spheres before rendering
 		// This prevents "Cannot read properties of null (reading 'center')" errors during frustum culling
 		try {
@@ -1448,7 +1448,7 @@ export function useCamera() {
 			// Validate entire scene hierarchy before render
 			quickValidateHierarchy(scene, 0)
 			quickValidateHierarchy(camera.value, 0)
-			
+
 			// CRITICAL: After validation, ensure matrices are UPDATED before rendering
 			// updateMatrixWorld ensures matrices are in sync with position/rotation/scale
 			// This prevents Three.js from trying to multiply undefined matrices during render
@@ -1459,13 +1459,13 @@ export function useCamera() {
 				const visited = new Set()
 				validateAllMatrices(scene, visited, 0)
 				validateAllMatrices(camera.value, visited, 0)
-				
+
 				// CRITICAL: Second pass - update local matrices (from position/rotation/scale)
 				// This must happen BEFORE updateMatrixWorld which multiplies matrices
 				// Update all local matrices first
 				updateLocalMatrices(scene, 0)
 				updateLocalMatrices(camera.value, 0)
-				
+
 				// CRITICAL: Third pass - now safely update world matrices
 				// All local matrices are valid, all parent matrices are valid
 				// Use Three.js's built-in updateMatrixWorld which handles the recursion correctly
@@ -1473,7 +1473,7 @@ export function useCamera() {
 				const parentVisited = new Set()
 				ensureAllParentMatrices(scene, parentVisited)
 				ensureAllParentMatrices(camera.value, parentVisited)
-				
+
 				// Use safe wrapper instead of direct updateMatrixWorld call
 				try {
 					safeUpdateMatrixWorld(camera.value, false)
@@ -1482,11 +1482,11 @@ export function useCamera() {
 					// If updateMatrixWorld still fails, log and skip this frame
 					logger.warn('useCamera', 'safeUpdateMatrixWorld failed even after full validation', {
 						error: updateError.message,
-						stack: updateError.stack
+						stack: updateError.stack,
 					})
 					throw updateError // Re-throw to skip render
 				}
-				
+
 				// Retry render once
 				renderer.render(scene, camera.value)
 			} catch (retryError) {
@@ -1513,7 +1513,7 @@ export function useCamera() {
 				const fixBoundingSpheres = (obj, depth = 0, visited = new Set()) => {
 					if (!obj || depth > 5000 || visited.has(obj)) return
 					visited.add(obj)
-					
+
 					try {
 						if (obj.isMesh && obj.geometry) {
 							try {
@@ -1523,20 +1523,20 @@ export function useCamera() {
 							} catch (e) {
 								// If computation fails, make mesh invisible
 								obj.visible = false
-								logger.warn('useCamera', 'Mesh has invalid bounding sphere, making invisible', { 
-									type: obj.type, 
+								logger.warn('useCamera', 'Mesh has invalid bounding sphere, making invisible', {
+									type: obj.type,
 									name: obj.name,
-									error: e.message
+									error: e.message,
 								})
 							}
 						}
-						
+
 						if (obj.children && Array.isArray(obj.children)) {
 							for (const child of obj.children) {
 								fixBoundingSpheres(child, depth + 1, visited)
 							}
 						}
-						
+
 						if (obj.isSkinnedMesh && obj.skeleton && Array.isArray(obj.skeleton.bones)) {
 							for (const bone of obj.skeleton.bones) {
 								fixBoundingSpheres(bone, depth + 1, visited)
@@ -1546,10 +1546,10 @@ export function useCamera() {
 						// Skip
 					}
 				}
-				
+
 				// Fix all bounding spheres in the scene
 				fixBoundingSpheres(scene, 0, new Set())
-				
+
 				// Retry render once
 				try {
 					renderer.render(scene, camera.value)
@@ -1558,7 +1558,7 @@ export function useCamera() {
 				}
 				return // Skip further error handling
 			}
-			
+
 			// Log render errors but don't crash - this can happen during model positioning
 			if (renderError.message && (renderError.message.includes('multiplyMatrices') || renderError.message.includes('getNormalMatrix'))) {
 				// Try to find which object has the invalid matrix by checking scene hierarchy
@@ -1570,7 +1570,7 @@ export function useCamera() {
 							// Check Object3D or objects with updateMatrixWorld
 							const isObject3D = obj.isObject3D
 							const hasUpdate = typeof obj.updateMatrixWorld === 'function'
-							
+
 							if (isObject3D || hasUpdate) {
 								if (!obj.matrix || !(obj.matrix instanceof THREE.Matrix4)) {
 									invalidObject = { type: obj.type, name: obj.name, issue: 'matrix invalid', isObject3D }
@@ -1600,7 +1600,7 @@ export function useCamera() {
 									}
 								}
 							}
-							
+
 							if (obj.children && Array.isArray(obj.children)) {
 								for (const child of obj.children) {
 									findInvalidMatrix(child, depth + 1)
@@ -1626,7 +1626,7 @@ export function useCamera() {
 				} catch (e) {
 					// Ignore errors during debugging
 				}
-				
+
 				logger.warn('useCamera', 'Render error detected - matrices may be invalid, attempting to fix', {
 					error: renderError.message,
 					cameraHasMatrix: !!camera.value?.matrix,
@@ -1635,12 +1635,12 @@ export function useCamera() {
 					invalidObject,
 					stack: renderError.stack?.substring(0, 500), // First 500 chars of stack
 				})
-				
+
 				// Clear validation cache and validate everything before attempting to update
 				// Use local set
 				ensureSceneMatricesValid(scene, 0, new Set())
 				ensureSceneMatricesValid(camera.value, 0, new Set())
-				
+
 				// Also validate any objects that controls might reference
 				if (controls.value && controls.value.target) {
 					// Controls target is typically a Vector3, not an Object3D, so no matrix validation needed
@@ -1654,22 +1654,22 @@ export function useCamera() {
 						camera.value.matrixWorld.identity()
 					}
 				}
-				
+
 				// Attempt to fix by updating all scene matrices
 				// Only call updateMatrixWorld after all matrices are validated
 				try {
 					// First pass: Validate all objects and ensure matrices exist
 					ensureSceneMatricesValid(scene, 0, new Set())
 					ensureSceneMatricesValid(camera.value, 0, new Set())
-					
+
 					// Second pass: Call updateMatrix() on all objects to build local matrices
 					// This must happen before updateMatrixWorld() which multiplies matrices
 					// CRITICAL: Ensure matrices exist before calling updateMatrix()
-					
+
 					// Update all local matrices first
 					updateLocalMatrices(scene, 0)
 					updateLocalMatrices(camera.value, 0)
-					
+
 					// Ensure camera matrices are valid before updating
 					if (!camera.value.matrix || !(camera.value.matrix instanceof THREE.Matrix4)) {
 						camera.value.matrix = new THREE.Matrix4()
@@ -1680,20 +1680,20 @@ export function useCamera() {
 						camera.value.matrixWorld.identity()
 					}
 					camera.value.updateMatrix()
-					
+
 					// Third pass: Validate all matrices again after updateMatrix() calls
 					// This catches any objects that might have been missed
 					ensureSceneMatricesValid(scene, 0, new Set())
 					ensureSceneMatricesValid(camera.value, 0, new Set())
-					
+
 					// CRITICAL: Before calling updateMatrixWorld, ensure ALL parents in the hierarchy
 					// have valid matrices. updateMatrixWorld recursively multiplies parent.matrixWorld * child.matrix
 					// so we need to validate the entire parent chain for every object
-					
+
 					const parentVisited = new Set()
 					ensureAllParentMatrices(scene, parentVisited)
 					ensureAllParentMatrices(camera.value, parentVisited)
-					
+
 					// Use safe wrapper instead of direct updateMatrixWorld call
 					try {
 						safeUpdateMatrixWorld(camera.value, false)
@@ -1702,11 +1702,11 @@ export function useCamera() {
 						// If updateMatrixWorld still fails, log and skip this frame
 						logger.warn('useCamera', 'safeUpdateMatrixWorld failed even after full validation', {
 							error: updateError.message,
-							stack: updateError.stack
+							stack: updateError.stack,
 						})
 						throw updateError // Re-throw to skip render
 					}
-					
+
 					// Retry render once
 					renderer.render(scene, camera.value)
 				} catch (retryError) {
