@@ -16,7 +16,7 @@ use PHPUnit\Framework\TestCase;
 class FormatSyncTest extends TestCase
 {
     /**
-     * Test that all extensions in EXT_MIME_MAP are present in CONTENT_TYPE_MAP
+     * Test that all extensions in EXT_MIME_MAP are present in CONTENT_TYPE_MAP.
      */
     public function testExtMimeMapIsSubsetOfContentTypeMap(): void
     {
@@ -33,7 +33,7 @@ class FormatSyncTest extends TestCase
     }
 
     /**
-     * Test that mimetypemapping.json contains all model extensions
+     * Test that mimetypemapping.json contains all model extensions.
      */
     public function testMimetypeMappingJsonSync(): void
     {
@@ -57,7 +57,7 @@ class FormatSyncTest extends TestCase
     }
 
     /**
-     * Test that MIME types match between EXT_MIME_MAP and mimetypemapping.json
+     * Test that MIME types match between EXT_MIME_MAP and mimetypemapping.json.
      */
     public function testMimeTypeConsistency(): void
     {
@@ -84,7 +84,7 @@ class FormatSyncTest extends TestCase
     }
 
     /**
-     * Test that all formats are properly validated by isSupported()
+     * Test that all formats are properly validated by isSupported().
      */
     public function testIsSupportedCoversAllFormats(): void
     {
@@ -99,7 +99,7 @@ class FormatSyncTest extends TestCase
     }
 
     /**
-     * Test that getContentType() works for all model extensions
+     * Test that getContentType() works for all model extensions.
      */
     public function testGetContentTypeCoversAllFormats(): void
     {
@@ -109,7 +109,7 @@ class FormatSyncTest extends TestCase
 
         foreach ($modelExtensions as $ext) {
             $contentType = SupportedFormats::getContentType($ext);
-            
+
             if (!in_array($ext, $allowedOctetStream)) {
                 $this->assertNotEquals(
                     'application/octet-stream',
@@ -117,13 +117,13 @@ class FormatSyncTest extends TestCase
                     "Extension '$ext' should have a specific content type, not generic octet-stream (unless explicitly defined)"
                 );
             }
-            
+
             $this->assertNotEmpty($contentType, "Content type for '$ext' should not be empty");
         }
     }
 
     /**
-     * Test critical formats are present
+     * Test critical formats are present.
      */
     public function testCriticalFormatsPresent(): void
     {
@@ -140,7 +140,7 @@ class FormatSyncTest extends TestCase
     }
 
     /**
-     * Test that no extensions use placeholder MIME types unintentionally
+     * Test that no extensions use placeholder MIME types unintentionally.
      */
     public function testNoPlaceholderMimeTypes(): void
     {
@@ -148,8 +148,8 @@ class FormatSyncTest extends TestCase
         $allowedTextPlain = ['mtl']; // MTL files are text files, not 3D models
 
         foreach (SupportedFormats::CONTENT_TYPE_MAP as $ext => $contentType) {
-            if (in_array($ext, $allowedOctetStream) || 
-                in_array($ext, $allowedTextPlain) || 
+            if (in_array($ext, $allowedOctetStream) ||
+                in_array($ext, $allowedTextPlain) ||
                 !in_array($ext, SupportedFormats::getModelExtensions())) {
                 continue;
             }

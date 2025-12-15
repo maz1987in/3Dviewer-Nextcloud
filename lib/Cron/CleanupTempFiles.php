@@ -35,7 +35,7 @@ class CleanupTempFiles extends TimedJob
         $this->logger->info('Starting 3D Viewer temp file cleanup job');
 
         // Iterate over all users
-        // note: searching all users might be slow on large instances, 
+        // note: searching all users might be slow on large instances,
         // but it's the only way to access user-specific folders
         foreach ($this->userManager->callForAllUsers(function ($user) {
             $userId = $user->getUID();
@@ -87,4 +87,3 @@ class CleanupTempFiles extends TimedJob
         }
     }
 }
-

@@ -10,16 +10,16 @@ use OCP\Preview\IProvider2;
 
 /**
  * Preview provider for 3D model files.
- * 
+ *
  * This provider can be enabled/disabled by Nextcloud admins via the
  * `enabledPreviewProviders` config option in config/config.php:
- * 
+ *
  * 'enabledPreviewProviders' => [
  *     'OC\Preview\Image',
  *     'OC\Preview\TXT',
  *     'OCA\ThreeDViewer\Preview\ModelPreviewProvider',
  * ],
- * 
+ *
  * When enabled, this provider will attempt to generate previews for 3D model files.
  * When disabled or when preview generation fails, Nextcloud automatically falls back
  * to displaying custom filetype SVG icons registered via mimetypemapping.json.
@@ -64,6 +64,7 @@ class ModelPreviewProvider implements IProvider2
                 return $this->modelFileSupport->isSupported($extension) &&
                        in_array($extension, ['fbx', '3ds'], true);
             }
+
             return true;
         }
 
@@ -73,7 +74,7 @@ class ModelPreviewProvider implements IProvider2
 
     /**
      * Get the supported MIME types for this provider.
-     * 
+     *
      * @return list<string>
      */
     public function getMimeType(): string
@@ -85,13 +86,13 @@ class ModelPreviewProvider implements IProvider2
 
     /**
      * Generate a preview image for a 3D model file.
-     * 
+     *
      * Currently returns false to use filetype icons until proper server-side
      * rendering is implemented. Future implementation could:
      * - Render 3D models server-side using headless rendering
      * - Use cached client-rendered screenshots
      * - Generate previews from model metadata
-     * 
+     *
      * @param File $file The file to generate a preview for
      * @param int $maxX Maximum width of the preview
      * @param int $maxY Maximum height of the preview
@@ -109,7 +110,7 @@ class ModelPreviewProvider implements IProvider2
         // For now, return false to use filetype icons
         // This allows admins to enable the provider without breaking anything
         // Future: Implement actual 3D model rendering here
-        
+
         return false;
     }
 }

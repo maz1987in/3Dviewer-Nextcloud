@@ -83,7 +83,7 @@ class SupportedFormatsTest extends TestCase
     public function testDependencyFilesAreSupported(): void
     {
         $dependencies = ['mtl', 'bin'];
-        
+
         foreach ($dependencies as $dep) {
             $this->assertTrue(
                 SupportedFormats::isSupported($dep),
@@ -102,7 +102,7 @@ class SupportedFormatsTest extends TestCase
     public function testTextureFormatsAreSupported(): void
     {
         $textureFormats = ['png', 'jpg', 'jpeg', 'tga', 'bmp', 'webp'];
-        
+
         foreach ($textureFormats as $format) {
             $this->assertTrue(
                 SupportedFormats::isSupported($format),
@@ -123,11 +123,11 @@ class SupportedFormatsTest extends TestCase
     public function testMimeTypeMappingsAreValid(): void
     {
         $extMimeMap = SupportedFormats::EXT_MIME_MAP;
-        
+
         foreach ($extMimeMap as $ext => $mimes) {
             $this->assertIsArray($mimes, "MIME types for '$ext' should be an array");
             $this->assertNotEmpty($mimes, "MIME types array for '$ext' should not be empty");
-            
+
             foreach ($mimes as $mime) {
                 $this->assertIsString($mime, "MIME type for '$ext' should be a string");
                 $this->assertStringContainsString(
@@ -155,12 +155,12 @@ class SupportedFormatsTest extends TestCase
             foreach ($cases as $ext) {
                 $contentTypes[] = SupportedFormats::getContentType($ext);
             }
-            
+
             // All case variations should return the same content type
             $this->assertCount(
                 1,
                 array_unique($contentTypes),
-                "Content type should be the same for all case variations of extension: " . implode(', ', $cases)
+                'Content type should be the same for all case variations of extension: ' . implode(', ', $cases)
             );
         }
     }
@@ -171,7 +171,7 @@ class SupportedFormatsTest extends TestCase
     public function testUnsupportedExtensionsReturnDefault(): void
     {
         $unsupportedExtensions = ['xyz', 'unknown', 'test'];
-        
+
         foreach ($unsupportedExtensions as $ext) {
             $this->assertFalse(
                 SupportedFormats::isSupported($ext),
@@ -196,7 +196,7 @@ class SupportedFormatsTest extends TestCase
                 SupportedFormats::CONTENT_TYPE_MAP,
                 "Extension '$ext' from EXT_MIME_MAP should exist in CONTENT_TYPE_MAP"
             );
-            
+
             // Content type should be one of the registered MIME types
             $contentType = SupportedFormats::CONTENT_TYPE_MAP[$ext];
             $this->assertContains(

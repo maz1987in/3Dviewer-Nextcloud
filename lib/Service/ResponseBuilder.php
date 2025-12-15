@@ -262,7 +262,7 @@ class ResponseBuilder
 
         // Allow workers with blob URLs (for Web Workers)
         $csp->addAllowedChildSrcDomain('blob:');
-        
+
         // Also allow blob: in script-src for dynamic imports if needed
         $csp->addAllowedScriptDomain('blob:');
 

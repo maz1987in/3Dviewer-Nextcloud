@@ -929,7 +929,7 @@ export default {
 /* Dark theme support - Component-level class binding */
 .slide-out-panel.dark-theme {
 	background: #2a2a2a !important;
-	color: #ffffff !important;
+	color: #fff !important;
 	box-shadow: -4px 0 20px rgba(0, 0, 0, 0.4) !important;
 	border-left-color: rgba(255, 255, 255, 0.1) !important;
 }
@@ -941,7 +941,7 @@ export default {
 
 .slide-out-panel.dark-theme .panel-title,
 .slide-out-panel.dark-theme .close-btn {
-	color: #ffffff !important;
+	color: #fff !important;
 }
 
 .slide-out-panel.dark-theme .close-btn:hover {
@@ -965,7 +965,7 @@ export default {
 }
 
 .slide-out-panel.dark-theme .section-header {
-	color: #ffffff !important;
+	color: #fff !important;
 }
 
 .slide-out-panel.dark-theme .section-header:hover {
@@ -973,9 +973,9 @@ export default {
 }
 
 .slide-out-panel.dark-theme .tool-btn {
-	background: #333333 !important;
+	background: #333 !important;
 	border-color: rgba(255, 255, 255, 0.2) !important;
-	color: #ffffff !important;
+	color: #fff !important;
 }
 
 .slide-out-panel.dark-theme .tool-btn:hover {
@@ -986,11 +986,11 @@ export default {
 .slide-out-panel.dark-theme .tool-btn.active {
 	background: #4287f5 !important;
 	border-color: #4287f5 !important;
-	color: #ffffff !important;
+	color: #fff !important;
 }
 
 .slide-out-panel.dark-theme .tool-group {
-	background: #333333 !important;
+	background: #333 !important;
 	border-color: rgba(255, 255, 255, 0.2) !important;
 }
 
@@ -1005,9 +1005,9 @@ export default {
 
 .slide-out-panel.dark-theme .preset-select,
 .slide-out-panel.dark-theme .export-select {
-	background: #333333 !important;
+	background: #333 !important;
 	border-color: rgba(255, 255, 255, 0.2) !important;
-	color: #ffffff !important;
+	color: #fff !important;
 }
 
 .slide-out-panel.dark-theme .preset-select:hover,
@@ -1019,7 +1019,7 @@ export default {
 .slide-out-panel.dark-theme .preset-select option,
 .slide-out-panel.dark-theme .export-select option {
 	background: #2a2a2a !important;
-	color: #ffffff !important;
+	color: #fff !important;
 }
 
 .slide-out-panel.dark-theme .color-input {
@@ -1029,7 +1029,7 @@ export default {
 .slide-out-panel.dark-theme .reset-color-btn {
 	background: rgba(255, 255, 255, 0.1) !important;
 	border-color: rgba(255, 255, 255, 0.2) !important;
-	color: #ffffff !important;
+	color: #fff !important;
 }
 
 .slide-out-panel.dark-theme .reset-color-btn:hover {
@@ -1051,7 +1051,7 @@ export default {
 
 .slide-out-panel.dark-theme .active-badge {
 	background: #4287f5 !important;
-	color: #ffffff !important;
+	color: #fff !important;
 }
 
 .slide-out-panel.dark-theme .expand-icon {
@@ -1059,10 +1059,12 @@ export default {
 }
 
 /* Light theme support - Subtle shadow for light backgrounds */
+/* stylelint-disable selector-pseudo-class-no-unknown */
 :global(.theme--light) .slide-out-panel {
 	box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15);
 	border-left-color: rgba(0, 0, 0, 0.1);
 }
+/* stylelint-enable selector-pseudo-class-no-unknown */
 
 /* Accessibility */
 @media (prefers-reduced-motion: reduce) {

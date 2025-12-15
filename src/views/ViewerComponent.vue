@@ -1282,8 +1282,7 @@ export default {
 
 [dir="rtl"] .texture-warning-icon {
 	margin-top: 2px;
-	margin-inline-start: 0;
-	margin-inline-end: 0;
+	margin-inline: 0;
 }
 
 .texture-warning-text {
@@ -1323,8 +1322,7 @@ export default {
 }
 
 [dir="rtl"] .texture-warning-button {
-	margin-inline-start: auto;
-	margin-inline-end: 0;
+	margin-inline: auto 0;
 }
 
 .texture-warning-button:hover {

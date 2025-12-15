@@ -760,7 +760,7 @@ export default {
 	height: 100%;
 	display: flex;
 	flex-direction: column;
-	background: var(--color-main-background, #ffffff);
+	background: var(--color-main-background, #fff);
 	margin: 0;
 	padding: 0;
 }
@@ -1141,11 +1141,12 @@ export default {
 }
 
 /* Override FolderHierarchy styles in list view */
-.file-list ::v-deep .folder-hierarchy-item {
+/* stylelint-disable selector-pseudo-class-no-unknown */
+.file-list :deep(.folder-hierarchy-item) {
 	margin-bottom: 0;
 }
 
-.file-list ::v-deep .folder-hierarchy-item .folder-card {
+.file-list :deep(.folder-hierarchy-item .folder-card) {
 	flex-direction: row;
 	align-items: center;
 	justify-content: flex-start;
@@ -1204,9 +1205,10 @@ export default {
 	}
 }
 
-.file-list ::v-deep .folder-hierarchy-item:last-child .folder-card {
+.file-list :deep(.folder-hierarchy-item:last-child .folder-card) {
 	border-bottom: none;
 }
+/* stylelint-enable selector-pseudo-class-no-unknown */
 
 .file-list-thumbnail {
 	position: relative;

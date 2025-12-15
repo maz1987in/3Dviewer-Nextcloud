@@ -54,7 +54,7 @@ class PageController extends Controller
         // Provide initial state
         $initialState = [
             'defaultSort' => $defaultSort,
-            'selectedFileId' => (int)$selectedFileId,
+            'selectedFileId' => (int) $selectedFileId,
             'userId' => $userId,
         ];
 
@@ -99,7 +99,7 @@ class PageController extends Controller
         if ($user) {
             try {
                 $userFolder = $this->rootFolder->getUserFolder($user->getUID());
-                $files = $userFolder->getById((int)$fileId);
+                $files = $userFolder->getById((int) $fileId);
                 if (!empty($files) && $files[0] instanceof \OCP\Files\File) {
                     $file = $files[0];
                     $filename = $file->getName();
@@ -126,7 +126,7 @@ class PageController extends Controller
         // Provide initial state
         $initialState = [
             'defaultSort' => $defaultSort,
-            'selectedFileId' => (int)$fileId,
+            'selectedFileId' => (int) $fileId,
             'userId' => $userId,
         ];
 

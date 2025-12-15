@@ -613,12 +613,14 @@ export default {
 .app-logo img {
 	width: 64px;
 	height: 64px;
+
 	/* Handle dark mode for the dark icon if necessary, though app-dark is usually for light mode */
+
 	/* filter: invert(1) in dark mode if needed, but usually we trust the theme */
 }
 
 .header-content h2 {
-	margin: 0 0 8px 0;
+	margin-bottom: 8px;
 	font-size: 24px;
 	font-weight: bold;
 	color: var(--color-main-text);
@@ -677,6 +679,7 @@ export default {
 	flex-direction: column;
 	gap: 4px;
 	flex: 1;
+
 	/* Ensure label takes up most space but leaves room for input */
 	min-width: 60%;
 }

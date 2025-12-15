@@ -15,32 +15,31 @@ use OCP\IRequest;
 
 class ConfigController extends Controller
 {
-	public function __construct(
-		string $appName,
-		IRequest $request,
-		private IConfig $config,
-		private ?string $userId
-	) {
-		parent::__construct($appName, $request);
-	}
+    public function __construct(
+        string $appName,
+        IRequest $request,
+        private IConfig $config,
+        private ?string $userId
+    ) {
+        parent::__construct($appName, $request);
+    }
 
-	/**
-	 * Set user configuration values
-	 */
-	#[NoAdminRequired]
-	#[NoCSRFRequired]
-	#[FrontpageRoute(verb: 'PUT', url: '/config')]
-	public function setConfig(array $values): DataResponse
-	{
-		if ($this->userId === null) {
-			return new DataResponse(['error' => 'User not authenticated'], 401);
-		}
+    /**
+     * Set user configuration values.
+     */
+    #[NoAdminRequired]
+    #[NoCSRFRequired]
+    #[FrontpageRoute(verb: 'PUT', url: '/config')]
+    public function setConfig(array $values): DataResponse
+    {
+        if ($this->userId === null) {
+            return new DataResponse(['error' => 'User not authenticated'], 401);
+        }
 
-		foreach ($values as $key => $value) {
-			$this->config->setUserValue($this->userId, Application::APP_ID, $key, (string)$value);
-		}
+        foreach ($values as $key => $value) {
+            $this->config->setUserValue($this->userId, Application::APP_ID, $key, (string) $value);
+        }
 
-		return new DataResponse([]);
-	}
+        return new DataResponse([]);
+    }
 }
-
