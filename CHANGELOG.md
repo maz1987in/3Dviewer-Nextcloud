@@ -57,6 +57,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Performance mode label in stats overlay is now clickable to cycle modes
   - ViewerToolbar performance button cycles modes (preserves MinimalTopBar toggle behavior)
   - All mode changes apply immediately with proper event propagation
+ - **Dependencies**: Updated core runtime and build tooling
+   - `three`: ^0.181.2 → ^0.182.0 (patch update)
+   - `vite`: ^7.2.6 → ^7.2.7 (dev, patch update)
+ - **Security Workflow**: Updated GitHub Actions CodeQL workflow to use `github/codeql-action` v4 in preparation for the v3 deprecation in December 2026
 
 ### Fixed
 - **Toast Event Handling**: Fixed missing `push-toast` event handler in App.vue preventing performance suggestion toasts from displaying
