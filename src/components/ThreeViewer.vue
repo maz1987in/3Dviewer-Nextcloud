@@ -3079,7 +3079,7 @@ export default {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
-	padding: 16px 20px;
+	padding: 8px 20px;
 	background: rgb(0 0 0 / 50%);
 	border-bottom: 1px solid rgb(255 255 255 / 20%);
 }
@@ -3332,10 +3332,13 @@ export default {
 
 .stats-mode {
 	font-size: 10px;
-	padding: 2px 6px;
+	padding: 4px 6px;
 	border-radius: 4px;
 	font-weight: bold;
 	text-transform: uppercase;
+	height: 24px;
+	display: inline-flex;
+	align-items: center;
 }
 
 .stats-mode.clickable {

@@ -570,7 +570,7 @@ export default {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 16px 20px;
+	padding: 12px 20px;
 	background: var(--color-background-dark);
 	border-bottom: 1px solid var(--color-border);
 }

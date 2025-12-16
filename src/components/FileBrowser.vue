@@ -833,7 +833,7 @@ export default {
 }
 
 .file-browser-header {
-	padding: 20px;
+	padding: 12px;
 	border-bottom: 1px solid var(--color-border, #ddd);
 	display: flex;
 	justify-content: space-between;
@@ -845,6 +845,10 @@ export default {
 		font-size: 24px;
 		font-weight: 600;
 		color: var(--color-main-text, #333);
+		height: 44px;
+		display: flex;
+		align-items: center;
+		transform: translateY(-6px);
 	}
 
 	.file-count {
