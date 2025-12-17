@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.0] - 2025-12-17
+
 ### Added
 - **Measurement & Annotation Visual Sizing Controls**: Added per-user sliders to control measurement and annotation visuals
   - New Personal Settings section for adjusting measurement point size, line thickness, and label width

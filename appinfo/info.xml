@@ -13,12 +13,14 @@
 - 🗜️ Compression: DRACO geometry and KTX2/Basis texture compression (needs more work)
 - 🔧 Centralized format definitions: Single source of truth for all format definitions ensuring consistency
 - ✅ Format sync validation: Automated tests ensure format consistency across backend, frontend, and MIME registration
+- 📦 Bundle budget enforcement: Automated bundle size checking with historical tracking and CI integration
 
 **🎮 Interactive Features:**
 - 🎯 3D Camera Controller: Enhanced intuitive circular controller for precise camera navigation with improved controls
 - 🔄 Model comparison: Side-by-side viewing with synchronized controls
-- 📝 Annotations: Add notes and markers to specific points on models (always readable, faces camera)
-- 📏 Measurements: Distance and angle measurement tools (with billboard text)
+- 📝 Annotations: Add notes and markers to specific points on models (always readable, faces camera) with customizable visual sizing controls
+- 📏 Measurements: Distance and angle measurement tools (with billboard text) with per-user sizing controls for point size, line thickness, and label width
+- 🎬 Animation Controls: Play/pause controls for animated models with loop toggle support
 - 🧭 Face labels: Orientation markers (TOP, BOTTOM, FRONT, BACK, LEFT, RIGHT)
 - 👁️ Camera projection toggle: Switch between perspective and orthographic views
 - ⚙️ Personal Settings: User-specific preferences and settings page in Nextcloud personal settings
@@ -34,7 +36,7 @@
 **⚡ Export & Tools:**
 - 📷 Screenshot capture: Take high-quality PNG/JPEG screenshots of your models
 - 💾 Export models to GLB, STL, and OBJ formats
-- 🖨️ Slicer integration: Send models directly to PrusaSlicer, Cura, BambuStudio, OrcaSlicer, Simplify3D, Eufy Studio, and AnycubicSlicer
+- 🖨️ Slicer integration: Send models directly to PrusaSlicer, Cura, BambuStudio, OrcaSlicer, Simplify3D, Eufy Studio, and AnycubicSlicer with enhanced security (file size limits, MIME validation, rolling expiration)
 - 📊 Model statistics panel with detailed information
 - 🔲 Wireframe and bounding box visualization
 - 📐 Dynamic grid system that adapts to model size and position
@@ -42,15 +44,16 @@
 
 **🚀 Performance & UX:**
 - 🖼️ Progressive texture loading for improved performance
-- 💿 Dependency caching using IndexedDB for faster multi-file loading
-- ⚙️ Performance modes with visual quality overlay
+- 💿 Dependency caching using IndexedDB for faster multi-file loading with live cache statistics (size, entries, hit rate)
+- ⚙️ Performance modes with visual quality overlay and automatic suggestions for large models
+- 📊 Performance scaling: Automatic performance mode suggestions based on model complexity (triangle count thresholds)
 - 📦 Code splitting and dynamic imports
 - 🌓 Light and dark theme support with RTL layout
 - 🔗 Works with public shares and authenticated users
 - ♿ Accessibility features with keyboard navigation and ARIA labels
 
 Built with Three.js for high-performance WebGL rendering. ✨]]></description>
-	<version>2.1.0</version>
+	<version>2.2.0</version>
 	<licence>agpl</licence>
 	<author mail="maz1987in@gmail.com" homepage="https://github.com/maz1987in">Mazin Al Saadi</author>
 	<donation title="Donate to the developers with PayPal" type="paypal">https://www.paypal.com/ncp/payment/KZCB3XTCHGKZC</donation>

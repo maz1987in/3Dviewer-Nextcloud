@@ -1,6 +1,6 @@
 # 3D Viewer for Nextcloud
 
-[![Version](https://img.shields.io/badge/version-2.1.0-blue)](https://github.com/maz1987in/3Dviewer-Nextcloud/releases)
+[![Version](https://img.shields.io/badge/version-2.2.0-blue)](https://github.com/maz1987in/3Dviewer-Nextcloud/releases)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-orange)](LICENSE)
 [![Nextcloud](https://img.shields.io/badge/Nextcloud-30--32-0082c9)](https://nextcloud.com)
 [![Update nextcloud/ocp](https://github.com/maz1987in/3Dviewer-Nextcloud/actions/workflows/update-nextcloud-ocp-matrix.yml/badge.svg)](https://github.com/maz1987in/3Dviewer-Nextcloud/actions/workflows/update-nextcloud-ocp-matrix.yml)
@@ -58,22 +58,28 @@ A comprehensive 3D model viewer application for Nextcloud that supports multiple
 - **Enhanced File Loaders** - Significantly improved FBX, VRML, and DAE loaders with better material and texture support
 - **Multi-File Models** - Full support for OBJ+MTL+textures and GLTF+bins+images
 - **Personal Settings** - User-specific preferences and settings page integrated with Nextcloud personal settings
+- **Measurement & Annotation Visual Controls** - Customizable sizing controls (point size, line thickness, label width) for measurements and annotations
+- **Animation Controls** - Play/pause controls for animated 3D models with loop toggle support
+- **Performance Scaling** - Automatic performance mode suggestions for large models with configurable triangle count thresholds
+- **Cache Insights** - Live dependency cache statistics (size, entries, hit rate) visible in viewer and tools panel
+- **Enhanced Security** - Hardened slicer temp file handling with file size limits, MIME validation, and rolling expiration
+- **Bundle Budget Enforcement** - Automated bundle size checking with historical tracking and CI integration
 - **Smart File Browser** - Toggle between Viewer, Folders, Type, Date, and Favorites modes with breadcrumbs, Nextcloud-style navigation, lazy loading, and customizable default view (Grid/List)
 - **Dynamic Grid System** - Automatically adapts to model size and position
 - **Model Comparison** - Side-by-side model viewing with synchronized controls
-- **Advanced Tooling** - Annotations, measurements, and analysis tools
+- **Advanced Tooling** - Annotations and measurements with customizable visual sizing controls (point size, line thickness, label width)
 - **3D Camera Controller** - Enhanced intuitive circular controller for precise camera navigation with improved controls
 - **Face Labels** - Orientation markers (TOP, BOTTOM, FRONT, BACK, LEFT, RIGHT) on model faces
 - **Screenshot Capture** - Take high-quality PNG/JPEG screenshots of 3D models
 - **Export Functionality** - Export models to GLB, STL, and OBJ formats
-- **Slicer Integration** - Send models directly to PrusaSlicer, Cura, BambuStudio, OrcaSlicer, Simplify3D, Eufy Studio, and AnycubicSlicer
+- **Slicer Integration** - Send models directly to PrusaSlicer, Cura, BambuStudio, OrcaSlicer, Simplify3D, Eufy Studio, and AnycubicSlicer with enhanced security (file size limits, MIME validation, rolling expiration)
 - **Camera Projection Toggle** - Switch between perspective and orthographic views
 - **Enhanced Camera Controls** - Improved camera composable with additional functionality and better user experience
 - **Progressive Texture Loading** - Background loading for improved performance
-- **Dependency Caching** - IndexedDB caching for faster multi-file model loading
+- **Dependency Caching** - IndexedDB caching for faster multi-file model loading with live cache statistics (size, entries, hit rate)
 - **Model Statistics Panel** - Detailed information about loaded models
 - **Help Panel** - Comprehensive in-app documentation and controls guide
-- **Performance Optimized** - Code splitting, dynamic imports, and quality modes with visual overlay
+- **Performance Optimized** - Code splitting, dynamic imports, quality modes with visual overlay, and automatic performance suggestions for large models
 - **Theme Integration** - Respects Nextcloud light/dark themes with RTL support
 - **Accessibility** - ARIA labels and keyboard navigation
 - **Compression Support** - DRACO geometry and KTX2/Basis texture compression
@@ -194,15 +200,18 @@ This project is licensed under the **AGPL-3.0 License**. See [LICENSE](LICENSE) 
 
 ## 📊 Version
 
-**Current Version**: 2.1.0  
-**Released**: December 06, 2025
+**Current Version**: 2.2.0  
+**Released**: December 17, 2025
 
-### What's New in 2.1.0
-- **File Browser Default View Setting** - Set your preferred view mode (Grid or List) in Personal Settings
-- **File Browser List View** - Compact list view with keyboard navigation support
-- **Format Definitions Centralized** - Single source of truth for all format definitions
-- **Format Sync Test Suite** - Automated tests to ensure format consistency across backend, frontend, and MIME registration
-- **UI Improvements** - Enhanced file browser grid padding for better visual spacing
+### What's New in 2.2.0
+- **Measurement & Annotation Visual Sizing Controls** - Per-user sliders to customize measurement and annotation visuals
+- **Animation Controls in UI** - Animation play/pause controls in toolbar and tools panel
+- **Dependency Cache Insights** - Live cache statistics (size, entries, hit rate) in viewer and tools
+- **Performance Scaling for Large Models** - Automatic performance mode suggestions and easy mode switching
+- **Slicer Temp File Security Hardening** - Enhanced security with file size limits, MIME validation, and rolling expiration
+- **Automated Bundle Budget Enforcement** - Enhanced bundle size checking with historical tracking
+- **Vue 3 Migration Pre-Work** - Eliminated Vue 3 incompatible patterns for future migration readiness
+- **Updated Dependencies** - Three.js 0.182.0, Vite 7.2.7, CodeQL Action v4
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed release notes and version history.
 
