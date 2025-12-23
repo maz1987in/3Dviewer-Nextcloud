@@ -57,6 +57,7 @@ import ViewDashboardIcon from 'vue-material-design-icons/ViewDashboard.vue'
 // FolderItem, TypeItem, DateItem are not used in navigation sidebar
 // They are only used for emitting navigation events
 
+// eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
 import axios from '@nextcloud/axios'
 import { generateUrl } from '@nextcloud/router'
 

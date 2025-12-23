@@ -193,16 +193,6 @@ export default {
 			{ direction: 'down-right', icon: '◢', label: 'Rotate Down-Right' },
 		]
 
-		// Face views for cube clicking
-		const faceViews = {
-			FRONT: { position: new THREE.Vector3(0, 0, 1), label: 'FRONT' },
-			BACK: { position: new THREE.Vector3(0, 0, -1), label: 'BACK' },
-			LEFT: { position: new THREE.Vector3(-1, 0, 0), label: 'LEFT' },
-			RIGHT: { position: new THREE.Vector3(1, 0, 0), label: 'RIGHT' },
-			TOP: { position: new THREE.Vector3(0, 1, 0), label: 'TOP' },
-			BOTTOM: { position: new THREE.Vector3(0, -1, 0), label: 'BOTTOM' },
-		}
-
 		// Computed style for positioning
 		const controllerStyle = computed(() => ({
 			top: `${position.value.y}px`,
@@ -957,7 +947,6 @@ export default {
 				try {
 				// Only reset the target (panning) to center, keep camera distance and angle
 					const currentCameraPosition = props.mainCamera.position.clone()
-					const currentDistance = currentCameraPosition.length()
 
 					// Calculate the direction from camera to current target
 					const cameraDirection = new THREE.Vector3()
@@ -1007,8 +996,6 @@ export default {
 		const handleZoomRingMove = (event) => {
 			if (!isZoomDragging.value || !controllerRef.value) return
 
-			const rect = controllerRef.value.getBoundingClientRect()
-			const centerY = rect.top + rect.height / 2
 			const currentY = event.clientY
 			const deltaY = currentY - zoomStartY.value
 
@@ -1055,8 +1042,6 @@ export default {
 		const handleZoomRingTouchMove = (event) => {
 			if (!isZoomDragging.value || !controllerRef.value || event.touches.length !== 1) return
 
-			const rect = controllerRef.value.getBoundingClientRect()
-			const centerY = rect.top + rect.height / 2
 			const currentY = event.touches[0].clientY
 			const deltaY = currentY - zoomStartY.value
 

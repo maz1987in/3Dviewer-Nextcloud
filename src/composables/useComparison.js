@@ -9,7 +9,6 @@ import { AnimationMixer } from 'three'
 import { getFilePickerBuilder } from '@nextcloud/dialogs'
 import { loadModelByExtension } from '../loaders/registry.js'
 import { logger } from '../utils/logger.js'
-import { VIEWER_CONFIG } from '../config/viewer-config.js'
 import { disposeObject } from '../utils/three-utils.js'
 import { getFileIdByPath, loadModelWithDependencies } from '../loaders/multiFileHelpers.js'
 

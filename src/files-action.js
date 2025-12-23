@@ -6,6 +6,7 @@
  * Check if action is already registered to prevent duplicate registration warnings
  */
 
+// eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/dialogs transitive dependency
 import { registerFileAction, FileAction, Permission, DefaultType } from '@nextcloud/files'
 
 // Supported MIME types

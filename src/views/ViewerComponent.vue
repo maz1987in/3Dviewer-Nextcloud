@@ -348,6 +348,7 @@ export default {
 		 * @param {Array} fileList - Array of file objects from Viewer
 		 * @return {Array} Array of files (same as input)
 		 */
+		// eslint-disable-next-line vue/no-dupe-keys -- Required by Nextcloud Viewer API: needs both prop AND method
 		files(fileList) {
 			logger.info('ViewerComponent', 'Files method called', { count: fileList?.length || 0 })
 
@@ -1089,6 +1090,7 @@ export default {
 
 			// Listen for console errors (CSP violations appear in console)
 			const originalError = console.error
+			// eslint-disable-next-line no-console -- Intentional console override for CSP detection
 			const originalWarn = console.warn
 
 			const cspErrorHandler = (message, ...args) => {
@@ -1125,8 +1127,10 @@ export default {
 			// Store original for cleanup
 			this.cspErrorListener = {
 				restore: () => {
+					/* eslint-disable no-console -- Restoring original console methods */
 					console.error = originalError
 					console.warn = originalWarn
+					/* eslint-enable no-console */
 				},
 			}
 		},

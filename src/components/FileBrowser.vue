@@ -335,7 +335,6 @@ import NcEmptyContent from '@nextcloud/vue/dist/Components/NcEmptyContent.js'
 import NcBreadcrumbs from '@nextcloud/vue/dist/Components/NcBreadcrumbs.js'
 import NcBreadcrumb from '@nextcloud/vue/dist/Components/NcBreadcrumb.js'
 import FileIcon from 'vue-material-design-icons/File.vue'
-import FolderIcon from 'vue-material-design-icons/Folder.vue'
 import FileTypeIcon from 'vue-material-design-icons/FileCode.vue'
 import CalendarIcon from 'vue-material-design-icons/Calendar.vue'
 import FolderHierarchy from './FileBrowser/FolderHierarchy.vue'
@@ -349,7 +348,6 @@ export default {
 		NcBreadcrumbs,
 		NcBreadcrumb,
 		FileIcon,
-		FolderIcon,
 		FileTypeIcon,
 		CalendarIcon,
 		FolderHierarchy,

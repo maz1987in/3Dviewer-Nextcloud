@@ -2,6 +2,7 @@
  * Register 3D model viewer handler with Nextcloud Viewer app
  */
 
+// eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
 import { translate, translatePlural } from '@nextcloud/l10n'
 
 // Import Nextcloud dialogs styles

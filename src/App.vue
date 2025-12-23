@@ -115,9 +115,9 @@
 					v-if="prefsLoaded"
 					key="three-viewer"
 					ref="viewer"
-					:file-id="fileId"
-					:filename="filename"
-					:dir="dir"
+					:file-id="currentFileId"
+					:filename="currentFilename"
+					:dir="currentDir"
 					:show-grid="grid"
 					:show-axes="axes"
 					:wireframe="wireframe"
@@ -159,7 +159,7 @@ import SlicerModal from './components/SlicerModal.vue'
 import FileNavigation from './components/FileNavigation.vue'
 import FileBrowser from './components/FileBrowser.vue'
 import { NcContent, NcAppContent } from '@nextcloud/vue'
-import { loadState } from '@nextcloud/initial-state'
+// eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
 import axios from '@nextcloud/axios'
 import { generateUrl } from '@nextcloud/router'
 import { VIEWER_CONFIG } from './config/viewer-config.js'
@@ -184,15 +184,15 @@ export default {
 		dir: { type: String, default: null },
 	},
 	data() {
-		loadState('threedviewer', 'navigation-initial-state') || {}
 		// Prefer props if provided (from main.js), otherwise parse from DOM/query params
 		const initialFileId = this.fileId || this.parseFileId() || null
 		const initialFilename = this.filename || this.parseFilename()
 		const initialDir = this.dir || this.parseDir()
 		return {
-			fileId: initialFileId,
-			filename: initialFilename,
-			dir: initialDir,
+			// Use local data copies to avoid prop mutations
+			currentFileId: initialFileId,
+			currentFilename: initialFilename,
+			currentDir: initialDir,
 			defaultSort: 'viewer', // Always start in viewer mode regardless of prior preference
 			// File browser state
 			showFileBrowser: false, // Default to viewer, show browser only when navigating to folders/types/dates
@@ -296,32 +296,32 @@ export default {
 	},
 	mounted() {
 		// If fileId wasn't provided via props, try parsing from DOM/query params now that DOM is ready
-		if (!this.fileId) {
+		if (!this.currentFileId) {
 			const parsedFileId = this.parseFileId()
 			if (parsedFileId) {
-				this.fileId = parsedFileId
+				this.currentFileId = parsedFileId
 			}
 		}
 
 		// If filename wasn't provided via props, try parsing now
-		if (!this.filename) {
+		if (!this.currentFilename) {
 			const parsedFilename = this.parseFilename()
 			if (parsedFilename) {
-				this.filename = parsedFilename
+				this.currentFilename = parsedFilename
 			}
 		}
 
 		// If dir wasn't provided via props, try parsing now
-		if (!this.dir) {
+		if (!this.currentDir) {
 			const parsedDir = this.parseDir()
 			if (parsedDir) {
-				this.dir = parsedDir
+				this.currentDir = parsedDir
 			}
 		}
 
 		// Test harness fallback: if no fileId parsed but a global test file id is present inject it.
-		if (!this.fileId && typeof window !== 'undefined' && window.__TEST_FILE_ID) {
-			this.fileId = Number(window.__TEST_FILE_ID)
+		if (!this.currentFileId && typeof window !== 'undefined' && window.__TEST_FILE_ID) {
+			this.currentFileId = Number(window.__TEST_FILE_ID)
 		}
 
 		// Detect mobile device
@@ -564,10 +564,10 @@ export default {
 
 		getModelName() {
 			// Return filename without extension for export
-			if (!this.filename) return 'model'
+			if (!this.currentFilename) return 'model'
 
 			// Extract just the filename (remove path)
-			const parts = this.filename.split('/')
+			const parts = this.currentFilename.split('/')
 			const filenameOnly = parts[parts.length - 1]
 
 			// Remove extension
@@ -723,21 +723,17 @@ export default {
 				// Handle 404 errors
 				if (message.includes('404') || message.includes('not found') || message.includes('File not found')) {
 					message = this.t('threedviewer', 'File not found. The file may have been deleted, moved, or you may not have access to it.')
-				}
-				// Handle 403 errors
-				else if (message.includes('403') || message.includes('Access denied') || message.includes('permission')) {
+				} else if (message.includes('403') || message.includes('Access denied') || message.includes('permission')) {
+					// Handle 403 errors
 					message = this.t('threedviewer', 'Access denied. You may not have permission to access this file.')
-				}
-				// Handle 401 errors
-				else if (message.includes('401') || message.includes('authentication') || message.includes('not authenticated')) {
+				} else if (message.includes('401') || message.includes('authentication') || message.includes('not authenticated')) {
+					// Handle 401 errors
 					message = this.t('threedviewer', 'Authentication required. Please log in again.')
-				}
-				// Handle network errors
-				else if (message.includes('Failed to fetch') || message.includes('network') || message.includes('NetworkError')) {
+				} else if (message.includes('Failed to fetch') || message.includes('network') || message.includes('NetworkError')) {
+					// Handle network errors
 					message = this.t('threedviewer', 'Network error. Please check your connection and try again.')
-				}
-				// Handle unsupported format errors
-				else if (message.includes('Unsupported') || message.includes('unsupported file')) {
+				} else if (message.includes('Unsupported') || message.includes('unsupported file')) {
+					// Handle unsupported format errors
 					message = this.t('threedviewer', 'Unsupported file format. Please try a different file.')
 				}
 			}
@@ -765,10 +761,10 @@ export default {
 					this.saveBrowserStateSnapshot()
 				}
 
-				this.fileId = file.id
+				this.currentFileId = file.id
 				// Use path from backend response (formatFileIndex returns 'path' and 'folder_path')
-				this.filename = file.path || file.name || null
-				this.dir = file.folder_path || null
+				this.currentFilename = file.path || file.name || null
+				this.currentDir = file.folder_path || null
 
 				// Switch to viewer mode
 				this.showFileBrowser = false
@@ -830,9 +826,9 @@ export default {
 		onNavigateViewer() {
 			// Switch to viewer mode - hide file browser and show 3D viewer in default/empty state
 			this.showFileBrowser = false
-			this.fileId = null
-			this.filename = null
-			this.dir = null
+			this.currentFileId = null
+			this.currentFilename = null
+			this.currentDir = null
 			this.selectedFileId = null
 			// Update URL to remove file ID and show default viewer
 			window.history.pushState({}, '', generateUrl('/apps/threedviewer/'))

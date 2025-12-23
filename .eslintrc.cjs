@@ -3,7 +3,8 @@ module.exports = {
 		'@nextcloud',
 	],
 	rules: {
-      'no-unused-vars': 'warn',
+		'no-unused-vars': 'error',
+		'no-console': ['warn', { allow: ['error'] }],
 		'jsdoc/require-jsdoc': 'off',
 		'vue/first-attribute-linebreak': 'off',
 	},

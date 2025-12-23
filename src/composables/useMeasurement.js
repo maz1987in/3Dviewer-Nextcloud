@@ -6,7 +6,6 @@ import { VIEWER_CONFIG } from '../config/viewer-config.js'
 import {
 	calculateModelScale,
 	createTextTexture,
-	createMarkerSphere,
 	createTextMesh,
 	raycastIntersection,
 } from '../utils/modelScaleUtils.js'

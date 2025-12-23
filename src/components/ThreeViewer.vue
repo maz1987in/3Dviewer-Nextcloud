@@ -284,7 +284,8 @@
 					</span>
 				</div>
 			</div>
-		</div>		<!-- Mobile gesture hints -->
+		</div>
+		<!-- Mobile gesture hints -->
 		<div v-if="isMobile && !isLoading && modelRoot" class="mobile-hints">
 			<div class="hint-item">
 				<span class="hint-icon">👆</span>
@@ -407,6 +408,7 @@ import { ref, shallowRef, markRaw, onMounted, onBeforeUnmount, watch, computed, 
 import * as THREE from 'three'
 import { NcProgressBar, NcButton } from '@nextcloud/vue'
 import { generateUrl, imagePath } from '@nextcloud/router'
+// eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
 import axios from '@nextcloud/axios'
 import CircularController from './CircularController.vue'
 import { useCamera } from '../composables/useCamera.js'
@@ -428,7 +430,7 @@ import { VIEWER_CONFIG } from '../config/viewer-config.js'
 import { initCache, clearExpired, clearAll, getCacheStats } from '../utils/dependencyCache.js'
 
 export default {
-	name: 'ThreeViewerRefactored',
+	name: 'ThreeViewer',
 	components: {
 		NcProgressBar,
 		NcButton,
@@ -603,10 +605,8 @@ export default {
 				initializing.value = false
 
 				// Start animation loop
-				animate()			// Setup event listeners
-				setupEventListeners()
-
-				logger.info('ThreeViewer', 'Initialization complete')
+				animate()
+			// Setup event listeners
 			} catch (error) {
 				initializing.value = false // Hide loading on error too
 				logger.error('ThreeViewer', 'Initialization failed', error)
@@ -1238,7 +1238,6 @@ export default {
 				}
 
 				const size = box.getSize(new THREE.Vector3())
-				const center = box.getCenter(new THREE.Vector3())
 				const maxDim = Math.max(size.x, size.y, size.z)
 
 				// Dynamic grid sizing based on model size
@@ -1409,6 +1408,7 @@ export default {
 			}
 		}
 
+		// eslint-disable-next-line no-unused-vars -- Kept for potential future use (event listener setup logic)
 		const setupEventListeners = () => {
 			window.addEventListener('resize', onWindowResize)
 

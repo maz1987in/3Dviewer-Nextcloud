@@ -26,12 +26,18 @@ function createViewerComponent() {
 			// Viewer API component mounted
 
 			if (!fileId) {
-				this.$el.innerHTML = '<div style="padding: 20px; text-align: center; color: red;">No file ID available</div>'
+				const errorDiv = document.createElement('div')
+				errorDiv.style.cssText = 'padding: 20px; text-align: center; color: red;'
+				errorDiv.textContent = 'No file ID available'
+				this.$el.appendChild(errorDiv)
 				return
 			}
 
 			if (!isSupported(fileName)) {
-				this.$el.innerHTML = '<div style="padding: 20px; text-align: center; color: red;">Unsupported file type</div>'
+				const errorDiv = document.createElement('div')
+				errorDiv.style.cssText = 'padding: 20px; text-align: center; color: red;'
+				errorDiv.textContent = 'Unsupported file type'
+				this.$el.appendChild(errorDiv)
 				return
 			}
 
@@ -74,12 +80,15 @@ function createViewerComponent() {
 					this.modalInstance = modalInstance
 
 				} catch (error) {
-					this.$el.innerHTML = `
-						<div style="padding: 20px; text-align: center; color: red;">
-							<h3>Failed to load 3D viewer</h3>
-							<p>Error: ${error.message}</p>
-						</div>
-					`
+					const errorContainer = document.createElement('div')
+					errorContainer.style.cssText = 'padding: 20px; text-align: center; color: red;'
+					const title = document.createElement('h3')
+					title.textContent = 'Failed to load 3D viewer'
+					const message = document.createElement('p')
+					message.textContent = `Error: ${error.message}`
+					errorContainer.appendChild(title)
+					errorContainer.appendChild(message)
+					this.$el.appendChild(errorContainer)
 				}
 			},
 		},

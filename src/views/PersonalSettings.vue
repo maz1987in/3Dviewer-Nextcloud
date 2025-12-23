@@ -160,6 +160,7 @@
 <script>
 import { NcSettingsSection, NcButton, NcCheckboxRadioSwitch, NcTextField, NcSelect } from '@nextcloud/vue'
 import { generateUrl, imagePath } from '@nextcloud/router'
+// eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
 import axios from '@nextcloud/axios'
 import { showSuccess, showError } from '@nextcloud/dialogs'
 import ContentSave from 'vue-material-design-icons/ContentSave.vue'

@@ -261,6 +261,7 @@
 </template>
 
 <script>
+// eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
 import { translate as t } from '@nextcloud/l10n'
 import { FORMATS_DISPLAY_LIST } from '../config/viewer-config.js'
 

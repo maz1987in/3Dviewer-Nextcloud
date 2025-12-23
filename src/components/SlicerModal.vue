@@ -83,6 +83,7 @@
 
 <script>
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+// eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
 import { translate as t } from '@nextcloud/l10n'
 import { showWarning } from '@nextcloud/dialogs'
 import { useSlicerIntegration } from '../composables/useSlicerIntegration.js'
@@ -168,7 +169,10 @@ export default {
 		const handleImageError = (event) => {
 			// On error, replace with a simple colored circle
 			event.target.style.display = 'none'
-			event.target.parentElement.innerHTML = '<div class="slicer-icon-fallback">?</div>'
+			const fallback = document.createElement('div')
+			fallback.className = 'slicer-icon-fallback'
+			fallback.textContent = '?'
+			event.target.parentElement.appendChild(fallback)
 		}
 
 		/**

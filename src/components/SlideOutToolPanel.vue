@@ -262,6 +262,7 @@
 
 <script>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+// eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
 import { translate as t } from '@nextcloud/l10n'
 
 export default {

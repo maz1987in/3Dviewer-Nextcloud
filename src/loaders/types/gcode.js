@@ -20,7 +20,7 @@ class GCodeLoader extends BaseLoader {
 	async loadModel(arrayBuffer, context) {
 		// Check if this is a binary format
 		const isBinary = this.detectBinaryFormat(arrayBuffer)
-		
+
 		let text
 		if (isBinary) {
 			// Try to extract text from binary format
@@ -32,7 +32,7 @@ class GCodeLoader extends BaseLoader {
 			// Decode as plain text G-code
 			text = new TextDecoder('utf-8').decode(arrayBuffer)
 		}
-		
+
 		if (!text || text.trim().length === 0) {
 			throw new Error('Empty G-code file')
 		}
@@ -55,7 +55,7 @@ class GCodeLoader extends BaseLoader {
 		geometries.forEach((geometry, index) => {
 			const hue = (index / layers.length) * 360
 			const color = new THREE.Color().setHSL(hue / 360, 0.8, 0.5)
-			
+
 			const material = new THREE.LineBasicMaterial({
 				color,
 				linewidth: 2,
@@ -87,19 +87,19 @@ class GCodeLoader extends BaseLoader {
 		const lines = text.split('\n')
 		const geometries = []
 		const layers = []
-		
+
 		let currentX = 0
 		let currentY = 0
 		let currentZ = 0
 		let currentLayer = 0
 		let lastZ = null
-		
+
 		let currentLayerPositions = []
 
 		// Parse each line
 		for (let i = 0; i < lines.length; i++) {
 			const line = lines[i].trim()
-			
+
 			// Skip empty lines and comments
 			if (!line || line.startsWith(';') || line.startsWith('(')) {
 				continue
@@ -107,10 +107,10 @@ class GCodeLoader extends BaseLoader {
 
 			// Remove inline comments
 			const cleanLine = line.split(';')[0].trim()
-			
+
 			// Parse G-code command
 			const command = this.parseCommand(cleanLine)
-			
+
 			if (!command) {
 				continue
 			}
@@ -126,7 +126,7 @@ class GCodeLoader extends BaseLoader {
 					// New layer detected, save current layer
 					if (currentLayerPositions.length > 0) {
 						const geometry = new THREE.BufferGeometry()
-						geometry.setAttribute('position', 
+						geometry.setAttribute('position',
 							new THREE.Float32BufferAttribute(currentLayerPositions, 3))
 						geometries.push(geometry)
 						layers.push({ z: lastZ, points: currentLayerPositions.length / 3 })
@@ -153,7 +153,7 @@ class GCodeLoader extends BaseLoader {
 		// Add final layer
 		if (currentLayerPositions.length > 0) {
 			const geometry = new THREE.BufferGeometry()
-			geometry.setAttribute('position', 
+			geometry.setAttribute('position',
 				new THREE.Float32BufferAttribute(currentLayerPositions, 3))
 			geometries.push(geometry)
 			layers.push({ z: currentZ, points: currentLayerPositions.length / 3 })
@@ -200,12 +200,12 @@ class GCodeLoader extends BaseLoader {
 	 */
 	detectBinaryFormat(arrayBuffer) {
 		const header = new Uint8Array(arrayBuffer.slice(0, 16))
-		
+
 		// Check for known binary signatures (e.g., Prusa-style "GCOD" headers)
 		if (header[0] === 0x47 && header[1] === 0x43 && header[2] === 0x4F && header[3] === 0x44) { // "GCOD"
 			return true
 		}
-		
+
 		// Check for high ratio of non-printable characters (likely binary)
 		const sample = new Uint8Array(arrayBuffer.slice(0, Math.min(1024, arrayBuffer.byteLength)))
 		let nonPrintable = 0
@@ -216,7 +216,7 @@ class GCodeLoader extends BaseLoader {
 				nonPrintable++
 			}
 		}
-		
+
 		// If more than 30% non-printable, likely binary
 		return (nonPrintable / sample.length) > 0.3
 	}
@@ -232,13 +232,13 @@ class GCodeLoader extends BaseLoader {
 		const chunks = []
 		let currentChunk = []
 		const MAX_CHUNK_SIZE = 1000 // Prevent stack overflow with fromCharCode
-		
+
 		for (let i = 0; i < data.length; i++) {
 			const byte = data[i]
 			// Collect printable ASCII and newlines
 			if ((byte >= 32 && byte <= 126) || byte === 10 || byte === 13) {
 				currentChunk.push(byte)
-				
+
 				// Process chunk if it gets too large
 				if (currentChunk.length >= MAX_CHUNK_SIZE) {
 					chunks.push(String.fromCharCode.apply(null, currentChunk))
@@ -253,19 +253,19 @@ class GCodeLoader extends BaseLoader {
 				currentChunk = []
 			}
 		}
-		
+
 		// Add final chunk
 		if (currentChunk.length > 10) {
 			chunks.push(String.fromCharCode.apply(null, currentChunk))
 		}
-		
+
 		const extracted = chunks.join('\n')
-		
+
 		// Verify we found G-code commands
 		if (extracted.match(/[GM]\d+/)) {
 			return extracted
 		}
-		
+
 		return null
 	}
 

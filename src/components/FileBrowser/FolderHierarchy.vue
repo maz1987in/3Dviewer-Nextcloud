@@ -34,14 +34,11 @@
 
 <script>
 import FolderIcon from 'vue-material-design-icons/Folder.vue'
-import FileIcon from 'vue-material-design-icons/File.vue'
 
 export default {
 	name: 'FolderHierarchy',
 	components: {
 		FolderIcon,
-		FileIcon,
-		FolderHierarchy: () => import('./FolderHierarchy.vue'),
 	},
 	props: {
 		folder: {
