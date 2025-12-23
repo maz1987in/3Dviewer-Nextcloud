@@ -74,10 +74,18 @@ File browser currently only supports grid view.
 IndexedDB dependency cache exists without UI controls.
 
 **Action Items**:
-- [ ] Add Settings panel section: show size, clear cache button
+- [ ] Add Settings panel section: show size, entry count, clear cache button, optional max size/LRU toggle
 - [ ] Implement LRU enforcement (configurable max size / item count)
 - [ ] Add metric to performance overlay (cache hits/misses)
-- [ ] Document privacy considerations (local only)
+- [ ] Document privacy considerations (local only) in TECHNICAL.md
+
+### 6b. Frontend Format Parity Guard
+Backend formats are centralized; frontend MIME/extension lists can drift.
+
+**Action Items**:
+- [ ] Generate Viewer SUPPORTED_MIMES / SUPPORTED_FORMATS from backend constants or shared JSON
+- [ ] Add unit test to enforce backend ↔ frontend parity
+- [ ] Document the contract in docs/TECHNICAL.md
 
 ### 6. Security Review: Slicer Temporary Files
 Assess lifetime & access scope of temporary share links.
@@ -129,9 +137,8 @@ Bring minimal modal viewer closer (select subset) to advanced features without w
 
 **Action Items**:
 - [ ] Add lightweight stats panel & screenshot button
-- [ ] Share core loader code (avoid duplication)
 - [ ] Provide quick jump to standalone view (CTA button)
-- [ ] Measure added bundle impact
+- [ ] Share core loader code (avoid duplication) and measure bundle delta vs current budget
 
 ---
 
@@ -141,9 +148,9 @@ Bring minimal modal viewer closer (select subset) to advanced features without w
 Core multi-file logic shipped; expand edge coverage.
 
 **Action Items**:
-- [ ] Fixtures: mixed-case extensions, missing MTL, orphaned textures
-- [ ] Test fallback logic for flexible texture name matching
-- [ ] Playwright scenario: cancel mid-load, then retry
+- [ ] Fixtures: mixed-case extensions, missing MTL, orphaned textures, alternate BIN/texture names
+- [ ] Test fallback logic for flexible texture name matching and partial dependency availability
+- [ ] Playwright scenarios: cancel mid-load, retry, and recovery after network drop
 - [ ] Document matrix of tested combinations in TESTING.md
 
 ### 12. Export Functionality Robustness
@@ -170,6 +177,7 @@ Ensure new strings (settings, slicer, indexing) are translatable.
 - [ ] Run extraction tool & diff
 - [ ] Add missing keys (`l10n/en.json` baseline)
 - [ ] Mark newly added strings in PR
+- [ ] Add a short i18n checklist reference in docs/README.md or TECHNICAL.md
 
 ### 15. Accessibility Review
 Check ARIA roles / keyboard navigation for new components.

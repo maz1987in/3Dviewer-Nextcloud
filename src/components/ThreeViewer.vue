@@ -461,6 +461,9 @@ export default {
 		enableAntialiasing: { type: Boolean, default: true },
 		ambientLightIntensity: { type: Number, default: 2.0 },
 		directionalLightIntensity: { type: Number, default: 1.0 },
+		// G-code toolpath color props (from App topbar)
+		gcodeColorMode: { type: String, default: 'gradient' }, // 'single' | 'gradient'
+		gcodeSingleColor: { type: String, default: '#ff5722' },
 	},
 	emits: ['model-loaded', 'error', 'view-reset', 'fit-to-view', 'toggle-auto-rotate', 'toggle-projection', 'change-preset', 'toggle-grid', 'axes-toggle', 'wireframe-toggle', 'background-change', 'toggle-measurement', 'toggle-annotation', 'toggle-comparison', 'toggle-performance', 'cycle-performance-mode', 'dismiss', 'push-toast', 'loading-state-changed', 'fps-updated'],
 	setup(props, { emit }) {
@@ -886,6 +889,10 @@ export default {
 					filename,
 					dir: dirPath,
 					THREE,
+					gcodeOptions: {
+						colorMode: props.gcodeColorMode,
+						singleColor: props.gcodeSingleColor,
+					},
 				})
 
 				if (loadedModel && loadedModel.object3D) {
@@ -895,6 +902,9 @@ export default {
 					// Add the loaded model to the scene first
 					modelRoot.value = markRaw(loadedModel.object3D)
 					scene.value.add(modelRoot.value)
+
+					// Apply current G-code color scheme if applicable
+					setGcodeColorScheme(props.gcodeColorMode, props.gcodeSingleColor)
 
 					// Center the model horizontally at the origin, but sit on the grid vertically
 					// This ensures the model aligns with the grid and rotation feels natural
@@ -1058,6 +1068,30 @@ export default {
 				// Re-throw error so caller knows it failed
 				throw error
 			}
+		}
+
+		// Public method: recolor G-code toolpaths in current scene
+		const setGcodeColorScheme = (mode = 'single', color = '#ff5722') => {
+			try {
+				if (!scene.value) return
+				const group = scene.value.getObjectByName('GCodeToolpath')
+				if (!group) return
+				const children = group.children || []
+				const total = Math.max(children.length, 1)
+				children.forEach((child, idx) => {
+					if (!child.material || !child.material.color) return
+					if (mode === 'single') {
+						child.material.color.set(color)
+						child.material.needsUpdate = true
+					} else {
+						const hue = (idx / total) * 360
+						if (child.material.color.setHSL) {
+							child.material.color.setHSL(hue / 360, 0.8, 0.5)
+							child.material.needsUpdate = true
+						}
+					}
+				})
+			} catch (_) { /* ignore recolor errors */ }
 		}
 
 		const createDemoScene = async (fileId = 'demo') => {
@@ -2861,6 +2895,8 @@ export default {
 			toggleModelStats,
 			handleExport,
 			getModelObject,
+			// Expose G-code recolor method to parent
+			setGcodeColorScheme,
 			handleClearCache,
 			updateCacheStats,
 			handleScreenshot,

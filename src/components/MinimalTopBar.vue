@@ -35,6 +35,20 @@
 
 		<!-- Right: Settings & Info -->
 		<div class="right-section">
+			<!-- G-code toolpath color mode toggle -->
+			<button
+				:aria-label="t('threedviewer', 'Toggle toolpath color mode')"
+				class="icon-btn"
+				:title="gcodeColorMode === 'single' ? t('threedviewer','Color: Single') : t('threedviewer','Color: Gradient')"
+				@click="$emit('toggle-gcode-color-mode')">
+				<span class="btn-icon">🎨</span>
+				<span class="btn-text">{{ gcodeColorMode === 'single' ? t('threedviewer','Single') : t('threedviewer','Gradient') }}</span>
+			</button>
+
+			<!-- Single color picker (visible in Single mode) -->
+			<label v-if="gcodeColorMode === 'single'" class="topbar-color-picker" :title="t('threedviewer','Select toolpath color')">
+				<input type="color" :value="gcodeSingleColor" @input="$emit('change-gcode-color', $event.target.value)" />
+			</label>
 			<!-- Animation Play/Pause Button -->
 			<button v-if="hasAnimations"
 				:aria-label="isAnimationPlaying ? t('threedviewer', 'Pause animation') : t('threedviewer', 'Play animation')"
@@ -105,6 +119,9 @@ export default {
 		isMobile: { type: Boolean, default: false },
 		hasAnimations: { type: Boolean, default: false },
 		isAnimationPlaying: { type: Boolean, default: false },
+		// G-code toolpath color controls
+		gcodeColorMode: { type: String, default: 'single' }, // 'single' | 'gradient'
+		gcodeSingleColor: { type: String, default: '#ff5722' },
 	},
 
 	emits: [
@@ -116,6 +133,9 @@ export default {
 		'toggle-help',
 		'toggle-tools',
 		'toggle-animation-play',
+		// G-code color events
+		'toggle-gcode-color-mode',
+		'change-gcode-color',
 	],
 
 	setup(props, { emit }) {
@@ -255,6 +275,31 @@ export default {
 	background: rgb(0 130 201 / 90%) !important;
 	border-color: rgb(0 130 201 / 60%) !important;
 	color: #fff !important;
+}
+
+/* Topbar color picker */
+.topbar-color-picker {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 40px;
+	height: 36px;
+	border-radius: 6px;
+	background: #fff;
+	box-shadow: 0 2px 8px rgb(0 0 0 / 30%);
+	border: 1px solid rgb(255 255 255 / 30%);
+}
+
+.topbar-color-picker input[type="color"] {
+	appearance: none;
+	-webkit-appearance: none;
+	border: none;
+	padding: 0;
+	width: 32px;
+	height: 24px;
+	background: transparent;
+	cursor: pointer;
+	border-radius: 4px;
 }
 
 .fps-badge {

@@ -106,6 +106,31 @@
 							@input="e => updateValue(key, fieldKey, Number(e.target.value))">
 					</div>
 
+					<!-- Select Group Input -->
+					<div v-else-if="field.type === 'select-group'" class="setting-row select-group-row">
+						<div class="setting-label">
+							<label>{{ field.label }}</label>
+							<span v-if="field.description" class="setting-description">{{ field.description }}</span>
+						</div>
+						<NcSettingsSelectGroup
+							:value="[getValue(key, fieldKey, field.default)]"
+							:options="field.options"
+							@update:value="val => updateValue(key, fieldKey, Array.isArray(val) ? val[0] : val)" />
+					</div>
+
+					<!-- Multi-select Input -->
+					<div v-else-if="field.type === 'multiselect'" class="setting-row select-group-row">
+						<div class="setting-label">
+							<label>{{ field.label }}</label>
+							<span v-if="field.description" class="setting-description">{{ field.description }}</span>
+						</div>
+						<NcSelect
+							:value="formatMultiValue(field.options, getValue(key, fieldKey, field.default))"
+							:options="field.options"
+							:multiple="true"
+							@input="val => updateValue(key, fieldKey, Array.isArray(val) ? val.map(v => v.value || v) : [])" />
+					</div>
+
 					<!-- Custom Re-index Field -->
 					<div v-else-if="field.type === 'custom-reindex'" class="setting-row">
 						<div class="setting-label">
@@ -158,7 +183,7 @@
 </template>
 
 <script>
-import { NcSettingsSection, NcButton, NcCheckboxRadioSwitch, NcTextField, NcSelect } from '@nextcloud/vue'
+import { NcSettingsSection, NcButton, NcCheckboxRadioSwitch, NcTextField, NcSelect, NcSettingsSelectGroup } from '@nextcloud/vue'
 import { generateUrl, imagePath } from '@nextcloud/router'
 // eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
 import axios from '@nextcloud/axios'
@@ -179,6 +204,7 @@ import {
 	ANIMATION_SETTINGS,
 	INTERACTION_SETTINGS,
 	VISUAL_SIZING_SETTINGS,
+	SLICER_SETTINGS,
 } from '../config/viewer-config.js'
 
 export default {
@@ -189,6 +215,7 @@ export default {
 		NcCheckboxRadioSwitch,
 		NcTextField,
 		NcSelect,
+		NcSettingsSelectGroup,
 		ContentSave,
 		Sync,
 		History,
@@ -370,6 +397,30 @@ export default {
 						},
 					},
 				},
+				slicer: {
+					title: this.t('threedviewer', 'Slicer & export'),
+					description: this.t('threedviewer', 'Choose which formats to send directly. All others convert to STL.'),
+					fields: {
+						'slicer.passthroughFormats': {
+							label: this.t('threedviewer', 'Send these formats without conversion'),
+							description: this.t('threedviewer', 'Selected extensions are sent as-is to the slicer; all others are converted to STL.'),
+							type: 'multiselect',
+							default: SLICER_SETTINGS.passthroughFormats,
+							options: [
+								{ value: 'gcode', label: 'gcode' },
+								{ value: 'gco', label: 'gco' },
+								{ value: 'nc', label: 'nc' },
+								{ value: 'g', label: 'g' },
+								{ value: 'gx', label: 'gx' },
+								{ value: '3mf', label: '3mf' },
+								{ value: 'amf', label: 'amf' },
+								{ value: 'stl', label: 'stl' },
+								{ value: 'obj', label: 'obj' },
+								{ value: 'ply', label: 'ply' },
+							],
+						},
+					},
+				},
 				controller: {
 					title: this.t('threedviewer', 'Camera Controller'),
 					description: this.t('threedviewer', 'Settings for the on-screen navigation controller.'),
@@ -527,6 +578,12 @@ export default {
 			deepObj[lastKey] = value
 		},
 
+		formatMultiValue(options, value) {
+			const selected = Array.isArray(value) ? value : []
+			const optionMap = new Map(options.map(o => [o.value, o]))
+			return selected.map(val => optionMap.get(val) || { value: val, label: val })
+		},
+
 		updateValue(section, key, value) {
 			// Create a copy to avoid reactivity issues with deep objects if needed
 			const newSettings = JSON.parse(JSON.stringify(this.userSettings))
@@ -673,6 +730,12 @@ export default {
 	align-items: center;
 	gap: 32px;
 	min-height: 44px;
+
+.select-group-row {
+	flex-direction: column;
+	align-items: stretch;
+	gap: 16px;
+}
 }
 
 .setting-label {

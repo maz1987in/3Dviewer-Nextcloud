@@ -66,6 +66,7 @@
 			@click.prevent="toggleAnimation">
 			{{ isAnimationPlayingComputed ? '⏸️' : '▶️' }}
 		</NcButton>
+
 	</div>
 </template>
 
@@ -1192,6 +1193,7 @@ export default {
 				this.isAnimationPlaying = this.animationComposable.isPlaying.value
 			}
 		},
+
 	},
 }
 </script>

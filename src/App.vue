@@ -43,6 +43,10 @@
 					:is-open="showSlicerModal"
 					:model-object="getModelObject()"
 					:model-name="getModelName()"
+					:file-id="currentFileId"
+					:filename="currentFilename"
+					:passthrough-formats="slicerPassthroughFormats"
+					:export-format="slicerExportFormat"
 					:is-dark-theme="themeMode === 'dark'"
 					@close="showSlicerModal = false"
 					@success="onSlicerSuccess"
@@ -58,6 +62,8 @@
 					:is-mobile="isMobile"
 					:has-animations="hasAnimationsComputed"
 					:is-animation-playing="isAnimationPlayingComputed"
+					:gcode-color-mode="gcodeColorMode"
+					:gcode-single-color="gcodeSingleColor"
 					@reset-view="onReset"
 					@fit-to-view="onFitToView"
 					@toggle-performance="onTogglePerformance"
@@ -65,7 +71,9 @@
 					@take-screenshot="onTakeScreenshot"
 					@toggle-help="onToggleHelp"
 					@toggle-tools="onToggleTools"
-					@toggle-animation-play="onToggleAnimationPlay" />
+					@toggle-animation-play="onToggleAnimationPlay"
+					@toggle-gcode-color-mode="onToggleGcodeColorMode"
+					@change-gcode-color="onChangeGcodeColor" />
 
 				<!-- Slide-Out Tool Panel -->
 				<SlideOutToolPanel
@@ -122,6 +130,8 @@
 					:show-axes="axes"
 					:wireframe="wireframe"
 					:background="background"
+					:gcode-color-mode="gcodeColorMode"
+					:gcode-single-color="gcodeSingleColor"
 					:show-controller="showController"
 					:persist-controller-position="persistControllerPosition"
 					:auto-rotate="autoRotate"
@@ -162,7 +172,7 @@ import { NcContent, NcAppContent } from '@nextcloud/vue'
 // eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
 import axios from '@nextcloud/axios'
 import { generateUrl } from '@nextcloud/router'
-import { VIEWER_CONFIG } from './config/viewer-config.js'
+import { VIEWER_CONFIG, SLICER_SETTINGS } from './config/viewer-config.js'
 
 export default {
 	name: 'App',
@@ -251,12 +261,17 @@ export default {
 			showHelp: false,
 			isMobile: false,
 			showSlicerModal: false,
+			slicerPassthroughFormats: [...SLICER_SETTINGS.passthroughFormats],
+			slicerExportFormat: SLICER_SETTINGS.exportFormat,
 			// Animation state (updated from viewer)
 			hasAnimations: false,
 			isAnimationPlaying: false,
 			isAnimationLooping: false,
 			// Cache stats (updated from viewer)
 			cacheStats: { enabled: false, count: 0, sizeMB: 0, hits: 0, misses: 0, hitRate: 0 },
+			// G-code toolpath color state for topbar controls
+			gcodeColorMode: 'gradient',
+			gcodeSingleColor: '#ff5722',
 		}
 	},
 	computed: {
@@ -330,6 +345,25 @@ export default {
 			this.showController = false
 		}
 		window.addEventListener('resize', this.detectMobile)
+
+		// Initialize persisted G-code color preferences
+		try {
+			const savedMode = localStorage.getItem('threedviewer.gcodeColorMode')
+			if (savedMode === 'gradient') {
+				this.gcodeColorMode = 'gradient'
+			} else if (savedMode === 'single') {
+				// Migrate old single-color default to gradient for better contrast
+				this.gcodeColorMode = 'gradient'
+				localStorage.setItem('threedviewer.gcodeColorMode', 'gradient')
+			} else {
+				// No prior preference: keep gradient default
+				localStorage.setItem('threedviewer.gcodeColorMode', 'gradient')
+			}
+			const savedColor = localStorage.getItem('threedviewer.gcodeSingleColor')
+			if (savedColor && /^#([0-9a-fA-F]{3}){1,2}$/.test(savedColor)) {
+				this.gcodeSingleColor = savedColor
+			}
+		} catch (_) { /* ignore */ }
 
 		// Periodically update cache stats from viewer
 		this.cacheStatsInterval = setInterval(() => {
@@ -425,6 +459,14 @@ export default {
 					if (settings.performance) {
 						if (typeof settings.performance.enableShadows === 'boolean') this.enableShadows = settings.performance.enableShadows
 						if (typeof settings.performance.enableAntialiasing === 'boolean') this.enableAntialiasing = settings.performance.enableAntialiasing
+					}
+					if (settings.slicer) {
+						if (Array.isArray(settings.slicer.passthroughFormats)) {
+							this.slicerPassthroughFormats = settings.slicer.passthroughFormats
+						}
+						if (typeof settings.slicer.exportFormat === 'string') {
+							this.slicerExportFormat = settings.slicer.exportFormat
+						}
 					}
 				}
 			} catch (e) {
@@ -532,6 +574,18 @@ export default {
 		// Set the new theme mode
 			this.themeMode = mode
 			this.$refs.viewer?.setTheme?.(mode)
+		},
+
+		// G-code color controls (topbar)
+		onToggleGcodeColorMode() {
+			this.gcodeColorMode = this.gcodeColorMode === 'single' ? 'gradient' : 'single'
+			try { localStorage.setItem('threedviewer.gcodeColorMode', this.gcodeColorMode) } catch (_) {}
+			this.$refs.viewer?.setGcodeColorScheme?.(this.gcodeColorMode, this.gcodeSingleColor)
+		},
+		onChangeGcodeColor(color) {
+			this.gcodeSingleColor = color
+			try { localStorage.setItem('threedviewer.gcodeSingleColor', this.gcodeSingleColor) } catch (_) {}
+			this.$refs.viewer?.setGcodeColorScheme?.(this.gcodeColorMode, this.gcodeSingleColor)
 		},
 
 		onToggleStats() {
@@ -1011,6 +1065,9 @@ export default {
 		},
 	},
 }
+				if (settings.slicer && settings.slicer.exportFormat) {
+					this.slicerExportFormat = settings.slicer.exportFormat
+				}
 </script>
 
 <style scoped lang="scss">

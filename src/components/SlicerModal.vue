@@ -16,7 +16,7 @@
 			<!-- Modal Content -->
 			<div class="modal-content">
 				<p class="modal-description">
-					{{ t('threedviewer', 'Export your model as STL and open it directly in your slicer application (if installed).') }}
+					{{ t('threedviewer', 'Send your model to a slicer. Formats you mark as passthrough are sent as-is; everything else is converted to STL.') }}
 				</p>
 
 				<!-- Loading State -->
@@ -105,6 +105,23 @@ export default {
 			type: String,
 			default: 'model',
 		},
+		fileId: {
+			type: [Number, String],
+			default: null,
+		},
+		filename: {
+			type: String,
+			default: null,
+		},
+		passthroughFormats: {
+			type: Array,
+			default: () => [],
+		},
+		exportFormat: {
+			type: String,
+			default: 'stl',
+			validator: (value) => ['stl', 'obj', 'ply'].includes(value),
+		},
 		isDarkTheme: {
 			type: Boolean,
 			default: false,
@@ -122,6 +139,11 @@ export default {
 		const exportMessage = ref('')
 		const errorMessage = ref(null)
 		const tempBlobUrl = ref(null)
+		const sourceExtension = computed(() => {
+			if (!props.filename) return ''
+			const parts = props.filename.split('.')
+			return parts.length > 1 ? parts.pop().toLowerCase() : ''
+		})
 
 		// Get slicers from composable, with last used on top
 		const slicers = computed(() => {
@@ -186,49 +208,92 @@ export default {
 		}
 
 		/**
-		 * Export model as STL and return blob
-		 * @return {Promise<Blob>} STL blob
+		 * Export model in specified format and return blob
+		 * @param {string} format - Export format ('stl', 'obj', or 'ply')
+		 * @return {Promise<Blob>} Exported blob
 		 */
-		const exportModelAsSTL = async () => {
+		const exportModel = async (format = 'stl') => {
 			if (!props.modelObject) {
 				throw new Error('No model object provided')
 			}
 
 			exporting.value = true
 			errorMessage.value = null
-			exportMessage.value = t('threedviewer', 'Exporting model to STL...')
+			const formatUpper = format.toUpperCase()
+			exportMessage.value = t('threedviewer', 'Exporting model to {format}...', { format: formatUpper })
 
 			try {
-				// Create a temporary container to capture the export
-				let exportedBlob = null
+				let exportedBlob
+			
+				if (format === 'stl') {
+					const { STLExporter } = await import('three/examples/jsm/exporters/STLExporter.js')
+					const exporter = new STLExporter()
+					exportMessage.value = t('threedviewer', 'Converting to STL format...')
+					await new Promise(resolve => setTimeout(resolve, 100))
+					const result = exporter.parse(props.modelObject, { binary: true })
+					exportMessage.value = t('threedviewer', 'Creating file...')
+					await new Promise(resolve => setTimeout(resolve, 100))
+					exportedBlob = new Blob([result], { type: 'application/octet-stream' })
+				} else if (format === 'obj') {
+					const { OBJExporter } = await import('three/examples/jsm/exporters/OBJExporter.js')
+					const exporter = new OBJExporter()
+					exportMessage.value = t('threedviewer', 'Converting to OBJ format...')
+					await new Promise(resolve => setTimeout(resolve, 100))
+					const result = exporter.parse(props.modelObject)
+					exportMessage.value = t('threedviewer', 'Creating file...')
+					await new Promise(resolve => setTimeout(resolve, 100))
+					exportedBlob = new Blob([result], { type: 'text/plain' })
+				} else if (format === 'ply') {
+					const { PLYExporter } = await import('three/examples/jsm/exporters/PLYExporter.js')
+					const exporter = new PLYExporter()
+					exportMessage.value = t('threedviewer', 'Converting to PLY format...')
+					await new Promise(resolve => setTimeout(resolve, 100))
+					const result = exporter.parse(props.modelObject, { binary: true })
+					exportMessage.value = t('threedviewer', 'Creating file...')
+					await new Promise(resolve => setTimeout(resolve, 100))
+					exportedBlob = new Blob([result], { type: 'application/octet-stream' })
+				} else {
+					throw new Error(`Unsupported export format: ${format}`)
+				}
 
-				// We need to intercept the STL export to get the blob
-				// Since useExport triggers download directly, we'll use the STL exporter directly
-				const { STLExporter } = await import('three/examples/jsm/exporters/STLExporter.js')
-				const exporter = new STLExporter()
-
-				exportMessage.value = t('threedviewer', 'Converting to STL format...')
-				await new Promise(resolve => setTimeout(resolve, 100))
-
-				// Export with binary format
-				const result = exporter.parse(props.modelObject, { binary: true })
-
-				exportMessage.value = t('threedviewer', 'Creating file...')
-				await new Promise(resolve => setTimeout(resolve, 100))
-
-				exportedBlob = new Blob([result], { type: 'application/octet-stream' })
-
-				logger.info('SlicerModal', 'STL export complete', {
+				logger.info('SlicerModal', `${formatUpper} export complete`, {
+					format,
 					size: exportedBlob.size,
 					sizeMB: (exportedBlob.size / 1024 / 1024).toFixed(2),
 				})
 
 				return exportedBlob
 			} catch (error) {
-				logger.error('SlicerModal', 'Failed to export STL', error)
+				logger.error('SlicerModal', `Failed to export ${formatUpper}`, error)
 				throw error
 			}
 		}
+
+			/**
+			 * Fetch the original file via backend (avoids STL reconversion for slicer-native formats).
+			 */
+			const fetchOriginalFile = async () => {
+				if (!props.fileId) {
+					throw new Error('No file ID available to fetch original file')
+				}
+
+				exporting.value = true
+				errorMessage.value = null
+				exportMessage.value = t('threedviewer', 'Preparing original file...')
+
+				const response = await fetch(`/apps/threedviewer/api/file/${props.fileId}`, {
+					method: 'GET',
+					credentials: 'include',
+				})
+
+				if (!response.ok) {
+					throw new Error(`Failed to fetch original file (HTTP ${response.status})`)
+				}
+
+				exportMessage.value = t('threedviewer', 'Reading file...')
+				const blob = await response.blob()
+				return blob
+			}
 
 		/**
 		 * Handle opening model in slicer
@@ -240,9 +305,21 @@ export default {
 
 				exportMessage.value = t('threedviewer', 'Preparing file for {name}...', { name: slicer.name })
 
-				// Export the model as STL
-				const blob = await exportModelAsSTL()
-				const filename = `${props.modelName}_for_${slicer.name.replace(/\s+/g, '_')}.stl`
+				let blob
+				const exportFormat = props.exportFormat || 'stl'
+				let filename = `${props.modelName}_for_${slicer.name.replace(/\s+/g, '_')}.${exportFormat}`
+
+				const passthroughList = Array.isArray(props.passthroughFormats)
+					? props.passthroughFormats.map(f => String(f).toLowerCase())
+					: []
+				const ext = sourceExtension.value
+				if (ext && passthroughList.includes(ext) && props.fileId) {
+					blob = await fetchOriginalFile()
+					filename = props.filename || filename
+				} else {
+					// Export in selected format
+					blob = await exportModel(exportFormat)
+				}
 
 				// Upload to Nextcloud to get a public share URL
 				// This uses Nextcloud's native share system (like sharing a file)

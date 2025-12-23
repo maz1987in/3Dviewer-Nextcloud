@@ -6,6 +6,9 @@ namespace OCA\ThreeDViewer\Controller;
 
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
+use OCP\AppFramework\Http\Attribute\FrontpageRoute;
+use OCP\AppFramework\Http\Attribute\NoAdminRequired;
+use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\Files\IRootFolder;
 use OCP\IRequest;
@@ -51,10 +54,11 @@ class SlicerController extends Controller
     /**
      * Test endpoint to verify controller is working.
      *
-     * @NoAdminRequired
-     * @NoCSRFRequired
      * @return JSONResponse
      */
+    #[NoAdminRequired]
+    #[NoCSRFRequired]
+    #[FrontpageRoute(verb: 'GET', url: '/api/slicer/test')]
     public function test(): JSONResponse
     {
         return new JSONResponse([
@@ -68,10 +72,11 @@ class SlicerController extends Controller
      * Create a temporary public share link for exported STL file
      * Uses Nextcloud's native share system.
      *
-     * @NoAdminRequired
-     * @NoCSRFRequired
      * @return JSONResponse
      */
+    #[NoAdminRequired]
+    #[NoCSRFRequired]
+    #[FrontpageRoute(verb: 'POST', url: '/api/slicer/temp')]
     public function saveTempFile(): JSONResponse
     {
         try {
@@ -119,26 +124,26 @@ class SlicerController extends Controller
             // Basic MIME/format validation to reduce unexpected content
             $finfo = new \finfo(FILEINFO_MIME_TYPE);
             $mimeType = $finfo->buffer($fileData) ?: 'application/octet-stream';
-            if (!$this->isValidStlMime($mimeType, $fileData)) {
+
+            // Get filename from query parameter (keeps original extension when allowed)
+            $filename = $this->request->getParam('filename', 'model.stl');
+            $filename = basename(str_replace('\\', '/', $filename));
+            $filename = str_replace(['/', '\\'], '_', $filename);
+
+            // Determine extension and sanitize
+            $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+
+            if (!$this->isValidUpload($mimeType, $fileData, $extension)) {
                 $this->logger->warning('SlicerController: Upload rejected - invalid MIME/type', [
                     'user' => $user->getUID(),
                     'mime' => $mimeType,
+                    'ext' => $extension,
                 ]);
 
-                return new JSONResponse(['error' => 'Invalid STL file'], Http::STATUS_BAD_REQUEST);
+                return new JSONResponse(['error' => 'Invalid file type'], Http::STATUS_BAD_REQUEST);
             }
 
-            $this->logger->info('SlicerController: Received file data', ['size' => $fileSize, 'mime' => $mimeType]);
-
-            // Get filename from query parameter
-            $filename = $this->request->getParam('filename', 'model.stl');
-
-            // Extract just the filename (remove any path components)
-            // Handle both Unix (/) and Windows (\) path separators
-            $filename = basename(str_replace('\\', '/', $filename));
-
-            // Remove any remaining path separators
-            $filename = str_replace(['/', '\\'], '_', $filename);
+            $this->logger->info('SlicerController: Received file data', ['size' => $fileSize, 'mime' => $mimeType, 'ext' => $extension]);
 
             // Sanitize filename (remove invalid characters, keep dots and hyphens)
             $filename = preg_replace('/[^a-zA-Z0-9_\-\.]/', '_', $filename);
@@ -146,8 +151,10 @@ class SlicerController extends Controller
             // Remove multiple consecutive underscores
             $filename = preg_replace('/_+/', '_', $filename);
 
-            // Ensure filename ends with .stl
-            if (substr(strtolower($filename), -4) !== '.stl') {
+            // If extension not allowed, default to stl
+            $allowedExtensions = $this->getAllowedExtensions();
+            if (!in_array($extension, $allowedExtensions, true)) {
+                $extension = 'stl';
                 $filename .= '.stl';
             }
 
@@ -255,6 +262,9 @@ class SlicerController extends Controller
      * @param int $fileId File ID
      * @return Http\DataDownloadResponse|JSONResponse
      */
+    #[NoAdminRequired]
+    #[NoCSRFRequired]
+    #[FrontpageRoute(verb: 'GET', url: '/api/slicer/temp/{fileId}')]
     public function getTempFile(int $fileId)
     {
         try {
@@ -341,6 +351,9 @@ class SlicerController extends Controller
      * @param int $fileId File ID to delete
      * @return JSONResponse
      */
+    #[NoAdminRequired]
+    #[NoCSRFRequired]
+    #[FrontpageRoute(verb: 'DELETE', url: '/api/slicer/temp/{fileId}')]
     public function deleteTempFile(int $fileId): JSONResponse
     {
         try {
@@ -451,26 +464,57 @@ class SlicerController extends Controller
     }
 
     /**
-     * Basic STL validation using MIME sniff + header check.
+     * Allowed slicer upload extensions.
      */
-    private function isValidStlMime(string $mime, string $data): bool
+    private function getAllowedExtensions(): array
     {
-        $allowed = [
+        return ['stl', 'gcode', 'gco', 'nc', 'g', 'gx', '3mf', 'amf'];
+    }
+
+    /**
+     * Basic upload validation using MIME sniff + extension check.
+     */
+    private function isValidUpload(string $mime, string $data, string $extension): bool
+    {
+        $extension = strtolower($extension);
+        $allowedExt = $this->getAllowedExtensions();
+        if (!in_array($extension, $allowedExt, true)) {
+            return false;
+        }
+
+        $mime = strtolower($mime);
+        $allowedMime = [
+            // STL
             'model/stl',
             'application/sla',
-            'application/octet-stream', // common for STL uploads
+            'application/octet-stream',
+            // G-code (often text/plain or octet-stream)
+            'text/plain',
+            'application/gcode',
+            // 3MF/AMF
+            'application/vnd.ms-package.3dmanufacturing-3dmodel',
+            'model/amf',
         ];
 
-        if (in_array($mime, $allowed, true)) {
+        if (in_array($mime, $allowedMime, true)) {
             return true;
         }
 
-        // Fallback: check for ASCII STL starting with "solid"
-        $trimmed = ltrim(substr($data, 0, 80));
-        if (stripos($trimmed, 'solid ') === 0) {
-            return true;
+        // Fallback heuristics
+        if ($extension === 'stl') {
+            $trimmed = ltrim(substr($data, 0, 80));
+            if (stripos($trimmed, 'solid ') === 0) {
+                return true;
+            }
+            return true; // binary STL already allowed via octet-stream
         }
 
-        return false;
+        if (in_array($extension, ['gcode', 'gco', 'nc', 'g', 'gx'], true)) {
+            // G-code is text; ensure it contains movement commands
+            $snippet = strtolower(substr($data, 0, 2000));
+            return str_contains($snippet, 'g0') || str_contains($snippet, 'g1');
+        }
+
+        return true; // Accept remaining allowed extensions with mime fallback
     }
 }

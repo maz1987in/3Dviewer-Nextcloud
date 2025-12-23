@@ -51,10 +51,19 @@ class GCodeLoader extends BaseLoader {
 		const gcodeGroup = new THREE.Group()
 		gcodeGroup.name = 'GCodeToolpath'
 
+		// Resolve color mode options from context
+		const colorMode = context?.gcodeOptions?.colorMode === 'single' ? 'single' : 'gradient'
+		const singleColor = context?.gcodeOptions?.singleColor || '#ff5722'
+
 		// Add each layer with appropriate coloring
 		geometries.forEach((geometry, index) => {
-			const hue = (index / layers.length) * 360
-			const color = new THREE.Color().setHSL(hue / 360, 0.8, 0.5)
+			let color
+			if (colorMode === 'single') {
+				color = new THREE.Color(singleColor)
+			} else {
+				const hue = (index / layers.length) * 360
+				color = new THREE.Color().setHSL(hue / 360, 0.8, 0.5)
+			}
 
 			const material = new THREE.LineBasicMaterial({
 				color,

@@ -255,6 +255,14 @@ export const CACHE_SETTINGS = {
 }
 
 /**
+ * Slicer/export settings
+ */
+export const SLICER_SETTINGS = {
+	passthroughFormats: ['gcode', 'gco', 'nc', 'g', 'gx', '3mf', 'amf'], // These extensions are sent as-is to slicer
+	exportFormat: 'stl', // Default export format for conversion: 'stl', 'obj', or 'ply'
+}
+
+/**
  * Visual sizing settings for measurements and annotations.
  * Values are expressed as percentages of the model's maximum dimension.
  * These act as defaults and can be overridden by per-user preferences.
