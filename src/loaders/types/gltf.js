@@ -47,7 +47,19 @@ class GltfLoader extends BaseLoader {
 		try {
 			// Parse the model (pass extension for format detection)
 			const extension = context.fileExtension || 'gltf'
-			const gltf = await this.parseModel(arrayBuffer, extension)
+
+			let contentToParse = arrayBuffer
+			const isGlbInput = this.isGLBFormat(arrayBuffer, extension)
+			if (isModalContext && isGlbInput) {
+				const converted = this.convertGlbToDataUriGltf(arrayBuffer)
+				contentToParse = JSON.stringify(converted.json)
+				this.logInfo('GLTFLoader', 'Converted GLB to data-URI GLTF for CSP', {
+					imagesConverted: converted.stats.imagesConverted,
+					binSize: converted.stats.binSize,
+				})
+			}
+
+			const gltf = await this.parseModel(contentToParse, extension)
 
 			// Process the result
 			const result = this.processModel(gltf.scene, context)
@@ -806,20 +818,19 @@ class GltfLoader extends BaseLoader {
 	 * @param {string} extension - File extension (glb or gltf)
 	 * @return {Promise<object>} Parsed GLTF
 	 */
-	async parseModel(arrayBuffer, extension = null) {
+	async parseModel(content, extension = null) {
 		return new Promise((resolve, reject) => {
 			try {
-				// Check if this is a GLB file (binary format)
-				// GLB files start with magic number 0x46546C67 ("glTF" in ASCII)
-				const isGLB = this.isGLBFormat(arrayBuffer, extension)
+				const isGLB = (content instanceof ArrayBuffer) && this.isGLBFormat(content, extension)
 
 				if (isGLB) {
-					this.logInfo('Detected GLB binary format', { size: arrayBuffer.byteLength })
+					this.logInfo('Detected GLB binary format', { size: content.byteLength })
 				} else {
-					this.logInfo('Detected GLTF JSON format', { size: arrayBuffer.byteLength })
+					const size = typeof content === 'string' ? content.length : (content?.byteLength || 0)
+					this.logInfo('Detected GLTF JSON format', { size })
 				}
 
-				this.loader.parse(arrayBuffer, '', (gltf) => {
+				this.loader.parse(content, '', (gltf) => {
 					this.logInfo('GLTF model parsed successfully', {
 						scenes: gltf.scenes?.length || 0,
 						animations: gltf.animations?.length || 0,
@@ -835,6 +846,68 @@ class GltfLoader extends BaseLoader {
 				reject(error)
 			}
 		})
+	}
+
+	convertGlbToDataUriGltf(arrayBuffer) {
+		const view = new DataView(arrayBuffer)
+		const totalLength = view.getUint32(8, true)
+		let offset = 12
+		let jsonText = ''
+		let binBytes = null
+
+		const JSON_TYPE = 0x4E4F534A
+		const BIN_TYPE = 0x004E4942
+		while (offset + 8 <= totalLength) {
+			const chunkLength = view.getUint32(offset, true)
+			const chunkType = view.getUint32(offset + 4, true)
+			offset += 8
+			if (chunkType === JSON_TYPE) {
+				const jsonArray = new Uint8Array(arrayBuffer, offset, chunkLength)
+				jsonText = new TextDecoder('utf-8').decode(jsonArray)
+			} else if (chunkType === BIN_TYPE) {
+				binBytes = new Uint8Array(arrayBuffer, offset, chunkLength)
+			}
+			offset += chunkLength
+		}
+
+		const json = JSON.parse(jsonText)
+		const toBase64 = (u8) => {
+			// Handle large buffers in chunks to avoid stack overflow
+			const chunk = 0x8000
+			let binary = ''
+			for (let i = 0; i < u8.length; i += chunk) {
+				binary += String.fromCharCode.apply(null, Array.from(u8.subarray(i, i + chunk)))
+			}
+			return btoa(binary)
+		}
+		const detectMime = (u8) => {
+			if (u8[0] === 0x89 && u8[1] === 0x50) return 'image/png'
+			if (u8[0] === 0xFF && u8[1] === 0xD8) return 'image/jpeg'
+			if (u8[0] === 0x52 && u8[8] === 0x57) return 'image/webp'
+			return 'image/png'
+		}
+
+		let imagesConverted = 0
+		if (Array.isArray(json.images) && Array.isArray(json.bufferViews) && binBytes) {
+			for (const img of json.images) {
+				if (typeof img.bufferView === 'number') {
+					const bv = json.bufferViews[img.bufferView]
+					const slice = binBytes.subarray(bv.byteOffset || 0, (bv.byteOffset || 0) + bv.byteLength)
+					img.uri = `data:${img.mimeType || img.mime || detectMime(slice)};base64,${toBase64(slice)}`
+					delete img.bufferView
+					delete img.mimeType
+					delete img.mime
+					imagesConverted++
+				}
+			}
+		}
+
+		if (Array.isArray(json.buffers) && binBytes) {
+			if (!json.buffers[0]) json.buffers[0] = {}
+			json.buffers[0].uri = `data:application/octet-stream;base64,${toBase64(binBytes)}`
+		}
+
+		return { json, stats: { imagesConverted, binSize: binBytes?.length || 0 } }
 	}
 
 	/**

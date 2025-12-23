@@ -768,6 +768,7 @@ export default {
 					scene: this.scene,
 					renderer: this.renderer,
 					wireframe: false,
+					fileExtension: extension,
 					applyWireframe: (enabled) => {
 						// Simple wireframe toggle implementation
 						this.scene.traverse((child) => {
@@ -1303,7 +1304,7 @@ export default {
 
 .texture-warning-text {
 	flex: 1;
-	color: var(--color-main-text, #222);
+	color: var(--color-background-dark, #222);
 	text-align: start;
 }
 
@@ -1316,7 +1317,7 @@ export default {
 	margin-bottom: 3px;
 	font-size: 14px;
 	font-weight: 600;
-	color: var(--color-main-text, #222);
+	color: var(--color-background-dark, #222);
 }
 
 .texture-warning-text p {
@@ -1324,7 +1325,7 @@ export default {
 	font-size: 13px;
 	line-height: 1.4;
 	opacity: 1;
-	color: var(--color-main-text, #333);
+	color: var(--color-background-dark, #333);
 }
 
 .texture-warning-button {
