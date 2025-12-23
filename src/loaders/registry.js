@@ -21,6 +21,11 @@ const loaders = {
 	gco: () => import('./types/gcode.js'), // Alternative G-code extension
 	nc: () => import('./types/gcode.js'), // CNC G-code extension
 	acode: () => import('./types/gcode.js'), // AnkerMake G-code extension
+	gx: () => import('./types/gcode.js'), // FlashForge G-code
+	g: () => import('./types/gcode.js'), // Generic G-code
+	g3drem: () => import('./types/gcode.js'), // Dremel G-code
+	makerbot: () => import('./types/gcode.js'), // Makerbot G-code
+	thing: () => import('./types/gcode.js'), // Makerbot Thing format
 }
 
 export async function loadModelByExtension(ext, arrayBuffer, context) {

@@ -324,7 +324,11 @@ class FileController extends BaseController
                 $files = $this->fileIndexMapper->getFilesByFolder($userId, $folderPath);
 
                 // Filter to only include 3D model files (exclude images)
-                $supportedExtensions = ['glb', 'gltf', 'obj', 'stl', 'ply', 'fbx', '3mf', '3ds', 'dae', 'x3d', 'vrml', 'wrl'];
+                $supportedExtensions = [
+                    'glb', 'gltf', 'obj', 'stl', 'ply', 'fbx', '3mf', '3ds', 'dae', 'x3d', 'vrml', 'wrl',
+                    // G-code and related container formats
+                    'gcode', 'gco', 'nc', 'acode', 'gx', 'g', 'g3drem', 'makerbot', 'thing',
+                ];
                 $imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico', 'tiff', 'tif', 'heic', 'heif'];
                 $filteredFiles = array_filter($files, function ($file) use ($supportedExtensions, $imageExtensions) {
                     $ext = strtolower($file->getExtension() ?? '');
@@ -573,7 +577,11 @@ class FileController extends BaseController
         }
 
         // Now add files to their folders (filter out image files)
-        $supportedExtensions = ['glb', 'gltf', 'obj', 'stl', 'ply', 'fbx', '3mf', '3ds', 'dae', 'x3d', 'vrml', 'wrl'];
+        $supportedExtensions = [
+            'glb', 'gltf', 'obj', 'stl', 'ply', 'fbx', '3mf', '3ds', 'dae', 'x3d', 'vrml', 'wrl',
+            // G-code and related container formats
+            'gcode', 'gco', 'nc', 'acode', 'gx', 'g', 'g3drem', 'makerbot', 'thing',
+        ];
         $imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico', 'tiff', 'tif', 'heic', 'heif'];
 
         foreach ($files as $file) {
@@ -680,7 +688,11 @@ class FileController extends BaseController
     private function buildTypeStructure(array $files, array $favoriteFileIds = []): array
     {
         $types = [];
-        $supportedExtensions = ['glb', 'gltf', 'obj', 'stl', 'ply', 'fbx', '3mf', '3ds', 'dae', 'x3d', 'vrml', 'wrl'];
+        $supportedExtensions = [
+            'glb', 'gltf', 'obj', 'stl', 'ply', 'fbx', '3mf', '3ds', 'dae', 'x3d', 'vrml', 'wrl',
+            // G-code and related container formats
+            'gcode', 'gco', 'nc', 'acode', 'gx', 'g', 'g3drem', 'makerbot', 'thing',
+        ];
         $imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico', 'tiff', 'tif', 'heic', 'heif'];
 
         foreach ($files as $file) {
@@ -715,7 +727,11 @@ class FileController extends BaseController
     private function buildDateStructure(array $files, array $favoriteFileIds = []): array
     {
         $years = [];
-        $supportedExtensions = ['glb', 'gltf', 'obj', 'stl', 'ply', 'fbx', '3mf', '3ds', 'dae', 'x3d', 'vrml', 'wrl'];
+        $supportedExtensions = [
+            'glb', 'gltf', 'obj', 'stl', 'ply', 'fbx', '3mf', '3ds', 'dae', 'x3d', 'vrml', 'wrl',
+            // G-code and related container formats
+            'gcode', 'gco', 'nc', 'acode', 'gx', 'g', 'g3drem', 'makerbot', 'thing',
+        ];
         $imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico', 'tiff', 'tif', 'heic', 'heif'];
 
         foreach ($files as $file) {
@@ -808,7 +824,11 @@ class FileController extends BaseController
             $childFiles = $this->fileIndexMapper->getFilesByFolder($userId, $subfolderPath);
 
             // Filter to only include 3D model files (exclude images)
-            $supportedExtensions = ['glb', 'gltf', 'obj', 'stl', 'ply', 'fbx', '3mf', '3ds', 'dae', 'x3d', 'vrml', 'wrl'];
+            $supportedExtensions = [
+                'glb', 'gltf', 'obj', 'stl', 'ply', 'fbx', '3mf', '3ds', 'dae', 'x3d', 'vrml', 'wrl',
+                // G-code and related container formats
+                'gcode', 'gco', 'nc', 'acode', 'gx', 'g', 'g3drem', 'makerbot', 'thing',
+            ];
             $imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico', 'tiff', 'tif', 'heic', 'heif'];
             $filteredChildFiles = array_filter($childFiles, function ($file) use ($supportedExtensions, $imageExtensions) {
                 $ext = strtolower($file->getExtension() ?? '');
@@ -829,7 +849,11 @@ class FileController extends BaseController
             $nestedChildren = $this->buildFolderStructureForPath($userId, $subfolderPath, $favoriteFileIds);
 
             // Check if this folder has 3D files directly (filter out non-3D files)
-            $supportedExtensions = ['glb', 'gltf', 'obj', 'stl', 'ply', 'fbx', '3mf', '3ds', 'dae', 'x3d', 'vrml', 'wrl'];
+            $supportedExtensions = [
+                'glb', 'gltf', 'obj', 'stl', 'ply', 'fbx', '3mf', '3ds', 'dae', 'x3d', 'vrml', 'wrl',
+                // G-code and related container formats
+                'gcode', 'gco', 'nc', 'acode', 'gx', 'g', 'g3drem', 'makerbot', 'thing',
+            ];
             $has3DFilesDirectly = false;
             foreach ($childFormattedFiles as $file) {
                 $ext = strtolower($file['extension'] ?? $file['type'] ?? '');
@@ -866,7 +890,11 @@ class FileController extends BaseController
      */
     private function has3DFilesInDescendants(array $folders): bool
     {
-        $supportedExtensions = ['glb', 'gltf', 'obj', 'stl', 'ply', 'fbx', '3mf', '3ds', 'dae', 'x3d', 'vrml', 'wrl'];
+        $supportedExtensions = [
+            'glb', 'gltf', 'obj', 'stl', 'ply', 'fbx', '3mf', '3ds', 'dae', 'x3d', 'vrml', 'wrl',
+            // G-code and related container formats
+            'gcode', 'gco', 'nc', 'acode', 'gx', 'g', 'g3drem', 'makerbot', 'thing',
+        ];
 
         foreach ($folders as $folder) {
             // Check if this folder has 3D files directly (not just any files)
@@ -899,7 +927,11 @@ class FileController extends BaseController
     private function filterFoldersWith3DFiles(array $folders): array
     {
         $filtered = [];
-        $supportedExtensions = ['glb', 'gltf', 'obj', 'stl', 'ply', 'fbx', '3mf', '3ds', 'dae', 'x3d', 'vrml', 'wrl'];
+        $supportedExtensions = [
+            'glb', 'gltf', 'obj', 'stl', 'ply', 'fbx', '3mf', '3ds', 'dae', 'x3d', 'vrml', 'wrl',
+            // G-code and related container formats
+            'gcode', 'gco', 'nc', 'acode', 'gx', 'g', 'g3drem', 'makerbot', 'thing',
+        ];
 
         foreach ($folders as $folder) {
             $folderName = $folder['name'] ?? 'unknown';

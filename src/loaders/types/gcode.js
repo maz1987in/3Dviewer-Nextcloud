@@ -7,7 +7,7 @@ import { BaseLoader } from '../BaseLoader.js'
 class GCodeLoader extends BaseLoader {
 
 	constructor() {
-		super('GCodeLoader', ['gcode', 'gco', 'nc', 'acode'])
+		super('GCodeLoader', ['gcode', 'gco', 'nc', 'acode', 'gx', 'g', 'g3drem', 'makerbot', 'thing'])
 		this.loader = null
 	}
 
@@ -18,8 +18,20 @@ class GCodeLoader extends BaseLoader {
 	 * @return {Promise<object>} Load result
 	 */
 	async loadModel(arrayBuffer, context) {
-		// Decode G-code text
-		const text = new TextDecoder('utf-8').decode(arrayBuffer)
+		// Check if this is a binary format
+		const isBinary = this.detectBinaryFormat(arrayBuffer)
+		
+		let text
+		if (isBinary) {
+			// Try to extract text from binary format
+			text = this.extractTextFromBinary(arrayBuffer)
+			if (!text) {
+				throw new Error('Binary G-code format not supported. Please export as plain .gcode format from your slicer.')
+			}
+		} else {
+			// Decode as plain text G-code
+			text = new TextDecoder('utf-8').decode(arrayBuffer)
+		}
 		
 		if (!text || text.trim().length === 0) {
 			throw new Error('Empty G-code file')
@@ -29,7 +41,10 @@ class GCodeLoader extends BaseLoader {
 		const { geometries, layers } = this.parseGCode(text)
 
 		if (geometries.length === 0) {
-			throw new Error('No valid G-code movement commands found')
+			if (isBinary) {
+				throw new Error('Could not extract G-code commands from binary format. Please export as plain .gcode format.')
+			}
+			throw new Error('No valid G-code movement commands found. File may be empty or use unsupported G-code dialect.')
 		}
 
 		// Create a group to hold all line segments
@@ -176,6 +191,82 @@ class GCodeLoader extends BaseLoader {
 		if (fMatch) command.f = parseFloat(fMatch[1])
 
 		return command
+	}
+
+	/**
+	 * Detect if this is a binary G-code format
+	 * @param {ArrayBuffer} arrayBuffer - File data
+	 * @return {boolean} True if binary format detected
+	 */
+	detectBinaryFormat(arrayBuffer) {
+		const header = new Uint8Array(arrayBuffer.slice(0, 16))
+		
+		// Check for known binary signatures (e.g., Prusa-style "GCOD" headers)
+		if (header[0] === 0x47 && header[1] === 0x43 && header[2] === 0x4F && header[3] === 0x44) { // "GCOD"
+			return true
+		}
+		
+		// Check for high ratio of non-printable characters (likely binary)
+		const sample = new Uint8Array(arrayBuffer.slice(0, Math.min(1024, arrayBuffer.byteLength)))
+		let nonPrintable = 0
+		for (let i = 0; i < sample.length; i++) {
+			const byte = sample[i]
+			// Count bytes that aren't typical text characters
+			if ((byte < 32 || byte > 126) && byte !== 10 && byte !== 13 && byte !== 9) {
+				nonPrintable++
+			}
+		}
+		
+		// If more than 30% non-printable, likely binary
+		return (nonPrintable / sample.length) > 0.3
+	}
+
+	/**
+	 * Attempt to extract text from binary G-code format
+	 * @param {ArrayBuffer} arrayBuffer - Binary file data
+	 * @return {string|null} Extracted text or null if failed
+	 */
+	extractTextFromBinary(arrayBuffer) {
+		// For now, try to find ASCII G-code commands in the binary data
+		const data = new Uint8Array(arrayBuffer)
+		const chunks = []
+		let currentChunk = []
+		const MAX_CHUNK_SIZE = 1000 // Prevent stack overflow with fromCharCode
+		
+		for (let i = 0; i < data.length; i++) {
+			const byte = data[i]
+			// Collect printable ASCII and newlines
+			if ((byte >= 32 && byte <= 126) || byte === 10 || byte === 13) {
+				currentChunk.push(byte)
+				
+				// Process chunk if it gets too large
+				if (currentChunk.length >= MAX_CHUNK_SIZE) {
+					chunks.push(String.fromCharCode.apply(null, currentChunk))
+					currentChunk = []
+				}
+			} else if (currentChunk.length > 10) {
+				// End of text chunk
+				chunks.push(String.fromCharCode.apply(null, currentChunk))
+				currentChunk = []
+			} else {
+				// Reset if chunk too small
+				currentChunk = []
+			}
+		}
+		
+		// Add final chunk
+		if (currentChunk.length > 10) {
+			chunks.push(String.fromCharCode.apply(null, currentChunk))
+		}
+		
+		const extracted = chunks.join('\n')
+		
+		// Verify we found G-code commands
+		if (extracted.match(/[GM]\d+/)) {
+			return extracted
+		}
+		
+		return null
 	}
 
 }

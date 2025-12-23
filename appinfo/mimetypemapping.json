@@ -17,6 +17,11 @@
     "gco": "text/x-gcode",
     "nc": "text/x-gcode",
     "acode": "text/x-gcode",
+    "gx": "application/x-gcode",
+    "g": "text/x-gcode",
+    "g3drem": "application/x-gcode",
+    "makerbot": "application/x-gcode",
+    "thing": "application/x-gcode",
     "mtl": "text/plain"
   }
 }

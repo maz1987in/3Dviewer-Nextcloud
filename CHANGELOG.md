@@ -17,6 +17,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Custom file type icon for G-code files
   - Toolpath rendered as 3D line segments with configurable transparency
 
+- **Extended G-code Ecosystem Support**
+  - Additional extensions recognized and routed to the G-code loader: `.g`, `.gx` (FlashForge), `.g3drem` (Dremel), `.makerbot`, `.thing`
+  - MIME mappings added for container variants: `application/x-gcode` for `.gx`, `.g3drem`, `.makerbot`, `.thing`
+  - Per-extension SVG icons added for: `gco`, `nc`, `acode`, `gx`, `g`, `g3drem`, `makerbot`, `thing`
+  - Viewer “By Type” browser now lists these extensions via `SUPPORTED_FORMATS` config
+
+### Changed
+- **Backend Listing Filters**: Updated `FileController` filters to include G‑code-related extensions in Folders, Type, and Date views so these files surface across all navigation modes
+  - Applies to folder-scoped listing, type grouping, date grouping, nested folder inclusion checks, and descendant checks
+
+### Removed
+- **BGCODE**: Removed `.bgcode` from supported formats due to lack of a reliable JavaScript decoder; binary/compressed containers prompt users to export plain `.gcode` instead
+
 ## [2.2.0] - 2025-12-17
 
 ### Added

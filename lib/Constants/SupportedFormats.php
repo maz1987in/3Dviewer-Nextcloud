@@ -41,6 +41,11 @@ class SupportedFormats
         'gco' => ['text/x-gcode'], // G-code alternative extension
         'nc' => ['text/x-gcode'], // CNC G-code extension
         'acode' => ['text/x-gcode'], // AnkerMake G-code extension
+        'gx' => ['application/x-gcode'], // FlashForge G-code
+        'g' => ['text/x-gcode'], // Generic G-code
+        'g3drem' => ['application/x-gcode'], // Dremel G-code
+        'makerbot' => ['application/x-gcode'], // Makerbot G-code
+        'thing' => ['application/x-gcode'], // Makerbot Thing format
 
         // Material/texture files
         'mtl' => ['text/plain'],
@@ -70,6 +75,11 @@ class SupportedFormats
         'gco' => 'text/x-gcode',
         'nc' => 'text/x-gcode',
         'acode' => 'text/x-gcode',
+        'gx' => 'application/x-gcode',
+        'g' => 'text/x-gcode',
+        'g3drem' => 'application/x-gcode',
+        'makerbot' => 'application/x-gcode',
+        'thing' => 'application/x-gcode',
 
         // Material file
         'mtl' => 'text/plain',

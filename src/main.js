@@ -26,7 +26,8 @@ const SUPPORTED_MIMES = [
 	'application/x-3ds', // .3ds
 	'model/x.ply', // .ply
 	'model/ply', // .ply alternative
-	'text/x-gcode', // .gcode, .gco, .nc
+	'text/x-gcode', // .gcode, .gco, .nc, .acode, .g
+	'application/x-gcode', // .gx, .g3drem, .makerbot, .thing
 ]
 
 // Mode 1: Register simple viewer handler with Viewer API (modal preview)
