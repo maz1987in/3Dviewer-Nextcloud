@@ -8,6 +8,7 @@ use OCA\ThreeDViewer\Listener\FileIndexListener;
 use OCA\ThreeDViewer\Listener\LoadFilesListener;
 use OCA\ThreeDViewer\Listener\LoadViewerListener;
 use OCA\ThreeDViewer\Preview\ModelPreviewProvider;
+use OCA\ThreeDViewer\Repair\RegisterThreeDMimeTypes;
 use OCA\ThreeDViewer\Settings\Personal;
 use OCA\ThreeDViewer\Settings\Section;
 use OCP\AppFramework\App;
@@ -53,14 +54,18 @@ class Application extends App implements IBootstrap
         // This ensures our viewer handler is registered before Files app renders
         $context->registerEventListener(BeforeTemplateRenderedEvent::class, LoadFilesListener::class);
 
+        // Ensure our MIME registration repair step runs during `occ maintenance:repair`
+        // in addition to install/enable flows declared in info.xml
+        if (method_exists($context, 'registerRepairStep')) {
+            $context->registerRepairStep(RegisterThreeDMimeTypes::class);
+        }
+
         // Register preview provider for 3D model files
         // Can be enabled/disabled by admins via enabledPreviewProviders config
         // Must register for each MIME type individually
 
         // NOTE: Preview provider registration is currently disabled to prevent "Delimiter must not be alphanumeric"
         // errors in Nextcloud's PreviewManager regex matching.
-        // 3D files will automatically use the custom SVG icons registered via mimetypemapping.json/mimetypealiases.json
-        // which provides the desired behavior without the server logs spam.
         /*
         $supportedMimes = [
             'model/gltf-binary', 'model/gltf+json', 'model/obj', 'model/stl',

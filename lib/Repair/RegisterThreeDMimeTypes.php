@@ -20,8 +20,7 @@ use Symfony\Component\Console\Output\ConsoleOutput;
  * This repair step:
  * 1. Registers MIME types in Nextcloud's database
  * 2. Creates/updates config/mimetypemapping.json file
- * 3. Creates/updates config/mimetypealiases.json file for icons
- * 4. Updates the MIME type JavaScript mappings
+ * 3. Updates the MIME type JavaScript mappings
  *
  * Runs automatically on:
  * - App installation (php occ app:enable threedviewer)
@@ -33,7 +32,6 @@ use Symfony\Component\Console\Output\ConsoleOutput;
 class RegisterThreeDMimeTypes implements IRepairStep
 {
     private const CUSTOM_MIMETYPEMAPPING = 'mimetypemapping.json';
-    private const CUSTOM_MIMETYPEALIASES = 'mimetypealiases.json';
 
     /** @var IMimeTypeLoader */
     private $mimeTypeLoader;
@@ -91,21 +89,16 @@ class RegisterThreeDMimeTypes implements IRepairStep
     }
 
     /**
-     * Create or update config/mimetypemapping.json and config/mimetypealiases.json.
+     * Create or update config/mimetypemapping.json.
      */
     private function updateConfigFiles(IOutput $output): void
     {
         $configDir = \OC::$configDir;
         $mimetypemappingFile = $configDir . self::CUSTOM_MIMETYPEMAPPING;
-        $mimetypealiasesFile = $configDir . self::CUSTOM_MIMETYPEALIASES;
 
         // Update mimetypemapping.json (extension => [mime types])
         $this->appendToFileMapping($mimetypemappingFile, SupportedFormats::EXT_MIME_MAP);
         $output->info("  ✓ Updated: $mimetypemappingFile");
-
-        // Update mimetypealiases.json (mime type => extension for icons)
-        $this->appendToFileAliases($mimetypealiasesFile, SupportedFormats::EXT_MIME_MAP);
-        $output->info("  ✓ Updated: $mimetypealiasesFile");
 
         // Regenerate JavaScript MIME type mappings
         try {
@@ -144,33 +137,4 @@ class RegisterThreeDMimeTypes implements IRepairStep
         file_put_contents($filename, json_encode($obj, $mask));
     }
 
-    /**
-     * Append entries to mimetypealiases.json (mime type => extension for icons).
-     */
-    private function appendToFileAliases(string $filename, array $data): void
-    {
-        $obj = [];
-
-        // Load existing file if it exists
-        if (file_exists($filename)) {
-            $content = file_get_contents($filename);
-            $obj = json_decode($content, true);
-            if (json_last_error() !== JSON_ERROR_NONE) {
-                $obj = [];
-            }
-        }
-
-        // Add aliases: mime type => extension (for icon lookup)
-        foreach ($data as $ext => $mimes) {
-            foreach ($mimes as $mime) {
-                $obj[$mime] = $ext;
-            }
-        }
-
-        // Write back with pretty formatting
-        $mask = empty($obj)
-            ? JSON_FORCE_OBJECT | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES
-            : JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES;
-        file_put_contents($filename, json_encode($obj, $mask));
-    }
 }

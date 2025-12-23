@@ -20,8 +20,7 @@ use Symfony\Component\Console\Output\ConsoleOutput;
  * This repair step:
  * 1. Resets MIME types in Nextcloud's database to application/octet-stream
  * 2. Removes entries from config/mimetypemapping.json file
- * 3. Removes entries from config/mimetypealiases.json file
- * 4. Updates the MIME type JavaScript mappings
+ * 3. Updates the MIME type JavaScript mappings
  *
  * Runs automatically on:
  * - App uninstallation (php occ app:remove threedviewer)
@@ -31,7 +30,6 @@ use Symfony\Component\Console\Output\ConsoleOutput;
 class UnregisterThreeDMimeTypes implements IRepairStep
 {
     private const CUSTOM_MIMETYPEMAPPING = 'mimetypemapping.json';
-    private const CUSTOM_MIMETYPEALIASES = 'mimetypealiases.json';
 
     private IMimeTypeLoader $mimeTypeLoader;
     private UpdateJS $updateJS;
@@ -85,18 +83,11 @@ class UnregisterThreeDMimeTypes implements IRepairStep
     {
         $configDir = \OC::$configDir;
         $mimetypemappingFile = $configDir . self::CUSTOM_MIMETYPEMAPPING;
-        $mimetypealiasesFile = $configDir . self::CUSTOM_MIMETYPEALIASES;
 
         // Remove from mimetypemapping.json
         $this->removeFromFileMapping($mimetypemappingFile, SupportedFormats::EXT_MIME_MAP);
         if (file_exists($mimetypemappingFile)) {
             $output->info("  ✓ Updated: {$mimetypemappingFile}");
-        }
-
-        // Remove from mimetypealiases.json
-        $this->removeFromFileAliases($mimetypealiasesFile, SupportedFormats::EXT_MIME_MAP);
-        if (file_exists($mimetypealiasesFile)) {
-            $output->info("  ✓ Updated: {$mimetypealiasesFile}");
         }
 
         // Regenerate JavaScript MIME type mappings
@@ -124,35 +115,6 @@ class UnregisterThreeDMimeTypes implements IRepairStep
         // Remove extensions
         foreach ($data as $ext => $mimes) {
             unset($obj[$ext]);
-        }
-
-        // Write back (preserve file if other apps have entries)
-        $mask = empty($obj) ? JSON_FORCE_OBJECT | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES : JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES;
-        file_put_contents($filename, json_encode($obj, $mask));
-    }
-
-    /**
-     * Remove MIME type entries from mimetypealiases.json.
-     *
-     * @param string $filename Path to mimetypealiases.json
-     * @param array $data Extension to MIME type mappings to remove
-     */
-    private function removeFromFileAliases(string $filename, array $data): void
-    {
-        $obj = [];
-        if (file_exists($filename)) {
-            $content = file_get_contents($filename);
-            $obj = json_decode($content, true);
-            if (JSON_ERROR_NONE !== json_last_error()) {
-                $obj = [];
-            }
-        }
-
-        // Remove MIME type to extension mappings
-        foreach ($data as $ext => $mimes) {
-            foreach ($mimes as $mime) {
-                unset($obj[$mime]);
-            }
         }
 
         // Write back (preserve file if other apps have entries)
