@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **G-code Toolpath Visualization**: Added support for G-code files used in 3D printing and CNC machining
+  - New G-code parser supporting G0/G1 movement commands
+  - Automatic layer detection based on Z-height changes
+  - Color-coded visualization with different colors per layer using HSL gradient
+  - Support for multiple file extensions: `.gcode`, `.gco`, `.nc`, `.acode` (AnkerMake)
+  - MIME type registration: `text/x-gcode`
+  - Custom file type icon for G-code files
+  - Toolpath rendered as 3D line segments with configurable transparency
+
 ## [2.2.0] - 2025-12-17
 
 ### Added

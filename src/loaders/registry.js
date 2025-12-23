@@ -17,6 +17,10 @@ const loaders = {
 	x3d: () => import('./types/x3d.js'),
 	vrml: () => import('./types/vrml.js'),
 	wrl: () => import('./types/vrml.js'), // VRML files can have .wrl extension
+	gcode: () => import('./types/gcode.js'),
+	gco: () => import('./types/gcode.js'), // Alternative G-code extension
+	nc: () => import('./types/gcode.js'), // CNC G-code extension
+	acode: () => import('./types/gcode.js'), // AnkerMake G-code extension
 }
 
 export async function loadModelByExtension(ext, arrayBuffer, context) {

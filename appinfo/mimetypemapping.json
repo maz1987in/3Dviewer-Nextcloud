@@ -13,6 +13,10 @@
     "x3d": "model/x3d+xml",
     "vrml": "model/vrml",
     "wrl": "model/vrml",
+    "gcode": "text/x-gcode",
+    "gco": "text/x-gcode",
+    "nc": "text/x-gcode",
+    "acode": "text/x-gcode",
     "mtl": "text/plain"
   }
 }

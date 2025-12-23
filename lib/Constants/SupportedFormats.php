@@ -37,6 +37,10 @@ class SupportedFormats
         'x3d' => ['model/x3d+xml'],
         'vrml' => ['model/vrml'],
         'wrl' => ['model/vrml'], // VRML alternative extension
+        'gcode' => ['text/x-gcode'], // G-code toolpath format
+        'gco' => ['text/x-gcode'], // G-code alternative extension
+        'nc' => ['text/x-gcode'], // CNC G-code extension
+        'acode' => ['text/x-gcode'], // AnkerMake G-code extension
 
         // Material/texture files
         'mtl' => ['text/plain'],
@@ -62,6 +66,10 @@ class SupportedFormats
         'x3d' => 'model/x3d+xml',
         'vrml' => 'model/vrml',
         'wrl' => 'model/vrml',
+        'gcode' => 'text/x-gcode',
+        'gco' => 'text/x-gcode',
+        'nc' => 'text/x-gcode',
+        'acode' => 'text/x-gcode',
 
         // Material file
         'mtl' => 'text/plain',

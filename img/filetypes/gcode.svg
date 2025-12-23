@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- Background -->
+  <rect x="2" y="2" width="28" height="28" rx="3" fill="#4a90e2" opacity="0.9"/>
+  
+  <!-- G-code text -->
+  <text x="16" y="11" font-family="monospace" font-size="8" font-weight="bold" fill="#ffffff" text-anchor="middle">G</text>
+  
+  <!-- Toolpath visualization (zigzag path representing printing layers) -->
+  <g stroke="#ffffff" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Layer 1 -->
+    <path d="M 7 15 L 13 15" opacity="0.6"/>
+    <path d="M 13 15 L 13 17" opacity="0.6"/>
+    <path d="M 13 17 L 7 17" opacity="0.6"/>
+    
+    <!-- Layer 2 -->
+    <path d="M 7 19 L 13 19" opacity="0.8"/>
+    <path d="M 13 19 L 13 21" opacity="0.8"/>
+    <path d="M 13 21 L 7 21" opacity="0.8"/>
+    
+    <!-- Layer 3 -->
+    <path d="M 7 23 L 13 23"/>
+    <path d="M 13 23 L 13 25"/>
+    <path d="M 13 25 L 7 25"/>
+  </g>
+  
+  <!-- 3D printer nozzle indicator -->
+  <g fill="#ffffff">
+    <circle cx="20" cy="18" r="2.5" opacity="0.9"/>
+    <path d="M 20 20.5 L 18 24 L 22 24 Z" opacity="0.9"/>
+  </g>
+  
+  <!-- Movement arrows -->
+  <g stroke="#ffd700" stroke-width="1" fill="none" opacity="0.7">
+    <path d="M 24 15 L 27 15" stroke-linecap="round"/>
+    <path d="M 26 14 L 27 15 L 26 16" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

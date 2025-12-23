@@ -440,6 +440,15 @@ export const SUPPORTED_FORMATS = {
 		displayOrder: 12,
 		icon: '/apps/threedviewer/img/filetypes/wrl.svg',
 	},
+	gcode: {
+		name: 'G-CODE',
+		description: 'G-code toolpath format',
+		mimeType: 'text/x-gcode',
+		features: ['toolpath', 'layers', 'cnc'],
+		multiFile: false,
+		displayOrder: 13,
+		icon: '/apps/threedviewer/img/filetypes/gcode.svg',
+	},
 }
 
 /**
