@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.0] - 2025-12-28
+
 ### Added
 - **G-code Visualization Enhancements**
   - Smooth rainbow spectrum gradient coloring across entire model
@@ -39,6 +41,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Applies to folder-scoped listing, type grouping, date grouping, nested folder inclusion checks, and descendant checks
 - **Slicer Handoff Options**: Simplified send-to-slicer flow by letting users pick passthrough extensions; all other formats now auto-convert to STL by default (export-format selector removed)
 - **G-code Visualization Default**: Default toolpath color mode is now gradient instead of single-color orange for clearer multi-layer contrast
+
+### Dependencies
+- Updated @nextcloud/dialogs from 7.1.0 to 7.2.0
 
 ## [2.2.0] - 2025-12-17
 

@@ -1,6 +1,6 @@
 # 3D Viewer for Nextcloud
 
-[![Version](https://img.shields.io/badge/version-2.2.0-blue)](https://github.com/maz1987in/3Dviewer-Nextcloud/releases)
+[![Version](https://img.shields.io/badge/version-2.3.0-blue)](https://github.com/maz1987in/3Dviewer-Nextcloud/releases)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-orange)](LICENSE)
 [![Nextcloud](https://img.shields.io/badge/Nextcloud-30--32-0082c9)](https://nextcloud.com)
 [![Update nextcloud/ocp](https://github.com/maz1987in/3Dviewer-Nextcloud/actions/workflows/update-nextcloud-ocp-matrix.yml/badge.svg)](https://github.com/maz1987in/3Dviewer-Nextcloud/actions/workflows/update-nextcloud-ocp-matrix.yml)
@@ -54,10 +54,12 @@ A comprehensive 3D model viewer application for Nextcloud that supports multiple
 
 ## ✨ Key Features
 
-- **Multi-Format Support** - GLB, GLTF, OBJ (+MTL), STL, PLY, FBX, 3MF, 3DS, DAE, X3D, VRML
+- **Multi-Format Support** - GLB, GLTF, OBJ (+MTL), STL, PLY, FBX, 3MF, 3DS, DAE, X3D, VRML, G-code (`.gcode`, `.gco`, `.nc`, `.acode`)
+- **G-code Toolpath Visualization** - View 3D printer and CNC toolpaths with smooth rainbow gradient coloring, intelligent travel/retraction filtering, and automatic layer detection
 - **Enhanced File Loaders** - Significantly improved FBX, VRML, and DAE loaders with better material and texture support
 - **Multi-File Models** - Full support for OBJ+MTL+textures and GLTF+bins+images
 - **Personal Settings** - User-specific preferences and settings page integrated with Nextcloud personal settings
+- **Mobile-Optimized UI** - Responsive toolbar with icons-only on small screens, full-screen help panel with sticky header, and performance stats hidden by default on screens ≤768px
 - **Measurement & Annotation Visual Controls** - Customizable sizing controls (point size, line thickness, label width) for measurements and annotations
 - **Animation Controls** - Play/pause controls for animated 3D models with loop toggle support
 - **Performance Scaling** - Automatic performance mode suggestions for large models with configurable triangle count thresholds
@@ -200,18 +202,14 @@ This project is licensed under the **AGPL-3.0 License**. See [LICENSE](LICENSE) 
 
 ## 📊 Version
 
-**Current Version**: 2.2.0  
-**Released**: December 17, 2025
+**Current Version**: 2.3.0  
+**Released**: December 28, 2025
 
-### What's New in 2.2.0
-- **Measurement & Annotation Visual Sizing Controls** - Per-user sliders to customize measurement and annotation visuals
-- **Animation Controls in UI** - Animation play/pause controls in toolbar and tools panel
-- **Dependency Cache Insights** - Live cache statistics (size, entries, hit rate) in viewer and tools
-- **Performance Scaling for Large Models** - Automatic performance mode suggestions and easy mode switching
-- **Slicer Temp File Security Hardening** - Enhanced security with file size limits, MIME validation, and rolling expiration
-- **Automated Bundle Budget Enforcement** - Enhanced bundle size checking with historical tracking
-- **Vue 3 Migration Pre-Work** - Eliminated Vue 3 incompatible patterns for future migration readiness
-- **Updated Dependencies** - Three.js 0.182.0, Vite 7.2.7, CodeQL Action v4
+### What's New in 2.3.0
+- **G-code Visualization Enhancements** - Smooth rainbow gradient coloring across toolpaths, filtering of travel/retraction/parking moves, and clearer multi-layer contrast by default
+- **Mobile View Optimizations** - Responsive MinimalTopBar (icons-only on small screens), full-screen help panel with sticky header, and performance stats hidden by default on mobile (≤768px)
+- **Default Visualization Update** - Gradient toolpath color mode is now the default for G-code for improved clarity
+- **Dependency Updates** - `@nextcloud/dialogs` bumped from 7.1.0 to 7.2.0
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed release notes and version history.
 
