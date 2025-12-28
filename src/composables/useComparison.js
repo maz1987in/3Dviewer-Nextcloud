@@ -540,9 +540,8 @@ export function useComparison() {
 				if (!object.matrix || !(object.matrix instanceof THREE.Matrix4)) {
 					object.matrix = new THREE.Matrix4()
 					object.matrix.identity()
-				}
-				// Also ensure it's not corrupted (has valid elements array)
-				else if (!object.matrix.elements || !Array.isArray(object.matrix.elements) || object.matrix.elements.length !== 16) {
+				} else if (!object.matrix.elements || !Array.isArray(object.matrix.elements) || object.matrix.elements.length !== 16) {
+					// Also ensure it's not corrupted (has valid elements array)
 					object.matrix = new THREE.Matrix4()
 					object.matrix.identity()
 				}
@@ -551,9 +550,8 @@ export function useComparison() {
 				if (!object.matrixWorld || !(object.matrixWorld instanceof THREE.Matrix4)) {
 					object.matrixWorld = new THREE.Matrix4()
 					object.matrixWorld.identity()
-				}
-				// Also ensure it's not corrupted (has valid elements array)
-				else if (!object.matrixWorld.elements || !Array.isArray(object.matrixWorld.elements) || object.matrixWorld.elements.length !== 16) {
+				} else if (!object.matrixWorld.elements || !Array.isArray(object.matrixWorld.elements) || object.matrixWorld.elements.length !== 16) {
+					// Also ensure it's not corrupted (has valid elements array)
 					object.matrixWorld = new THREE.Matrix4()
 					object.matrixWorld.identity()
 				}

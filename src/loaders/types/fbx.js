@@ -46,7 +46,6 @@ function getFbxVersion(text) {
  */
 function isFbxFormatBinary(buffer) {
 	// Binary FBX files start with specific magic bytes
-	const view = new DataView(buffer)
 	// Check for FBX binary magic: "Kaydara FBX Binary  \0" (23 bytes)
 	if (buffer.byteLength < 23) return false
 
@@ -83,17 +82,14 @@ class FbxLoader extends BaseLoader {
 	 * @return {Promise<object>} Load result
 	 */
 	async loadModel(arrayBuffer, context) {
-		const { THREE, additionalFiles = [] } = context
 
 		// Check FBX version first
 		let fbxVersion = 0
 		let isBinary = false
-		let isASCII = false
 
 		// Try to detect format and version
 		const text = convertArrayBufferToString(arrayBuffer)
 		if (isFbxFormatASCII(text)) {
-			isASCII = true
 			fbxVersion = getFbxVersion(text)
 			logger.info('FBXLoader', 'Detected ASCII FBX file', { version: fbxVersion })
 		} else if (isFbxFormatBinary(arrayBuffer)) {
@@ -120,7 +116,6 @@ class FbxLoader extends BaseLoader {
 	 * @return {Promise<object>} Load result
 	 */
 	async loadFbx61(arrayBuffer, context, isBinary) {
-		const { THREE, additionalFiles = [] } = context
 
 		logger.info('FBXLoader', 'Patching FBX 6.1 file to compatible version', { isBinary })
 

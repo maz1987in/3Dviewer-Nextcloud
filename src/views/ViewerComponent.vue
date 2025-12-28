@@ -66,7 +66,6 @@
 			@click.prevent="toggleAnimation">
 			{{ isAnimationPlayingComputed ? '⏸️' : '▶️' }}
 		</NcButton>
-
 	</div>
 </template>
 

@@ -71,7 +71,7 @@ export default {
 			faceLabels: false,
 			wireframe: false,
 			background: '#f5f5f5',
-			_prefsLoaded: false,
+			prefsLoaded: false,
 			showSlicerModal: false,
 			modelLoaded: false,
 			// Animation state (updated from viewer)
@@ -119,11 +119,11 @@ export default {
 						this.background = parsed.background
 					}
 				}
-				this._prefsLoaded = true
+				this.prefsLoaded = true
 			} catch (e) { /* ignore corrupted prefs */ }
 		},
 		savePrefs() {
-			if (!this._prefsLoaded) return
+			if (!this.prefsLoaded) return
 			try {
 				const data = {
 					grid: this.grid,

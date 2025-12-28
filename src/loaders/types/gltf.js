@@ -273,11 +273,6 @@ class GltfLoader extends BaseLoader {
 			} else {
 				// Fallback: patch using __defineSetter__ if available
 				if (Image.prototype.__defineSetter__) {
-					const originalSrc = Image.prototype.src
-					patches.originalImageSrcSetter = function(value) {
-						originalSrc = value
-					}
-
 					Image.prototype.__defineSetter__('src', function(value) {
 						if (typeof value === 'string' && value.startsWith('blob:')) {
 							self.logInfo('GLTFLoader', 'Intercepting blob URL in Image.src (fallback)', { url: value.substring(0, 50) })
@@ -815,6 +810,7 @@ class GltfLoader extends BaseLoader {
 	/**
 	 * Parse the GLTF model
 	 * @param {ArrayBuffer} arrayBuffer - File data
+	 * @param content
 	 * @param {string} extension - File extension (glb or gltf)
 	 * @return {Promise<object>} Parsed GLTF
 	 */

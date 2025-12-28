@@ -62,27 +62,27 @@
 					:is-mobile="isMobile"
 					:has-animations="hasAnimationsComputed"
 					:is-animation-playing="isAnimationPlayingComputed"
-				:is-gcode-model="isGcodeModel"
-				:gcode-color-mode="gcodeColorMode"
-				:gcode-single-color="gcodeSingleColor"
-				@reset-view="onReset"
-				@fit-to-view="onFitToView"
-				@toggle-performance="onTogglePerformance"
-				@toggle-controller="onToggleController"
-				@take-screenshot="onTakeScreenshot"
-				@toggle-help="onToggleHelp"
-				@toggle-tools="onToggleTools"
-				@toggle-animation-play="onToggleAnimationPlay"
-				@toggle-gcode-color-mode="onToggleGcodeColorMode"
-				@change-gcode-color="onChangeGcodeColor" />
+					:is-gcode-model="isGcodeModel"
+					:gcode-color-mode="gcodeColorMode"
+					:gcode-single-color="gcodeSingleColor"
+					@reset-view="onReset"
+					@fit-to-view="onFitToView"
+					@toggle-performance="onTogglePerformance"
+					@toggle-controller="onToggleController"
+					@take-screenshot="onTakeScreenshot"
+					@toggle-help="onToggleHelp"
+					@toggle-tools="onToggleTools"
+					@toggle-animation-play="onToggleAnimationPlay"
+					@toggle-gcode-color-mode="onToggleGcodeColorMode"
+					@change-gcode-color="onChangeGcodeColor" />
 
-			<!-- Slide-Out Tool Panel -->
-			<SlideOutToolPanel
-				ref="toolsPanel"
-				:auto-rotate="autoRotate"
-				:camera-type="cameraType"
-				:grid="grid"
-				:axes="axes"
+				<!-- Slide-Out Tool Panel -->
+				<SlideOutToolPanel
+					ref="toolsPanel"
+					:auto-rotate="autoRotate"
+					:camera-type="cameraType"
+					:grid="grid"
+					:axes="axes"
 					:is-animation-looping="isAnimationLooping"
 					:is-mobile="isMobile"
 					:cache-stats="cacheStats"
@@ -1073,9 +1073,6 @@ export default {
 		},
 	},
 }
-				if (settings.slicer && settings.slicer.exportFormat) {
-					this.slicerExportFormat = settings.slicer.exportFormat
-				}
 </script>
 
 <style scoped lang="scss">

@@ -2,7 +2,7 @@ import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js'
 import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js'
 import { BaseLoader } from '../BaseLoader.js'
 import { logger } from '../../utils/logger.js'
-import { findFileByName, decodeTextFromBuffer } from '../../utils/fileHelpers.js'
+import { decodeTextFromBuffer } from '../../utils/fileHelpers.js'
 import { getBoundingInfo } from '../../utils/three-utils.js'
 
 /**
@@ -25,7 +25,7 @@ class ObjLoader extends BaseLoader {
 	async loadModel(arrayBuffer, context) {
 		// Load OBJ model with multi-file support
 
-		const { fileId, additionalFiles, THREE, progressive = false } = context
+		const { additionalFiles, THREE, progressive = false } = context
 
 		// Decode the OBJ file content
 		const objText = decodeTextFromBuffer(arrayBuffer)
@@ -162,30 +162,22 @@ class ObjLoader extends BaseLoader {
 				const b = parseFloat(parts[3]) || 1.0
 				currentMaterial.color.setRGB(r, g, b)
 			} else if (currentMaterial && command === 'Ka') {
-				// Set ambient color
-				const r = parseFloat(parts[1]) || 0.2
-				const g = parseFloat(parts[2]) || 0.2
-				const b = parseFloat(parts[3]) || 0.2
-				// Note: Three.js doesn't have separate ambient color, using it as base color influence
+				// Ambient color present in MTL, no direct mapping in MeshLambertMaterial
+				// Intentionally ignored to avoid unused variable warnings
 			} else if (currentMaterial && command === 'Ks') {
-				// Set specular color
-				const r = parseFloat(parts[1]) || 1.0
-				const g = parseFloat(parts[2]) || 1.0
-				const b = parseFloat(parts[3]) || 1.0
-				// Note: Three.js Lambert material doesn't support specular, but we can store it
+				// Specular color present in MTL, not supported by MeshLambertMaterial
+				// Intentionally ignored to avoid unused variable warnings
 			} else if (currentMaterial && command === 'Ns') {
-				// Set shininess
-				const shininess = parseFloat(parts[1]) || 0.0
-				// Note: Three.js Lambert material doesn't support shininess
+				// Shininess value present in MTL, not supported by MeshLambertMaterial
+				// Intentionally ignored
 			} else if (currentMaterial && command === 'Tr') {
 				// Set transparency
 				const transparency = parseFloat(parts[1]) || 1.0
 				currentMaterial.transparent = transparency < 1.0
 				currentMaterial.opacity = transparency
 			} else if (currentMaterial && command === 'illum') {
-				// Set illumination model
-				const illum = parseInt(parts[1]) || 2
-				// Note: Three.js doesn't directly support illumination models
+				// Illumination model present in MTL, not directly supported
+				// Intentionally ignored
 			}
 		}
 
@@ -617,7 +609,7 @@ class ObjLoader extends BaseLoader {
 						URL.revokeObjectURL(blobUrl) // Clean up
 					}
 					image.onerror = (error) => {
-						logger.warn('OBJLoader', ' Texture failed to load:', url)
+						logger.warn('OBJLoader', ' Texture failed to load:', { url, error })
 						onLoad(null) // Allow loading to continue without texture
 						URL.revokeObjectURL(blobUrl) // Clean up
 					}

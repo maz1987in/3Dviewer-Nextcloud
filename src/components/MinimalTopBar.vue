@@ -48,7 +48,7 @@
 
 			<!-- Single color picker (visible in Single mode for G-code models) -->
 			<label v-if="isGcodeModel && gcodeColorMode === 'single'" class="topbar-color-picker" :title="t('threedviewer','Select toolpath color')">
-				<input type="color" :value="gcodeSingleColor" @input="$emit('change-gcode-color', $event.target.value)" />
+				<input type="color" :value="gcodeSingleColor" @input="$emit('change-gcode-color', $event.target.value)">
 			</label>
 			<!-- Animation Play/Pause Button -->
 			<button v-if="hasAnimations"
@@ -294,7 +294,6 @@ export default {
 
 .topbar-color-picker input[type="color"] {
 	appearance: none;
-	-webkit-appearance: none;
 	border: none;
 	padding: 0;
 	width: 32px;
@@ -392,7 +391,7 @@ export default {
 
 	.icon-btn,
 	.quick-btn {
-		padding: 6px 6px;
+		padding: 6px;
 		min-width: 32px;
 		height: 32px;
 		font-size: 14px;

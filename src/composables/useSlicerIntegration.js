@@ -245,7 +245,7 @@ export function useSlicerIntegration() {
 			// Simplify3D: simplify3d://import?file=path
 			url = `${slicer.urlScheme}://import?file=${encodeURIComponent(filePath)}`
 			break
-		case 'eufystudio':
+		case 'eufystudio': {
 			// EufyStudio: eufystudio://open/?file=url&name=filename
 			// Extract clean filename from URL query parameter if present
 			const fileName = filePath.split('/').pop()
@@ -256,6 +256,7 @@ export function useSlicerIntegration() {
 				url = `${slicer.urlScheme}://open/?file=${encodeURIComponent(filePath)}&name=${encodeURIComponent(fileName)}`
 			}
 			break
+		}
 		/*
 		case 'anycubicslicer':
 			// AnycubicSlicer: anycubicslicer://open?file=path
@@ -273,7 +274,6 @@ export function useSlicerIntegration() {
 		// Note: Modern browsers may block this or show a permission dialog
 		try {
 			// Set up timeout to detect if URL scheme failed
-			let schemeCheckTimeout
 			let hasFocusLost = false
 
 			const focusLostHandler = () => {
@@ -284,7 +284,7 @@ export function useSlicerIntegration() {
 			window.addEventListener('blur', focusLostHandler, { once: true })
 
 			// If window doesn't lose focus in 2 seconds, scheme likely failed
-			schemeCheckTimeout = setTimeout(() => {
+			const schemeCheckTimeout = setTimeout(() => {
 				window.removeEventListener('blur', focusLostHandler)
 				if (!hasFocusLost) {
 					// URL scheme not registered - show error

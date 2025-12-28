@@ -5,7 +5,7 @@
 
 import { ref, computed } from 'vue'
 import * as THREE from 'three'
-import { applyWireframe, createGridHelper, createAxesHelper, disposeObject } from '../utils/three-utils.js'
+import { disposeObject } from '../utils/three-utils.js'
 import { logger } from '../utils/logger.js'
 import { throttle } from '../utils/mathHelpers.js'
 import { clearRaycastCache } from '../utils/modelScaleUtils.js'

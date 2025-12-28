@@ -224,7 +224,7 @@ export default {
 
 			try {
 				let exportedBlob
-			
+
 				if (format === 'stl') {
 					const { STLExporter } = await import('three/examples/jsm/exporters/STLExporter.js')
 					const exporter = new STLExporter()
@@ -269,31 +269,31 @@ export default {
 			}
 		}
 
-			/**
-			 * Fetch the original file via backend (avoids STL reconversion for slicer-native formats).
-			 */
-			const fetchOriginalFile = async () => {
-				if (!props.fileId) {
-					throw new Error('No file ID available to fetch original file')
-				}
-
-				exporting.value = true
-				errorMessage.value = null
-				exportMessage.value = t('threedviewer', 'Preparing original file...')
-
-				const response = await fetch(`/apps/threedviewer/api/file/${props.fileId}`, {
-					method: 'GET',
-					credentials: 'include',
-				})
-
-				if (!response.ok) {
-					throw new Error(`Failed to fetch original file (HTTP ${response.status})`)
-				}
-
-				exportMessage.value = t('threedviewer', 'Reading file...')
-				const blob = await response.blob()
-				return blob
+		/**
+		 * Fetch the original file via backend (avoids STL reconversion for slicer-native formats).
+		 */
+		const fetchOriginalFile = async () => {
+			if (!props.fileId) {
+				throw new Error('No file ID available to fetch original file')
 			}
+
+			exporting.value = true
+			errorMessage.value = null
+			exportMessage.value = t('threedviewer', 'Preparing original file...')
+
+			const response = await fetch(`/apps/threedviewer/api/file/${props.fileId}`, {
+				method: 'GET',
+				credentials: 'include',
+			})
+
+			if (!response.ok) {
+				throw new Error(`Failed to fetch original file (HTTP ${response.status})`)
+			}
+
+			exportMessage.value = t('threedviewer', 'Reading file...')
+			const blob = await response.blob()
+			return blob
+		}
 
 		/**
 		 * Handle opening model in slicer

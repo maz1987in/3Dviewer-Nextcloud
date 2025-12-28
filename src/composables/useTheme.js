@@ -3,7 +3,7 @@
  * Handles theme switching (light/dark/auto) and RTL support
  */
 
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed } from 'vue'
 import { logger } from '../utils/logger.js'
 import { THEME_SETTINGS } from '../config/viewer-config.js'
 

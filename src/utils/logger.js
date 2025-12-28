@@ -10,7 +10,7 @@
 function isDevelopment() {
 	// Check various environment indicators
 	return (
-		typeof process !== 'undefined' && process.env?.NODE_ENV === 'development'
+		(typeof process !== 'undefined' && process.env?.NODE_ENV === 'development')
 		|| window.location.hostname === 'localhost'
 		|| window.location.hostname === '127.0.0.1'
 		|| window.location.hostname.includes('local')

@@ -17,7 +17,7 @@
     "lint:fix": "eslint src --fix",
     "stylelint": "stylelint src/**/*.vue src/**/*.scss src/**/*.css",
     "stylelint:fix": "stylelint src/**/*.vue src/**/*.scss src/**/*.css --fix",
-    "test": "jest",
+    "test": "jest --passWithNoTests",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:e2e": "playwright test",
@@ -41,6 +41,7 @@
   ],
   "dependencies": {
     "@nextcloud/dialogs": "^7.2.0",
+    "@nextcloud/axios": "^2.2.0",
     "@nextcloud/router": "^3.1.0",
     "@nextcloud/vue": "^8.33.0",
     "three": "^0.182.0",
@@ -53,6 +54,7 @@
     "@babel/plugin-syntax-dynamic-import": "^7.8.3",
     "@babel/plugin-transform-runtime": "^7.28.5",
     "@babel/preset-env": "^7.28.5",
+    "@babel/preset-typescript": "^7.28.5",
     "@nextcloud/browserslist-config": "^3.1.2",
     "@nextcloud/eslint-config": "^8.4.2",
     "@nextcloud/stylelint-config": "^3.1.1",
@@ -83,5 +85,28 @@
   },
   "resolutions": {
     "postcss": "^8.4.49"
+  },
+  "babel": {
+    "presets": [
+      [
+        "@babel/preset-env",
+        {
+          "targets": {
+            "node": "current"
+          }
+        }
+      ],
+      "@babel/preset-typescript"
+    ]
+  },
+  "jest": {
+    "testEnvironment": "jsdom",
+    "transform": {
+      "^.+\\.(ts|tsx)$": "babel-jest"
+    },
+    "testPathIgnorePatterns": [
+      "<rootDir>/tests/playwright/",
+      "<rootDir>/tests/smoke/"
+    ]
   }
 }

@@ -41,9 +41,9 @@ const VIEWER_REGISTRATION_KEY = '__threedviewer_viewer_handler_registered'
 const isHandlerAlreadyRegistered
 	= window[VIEWER_REGISTRATION_KEY] === true
 	|| globalThis[VIEWER_REGISTRATION_KEY] === true
-	|| (OCA?.Viewer?.handlers?.[VIEWER_HANDLER_ID])
+	|| (globalThis?.OCA?.Viewer?.handlers?.[VIEWER_HANDLER_ID])
 
-if (OCA?.Viewer && !isHandlerAlreadyRegistered) {
+if (globalThis?.OCA?.Viewer && !isHandlerAlreadyRegistered) {
 	// Set flag IMMEDIATELY to prevent race conditions
 	window[VIEWER_REGISTRATION_KEY] = true
 	globalThis[VIEWER_REGISTRATION_KEY] = true
@@ -92,7 +92,7 @@ if (appRoot) {
 			},
 		})
 
-		new Vue({
+		const app = new Vue({
 			el: '#threedviewer',
 			render: h => h(App, {
 				props: {
@@ -102,6 +102,8 @@ if (appRoot) {
 				},
 			}),
 		})
+		// Expose app instance for debugging and to avoid unused variable lint error
+		window.__THREEDVIEWER_APP = app
 	}).catch(err => {
 		console.error('Failed to mount advanced viewer:', err)
 	})

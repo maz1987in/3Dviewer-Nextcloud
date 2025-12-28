@@ -18,7 +18,6 @@ class PlyLoader extends BaseLoader {
 	 * @return {Promise<object>} Load result
 	 */
 	async loadModel(arrayBuffer, context) {
-		const { THREE } = context
 
 		// Create PLY loader
 		this.loader = new PLYLoader()

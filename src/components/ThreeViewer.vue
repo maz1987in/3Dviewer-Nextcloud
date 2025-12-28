@@ -1077,10 +1077,10 @@ export default {
 				const group = scene.value.getObjectByName('GCodeToolpath')
 				if (!group) return
 				const children = group.children || []
-				
+
 				children.forEach((child) => {
 					if (!child.material) return
-					
+
 					if (mode === 'single') {
 						// Single color mode: disable vertex colors and use uniform material color
 						child.material.color.set(color)
@@ -2229,6 +2229,7 @@ export default {
 		 * Handle test pan event
 		 * @param data
 		 */
+		// eslint-disable-next-line no-unused-vars
 		const handleTestPan = () => {
 			// Test pan handler - placeholder
 		}
@@ -2257,6 +2258,7 @@ export default {
 		 * @param root0.x
 		 * @param root0.y
 		 */
+		// eslint-disable-next-line no-unused-vars
 		const handleControllerPan = ({ x, y }) => {
 			if (!camera.camera.value || !camera.controls.value) {
 				return

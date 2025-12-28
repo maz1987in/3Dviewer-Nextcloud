@@ -194,6 +194,19 @@ class VrmlLoader extends BaseLoader {
 	 * @return {string} Preprocessed VRML text
 	 */
 	preprocessVrmlText(text, minimal = false) {
+		// Helper: remove control characters without using RegExp literals
+		const removeControlChars = (s) => {
+			let out = ''
+			for (let i = 0; i < s.length; i++) {
+				const code = s.charCodeAt(i)
+				// Skip ASCII control chars: 0x00-0x1F and 0x7F
+				if ((code >= 0x00 && code <= 0x1F) || code === 0x7F) {
+					continue
+				}
+				out += s[i]
+			}
+			return out
+		}
 		// Apply minimal safe fixes first
 		// Remove BOM if present (always safe)
 		if (text.charCodeAt(0) === 0xFEFF) {
@@ -204,7 +217,7 @@ class VrmlLoader extends BaseLoader {
 		text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
 
 		// Remove null bytes (always safe)
-		text = text.replace(/\0/g, '')
+		text = removeControlChars(text)
 
 		// Fix common encoding issues - replace common problematic characters
 		// Some files have smart quotes or other Unicode characters that cause issues
@@ -218,7 +231,7 @@ class VrmlLoader extends BaseLoader {
 			// Only fix trailing commas (very common and safe)
 			text = text.replace(/,(\s*[}\]])/g, '$1')
 			// Remove control characters (safe)
-			text = text.replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]/g, '')
+			text = removeControlChars(text)
 			return text
 		}
 
@@ -233,7 +246,7 @@ class VrmlLoader extends BaseLoader {
 		text = text.replace(/\\([^\\"nrtbf])/g, (match, char) => char)
 
 		// 4. Remove control characters
-		text = text.replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]/g, '')
+		text = removeControlChars(text)
 
 		// 5. Fix whitespace (conservative - only normalize multiple spaces)
 		// Don't modify operators as that can break valid VRML

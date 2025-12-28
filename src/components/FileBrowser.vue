@@ -218,7 +218,7 @@
 		<!-- Months Grid (show when a year is selected but no month) -->
 		<template v-else-if="!loading && currentDate && currentDate.year && !currentDate.month && dates">
 			<div :key="`months-container-${viewMode}`" :class="viewMode === 'list' ? 'file-list' : 'file-grid'">
-				<template v-for="year in dates" :key="year.year">
+				<template v-for="year in dates">
 					<template v-if="year.year === currentDate.year && year.months">
 						<div
 							v-for="month in year.months"
@@ -267,7 +267,7 @@
 			</template>
 
 			<!-- Show files - Grid View -->
-			<template v-if="filteredFiles.length > 0 && viewMode === 'grid'" :key="'grid-template'">
+			<template v-if="filteredFiles.length > 0 && viewMode === 'grid'">
 				<div
 					v-for="file in filteredFiles"
 					:key="`grid-${file.id}`"
@@ -293,7 +293,7 @@
 			</template>
 
 			<!-- Show files - List View -->
-			<template v-if="filteredFiles.length > 0 && viewMode === 'list'" :key="'list-template'">
+			<template v-if="filteredFiles.length > 0 && viewMode === 'list'">
 				<div
 					v-for="(file, index) in filteredFiles"
 					:key="`list-${file.id}`"

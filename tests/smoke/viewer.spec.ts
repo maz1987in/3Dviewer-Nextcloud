@@ -3,6 +3,36 @@ import fs from 'fs'
 import path from 'path'
 import http from 'http'
 import { lookup as mimeLookup } from 'mime-types'
+// Capture browser console and page errors to help diagnose mount failures
+test.beforeEach(async ({ page }) => {
+  // Ensure Nextcloud globals exist before any module executes
+  await page.addInitScript(() => {
+    // Minimal OCA.Viewer stub
+    window.OCA = window.OCA || {}
+    window.OCA.Viewer = window.OCA.Viewer || {
+      handlers: {},
+      registerHandler: function (h) { this.handlers[h.id || 'threedviewer'] = h },
+      open: function () {}
+    }
+    // Minimal OC.filePath resolver for assets
+    window.OC = window.OC || {}
+    window.OC.filePath = function (app, type, p) { return '/' + String(p).replace(/^\//, '') }
+    // Basic Nextcloud environment shims used by router/initial-state
+    window.settings = window.settings || {}
+    window._oc_capabilities = window._oc_capabilities || {}
+    window.OC.webroot = window.OC.webroot || ''
+    window.OC.appswebroots = window.OC.appswebroots || {}
+    window.OC.linkTo = window.OC.linkTo || function (app, file) { return '/' + String(file).replace(/^\//, '') }
+    window.OC.generateUrl = window.OC.generateUrl || function (url) { return String(url) }
+  })
+  page.on('console', (msg) => {
+    // Log only text to keep output concise
+    console.log('PAGE:', msg.text())
+  })
+  page.on('pageerror', (err) => {
+    console.error('PAGE ERROR:', err)
+  })
+})
 
 // Serve a minimal HTML via data URL that loads the built bundle.
 // We mock the OCS file endpoint to return our tiny triangle.gltf fixture.
@@ -27,6 +57,22 @@ function buildHtml() {
   };
   window.history.replaceState({}, '', '?fileId=' + window.__TEST_FILE_ID);
   </script>
+  <script>
+  // Minimal Nextcloud OCA Viewer stub for smoke environment
+  window.OCA = window.OCA || {};
+  // Ensure global identifier OCA resolves in module scope
+  var OCA = window.OCA;
+  window.OCA.Viewer = window.OCA.Viewer || {
+    handlers: {},
+    registerHandler: function(h) { this.handlers[h.id || 'threedviewer'] = h; },
+    open: function() {}
+  };
+  // Minimal Nextcloud OC filePath resolver for assets
+  window.OC = window.OC || {};
+  // Ensure global identifier OC resolves in module scope
+  var OC = window.OC;
+  window.OC.filePath = function(app, type, p) { return '/' + p.replace(/^\//, ''); };
+  </script>
   <script type="module" src="/js/threedviewer-main.mjs"></script>
   </body></html>`
 }
@@ -35,8 +81,8 @@ function buildHtml() {
 // Write a temporary HTML file at project root so absolute /js path resolves.
 const TEMP_HTML = path.resolve(process.cwd(), 'smoke-temp.html')
 
-let server: http.Server
-let baseURL: string
+let server: http.Server;
+let baseURL: string;
 
 declare global {
   interface Window { __ABORTED?: boolean }
@@ -132,6 +178,20 @@ test('draco gltf loads when decoder present (soft)', async ({ page }) => {
   };
   window.history.replaceState({}, '', '?fileId=' + window.__TEST_FILE_ID);
   </script>
+  <script>
+  // Minimal Nextcloud OCA Viewer stub for smoke environment
+  window.OCA = window.OCA || {};
+  var OCA = window.OCA;
+  window.OCA.Viewer = window.OCA.Viewer || {
+    handlers: {},
+    registerHandler: function(h) { this.handlers[h.id || 'threedviewer'] = h; },
+    open: function() {}
+  };
+  // Minimal Nextcloud OC filePath resolver for assets
+  window.OC = window.OC || {};
+  var OC = window.OC;
+  window.OC.filePath = function(app, type, p) { return '/' + p.replace(/^\//, ''); };
+  </script>
   <script type="module" src="/js/threedviewer-main.mjs"></script></body></html>`
   fs.writeFileSync(TEMP_HTML, html, 'utf8')
   await page.goto(baseURL + '/smoke-temp.html')
@@ -145,7 +205,7 @@ test('draco gltf loads when decoder present (soft)', async ({ page }) => {
 // Abort test: simulate slow fetch and cancel
 
 test('abort cancels load (stable)', async ({ page }) => {
-  const html = `<!DOCTYPE html><html><head><meta charset='utf-8'><title>Abort Test</title></head><body><div id="threedviewer"></div>
+  const html = `<!DOCTYPE html><html><head><meta charset='utf-8'><title>Abort Test</title><style>html, body { height: 100%; margin: 0; padding: 0; }</style></head><body><div id="threedviewer" style="height: 100vh;"></div>
   <script>
   window.__TEST_FILE_ID = 777;
   window.__ABORTED = false;
@@ -153,6 +213,20 @@ test('abort cancels load (stable)', async ({ page }) => {
   document.addEventListener('threedviewer:load-start', () => { window.__LOAD_STARTED = true; });
   document.addEventListener('threedviewer:model-aborted', () => { window.__ABORTED = true; });
   window.history.replaceState({}, '', '?fileId=' + window.__TEST_FILE_ID);
+  </script>
+  <script>
+  // Minimal Nextcloud OCA Viewer stub for smoke environment
+  window.OCA = window.OCA || {};
+  var OCA = window.OCA;
+  window.OCA.Viewer = window.OCA.Viewer || {
+    handlers: {},
+    registerHandler: function(h) { this.handlers[h.id || 'threedviewer'] = h; },
+    open: function() {}
+  };
+  // Minimal Nextcloud OC filePath resolver for assets
+  window.OC = window.OC || {};
+  var OC = window.OC;
+  window.OC.filePath = function(app, type, p) { return '/' + p.replace(/^\//, ''); };
   </script>
   <script type="module" src="/js/threedviewer-main.mjs"></script></body></html>`
   fs.writeFileSync(TEMP_HTML, html, 'utf8')

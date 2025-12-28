@@ -3,7 +3,7 @@
  * Handles mobile-specific touch controls, gestures, and interactions
  */
 
-import { ref, computed, readonly } from 'vue'
+import { ref, computed } from 'vue'
 import * as THREE from 'three'
 import { logger } from '../utils/logger.js'
 import { throttle } from '../utils/mathHelpers.js'

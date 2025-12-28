@@ -412,11 +412,6 @@ export function useMeasurement() {
 	const createMeasurementLine = (measurement) => {
 		if (!measurementGroup.value) return
 
-		const geometry = new THREE.BufferGeometry().setFromPoints([
-			measurement.point1,
-			measurement.point2,
-		])
-
 		// Use a thicker, more visible line with tube geometry for WebGL.
 		// Note: linewidth doesn't work in WebGL, so we create a cylinder instead.
 		const direction = new THREE.Vector3().subVectors(measurement.point2, measurement.point1)
