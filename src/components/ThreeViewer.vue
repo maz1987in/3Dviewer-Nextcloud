@@ -1077,18 +1077,20 @@ export default {
 				const group = scene.value.getObjectByName('GCodeToolpath')
 				if (!group) return
 				const children = group.children || []
-				const total = Math.max(children.length, 1)
-				children.forEach((child, idx) => {
-					if (!child.material || !child.material.color) return
+				
+				children.forEach((child) => {
+					if (!child.material) return
+					
 					if (mode === 'single') {
+						// Single color mode: disable vertex colors and use uniform material color
 						child.material.color.set(color)
+						child.material.vertexColors = false
 						child.material.needsUpdate = true
 					} else {
-						const hue = (idx / total) * 360
-						if (child.material.color.setHSL) {
-							child.material.color.setHSL(hue / 360, 0.8, 0.5)
-							child.material.needsUpdate = true
-						}
+						// Gradient mode: enable vertex colors (which were set during loading)
+						// The gradient colors are already in the geometry from GCodeLoader
+						child.material.vertexColors = true
+						child.material.needsUpdate = true
 					}
 				})
 			} catch (_) { /* ignore recolor errors */ }
@@ -2483,6 +2485,16 @@ export default {
 		// Watch for enableDamping prop changes
 		watch(() => props.enableDamping, (enabled) => {
 			camera.setDamping(enabled)
+		})
+
+		// Watch for G-code color mode prop changes
+		watch(() => props.gcodeColorMode, (newMode) => {
+			setGcodeColorScheme(newMode, props.gcodeSingleColor)
+		})
+
+		// Watch for G-code single color prop changes
+		watch(() => props.gcodeSingleColor, (newColor) => {
+			setGcodeColorScheme(props.gcodeColorMode, newColor)
 		})
 
 		// Watch for shadow/AA changes (requires renderer update)

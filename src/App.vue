@@ -63,26 +63,26 @@
 					:has-animations="hasAnimationsComputed"
 					:is-animation-playing="isAnimationPlayingComputed"
 				:is-gcode-model="isGcodeModel"
-					@toggle-gcode-color-mode="onToggleGcodeColorMode"
-					@change-gcode-color="onChangeGcodeColor" />
+				:gcode-color-mode="gcodeColorMode"
+				:gcode-single-color="gcodeSingleColor"
+				@reset-view="onReset"
+				@fit-to-view="onFitToView"
+				@toggle-performance="onTogglePerformance"
+				@toggle-controller="onToggleController"
+				@take-screenshot="onTakeScreenshot"
+				@toggle-help="onToggleHelp"
+				@toggle-tools="onToggleTools"
+				@toggle-animation-play="onToggleAnimationPlay"
+				@toggle-gcode-color-mode="onToggleGcodeColorMode"
+				@change-gcode-color="onChangeGcodeColor" />
 
-				<!-- Slide-Out Tool Panel -->
-				<SlideOutToolPanel
-					ref="toolsPanel"
-					:auto-rotate="autoRotate"
-					:camera-type="cameraType"
-					:grid="grid"
-					:axes="axes"
-					:wireframe="wireframe"
-					:background-color="background"
-					:measurement-mode="measurementMode"
-					:annotation-mode="annotationMode"
-					:comparison-mode="comparisonMode"
-					:model-loaded="modelLoaded"
-					:performance-mode="performanceMode"
-					:theme-mode="themeMode"
-					:has-animations="hasAnimations"
-					:is-animation-playing="isAnimationPlaying"
+			<!-- Slide-Out Tool Panel -->
+			<SlideOutToolPanel
+				ref="toolsPanel"
+				:auto-rotate="autoRotate"
+				:camera-type="cameraType"
+				:grid="grid"
+				:axes="axes"
 					:is-animation-looping="isAnimationLooping"
 					:is-mobile="isMobile"
 					:cache-stats="cacheStats"
@@ -296,6 +296,13 @@ export default {
 				this.isAnimationPlaying = false
 				this.isAnimationLooping = false
 			}
+		},
+		// Watch G-code color settings and reapply to viewer
+		gcodeColorMode(newVal) {
+			this.$refs.viewer?.setGcodeColorScheme?.(newVal, this.gcodeSingleColor)
+		},
+		gcodeSingleColor(newVal) {
+			this.$refs.viewer?.setGcodeColorScheme?.(this.gcodeColorMode, newVal)
 		},
 	},
 	created() {

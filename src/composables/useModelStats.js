@@ -112,6 +112,11 @@ export function useModelStats() {
 						faces += child.geometry.attributes.position.count / 3
 					}
 				}
+			} else if (child.isLine) {
+				// Count G-code or other line segments
+				if (child.geometry && child.geometry.attributes.position) {
+					vertices += child.geometry.attributes.position.count
+				}
 			}
 		})
 

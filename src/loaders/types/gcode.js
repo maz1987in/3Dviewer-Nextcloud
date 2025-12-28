@@ -55,22 +55,53 @@ class GCodeLoader extends BaseLoader {
 		const colorMode = context?.gcodeOptions?.colorMode === 'single' ? 'single' : 'gradient'
 		const singleColor = context?.gcodeOptions?.singleColor || '#ff5722'
 
+		// For gradient mode, count total vertices first for smooth progression
+		let totalVertices = 0
+		if (colorMode === 'gradient') {
+			geometries.forEach((geometry) => {
+				if (geometry.attributes.position) {
+					totalVertices += geometry.attributes.position.count
+				}
+			})
+		}
+		
+		let globalVertexIndex = 0
+		
 		// Add each layer with appropriate coloring
 		geometries.forEach((geometry, index) => {
-			let color
+			let material
+			
 			if (colorMode === 'single') {
-				color = new THREE.Color(singleColor)
+				// Single color mode: use uniform material color
+				material = new THREE.LineBasicMaterial({
+					color: new THREE.Color(singleColor),
+					linewidth: 2,
+					transparent: true,
+					opacity: 0.9,
+				})
 			} else {
-				const hue = (index / layers.length) * 360
-				color = new THREE.Color().setHSL(hue / 360, 0.8, 0.5)
+				// Gradient mode: use vertex colors for smooth transitions across entire model
+				const posCount = geometry.attributes.position?.count || 0
+				const colors = new Float32Array(posCount * 3)
+				
+				// Color each vertex based on its position in the entire sequence
+				for (let i = 0; i < posCount; i++) {
+					const hue = totalVertices > 0 ? (globalVertexIndex / totalVertices) * 360 : 0
+					const color = new THREE.Color().setHSL(hue / 360, 0.8, 0.5)
+					colors[i * 3] = color.r
+					colors[i * 3 + 1] = color.g
+					colors[i * 3 + 2] = color.b
+					globalVertexIndex++
+				}
+				
+				geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
+				material = new THREE.LineBasicMaterial({
+					vertexColors: true,
+					linewidth: 2,
+					transparent: true,
+					opacity: 0.9,
+				})
 			}
-
-			const material = new THREE.LineBasicMaterial({
-				color,
-				linewidth: 2,
-				transparent: true,
-				opacity: 0.9,
-			})
 
 			const line = new THREE.Line(geometry, material)
 			line.name = `Layer_${index + 1}`
@@ -102,8 +133,12 @@ class GCodeLoader extends BaseLoader {
 		let currentZ = 0
 		let currentLayer = 0
 		let lastZ = null
+		let currentE = 0 // Track extrusion
 
 		let currentLayerPositions = []
+		let totalCommands = 0
+		let movementCommands = 0
+		let hasExtrusionData = false // Track if file uses E values
 
 		// Parse each line
 		for (let i = 0; i < lines.length; i++) {
@@ -123,12 +158,20 @@ class GCodeLoader extends BaseLoader {
 			if (!command) {
 				continue
 			}
+			
+			totalCommands++
+			
+			// Check if this file uses extrusion data
+			if (command.e !== undefined) {
+				hasExtrusionData = true
+			}
 
 			// Handle movement commands
 			if (command.type === 'G0' || command.type === 'G1') {
 				const newX = command.x !== undefined ? command.x : currentX
 				const newY = command.y !== undefined ? command.y : currentY
 				const newZ = command.z !== undefined ? command.z : currentZ
+				const newE = command.e !== undefined ? command.e : currentE
 
 				// Check for layer change (Z movement)
 				if (newZ !== lastZ && lastZ !== null) {
@@ -144,8 +187,35 @@ class GCodeLoader extends BaseLoader {
 					currentLayer++
 				}
 
-				// Add line segment if there's movement
-				if (newX !== currentX || newY !== currentY || newZ !== currentZ) {
+				const hasMovement = newX !== currentX || newY !== currentY || newZ !== currentZ
+				
+				// If file has extrusion data, only show extrusion moves (filter travel)
+				// If no extrusion data (like some acode files), show all movements
+				let shouldAddLine = false
+				if (hasExtrusionData) {
+					// Check for actual extrusion: E must increase by at least 0.005
+					// This filters out retractions (E decreases) and travel moves (E constant)
+					// while keeping all actual printing detail
+					const extrusionDelta = newE - currentE
+					const isExtrusion = extrusionDelta > 0.005
+					// Skip all G0 (rapid positioning) commands
+					const notRapidMove = command.type !== 'G0'
+					
+					// Calculate XY distance to filter out long travel moves (parking, homing)
+					const xyDistance = Math.sqrt(
+						Math.pow(newX - currentX, 2) + 
+						Math.pow(newY - currentY, 2)
+					)
+					// Skip movements that travel > 50mm in XY (likely parking/homing moves)
+					const notLongTravel = xyDistance < 50
+					
+					shouldAddLine = hasMovement && isExtrusion && notRapidMove && notLongTravel
+				} else {
+					// For files without E values, show all G1 moves but skip G0 (rapid moves)
+					shouldAddLine = hasMovement && command.type === 'G1'
+				}
+				
+				if (shouldAddLine) {
 					// Add start point
 					currentLayerPositions.push(currentX, currentZ, -currentY) // Convert to Y-up
 					// Add end point
@@ -155,6 +225,7 @@ class GCodeLoader extends BaseLoader {
 				currentX = newX
 				currentY = newY
 				currentZ = newZ
+				currentE = newE
 				lastZ = newZ
 			}
 		}
@@ -167,6 +238,10 @@ class GCodeLoader extends BaseLoader {
 			geometries.push(geometry)
 			layers.push({ z: currentZ, points: currentLayerPositions.length / 3 })
 		}
+
+		// Log parsing statistics
+		const totalVertices = geometries.reduce((sum, g) => sum + (g.attributes.position?.count || 0), 0)
+		console.log(`[GCodeLoader] Parsed: ${lines.length} lines, ${totalCommands} commands, ${movementCommands} movements, ${geometries.length} layers, ${totalVertices} vertices, hasE=${hasExtrusionData}`)
 
 		return { geometries, layers }
 	}
