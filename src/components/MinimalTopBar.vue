@@ -35,8 +35,9 @@
 
 		<!-- Right: Settings & Info -->
 		<div class="right-section">
-			<!-- G-code toolpath color mode toggle -->
+			<!-- G-code toolpath color mode toggle (only show for G-code models) -->
 			<button
+				v-if="isGcodeModel"
 				:aria-label="t('threedviewer', 'Toggle toolpath color mode')"
 				class="icon-btn"
 				:title="gcodeColorMode === 'single' ? t('threedviewer','Color: Single') : t('threedviewer','Color: Gradient')"
@@ -45,8 +46,8 @@
 				<span class="btn-text">{{ gcodeColorMode === 'single' ? t('threedviewer','Single') : t('threedviewer','Gradient') }}</span>
 			</button>
 
-			<!-- Single color picker (visible in Single mode) -->
-			<label v-if="gcodeColorMode === 'single'" class="topbar-color-picker" :title="t('threedviewer','Select toolpath color')">
+			<!-- Single color picker (visible in Single mode for G-code models) -->
+			<label v-if="isGcodeModel && gcodeColorMode === 'single'" class="topbar-color-picker" :title="t('threedviewer','Select toolpath color')">
 				<input type="color" :value="gcodeSingleColor" @input="$emit('change-gcode-color', $event.target.value)" />
 			</label>
 			<!-- Animation Play/Pause Button -->
@@ -120,6 +121,7 @@ export default {
 		hasAnimations: { type: Boolean, default: false },
 		isAnimationPlaying: { type: Boolean, default: false },
 		// G-code toolpath color controls
+		isGcodeModel: { type: Boolean, default: false },
 		gcodeColorMode: { type: String, default: 'single' }, // 'single' | 'gradient'
 		gcodeSingleColor: { type: String, default: '#ff5722' },
 	},

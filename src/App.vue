@@ -62,16 +62,7 @@
 					:is-mobile="isMobile"
 					:has-animations="hasAnimationsComputed"
 					:is-animation-playing="isAnimationPlayingComputed"
-					:gcode-color-mode="gcodeColorMode"
-					:gcode-single-color="gcodeSingleColor"
-					@reset-view="onReset"
-					@fit-to-view="onFitToView"
-					@toggle-performance="onTogglePerformance"
-					@toggle-controller="onToggleController"
-					@take-screenshot="onTakeScreenshot"
-					@toggle-help="onToggleHelp"
-					@toggle-tools="onToggleTools"
-					@toggle-animation-play="onToggleAnimationPlay"
+				:is-gcode-model="isGcodeModel"
 					@toggle-gcode-color-mode="onToggleGcodeColorMode"
 					@change-gcode-color="onChangeGcodeColor" />
 
@@ -272,6 +263,7 @@ export default {
 			// G-code toolpath color state for topbar controls
 			gcodeColorMode: 'gradient',
 			gcodeSingleColor: '#ff5722',
+			isGcodeModel: false,
 		}
 	},
 	computed: {
@@ -737,6 +729,15 @@ export default {
 			this.lastError = null
 			this.isLoading = false
 			this.modelLoaded = true
+
+			// Check if the loaded model is a G-code file
+			if (meta.filename) {
+				const gcodeExtensions = ['gcode', 'gco', 'nc', 'acode', 'gx', 'g', 'g3drem', 'makerbot', 'thing']
+				const fileExt = meta.filename.split('.').pop()?.toLowerCase() || ''
+				this.isGcodeModel = gcodeExtensions.includes(fileExt)
+			} else {
+				this.isGcodeModel = false
+			}
 
 			// Update cache stats immediately after model loads (files may have been cached)
 			await this.updateCacheStats()
