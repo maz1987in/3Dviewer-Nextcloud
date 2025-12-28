@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **G-code Visualization Enhancements**
+  - Smooth rainbow spectrum gradient coloring across entire model
+  - Intelligent filtering of travel moves, retractions, and parking movements
+  - Skip movements exceeding 50mm in XY plane to remove edge artifacts
+  - Fixed vertex color handling for proper gradient display when toggling modes
+
+- **Mobile View Optimizations**
+  - Responsive MinimalTopBar with all icons visible on small screens
+  - Help panel displays full-screen with sticky header on mobile
+  - Smooth scrolling support for iOS devices
+  - Performance stats overlay hidden by default on mobile and screens ≤768px
+
 - **G-code Toolpath Visualization**: Added support for G-code files used in 3D printing and CNC machining
   - New G-code parser supporting G0/G1 movement commands
   - Automatic layer detection based on Z-height changes

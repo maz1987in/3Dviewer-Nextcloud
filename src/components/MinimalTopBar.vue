@@ -348,20 +348,65 @@ export default {
 @media (width <= 480px) {
 	.minimal-top-bar {
 		padding: 6px 8px;
+		flex-wrap: wrap;
+		gap: 4px;
+	}
+
+	.left-section {
+		flex: 0 0 auto;
+		gap: 4px;
+	}
+
+	.left-section .quick-btn {
+		padding: 6px;
+	}
+
+	.left-section .btn-text,
+	.right-section .btn-text {
+		display: none;
 	}
 
 	.left-section .quick-btn:last-child {
-		display: none; /* Hide "Fit" button on very small screens */
+		display: inline-flex; /* Show all buttons, remove the Fit button hide */
+	}
+
+	.center-section {
+		flex: 1 1 100%;
+		order: 3;
+		min-width: 100%;
 	}
 
 	.model-name {
 		font-size: 12px;
-		max-width: 120px;
+		max-width: 100%;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.right-section {
+		flex: 0 0 auto;
+		gap: 4px;
+		flex-wrap: wrap;
+	}
+
+	.icon-btn,
+	.quick-btn {
+		padding: 6px 6px;
+		min-width: 32px;
+		height: 32px;
+		font-size: 14px;
+	}
+
+	.topbar-color-picker input {
+		width: 28px;
+		height: 28px;
 	}
 
 	.fps-badge {
 		font-size: 9px;
-		padding: 1px 4px;
+		padding: 1px 2px;
+		min-width: auto;
 	}
 }
 

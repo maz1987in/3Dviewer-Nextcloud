@@ -234,7 +234,7 @@
 		</div>
 
 		<!-- Performance Stats Overlay (Dev/Debug) -->
-		<div v-if="showPerformanceStats && performance && currentFPS > 0" class="performance-stats">
+		<div v-if="showPerformanceStats && performance && currentFPS > 0 && !isMobile" class="performance-stats">
 			<div class="stats-header">
 				<span class="stats-icon">📊</span>
 				<span class="stats-title">Performance</span>
@@ -478,7 +478,7 @@ export default {
 		const aborting = ref(false)
 		const initializing = ref(true) // Show loading during initial setup
 		const animationFrameId = ref(null) // Track animation frame for cleanup
-		const showPerformanceStats = ref(true) // Toggle for performance stats overlay
+		const showPerformanceStats = ref(!props.isMobile && typeof window !== 'undefined' && window.innerWidth > 768) // Toggle for performance stats overlay (hidden by default on mobile or small screens)
 		const isInitialized = ref(false) // Guard to prevent multiple initializations
 		const cacheStats = ref({ enabled: false, count: 0, sizeMB: 0, hits: 0, misses: 0, hitRate: 0 }) // Cache statistics
 		let lastCacheStatsUpdate = 0 // Track last cache stats update time
