@@ -50,7 +50,7 @@ class ShareFileService
         }
         $ext = strtolower($node->getExtension());
         if (!$this->support->isSupported($ext)) {
-            throw new UnsupportedFileTypeException('Unsupported file type');
+            throw new UnsupportedFileTypeException('Unsupported file type', 0, null, $ext);
         }
 
         return $node;

@@ -83,6 +83,7 @@
 					:camera-type="cameraType"
 					:grid="grid"
 					:axes="axes"
+					:model-loaded="modelLoaded"
 					:is-animation-looping="isAnimationLooping"
 					:is-mobile="isMobile"
 					:cache-stats="cacheStats"

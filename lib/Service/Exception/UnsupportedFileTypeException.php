@@ -11,8 +11,16 @@ use RuntimeException;
  */
 class UnsupportedFileTypeException extends RuntimeException
 {
-    public function __construct(string $message = '', int $code = 0, ?\Throwable $previous = null)
+    private string $extension = '';
+
+    public function __construct(string $message = '', int $code = 0, ?\Throwable $previous = null, string $extension = '')
     {
         parent::__construct($message, $code, $previous);
+        $this->extension = $extension;
+    }
+
+    public function getExtension(): string
+    {
+        return $this->extension;
     }
 }

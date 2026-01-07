@@ -7,6 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.1] - 2026-01-07
+
+### Fixed
+- **"Send to Slicer" Button Always Disabled**
+  - Fixed missing `modelLoaded` prop binding in SlideOutToolPanel component
+  - Button now correctly enables when a model is loaded
+  - Affects STL and all other 3D model formats
+
+- **CRITICAL: Cron Job Fatal Error** ([#65](https://github.com/maz1987in/3Dviewer-Nextcloud/issues/65))
+  - Fixed `foreach() argument must be of type array|object, null given` error in CleanupTempFiles cron job
+  - Removed incorrect `foreach` wrapper around `callForAllUsers()` method
+
+- **CRITICAL: Missing Exception Method**
+  - Added missing `getExtension()` method to `UnsupportedFileTypeException` class
+  - Fixed fatal error when attempting to access extension information from unsupported file type exceptions
+  - Updated all exception throw sites to include extension parameter
+
+- **CRITICAL: Insecure Rate Limiting**
+  - Replaced insecure session-based rate limiting with distributed cache implementation
+  - Uses `ICacheFactory` for thread-safe, multi-server compatible rate limiting
+  - Prevents rate limit bypass by session clearing
+  - Improved scalability for large installations
+
+- **HIGH: IP Address Spoofing Vulnerability**
+  - Replaced custom IP detection with Nextcloud's secure `$request->getRemoteAddress()` method
+  - Prevents IP spoofing via forged X-Forwarded-For headers
+  - Properly respects trusted proxy configuration
+
+- **HIGH: Path Traversal Vulnerability**
+  - Fixed path traversal vulnerability in temp folder verification (SlicerController)
+  - Replaced insecure `strpos()` checks with proper `str_starts_with()` path validation
+  - Prevents unauthorized file access via path traversal attacks
+
+- **MEDIUM: HTTP Header Injection**
+  - Fixed potential header injection in Content-Disposition header (PublicFileController)
+  - Replaced `addslashes()` with proper RFC 2231 encoding using `rawurlencode()`
+  - Prevents header injection via malicious filenames
+
+### Improved
+- **Temp File Cleanup Enhancements**
+  - Added comprehensive logging for NotFoundException cases
+  - Implemented cleanup statistics tracking (files deleted, shares deleted, users processed, errors)
+  - Improved share deletion error handling with separate method and individual error logging
+  - Added file type validation to skip directories during cleanup
+  - Added progress logging every 100 users for large instances
+  - Added stack traces to error logs for better debugging
+
 ## [2.3.0] - 2025-12-28
 
 ### Added

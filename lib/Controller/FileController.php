@@ -16,6 +16,7 @@ use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\Http\StreamResponse;
 use OCP\Files\IRootFolder;
 use OCP\Files\Tags\ISystemTagManager;
+use OCP\ICacheFactory;
 use OCP\IRequest;
 use OCP\IUserSession;
 use Psr\Log\LoggerInterface;
@@ -35,9 +36,10 @@ class FileController extends BaseController
         private readonly ?ISystemTagManager $systemTagManager,
         ModelFileSupport $modelFileSupport,
         ResponseBuilder $responseBuilder,
-        LoggerInterface $logger
+        LoggerInterface $logger,
+        ICacheFactory $cacheFactory
     ) {
-        parent::__construct($appName, $request, $responseBuilder, $modelFileSupport, $logger);
+        parent::__construct($appName, $request, $responseBuilder, $modelFileSupport, $logger, $cacheFactory);
     }
 
     /**
