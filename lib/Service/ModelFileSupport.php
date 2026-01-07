@@ -47,7 +47,7 @@ class ModelFileSupport
     public function findSiblingMtl(File $objFile, string $mtlName): File
     {
         if (strtolower($objFile->getExtension()) !== 'obj') {
-            throw new UnsupportedFileTypeException('Not an OBJ file');
+            throw new UnsupportedFileTypeException('Not an OBJ file', 0, null, $objFile->getExtension());
         }
         $parent = $objFile->getParent();
         /* @psalm-suppress DocblockTypeContradiction */
@@ -57,7 +57,7 @@ class ModelFileSupport
         foreach ($parent->getDirectoryListing() as $node) {
             if ($node instanceof File && strcasecmp($node->getName(), $mtlName) === 0) {
                 if (strtolower($node->getExtension()) !== 'mtl') {
-                    throw new UnsupportedFileTypeException('Sibling is not an MTL file');
+                    throw new UnsupportedFileTypeException('Sibling is not an MTL file', 0, null, $node->getExtension());
                 }
 
                 return $node;

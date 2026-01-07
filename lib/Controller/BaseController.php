@@ -12,6 +12,8 @@ use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\Files\File;
 use OCP\Files\NotFoundException;
+use OCP\ICache;
+use OCP\ICacheFactory;
 use OCP\IRequest;
 use Psr\Log\LoggerInterface;
 
@@ -23,18 +25,21 @@ abstract class BaseController extends Controller
     protected ResponseBuilder $responseBuilder;
     protected ModelFileSupport $modelFileSupport;
     protected LoggerInterface $logger;
+    protected ICache $cache;
 
     public function __construct(
         string $appName,
         IRequest $request,
         ResponseBuilder $responseBuilder,
         ModelFileSupport $modelFileSupport,
-        LoggerInterface $logger
+        LoggerInterface $logger,
+        ICacheFactory $cacheFactory
     ) {
         parent::__construct($appName, $request);
         $this->responseBuilder = $responseBuilder;
         $this->modelFileSupport = $modelFileSupport;
         $this->logger = $logger;
+        $this->cache = $cacheFactory->createDistributed('threedviewer');
     }
 
     /**
@@ -69,7 +74,10 @@ abstract class BaseController extends Controller
 
         if (!$this->modelFileSupport->isSupported($normalizedExt)) {
             throw new UnsupportedFileTypeException(
-                'Unsupported file type: ' . $extension
+                'Unsupported file type: ' . $extension,
+                0,
+                null,
+                $extension
             );
         }
 
@@ -249,48 +257,41 @@ abstract class BaseController extends Controller
     }
 
     /**
-     * Get client IP address.
-     * @return string Client IP
+     * Get client IP address using Nextcloud's built-in method.
+     * This properly handles proxy headers and prevents IP spoofing.
+     *
+     * @return string Client IP address
      */
     protected function getClientIp(): string
     {
-        $headers = [
-            'HTTP_CF_CONNECTING_IP',
-            'HTTP_X_FORWARDED_FOR',
-            'HTTP_X_FORWARDED',
-            'HTTP_X_CLUSTER_CLIENT_IP',
-            'HTTP_FORWARDED_FOR',
-            'HTTP_FORWARDED',
-            'REMOTE_ADDR',
-        ];
-
-        foreach ($headers as $header) {
-            if (!empty($_SERVER[$header])) {
-                $ips = explode(',', $_SERVER[$header]);
-
-                return trim($ips[0]);
-            }
-        }
-
-        return $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+        // Use Nextcloud's built-in request handling which properly validates
+        // proxy headers based on trusted proxies configuration
+        return $this->request->getRemoteAddress();
     }
 
     /**
-     * Rate limiting check (basic implementation).
-     * @param string $identifier - Client identifier
+     * Rate limiting check using distributed cache.
+     * Uses a sliding window algorithm with cache-based storage for thread-safety
+     * and multi-server support.
+     *
+     * @param string $identifier - Client identifier (e.g., user ID, IP address)
      * @param int $maxRequests - Maximum requests per window
      * @param int $windowSeconds - Time window in seconds
      * @return bool Whether request is allowed
      */
     protected function checkRateLimit(string $identifier, int $maxRequests = 100, int $windowSeconds = 3600): bool
     {
-        // This is a basic implementation - in production, use a proper rate limiting service
         $cacheKey = 'rate_limit_' . md5($identifier);
         $currentTime = time();
         $windowStart = $currentTime - $windowSeconds;
 
-        // Get existing requests from cache (simplified)
-        $requests = json_decode($_SESSION[$cacheKey] ?? '[]', true);
+        // Get existing requests from distributed cache
+        $requests = $this->cache->get($cacheKey);
+        if ($requests === null) {
+            $requests = [];
+        } elseif (is_string($requests)) {
+            $requests = json_decode($requests, true) ?: [];
+        }
 
         // Filter requests within the time window
         $requests = array_filter($requests, function ($timestamp) use ($windowStart) {
@@ -304,7 +305,9 @@ abstract class BaseController extends Controller
 
         // Add current request
         $requests[] = $currentTime;
-        $_SESSION[$cacheKey] = json_encode($requests);
+
+        // Store in cache with TTL equal to the time window
+        $this->cache->set($cacheKey, json_encode($requests), $windowSeconds);
 
         return true;
     }

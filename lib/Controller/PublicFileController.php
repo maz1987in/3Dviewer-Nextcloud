@@ -55,7 +55,12 @@ class PublicFileController extends Controller
         $response = new StreamResponse($stream);
         $response->addHeader('Content-Type', $this->support->mapContentType(strtolower($file->getExtension())));
         $response->addHeader('Content-Length', (string) $file->getSize());
-        $response->addHeader('Content-Disposition', 'inline; filename="' . addslashes($file->getName()) . '"');
+
+        // Use RFC 2231 encoding for proper filename handling
+        $filename = $file->getName();
+        $encoded = rawurlencode($filename);
+        $response->addHeader('Content-Disposition', "inline; filename*=UTF-8''{$encoded}");
+
         $response->addHeader('Cache-Control', 'no-store');
 
         return $response;

@@ -286,8 +286,17 @@ class SlicerController extends Controller
 
             $file = $files[0];
 
-            // Verify file is in temp folder
-            if (strpos($file->getPath(), '/' . self::TEMP_FOLDER . '/') === false) {
+            // Verify file is in temp folder using secure path validation
+            try {
+                $tempFolder = $userFolder->get(self::TEMP_FOLDER);
+                $tempFolderPath = $tempFolder->getPath();
+                $filePath = $file->getPath();
+
+                // Ensure the file path starts with the temp folder path followed by a separator
+                if (!str_starts_with($filePath, $tempFolderPath . '/')) {
+                    return new JSONResponse(['error' => 'Access denied'], Http::STATUS_FORBIDDEN);
+                }
+            } catch (\Exception $e) {
                 return new JSONResponse(['error' => 'Access denied'], Http::STATUS_FORBIDDEN);
             }
 
@@ -375,8 +384,17 @@ class SlicerController extends Controller
 
             $file = $files[0];
 
-            // Verify file is in temp folder
-            if (strpos($file->getPath(), '/' . self::TEMP_FOLDER . '/') === false) {
+            // Verify file is in temp folder using secure path validation
+            try {
+                $tempFolder = $userFolder->get(self::TEMP_FOLDER);
+                $tempFolderPath = $tempFolder->getPath();
+                $filePath = $file->getPath();
+
+                // Ensure the file path starts with the temp folder path followed by a separator
+                if (!str_starts_with($filePath, $tempFolderPath . '/')) {
+                    return new JSONResponse(['error' => 'Access denied'], Http::STATUS_FORBIDDEN);
+                }
+            } catch (\Exception $e) {
                 return new JSONResponse(['error' => 'Access denied'], Http::STATUS_FORBIDDEN);
             }
 

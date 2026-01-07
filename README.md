@@ -1,6 +1,6 @@
 # 3D Viewer for Nextcloud
 
-[![Version](https://img.shields.io/badge/version-2.3.0-blue)](https://github.com/maz1987in/3Dviewer-Nextcloud/releases)
+[![Version](https://img.shields.io/badge/version-2.3.1-blue)](https://github.com/maz1987in/3Dviewer-Nextcloud/releases)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-orange)](LICENSE)
 [![Nextcloud](https://img.shields.io/badge/Nextcloud-30--32-0082c9)](https://nextcloud.com)
 [![Update nextcloud/ocp](https://github.com/maz1987in/3Dviewer-Nextcloud/actions/workflows/update-nextcloud-ocp-matrix.yml/badge.svg)](https://github.com/maz1987in/3Dviewer-Nextcloud/actions/workflows/update-nextcloud-ocp-matrix.yml)
@@ -202,16 +202,28 @@ This project is licensed under the **AGPL-3.0 License**. See [LICENSE](LICENSE) 
 
 ## 📊 Version
 
-**Current Version**: 2.3.0  
-**Released**: December 28, 2025
+**Current Version**: 2.3.1
+**Released**: January 7, 2026
 
-### What's New in 2.3.0
-- **G-code Visualization Enhancements** - Smooth rainbow gradient coloring across toolpaths, filtering of travel/retraction/parking moves, and clearer multi-layer contrast by default
-- **Mobile View Optimizations** - Responsive MinimalTopBar (icons-only on small screens), full-screen help panel with sticky header, and performance stats hidden by default on mobile (≤768px)
-- **Default Visualization Update** - Gradient toolpath color mode is now the default for G-code for improved clarity
-- **Dependency Updates** - `@nextcloud/dialogs` bumped from 7.1.0 to 7.2.0
+### What's New in 2.3.1
 
-See [CHANGELOG.md](CHANGELOG.md) for detailed release notes and version history.
+**Bug Fixes:**
+- **"Send to Slicer" Button** - Fixed button being permanently disabled; now correctly enables when a model is loaded
+- **Cron Job Fatal Error** ([#65](https://github.com/maz1987in/3Dviewer-Nextcloud/issues/65)) - Fixed `foreach() argument must be of type array|object, null given` error in CleanupTempFiles
+
+**Security Improvements:**
+- **CRITICAL** - Fixed missing `getExtension()` method in exception class that could cause fatal errors
+- **CRITICAL** - Replaced insecure session-based rate limiting with secure distributed cache implementation
+- **HIGH** - Fixed IP address spoofing vulnerability by using Nextcloud's built-in secure IP detection
+- **HIGH** - Fixed path traversal vulnerability in temp folder verification
+- **MEDIUM** - Fixed HTTP header injection vulnerability in file download headers
+
+**Enhancements:**
+- Enhanced temp file cleanup with comprehensive logging, statistics tracking, and better error handling
+- Added progress logging for large instances (every 100 users)
+- Improved share deletion with individual error handling
+
+See [CHANGELOG.md](CHANGELOG.md) for detailed release notes and complete version history.
 
 ---
 
