@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.2] - 2026-01-07
+
+### Changed
+- **Dependencies**: Updated development dependencies
+  - `stylelint-scss`: ^6.13.0 → ^6.14.0 (dev)
+    - Enhanced `dollar-variable-no-missing-interpolation` to flag namespaced variables in custom properties
+    - Extended `function-disallowed-list` to detect disallowed functions within `@return` expressions
+    - Fixed false positives in `dollar-variable-no-missing-interpolation` when variables already exist inside interpolation
+
 ## [2.3.1] - 2026-01-07
 
 ### Fixed
