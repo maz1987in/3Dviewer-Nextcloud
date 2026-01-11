@@ -424,6 +424,7 @@ import { useTheme } from '../composables/useTheme.js'
 import { useFaceLabels } from '../composables/useFaceLabels.js'
 import { useController } from '../composables/useController.js'
 import { useScreenshot } from '../composables/useScreenshot.js'
+import { useThumbnailCapture } from '../composables/useThumbnailCapture.js'
 import { useAnimation } from '../composables/useAnimation.js'
 import { logger } from '../utils/logger.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
@@ -500,6 +501,7 @@ export default {
 		const faceLabels = useFaceLabels()
 		const controller = useController()
 		const screenshot = useScreenshot()
+		const thumbnailCapture = useThumbnailCapture()
 		const animation = useAnimation()
 
 		// Computed properties
@@ -1054,6 +1056,25 @@ export default {
 					// This ensures measurement/annotation elements are properly sized for the new model
 					measurement.updateVisualScale()
 					annotation.updateModelScale()
+
+					// Capture thumbnail for supported formats (GLB, GLTF, OBJ, STL, PLY)
+					const supportedFormats = ['glb', 'gltf', 'obj', 'stl', 'ply']
+					if (renderer.value && fileId && supportedFormats.includes(extension)) {
+						// Wait a bit for renderer to render the scene before capturing
+						setTimeout(() => {
+							if (renderer.value) {
+								thumbnailCapture.captureAndUpload(renderer.value, fileId, {
+									width: 512,
+									height: 512,
+									format: 'png',
+									quality: 0.9,
+								}).catch((error) => {
+									// Fail silently - thumbnail generation is optional
+									logger.warn('ThreeViewer', 'Failed to capture thumbnail', error)
+								})
+							}
+						}, 500) // Wait 500ms for scene to render
+					}
 				} else {
 					// Don't fallback to demo scene - let error state handle it
 					throw new Error('Model loaded but no object3D returned')

@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace OCA\ThreeDViewer\Preview;
 
 use OCA\ThreeDViewer\Service\ModelFileSupport;
+use OCA\ThreeDViewer\Service\ThumbnailService;
 use OCP\Files\File;
+use OCP\IUserSession;
 use OCP\Preview\IProvider2;
 
 /**
@@ -27,8 +29,10 @@ use OCP\Preview\IProvider2;
 class ModelPreviewProvider implements IProvider2
 {
     private ModelFileSupport $modelFileSupport;
+    private ThumbnailService $thumbnailService;
+    private IUserSession $userSession;
 
-    /** @var list<string> Supported MIME types */
+    /** @var list<string> Supported MIME types for thumbnails */
     private array $supportedMimes = [
         'model/gltf-binary',        // .glb
         'model/gltf+json',          // .gltf
@@ -44,9 +48,17 @@ class ModelPreviewProvider implements IProvider2
         'application/octet-stream', // Used for fbx, 3ds
     ];
 
-    public function __construct(ModelFileSupport $modelFileSupport)
-    {
+    /** @var list<string> Formats supported for thumbnail generation (common formats only) */
+    private array $thumbnailSupportedFormats = ['glb', 'gltf', 'obj', 'stl', 'ply'];
+
+    public function __construct(
+        ModelFileSupport $modelFileSupport,
+        ThumbnailService $thumbnailService,
+        IUserSession $userSession
+    ) {
         $this->modelFileSupport = $modelFileSupport;
+        $this->thumbnailService = $thumbnailService;
+        $this->userSession = $userSession;
     }
 
     /**
@@ -87,11 +99,8 @@ class ModelPreviewProvider implements IProvider2
     /**
      * Generate a preview image for a 3D model file.
      *
-     * Currently returns false to use filetype icons until proper server-side
-     * rendering is implemented. Future implementation could:
-     * - Render 3D models server-side using headless rendering
-     * - Use cached client-rendered screenshots
-     * - Generate previews from model metadata
+     * Returns stored client-generated thumbnail if available, otherwise returns false
+     * to use filetype icons. Only supports common formats (GLB, GLTF, OBJ, STL, PLY).
      *
      * @param File $file The file to generate a preview for
      * @param int $maxX Maximum width of the preview
@@ -107,10 +116,37 @@ class ModelPreviewProvider implements IProvider2
         bool $scalingUp,
         ?\OCP\Files\FileInfo $fileInfo = null
     ): bool {
-        // For now, return false to use filetype icons
-        // This allows admins to enable the provider without breaking anything
-        // Future: Implement actual 3D model rendering here
+        // Check if format is supported for thumbnails
+        $extension = strtolower(pathinfo($file->getName(), PATHINFO_EXTENSION));
+        if (!in_array($extension, $this->thumbnailSupportedFormats, true)) {
+            return false;
+        }
 
+        // Get current user (may be null in background contexts)
+        $user = $this->userSession->getUser();
+        if ($user === null) {
+            // No user session (e.g., in cron job) - can't access user-specific thumbnails
+            return false;
+        }
+
+        $userId = $user->getUID();
+        $fileId = $file->getId();
+
+        // Try to get stored thumbnail content
+        $thumbnailContent = $this->thumbnailService->getThumbnailContent($fileId, $userId);
+        if ($thumbnailContent !== null) {
+            // Try to create image resource from content
+            if (function_exists('imagecreatefromstring')) {
+                $resource = @imagecreatefromstring($thumbnailContent);
+                if ($resource !== false) {
+                    return $resource;
+                }
+            }
+            // If GD not available, return false (can't return raw content)
+            // Nextcloud preview system requires resource or file path
+        }
+
+        // No thumbnail available - return false to use filetype icon
         return false;
     }
 }
