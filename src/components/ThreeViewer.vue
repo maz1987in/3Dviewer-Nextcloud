@@ -465,6 +465,8 @@ export default {
 		// G-code toolpath color props (from App topbar)
 		gcodeColorMode: { type: String, default: 'gradient' }, // 'single' | 'gradient'
 		gcodeSingleColor: { type: String, default: '#ff5722' },
+		// Thumbnail generation
+		enableThumbnails: { type: Boolean, default: true },
 	},
 	emits: ['model-loaded', 'error', 'view-reset', 'fit-to-view', 'toggle-auto-rotate', 'toggle-projection', 'change-preset', 'toggle-grid', 'axes-toggle', 'wireframe-toggle', 'background-change', 'toggle-measurement', 'toggle-annotation', 'toggle-comparison', 'toggle-performance', 'cycle-performance-mode', 'dismiss', 'push-toast', 'loading-state-changed', 'fps-updated'],
 	setup(props, { emit }) {
@@ -1057,23 +1059,32 @@ export default {
 					measurement.updateVisualScale()
 					annotation.updateModelScale()
 
-					// Capture thumbnail for supported formats (GLB, GLTF, OBJ, STL, PLY)
-					const supportedFormats = ['glb', 'gltf', 'obj', 'stl', 'ply']
-					if (renderer.value && fileId && supportedFormats.includes(extension)) {
-						// Wait a bit for renderer to render the scene before capturing
+					// Capture thumbnail for supported 3D formats (if enabled)
+					const supportedFormats = ['glb', 'gltf', 'obj', 'stl', 'ply', '3mf', 'fbx', 'dae', '3ds', 'x3d', 'wrl', 'vrml']
+					if (props.enableThumbnails && renderer.value && fileId && supportedFormats.includes(extension)) {
 						setTimeout(() => {
-							if (renderer.value) {
-								thumbnailCapture.captureAndUpload(renderer.value, fileId, {
-									width: 512,
-									height: 512,
-									format: 'png',
-									quality: 0.9,
-								}).catch((error) => {
-									// Fail silently - thumbnail generation is optional
-									logger.warn('ThreeViewer', 'Failed to capture thumbnail', error)
-								})
-							}
-						}, 500) // Wait 500ms for scene to render
+							if (!renderer.value) return
+
+							// Hide grid and axes for clean thumbnail
+							const gridWasVisible = grid.value?.visible ?? false
+							const axesWasVisible = axes.value?.visible ?? false
+							if (grid.value) grid.value.visible = false
+							if (axes.value) axes.value.visible = false
+
+							// Render one frame without helpers
+							renderer.value.render(scene.value, camera.camera.value)
+
+							thumbnailCapture.captureAndUpload(renderer.value, fileId, {
+								width: 512,
+								height: 512,
+								format: 'png',
+								quality: 0.9,
+							}).finally(() => {
+								// Restore grid and axes visibility
+								if (grid.value) grid.value.visible = gridWasVisible
+								if (axes.value) axes.value.visible = axesWasVisible
+							})
+						}, 500)
 					}
 				} else {
 					// Don't fallback to demo scene - let error state handle it

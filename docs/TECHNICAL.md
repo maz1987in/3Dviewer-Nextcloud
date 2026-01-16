@@ -11,6 +11,7 @@ This document provides comprehensive technical information about the 3D Viewer f
 - [Lazy Loading Implementation](#lazy-loading-implementation)
 - [Model Loading Implementation](#model-loading-implementation)
 - [Advanced Viewer Wiring](#advanced-viewer-wiring)
+- [Thumbnail Generation System](#thumbnail-generation-system)
 
 ## System Architecture
 
@@ -57,6 +58,7 @@ The 3D Viewer is a Nextcloud application that provides 3D model viewing capabili
 - **`PageController`**: Frontpage route returning the app shell
 - **`SettingsController`**: User settings management (`/settings`)
 - **`SlicerController`**: Slicer integration and temporary file handling (`/api/slicer/temp`)
+- **`ThumbnailController`**: Thumbnail upload and management (`/api/thumbnail/{fileId}`, `/api/thumbnails`)
 
 **Slicer temp file security posture:**
 - Temp folder: `.3dviewer_temp` under each user’s home.
@@ -71,6 +73,7 @@ The 3D Viewer is a Nextcloud application that provides 3D model viewing capabili
 - **`ShareFileService`**: Public share file handling
 - **`ModelFileSupport`**: 3D format support wrapper (delegates to `SupportedFormats`)
 - **`FileIndexService`**: Database-backed file indexing for navigation
+- **`ThumbnailService`**: Thumbnail storage and retrieval using IAppData
 
 **Constants:**
 - **`SupportedFormats`**: Centralized format definitions and MIME type mappings (single source of truth)
@@ -127,9 +130,9 @@ GET /ocs/v2.php/apps/threedviewer/public/file/{token}/{id}/mtl/{mtlName}
 
 #### State and Composables
 
-- Composition API with refs/computed: All 15 composables for comprehensive state management
+- Composition API with refs/computed: All 16 composables for comprehensive state management
 - Core composables: `useCamera`, `useModelLoading`, `useComparison`, `useMeasurement`, `useAnnotation`
-- UI composables: `useController`, `useExport`, `useFaceLabels`, `useModelStats`, `useProgressiveTextures`, `useTheme`, `useUI`
+- UI composables: `useController`, `useExport`, `useFaceLabels`, `useModelStats`, `useProgressiveTextures`, `useTheme`, `useUI`, `useThumbnailCapture`
 - Utility composables: `useMobile`, `usePerformance`, `useScene`
 - Emits include: `model-loaded`, `error`, `toggle-comparison`, `export-complete`, etc.
 
@@ -1680,6 +1683,86 @@ The application provides a comprehensive user-specific configuration system that
 - Configuration defaults are defined in `src/config/viewer-config.js`.
 - The frontend merges user preferences with default settings at runtime.
 - Settings are applied reactively to the `ThreeViewer` component using composables (e.g., `useCamera`, `useTheme`).
+
+### Thumbnail Generation System
+
+The application automatically generates thumbnails for 3D models when they are viewed, providing visual previews in file lists.
+
+**Architecture:**
+
+```
+User views 3D model
+    ↓
+ThreeViewer/ViewerComponent renders model
+    ↓
+After 500ms delay (allow render to complete)
+    ↓
+useThumbnailCapture composable
+    ↓
+Hide grid/axes → Render frame → Capture canvas
+    ↓
+Smart crop (find content bounds, add padding)
+    ↓
+Resize to 512x512 PNG
+    ↓
+Upload to /api/thumbnail/{fileId}
+    ↓
+ThumbnailController validates and stores
+    ↓
+ThumbnailService saves to IAppData (not user files)
+```
+
+**Backend Components:**
+
+- **`ThumbnailController`** (`lib/Controller/ThumbnailController.php`):
+  - `POST /api/thumbnail/{fileId}` - Store thumbnail (base64 image data)
+  - `DELETE /api/thumbnails` - Clear all user thumbnails
+  - Validates file ownership, format support, and image data
+
+- **`ThumbnailService`** (`lib/Service/ThumbnailService.php`):
+  - Uses `IAppData` for storage (app-internal, not in user files)
+  - Thumbnails stored in `appdata_xxx/threedviewer/thumbnails/{userId}/`
+  - Prevents thumbnails from appearing in "Recommended files" or recent files
+  - Methods: `storeThumbnail()`, `getThumbnailContent()`, `hasThumbnail()`, `clearAllThumbnails()`
+
+**Frontend Components:**
+
+- **`useThumbnailCapture`** (`src/composables/useThumbnailCapture.js`):
+  - `captureAndUpload(renderer, fileId, options)` - Main capture method
+  - Smart content-aware cropping using `findContentBounds()`
+  - Copies WebGL canvas to 2D canvas for pixel analysis
+  - Detects background color from corners, finds content bounding box
+  - Adds 10% padding and centers content in square output
+  - Uses `@nextcloud/axios` for CSRF-safe uploads
+
+- **Integration in Viewers:**
+  - `ThreeViewer.vue`: Hides grid/axes before capture, restores after
+  - `ViewerComponent.vue`: Loads thumbnail setting, captures after model load
+  - Both check `enableThumbnails` setting before capturing
+
+**User Settings:**
+
+- **Enable/Disable**: Personal Settings → 3D Viewer → Thumbnails → "Enable Thumbnail Generation"
+- **Clear Thumbnails**: Button to delete all stored thumbnails with count feedback
+- Setting stored in `thumbnails.enabled` preference key
+
+**Storage Strategy:**
+
+Thumbnails are stored in Nextcloud's app data folder (`IAppData`) rather than in user files:
+- ✅ Does not appear in user's file list
+- ✅ Does not show in "Recommended files" or activity
+- ✅ Isolated per-user storage
+- ✅ Cleaned up with app uninstall
+- ✅ Not synced to desktop/mobile clients
+
+**Supported Formats:**
+`glb`, `gltf`, `obj`, `stl`, `ply`, `3mf`, `fbx`, `dae`, `3ds`, `x3d`, `wrl`, `vrml`
+
+**Security:**
+- File ownership validation before storing
+- Base64 image data validated (PNG/JPEG headers)
+- 1MB size limit per thumbnail
+- User authentication required for all operations
 
 ### File Browser Implementation
 

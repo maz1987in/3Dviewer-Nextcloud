@@ -7,8 +7,10 @@ namespace OCA\ThreeDViewer\Preview;
 use OCA\ThreeDViewer\Service\ModelFileSupport;
 use OCA\ThreeDViewer\Service\ThumbnailService;
 use OCP\Files\File;
+use OCP\Files\FileInfo;
+use OCP\IImage;
 use OCP\IUserSession;
-use OCP\Preview\IProvider2;
+use OCP\Preview\IProviderV2;
 
 /**
  * Preview provider for 3D model files.
@@ -26,7 +28,7 @@ use OCP\Preview\IProvider2;
  * When disabled or when preview generation fails, Nextcloud automatically falls back
  * to displaying custom filetype SVG icons registered via mimetypemapping.json.
  */
-class ModelPreviewProvider implements IProvider2
+class ModelPreviewProvider implements IProviderV2
 {
     private ModelFileSupport $modelFileSupport;
     private ThumbnailService $thumbnailService;
@@ -48,8 +50,8 @@ class ModelPreviewProvider implements IProvider2
         'application/octet-stream', // Used for fbx, 3ds
     ];
 
-    /** @var list<string> Formats supported for thumbnail generation (common formats only) */
-    private array $thumbnailSupportedFormats = ['glb', 'gltf', 'obj', 'stl', 'ply'];
+    /** @var list<string> Formats supported for thumbnail generation */
+    private array $thumbnailSupportedFormats = ['glb', 'gltf', 'obj', 'stl', 'ply', '3mf', 'fbx', 'dae', '3ds', 'x3d', 'wrl', 'vrml'];
 
     public function __construct(
         ModelFileSupport $modelFileSupport,
@@ -62,71 +64,74 @@ class ModelPreviewProvider implements IProvider2
     }
 
     /**
-     * Check if this provider supports a given file.
-     */
-    public function isAvailable(File $file): bool
-    {
-        $mimeType = $file->getMimeType();
-        $extension = strtolower(pathinfo($file->getName(), PATHINFO_EXTENSION));
-
-        // Check by MIME type
-        if (in_array($mimeType, $this->supportedMimes, true)) {
-            // For generic application/octet-stream, verify extension
-            if ($mimeType === 'application/octet-stream') {
-                return $this->modelFileSupport->isSupported($extension) &&
-                       in_array($extension, ['fbx', '3ds'], true);
-            }
-
-            return true;
-        }
-
-        // Fallback: check by extension
-        return $this->modelFileSupport->isSupported($extension);
-    }
-
-    /**
-     * Get the supported MIME types for this provider.
+     * Get the supported MIME type regex for this provider.
      *
-     * @return list<string>
+     * @return string Regex pattern matching supported MIME types
      */
     public function getMimeType(): string
     {
-        // Return empty string - we handle multiple MIME types in isAvailable()
-        // Returning empty allows isAvailable() to determine support per file
-        return '';
+        // Return regex that matches 3D model MIME types
+        return '/^model\/.*/';
+    }
+
+    /**
+     * Check if this provider can generate a preview for a given file.
+     *
+     * Only returns true if we have a stored client-generated thumbnail.
+     * This allows Nextcloud to fall back to mime type icons for files
+     * that haven't been viewed yet.
+     *
+     * @param FileInfo $file The file info to check
+     * @return bool True if we have a thumbnail available
+     */
+    public function isAvailable(FileInfo $file): bool
+    {
+        $extension = strtolower(pathinfo($file->getName(), PATHINFO_EXTENSION));
+
+        // Check if file type is supported
+        if (!in_array($extension, $this->thumbnailSupportedFormats, true)) {
+            return false;
+        }
+
+        // Check if we have a stored thumbnail
+        $user = $this->userSession->getUser();
+        if ($user === null) {
+            return false;
+        }
+
+        $fileId = $file->getId();
+        if ($fileId === null) {
+            return false;
+        }
+
+        // Only return true if thumbnail actually exists
+        return $this->thumbnailService->hasThumbnail($fileId, $user->getUID());
     }
 
     /**
      * Generate a preview image for a 3D model file.
      *
-     * Returns stored client-generated thumbnail if available, otherwise returns false
-     * to use filetype icons. Only supports common formats (GLB, GLTF, OBJ, STL, PLY).
+     * Returns stored client-generated thumbnail if available, otherwise returns null
+     * to use filetype icons.
      *
      * @param File $file The file to generate a preview for
      * @param int $maxX Maximum width of the preview
      * @param int $maxY Maximum height of the preview
-     * @param bool $scalingUp Whether to scale up smaller images
-     * @param \OCP\Files\FileInfo $fileInfo File info object
-     * @return bool|resource|string False if preview cannot be generated, otherwise image resource or file path
+     * @return IImage|null The preview image, or null if not available
      */
-    public function getThumbnail(
-        File $file,
-        int $maxX,
-        int $maxY,
-        bool $scalingUp,
-        ?\OCP\Files\FileInfo $fileInfo = null
-    ): bool {
+    public function getThumbnail(File $file, int $maxX, int $maxY): ?IImage
+    {
         // Check if format is supported for thumbnails
         $extension = strtolower(pathinfo($file->getName(), PATHINFO_EXTENSION));
         if (!in_array($extension, $this->thumbnailSupportedFormats, true)) {
-            return false;
+            return null;
         }
 
         // Get current user (may be null in background contexts)
         $user = $this->userSession->getUser();
         if ($user === null) {
             // No user session (e.g., in cron job) - can't access user-specific thumbnails
-            return false;
+            return null;
         }
 
         $userId = $user->getUID();
@@ -135,18 +140,22 @@ class ModelPreviewProvider implements IProvider2
         // Try to get stored thumbnail content
         $thumbnailContent = $this->thumbnailService->getThumbnailContent($fileId, $userId);
         if ($thumbnailContent !== null) {
-            // Try to create image resource from content
-            if (function_exists('imagecreatefromstring')) {
-                $resource = @imagecreatefromstring($thumbnailContent);
-                if ($resource !== false) {
-                    return $resource;
+            // Try to create image from content using Nextcloud's OC_Image
+            try {
+                $image = new \OCP\Image();
+                if ($image->loadFromData($thumbnailContent)) {
+                    // Resize if needed
+                    if ($image->width() > $maxX || $image->height() > $maxY) {
+                        $image->resize(max($maxX, $maxY));
+                    }
+                    return $image;
                 }
+            } catch (\Throwable $e) {
+                // Failed to load image, return null
             }
-            // If GD not available, return false (can't return raw content)
-            // Nextcloud preview system requires resource or file path
         }
 
-        // No thumbnail available - return false to use filetype icon
-        return false;
+        // No thumbnail available - return null to use filetype icon
+        return null;
     }
 }

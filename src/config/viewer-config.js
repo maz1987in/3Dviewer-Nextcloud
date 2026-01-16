@@ -263,6 +263,18 @@ export const SLICER_SETTINGS = {
 }
 
 /**
+ * Thumbnail generation settings.
+ * Controls automatic thumbnail capture when viewing 3D models.
+ */
+export const THUMBNAIL_SETTINGS = {
+	enabled: true, // Whether to automatically generate thumbnails
+	width: 512, // Thumbnail width in pixels
+	height: 512, // Thumbnail height in pixels
+	format: 'png', // Image format: 'png' or 'jpeg'
+	quality: 0.9, // Quality for jpeg format (0.0 to 1.0)
+}
+
+/**
  * Visual sizing settings for measurements and annotations.
  * Values are expressed as percentages of the model's maximum dimension.
  * These act as defaults and can be overridden by per-user preferences.

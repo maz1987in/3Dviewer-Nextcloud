@@ -3,7 +3,7 @@
 	  xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
 	<id>threedviewer</id>
 	<name>3D Viewer</name>
-	<summary>View, analyze &amp; export 3D models with 10+ formats, personal settings, enhanced loaders, annotations, measurements &amp; rendering</summary>
+	<summary>View, analyze &amp; export 3D models with 10+ formats, auto-thumbnails, personal settings, annotations, measurements &amp; rendering</summary>
 	<description><![CDATA[A comprehensive 3D model viewer that allows you to view, interact with, and analyze 3D models directly within Nextcloud. Supports 10+ formats including GLB, GLTF, OBJ, STL, PLY, FBX, 3MF, and 3DS with full material and texture support.
 
 **📦 Format Support:**
@@ -45,6 +45,7 @@
 - ❓ Help panel with comprehensive in-app documentation
 
 **🚀 Performance & UX:**
+- 🖼️ Automatic thumbnails: Smart thumbnail generation with content-aware cropping (configurable in settings)
 - 🖼️ Progressive texture loading for improved performance
 - 💿 Dependency caching using IndexedDB for faster multi-file loading with live cache statistics (size, entries, hit rate)
 - ⚙️ Performance modes with visual quality overlay and automatic suggestions for large models
@@ -56,7 +57,7 @@
 - ♿ Accessibility features with keyboard navigation and ARIA labels
 
 Built with Three.js for high-performance WebGL rendering. ✨]]></description>
-	<version>2.3.2</version>
+	<version>2.3.3</version>
 	<licence>agpl</licence>
 	<author mail="maz1987in@gmail.com" homepage="https://github.com/maz1987in">Mazin Al Saadi</author>
 	<donation title="Donate to the developers with PayPal" type="paypal">https://www.paypal.com/ncp/payment/KZCB3XTCHGKZC</donation>

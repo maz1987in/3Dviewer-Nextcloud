@@ -73,11 +73,14 @@
 import { markRaw } from 'vue'
 import { NcProgressBar, NcButton } from '@nextcloud/vue'
 import { generateUrl } from '@nextcloud/router'
+// eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
+import axios from '@nextcloud/axios'
 import { loadModelWithDependencies } from '../loaders/multiFileHelpers.js'
 import { removePlaceholders } from '../utils/scene-helpers.js'
 import { useScene } from '../composables/useScene.js'
 import { useCamera } from '../composables/useCamera.js'
 import { useAnimation } from '../composables/useAnimation.js'
+import { useThumbnailCapture } from '../composables/useThumbnailCapture.js'
 import { logger } from '../utils/logger.js'
 
 export default {
@@ -134,12 +137,14 @@ export default {
 		const sceneComposable = useScene()
 		const cameraComposable = useCamera()
 		const animationComposable = useAnimation()
+		const thumbnailCapture = useThumbnailCapture()
 
 		// Return composables for use in Options API methods
 		return {
 			sceneComposable,
 			cameraComposable,
 			animationComposable,
+			thumbnailCapture,
 		}
 	},
 
@@ -168,6 +173,8 @@ export default {
 			// Animation state (for reactivity in Options API)
 			hasAnimations: false,
 			isAnimationPlaying: false,
+			// Thumbnail setting
+			enableThumbnails: true, // Default to enabled
 		}
 	},
 
@@ -244,6 +251,9 @@ export default {
 			active: this.active,
 		})
 
+		// Load thumbnail setting from user preferences
+		this.loadThumbnailSetting()
+
 		// Set up CSP error listener to detect texture loading failures
 		this.setupCSPErrorListener()
 
@@ -317,6 +327,44 @@ export default {
 	},
 
 	methods: {
+		/**
+		 * Load the thumbnail setting from user preferences
+		 */
+		async loadThumbnailSetting() {
+			try {
+				const response = await axios.get(generateUrl('/apps/threedviewer/settings'))
+				const settings = response.data?.settings || {}
+				if (settings.thumbnails && typeof settings.thumbnails.enabled === 'boolean') {
+					this.enableThumbnails = settings.thumbnails.enabled
+				}
+			} catch (error) {
+				// Default to enabled if settings can't be loaded
+				logger.warn('ViewerComponent', 'Could not load thumbnail setting, using default', error)
+			}
+		},
+
+		/**
+		 * Capture and upload a thumbnail for the current model
+		 */
+		captureThumbnail() {
+			if (!this.enableThumbnails) return
+
+			const extension = this.filename.split('.').pop()?.toLowerCase() || ''
+			const supportedFormats = ['glb', 'gltf', 'obj', 'stl', 'ply', '3mf', 'fbx', 'dae', '3ds', 'x3d', 'wrl', 'vrml']
+
+			if (this.renderer && this.fileid && supportedFormats.includes(extension)) {
+				setTimeout(() => {
+					if (!this.renderer) return
+					this.thumbnailCapture.captureAndUpload(this.renderer, this.fileid, {
+						width: 512,
+						height: 512,
+						format: 'png',
+						quality: 0.9,
+					})
+				}, 500)
+			}
+		},
+
 		/**
 		 * Called by Viewer app when this file becomes active/visible
 		 * This is when we should actually load the model
@@ -595,6 +643,9 @@ export default {
 					this.updateProgress(true, 100, this.t('threedviewer', 'Model loaded'), '', false)
 					logger.info('ViewerComponent', 'Model loaded successfully')
 
+					// Capture thumbnail for supported 3D formats
+					this.captureThumbnail()
+
 					// Initialize animations if present
 					if (modelResult.animations && modelResult.animations.length > 0) {
 						this.animationComposable.initAnimations(this.modelRoot, modelResult.animations)
@@ -796,6 +847,9 @@ export default {
 					this.fitCameraToModel(result.object3D, THREE)
 
 					logger.info('ViewerComponent', 'Model loaded successfully')
+
+					// Capture thumbnail for supported 3D formats
+					this.captureThumbnail()
 
 					// Initialize animations if present
 					if (result.animations && result.animations.length > 0) {

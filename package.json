@@ -1,6 +1,6 @@
 {
   "name": "threedviewer",
-  "version": "2.3.2",
+  "version": "2.3.3",
   "license": "AGPL-3.0-or-later",
   "engines": {
     "node": "^22.0.0",

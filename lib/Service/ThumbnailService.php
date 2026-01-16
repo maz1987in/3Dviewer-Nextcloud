@@ -4,23 +4,24 @@ declare(strict_types=1);
 
 namespace OCA\ThreeDViewer\Service;
 
-use OCP\Files\IRootFolder;
+use OCP\Files\IAppData;
 use OCP\Files\NotFoundException;
+use OCP\Files\NotPermittedException;
 use Psr\Log\LoggerInterface;
 
 /**
  * Service for storing and retrieving 3D model thumbnails.
  * 
- * Thumbnails are stored in .3dviewer_thumbnails folder in user's home directory.
- * Follows the same pattern as .3dviewer_temp for slicer integration.
+ * Thumbnails are stored in Nextcloud's app data folder (not in user files).
+ * This prevents thumbnails from appearing in user's file list or recent files.
  */
 class ThumbnailService
 {
-    private const THUMBNAIL_FOLDER = '.3dviewer_thumbnails';
+    private const THUMBNAILS_FOLDER = 'thumbnails';
     private const MAX_THUMBNAIL_SIZE_BYTES = 1024 * 1024; // 1MB max per thumbnail
 
     public function __construct(
-        private readonly IRootFolder $rootFolder,
+        private readonly IAppData $appData,
         private readonly LoggerInterface $logger,
     ) {
     }
@@ -57,27 +58,32 @@ class ThumbnailService
                 return false;
             }
 
-            // Get user folder
-            $userFolder = $this->rootFolder->getUserFolder($userId);
-
-            // Create or get thumbnail folder
-            try {
-                $thumbnailFolder = $userFolder->get(self::THUMBNAIL_FOLDER);
-            } catch (NotFoundException $e) {
-                $thumbnailFolder = $userFolder->newFolder(self::THUMBNAIL_FOLDER);
-                $this->logger->info('ThumbnailService: Created thumbnail folder', ['userId' => $userId]);
-            }
-
+            // Get or create user's thumbnail folder in app data
+            $userFolder = $this->getOrCreateUserFolder($userId);
+            
             // Determine file extension based on image data
             $extension = $this->getImageExtension($imageData);
             $filename = (string)$fileId . '.' . $extension;
 
+            // Delete existing thumbnail with different extension if exists
+            foreach (['png', 'jpg', 'jpeg'] as $ext) {
+                if ($ext !== $extension) {
+                    $oldFilename = (string)$fileId . '.' . $ext;
+                    try {
+                        $oldFile = $userFolder->getFile($oldFilename);
+                        $oldFile->delete();
+                    } catch (NotFoundException $e) {
+                        // File doesn't exist, ignore
+                    }
+                }
+            }
+
             // Save or update thumbnail
             try {
-                $thumbnailFile = $thumbnailFolder->get($filename);
+                $thumbnailFile = $userFolder->getFile($filename);
                 $thumbnailFile->putContent($imageData);
             } catch (NotFoundException $e) {
-                $thumbnailFile = $thumbnailFolder->newFile($filename);
+                $thumbnailFile = $userFolder->newFile($filename);
                 $thumbnailFile->putContent($imageData);
             }
 
@@ -109,11 +115,8 @@ class ThumbnailService
     public function getThumbnailContent(int $fileId, string $userId): ?string
     {
         try {
-            $userFolder = $this->rootFolder->getUserFolder($userId);
-
-            try {
-                $thumbnailFolder = $userFolder->get(self::THUMBNAIL_FOLDER);
-            } catch (NotFoundException $e) {
+            $userFolder = $this->getUserFolder($userId);
+            if ($userFolder === null) {
                 return null;
             }
 
@@ -121,7 +124,7 @@ class ThumbnailService
             foreach (['png', 'jpg', 'jpeg'] as $ext) {
                 $filename = (string)$fileId . '.' . $ext;
                 try {
-                    $thumbnailFile = $thumbnailFolder->get($filename);
+                    $thumbnailFile = $userFolder->getFile($filename);
                     return $thumbnailFile->getContent();
                 } catch (NotFoundException $e) {
                     continue;
@@ -143,47 +146,18 @@ class ThumbnailService
      * Get the local filesystem path to a thumbnail file if it exists.
      * This is used by preview providers that need a file path.
      * 
+     * Note: IAppData doesn't expose local paths, so this returns null.
+     * Use getThumbnailContent() instead.
+     * 
      * @param int $fileId The file ID
      * @param string $userId The user ID
-     * @return string|null The local thumbnail file path, or null if not found
+     * @return string|null Always returns null for app data storage
      */
     public function getThumbnailPath(int $fileId, string $userId): ?string
     {
-        try {
-            $userFolder = $this->rootFolder->getUserFolder($userId);
-
-            try {
-                $thumbnailFolder = $userFolder->get(self::THUMBNAIL_FOLDER);
-            } catch (NotFoundException $e) {
-                return null;
-            }
-
-            // Try both PNG and JPEG extensions
-            foreach (['png', 'jpg', 'jpeg'] as $ext) {
-                $filename = (string)$fileId . '.' . $ext;
-                try {
-                    $thumbnailFile = $thumbnailFolder->get($filename);
-                    $storage = $thumbnailFile->getStorage();
-                    if (method_exists($storage, 'getLocalFile')) {
-                        return $storage->getLocalFile($thumbnailFile->getInternalPath());
-                    }
-                    // Fallback: if we can't get local path, return null
-                    // Preview provider will need to use content instead
-                    return null;
-                } catch (NotFoundException $e) {
-                    continue;
-                }
-            }
-
-            return null;
-        } catch (\Throwable $e) {
-            $this->logger->error('ThumbnailService: Failed to get thumbnail path', [
-                'fileId' => $fileId,
-                'userId' => $userId,
-                'error' => $e->getMessage(),
-            ]);
-            return null;
-        }
+        // IAppData doesn't expose local filesystem paths
+        // Preview providers should use getThumbnailContent() instead
+        return null;
     }
 
     /**
@@ -195,7 +169,27 @@ class ThumbnailService
      */
     public function hasThumbnail(int $fileId, string $userId): bool
     {
-        return $this->getThumbnailContent($fileId, $userId) !== null;
+        try {
+            $userFolder = $this->getUserFolder($userId);
+            if ($userFolder === null) {
+                return false;
+            }
+
+            // Try both PNG and JPEG extensions
+            foreach (['png', 'jpg', 'jpeg'] as $ext) {
+                $filename = (string)$fileId . '.' . $ext;
+                try {
+                    $userFolder->getFile($filename);
+                    return true;
+                } catch (NotFoundException $e) {
+                    continue;
+                }
+            }
+
+            return false;
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 
     /**
@@ -208,11 +202,8 @@ class ThumbnailService
     public function deleteThumbnail(int $fileId, string $userId): void
     {
         try {
-            $userFolder = $this->rootFolder->getUserFolder($userId);
-
-            try {
-                $thumbnailFolder = $userFolder->get(self::THUMBNAIL_FOLDER);
-            } catch (NotFoundException $e) {
+            $userFolder = $this->getUserFolder($userId);
+            if ($userFolder === null) {
                 return;
             }
 
@@ -220,7 +211,7 @@ class ThumbnailService
             foreach (['png', 'jpg', 'jpeg'] as $ext) {
                 $filename = (string)$fileId . '.' . $ext;
                 try {
-                    $thumbnailFile = $thumbnailFolder->get($filename);
+                    $thumbnailFile = $userFolder->getFile($filename);
                     $thumbnailFile->delete();
                     $this->logger->info('ThumbnailService: Thumbnail deleted', [
                         'fileId' => $fileId,
@@ -238,6 +229,95 @@ class ThumbnailService
                 'userId' => $userId,
                 'error' => $e->getMessage(),
             ]);
+        }
+    }
+
+    /**
+     * Delete all thumbnails for a user.
+     * 
+     * @param string $userId The user ID
+     * @return int Number of thumbnails deleted
+     */
+    public function clearAllThumbnails(string $userId): int
+    {
+        $deletedCount = 0;
+        
+        try {
+            $userFolder = $this->getUserFolder($userId);
+            if ($userFolder === null) {
+                $this->logger->info('ThumbnailService: No thumbnail folder found for user', ['userId' => $userId]);
+                return 0;
+            }
+
+            // Get all files in the user's thumbnail folder
+            $files = $userFolder->getDirectoryListing();
+            
+            foreach ($files as $file) {
+                try {
+                    $file->delete();
+                    $deletedCount++;
+                } catch (\Throwable $e) {
+                    $this->logger->warning('ThumbnailService: Failed to delete thumbnail file', [
+                        'userId' => $userId,
+                        'filename' => $file->getName(),
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+
+            $this->logger->info('ThumbnailService: Cleared all thumbnails for user', [
+                'userId' => $userId,
+                'deletedCount' => $deletedCount,
+            ]);
+
+            return $deletedCount;
+        } catch (\Throwable $e) {
+            $this->logger->error('ThumbnailService: Failed to clear thumbnails', [
+                'userId' => $userId,
+                'error' => $e->getMessage(),
+            ]);
+            return $deletedCount;
+        }
+    }
+
+    /**
+     * Get the user's thumbnail folder from app data.
+     * 
+     * @param string $userId The user ID
+     * @return \OCP\Files\SimpleFS\ISimpleFolder|null The folder or null if not found
+     */
+    private function getUserFolder(string $userId): ?\OCP\Files\SimpleFS\ISimpleFolder
+    {
+        try {
+            $thumbnailsFolder = $this->appData->getFolder(self::THUMBNAILS_FOLDER);
+            return $thumbnailsFolder->getFolder($userId);
+        } catch (NotFoundException $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Get or create the user's thumbnail folder from app data.
+     * 
+     * @param string $userId The user ID
+     * @return \OCP\Files\SimpleFS\ISimpleFolder The folder
+     * @throws NotPermittedException If folder creation fails
+     */
+    private function getOrCreateUserFolder(string $userId): \OCP\Files\SimpleFS\ISimpleFolder
+    {
+        try {
+            $thumbnailsFolder = $this->appData->getFolder(self::THUMBNAILS_FOLDER);
+        } catch (NotFoundException $e) {
+            $thumbnailsFolder = $this->appData->newFolder(self::THUMBNAILS_FOLDER);
+            $this->logger->info('ThumbnailService: Created thumbnails folder in app data');
+        }
+
+        try {
+            return $thumbnailsFolder->getFolder($userId);
+        } catch (NotFoundException $e) {
+            $userFolder = $thumbnailsFolder->newFolder($userId);
+            $this->logger->info('ThumbnailService: Created user thumbnail folder', ['userId' => $userId]);
+            return $userFolder;
         }
     }
 

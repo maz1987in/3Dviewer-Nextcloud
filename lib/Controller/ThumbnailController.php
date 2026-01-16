@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace OCA\ThreeDViewer\Controller;
 
+use OCA\ThreeDViewer\Service\ModelFileSupport;
+use OCA\ThreeDViewer\Service\ResponseBuilder;
 use OCA\ThreeDViewer\Service\ThumbnailService;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\FrontpageRoute;
@@ -22,12 +24,11 @@ use Psr\Log\LoggerInterface;
 class ThumbnailController extends BaseController
 {
     private const MAX_THUMBNAIL_SIZE_BYTES = 1024 * 1024; // 1MB max per thumbnail
-    private const SUPPORTED_FORMATS = ['glb', 'gltf', 'obj', 'stl', 'ply'];
+    private const SUPPORTED_FORMATS = ['glb', 'gltf', 'obj', 'stl', 'ply', '3mf', 'fbx', 'dae', '3ds', 'x3d', 'wrl', 'vrml'];
 
     private IRootFolder $rootFolder;
     private IUserSession $userSession;
     private ThumbnailService $thumbnailService;
-    private LoggerInterface $logger;
 
     public function __construct(
         string $appName,
@@ -44,7 +45,6 @@ class ThumbnailController extends BaseController
         $this->rootFolder = $rootFolder;
         $this->userSession = $userSession;
         $this->thumbnailService = $thumbnailService;
-        $this->logger = $logger;
     }
 
     /**
@@ -156,6 +156,42 @@ class ThumbnailController extends BaseController
                 'success' => true,
                 'fileId' => $fileId,
                 'size' => $imageSize,
+            ]);
+        } catch (\Throwable $e) {
+            return $this->handleException($e);
+        }
+    }
+
+    /**
+     * Clear all thumbnails for the current user.
+     * 
+     * @return JSONResponse Success response with count of deleted thumbnails
+     */
+    #[NoAdminRequired]
+    #[FrontpageRoute(verb: 'DELETE', url: '/api/thumbnails')]
+    public function clearThumbnails(): JSONResponse
+    {
+        try {
+            // Check authentication
+            $user = $this->userSession->getUser();
+            if ($user === null) {
+                $this->logger->warning('ThumbnailController: User not authenticated for clear operation');
+                return $this->responseBuilder->createUnauthorizedResponse('User not authenticated');
+            }
+
+            $userId = $user->getUID();
+
+            // Clear all thumbnails for this user
+            $deletedCount = $this->thumbnailService->clearAllThumbnails($userId);
+
+            $this->logger->info('ThumbnailController: Thumbnails cleared', [
+                'userId' => $userId,
+                'deletedCount' => $deletedCount,
+            ]);
+
+            return new JSONResponse([
+                'success' => true,
+                'deletedCount' => $deletedCount,
             ]);
         } catch (\Throwable $e) {
             return $this->handleException($e);

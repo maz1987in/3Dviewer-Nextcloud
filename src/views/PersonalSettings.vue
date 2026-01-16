@@ -152,6 +152,24 @@
 							{{ t('threedviewer', 'Re-index now') }}
 						</NcButton>
 					</div>
+
+					<!-- Custom Clear Thumbnails Field -->
+					<div v-else-if="field.type === 'custom-clear-thumbnails'" class="setting-row">
+						<div class="setting-label">
+							<label>{{ field.label }}</label>
+							<span v-if="field.description" class="setting-description">{{ field.description }}</span>
+						</div>
+						<NcButton
+							type="secondary"
+							:disabled="clearingThumbnails"
+							@click="clearThumbnails">
+							<template #icon>
+								<Loading v-if="clearingThumbnails" :size="20" class="spin" />
+								<Delete v-else :size="20" />
+							</template>
+							{{ t('threedviewer', 'Clear thumbnails') }}
+						</NcButton>
+					</div>
 				</div>
 			</div>
 
@@ -192,6 +210,7 @@ import ContentSave from 'vue-material-design-icons/ContentSave.vue'
 import Sync from 'vue-material-design-icons/Sync.vue'
 import History from 'vue-material-design-icons/History.vue'
 import Loading from 'vue-material-design-icons/Loading.vue'
+import Delete from 'vue-material-design-icons/Delete.vue'
 
 // Import default config to use as reference and defaults
 import {
@@ -205,6 +224,7 @@ import {
 	INTERACTION_SETTINGS,
 	VISUAL_SIZING_SETTINGS,
 	SLICER_SETTINGS,
+	THUMBNAIL_SETTINGS,
 } from '../config/viewer-config.js'
 
 export default {
@@ -220,6 +240,7 @@ export default {
 		Sync,
 		History,
 		Loading,
+		Delete,
 	},
 	data() {
 		return {
@@ -228,6 +249,7 @@ export default {
 			loading: true,
 			saving: false,
 			reindexing: false,
+			clearingThumbnails: false,
 			userSettings: {}, // Holds the user's overrides
 
 			// Define structure for the UI form
@@ -246,6 +268,23 @@ export default {
 								{ value: 'light', label: this.t('threedviewer', 'Light') },
 								{ value: 'dark', label: this.t('threedviewer', 'Dark') },
 							],
+						},
+					},
+				},
+				thumbnails: {
+					title: this.t('threedviewer', 'Thumbnails'),
+					description: this.t('threedviewer', 'Configure automatic thumbnail generation for 3D files.'),
+					fields: {
+						'thumbnails.enabled': {
+							label: this.t('threedviewer', 'Enable Thumbnail Generation'),
+							description: this.t('threedviewer', 'Automatically generate preview thumbnails when viewing 3D models. Thumbnails appear in file lists.'),
+							type: 'boolean',
+							default: THUMBNAIL_SETTINGS.enabled,
+						},
+						'thumbnails.clear': {
+							type: 'custom-clear-thumbnails',
+							label: this.t('threedviewer', 'Clear Thumbnails'),
+							description: this.t('threedviewer', 'Delete all stored thumbnails. They will be regenerated when you view the files again.'),
 						},
 					},
 				},
@@ -617,6 +656,25 @@ export default {
 				showError(this.t('threedviewer', 'Could not re-index files'))
 			} finally {
 				this.reindexing = false
+			}
+		},
+
+		async clearThumbnails() {
+			if (!confirm(this.t('threedviewer', 'Are you sure you want to delete all thumbnails?'))) {
+				return
+			}
+
+			this.clearingThumbnails = true
+			try {
+				const url = generateUrl('/apps/threedviewer/api/thumbnails')
+				const response = await axios.delete(url)
+				const count = response.data?.deletedCount || 0
+				showSuccess(this.t('threedviewer', '{count} thumbnails deleted', { count }))
+			} catch (e) {
+				console.error('Error clearing thumbnails', e)
+				showError(this.t('threedviewer', 'Could not clear thumbnails'))
+			} finally {
+				this.clearingThumbnails = false
 			}
 		},
 

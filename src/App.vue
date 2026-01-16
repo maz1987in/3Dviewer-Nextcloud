@@ -135,6 +135,7 @@
 					:enable-damping="enableDamping"
 					:enable-shadows="enableShadows"
 					:enable-antialiasing="enableAntialiasing"
+					:enable-thumbnails="enableThumbnails"
 					:measurement-mode="measurementMode"
 					:annotation-mode="annotationMode"
 					:comparison-mode="comparisonMode"
@@ -230,6 +231,8 @@ export default {
 			// Performance
 			enableShadows: VIEWER_CONFIG.performance.enableShadows,
 			enableAntialiasing: VIEWER_CONFIG.performance.enableAntialiasing,
+			// Thumbnails
+			enableThumbnails: true,
 			animationPresets: [],
 			currentPreset: '',
 			showController: true,
@@ -459,6 +462,9 @@ export default {
 					if (settings.performance) {
 						if (typeof settings.performance.enableShadows === 'boolean') this.enableShadows = settings.performance.enableShadows
 						if (typeof settings.performance.enableAntialiasing === 'boolean') this.enableAntialiasing = settings.performance.enableAntialiasing
+					}
+					if (settings.thumbnails) {
+						if (typeof settings.thumbnails.enabled === 'boolean') this.enableThumbnails = settings.thumbnails.enabled
 					}
 					if (settings.slicer) {
 						if (Array.isArray(settings.slicer.passthroughFormats)) {

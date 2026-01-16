@@ -1,6 +1,6 @@
 # 3D Viewer for Nextcloud
 
-[![Version](https://img.shields.io/badge/version-2.3.2-blue)](https://github.com/maz1987in/3Dviewer-Nextcloud/releases)
+[![Version](https://img.shields.io/badge/version-2.3.3-blue)](https://github.com/maz1987in/3Dviewer-Nextcloud/releases)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-orange)](LICENSE)
 [![Nextcloud](https://img.shields.io/badge/Nextcloud-30--32-0082c9)](https://nextcloud.com)
 [![Update nextcloud/ocp](https://github.com/maz1987in/3Dviewer-Nextcloud/actions/workflows/update-nextcloud-ocp-matrix.yml/badge.svg)](https://github.com/maz1987in/3Dviewer-Nextcloud/actions/workflows/update-nextcloud-ocp-matrix.yml)
@@ -54,6 +54,7 @@ A comprehensive 3D model viewer application for Nextcloud that supports multiple
 
 ## ✨ Key Features
 
+- **Automatic Thumbnails** - Smart thumbnail generation for 3D files with content-aware cropping (configurable in settings)
 - **Multi-Format Support** - GLB, GLTF, OBJ (+MTL), STL, PLY, FBX, 3MF, 3DS, DAE, X3D, VRML, G-code (`.gcode`, `.gco`, `.nc`, `.acode`)
 - **G-code Toolpath Visualization** - View 3D printer and CNC toolpaths with smooth rainbow gradient coloring, intelligent travel/retraction filtering, and automatic layer detection
 - **Enhanced File Loaders** - Significantly improved FBX, VRML, and DAE loaders with better material and texture support
@@ -202,26 +203,17 @@ This project is licensed under the **AGPL-3.0 License**. See [LICENSE](LICENSE) 
 
 ## 📊 Version
 
-**Current Version**: 2.3.1
-**Released**: January 7, 2026
+**Current Version**: 2.3.3
+**Released**: January 15, 2026
 
-### What's New in 2.3.1
+### What's New in 2.3.3
 
-**Bug Fixes:**
-- **"Send to Slicer" Button** - Fixed button being permanently disabled; now correctly enables when a model is loaded
-- **Cron Job Fatal Error** ([#65](https://github.com/maz1987in/3Dviewer-Nextcloud/issues/65)) - Fixed `foreach() argument must be of type array|object, null given` error in CleanupTempFiles
-
-**Security Improvements:**
-- **CRITICAL** - Fixed missing `getExtension()` method in exception class that could cause fatal errors
-- **CRITICAL** - Replaced insecure session-based rate limiting with secure distributed cache implementation
-- **HIGH** - Fixed IP address spoofing vulnerability by using Nextcloud's built-in secure IP detection
-- **HIGH** - Fixed path traversal vulnerability in temp folder verification
-- **MEDIUM** - Fixed HTTP header injection vulnerability in file download headers
-
-**Enhancements:**
-- Enhanced temp file cleanup with comprehensive logging, statistics tracking, and better error handling
-- Added progress logging for large instances (every 100 users)
-- Improved share deletion with individual error handling
+**New Features:**
+- **Automatic Thumbnail Generation** - 3D model thumbnails are now automatically generated when viewing files
+  - Smart content-aware cropping for clean, focused previews
+  - Thumbnails stored in app data (not in user files) to avoid cluttering recent files
+  - User setting to enable/disable in Personal Settings → 3D Viewer → Thumbnails
+  - "Clear thumbnails" button to delete all stored thumbnails
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed release notes and complete version history.
 

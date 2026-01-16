@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.3] - 2026-01-15
+
+### Added
+- **Automatic Thumbnail Generation**: 3D model thumbnails are now automatically generated when viewing files
+  - Thumbnails are captured with smart cropping to focus on model content
+  - Grid and axes are hidden during capture for clean previews
+  - Thumbnails stored in Nextcloud app data (not in user files) to avoid cluttering recent files
+  - User setting to enable/disable thumbnail generation in Personal Settings → 3D Viewer → Thumbnails
+  - "Clear thumbnails" button in settings to delete all stored thumbnails
+  - Works in both standalone viewer and Nextcloud Files integration modal
+- **Thumbnail Settings**: New Thumbnails section in Personal Settings
+  - Toggle to enable/disable automatic thumbnail generation
+  - Clear thumbnails button with confirmation dialog and count of deleted files
+
+### Changed
+- Thumbnails are now stored in Nextcloud's internal app data folder instead of user folder
+  - Prevents thumbnails from appearing in "Recommended files" and recent files lists
+  - Improved privacy and cleaner user file space
+
+### Technical
+- New `ThumbnailService` using `IAppData` for app-internal storage
+- New `ThumbnailController` with endpoints for storing and clearing thumbnails
+- `useThumbnailCapture` composable with smart content-aware cropping
+- Thumbnail capture integrated into both `ThreeViewer.vue` and `ViewerComponent.vue`
+
 ## [2.3.2] - 2026-01-07
 
 ### Changed
