@@ -102,13 +102,14 @@ export const MIME_TYPES = {
 }
 
 /**
- * API endpoints
+ * API endpoints (relative paths, use generateUrl() from @nextcloud/router to construct full URLs)
+ * Example: generateUrl(API_ENDPOINTS.FILE + '/' + fileId)
  */
 export const API_ENDPOINTS = {
-	FILES: '/ocs/v2.php/apps/threedviewer/api/files',
-	FILE: '/ocs/v2.php/apps/threedviewer/api/file',
-	MTL: '/ocs/v2.php/apps/threedviewer/api/file',
-	PUBLIC_FILE: '/ocs/v2.php/apps/threedviewer/api/public/file',
+	FILES: '/apps/threedviewer/api/files',
+	FILE: '/apps/threedviewer/api/file',
+	MTL: '/apps/threedviewer/api/file',
+	PUBLIC_FILE: '/apps/threedviewer/api/public/file',
 }
 
 /**

@@ -85,6 +85,7 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 // eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
 import { translate as t } from '@nextcloud/l10n'
+import { generateUrl } from '@nextcloud/router'
 import { showWarning } from '@nextcloud/dialogs'
 import { useSlicerIntegration } from '../composables/useSlicerIntegration.js'
 import { logger } from '../utils/logger.js'
@@ -281,7 +282,7 @@ export default {
 			errorMessage.value = null
 			exportMessage.value = t('threedviewer', 'Preparing original file...')
 
-			const response = await fetch(`/apps/threedviewer/api/file/${props.fileId}`, {
+			const response = await fetch(generateUrl(`/apps/threedviewer/api/file/${props.fileId}`), {
 				method: 'GET',
 				credentials: 'include',
 			})
@@ -326,7 +327,7 @@ export default {
 				exportMessage.value = t('threedviewer', 'Creating temporary share link...')
 
 				try {
-					const response = await fetch(`/apps/threedviewer/api/slicer/temp?filename=${encodeURIComponent(filename)}`, {
+					const response = await fetch(generateUrl('/apps/threedviewer/api/slicer/temp') + `?filename=${encodeURIComponent(filename)}`, {
 						method: 'POST',
 						headers: {
 							'Content-Type': 'application/octet-stream',
@@ -410,7 +411,7 @@ export default {
 
 					// Auto-cleanup after 2 minutes (share will auto-expire tomorrow anyway)
 					setTimeout(() => {
-						fetch(`/apps/threedviewer/api/slicer/temp/${data.fileId}`, {
+						fetch(generateUrl(`/apps/threedviewer/api/slicer/temp/${data.fileId}`), {
 							method: 'DELETE',
 							credentials: 'include',
 							headers: {

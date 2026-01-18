@@ -6,6 +6,7 @@
 import { ref, shallowRef, computed, readonly, markRaw, toRaw } from 'vue'
 import * as THREE from 'three'
 import { AnimationMixer } from 'three'
+import { generateUrl } from '@nextcloud/router'
 import { getFilePickerBuilder } from '@nextcloud/dialogs'
 import { loadModelByExtension } from '../loaders/registry.js'
 import { logger } from '../utils/logger.js'
@@ -225,7 +226,7 @@ export function useComparison() {
 
 			// Single-file loading (fallback or non-multi-file formats)
 			if (!multiFileLoaded) {
-				const downloadUrl = `/apps/threedviewer/api/file/${fileId}`
+				const downloadUrl = generateUrl(`/apps/threedviewer/api/file/${fileId}`)
 				logger.info('useComparison', 'Attempting download', { downloadUrl, fileId, filename })
 
 				const fileResponse = await fetch(downloadUrl, {
@@ -298,10 +299,10 @@ export function useComparison() {
 
 			// Try multiple API endpoints
 			const apiEndpoints = [
-				`/apps/threedviewer/api/file/${file.id}`,
-				`/ocs/v2.php/apps/threedviewer/api/file/${file.id}`,
-				`/index.php/apps/files/ajax/download.php?dir=${encodeURIComponent(file.path.split('/').slice(0, -1).join('/'))}&files=${encodeURIComponent(file.name)}`,
-				`/remote.php/dav/files/admin${file.path}`,
+				generateUrl(`/apps/threedviewer/api/file/${file.id}`),
+				generateUrl(`/ocs/v2.php/apps/threedviewer/api/file/${file.id}`),
+				generateUrl(`/index.php/apps/files/ajax/download.php?dir=${encodeURIComponent(file.path.split('/').slice(0, -1).join('/'))}&files=${encodeURIComponent(file.name)}`),
+				generateUrl(`/remote.php/dav/files/admin${file.path}`),
 			]
 
 			let response = null

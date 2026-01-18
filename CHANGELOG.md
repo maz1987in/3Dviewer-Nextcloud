@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.4] - 2026-01-18
+
+### Changed
+- **Dependencies**: Updated development dependencies
+  - `@babel/core`: ^7.28.5 → ^7.28.6
+  - `@babel/preset-env`: ^7.28.5 → ^7.28.6
+  - `postcss-html`: ^1.7.0 → ^1.8.1
+  - `vite`: ^7.2.7 → ^7.3.1
+
+### Fixed
+- **Nextcloud Subfolder Compatibility** ([#74](https://github.com/maz1987in/3Dviewer-Nextcloud/issues/74))
+  - Fixed app not working when Nextcloud is installed in a subfolder (e.g., `https://example.com/nextcloud/`)
+  - Replaced all hardcoded `/apps/threedviewer/...` paths with Nextcloud's `generateUrl()` and `imagePath()` functions
+  - API endpoints, decoder paths, and static assets now correctly respect the configured webroot
+  - Affected files: multiFileHelpers.js, useModelLoading.js, useComparison.js, gltf.js, ViewerComponent.vue, SlicerModal.vue, App.vue, viewer-config.js
+
 ## [2.3.3] - 2026-01-15
 
 ### Added

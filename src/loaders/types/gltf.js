@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { generateUrl } from '@nextcloud/router'
 import { BaseLoader } from '../BaseLoader.js'
 
 /**
@@ -771,9 +772,9 @@ class GltfLoader extends BaseLoader {
 			try {
 				const { DRACOLoader } = await import('three/examples/jsm/loaders/DRACOLoader.js')
 				const dracoLoader = new DRACOLoader()
-				dracoLoader.setDecoderPath('/apps/threedviewer/draco/')
+				dracoLoader.setDecoderPath(generateUrl('/apps/threedviewer/draco/'))
 				this.loader.setDRACOLoader(dracoLoader)
-				this.logInfo('DRACO loader configured', { path: '/apps/threedviewer/draco/' })
+				this.logInfo('DRACO loader configured', { path: generateUrl('/apps/threedviewer/draco/') })
 			} catch (error) {
 				this.logWarning('DRACO loader unavailable', { error: error.message })
 			}
@@ -784,10 +785,10 @@ class GltfLoader extends BaseLoader {
 			try {
 				const { KTX2Loader } = await import('three/examples/jsm/loaders/KTX2Loader.js')
 				const ktx2Loader = new KTX2Loader()
-				ktx2Loader.setTranscoderPath('/apps/threedviewer/basis/')
+				ktx2Loader.setTranscoderPath(generateUrl('/apps/threedviewer/basis/'))
 				ktx2Loader.detectSupport(renderer)
 				this.loader.setKTX2Loader(ktx2Loader)
-				this.logInfo('KTX2 loader configured', { path: '/apps/threedviewer/basis/' })
+				this.logInfo('KTX2 loader configured', { path: generateUrl('/apps/threedviewer/basis/') })
 			} catch (error) {
 				this.logWarning('KTX2 loader unavailable', { error: error.message })
 			}

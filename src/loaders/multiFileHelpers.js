@@ -6,6 +6,7 @@
  * Inspired by WARP-LAB/files_3dmodelviewer approach
  */
 
+import { generateUrl } from '@nextcloud/router'
 import { logger } from '../utils/logger.js'
 import { getFulfilledValues } from '../utils/arrayHelpers.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
@@ -117,7 +118,7 @@ export async function getFileIdByPath(filePath) {
 		const fullPath = normalizedDirPath ? `${normalizedDirPath}/${filename}` : filename
 		if (!isImageFile) {
 			try {
-				const findUrl = `/apps/threedviewer/api/files/find?path=${encodeURIComponent(fullPath)}`
+				const findUrl = generateUrl('/apps/threedviewer/api/files/find') + `?path=${encodeURIComponent(fullPath)}`
 				const findResponse = await fetch(findUrl)
 
 				if (findResponse.ok) {
@@ -145,7 +146,7 @@ export async function getFileIdByPath(filePath) {
 				params.set('folder', normalizedDirPath)
 			}
 			params.set('includeDependencies', '1')
-			const listUrl = `/apps/threedviewer/api/files/list?${params.toString()}`
+			const listUrl = generateUrl('/apps/threedviewer/api/files/list') + `?${params.toString()}`
 			const response = await fetch(listUrl)
 
 			if (response.ok) {
@@ -329,7 +330,7 @@ export async function getFileIdByPath(filePath) {
 			for (const subdir of folders) {
 				try {
 					const subdirPath = subdir.path || (normalizedDirPath ? `${normalizedDirPath}/${subdir.name}` : subdir.name)
-					const subdirListUrl = `/apps/threedviewer/api/files/list?folder=${encodeURIComponent(subdirPath)}`
+					const subdirListUrl = generateUrl('/apps/threedviewer/api/files/list') + `?folder=${encodeURIComponent(subdirPath)}`
 					const subdirResponse = await fetch(subdirListUrl)
 
 					if (subdirResponse.ok) {
@@ -375,7 +376,7 @@ export async function getFileIdByPath(filePath) {
 					try {
 						const textureDirPath = normalizedDirPath ? `${normalizedDirPath}/${textureDir}` : textureDir
 						const textureFilePath = `${textureDirPath}/${filename}`
-						const findUrl = `/apps/threedviewer/api/files/find?path=${encodeURIComponent(textureFilePath)}`
+						const findUrl = generateUrl('/apps/threedviewer/api/files/find') + `?path=${encodeURIComponent(textureFilePath)}`
 						logger.warn('MultiFileHelpers', ' Trying texture path:', textureFilePath)
 						const findResponse = await fetch(findUrl)
 
@@ -419,7 +420,7 @@ export async function getFileIdByPath(filePath) {
 				try {
 					const textureDirPath = normalizedDirPath ? `${normalizedDirPath}/${textureDir}` : textureDir
 					const textureFilePath = `${textureDirPath}/${filename}`
-					const findUrl = `/apps/threedviewer/api/files/find?path=${encodeURIComponent(textureFilePath)}`
+					const findUrl = generateUrl('/apps/threedviewer/api/files/find') + `?path=${encodeURIComponent(textureFilePath)}`
 					logger.warn('MultiFileHelpers', ' Trying texture path (fallback):', textureFilePath)
 					const findResponse = await fetch(findUrl)
 
@@ -541,7 +542,7 @@ export async function fetchObjDependencies(objContent, baseFilename, fileId, dir
 			const fileId = await getFileIdByPath(mtlPath)
 
 			if (fileId) {
-				const url = `/apps/threedviewer/api/file/${fileId}`
+				const url = generateUrl(`/apps/threedviewer/api/file/${fileId}`)
 				const file = await fetchFileFromUrl(url, mtlFilename, 'model/mtl', { fileId })
 				logger.info('MultiFileHelpers', ' Fetched MTL:', mtlFilename)
 
@@ -556,7 +557,7 @@ export async function fetchObjDependencies(objContent, baseFilename, fileId, dir
 						const fileId = await getFileIdByPath(texPath)
 
 						if (fileId) {
-							const texUrl = `/apps/threedviewer/api/file/${fileId}`
+							const texUrl = generateUrl(`/apps/threedviewer/api/file/${fileId}`)
 							const texFile = await fetchFileFromUrl(texUrl, texFilename, 'application/octet-stream', { fileId })
 							logger.info('MultiFileHelpers', ' Fetched texture:', texFilename)
 							return { file: texFile, name: texFilename, found: true }
@@ -625,7 +626,7 @@ export async function fetchGltfDependencies(gltfContent, baseFilename, fileId, d
 				const fileId = await getFileIdByPath(bufferPath)
 
 				if (fileId) {
-					const url = `/apps/threedviewer/api/file/${fileId}`
+					const url = generateUrl(`/apps/threedviewer/api/file/${fileId}`)
 					const file = await fetchFileFromUrl(url, bufferUri, 'application/octet-stream', { fileId })
 					logger.info('MultiFileHelpers', ' Fetched buffer:', bufferUri)
 					return file
@@ -649,7 +650,7 @@ export async function fetchGltfDependencies(gltfContent, baseFilename, fileId, d
 				const fileId = await getFileIdByPath(imagePath)
 
 				if (fileId) {
-					const url = `/apps/threedviewer/api/file/${fileId}`
+					const url = generateUrl(`/apps/threedviewer/api/file/${fileId}`)
 					const file = await fetchFileFromUrl(url, imageUri, 'application/octet-stream', { fileId })
 					logger.info('MultiFileHelpers', ' Fetched image:', imageUri)
 					return file
@@ -705,7 +706,7 @@ async function fetchFbxDependencies(baseFilename, fileId, dirPath) {
 		}
 		params.set('includeDependencies', '1')
 
-		const listUrl = `/apps/threedviewer/api/files/list?${params.toString()}`
+		const listUrl = generateUrl('/apps/threedviewer/api/files/list') + `?${params.toString()}`
 		const response = await fetch(listUrl)
 
 		if (!response.ok) {
@@ -730,7 +731,7 @@ async function fetchFbxDependencies(baseFilename, fileId, dirPath) {
 
 		const texturePromises = imageFiles.map(async (file) => {
 			try {
-				const url = `/apps/threedviewer/api/file/${file.id}`
+				const url = generateUrl(`/apps/threedviewer/api/file/${file.id}`)
 				const texResponse = await fetch(url)
 				if (texResponse.ok) {
 					const arrayBuffer = await texResponse.arrayBuffer()
@@ -794,7 +795,7 @@ export async function loadModelWithDependencies(fileId, filename, extension, dir
 	})
 
 	// Fetch main file
-	const response = await fetch(`/apps/threedviewer/api/file/${fileId}`)
+	const response = await fetch(generateUrl(`/apps/threedviewer/api/file/${fileId}`))
 
 	if (!response.ok) {
 		// Try to extract error message from response

@@ -840,7 +840,7 @@ export default {
 				this.$refs.fileNavigation?.setActiveSort('viewer')
 
 				// Update URL without page reload using history API
-				const url = `/apps/threedviewer/f/${file.id}`
+				const url = generateUrl(`/apps/threedviewer/f/${file.id}`)
 				window.history.pushState({ fileId: file.id }, '', url)
 
 				// Save selected file ID to config

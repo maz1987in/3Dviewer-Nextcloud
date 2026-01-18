@@ -5,6 +5,7 @@
 
 import { ref, shallowRef, computed, markRaw } from 'vue'
 import * as THREE from 'three'
+import { generateUrl } from '@nextcloud/router'
 import { loadModelByExtension, isSupportedExtension } from '../loaders/registry.js'
 import { loadModelWithDependencies } from '../loaders/multiFileHelpers.js'
 import { createErrorState } from '../utils/error-handler.js'
@@ -230,7 +231,7 @@ export function useModelLoading() {
 			// Single-file loading (fallback or non-multi-file formats)
 			progress.value = { loaded: 0, total: 0, message: 'Downloading model...' }
 
-			const response = await fetch(`/apps/threedviewer/api/file/${fileId}`, {
+			const response = await fetch(generateUrl(`/apps/threedviewer/api/file/${fileId}`), {
 				signal: abortController.value?.signal,
 				headers: {
 					Accept: 'application/octet-stream',

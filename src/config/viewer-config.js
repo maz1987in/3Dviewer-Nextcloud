@@ -1,6 +1,7 @@
 /**
  * Viewer configuration and settings
  */
+import { imagePath } from '@nextcloud/router'
 
 /**
  * Default material settings
@@ -359,7 +360,7 @@ export const SUPPORTED_FORMATS = {
 		features: ['materials', 'animations', 'compression'],
 		multiFile: false,
 		displayOrder: 1,
-		icon: '/apps/threedviewer/img/filetypes/glb.svg',
+		icon: imagePath('threedviewer', 'filetypes/glb.svg'),
 	},
 	gltf: {
 		name: 'GLTF',
@@ -368,7 +369,7 @@ export const SUPPORTED_FORMATS = {
 		features: ['materials', 'animations', 'compression'],
 		multiFile: true,
 		displayOrder: 2,
-		icon: '/apps/threedviewer/img/filetypes/gltf.svg',
+		icon: imagePath('threedviewer', 'filetypes/gltf.svg'),
 	},
 	obj: {
 		name: 'OBJ',
@@ -377,7 +378,7 @@ export const SUPPORTED_FORMATS = {
 		features: ['materials', 'mtl-support'],
 		multiFile: true,
 		displayOrder: 3,
-		icon: '/apps/threedviewer/img/filetypes/obj.svg',
+		icon: imagePath('threedviewer', 'filetypes/obj.svg'),
 	},
 	stl: {
 		name: 'STL',
@@ -386,7 +387,7 @@ export const SUPPORTED_FORMATS = {
 		features: ['geometry-only'],
 		multiFile: false,
 		displayOrder: 5,
-		icon: '/apps/threedviewer/img/filetypes/stl.svg',
+		icon: imagePath('threedviewer', 'filetypes/stl.svg'),
 	},
 	ply: {
 		name: 'PLY',
@@ -395,7 +396,7 @@ export const SUPPORTED_FORMATS = {
 		features: ['point-clouds', 'colors'],
 		multiFile: false,
 		displayOrder: 8,
-		icon: '/apps/threedviewer/img/filetypes/ply.svg',
+		icon: imagePath('threedviewer', 'filetypes/ply.svg'),
 	},
 	fbx: {
 		name: 'FBX',
@@ -404,7 +405,7 @@ export const SUPPORTED_FORMATS = {
 		features: ['materials', 'animations', 'bones'],
 		multiFile: true,
 		displayOrder: 4,
-		icon: '/apps/threedviewer/img/filetypes/fbx.svg',
+		icon: imagePath('threedviewer', 'filetypes/fbx.svg'),
 	},
 	'3mf': {
 		name: '3MF',
@@ -413,7 +414,7 @@ export const SUPPORTED_FORMATS = {
 		features: ['materials', 'colors'],
 		multiFile: false,
 		displayOrder: 9,
-		icon: '/apps/threedviewer/img/filetypes/3mf.svg',
+		icon: imagePath('threedviewer', 'filetypes/3mf.svg'),
 	},
 	'3ds': {
 		name: '3DS',
@@ -422,7 +423,7 @@ export const SUPPORTED_FORMATS = {
 		features: ['materials', 'animations'],
 		multiFile: true,
 		displayOrder: 7,
-		icon: '/apps/threedviewer/img/filetypes/3ds.svg',
+		icon: imagePath('threedviewer', 'filetypes/3ds.svg'),
 	},
 	dae: {
 		name: 'DAE',
@@ -431,7 +432,7 @@ export const SUPPORTED_FORMATS = {
 		features: ['materials', 'animations', 'bones'],
 		multiFile: true,
 		displayOrder: 6,
-		icon: '/apps/threedviewer/img/filetypes/dae.svg',
+		icon: imagePath('threedviewer', 'filetypes/dae.svg'),
 	},
 	x3d: {
 		name: 'X3D',
@@ -440,7 +441,7 @@ export const SUPPORTED_FORMATS = {
 		features: ['materials', 'animations'],
 		multiFile: false,
 		displayOrder: 10,
-		icon: '/apps/threedviewer/img/filetypes/x3d.svg',
+		icon: imagePath('threedviewer', 'filetypes/x3d.svg'),
 	},
 	vrml: {
 		name: 'VRML',
@@ -449,7 +450,7 @@ export const SUPPORTED_FORMATS = {
 		features: ['materials', 'animations'],
 		multiFile: false,
 		displayOrder: 11,
-		icon: '/apps/threedviewer/img/filetypes/vrml.svg',
+		icon: imagePath('threedviewer', 'filetypes/vrml.svg'),
 	},
 	wrl: {
 		name: 'WRL',
@@ -458,7 +459,7 @@ export const SUPPORTED_FORMATS = {
 		features: ['materials', 'animations'],
 		multiFile: false,
 		displayOrder: 12,
-		icon: '/apps/threedviewer/img/filetypes/wrl.svg',
+		icon: imagePath('threedviewer', 'filetypes/wrl.svg'),
 	},
 	gcode: {
 		name: 'G-CODE',
@@ -467,7 +468,7 @@ export const SUPPORTED_FORMATS = {
 		features: ['toolpath', 'layers', 'cnc'],
 		multiFile: false,
 		displayOrder: 13,
-		icon: '/apps/threedviewer/img/filetypes/gcode.svg',
+		icon: imagePath('threedviewer', 'filetypes/gcode.svg'),
 	},
 	gco: {
 		name: 'GCO',
@@ -476,7 +477,7 @@ export const SUPPORTED_FORMATS = {
 		features: ['toolpath', 'layers', 'cnc'],
 		multiFile: false,
 		displayOrder: 14,
-		icon: '/apps/threedviewer/img/filetypes/gco.svg',
+		icon: imagePath('threedviewer', 'filetypes/gco.svg'),
 	},
 	nc: {
 		name: 'NC',
@@ -485,7 +486,7 @@ export const SUPPORTED_FORMATS = {
 		features: ['toolpath', 'layers', 'cnc'],
 		multiFile: false,
 		displayOrder: 15,
-		icon: '/apps/threedviewer/img/filetypes/nc.svg',
+		icon: imagePath('threedviewer', 'filetypes/nc.svg'),
 	},
 	acode: {
 		name: 'ACODE',
@@ -494,7 +495,7 @@ export const SUPPORTED_FORMATS = {
 		features: ['toolpath', 'layers', 'cnc'],
 		multiFile: false,
 		displayOrder: 16,
-		icon: '/apps/threedviewer/img/filetypes/acode.svg',
+		icon: imagePath('threedviewer', 'filetypes/acode.svg'),
 	},
 	gx: {
 		name: 'GX',
@@ -503,7 +504,7 @@ export const SUPPORTED_FORMATS = {
 		features: ['toolpath', 'layers'],
 		multiFile: false,
 		displayOrder: 17,
-		icon: '/apps/threedviewer/img/filetypes/gx.svg',
+		icon: imagePath('threedviewer', 'filetypes/gx.svg'),
 	},
 	g: {
 		name: 'G',
@@ -512,7 +513,7 @@ export const SUPPORTED_FORMATS = {
 		features: ['toolpath', 'layers', 'cnc'],
 		multiFile: false,
 		displayOrder: 18,
-		icon: '/apps/threedviewer/img/filetypes/g.svg',
+		icon: imagePath('threedviewer', 'filetypes/g.svg'),
 	},
 	g3drem: {
 		name: 'G3DREM',
@@ -521,7 +522,7 @@ export const SUPPORTED_FORMATS = {
 		features: ['toolpath', 'layers'],
 		multiFile: false,
 		displayOrder: 19,
-		icon: '/apps/threedviewer/img/filetypes/g3drem.svg',
+		icon: imagePath('threedviewer', 'filetypes/g3drem.svg'),
 	},
 	makerbot: {
 		name: 'MAKERBOT',
@@ -530,7 +531,7 @@ export const SUPPORTED_FORMATS = {
 		features: ['toolpath', 'layers'],
 		multiFile: false,
 		displayOrder: 20,
-		icon: '/apps/threedviewer/img/filetypes/makerbot.svg',
+		icon: imagePath('threedviewer', 'filetypes/makerbot.svg'),
 	},
 	thing: {
 		name: 'THING',
@@ -539,7 +540,7 @@ export const SUPPORTED_FORMATS = {
 		features: ['toolpath', 'layers'],
 		multiFile: false,
 		displayOrder: 21,
-		icon: '/apps/threedviewer/img/filetypes/thing.svg',
+		icon: imagePath('threedviewer', 'filetypes/thing.svg'),
 	},
 }
 

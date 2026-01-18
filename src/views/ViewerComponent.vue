@@ -763,7 +763,7 @@ export default {
 				// Fetch model data from ApiController endpoint
 				this.updateProgress(true, 0, this.t('threedviewer', 'Downloading model...'), this.filename, false)
 				// Note: Using /api/file/{fileId} (not /file/{fileId})
-				const response = await fetch(`/apps/threedviewer/api/file/${this.fileid}`)
+				const response = await fetch(generateUrl(`/apps/threedviewer/api/file/${this.fileid}`))
 
 				if (!response.ok) {
 					throw new Error(`Failed to fetch model: ${response.status} ${response.statusText}`)
