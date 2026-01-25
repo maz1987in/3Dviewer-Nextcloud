@@ -148,6 +148,7 @@ class ModelPreviewProvider implements IProviderV2
                     if ($image->width() > $maxX || $image->height() > $maxY) {
                         $image->resize(max($maxX, $maxY));
                     }
+
                     return $image;
                 }
             } catch (\Throwable $e) {

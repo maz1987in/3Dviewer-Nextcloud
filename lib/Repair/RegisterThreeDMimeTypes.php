@@ -136,5 +136,4 @@ class RegisterThreeDMimeTypes implements IRepairStep
             : JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES;
         file_put_contents($filename, json_encode($obj, $mask));
     }
-
 }

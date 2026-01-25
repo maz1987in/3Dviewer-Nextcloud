@@ -7,7 +7,6 @@ namespace OCA\ThreeDViewer\Controller;
 use OCA\ThreeDViewer\Service\ModelFileSupport;
 use OCA\ThreeDViewer\Service\ResponseBuilder;
 use OCA\ThreeDViewer\Service\ThumbnailService;
-use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\FrontpageRoute;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
@@ -50,7 +49,7 @@ class ThumbnailController extends BaseController
     /**
      * Store a thumbnail for a 3D model file.
      * Accepts POST request with image data in request body (base64 or binary).
-     * 
+     *
      * @param int $fileId The file ID to store thumbnail for
      * @return JSONResponse Success or error response
      */
@@ -67,6 +66,7 @@ class ThumbnailController extends BaseController
             $user = $this->userSession->getUser();
             if ($user === null) {
                 $this->logger->warning('ThumbnailController: User not authenticated', ['fileId' => $fileId]);
+
                 return $this->responseBuilder->createUnauthorizedResponse('User not authenticated');
             }
 
@@ -81,6 +81,7 @@ class ThumbnailController extends BaseController
                     'fileId' => $fileId,
                     'userId' => $userId,
                 ]);
+
                 return $this->responseBuilder->createNotFoundResponse('File not found');
             }
 
@@ -97,17 +98,19 @@ class ThumbnailController extends BaseController
                     'userId' => $userId,
                     'extension' => $extension,
                 ]);
+
                 return $this->responseBuilder->createBadRequestResponse('File format not supported for thumbnails');
             }
 
             // Enforce content-length limit
             $contentLengthHeader = $this->request->getHeader('Content-Length');
-            if (!empty($contentLengthHeader) && (int)$contentLengthHeader > self::MAX_THUMBNAIL_SIZE_BYTES) {
+            if (!empty($contentLengthHeader) && (int) $contentLengthHeader > self::MAX_THUMBNAIL_SIZE_BYTES) {
                 $this->logger->warning('ThumbnailController: Upload rejected - Content-Length exceeds limit', [
                     'fileId' => $fileId,
                     'userId' => $userId,
-                    'contentLength' => (int)$contentLengthHeader,
+                    'contentLength' => (int) $contentLengthHeader,
                 ]);
+
                 return $this->responseBuilder->createBadRequestResponse('Thumbnail too large');
             }
 
@@ -133,6 +136,7 @@ class ThumbnailController extends BaseController
                     'userId' => $userId,
                     'imageSize' => $imageSize,
                 ]);
+
                 return $this->responseBuilder->createBadRequestResponse('Thumbnail too large');
             }
 
@@ -143,6 +147,7 @@ class ThumbnailController extends BaseController
                     'fileId' => $fileId,
                     'userId' => $userId,
                 ]);
+
                 return $this->responseBuilder->createInternalServerErrorResponse('Failed to store thumbnail');
             }
 
@@ -164,7 +169,7 @@ class ThumbnailController extends BaseController
 
     /**
      * Clear all thumbnails for the current user.
-     * 
+     *
      * @return JSONResponse Success response with count of deleted thumbnails
      */
     #[NoAdminRequired]
@@ -176,6 +181,7 @@ class ThumbnailController extends BaseController
             $user = $this->userSession->getUser();
             if ($user === null) {
                 $this->logger->warning('ThumbnailController: User not authenticated for clear operation');
+
                 return $this->responseBuilder->createUnauthorizedResponse('User not authenticated');
             }
 

@@ -524,12 +524,14 @@ class SlicerController extends Controller
             if (stripos($trimmed, 'solid ') === 0) {
                 return true;
             }
+
             return true; // binary STL already allowed via octet-stream
         }
 
         if (in_array($extension, ['gcode', 'gco', 'nc', 'g', 'gx'], true)) {
             // G-code is text; ensure it contains movement commands
             $snippet = strtolower(substr($data, 0, 2000));
+
             return str_contains($snippet, 'g0') || str_contains($snippet, 'g1');
         }
 

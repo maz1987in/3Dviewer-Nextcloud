@@ -11,7 +11,7 @@ use Psr\Log\LoggerInterface;
 
 /**
  * Service for storing and retrieving 3D model thumbnails.
- * 
+ *
  * Thumbnails are stored in Nextcloud's app data folder (not in user files).
  * This prevents thumbnails from appearing in user's file list or recent files.
  */
@@ -28,7 +28,7 @@ class ThumbnailService
 
     /**
      * Store a thumbnail for a file.
-     * 
+     *
      * @param int $fileId The file ID to store thumbnail for
      * @param string $userId The user ID
      * @param string $imageData The image data (binary content)
@@ -46,6 +46,7 @@ class ThumbnailService
                     'size' => $imageSize,
                     'maxSize' => self::MAX_THUMBNAIL_SIZE_BYTES,
                 ]);
+
                 return false;
             }
 
@@ -55,20 +56,22 @@ class ThumbnailService
                     'fileId' => $fileId,
                     'userId' => $userId,
                 ]);
+
                 return false;
             }
 
             // Get or create user's thumbnail folder in app data
             $userFolder = $this->getOrCreateUserFolder($userId);
-            
+
             // Determine file extension based on image data
             $extension = $this->getImageExtension($imageData);
-            $filename = (string)$fileId . '.' . $extension;
+            $filename = (string) $fileId . '.' . $extension;
 
             // Delete existing thumbnail with different extension if exists
             foreach (['png', 'jpg', 'jpeg'] as $ext) {
                 if ($ext !== $extension) {
-                    $oldFilename = (string)$fileId . '.' . $ext;
+                    $oldFilename = (string) $fileId . '.' . $ext;
+
                     try {
                         $oldFile = $userFolder->getFile($oldFilename);
                         $oldFile->delete();
@@ -101,13 +104,14 @@ class ThumbnailService
                 'userId' => $userId,
                 'error' => $e->getMessage(),
             ]);
+
             return false;
         }
     }
 
     /**
      * Get the thumbnail file content if it exists.
-     * 
+     *
      * @param int $fileId The file ID
      * @param string $userId The user ID
      * @return string|null The thumbnail file content, or null if not found
@@ -122,9 +126,11 @@ class ThumbnailService
 
             // Try both PNG and JPEG extensions
             foreach (['png', 'jpg', 'jpeg'] as $ext) {
-                $filename = (string)$fileId . '.' . $ext;
+                $filename = (string) $fileId . '.' . $ext;
+
                 try {
                     $thumbnailFile = $userFolder->getFile($filename);
+
                     return $thumbnailFile->getContent();
                 } catch (NotFoundException $e) {
                     continue;
@@ -138,6 +144,7 @@ class ThumbnailService
                 'userId' => $userId,
                 'error' => $e->getMessage(),
             ]);
+
             return null;
         }
     }
@@ -145,10 +152,10 @@ class ThumbnailService
     /**
      * Get the local filesystem path to a thumbnail file if it exists.
      * This is used by preview providers that need a file path.
-     * 
+     *
      * Note: IAppData doesn't expose local paths, so this returns null.
      * Use getThumbnailContent() instead.
-     * 
+     *
      * @param int $fileId The file ID
      * @param string $userId The user ID
      * @return string|null Always returns null for app data storage
@@ -162,7 +169,7 @@ class ThumbnailService
 
     /**
      * Check if a thumbnail exists for a file.
-     * 
+     *
      * @param int $fileId The file ID
      * @param string $userId The user ID
      * @return bool True if thumbnail exists, false otherwise
@@ -177,9 +184,11 @@ class ThumbnailService
 
             // Try both PNG and JPEG extensions
             foreach (['png', 'jpg', 'jpeg'] as $ext) {
-                $filename = (string)$fileId . '.' . $ext;
+                $filename = (string) $fileId . '.' . $ext;
+
                 try {
                     $userFolder->getFile($filename);
+
                     return true;
                 } catch (NotFoundException $e) {
                     continue;
@@ -194,7 +203,7 @@ class ThumbnailService
 
     /**
      * Delete a thumbnail for a file.
-     * 
+     *
      * @param int $fileId The file ID
      * @param string $userId The user ID
      * @return void
@@ -209,7 +218,8 @@ class ThumbnailService
 
             // Try to delete with different extensions
             foreach (['png', 'jpg', 'jpeg'] as $ext) {
-                $filename = (string)$fileId . '.' . $ext;
+                $filename = (string) $fileId . '.' . $ext;
+
                 try {
                     $thumbnailFile = $userFolder->getFile($filename);
                     $thumbnailFile->delete();
@@ -234,24 +244,25 @@ class ThumbnailService
 
     /**
      * Delete all thumbnails for a user.
-     * 
+     *
      * @param string $userId The user ID
      * @return int Number of thumbnails deleted
      */
     public function clearAllThumbnails(string $userId): int
     {
         $deletedCount = 0;
-        
+
         try {
             $userFolder = $this->getUserFolder($userId);
             if ($userFolder === null) {
                 $this->logger->info('ThumbnailService: No thumbnail folder found for user', ['userId' => $userId]);
+
                 return 0;
             }
 
             // Get all files in the user's thumbnail folder
             $files = $userFolder->getDirectoryListing();
-            
+
             foreach ($files as $file) {
                 try {
                     $file->delete();
@@ -276,13 +287,14 @@ class ThumbnailService
                 'userId' => $userId,
                 'error' => $e->getMessage(),
             ]);
+
             return $deletedCount;
         }
     }
 
     /**
      * Get the user's thumbnail folder from app data.
-     * 
+     *
      * @param string $userId The user ID
      * @return \OCP\Files\SimpleFS\ISimpleFolder|null The folder or null if not found
      */
@@ -290,6 +302,7 @@ class ThumbnailService
     {
         try {
             $thumbnailsFolder = $this->appData->getFolder(self::THUMBNAILS_FOLDER);
+
             return $thumbnailsFolder->getFolder($userId);
         } catch (NotFoundException $e) {
             return null;
@@ -298,7 +311,7 @@ class ThumbnailService
 
     /**
      * Get or create the user's thumbnail folder from app data.
-     * 
+     *
      * @param string $userId The user ID
      * @return \OCP\Files\SimpleFS\ISimpleFolder The folder
      * @throws NotPermittedException If folder creation fails
@@ -317,13 +330,14 @@ class ThumbnailService
         } catch (NotFoundException $e) {
             $userFolder = $thumbnailsFolder->newFolder($userId);
             $this->logger->info('ThumbnailService: Created user thumbnail folder', ['userId' => $userId]);
+
             return $userFolder;
         }
     }
 
     /**
      * Validate image data by checking headers.
-     * 
+     *
      * @param string $imageData The image data
      * @return bool True if valid PNG or JPEG, false otherwise
      */
@@ -348,7 +362,7 @@ class ThumbnailService
 
     /**
      * Get image file extension based on image data.
-     * 
+     *
      * @param string $imageData The image data
      * @return string The file extension (png, jpg, or jpeg)
      */

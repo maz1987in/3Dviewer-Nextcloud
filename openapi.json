@@ -3,7 +3,7 @@
     "info": {
         "title": "threedviewer",
         "version": "0.0.1",
-        "description": "View, analyze & export 3D models with 10+ formats, personal settings, enhanced loaders, annotations, measurements & rendering",
+        "description": "View, analyze & export 3D models with 10+ formats, auto-thumbnails, personal settings, annotations, measurements & rendering",
         "license": {
             "name": "agpl"
         }
@@ -280,6 +280,14 @@
         {
             "name": "file",
             "description": "Controller for serving 3D files using Nextcloud filesystem API."
+        },
+        {
+            "name": "slicer",
+            "description": "Controller for handling slicer integration."
+        },
+        {
+            "name": "thumbnail",
+            "description": "Controller for handling thumbnail uploads from client."
         },
         {
             "name": "public_file",
