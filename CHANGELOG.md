@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Dependencies**: Updated development dependencies
+  - `@babel/core`: ^7.28.6 → ^7.29.0
+  - `@babel/plugin-transform-runtime`: ^7.28.5 → ^7.29.0
+  - `@babel/preset-env`: ^7.28.6 → ^7.29.0
+  - `@playwright/test`: ^1.56.1 → ^1.58.2
+
+### Fixed
+- **npm audit**: Resolved dependency vulnerabilities via `npm audit fix` ([#77](https://github.com/maz1987in/3Dviewer-Nextcloud/pull/77))
+
+### Technical
+- PHP CS Fixer: Blank lines before returns, doc comment whitespace, type-cast spacing, removed unused imports
+- OpenAPI spec: Regenerated with slicer and thumbnail controller tags and updated description
+
 ## [2.3.4] - 2026-01-18
 
 ### Changed
