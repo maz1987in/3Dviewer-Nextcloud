@@ -79,7 +79,7 @@ export default {
 				// Update the toast object directly (Vue reactivity)
 				const toastIndex = this.toasts.findIndex(t => t.id === toast.id)
 				if (toastIndex !== -1) {
-					this.$set(this.toasts[toastIndex], 'progress', progress)
+					this.toasts[toastIndex].progress = progress
 				}
 			}, 50)
 
@@ -117,14 +117,15 @@ export default {
 				clearInterval(progressInterval)
 
 				// Store the paused state
-				this.$set(this.toasts.find(t => t.id === toastId), 'paused', true)
+				const pausedToast = this.toasts.find(t => t.id === toastId)
+				if (pausedToast) pausedToast.paused = true
 			}
 		},
 
 		resumeAutoHide(toastId) {
 			const toast = this.toasts.find(t => t.id === toastId)
 			if (toast && toast.paused && toast.timeout > 0) {
-				this.$set(toast, 'paused', false)
+				toast.paused = false
 				this.setupAutoHide(toast)
 			}
 		},
