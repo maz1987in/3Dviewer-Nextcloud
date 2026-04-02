@@ -34,10 +34,12 @@ export default {
 	},
 	emits: ['dismiss'],
 	data() {
-		return {
-			timers: new Map(),
-			progressIntervals: new Map(),
-		}
+		return {}
+	},
+	created() {
+		// Keep Maps outside reactive data — Vue 3 proxy breaks Map.has()/Map.get()
+		this._timers = new Map()
+		this._progressIntervals = new Map()
 	},
 	watch: {
 		toasts: {
@@ -53,7 +55,7 @@ export default {
 
 				// Set up auto-hide for new toasts
 				newToasts.forEach(toast => {
-					if (toast.timeout && toast.timeout > 0 && !this.timers.has(toast.id)) {
+					if (toast.timeout && toast.timeout > 0 && !this._timers.has(toast.id)) {
 						this.setupAutoHide(toast)
 					}
 				})
@@ -63,8 +65,8 @@ export default {
 	},
 	beforeUnmount() {
 		// Clean up all timers
-		this.timers.forEach(timer => clearTimeout(timer))
-		this.progressIntervals.forEach(interval => clearInterval(interval))
+		this._timers.forEach(timer => clearTimeout(timer))
+		this._progressIntervals.forEach(interval => clearInterval(interval))
 	},
 	methods: {
 		setupAutoHide(toast) {
@@ -83,7 +85,7 @@ export default {
 				}
 			}, 50)
 
-			this.progressIntervals.set(toast.id, progressInterval)
+			this._progressIntervals.set(toast.id, progressInterval)
 
 			// Set up the dismiss timer
 			const timer = setTimeout(() => {
@@ -91,26 +93,26 @@ export default {
 				this.clearToastTimer(toast.id)
 			}, duration)
 
-			this.timers.set(toast.id, timer)
+			this._timers.set(toast.id, timer)
 		},
 
 		clearToastTimer(toastId) {
-			const timer = this.timers.get(toastId)
+			const timer = this._timers.get(toastId)
 			if (timer) {
 				clearTimeout(timer)
-				this.timers.delete(toastId)
+				this._timers.delete(toastId)
 			}
 
-			const progressInterval = this.progressIntervals.get(toastId)
+			const progressInterval = this._progressIntervals.get(toastId)
 			if (progressInterval) {
 				clearInterval(progressInterval)
-				this.progressIntervals.delete(toastId)
+				this._progressIntervals.delete(toastId)
 			}
 		},
 
 		pauseAutoHide(toastId) {
-			const timer = this.timers.get(toastId)
-			const progressInterval = this.progressIntervals.get(toastId)
+			const timer = this._timers.get(toastId)
+			const progressInterval = this._progressIntervals.get(toastId)
 
 			if (timer && progressInterval) {
 				clearTimeout(timer)
