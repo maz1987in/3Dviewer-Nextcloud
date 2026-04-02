@@ -1,5 +1,5 @@
-import Vue from 'vue'
+import { createApp } from 'vue'
 import PersonalSettings from './views/PersonalSettings.vue'
 
-const View = Vue.extend(PersonalSettings)
-new View().$mount('#threedviewer-personal-settings')
+const app = createApp(PersonalSettings)
+app.mount('#threedviewer-personal-settings')

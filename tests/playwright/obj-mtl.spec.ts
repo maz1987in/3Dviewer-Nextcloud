@@ -81,32 +81,20 @@ function buildHtmlWrapper() {
     })();
     window.addEventListener('error', (ev) => { console.error('[global error]', ev.error || ev.message || ev); }, true)
     window.addEventListener('unhandledrejection', (ev) => { console.error('[global promise rejection]', ev.reason); }, true)
-    // Monkeypatch Vue mount if/when Vue prototype becomes available
+    // Monitor Vue 3 app mount via __THREEDVIEWER_APP global
     Object.defineProperty(window, '__mountPatched', { value: false, writable: true })
     const patchInterval = setInterval(() => {
       if (window.__mountPatched) return;
-      const VueGlobal = window.Vue || (window.__VUE_DEVTOOLS_GLOBAL_HOOK__ && window.__VUE_DEVTOOLS_GLOBAL_HOOK__.Vue);
-      if (VueGlobal && VueGlobal.prototype && VueGlobal.prototype.$mount) {
-        const orig = VueGlobal.prototype.$mount;
-        VueGlobal.prototype.$mount = function(sel){
-          console.log('[mount] about to mount selector', sel)
-            ;(function(){ try { const el = document.querySelector(sel); if(el){ console.log('[mount] pre children', el.childNodes.length) } } catch(e){} })();
-          const r = orig.call(this, sel)
-          try {
-            const el = document.querySelector(sel)
-            if (el) {
-              console.log('[mount] post innerHTML length', el.innerHTML.length)
-              console.log('[mount] post childElementCount', el.childElementCount)
-              console.log('[mount] post child node types', Array.from(el.childNodes).map(n=>n.nodeType))
-            } else {
-              console.log('[mount] selector not found after mount')
-            }
-          } catch(e){ console.error('[mount patch error]', e) }
-          window.__mountPatched = true
-          return r
+      if (window.__THREEDVIEWER_APP) {
+        console.log('[mount] Vue 3 app instance detected')
+        const el = document.getElementById('threedviewer')
+        if (el) {
+          console.log('[mount] post childElementCount', el.childElementCount)
+          console.log('[mount] post child node types', Array.from(el.childNodes).map(n=>n.nodeType))
         }
+        window.__mountPatched = true
         clearInterval(patchInterval)
-        console.log('[mount] Vue $mount patched for diagnostics')
+        console.log('[mount] Vue 3 app mount detected for diagnostics')
       }
     }, 50);
     // Dynamically import main bundle so we can catch errors

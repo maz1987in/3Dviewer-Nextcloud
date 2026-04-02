@@ -83,27 +83,22 @@ if (appRoot) {
 	Promise.all([
 		import('vue'),
 		import('./App.vue'),
-	]).then(([{ default: Vue }, { default: App }]) => {
-		// Add global mixin for translation functions
-		Vue.mixin({
-			methods: {
-				t: translate,
-				n: translatePlural,
-			},
-		})
-
-		const app = new Vue({
-			el: '#threedviewer',
-			render: h => h(App, {
-				props: {
-					fileId: fileId || null,
-					filename: filename || null,
-					dir: dir || null,
-				},
+	]).then(([{ createApp, h }, { default: App }]) => {
+		const app = createApp({
+			render: () => h(App, {
+				fileId: fileId || null,
+				filename: filename || null,
+				dir: dir || null,
 			}),
 		})
+
+		// Add global translation functions
+		app.config.globalProperties.t = translate
+		app.config.globalProperties.n = translatePlural
+
+		const instance = app.mount('#threedviewer')
 		// Expose app instance for debugging and to avoid unused variable lint error
-		window.__THREEDVIEWER_APP = app
+		window.__THREEDVIEWER_APP = instance
 	}).catch(err => {
 		console.error('Failed to mount advanced viewer:', err)
 	})

@@ -1,4 +1,4 @@
-/* global Vue */
+import { createApp, h } from 'vue'
 import { generateUrl } from '@nextcloud/router'
 // Nextcloud Viewer API integration for 3D models
 // This replaces the click-based approach with proper API integration
@@ -23,8 +23,6 @@ function createViewerComponent() {
 			const fileId = fileInfo?.fileid || fileInfo?.id || fileInfo?.fileId
 			const fileName = fileInfo?.name || fileInfo?.filename || fileInfo?.basename || ''
 
-			// Viewer API component mounted
-
 			if (!fileId) {
 				const errorDiv = document.createElement('div')
 				errorDiv.style.cssText = 'padding: 20px; text-align: center; color: red;'
@@ -47,37 +45,30 @@ function createViewerComponent() {
 		methods: {
 			async mountViewerModal(fileId, fileInfo) {
 				try {
-					// Import the ViewerModal component
-					const ViewerModalComponent = ViewerModal
+					const self = this
 
-					// Create a new Vue instance for the modal
-					const modalInstance = new Vue({
-						render: h => h(ViewerModalComponent, {
-							props: {
-								fileId,
-								file: fileInfo,
-								attr: fileInfo,
+					// Create a new Vue app for the modal
+					const modalApp = createApp({
+						render: () => h(ViewerModal, {
+							fileId,
+							file: fileInfo,
+							attr: fileInfo,
+							'onModel-loaded': (meta) => {
+								self.$emit('model-loaded', meta)
 							},
-							on: {
-								'model-loaded': (meta) => {
-									// Model loaded in Viewer API
-									// Emit event to parent if needed
-									this.$emit('model-loaded', meta)
-								},
-								error: (error) => {
-									// Emit event to parent if needed
-									this.$emit('error', error)
-								},
+							onError: (error) => {
+								self.$emit('error', error)
 							},
 						}),
 					})
 
-					// Mount the modal to our container
-					modalInstance.$mount()
-					this.$el.appendChild(modalInstance.$el)
+					// Mount the modal to a container element
+					const container = document.createElement('div')
+					this.$el.appendChild(container)
+					modalApp.mount(container)
 
 					// Store reference for cleanup
-					this.modalInstance = modalInstance
+					this._modalApp = modalApp
 
 				} catch (error) {
 					const errorContainer = document.createElement('div')
@@ -93,10 +84,10 @@ function createViewerComponent() {
 			},
 		},
 		beforeUnmount() {
-			// Cleanup modal instance
-			if (this.modalInstance) {
-				this.modalInstance.$destroy()
-				this.modalInstance = null
+			// Cleanup modal app
+			if (this._modalApp) {
+				this._modalApp.unmount()
+				this._modalApp = null
 			}
 		},
 	}
@@ -230,17 +221,20 @@ export function registerViewerHandlerLegacy() {
 						// Try to use the modal component first
 						try {
 							import('../../components/ViewerModal.vue').then(ViewerModal => {
-								const ModalComponent = Vue.extend(ViewerModal.default)
-								const modalInstance = new ModalComponent({
-									propsData: {
+								const modalApp = createApp({
+									render: () => h(ViewerModal.default, {
 										fileId,
 										file: fileInfo,
 										attr: fileInfo,
-									},
+									}),
 								})
 
-								modalInstance.$mount()
-								this.$el.appendChild(modalInstance.$el)
+								const container = document.createElement('div')
+								this.$el.appendChild(container)
+								modalApp.mount(container)
+
+								// Store for cleanup
+								this._modalApp = modalApp
 
 							}).catch(() => {
 								// Fallback to new tab
@@ -253,7 +247,16 @@ export function registerViewerHandlerLegacy() {
 							window.open(viewerUrl, '_blank', 'noopener,noreferrer')
 						}
 					} else {
-						this.$el.innerHTML = '<div style="padding: 20px; text-align: center;">Unsupported file type</div>'
+						const unsupportedDiv = document.createElement('div')
+						unsupportedDiv.style.cssText = 'padding: 20px; text-align: center;'
+						unsupportedDiv.textContent = 'Unsupported file type'
+						this.$el.appendChild(unsupportedDiv)
+					}
+				},
+				beforeUnmount() {
+					if (this._modalApp) {
+						this._modalApp.unmount()
+						this._modalApp = null
 					}
 				},
 			},

@@ -75,7 +75,7 @@ Built with Three.js for high-performance WebGL rendering. ✨]]></description>
 		<personal-section>OCA\ThreeDViewer\Settings\Section</personal-section>
 	</settings>
 	<dependencies>
-		<nextcloud min-version="30" max-version="33"/>
+		<nextcloud min-version="31" max-version="34"/>
 	</dependencies>
 	<navigations>
 		<navigation>

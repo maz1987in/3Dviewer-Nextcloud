@@ -14,7 +14,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `@babel/preset-env`: ^7.28.6 → ^7.29.0
   - `@playwright/test`: ^1.56.1 → ^1.58.2
   - `jest-environment-jsdom`: ^29.7.0 → ^30.3.0
-- **Nextcloud 33 compatibility**: Bumped `max-version` to 33 in `appinfo/info.xml`
+  - `vue`: ^2.7.16 → ^3.5.0
+  - `@nextcloud/vue`: ^8.33.0 → ^9.5.0
+  - `@nextcloud/vite-config`: ^1.7.1 → ^2.5.0
+- **Vue 3 migration**: Migrated app from Vue 2 to Vue 3
+  - `main.js`: `new Vue()` + `Vue.mixin()` → `createApp()` + `globalProperties`
+  - `settings-personal.js`: `Vue.extend()` → `createApp()`
+  - `viewer-api.js`: `new Vue()` / `$mount()` / `$destroy()` → `createApp()` / `app.mount()` / `app.unmount()`
+  - Removed `@vue/vue2-jest` (Vue 2 specific)
+- **Nextcloud 34 compatibility**: `min-version` 31, `max-version` 34 (`@nextcloud/vue` v9.x requires NC 31+)
 - **Vue component imports**: Migrated deep imports (`@nextcloud/vue/dist/Components/...`) to barrel imports (`@nextcloud/vue`) for forward compatibility with `@nextcloud/vue` v9
 - **Template modifiers**: Removed deprecated `.native` event modifiers from Vue components (compatible with Vue 2.7+, required for Vue 3)
 - **Bundle budget**: Updated index chunk thresholds in bundle size checker
