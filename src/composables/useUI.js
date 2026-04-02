@@ -3,7 +3,7 @@
  * Handles UI state, toolbar interactions, and user interface controls
  */
 
-import { ref, computed, readonly } from 'vue'
+import { ref, shallowRef, computed, readonly } from 'vue'
 import * as THREE from 'three'
 import { logger } from '../utils/logger.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
@@ -14,7 +14,7 @@ export function useUI() {
 	const showGrid = ref(true)
 	const showAxes = ref(true)
 	const wireframe = ref(false)
-	const background = ref(null)
+	const background = shallowRef(null)
 	const autoRotate = ref(false)
 	const autoRotateSpeed = ref(VIEWER_CONFIG.camera.autoRotateSpeed)
 	const performanceMode = ref('balanced')
@@ -26,7 +26,7 @@ export function useUI() {
 
 	// Loading state
 	const skeletonLoading = ref(false)
-	const skeletonGroup = ref(null)
+	const skeletonGroup = shallowRef(null)
 
 	// Mobile state
 	const isMobile = ref(false)

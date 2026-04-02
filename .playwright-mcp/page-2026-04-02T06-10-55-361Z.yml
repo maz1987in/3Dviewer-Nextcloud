@@ -1,0 +1,39 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - banner [ref=e4]
+    - generic [ref=e7]:
+      - heading "Nextcloud" [level=1] [ref=e8]
+      - generic [ref=e11]:
+        - group [ref=e13]:
+          - heading "Log in to Nextcloud" [level=2] [ref=e14]
+          - generic [ref=e16]:
+            - textbox "Account name or email" [active] [ref=e17]:
+              - /placeholder: ""
+            - generic: Account name or email
+          - generic [ref=e19]:
+            - textbox "Password" [ref=e20] [cursor=pointer]:
+              - /placeholder: ""
+            - generic: Password
+            - button "Show password" [ref=e21] [cursor=pointer]:
+              - img [ref=e24]:
+                - img [ref=e25]
+          - generic [ref=e27]:
+            - checkbox "Remember me" [checked] [ref=e28] [cursor=pointer]
+            - generic [ref=e29] [cursor=pointer]:
+              - img [ref=e31]:
+                - img [ref=e32]
+              - generic [ref=e34]: Remember me
+          - button "Log in" [ref=e35] [cursor=pointer]:
+            - generic [ref=e36]:
+              - img [ref=e38]:
+                - img [ref=e39]
+              - generic [ref=e41]: Log in
+        - button "Log in with a device" [ref=e42] [cursor=pointer]:
+          - generic [ref=e44]: Log in with a device
+        - button "Forgot password?" [ref=e45] [cursor=pointer]:
+          - generic [ref=e47]: Forgot password?
+  - contentinfo [ref=e48]:
+    - paragraph [ref=e49]:
+      - link "Nextcloud" [ref=e50] [cursor=pointer]:
+        - /url: https://nextcloud.com
+      - text: – a safe home for all your data

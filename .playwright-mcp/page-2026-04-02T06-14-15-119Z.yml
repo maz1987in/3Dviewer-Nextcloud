@@ -1,0 +1,46 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - banner [ref=e4]
+    - generic [ref=e7]:
+      - heading "Nextcloud" [level=1] [ref=e8]
+      - generic [ref=e11]:
+        - group [ref=e13]:
+          - alert [ref=e14]:
+            - img [ref=e15]:
+              - img [ref=e16]
+            - generic [ref=e18]:
+              - paragraph [ref=e19]: Session error
+              - text: It appears your session token has expired, please refresh the page and try again.
+          - heading "Log in to Nextcloud" [level=2] [ref=e20]
+          - generic [ref=e22]:
+            - textbox "Account name or email" [ref=e23] [cursor=pointer]:
+              - /placeholder: ""
+              - text: admin
+            - generic: Account name or email
+          - generic [ref=e25]:
+            - textbox "Password" [active] [ref=e26]:
+              - /placeholder: ""
+            - generic: Password
+            - button "Show password" [ref=e27] [cursor=pointer]:
+              - img [ref=e30]:
+                - img [ref=e31]
+          - generic [ref=e33]:
+            - checkbox "Remember me" [checked] [ref=e34] [cursor=pointer]
+            - generic [ref=e35] [cursor=pointer]:
+              - img [ref=e37]:
+                - img [ref=e38]
+              - generic [ref=e40]: Remember me
+          - button "Log in" [ref=e41] [cursor=pointer]:
+            - generic [ref=e42]:
+              - img [ref=e44]:
+                - img [ref=e45]
+              - generic [ref=e47]: Log in
+        - button "Log in with a device" [ref=e48] [cursor=pointer]:
+          - generic [ref=e50]: Log in with a device
+        - button "Forgot password?" [ref=e51] [cursor=pointer]:
+          - generic [ref=e53]: Forgot password?
+  - contentinfo [ref=e54]:
+    - paragraph [ref=e55]:
+      - link "Nextcloud" [ref=e56] [cursor=pointer]:
+        - /url: https://nextcloud.com
+      - text: – a safe home for all your data

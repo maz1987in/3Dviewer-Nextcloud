@@ -54,9 +54,9 @@ export function useCamera() {
 	// Camera and controls state
 	const camera = shallowRef(null)
 	const controls = shallowRef(null)
-	const initialCameraPos = ref(null)
-	const baselineCameraPos = ref(null)
-	const baselineTarget = ref(null)
+	const initialCameraPos = shallowRef(null)
+	const baselineCameraPos = shallowRef(null)
+	const baselineTarget = shallowRef(null)
 	const initialTarget = shallowRef(new THREE.Vector3(0, 0, 0))
 	const manuallyPositioned = ref(false)
 

@@ -3,7 +3,7 @@
  * Handles 3D annotation creation, management, and interaction
  */
 
-import { ref, computed, readonly } from 'vue'
+import { ref, shallowRef, computed, readonly } from 'vue'
 import * as THREE from 'three'
 import { logger } from '../utils/logger.js'
 import { logError } from '../utils/error-handler.js'
@@ -26,10 +26,10 @@ export function useAnnotation() {
 	const isActive = ref(false)
 	const annotations = ref([])
 	const currentAnnotation = ref(null)
-	const annotationGroup = ref(null)
+	const annotationGroup = shallowRef(null)
 	const textMeshes = ref([])
 	const pointMeshes = ref([])
-	const sceneRef = ref(null)
+	const sceneRef = shallowRef(null)
 	const modelScale = ref(1) // Scale factor based on model size
 
 	// Computed properties

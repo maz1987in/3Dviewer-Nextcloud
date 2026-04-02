@@ -3,7 +3,7 @@
  * Handles labeling of visible faces (TOP, BOTTOM, FRONT, BACK, LEFT, RIGHT)
  */
 
-import { ref } from 'vue'
+import { ref, shallowRef } from 'vue'
 import * as THREE from 'three'
 import { CSS2DRenderer, CSS2DObject } from 'three/examples/jsm/renderers/CSS2DRenderer.js'
 import { logger } from '../utils/logger.js'
@@ -11,9 +11,9 @@ import { logger } from '../utils/logger.js'
 export function useFaceLabels() {
 	// State
 	const labelsEnabled = ref(false)
-	const labelRenderer = ref(null)
+	const labelRenderer = shallowRef(null)
 	const labels = ref([])
-	const labelContainer = ref(null)
+	const labelContainer = shallowRef(null)
 
 	// Label positions relative to bounding box faces
 	const FACE_POSITIONS = {

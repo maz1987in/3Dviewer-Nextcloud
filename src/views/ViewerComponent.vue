@@ -1296,7 +1296,7 @@ export default {
 /* Open in full viewer button */
 .open-in-app-button {
 	position: absolute !important;
-	top: 16px;
+	top: 60px;
 	inset-inline-end: 16px;
 	z-index: 1000;
 	box-shadow: 0 2px 8px rgb(0 0 0 / 30%);
@@ -1309,7 +1309,7 @@ export default {
 /* Animation control button */
 .animation-control-button {
 	position: absolute !important;
-	top: 16px;
+	top: 60px;
 	inset-inline-start: 16px;
 	z-index: 1000;
 	box-shadow: 0 2px 8px rgb(0 0 0 / 30%);

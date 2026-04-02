@@ -1,4 +1,4 @@
-import { ref, computed, readonly } from 'vue'
+import { ref, shallowRef, computed, readonly } from 'vue'
 import * as THREE from 'three'
 import { logger } from '../utils/logger.js'
 import { logError } from '../utils/error-handler.js'
@@ -34,10 +34,10 @@ export function useMeasurement() {
 	const visualScale = ref(1) // Visual scale for markers based on model size
 
 	// Scene reference
-	const sceneRef = ref(null)
+	const sceneRef = shallowRef(null)
 
 	// Visual elements
-	const measurementGroup = ref(null)
+	const measurementGroup = shallowRef(null)
 	const pointMeshes = ref([])
 	const lineMeshes = ref([])
 	const textMeshes = ref([])

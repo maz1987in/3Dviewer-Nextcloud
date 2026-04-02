@@ -1,0 +1,105 @@
+- generic [ref=e1]:
+  - link "Skip to main content" [ref=e3] [cursor=pointer]:
+    - /url: "#app-dashboard"
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - link "Go to Dashboard" [ref=e6] [cursor=pointer]:
+        - /url: /
+      - navigation "Applications menu" [ref=e8]:
+        - list "Apps" [ref=e9]:
+          - listitem [ref=e10]:
+            - link "Dashboard" [ref=e11] [cursor=pointer]:
+              - /url: /apps/dashboard/
+              - img [ref=e12]
+              - generic [ref=e13]: Dashboard
+          - listitem [ref=e14]:
+            - link "Files" [ref=e15] [cursor=pointer]:
+              - /url: /apps/files/
+              - img [ref=e16]
+              - generic [ref=e17]: Files
+          - listitem [ref=e18]:
+            - link "Photos" [ref=e19] [cursor=pointer]:
+              - /url: /apps/photos/
+              - img [ref=e20]
+              - generic [ref=e21]: Photos
+          - listitem [ref=e22]:
+            - link "Activity" [ref=e23] [cursor=pointer]:
+              - /url: /apps/activity/
+              - img [ref=e24]
+              - generic [ref=e25]: Activity
+          - listitem [ref=e26]:
+            - link "3D Viewer" [ref=e27] [cursor=pointer]:
+              - /url: /apps/threedviewer/
+              - img [ref=e28]
+              - generic [ref=e29]: 3D Viewer
+    - generic [ref=e30]:
+      - button "Unified search" [ref=e33] [cursor=pointer]:
+        - img [ref=e36]:
+          - img [ref=e37]
+      - generic "Notifications" [ref=e40]:
+        - button "Notifications" [ref=e41] [cursor=pointer]:
+          - img [ref=e44]:
+            - img [ref=e45]
+      - button "Search contacts" [ref=e48] [cursor=pointer]:
+        - img [ref=e51]:
+          - img [ref=e52]
+      - navigation "Settings menu" [ref=e54]:
+        - button "Settings menu" [ref=e55] [cursor=pointer]
+        - generic [ref=e59]: Avatar of admin
+  - generic [ref=e60]:
+    - heading "Dashboard" [level=1] [ref=e61]
+    - main [ref=e62]:
+      - heading "Good morning" [level=2] [ref=e63]
+      - list
+      - generic [ref=e65]:
+        - heading "Recommended files" [level=2] [ref=e67]: Recommended files
+        - list [ref=e71]:
+          - listitem [ref=e72]:
+            - generic "/test-cube.stl" [ref=e73] [cursor=pointer]:
+              - generic [ref=e75]:
+                - generic [ref=e76]: test-cube.stl
+                - generic [ref=e77]: Last updated a few seconds ago
+                - generic [ref=e78]: Path name /test-cube.stl
+          - listitem [ref=e79]:
+            - generic "/Documents/Readme.md" [ref=e80] [cursor=pointer]:
+              - generic [ref=e82]:
+                - generic [ref=e83]: Readme.md
+                - generic [ref=e84]: Last updated 2 minutes ago
+                - generic [ref=e85]: Path name /Documents/Readme.md
+          - listitem [ref=e86]:
+            - generic "/Photos/Readme.md" [ref=e87] [cursor=pointer]:
+              - generic [ref=e89]:
+                - generic [ref=e90]: Readme.md
+                - generic [ref=e91]: Last updated 2 minutes ago
+                - generic [ref=e92]: Path name /Photos/Readme.md
+          - listitem [ref=e93]:
+            - generic "/Readme.md" [ref=e94] [cursor=pointer]:
+              - generic [ref=e96]:
+                - generic [ref=e97]: Readme.md
+                - generic [ref=e98]: Last updated 2 minutes ago
+                - generic [ref=e99]: Path name /Readme.md
+          - listitem [ref=e100]:
+            - generic "/Templates/Meeting notes.md" [ref=e101] [cursor=pointer]:
+              - generic [ref=e103]:
+                - generic [ref=e104]: Meeting notes.md
+                - generic [ref=e105]: Last updated 2 minutes ago
+                - generic [ref=e106]: Path name /Templates/Meeting notes.md
+          - listitem [ref=e107]:
+            - generic "/Templates/Readme.md" [ref=e108] [cursor=pointer]:
+              - generic [ref=e110]:
+                - generic [ref=e111]: Readme.md
+                - generic [ref=e112]: Last updated 2 minutes ago
+                - generic [ref=e113]: Path name /Templates/Readme.md
+          - listitem [ref=e114]:
+            - generic "/Templates/Product plan.md" [ref=e115] [cursor=pointer]:
+              - generic [ref=e117]:
+                - generic [ref=e118]: Product plan.md
+                - generic [ref=e119]: Last updated 2 minutes ago
+                - generic [ref=e120]: Path name /Templates/Product plan.md
+      - button "Customize" [ref=e122] [cursor=pointer]:
+        - generic [ref=e123]:
+          - img [ref=e125]:
+            - img [ref=e126]
+          - generic [ref=e128]: Customize
+  - dialog [active] [ref=e129]:
+    - generic [ref=e135]: Welcome to Nextcloud!

@@ -5,7 +5,7 @@
 </template>
 
 <script>
-import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, shallowRef, onMounted, onBeforeUnmount, watch } from 'vue'
 import * as THREE from 'three'
 import { logger } from '../utils/logger.js'
 
@@ -24,13 +24,13 @@ export default {
 	emits: ['face-click'],
 	setup(props, { emit }) {
 		const containerRef = ref(null)
-		const cubeScene = ref(null)
-		const cubeCamera = ref(null)
-		const cubeRenderer = ref(null)
-		const cubeMesh = ref(null)
+		const cubeScene = shallowRef(null)
+		const cubeCamera = shallowRef(null)
+		const cubeRenderer = shallowRef(null)
+		const cubeMesh = shallowRef(null)
 		const animationFrameId = ref(null)
-		const raycaster = ref(new THREE.Raycaster())
-		const mouse = ref(new THREE.Vector2())
+		const raycaster = shallowRef(new THREE.Raycaster())
+		const mouse = shallowRef(new THREE.Vector2())
 
 		// Face labels and their corresponding view positions
 		const faceViews = {
