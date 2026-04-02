@@ -3,7 +3,7 @@
  * Handles 3D annotation creation, management, and interaction
  */
 
-import { ref, shallowRef, computed, readonly } from 'vue'
+import { ref, shallowRef, computed, readonly, toRaw } from 'vue'
 import * as THREE from 'three'
 import { logger } from '../utils/logger.js'
 import { logError } from '../utils/error-handler.js'
@@ -363,18 +363,20 @@ export function useAnnotation() {
 		if (index !== -1) {
 			const annotation = annotations.value[index]
 
-			// Remove visual elements using stored references
+			// Remove visual elements using stored references (toRaw to match Three.js scene reference)
 			if (annotation.pointMesh && annotationGroup.value) {
-				annotationGroup.value.remove(annotation.pointMesh)
-				const pointIndex = pointMeshes.value.indexOf(annotation.pointMesh)
+				annotationGroup.value.remove(toRaw(annotation.pointMesh))
+				const rawPoint = toRaw(annotation.pointMesh)
+				const pointIndex = pointMeshes.value.findIndex(m => toRaw(m) === rawPoint)
 				if (pointIndex !== -1) {
 					pointMeshes.value.splice(pointIndex, 1)
 				}
 			}
 
 			if (annotation.textMesh && annotationGroup.value) {
-				annotationGroup.value.remove(annotation.textMesh)
-				const textIndex = textMeshes.value.indexOf(annotation.textMesh)
+				annotationGroup.value.remove(toRaw(annotation.textMesh))
+				const rawText = toRaw(annotation.textMesh)
+				const textIndex = textMeshes.value.findIndex(m => toRaw(m) === rawText)
 				if (textIndex !== -1) {
 					textMeshes.value.splice(textIndex, 1)
 				}

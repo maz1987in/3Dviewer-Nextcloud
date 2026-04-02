@@ -1,4 +1,4 @@
-import { ref, shallowRef, computed, readonly } from 'vue'
+import { ref, shallowRef, computed, readonly, toRaw } from 'vue'
 import * as THREE from 'three'
 import { logger } from '../utils/logger.js'
 import { logError } from '../utils/error-handler.js'
@@ -607,11 +607,11 @@ export function useMeasurement() {
 				// points that might be shared with other measurements
 				// For safety, we'll remove line and text, but keep point cleanup simple
 
-				// Remove line mesh
+				// Remove line mesh (toRaw to match Three.js scene reference)
 				if (index < lineMeshes.value.length) {
 					const lineMesh = lineMeshes.value[index]
 					if (lineMesh) {
-						measurementGroup.value.remove(lineMesh)
+						measurementGroup.value.remove(toRaw(lineMesh))
 						lineMeshes.value.splice(index, 1)
 					}
 				}
@@ -620,7 +620,7 @@ export function useMeasurement() {
 				if (index < textMeshes.value.length) {
 					const textMesh = textMeshes.value[index]
 					if (textMesh) {
-						measurementGroup.value.remove(textMesh)
+						measurementGroup.value.remove(toRaw(textMesh))
 						textMeshes.value.splice(index, 1)
 					}
 				}
@@ -633,7 +633,7 @@ export function useMeasurement() {
 					if (pointIndex < pointMeshes.value.length) {
 						const pointMesh = pointMeshes.value[pointIndex]
 						if (pointMesh) {
-							measurementGroup.value.remove(pointMesh)
+							measurementGroup.value.remove(toRaw(pointMesh))
 						}
 						pointMeshes.value.splice(pointIndex, 1)
 					}
