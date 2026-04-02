@@ -613,7 +613,9 @@ export default {
 
 				// Start animation loop
 				animate()
-			// Setup event listeners
+
+				// Setup event listeners (click for measurement/annotation, resize observer)
+				setupEventListeners()
 			} catch (error) {
 				initializing.value = false // Hide loading on error too
 				logger.error('ThreeViewer', 'Initialization failed', error)
