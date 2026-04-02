@@ -547,22 +547,23 @@ export function useModelLoading() {
 
 	/**
 	 * Handle loading errors
-	 * @param {Error} error - Error object
+	 * @param {Error} loadError - Error object
 	 * @param {string} filename - File name
 	 */
-	const handleLoadError = (error, filename) => {
+	const handleLoadError = (loadError, filename) => {
 		// Don't treat abort as an error
-		if (error.name === 'AbortError' || error.message?.includes('aborted')) {
+		if (loadError.name === 'AbortError' || loadError.message?.includes('aborted')) {
 			loading.value = false
 			logger.info('useModelLoading', 'Load cancelled by user', { filename })
 			return
 		}
 
 		loading.value = false
-		error.value = error
-		errorState.value = createErrorState(error, (key) => key) // Simple translation function
+		error.value = loadError
+		errorState.value = createErrorState(loadError, (key) => key) // Simple translation function
 
-		logger.info('useModelLoading', 'Model loading failed', error, 'error', {
+		logger.error('useModelLoading', 'Model loading failed', {
+			error: loadError,
 			filename,
 			retryCount: retryCount.value,
 			maxRetries: maxRetries.value,

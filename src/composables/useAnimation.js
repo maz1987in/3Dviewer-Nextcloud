@@ -1,5 +1,5 @@
 import { ref, shallowRef, computed } from 'vue'
-import { AnimationMixer } from 'three'
+import { AnimationMixer, LoopRepeat, LoopOnce } from 'three'
 import { logger } from '../utils/logger.js'
 
 /**
@@ -44,7 +44,7 @@ export function useAnimation() {
 			// Create clip actions for all animations
 			actions.value = animations.map((clip) => {
 				const action = mixer.value.clipAction(clip)
-				action.setLoop(AnimationMixer.LoopRepeat) // Default to looping
+				action.setLoop(LoopRepeat) // Default to looping
 				return action
 			})
 
@@ -139,8 +139,8 @@ export function useAnimation() {
 
 		isLooping.value = !isLooping.value
 		const loopMode = isLooping.value
-			? AnimationMixer.LoopRepeat
-			: AnimationMixer.LoopOnce
+			? LoopRepeat
+			: LoopOnce
 
 		actions.value.forEach((action) => {
 			action.setLoop(loopMode)

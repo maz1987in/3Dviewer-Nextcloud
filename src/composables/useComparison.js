@@ -5,7 +5,7 @@
 
 import { ref, shallowRef, computed, readonly, markRaw, toRaw } from 'vue'
 import * as THREE from 'three'
-import { AnimationMixer } from 'three'
+import { AnimationMixer, LoopRepeat } from 'three'
 import { generateUrl } from '@nextcloud/router'
 import { getFilePickerBuilder } from '@nextcloud/dialogs'
 import { loadModelByExtension } from '../loaders/registry.js'
@@ -1163,7 +1163,7 @@ export function useComparison() {
 			// Create clip actions for all animations
 			comparisonActions.value = animations.map((clip) => {
 				const action = comparisonMixer.value.clipAction(clip)
-				action.setLoop(AnimationMixer.LoopRepeat) // Default to looping
+				action.setLoop(LoopRepeat) // Default to looping
 				return action
 			})
 

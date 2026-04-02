@@ -1,8 +1,8 @@
 # 3D Viewer for Nextcloud
 
-[![Version](https://img.shields.io/badge/version-2.3.4-blue)](https://github.com/maz1987in/3Dviewer-Nextcloud/releases)
+[![Version](https://img.shields.io/badge/version-3.0.0-blue)](https://github.com/maz1987in/3Dviewer-Nextcloud/releases)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-orange)](LICENSE)
-[![Nextcloud](https://img.shields.io/badge/Nextcloud-30--32-0082c9)](https://nextcloud.com)
+[![Nextcloud](https://img.shields.io/badge/Nextcloud-31--34-0082c9)](https://nextcloud.com)
 [![Update nextcloud/ocp](https://github.com/maz1987in/3Dviewer-Nextcloud/actions/workflows/update-nextcloud-ocp-matrix.yml/badge.svg)](https://github.com/maz1987in/3Dviewer-Nextcloud/actions/workflows/update-nextcloud-ocp-matrix.yml)
 [![Release](https://github.com/maz1987in/3Dviewer-Nextcloud/actions/workflows/release.yml/badge.svg)](https://github.com/maz1987in/3Dviewer-Nextcloud/actions/workflows/release.yml)
 
@@ -190,7 +190,7 @@ Contributions are welcome! Please see our [Contributing Guide](CONTRIBUTING.md) 
 
 ## 📄 License
 
-Copyright © 2025 Mazin Al Saadi. Licensed under AGPL-3.0-or-later.
+Copyright © 2025-2026 Mazin Al Saadi. Licensed under AGPL-3.0-or-later.
 
 This project is licensed under the **AGPL-3.0 License**. See [LICENSE](LICENSE) for details.
 
@@ -203,17 +203,29 @@ This project is licensed under the **AGPL-3.0 License**. See [LICENSE](LICENSE) 
 
 ## 📊 Version
 
-**Current Version**: 2.3.3
-**Released**: January 15, 2026
+**Current Version**: 3.0.0
+**Released**: April 2, 2026
+**Requires**: Nextcloud 31 -- 34
 
-### What's New in 2.3.3
+### What's New in 3.0.0
 
-**New Features:**
-- **Automatic Thumbnail Generation** - 3D model thumbnails are now automatically generated when viewing files
-  - Smart content-aware cropping for clean, focused previews
-  - Thumbnails stored in app data (not in user files) to avoid cluttering recent files
-  - User setting to enable/disable in Personal Settings → 3D Viewer → Thumbnails
-  - "Clear thumbnails" button to delete all stored thumbnails
+**Vue 3 Migration:**
+- Full migration from Vue 2 to Vue 3 with `@nextcloud/vue` 9.x
+- ViewerWrapper bridge pattern for compatibility with Nextcloud Viewer's Vue 2 runtime
+- Three.js + Vue 3 reactivity patterns (`shallowRef`, `toRaw()`) for stable 3D rendering
+
+**Bug Fixes:**
+- Animation loop toggle now works correctly (was silently broken)
+- Model loading errors are now properly shown to the user
+- Scene lights no longer leak on re-setup
+- Toast auto-dismiss works reliably
+- Settings page form controls (checkboxes, selects, text fields) are fully functional
+- Mobile touch event listeners are properly cleaned up
+- Loader and viewer registration errors are now logged
+
+**Compatibility:**
+- Nextcloud 31 -- 34 (NC 31+ required for `@nextcloud/vue` 9.x)
+- Security vulnerabilities reduced from 43 to 25
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed release notes and complete version history.
 

@@ -5,7 +5,7 @@ All notable changes to the 3D Viewer Nextcloud app will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [3.0.0] - 2026-04-02
 
 ### Changed
 - **Dependencies**: Updated development dependencies
@@ -21,20 +21,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `main.js`: `new Vue()` + `Vue.mixin()` → `createApp()` + `globalProperties`
   - `settings-personal.js`: `Vue.extend()` → `createApp()`
   - `viewer-api.js`: `new Vue()` / `$mount()` / `$destroy()` → `createApp()` / `app.mount()` / `app.unmount()`
+  - `ViewerWrapper.js`: New Vue 2 bridge component — Nextcloud Viewer bundles Vue 2 internally, so a plain JS wrapper renders in Vue 2 and creates an isolated Vue 3 `createApp()` inside for the real ViewerComponent
   - Removed `@vue/vue2-jest` (Vue 2 specific)
 - **Nextcloud 34 compatibility**: `min-version` 31, `max-version` 34 (`@nextcloud/vue` v9.x requires NC 31+)
 - **Vue component imports**: Migrated deep imports (`@nextcloud/vue/dist/Components/...`) to barrel imports (`@nextcloud/vue`) for forward compatibility with `@nextcloud/vue` v9
 - **Template modifiers**: Removed deprecated `.native` event modifiers from Vue components (compatible with Vue 2.7+, required for Vue 3)
+- **@nextcloud/vue v9 API migration**: Updated all form component bindings to Vue 3 API
+  - `NcCheckboxRadioSwitch`: `:checked` → `:model-value`, `@update:checked` → `@update:model-value`
+  - `NcTextField`: `:value` → `:model-value`, `@update:value` → `@update:model-value`
+  - `NcSelect`: `:value` → `:model-value`, `@input` → `@update:model-value`
+  - `NcSettingsSelectGroup`: `:value` → `:model-value`, `@update:value` → `@update:model-value`
 - **Bundle budget**: Updated index chunk thresholds in bundle size checker
 
 ### Fixed
 - **npm audit**: Resolved dependency vulnerabilities via `npm audit fix` ([#77](https://github.com/maz1987in/3Dviewer-Nextcloud/pull/77))
 - **npm audit**: Applied non-breaking security patches, reducing vulnerabilities from 43 to 25 (42% reduction)
 - **Lint**: Fixed `one-var` error in `useThumbnailCapture.js`
+- **Animation loop toggle broken**: `AnimationMixer.LoopRepeat`/`LoopOnce` are module-level constants, not static properties — `setLoop(undefined)` made loop toggling non-functional. Imported `LoopRepeat`/`LoopOnce` directly from `'three'` (`useAnimation.js`, `useComparison.js`)
+- **Model load errors invisible to user**: Variable shadowing in `handleLoadError` — parameter `error` shadowed the `error` ref, so `error.value = error` was a no-op. Renamed parameter to `loadError`, fixed logger level from `info` to `error` (`useModelLoading.js`)
+- **Lights leak on re-setup**: Vue 3 proxy wraps items in `ref([])` arrays — `scene.remove(proxy)` doesn't match raw Three.js objects via `indexOf`. Added `toRaw()` for light/helper removal and `instanceof` checks (`useScene.js`)
+- **Toast auto-dismiss broken**: `ToastContainer` was mutating the `toasts` prop directly (setting `progress`/`paused` on prop objects), which triggers Vue 3 warnings and breaks in strict mode. Moved progress and paused state to local `data()` (`ToastContainer.vue`)
+- **Mobile touch listener leak**: `setupPinchZoom()` and `setupDoubleTapReset()` added document event listeners but never stored references for cleanup. Stored refs in `eventListeners` and added removal in `dispose()` (`useMobile.js`)
+- **Settings page form controls not responding**: `@nextcloud/vue` 9.x changed all form component props from `checked`/`value` to `modelValue`. Updated all bindings in `PersonalSettings.vue`
+- **CSS nesting bug**: `.select-group-row` rule was nested inside `.setting-row` braces — silently dropped in browsers without CSS Nesting support. Moved to separate rule block (`PersonalSettings.vue`)
+- **Viewer registration errors silent**: Both `registerViewerHandler` and `registerViewerHandlerLegacy` had empty catch blocks — any registration failure was invisible. Added `logger.error()` calls (`viewer-api.js`)
+- **Loader errors invisible**: All `BaseLoader` logging methods (`logInfo`, `logWarning`, `logError`) had empty bodies. Delegated to project logger (`BaseLoader.js`)
 
 ### Technical
 - PHP CS Fixer: Blank lines before returns, doc comment whitespace, type-cast spacing, removed unused imports
 - OpenAPI spec: Regenerated with slicer and thumbnail controller tags and updated description
+- Three.js + Vue 3 pattern: `shallowRef` for single Three.js objects, `ref` for arrays, `toRaw()` when passing proxied objects to Three.js APIs
+- Vue 3 Maps pattern: Maps moved to `created()` hook as non-reactive instance properties (`this._timers`) to avoid Vue 3 proxy breaking `Map.has()`/`Map.get()`
 
 ## [2.3.4] - 2026-01-18
 

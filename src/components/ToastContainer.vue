@@ -14,7 +14,7 @@
 				<div class="msg">
 					{{ toast.message }}
 				</div>
-				<div v-if="toast.timeout > 0" class="progress-bar" :style="{ '--progress': toast.progress + '%' }" />
+				<div v-if="toast.timeout > 0" class="progress-bar" :style="{ '--progress': (progressValues[toast.id] || 0) + '%' }" />
 				<button type="button"
 					class="close"
 					:aria-label="t('threedviewer','Dismiss')"
@@ -34,7 +34,10 @@ export default {
 	},
 	emits: ['dismiss'],
 	data() {
-		return {}
+		return {
+			progressValues: {}, // { [toastId]: number } — local state, avoids mutating prop
+			pausedState: {}, // { [toastId]: boolean }
+		}
 	},
 	created() {
 		// Keep Maps outside reactive data — Vue 3 proxy breaks Map.has()/Map.get()
@@ -79,11 +82,8 @@ export default {
 				remaining -= 50
 				const progress = Math.max(0, Math.min(100, ((duration - remaining) / duration) * 100))
 
-				// Update the toast object directly (Vue reactivity)
-				const toastIndex = this.toasts.findIndex(t => t.id === toast.id)
-				if (toastIndex !== -1) {
-					this.toasts[toastIndex].progress = progress
-				}
+				// Track progress locally (avoids mutating the toasts prop)
+				this.progressValues[toast.id] = progress
 			}, 50)
 
 			this._progressIntervals.set(toast.id, progressInterval)
@@ -109,6 +109,10 @@ export default {
 				clearInterval(progressInterval)
 				this._progressIntervals.delete(toastId)
 			}
+
+			// Clean up local state
+			delete this.progressValues[toastId]
+			delete this.pausedState[toastId]
 		},
 
 		pauseAutoHide(toastId) {
@@ -119,16 +123,15 @@ export default {
 				clearTimeout(timer)
 				clearInterval(progressInterval)
 
-				// Store the paused state
-				const pausedToast = this.toasts.find(t => t.id === toastId)
-				if (pausedToast) pausedToast.paused = true
+				// Track paused state locally (avoids mutating the toasts prop)
+				this.pausedState[toastId] = true
 			}
 		},
 
 		resumeAutoHide(toastId) {
 			const toast = this.toasts.find(t => t.id === toastId)
-			if (toast && toast.paused && toast.timeout > 0) {
-				toast.paused = false
+			if (toast && this.pausedState[toastId] && toast.timeout > 0) {
+				this.pausedState[toastId] = false
 				this.setupAutoHide(toast)
 			}
 		},

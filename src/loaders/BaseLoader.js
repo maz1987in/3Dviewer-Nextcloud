@@ -22,6 +22,7 @@ import {
 import {
 	LOADING_STAGES,
 } from '../constants/index.js'
+import { logger } from '../utils/logger.js'
 
 /**
  * Base loader class with common functionality
@@ -192,7 +193,7 @@ export class BaseLoader {
 	 * @param {object} data - Additional data
 	 */
 	logInfo(message, data = {}) {
-		// Info logging disabled
+		logger.info(this.loaderName, message, data)
 	}
 
 	/**
@@ -201,7 +202,7 @@ export class BaseLoader {
 	 * @param {object} data - Additional data
 	 */
 	logWarning(message, data = {}) {
-		// Warning logging disabled
+		logger.warn(this.loaderName, message, data)
 	}
 
 	/**
@@ -210,7 +211,7 @@ export class BaseLoader {
 	 * @param {Error} error - Error object
 	 */
 	logError(message, error) {
-		// Error logging disabled
+		logger.error(this.loaderName, message, error)
 	}
 
 	/**

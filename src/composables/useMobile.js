@@ -343,6 +343,10 @@ export function useMobile() {
 			}
 		}
 
+		// Store refs for cleanup in dispose()
+		eventListeners.value.pinchZoomStart = handleTouchStart
+		eventListeners.value.pinchZoomMove = handleTouchMove
+
 		document.addEventListener('touchstart', handleTouchStart, { passive: false })
 		document.addEventListener('touchmove', handleTouchMove, { passive: false })
 
@@ -375,6 +379,9 @@ export function useMobile() {
 				lastTapTime = currentTime
 			}
 		}
+
+		// Store ref for cleanup in dispose()
+		eventListeners.value.doubleTapEnd = handleTouchEnd
 
 		document.addEventListener('touchend', handleTouchEnd, { passive: false })
 		logger.info('useMobile', 'Double tap reset setup complete')
@@ -511,6 +518,15 @@ export function useMobile() {
 		}
 		if (eventListeners.value.touchEnd) {
 			document.removeEventListener('touchend', eventListeners.value.touchEnd)
+		}
+		if (eventListeners.value.pinchZoomStart) {
+			document.removeEventListener('touchstart', eventListeners.value.pinchZoomStart)
+		}
+		if (eventListeners.value.pinchZoomMove) {
+			document.removeEventListener('touchmove', eventListeners.value.pinchZoomMove)
+		}
+		if (eventListeners.value.doubleTapEnd) {
+			document.removeEventListener('touchend', eventListeners.value.doubleTapEnd)
 		}
 
 		// Clear references

@@ -31,8 +31,8 @@
 					<div v-if="field.type === 'boolean'" class="setting-row">
 						<div class="setting-label">
 							<NcCheckboxRadioSwitch
-								:checked="getValue(key, fieldKey, field.default)"
-								@update:checked="val => updateValue(key, fieldKey, val)">
+								:model-value="getValue(key, fieldKey, field.default)"
+								@update:model-value="val => updateValue(key, fieldKey, val)">
 								{{ field.label }}
 							</NcCheckboxRadioSwitch>
 							<span v-if="field.description" class="setting-description">{{ field.description }}</span>
@@ -60,14 +60,14 @@
 						<NcTextField
 							:id="`setting-${key}-${fieldKey}`"
 							class="setting-input-number"
-							:value="getValue(key, fieldKey, field.default)"
+							:model-value="getValue(key, fieldKey, field.default)"
 							type="number"
 							:label="field.label"
 							:hide-label="true"
 							:step="field.step || 1"
 							:min="field.min"
 							:max="field.max"
-							@update:value="val => updateValue(key, fieldKey, Number(val))" />
+							@update:model-value="val => updateValue(key, fieldKey, Number(val))" />
 					</div>
 
 					<!-- Select Input -->
@@ -77,9 +77,9 @@
 							<span v-if="field.description" class="setting-description">{{ field.description }}</span>
 						</div>
 						<NcSelect
-							:value="{ label: field.options.find(o => o.value === getValue(key, fieldKey, field.default))?.label || getValue(key, fieldKey, field.default), value: getValue(key, fieldKey, field.default) }"
+							:model-value="{ label: field.options.find(o => o.value === getValue(key, fieldKey, field.default))?.label || getValue(key, fieldKey, field.default), value: getValue(key, fieldKey, field.default) }"
 							:options="field.options"
-							@input="val => updateValue(key, fieldKey, val.value)" />
+							@update:model-value="val => updateValue(key, fieldKey, val.value)" />
 					</div>
 
 					<!-- Slider Input -->
@@ -113,9 +113,9 @@
 							<span v-if="field.description" class="setting-description">{{ field.description }}</span>
 						</div>
 						<NcSettingsSelectGroup
-							:value="[getValue(key, fieldKey, field.default)]"
+							:model-value="[getValue(key, fieldKey, field.default)]"
 							:options="field.options"
-							@update:value="val => updateValue(key, fieldKey, Array.isArray(val) ? val[0] : val)" />
+							@update:model-value="val => updateValue(key, fieldKey, Array.isArray(val) ? val[0] : val)" />
 					</div>
 
 					<!-- Multi-select Input -->
@@ -125,10 +125,10 @@
 							<span v-if="field.description" class="setting-description">{{ field.description }}</span>
 						</div>
 						<NcSelect
-							:value="formatMultiValue(field.options, getValue(key, fieldKey, field.default))"
+							:model-value="formatMultiValue(field.options, getValue(key, fieldKey, field.default))"
 							:options="field.options"
 							:multiple="true"
-							@input="val => updateValue(key, fieldKey, Array.isArray(val) ? val.map(v => v.value || v) : [])" />
+							@update:model-value="val => updateValue(key, fieldKey, Array.isArray(val) ? val.map(v => v.value || v) : [])" />
 					</div>
 
 					<!-- Custom Re-index Field -->
@@ -788,12 +788,12 @@ export default {
 	align-items: center;
 	gap: 32px;
 	min-height: 44px;
+}
 
 .select-group-row {
 	flex-direction: column;
 	align-items: stretch;
 	gap: 16px;
-}
 }
 
 .setting-label {

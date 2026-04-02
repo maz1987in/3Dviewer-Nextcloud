@@ -1,5 +1,6 @@
 import { createApp, h } from 'vue'
 import { generateUrl } from '@nextcloud/router'
+import { logger } from '../../utils/logger.js'
 // Nextcloud Viewer API integration for 3D models
 // This replaces the click-based approach with proper API integration
 
@@ -159,6 +160,7 @@ export function registerViewerHandler() {
 		return true
 
 	} catch (error) {
+		logger.error('ViewerAPI', 'Failed to register viewer handler', error)
 		return false
 	}
 }
@@ -265,6 +267,7 @@ export function registerViewerHandlerLegacy() {
 		return true
 
 	} catch (error) {
+		logger.error('ViewerAPI', 'Failed to register legacy viewer handler', error)
 		return false
 	}
 }

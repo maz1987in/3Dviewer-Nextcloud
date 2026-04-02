@@ -3,7 +3,7 @@
  * Handles Three.js scene setup, lighting, helpers, and scene management
  */
 
-import { ref, shallowRef, computed } from 'vue'
+import { ref, shallowRef, computed, toRaw } from 'vue'
 import * as THREE from 'three'
 import { disposeObject } from '../utils/three-utils.js'
 import { logger } from '../utils/logger.js'
@@ -106,9 +106,9 @@ export function useScene() {
 	const setupLighting = (options = {}) => {
 		if (!scene.value) return
 
-		// Clear existing lights
+		// Clear existing lights (toRaw needed — Vue 3 proxy doesn't match raw Three.js refs)
 		lights.value.forEach(light => {
-			scene.value.remove(light)
+			scene.value.remove(toRaw(light))
 		})
 		lights.value = []
 
@@ -189,9 +189,9 @@ export function useScene() {
 	const setupHelpers = (options = {}) => {
 		if (!scene.value) return
 
-		// Clear existing helpers
+		// Clear existing helpers (toRaw needed — Vue 3 proxy doesn't match raw Three.js refs)
 		helpers.value.forEach(helper => {
-			scene.value.remove(helper)
+			scene.value.remove(toRaw(helper))
 		})
 		helpers.value = []
 
@@ -220,13 +220,14 @@ export function useScene() {
 		// Light helpers (for debugging)
 		if (options.lightHelpers) {
 			lights.value.forEach(light => {
+				const rawLight = toRaw(light)
 				let helper = null
-				if (light instanceof THREE.DirectionalLight) {
-					helper = new THREE.DirectionalLightHelper(light, 1)
-				} else if (light instanceof THREE.PointLight) {
-					helper = new THREE.PointLightHelper(light, 1)
-				} else if (light instanceof THREE.HemisphereLight) {
-					helper = new THREE.HemisphereLightHelper(light, 1)
+				if (rawLight instanceof THREE.DirectionalLight) {
+					helper = new THREE.DirectionalLightHelper(rawLight, 1)
+				} else if (rawLight instanceof THREE.PointLight) {
+					helper = new THREE.PointLightHelper(rawLight, 1)
+				} else if (rawLight instanceof THREE.HemisphereLight) {
+					helper = new THREE.HemisphereLightHelper(rawLight, 1)
 				}
 
 				if (helper) {
@@ -389,7 +390,7 @@ export function useScene() {
 	const removeObject = (object) => {
 		if (!scene.value || !object) return
 
-		scene.value.remove(object)
+		scene.value.remove(toRaw(object))
 
 		// Clear raycast cache since scene structure changed
 		clearRaycastCache()
