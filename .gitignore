@@ -35,6 +35,7 @@ dist/
 # ---- Playwright / Test Artifacts ----
 test-results/
 playwright-report/
+.playwright-mcp/
 blob-report/
 .nyc_output/
 coverage/
