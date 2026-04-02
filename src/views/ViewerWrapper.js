@@ -10,6 +10,9 @@
  * runtime can create it normally. On mount, it dynamically imports
  * Vue 3 and the real ViewerComponent, then creates an isolated Vue 3
  * app inside its own DOM element.
+ *
+ * Props are bridged via a Vue 3 reactive() object that the Vue 3
+ * render function tracks. A Vue 2 watcher syncs prop changes into it.
  */
 export default {
 	// Vue 2 render function — receives h (createElement) from Vue 2 runtime
@@ -39,16 +42,19 @@ export default {
 	data() {
 		return {
 			_vue3App: null,
+			_bridge: null,
 		}
 	},
 
 	watch: {
-		active(val) {
-			// Forward active prop changes to the Vue 3 app via re-render
-			if (this._vue3App && this._vue3Render) {
-				this._vue3Render()
-			}
-		},
+		// Sync all prop changes into the Vue 3 reactive bridge
+		davPath(v) { if (this._bridge) this._bridge.davPath = v },
+		filename(v) { if (this._bridge) this._bridge.filename = v },
+		basename(v) { if (this._bridge) this._bridge.basename = v },
+		mime(v) { if (this._bridge) this._bridge.mime = v },
+		fileid(v) { if (this._bridge) this._bridge.fileid = v },
+		active(v) { if (this._bridge) this._bridge.active = v },
+		files(v) { if (this._bridge) this._bridge.files = v },
 	},
 
 	mounted() {
@@ -66,26 +72,39 @@ export default {
 	methods: {
 		async mountVue3App() {
 			try {
-				const [{ createApp, h }, { default: ViewerComponent }] = await Promise.all([
+				const [{ createApp, reactive, h }, { default: ViewerComponent }] = await Promise.all([
 					import('vue'),
 					import('./ViewerComponent.vue'),
 				])
 
 				// Use global translation functions set by main.js
-				const translate = window.t || ((app, text) => text)
-				const translatePlural = window.n || ((app, singular) => singular)
+				const translate = window.t || ((appId, text) => text)
+				const translatePlural = window.n || ((appId, singular) => singular)
+
+				// Create a Vue 3 reactive bridge — the Vue 3 render function
+				// tracks this object, so changes trigger re-renders automatically
+				const bridge = reactive({
+					davPath: this.davPath,
+					filename: this.filename,
+					basename: this.basename,
+					mime: this.mime,
+					fileid: this.fileid,
+					active: this.active,
+					files: this.files,
+				})
+				this._bridge = bridge
 
 				const self = this
 				const app = createApp({
 					render() {
 						return h(ViewerComponent, {
-							davPath: self.davPath,
-							filename: self.filename,
-							basename: self.basename,
-							mime: self.mime,
-							fileid: self.fileid,
-							active: self.active,
-							files: self.files,
+							davPath: bridge.davPath,
+							filename: bridge.filename,
+							basename: bridge.basename,
+							mime: bridge.mime,
+							fileid: bridge.fileid,
+							active: bridge.active,
+							files: bridge.files,
 							'onUpdate:loaded': (val) => self.$emit('update:loaded', val),
 							onError: (err) => self.$emit('error', err),
 							'onPush-toast': (msg) => self.$emit('push-toast', msg),
@@ -101,32 +120,6 @@ export default {
 				const container = this.$refs.container || this.$el
 				app.mount(container)
 				this._vue3App = app
-				// Store render trigger for prop updates
-				this._vue3Render = () => {
-					// Force re-render by unmounting and remounting
-					app.unmount()
-					const newApp = createApp({
-						render() {
-							return h(ViewerComponent, {
-								davPath: self.davPath,
-								filename: self.filename,
-								basename: self.basename,
-								mime: self.mime,
-								fileid: self.fileid,
-								active: self.active,
-								files: self.files,
-								'onUpdate:loaded': (val) => self.$emit('update:loaded', val),
-								onError: (err) => self.$emit('error', err),
-								'onPush-toast': (msg) => self.$emit('push-toast', msg),
-								'onModel-loaded': (meta) => self.$emit('model-loaded', meta),
-							})
-						},
-					})
-					newApp.config.globalProperties.t = translate
-					newApp.config.globalProperties.n = translatePlural
-					newApp.mount(container)
-					self._vue3App = newApp
-				}
 			} catch (error) {
 				console.error('[ThreeDViewer] Failed to mount Vue 3 viewer:', error)
 				if (this.$el) {
