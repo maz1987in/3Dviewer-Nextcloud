@@ -4,7 +4,7 @@
 			:name="file.name"
 			:to="null"
 			:class="{ 'selected': file.id === selectedFileId }"
-			@click.native.prevent.stop="handleClick">
+			@click.prevent.stop="handleClick">
 			<template #icon>
 				<StarIcon v-if="file.isFavorite" />
 				<FileIcon v-else />
@@ -14,7 +14,7 @@
 </template>
 
 <script>
-import NcAppNavigationItem from '@nextcloud/vue/dist/Components/NcAppNavigationItem.js'
+import { NcAppNavigationItem } from '@nextcloud/vue'
 import FileIcon from 'vue-material-design-icons/File.vue'
 import StarIcon from 'vue-material-design-icons/Star.vue'
 

@@ -17,7 +17,7 @@
 						:title="item.label"
 						:href="index < breadcrumbItems.length - 1 ? `#breadcrumb-${index}` : null"
 						:disable-drop="true"
-						@click.native="handleBreadcrumbClick(index, item, $event)" />
+						@click="handleBreadcrumbClick(index, item, $event)" />
 				</NcBreadcrumbs>
 				<!-- View Toggle (always show in breadcrumb area) -->
 				<div v-if="showViewToggle" class="view-toggle">
@@ -331,9 +331,7 @@
 </template>
 
 <script>
-import NcEmptyContent from '@nextcloud/vue/dist/Components/NcEmptyContent.js'
-import NcBreadcrumbs from '@nextcloud/vue/dist/Components/NcBreadcrumbs.js'
-import NcBreadcrumb from '@nextcloud/vue/dist/Components/NcBreadcrumb.js'
+import { NcEmptyContent, NcBreadcrumbs, NcBreadcrumb } from '@nextcloud/vue'
 import FileIcon from 'vue-material-design-icons/File.vue'
 import FileTypeIcon from 'vue-material-design-icons/FileCode.vue'
 import CalendarIcon from 'vue-material-design-icons/Calendar.vue'

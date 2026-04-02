@@ -72,7 +72,10 @@ export function useThumbnailCapture() {
 		const width = tempCanvas.width
 		const height = tempCanvas.height
 
-		let minX = width, minY = height, maxX = 0, maxY = 0
+		let minX = width
+		let minY = height
+		let maxX = 0
+		let maxY = 0
 
 		// Get background color from corners
 		const getPixel = (x, y) => {

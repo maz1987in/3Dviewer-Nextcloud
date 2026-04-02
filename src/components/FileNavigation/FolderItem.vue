@@ -4,7 +4,7 @@
 			:name="item.name || t('threedviewer', 'Root')"
 			:to="null"
 			:class="{ 'selected': isExpanded }"
-			@click.native.prevent.stop="toggleExpand">
+			@click.prevent.stop="toggleExpand">
 			<template #icon>
 				<FolderIcon />
 			</template>
@@ -26,7 +26,7 @@
 </template>
 
 <script>
-import NcAppNavigationItem from '@nextcloud/vue/dist/Components/NcAppNavigationItem.js'
+import { NcAppNavigationItem } from '@nextcloud/vue'
 import FolderIcon from 'vue-material-design-icons/Folder.vue'
 
 export default {

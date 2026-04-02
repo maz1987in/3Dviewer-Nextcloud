@@ -4,7 +4,7 @@
 			:name="type.name"
 			:to="null"
 			:class="{ 'selected': isExpanded }"
-			@click.native.prevent.stop="toggleExpand">
+			@click.prevent.stop="toggleExpand">
 			<template #icon>
 				<FileTypeIcon />
 			</template>
@@ -17,7 +17,7 @@
 </template>
 
 <script>
-import NcAppNavigationItem from '@nextcloud/vue/dist/Components/NcAppNavigationItem.js'
+import { NcAppNavigationItem } from '@nextcloud/vue'
 import FileTypeIcon from 'vue-material-design-icons/FileCode.vue'
 
 export default {

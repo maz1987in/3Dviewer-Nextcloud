@@ -13,9 +13,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `@babel/plugin-transform-runtime`: ^7.28.5 → ^7.29.0
   - `@babel/preset-env`: ^7.28.6 → ^7.29.0
   - `@playwright/test`: ^1.56.1 → ^1.58.2
+  - `jest-environment-jsdom`: ^29.7.0 → ^30.3.0
+- **Nextcloud 33 compatibility**: Bumped `max-version` to 33 in `appinfo/info.xml`
+- **Vue component imports**: Migrated deep imports (`@nextcloud/vue/dist/Components/...`) to barrel imports (`@nextcloud/vue`) for forward compatibility with `@nextcloud/vue` v9
+- **Template modifiers**: Removed deprecated `.native` event modifiers from Vue components (compatible with Vue 2.7+, required for Vue 3)
+- **Bundle budget**: Updated index chunk thresholds in bundle size checker
 
 ### Fixed
 - **npm audit**: Resolved dependency vulnerabilities via `npm audit fix` ([#77](https://github.com/maz1987in/3Dviewer-Nextcloud/pull/77))
+- **npm audit**: Applied non-breaking security patches, reducing vulnerabilities from 43 to 25 (42% reduction)
+- **Lint**: Fixed `one-var` error in `useThumbnailCapture.js`
 
 ### Technical
 - PHP CS Fixer: Blank lines before returns, doc comment whitespace, type-cast spacing, removed unused imports

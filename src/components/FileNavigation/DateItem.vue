@@ -6,7 +6,7 @@
 			:name="year.name"
 			:to="null"
 			:class="{ 'selected': isYearExpanded }"
-			@click.native.prevent.stop="toggleYearExpand">
+			@click.prevent.stop="toggleYearExpand">
 			<template #icon>
 				<CalendarIcon />
 			</template>
@@ -32,7 +32,7 @@
 				:name="month.name"
 				:to="null"
 				:class="{ 'selected': isMonthExpanded }"
-				@click.native.prevent.stop="toggleMonthExpand">
+				@click.prevent.stop="toggleMonthExpand">
 				<template #icon>
 					<CalendarIcon />
 				</template>
@@ -46,7 +46,7 @@
 </template>
 
 <script>
-import NcAppNavigationItem from '@nextcloud/vue/dist/Components/NcAppNavigationItem.js'
+import { NcAppNavigationItem } from '@nextcloud/vue'
 import CalendarIcon from 'vue-material-design-icons/Calendar.vue'
 
 export default {

@@ -8,7 +8,7 @@
 				:name="mode.name"
 				:to="null"
 				:class="{ 'active': currentSort === mode.id }"
-				@click.native.prevent.stop="changeSort(mode.id, $event)">
+				@click.prevent.stop="changeSort(mode.id, $event)">
 				<template #icon>
 					<component :is="mode.icon" />
 				</template>
@@ -43,9 +43,7 @@
 </template>
 
 <script>
-import NcAppNavigation from '@nextcloud/vue/dist/Components/NcAppNavigation.js'
-import NcAppNavigationItem from '@nextcloud/vue/dist/Components/NcAppNavigationItem.js'
-import NcEmptyContent from '@nextcloud/vue/dist/Components/NcEmptyContent.js'
+import { NcAppNavigation, NcAppNavigationItem, NcEmptyContent } from '@nextcloud/vue'
 
 import FolderIcon from 'vue-material-design-icons/Folder.vue'
 import FileIcon from 'vue-material-design-icons/File.vue'
