@@ -251,16 +251,7 @@ export function useMeasurement() {
 						textMesh.material.needsUpdate = true
 					}
 
-					// Update position with new yOffset to position label above the line
-					// Recalculate textScale and yOffset based on current visualScale
-					const modelMaxDim = visualScale.value / 0.005 // Reverse calculate max dimension from visual scale
-					const baseTextScale = Math.max(modelMaxDim * 0.02, 2) // At least 2% of model or 2 units minimum
-					const textScale = Math.min(baseTextScale, modelMaxDim * 0.1) // Cap at 10% of model size
-					const yOffset = textScale >= 2 ? 0.15 : 0.2 // Increased offset to position label above the line
-
-					// Reset position to midpoint and apply new yOffset
-					textMesh.position.copy(measurement.midpoint)
-					textMesh.position.y += textScale * yOffset
+					// Keep label at its current position — only text content changes when switching units
 				}
 			})
 		} catch (error) {
