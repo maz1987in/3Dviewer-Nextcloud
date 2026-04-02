@@ -1,17 +1,17 @@
 <template>
-	<div class="threedviewer-wrapper" :class="{ 'showing-progress': loadingProgress.show }">
+	<div class="threedviewer-wrapper" :class="{ 'showing-progress': loadingProgress?.show }">
 		<canvas ref="canvas" class="threedviewer-canvas" />
 
 		<!-- Progress bar for loading states -->
-		<div v-if="loadingProgress.show" class="threedviewer-progress">
-			<p>{{ loadingProgress.message }}</p>
+		<div v-if="loadingProgress?.show" class="threedviewer-progress">
+			<p>{{ loadingProgress?.message }}</p>
 			<NcProgressBar
-				:value="loadingProgress.value"
+				:value="loadingProgress?.value ?? 0"
 				:max="100"
 				:size="'small'"
-				:indeterminate="loadingProgress.indeterminate" />
-			<p v-if="loadingProgress.details">
-				{{ loadingProgress.details }}
+				:indeterminate="loadingProgress?.indeterminate ?? true" />
+			<p v-if="loadingProgress?.details">
+				{{ loadingProgress?.details }}
 			</p>
 		</div>
 
@@ -459,6 +459,17 @@ export default {
 				if (this.loadingCancelled) {
 					logger.info('ViewerComponent', 'Loading cancelled before init')
 					return
+				}
+
+				// Guard against missing canvas ref (render may have failed)
+				if (!this.$refs.canvas) {
+					logger.warn('ViewerComponent', 'Canvas ref not available, waiting for next tick')
+					await this.$nextTick()
+					if (!this.$refs.canvas) {
+						logger.error('ViewerComponent', 'Canvas ref still not available after nextTick')
+						this.$emit('error', new Error('Canvas element not available'))
+						return
+					}
 				}
 
 				this.updateProgress(true, 0, this.t('threedviewer', 'Initializing 3D viewer...'), '', false)

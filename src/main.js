@@ -53,7 +53,7 @@ if (globalThis?.OCA?.Viewer && !isHandlerAlreadyRegistered) {
 			id: VIEWER_HANDLER_ID,
 			group: '3d-models',
 			mimes: SUPPORTED_MIMES,
-			component: () => import(/* webpackChunkName: "threedviewer-viewer" */ './views/ViewerComponent.vue'),
+			component: () => import(/* webpackChunkName: "threedviewer-viewer" */ './views/ViewerWrapper.js'),
 			canCompare: false,
 		})
 		// Viewer handler registered successfully
