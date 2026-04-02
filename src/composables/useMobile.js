@@ -3,7 +3,7 @@
  * Handles mobile-specific touch controls, gestures, and interactions
  */
 
-import { ref, computed } from 'vue'
+import { ref, shallowRef, computed } from 'vue'
 import * as THREE from 'three'
 import { logger } from '../utils/logger.js'
 import { throttle } from '../utils/mathHelpers.js'
@@ -24,10 +24,10 @@ export function useMobile() {
 	const isPanning = ref(false)
 
 	// Gesture state
-	const gestureStartPos = ref(new THREE.Vector2())
-	const gestureCurrentPos = ref(new THREE.Vector2())
-	const gestureDelta = ref(new THREE.Vector2())
-	const gestureVelocity = ref(new THREE.Vector2())
+	const gestureStartPos = shallowRef(new THREE.Vector2())
+	const gestureCurrentPos = shallowRef(new THREE.Vector2())
+	const gestureDelta = shallowRef(new THREE.Vector2())
+	const gestureVelocity = shallowRef(new THREE.Vector2())
 
 	// Mobile UI state
 	const mobileHintsVisible = ref(true)

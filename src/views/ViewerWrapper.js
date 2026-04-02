@@ -66,11 +66,14 @@ export default {
 	methods: {
 		async mountVue3App() {
 			try {
-				const [{ createApp, h }, { default: ViewerComponent }, { translate, translatePlural }] = await Promise.all([
+				const [{ createApp, h }, { default: ViewerComponent }] = await Promise.all([
 					import('vue'),
 					import('./ViewerComponent.vue'),
-					import('@nextcloud/l10n'),
 				])
+
+				// Use global translation functions set by main.js
+				const translate = window.t || ((app, text) => text)
+				const translatePlural = window.n || ((app, singular) => singular)
 
 				const self = this
 				const app = createApp({

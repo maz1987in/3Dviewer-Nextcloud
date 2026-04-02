@@ -57,7 +57,7 @@ export function useCamera() {
 	const initialCameraPos = ref(null)
 	const baselineCameraPos = ref(null)
 	const baselineTarget = ref(null)
-	const initialTarget = ref(new THREE.Vector3(0, 0, 0))
+	const initialTarget = shallowRef(new THREE.Vector3(0, 0, 0))
 	const manuallyPositioned = ref(false)
 
 	// Camera projection state
@@ -72,7 +72,7 @@ export function useCamera() {
 	const rotationX = ref(0)
 	const rotationY = ref(0)
 	const distance = ref(23.35)
-	const modelCenter = ref(new THREE.Vector3(0, 0, 0))
+	const modelCenter = shallowRef(new THREE.Vector3(0, 0, 0))
 
 	// Auto-rotate state
 	const autoRotateEnabled = ref(false)

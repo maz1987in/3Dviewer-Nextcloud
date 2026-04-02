@@ -122,7 +122,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, shallowRef, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import * as THREE from 'three'
 import { logger } from '../utils/logger.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
@@ -168,14 +168,14 @@ export default {
 		const zoomInterval = ref(null)
 		const rotationInterval = ref(null)
 
-		// Three.js cube gizmo
-		const cubeScene = ref(null)
-		const cubeCamera = ref(null)
-		const cubeRenderer = ref(null)
-		const cubeMesh = ref(null)
+		// Three.js cube gizmo (shallowRef to avoid Vue 3 proxy wrapping Three.js objects)
+		const cubeScene = shallowRef(null)
+		const cubeCamera = shallowRef(null)
+		const cubeRenderer = shallowRef(null)
+		const cubeMesh = shallowRef(null)
 		const animationFrameId = ref(null)
-		const raycaster = ref(new THREE.Raycaster())
-		const mouse = ref(new THREE.Vector2())
+		const raycaster = shallowRef(new THREE.Raycaster())
+		const mouse = shallowRef(new THREE.Vector2())
 
 		// Configuration
 		const config = VIEWER_CONFIG.controller

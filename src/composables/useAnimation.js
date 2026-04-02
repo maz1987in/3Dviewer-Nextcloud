@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue'
+import { ref, shallowRef, computed } from 'vue'
 import { AnimationMixer } from 'three'
 import { logger } from '../utils/logger.js'
 
@@ -8,8 +8,8 @@ import { logger } from '../utils/logger.js'
  */
 export function useAnimation() {
 	// Animation state
-	const mixer = ref(null)
-	const actions = ref([])
+	const mixer = shallowRef(null)
+	const actions = shallowRef([])
 	const isPlaying = ref(false)
 	const isLooping = ref(true) // Default to looping
 	const currentTime = ref(0)

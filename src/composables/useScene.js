@@ -3,7 +3,7 @@
  * Handles Three.js scene setup, lighting, helpers, and scene management
  */
 
-import { ref, computed } from 'vue'
+import { ref, shallowRef, computed } from 'vue'
 import * as THREE from 'three'
 import { disposeObject } from '../utils/three-utils.js'
 import { logger } from '../utils/logger.js'
@@ -12,17 +12,17 @@ import { clearRaycastCache } from '../utils/modelScaleUtils.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
 
 export function useScene() {
-	// Scene state
-	const scene = ref(null)
-	const renderer = ref(null)
-	const grid = ref(null)
-	const axes = ref(null)
-	const lights = ref([])
-	const helpers = ref([])
+	// Scene state (shallowRef to avoid Vue 3 proxy wrapping Three.js objects)
+	const scene = shallowRef(null)
+	const renderer = shallowRef(null)
+	const grid = shallowRef(null)
+	const axes = shallowRef(null)
+	const lights = shallowRef([])
+	const helpers = shallowRef([])
 
 	// Scene settings
-	const backgroundColor = ref(null)
-	const fog = ref(null)
+	const backgroundColor = shallowRef(null)
+	const fog = shallowRef(null)
 	const shadows = ref(true)
 	const antialias = ref(true)
 
