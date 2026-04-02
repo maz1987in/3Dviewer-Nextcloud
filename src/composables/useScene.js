@@ -17,8 +17,8 @@ export function useScene() {
 	const renderer = shallowRef(null)
 	const grid = shallowRef(null)
 	const axes = shallowRef(null)
-	const lights = shallowRef([])
-	const helpers = shallowRef([])
+	const lights = ref([])
+	const helpers = ref([])
 
 	// Scene settings
 	const backgroundColor = shallowRef(null)

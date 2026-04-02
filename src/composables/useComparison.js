@@ -21,8 +21,8 @@ export function useComparison() {
 
 	// Animation state for comparison model
 	const comparisonMixer = shallowRef(null)
-	const comparisonActions = shallowRef([])
-	const comparisonAnimations = shallowRef([])
+	const comparisonActions = ref([])
+	const comparisonAnimations = ref([])
 
 	// File loading state
 	const loadingComparison = ref(false)

@@ -38,9 +38,9 @@ export function useMeasurement() {
 
 	// Visual elements
 	const measurementGroup = shallowRef(null)
-	const pointMeshes = shallowRef([])
-	const lineMeshes = shallowRef([])
-	const textMeshes = shallowRef([])
+	const pointMeshes = ref([])
+	const lineMeshes = ref([])
+	const textMeshes = ref([])
 
 	// Computed properties
 	const hasPoints = computed(() => points.value.length > 0)

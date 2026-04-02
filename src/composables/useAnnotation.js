@@ -24,11 +24,11 @@ const ANNOTATION_SIZING = (VIEWER_CONFIG.visualSizing && VIEWER_CONFIG.visualSiz
 export function useAnnotation() {
 	// Annotation state
 	const isActive = ref(false)
-	const annotations = shallowRef([])
-	const currentAnnotation = shallowRef(null)
+	const annotations = ref([])
+	const currentAnnotation = ref(null)
 	const annotationGroup = shallowRef(null)
-	const textMeshes = shallowRef([])
-	const pointMeshes = shallowRef([])
+	const textMeshes = ref([])
+	const pointMeshes = ref([])
 	const sceneRef = shallowRef(null)
 	const modelScale = ref(1) // Scale factor based on model size
 

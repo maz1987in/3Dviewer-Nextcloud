@@ -12,7 +12,7 @@ export function useFaceLabels() {
 	// State
 	const labelsEnabled = ref(false)
 	const labelRenderer = shallowRef(null)
-	const labels = shallowRef([])
+	const labels = ref([])
 	const labelContainer = shallowRef(null)
 
 	// Label positions relative to bounding box faces
