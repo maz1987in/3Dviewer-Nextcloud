@@ -3771,8 +3771,10 @@ export default {
 
 .measurement-header {
 	display: flex;
+	flex-wrap: wrap;
 	justify-content: space-between;
 	align-items: center;
+	gap: 8px;
 	margin-bottom: 10px;
 	padding-bottom: 10px;
 	border-bottom: 1px solid #0f0;
