@@ -43,6 +43,7 @@ export default {
 	},
 	watch: {
 		toasts: {
+			deep: true,
 			handler(newToasts, oldToasts) {
 				// Clean up timers for removed toasts
 				if (oldToasts) {
