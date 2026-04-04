@@ -191,17 +191,21 @@ Check ARIA roles / keyboard navigation for new components.
 
 ## 💡 Future Ideas (Low Priority)
 
-### Feature Concepts
-1. Cross-section plane tool (clipping)  
-2. Exploded view (group separation animation)  
-3. Basic transform gizmos (translate / rotate / scale)  
-4. Volume & surface area measurement  
-5. WebXR preview (VR mode)  
-6. ZIP packaging of multi-file models (+ dependencies)  
-7. Texture optimization pipeline (resample / compress)  
-8. Annotation export / import JSON schema  
-9. View state bookmarking (camera + toggles)  
-10. Scene comparison diff overlay (bounding box / vertex count changes)
+### Quick Wins (small effort, high value)
+1. **Clipping Plane / Cross-section** — Interactive plane to slice model and inspect internals. Three.js native `clippingPlanes` support. UI: slider for plane position + axis selector (X/Y/Z). High value for 3D printing users inspecting wall thickness.
+2. **Animation Timeline Scrubber** — Add a slider to scrub through animation keyframes and step frame-by-frame. Currently only play/pause exists. Big UX upgrade for animated GLTF models.
+3. **View State Bookmarks** — Save camera position + display toggles (wireframe, grid, background, etc.) as named bookmarks. Store in localStorage or user settings. Useful for repeatedly reviewing same model.
+4. **Lighting Presets** — Quick-switch presets (Studio, Outdoor, Dramatic, Flat) instead of hardcoded single lighting setup. Helps users see models under different conditions.
+
+### Medium Effort (meaningful features)
+5. **Exploded View** — For multi-mesh models, animate parts outward from centroid. Translate each mesh along vector from model center. Popular for engineering/assembly review.
+6. **Annotations Persistence** — Save annotations to Nextcloud backend (per-file JSON) so they survive reload and are visible to other users with access to the file.
+7. **Advanced File Search & Filters** — Add search box and filters (by format, size range, date range) to the file browser for users with large 3D file collections.
+
+### Larger Features (high value, more work)
+8. **Clipping Box / Section Analysis** — Draggable bounding box that reveals only the interior. Common in CAD/medical visualization. Extends clipping plane concept to 6 planes.
+9. **WebXR / VR Mode** — Three.js has built-in WebXR support. "Enter VR" button for headset users. Scene is already set up, moderate integration effort.
+10. **Collaborative Viewing Sessions** — Share live camera view with other Nextcloud users via WebSocket. Real-time rotation sync for design review meetings.
 
 ### Optimization / UX
 11. Custom user color themes beyond system (schema & palette editor)  
@@ -264,7 +268,7 @@ For detailed information, see:
 
 ## 🎯 Recommended Immediate Next Action
 
-Begin with **High Priority #1 (Standalone Advanced Viewer Wiring)** to unlock full dual-mode experience, then proceed to **#2 (ModelFileSupport/MIME Sync)** to eliminate format divergence and test gaps.
+Begin with **Future Ideas → Quick Wins** (Clipping Plane, Animation Timeline, View Bookmarks, Lighting Presets) to deliver high-value features with minimal effort, then proceed to **Medium Effort** items (Exploded View, Annotation Persistence, File Search).
 
 ---
 

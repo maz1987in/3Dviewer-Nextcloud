@@ -426,6 +426,9 @@ import { useController } from '../composables/useController.js'
 import { useScreenshot } from '../composables/useScreenshot.js'
 import { useThumbnailCapture } from '../composables/useThumbnailCapture.js'
 import { useAnimation } from '../composables/useAnimation.js'
+import { useClippingPlane } from '../composables/useClippingPlane.js'
+import { useLightingPresets } from '../composables/useLightingPresets.js'
+import { useBookmarks } from '../composables/useBookmarks.js'
 import { logger } from '../utils/logger.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
 import { initCache, clearExpired, clearAll, getCacheStats } from '../utils/dependencyCache.js'
@@ -505,6 +508,9 @@ export default {
 		const screenshot = useScreenshot()
 		const thumbnailCapture = useThumbnailCapture()
 		const animation = useAnimation()
+		const clippingPlane = useClippingPlane()
+		const lightingPresets = useLightingPresets()
+		const bookmarksComposable = useBookmarks()
 
 		// Computed properties
 		const isMobile = computed(() => camera.isMobile.value)
@@ -577,6 +583,17 @@ export default {
 
 				// Initialize annotation system
 				annotation.init(scene.value)
+
+				// Initialize clipping plane system
+				clippingPlane.init(renderer.value, scene.value)
+
+				// Initialize lighting presets (pass lights array from scene)
+				// lights are stored in the scene's children; collect them after setupScene
+				const sceneLights = scene.value.children.filter(c => c.isLight)
+				lightingPresets.init(sceneLights)
+
+				// Initialize bookmarks
+				bookmarksComposable.init(camera.camera.value, camera.controls.value)
 
 				// Initialize performance monitoring
 				performance.initPerformance(renderer.value)
@@ -996,6 +1013,9 @@ export default {
 
 					// Update grid size
 					updateGridSize(modelRoot.value)
+
+					// Update clipping plane bounds from the positioned model
+					clippingPlane.updateBounds(newBox)
 
 					// Add face labels if enabled
 					if (props.showFaceLabels) {
@@ -2825,6 +2845,11 @@ export default {
 			// Dispose animations
 			animation.dispose()
 
+			// Dispose new composables
+			clippingPlane.dispose()
+			lightingPresets.dispose()
+			bookmarksComposable.dispose()
+
 			// Dispose performance monitoring
 			if (performance && typeof performance.dispose === 'function') {
 				performance.dispose()
@@ -2891,6 +2916,17 @@ export default {
 			hasAnimations: hasAnimationsComputed,
 			isAnimationPlaying: isAnimationPlayingComputed,
 			isAnimationLooping: isAnimationLoopingComputed,
+			animationCurrentTime: animation.currentTime,
+			animationDuration: animation.duration,
+
+			// Clipping plane
+			clippingPlane,
+
+			// Lighting presets
+			lightingPresets,
+
+			// Bookmarks
+			bookmarksComposable,
 
 			// Camera
 			cameraType: camera.cameraType,
@@ -3121,7 +3157,7 @@ export default {
 	font-size: 28px;
 	font-weight: bold;
 	margin-bottom: 16px;
-	color: var(--color-primary-element, #4287f5);
+	color: var(--color-primary-element, #0082c9);
 }
 
 .export-progress-overlay.mobile .export-progress-content {
@@ -3192,7 +3228,7 @@ export default {
 	margin: 0;
 	font-size: 16px;
 	font-weight: 600;
-	color: var(--color-primary-element, #4287f5);
+	color: var(--color-primary-element, #0082c9);
 }
 
 .close-stats-btn {
@@ -3365,7 +3401,7 @@ export default {
 
 .progress-fill {
 	height: 100%;
-	background: var(--color-primary-element, #4287f5);
+	background: var(--color-primary-element, #0082c9);
 	transition: width 0.3s ease;
 	border-radius: 2px;
 }
@@ -3550,7 +3586,7 @@ export default {
 	font-size: 11px;
 	line-height: 1;
 	padding: 6px 8px;
-	background: var(--color-primary-element, #1976d2);
+	background: var(--color-primary-element, #0082c9);
 	color: #fff;
 	border: none;
 	border-radius: 6px;
@@ -3583,7 +3619,7 @@ export default {
 }
 
 .comparison-btn:hover {
-	background: var(--color-primary-element-hover, #1565c0);
+	background: var(--color-primary-element-hover, #006aa3);
 	transform: translateY(-1px);
 }
 
@@ -3672,7 +3708,7 @@ export default {
 }
 
 .dark-theme .comparison-btn:hover {
-	background: var(--color-primary-element-hover, #42a5f5);
+	background: var(--color-primary-element-hover, #006aa3);
 }
 
 /* Accessibility improvements for comparison controls */

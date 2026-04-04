@@ -300,7 +300,7 @@ export default {
 	font-size: 11px;
 	line-height: 1;
 	padding: 6px 8px;
-	background: var(--color-primary-element, #1976d2);
+	background: var(--color-primary-element, #0082c9);
 	color: #fff;
 	border: none;
 	border-radius: 6px;
@@ -352,7 +352,7 @@ export default {
 }
 
 .tb:hover:not(:disabled) {
-	background: var(--color-primary-element-hover, #1565c0);
+	background: var(--color-primary-element-hover, #006aa3);
 	transform: translateY(-1px);
 }
 
@@ -368,7 +368,7 @@ export default {
 	gap: 4px;
 	cursor: pointer;
 	padding: 4px 6px;
-	background: var(--color-primary-element, #1976d2);
+	background: var(--color-primary-element, #0082c9);
 	border-radius: 4px;
 	min-height: 32px;
 }

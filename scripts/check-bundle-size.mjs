@@ -17,7 +17,7 @@ const pipe = promisify(pipeline);
 const BUDGETS = [
   { pattern: /^threedviewer-main\.mjs$/, name: 'main', maxRaw: 5000, maxGzip: 2000 }, // Entry point
   { pattern: /^gltf-.*\.chunk\.mjs$/, name: 'gltf-loader', maxRaw: 20000, maxGzip: 5000 }, // GLTF loader chunk
-  { pattern: /^App-.*\.chunk\.mjs$/, name: 'app', maxRaw: 300000, maxGzip: 80000 }, // Main app component
+  { pattern: /^App-.*\.chunk\.mjs$/, name: 'app', maxRaw: 310000, maxGzip: 85000 }, // Main app component (includes clipping, lighting, bookmarks, timeline)
   { pattern: /^three-core-.*\.chunk\.mjs$/, name: 'three-core', maxRaw: 800000, maxGzip: 210000 }, // Three.js core
   { pattern: /^index-[A-Z][a-z].*\.chunk\.mjs$/, name: 'index', maxRaw: 1050000, maxGzip: 285000 }, // Main index chunk (exclude tiny index-CQjwnjLc)
   { pattern: /^NcSelect-.*\.chunk\.mjs$/, name: 'nc-select', maxRaw: 1250000, maxGzip: 320000 }, // Nextcloud Select component

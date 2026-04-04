@@ -83,8 +83,23 @@
 					:camera-type="cameraType"
 					:grid="grid"
 					:axes="axes"
+					:wireframe="wireframe"
+					:background-color="background"
 					:model-loaded="modelLoaded"
+					:performance-mode="performanceMode"
+					:theme-mode="themeMode"
+					:has-animations="hasAnimations"
+					:is-animation-playing="isAnimationPlaying"
 					:is-animation-looping="isAnimationLooping"
+					:animation-current-time="animationCurrentTime"
+					:animation-duration="animationDuration"
+					:clipping-active="clippingActive"
+					:clipping-axis="clippingAxis"
+					:clipping-position="clippingPosition"
+					:clipping-flipped="clippingFlipped"
+					:lighting-preset="lightingPreset"
+					:lighting-presets="lightingPresetsList"
+					:bookmarks="bookmarksList"
 					:is-mobile="isMobile"
 					:cache-stats="cacheStats"
 					@reset-view="onReset"
@@ -108,7 +123,18 @@
 					@reindex-files="onReindexFiles"
 					@toggle-help="onToggleHelp"
 					@toggle-animation-play="onToggleAnimationPlay"
-					@toggle-animation-loop="onToggleAnimationLoop" />
+					@toggle-animation-loop="onToggleAnimationLoop"
+					@animation-seek="onAnimationSeek"
+					@animation-step-forward="onAnimationStepForward"
+					@animation-step-backward="onAnimationStepBackward"
+					@toggle-clipping="onToggleClipping"
+					@set-clipping-axis="onSetClippingAxis"
+					@set-clipping-position="onSetClippingPosition"
+					@toggle-clipping-flip="onToggleClippingFlip"
+					@apply-lighting-preset="onApplyLightingPreset"
+					@add-bookmark="onAddBookmark"
+					@load-bookmark="onLoadBookmark"
+					@remove-bookmark="onRemoveBookmark" />
 
 				<!-- 3D Viewer -->
 				<ThreeViewer
@@ -268,6 +294,19 @@ export default {
 			gcodeColorMode: 'gradient',
 			gcodeSingleColor: '#ff5722',
 			isGcodeModel: false,
+			// Clipping plane state
+			clippingActive: false,
+			clippingAxis: 'y',
+			clippingPosition: 0,
+			clippingFlipped: false,
+			// Lighting presets
+			lightingPreset: 'default',
+			lightingPresetsList: [],
+			// Bookmarks
+			bookmarksList: [],
+			// Animation timeline
+			animationCurrentTime: 0,
+			animationDuration: 0,
 		}
 	},
 	computed: {
@@ -724,6 +763,11 @@ export default {
 		},
 		onFpsUpdated(fps) {
 			this.fps = fps
+			// Update animation timeline position (throttled to FPS updates)
+			if (this.hasAnimations && this.$refs.viewer) {
+				const viewer = this.$refs.viewer
+				this.animationCurrentTime = viewer.animationCurrentTime?.value ?? viewer.animationCurrentTime ?? 0
+			}
 		},
 		async updateCacheStats() {
 			// Sync cache stats from viewer
@@ -1076,6 +1120,105 @@ export default {
 				this.hasAnimations = unwrap(hasAnimationsRef)
 				this.isAnimationPlaying = unwrap(isPlayingRef)
 				this.isAnimationLooping = unwrap(isLoopingRef)
+
+				// Update animation timeline state
+				const viewer = this.$refs.viewer
+				this.animationCurrentTime = viewer.animationCurrentTime?.value ?? viewer.animationCurrentTime ?? 0
+				this.animationDuration = viewer.animationDuration?.value ?? viewer.animationDuration ?? 0
+
+				// Update lighting presets list (only once)
+				if (this.lightingPresetsList.length === 0 && viewer.lightingPresets) {
+					this.lightingPresetsList = viewer.lightingPresets.getPresets()
+				}
+
+				// Update bookmarks list
+				if (viewer.bookmarksComposable) {
+					const bm = viewer.bookmarksComposable.bookmarks
+					this.bookmarksList = bm?.value ?? bm ?? []
+				}
+			}
+		},
+		// Animation timeline
+		onAnimationSeek(time) {
+			if (this.$refs.viewer?.animation) {
+				this.$refs.viewer.animation.seek(time)
+				this.updateAnimationState()
+			}
+		},
+		onAnimationStepForward() {
+			if (this.$refs.viewer?.animation) {
+				this.$refs.viewer.animation.stepForward()
+				this.updateAnimationState()
+			}
+		},
+		onAnimationStepBackward() {
+			if (this.$refs.viewer?.animation) {
+				this.$refs.viewer.animation.stepBackward()
+				this.updateAnimationState()
+			}
+		},
+		// Clipping plane
+		onToggleClipping() {
+			if (this.$refs.viewer?.clippingPlane) {
+				this.$refs.viewer.clippingPlane.toggle()
+				this.clippingActive = this.$refs.viewer.clippingPlane.isActive.value ?? this.$refs.viewer.clippingPlane.isActive
+			}
+		},
+		onSetClippingAxis(axis) {
+			if (this.$refs.viewer?.clippingPlane) {
+				this.$refs.viewer.clippingPlane.setAxis(axis)
+				this.clippingAxis = axis
+			}
+		},
+		onSetClippingPosition(pos) {
+			if (this.$refs.viewer?.clippingPlane) {
+				this.$refs.viewer.clippingPlane.setPosition(pos)
+				this.clippingPosition = pos
+			}
+		},
+		onToggleClippingFlip() {
+			if (this.$refs.viewer?.clippingPlane) {
+				this.$refs.viewer.clippingPlane.toggleFlip()
+				this.clippingFlipped = this.$refs.viewer.clippingPlane.flipped.value ?? this.$refs.viewer.clippingPlane.flipped
+			}
+		},
+		// Lighting presets
+		onApplyLightingPreset(presetName) {
+			if (this.$refs.viewer?.lightingPresets) {
+				this.$refs.viewer.lightingPresets.applyPreset(presetName)
+				this.lightingPreset = presetName
+			}
+		},
+		// Bookmarks
+		onAddBookmark() {
+			if (this.$refs.viewer?.bookmarksComposable) {
+				const name = `View ${(this.bookmarksList.length || 0) + 1}`
+				this.$refs.viewer.bookmarksComposable.addBookmark(name, {
+					grid: this.grid,
+					axes: this.axes,
+					wireframe: this.wireframe,
+					backgroundColor: this.background,
+				})
+				const bm = this.$refs.viewer.bookmarksComposable.bookmarks
+				this.bookmarksList = [...(bm?.value ?? bm ?? [])]
+			}
+		},
+		onLoadBookmark(index) {
+			if (this.$refs.viewer?.bookmarksComposable) {
+				const display = this.$refs.viewer.bookmarksComposable.loadBookmark(index)
+				if (display) {
+					if (display.grid !== undefined) this.grid = display.grid
+					if (display.axes !== undefined) this.axes = display.axes
+					if (display.wireframe !== undefined) this.wireframe = display.wireframe
+					if (display.backgroundColor) this.background = display.backgroundColor
+				}
+			}
+		},
+		onRemoveBookmark(index) {
+			if (this.$refs.viewer?.bookmarksComposable) {
+				this.$refs.viewer.bookmarksComposable.removeBookmark(index)
+				const bm = this.$refs.viewer.bookmarksComposable.bookmarks
+				this.bookmarksList = [...(bm?.value ?? bm ?? [])]
 			}
 		},
 	},

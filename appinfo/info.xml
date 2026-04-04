@@ -22,7 +22,10 @@
 - 🔄 Model comparison: Side-by-side viewing with synchronized controls
 - 📝 Annotations: Add notes and markers to specific points on models (always readable, faces camera) with customizable visual sizing controls
 - 📏 Measurements: Distance and angle measurement tools (with billboard text) with per-user sizing controls for point size, line thickness, and label width
-- 🎬 Animation Controls: Play/pause controls for animated models with loop toggle support
+- 🎬 Animation Controls: Play/pause controls for animated models with loop toggle, timeline scrubber, and frame stepping
+- ✂️ Cross-Section: Interactive clipping plane to slice models along X/Y/Z axes for interior inspection
+- 💡 Lighting Presets: Quick-switch between Default, Studio, Outdoor, Dramatic, and Flat lighting setups
+- 🔖 View Bookmarks: Save and restore camera positions with display state (grid, axes, wireframe, background)
 - 🧭 Face labels: Orientation markers (TOP, BOTTOM, FRONT, BACK, LEFT, RIGHT)
 - 👁️ Camera projection toggle: Switch between perspective and orthographic views
 - ⚙️ Personal Settings: User-specific preferences and settings page in Nextcloud personal settings
@@ -57,7 +60,7 @@
 - ♿ Accessibility features with keyboard navigation and ARIA labels
 
 Built with Three.js for high-performance WebGL rendering. ✨]]></description>
-	<version>3.0.0</version>
+	<version>3.1.0</version>
 	<licence>agpl</licence>
 	<author mail="maz1987in@gmail.com" homepage="https://github.com/maz1987in">Mazin Al Saadi</author>
 	<donation title="Donate to the developers with PayPal" type="paypal">https://www.paypal.com/ncp/payment/KZCB3XTCHGKZC</donation>

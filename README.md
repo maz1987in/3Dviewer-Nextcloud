@@ -1,6 +1,6 @@
 # 3D Viewer for Nextcloud
 
-[![Version](https://img.shields.io/badge/version-3.0.0-blue)](https://github.com/maz1987in/3Dviewer-Nextcloud/releases)
+[![Version](https://img.shields.io/badge/version-3.1.0-blue)](https://github.com/maz1987in/3Dviewer-Nextcloud/releases)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-orange)](LICENSE)
 [![Nextcloud](https://img.shields.io/badge/Nextcloud-31--34-0082c9)](https://nextcloud.com)
 [![Update nextcloud/ocp](https://github.com/maz1987in/3Dviewer-Nextcloud/actions/workflows/update-nextcloud-ocp-matrix.yml/badge.svg)](https://github.com/maz1987in/3Dviewer-Nextcloud/actions/workflows/update-nextcloud-ocp-matrix.yml)
@@ -62,7 +62,10 @@ A comprehensive 3D model viewer application for Nextcloud that supports multiple
 - **Personal Settings** - User-specific preferences and settings page integrated with Nextcloud personal settings
 - **Mobile-Optimized UI** - Responsive toolbar with icons-only on small screens, full-screen help panel with sticky header, and performance stats hidden by default on screens ≤768px
 - **Measurement & Annotation Visual Controls** - Customizable sizing controls (point size, line thickness, label width) for measurements and annotations
-- **Animation Controls** - Play/pause controls for animated 3D models with loop toggle support
+- **Animation Controls** - Play/pause, loop toggle, timeline scrubber with frame stepping for animated models
+- **Cross-Section Tool** - Interactive clipping plane to slice models along X/Y/Z axes for interior inspection
+- **Lighting Presets** - Quick-switch between Default, Studio, Outdoor, Dramatic, and Flat lighting setups
+- **View Bookmarks** - Save and restore camera positions with display state (grid, axes, wireframe, background)
 - **Performance Scaling** - Automatic performance mode suggestions for large models with configurable triangle count thresholds
 - **Cache Insights** - Live dependency cache statistics (size, entries, hit rate) visible in viewer and tools panel
 - **Enhanced Security** - Hardened slicer temp file handling with file size limits, MIME validation, and rolling expiration

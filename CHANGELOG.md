@@ -5,6 +5,30 @@ All notable changes to the 3D Viewer Nextcloud app will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] - 2026-04-04
+
+### Added
+- **Cross-Section tool**: Interactive clipping plane to slice models along X/Y/Z axes with position slider, flip direction, and DoubleSide rendering for visible interiors
+- **Animation Timeline Scrubber**: Seek to any point in animated models with a slider, step forward/backward frame-by-frame
+- **View Bookmarks**: Save and restore camera positions with display toggles (grid, axes, wireframe, background), persisted in localStorage
+- **Lighting Presets**: Quick-switch between 5 lighting setups (Default, Studio, Outdoor, Dramatic, Flat) affecting ambient, directional, and point lights
+
+### Changed
+- **Tools panel redesign**: Reorganized from 4 sections to 6 (View, Scene, Analyze, Animation, Export, Settings) for clearer grouping
+- **Toggle switches**: Replaced text checkmarks with custom CSS toggle switches for Grid, Axes, Wireframe, and Loop controls
+- **Export section**: Screenshot, Export Model, and Send to Slicer moved from Settings to dedicated Export section
+- **Animation section**: Elevated from nested group to its own collapsible section (conditional, only shown for animated models)
+- **Model Statistics**: Moved from Settings to Analyze section alongside Measurement, Annotation, and Cross-Section
+
+### Fixed
+- **Theme consistency**: Unified `--color-primary-element` fallback values across all components to `#0082c9` (Nextcloud default), replacing inconsistent `#4287f5`, `#1976d2` fallbacks
+- **MinimalTopBar hardcoded colors**: Replaced 7 instances of hardcoded `rgb(0 130 201)` with `var(--color-primary-element)` and related NC variables
+- **Dark theme hack removed**: Deleted ~130 lines of `.dark-theme` CSS overrides (46 `!important` declarations) from SlideOutToolPanel — dark mode now works automatically via Nextcloud CSS variables
+- **Cache stat colors**: Replaced hardcoded Material Design hex colors with NC semantic variables (`--color-success-text`, `--color-warning-text`, `--color-error-text`)
+- **Missing panel props**: Added `wireframe`, `background-color`, `performance-mode`, `theme-mode`, `has-animations`, `is-animation-playing` props to SlideOutToolPanel binding in App.vue
+- **Clipping plane Z-fighting**: Added 5% margin beyond model bounds so the slider at extremes doesn't cause Z-fighting artifacts
+- **Bundle budget**: Updated app chunk thresholds for new features (+12KB raw)
+
 ## [3.0.0] - 2026-04-02
 
 ### Changed

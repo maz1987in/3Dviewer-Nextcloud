@@ -130,6 +130,45 @@ export function useAnimation() {
 	}
 
 	/**
+	 * Seek to a specific time in the animation
+	 * @param {number} time - Time in seconds to seek to
+	 */
+	const seek = (time) => {
+		if (!hasAnimations.value) return
+
+		const clampedTime = Math.max(0, Math.min(time, duration.value))
+
+		actions.value.forEach((action) => {
+			action.paused = true
+			action.time = clampedTime
+			action.play()
+		})
+
+		// Advance mixer to apply the seek
+		mixer.value.setTime(clampedTime)
+		currentTime.value = clampedTime
+		isPlaying.value = false
+	}
+
+	/**
+	 * Step forward by a fraction of the duration
+	 * @param {number} fraction - Fraction of duration to step (default 1/30 ≈ one frame at 30fps)
+	 */
+	const stepForward = (fraction = 1 / 30) => {
+		if (!hasAnimations.value) return
+		seek(currentTime.value + duration.value * fraction)
+	}
+
+	/**
+	 * Step backward by a fraction of the duration
+	 * @param {number} fraction - Fraction of duration to step
+	 */
+	const stepBackward = (fraction = 1 / 30) => {
+		if (!hasAnimations.value) return
+		seek(currentTime.value - duration.value * fraction)
+	}
+
+	/**
 	 * Toggle loop mode
 	 */
 	const toggleLoop = () => {
@@ -210,6 +249,9 @@ export function useAnimation() {
 		stop,
 		togglePlay,
 		toggleLoop,
+		seek,
+		stepForward,
+		stepBackward,
 		update,
 		dispose,
 	}
