@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **View Bookmarks**: Save and restore camera positions with display toggles (grid, axes, wireframe, background), persisted in localStorage
 - **Lighting Presets**: Quick-switch between 5 lighting setups (Default, Studio, Outdoor, Dramatic, Flat) affecting ambient, directional, and point lights
 
+- **Exploded View**: For multi-mesh models, animate parts outward from centroid with adjustable explosion factor slider
+
 ### Changed
 - **Tools panel redesign**: Reorganized from 4 sections to 6 (View, Scene, Analyze, Animation, Export, Settings) for clearer grouping
 - **Toggle switches**: Replaced text checkmarks with custom CSS toggle switches for Grid, Axes, Wireframe, and Loop controls

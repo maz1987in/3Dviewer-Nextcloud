@@ -194,6 +194,23 @@
 									:value="clippingPosition"
 									@input="emit('set-clipping-position', parseFloat($event.target.value))">
 							</div>
+							<!-- Exploded View -->
+							<button v-if="explodedViewAvailable"
+								class="tool-btn feature-btn"
+								:class="{ 'active': explodedViewActive }"
+								@click="emit('toggle-exploded-view')">
+								<span class="tool-icon">💥</span>
+								<span class="tool-label">{{ t('threedviewer', 'Exploded View') }}</span>
+								<span v-if="explodedViewActive" class="active-badge">{{ t('threedviewer', 'Active') }}</span>
+							</button>
+							<div v-if="explodedViewActive" class="tool-group">
+								<label class="tool-label-small">{{ t('threedviewer', 'Explosion') }}</label>
+								<input type="range"
+									class="clipping-slider"
+									min="0" max="1" step="0.01"
+									:value="explodedViewFactor"
+									@input="emit('set-exploded-factor', parseFloat($event.target.value))">
+							</div>
 							<!-- Model Statistics -->
 							<button class="tool-btn"
 								:disabled="!modelLoaded"
@@ -399,6 +416,11 @@ export default {
 		// Bookmarks
 		bookmarks: { type: Array, default: () => [] },
 
+		// Exploded view
+		explodedViewActive: { type: Boolean, default: false },
+		explodedViewAvailable: { type: Boolean, default: false },
+		explodedViewFactor: { type: Number, default: 0 },
+
 		// Mobile detection
 		isMobile: { type: Boolean, default: false },
 
@@ -444,6 +466,8 @@ export default {
 		'add-bookmark',
 		'load-bookmark',
 		'remove-bookmark',
+		'toggle-exploded-view',
+		'set-exploded-factor',
 	],
 
 	setup(props, { emit }) {

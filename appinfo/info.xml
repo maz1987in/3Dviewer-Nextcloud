@@ -26,6 +26,7 @@
 - ✂️ Cross-Section: Interactive clipping plane to slice models along X/Y/Z axes for interior inspection
 - 💡 Lighting Presets: Quick-switch between Default, Studio, Outdoor, Dramatic, and Flat lighting setups
 - 🔖 View Bookmarks: Save and restore camera positions with display state (grid, axes, wireframe, background)
+- 💥 Exploded View: Animate multi-mesh models outward from centroid with adjustable factor slider
 - 🧭 Face labels: Orientation markers (TOP, BOTTOM, FRONT, BACK, LEFT, RIGHT)
 - 👁️ Camera projection toggle: Switch between perspective and orthographic views
 - ⚙️ Personal Settings: User-specific preferences and settings page in Nextcloud personal settings

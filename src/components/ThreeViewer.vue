@@ -429,6 +429,7 @@ import { useAnimation } from '../composables/useAnimation.js'
 import { useClippingPlane } from '../composables/useClippingPlane.js'
 import { useLightingPresets } from '../composables/useLightingPresets.js'
 import { useBookmarks } from '../composables/useBookmarks.js'
+import { useExplodedView } from '../composables/useExplodedView.js'
 import { logger } from '../utils/logger.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
 import { initCache, clearExpired, clearAll, getCacheStats } from '../utils/dependencyCache.js'
@@ -511,6 +512,7 @@ export default {
 		const clippingPlane = useClippingPlane()
 		const lightingPresets = useLightingPresets()
 		const bookmarksComposable = useBookmarks()
+		const explodedView = useExplodedView()
 
 		// Computed properties
 		const isMobile = computed(() => camera.isMobile.value)
@@ -1021,6 +1023,9 @@ export default {
 					if (props.showFaceLabels) {
 						faceLabels.addFaceLabels(modelRoot.value, scene.value)
 					}
+
+					// Initialize exploded view (collects meshes and computes directions)
+					explodedView.init(modelRoot.value)
 
 					// Initialize animations if present
 					if (loadedModel.animations && loadedModel.animations.length > 0) {
@@ -2849,6 +2854,7 @@ export default {
 			clippingPlane.dispose()
 			lightingPresets.dispose()
 			bookmarksComposable.dispose()
+			explodedView.dispose()
 
 			// Dispose performance monitoring
 			if (performance && typeof performance.dispose === 'function') {
@@ -2927,6 +2933,9 @@ export default {
 
 			// Bookmarks
 			bookmarksComposable,
+
+			// Exploded view
+			explodedView,
 
 			// Camera
 			cameraType: camera.cameraType,

@@ -66,6 +66,7 @@ A comprehensive 3D model viewer application for Nextcloud that supports multiple
 - **Cross-Section Tool** - Interactive clipping plane to slice models along X/Y/Z axes for interior inspection
 - **Lighting Presets** - Quick-switch between Default, Studio, Outdoor, Dramatic, and Flat lighting setups
 - **View Bookmarks** - Save and restore camera positions with display state (grid, axes, wireframe, background)
+- **Exploded View** - Animate multi-mesh models outward from centroid with adjustable factor slider for assembly inspection
 - **Performance Scaling** - Automatic performance mode suggestions for large models with configurable triangle count thresholds
 - **Cache Insights** - Live dependency cache statistics (size, entries, hit rate) visible in viewer and tools panel
 - **Enhanced Security** - Hardened slicer temp file handling with file size limits, MIME validation, and rolling expiration

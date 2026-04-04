@@ -100,6 +100,9 @@
 					:lighting-preset="lightingPreset"
 					:lighting-presets="lightingPresetsList"
 					:bookmarks="bookmarksList"
+					:exploded-view-active="explodedViewActive"
+					:exploded-view-available="explodedViewAvailable"
+					:exploded-view-factor="explodedViewFactor"
 					:is-mobile="isMobile"
 					:cache-stats="cacheStats"
 					@reset-view="onReset"
@@ -132,6 +135,8 @@
 					@set-clipping-position="onSetClippingPosition"
 					@toggle-clipping-flip="onToggleClippingFlip"
 					@apply-lighting-preset="onApplyLightingPreset"
+					@toggle-exploded-view="onToggleExplodedView"
+					@set-exploded-factor="onSetExplodedFactor"
 					@add-bookmark="onAddBookmark"
 					@load-bookmark="onLoadBookmark"
 					@remove-bookmark="onRemoveBookmark" />
@@ -307,6 +312,10 @@ export default {
 			// Animation timeline
 			animationCurrentTime: 0,
 			animationDuration: 0,
+			// Exploded view
+			explodedViewActive: false,
+			explodedViewAvailable: false,
+			explodedViewFactor: 0,
 		}
 	},
 	computed: {
@@ -1136,6 +1145,14 @@ export default {
 					const bm = viewer.bookmarksComposable.bookmarks
 					this.bookmarksList = bm?.value ?? bm ?? []
 				}
+
+				// Update exploded view state
+				if (viewer.explodedView) {
+					const ev = viewer.explodedView
+					this.explodedViewAvailable = ev.hasMeshes?.value ?? ev.hasMeshes ?? false
+					this.explodedViewActive = ev.isActive?.value ?? ev.isActive ?? false
+					this.explodedViewFactor = ev.factor?.value ?? ev.factor ?? 0
+				}
 			}
 		},
 		// Animation timeline
@@ -1187,6 +1204,19 @@ export default {
 			if (this.$refs.viewer?.lightingPresets) {
 				this.$refs.viewer.lightingPresets.applyPreset(presetName)
 				this.lightingPreset = presetName
+			}
+		},
+		// Exploded view
+		onToggleExplodedView() {
+			if (this.$refs.viewer?.explodedView) {
+				this.$refs.viewer.explodedView.toggle()
+				this.updateAnimationState()
+			}
+		},
+		onSetExplodedFactor(factor) {
+			if (this.$refs.viewer?.explodedView) {
+				this.$refs.viewer.explodedView.setFactor(factor)
+				this.explodedViewFactor = factor
 			}
 		},
 		// Bookmarks
