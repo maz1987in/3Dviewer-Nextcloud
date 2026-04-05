@@ -19,10 +19,30 @@
 					{{ t('threedviewer', 'Send your model to a slicer. Formats you mark as passthrough are sent as-is; everything else is converted to STL.') }}
 				</p>
 
+				<!-- Export Format Selector -->
+				<div v-if="!exporting && !isPassthrough" class="format-selector">
+					<label class="tool-label-small">{{ t('threedviewer', 'Export format') }}</label>
+					<div class="format-buttons">
+						<button v-for="fmt in ['stl', 'obj', 'ply']" :key="fmt"
+							class="format-btn"
+							:class="{ active: selectedFormat === fmt }"
+							@click="selectedFormat = fmt">
+							{{ fmt.toUpperCase() }}
+						</button>
+					</div>
+				</div>
+
 				<!-- Loading State -->
 				<div v-if="exporting" class="loading-state">
 					<div class="spinner" />
 					<p>{{ exportMessage }}</p>
+					<!-- Upload progress bar -->
+					<div v-if="uploadProgress > 0" class="upload-progress">
+						<div class="progress-bar-track">
+							<div class="progress-bar-fill" :style="{ width: uploadProgress + '%' }" />
+						</div>
+						<span class="progress-text">{{ uploadProgress }}%</span>
+					</div>
 				</div>
 
 				<!-- Error State -->
@@ -69,11 +89,19 @@
 					</div>
 				</div>
 
+				<!-- Share link copy -->
+				<div v-if="lastShareUrl" class="share-link-row">
+					<input type="text" :value="lastShareUrl" readonly class="share-link-input" @focus="$event.target.select()">
+					<button class="copy-btn" :title="t('threedviewer', 'Copy link')" @click="copyShareLink">
+						{{ copied ? '✓' : '📋' }}
+					</button>
+				</div>
+
 				<!-- Info Footer -->
 				<div v-if="!exporting" class="modal-info">
 					<p class="info-text">
 						<span class="info-icon">💡</span>
-						<strong>{{ t('threedviewer', 'Tip:') }}</strong> {{ t('threedviewer', 'The app creates a temporary Nextcloud share link that works with slicer applications. Link expires after 1 hour.') }}
+						<strong>{{ t('threedviewer', 'Tip:') }}</strong> {{ t('threedviewer', 'The app creates a temporary Nextcloud share link that works with slicer applications. Link expires after 24 hours.') }}
 					</p>
 				</div>
 			</div>
@@ -140,6 +168,10 @@ export default {
 		const exportMessage = ref('')
 		const errorMessage = ref(null)
 		const tempBlobUrl = ref(null)
+		const uploadProgress = ref(0)
+		const selectedFormat = ref(props.exportFormat || 'stl')
+		const lastShareUrl = ref(null)
+		const copied = ref(false)
 		const sourceExtension = computed(() => {
 			if (!props.filename) return ''
 			const parts = props.filename.split('.')
@@ -163,6 +195,15 @@ export default {
 			})
 		})
 		const lastUsedSlicer = computed(() => slicerIntegration.lastUsedSlicer.value)
+
+		// Whether current file is a passthrough format (no conversion needed)
+		const isPassthrough = computed(() => {
+			const ext = sourceExtension.value
+			const list = Array.isArray(props.passthroughFormats)
+				? props.passthroughFormats.map(f => String(f).toLowerCase())
+				: []
+			return ext && list.includes(ext) && !!props.fileId
+		})
 
 		/**
 		 * Close the modal
@@ -297,6 +338,52 @@ export default {
 		}
 
 		/**
+		 * Upload blob to server with progress tracking via XMLHttpRequest
+		 */
+		const uploadWithProgress = (url, blob) => {
+			return new Promise((resolve, reject) => {
+				const xhr = new XMLHttpRequest()
+				xhr.open('POST', url)
+				xhr.setRequestHeader('Content-Type', 'application/octet-stream')
+				xhr.timeout = 120000
+
+				xhr.upload.addEventListener('progress', (e) => {
+					if (e.lengthComputable) {
+						uploadProgress.value = Math.round((e.loaded / e.total) * 100)
+					}
+				})
+
+				xhr.addEventListener('load', () => {
+					uploadProgress.value = 100
+					if (xhr.status >= 200 && xhr.status < 300) {
+						try { resolve(JSON.parse(xhr.responseText)) } catch { reject(new Error('Invalid server response')) }
+					} else {
+						reject(new Error(`Server returned ${xhr.status}`))
+					}
+				})
+
+				xhr.addEventListener('error', () => reject(new Error('Network error')))
+				xhr.addEventListener('timeout', () => reject(new Error('Upload timed out (2 min)')))
+				xhr.send(blob)
+			})
+		}
+
+		/**
+		 * Copy last share link to clipboard
+		 */
+		const copyShareLink = async () => {
+			if (!lastShareUrl.value) return
+			try {
+				await navigator.clipboard.writeText(lastShareUrl.value)
+			} catch {
+				const input = document.querySelector('.share-link-input')
+				if (input) { input.select(); document.execCommand('copy') }
+			}
+			copied.value = true
+			setTimeout(() => { copied.value = false }, 2000)
+		}
+
+		/**
 		 * Handle opening model in slicer
 		 * @param {string} slicerId - Slicer ID
 		 */
@@ -305,45 +392,42 @@ export default {
 				const slicer = slicerIntegration.getSlicerById(slicerId)
 
 				exportMessage.value = t('threedviewer', 'Preparing file for {name}...', { name: slicer.name })
+				uploadProgress.value = 0
+				lastShareUrl.value = null
+				copied.value = false
 
 				let blob
-				const exportFormat = props.exportFormat || 'stl'
-				let filename = `${props.modelName}_for_${slicer.name.replace(/\s+/g, '_')}.${exportFormat}`
+				const fmt = selectedFormat.value
+				let filename = `${props.modelName}_for_${slicer.name.replace(/\s+/g, '_')}.${fmt}`
 
-				const passthroughList = Array.isArray(props.passthroughFormats)
-					? props.passthroughFormats.map(f => String(f).toLowerCase())
-					: []
-				const ext = sourceExtension.value
-				if (ext && passthroughList.includes(ext) && props.fileId) {
+				if (isPassthrough.value) {
 					blob = await fetchOriginalFile()
 					filename = props.filename || filename
 				} else {
-					// Export in selected format
-					blob = await exportModel(exportFormat)
+					blob = await exportModel(fmt)
 				}
 
-				// Upload to Nextcloud to get a public share URL
-				// This uses Nextcloud's native share system (like sharing a file)
-				exportMessage.value = t('threedviewer', 'Creating temporary share link...')
+				// Check size before uploading
+				const sizeMB = blob.size / 1024 / 1024
+				if (sizeMB > 50) {
+					errorMessage.value = t('threedviewer', 'File too large ({size}MB). Maximum is 50MB.', { size: sizeMB.toFixed(1) })
+					exporting.value = false
+					return
+				}
+
+				exportMessage.value = sizeMB > 5
+					? t('threedviewer', 'Uploading {size}MB...', { size: sizeMB.toFixed(1) })
+					: t('threedviewer', 'Creating temporary share link...')
 
 				try {
-					const response = await fetch(generateUrl('/apps/threedviewer/api/slicer/temp') + `?filename=${encodeURIComponent(filename)}`, {
-						method: 'POST',
-						headers: {
-							'Content-Type': 'application/octet-stream',
-						},
-						body: blob,
-					})
-
-					if (!response.ok) {
-						throw new Error(`Server returned ${response.status}`)
-					}
-
-					const data = await response.json()
+					const uploadUrl = generateUrl('/apps/threedviewer/api/slicer/temp') + `?filename=${encodeURIComponent(filename)}`
+					const data = await uploadWithProgress(uploadUrl, blob)
 
 					if (!data.success || !data.downloadUrl) {
 						throw new Error('Server did not return download URL')
 					}
+
+					lastShareUrl.value = data.downloadUrl
 
 					logger.info('SlicerModal', 'Got public share URL', {
 						url: data.downloadUrl,
@@ -472,6 +556,8 @@ export default {
 				exporting.value = false
 				errorMessage.value = null
 				exportMessage.value = ''
+				uploadProgress.value = 0
+				copied.value = false
 			}
 		})
 
@@ -495,11 +581,17 @@ export default {
 			exporting,
 			exportMessage,
 			errorMessage,
+			uploadProgress,
+			selectedFormat,
+			lastShareUrl,
+			copied,
+			isPassthrough,
 			closeModal,
 			handleBackdropClick,
 			handleImageError,
 			handleOpenInSlicer,
 			clearError,
+			copyShareLink,
 		}
 	},
 }
@@ -675,6 +767,111 @@ export default {
 
 .retry-btn:hover {
 	background: var(--color-primary-element-hover, #006aa3);
+}
+
+/* Format Selector */
+.format-selector {
+	margin-bottom: 16px;
+}
+
+.format-selector .tool-label-small {
+	display: block;
+	font-size: 12px;
+	color: var(--color-text-maxcontrast);
+	margin-bottom: 6px;
+	font-weight: 500;
+}
+
+.format-buttons {
+	display: flex;
+	gap: 6px;
+}
+
+.format-btn {
+	flex: 1;
+	padding: 6px 12px;
+	border: 1px solid var(--color-border);
+	border-radius: 6px;
+	background: var(--color-main-background);
+	color: var(--color-main-text);
+	cursor: pointer;
+	font-size: 13px;
+	font-weight: 600;
+	text-align: center;
+	transition: all 0.15s ease;
+}
+
+.format-btn:hover {
+	background: var(--color-background-hover);
+}
+
+.format-btn.active {
+	background: var(--color-primary-element);
+	color: var(--color-primary-element-text);
+	border-color: var(--color-primary-element);
+}
+
+/* Upload Progress */
+.upload-progress {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin-top: 12px;
+}
+
+.progress-bar-track {
+	flex: 1;
+	height: 6px;
+	background: var(--color-background-dark);
+	border-radius: 3px;
+	overflow: hidden;
+}
+
+.progress-bar-fill {
+	height: 100%;
+	background: var(--color-primary-element);
+	border-radius: 3px;
+	transition: width 0.2s ease;
+}
+
+.progress-text {
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--color-main-text);
+	min-width: 36px;
+	text-align: end;
+}
+
+/* Share Link Copy */
+.share-link-row {
+	display: flex;
+	gap: 6px;
+	margin-bottom: 12px;
+}
+
+.share-link-input {
+	flex: 1;
+	padding: 6px 10px;
+	border: 1px solid var(--color-border);
+	border-radius: 6px;
+	background: var(--color-background-dark);
+	color: var(--color-main-text);
+	font-size: 12px;
+}
+
+.copy-btn {
+	padding: 6px 10px;
+	border: 1px solid var(--color-border);
+	border-radius: 6px;
+	background: var(--color-main-background);
+	cursor: pointer;
+	font-size: 14px;
+	transition: all 0.15s ease;
+}
+
+.copy-btn:hover {
+	background: var(--color-background-hover);
+	border-color: var(--color-primary-element);
 }
 
 /* Slicer Grid */

@@ -14,6 +14,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Lighting Presets**: Quick-switch between 5 lighting setups (Default, Studio, Outdoor, Dramatic, Flat) affecting ambient, directional, and point lights
 
 - **Exploded View**: For multi-mesh models, animate parts outward from centroid with adjustable explosion factor slider
+- **Slicer: Export format selector**: Choose STL, OBJ, or PLY before sending to slicer (non-passthrough formats)
+- **Slicer: Upload progress bar**: Real-time progress indicator when uploading to server (XMLHttpRequest with progress events, 2-min timeout)
+- **Slicer: Copy share link**: Copy the temporary Nextcloud share URL to clipboard for manual use
+- **Slicer: Size validation**: Warns and blocks uploads exceeding 50MB before attempting server transfer
+- **Slicer: Upload size display**: Shows file size in MB during upload for files >5MB
+
+### Fixed
+- **EufyStudio URL parsing**: Replaced fragile regex filename extraction with proper URL parsing
+- **Slicer upload timeout**: Added 2-minute timeout to XMLHttpRequest (previously no timeout — could hang forever)
 
 ### Changed
 - **Tools panel redesign**: Reorganized from 4 sections to 6 (View, Scene, Analyze, Animation, Export, Settings) for clearer grouping

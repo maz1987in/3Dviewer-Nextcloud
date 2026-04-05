@@ -247,14 +247,16 @@ export function useSlicerIntegration() {
 			break
 		case 'eufystudio': {
 			// EufyStudio: eufystudio://open/?file=url&name=filename
-			// Extract clean filename from URL query parameter if present
-			const fileName = filePath.split('/').pop()
-			const filenameMatch = fileName.match(/filename=([^&]+)/)
-			if (filenameMatch) {
-				url = `${slicer.urlScheme}://open/?file=${encodeURIComponent(filePath)}&name=${encodeURIComponent(decodeURIComponent(filenameMatch[1]))}`
-			} else {
-				url = `${slicer.urlScheme}://open/?file=${encodeURIComponent(filePath)}&name=${encodeURIComponent(fileName)}`
+			let eufyName = 'model'
+			try {
+				const parsed = new URL(filePath)
+				eufyName = parsed.searchParams.get('filename')
+					|| parsed.pathname.split('/').filter(Boolean).pop()
+					|| 'model'
+			} catch {
+				eufyName = filePath.split('/').pop() || 'model'
 			}
+			url = `${slicer.urlScheme}://open/?file=${encodeURIComponent(filePath)}&name=${encodeURIComponent(eufyName)}`
 			break
 		}
 		/*
