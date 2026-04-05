@@ -79,13 +79,14 @@ IndexedDB dependency cache now has full UI controls.
 - [x] Cache hits/misses counts added to performance overlay alongside hit rate
 - [x] Privacy considerations documented in TECHNICAL.md (local-only, per-browser, user-controlled)
 
-### 6b. Frontend Format Parity Guard
-Backend formats are centralized; frontend MIME/extension lists can drift.
+### 6b. Frontend Format Parity Guard ✅ COMPLETED
+Backend and frontend format definitions are now automatically validated.
 
-**Action Items**:
-- [ ] Generate Viewer SUPPORTED_MIMES / SUPPORTED_FORMATS from backend constants or shared JSON
-- [ ] Add unit test to enforce backend ↔ frontend parity
-- [ ] Document the contract in docs/TECHNICAL.md
+**Completed**:
+- [x] Created `scripts/check-format-parity.mjs` — validates PHP, JS, loader registry, main.js MIMEs, and mimetypemapping.json stay in sync
+- [x] Added `npm run format:check` script, integrated into CI (node.yml) and `validate` script
+- [x] Fixed missing X3D/VRML MIME registrations in main.js
+- [x] Documented the format parity contract and "adding a new format" checklist in TECHNICAL.md
 
 ### 6. Security Review: Slicer Temporary Files
 Assess lifetime & access scope of temporary share links.

@@ -20,13 +20,15 @@ const SUPPORTED_MIMES = [
 	'model/gltf+json', // .gltf
 	'model/obj', // .obj
 	'model/stl', // .stl
-	'application/sla', // .stl alternative
+	'application/sla', // .stl alternative MIME
 	'model/vnd.collada+xml', // .dae
 	'model/x.fbx', // .fbx
 	'model/3mf', // .3mf
 	'application/x-3ds', // .3ds
-	'model/x.ply', // .ply
-	'model/ply', // .ply alternative
+	'model/ply', // .ply
+	'model/x.ply', // .ply alternative MIME
+	'model/x3d+xml', // .x3d
+	'model/vrml', // .vrml, .wrl
 	'text/x-gcode', // .gcode, .gco, .nc, .acode, .g
 	'application/x-gcode', // .gx, .g3drem, .makerbot, .thing
 ]

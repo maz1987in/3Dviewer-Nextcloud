@@ -251,6 +251,45 @@ beforeDestroy() {
 }
 ```
 
+## Format Parity Contract
+
+Supported 3D format definitions are spread across five files. They **must** stay synchronized.
+
+### Source files
+
+| File | Role |
+|------|------|
+| `lib/Constants/SupportedFormats.php` | Backend single source of truth — extension-to-MIME map |
+| `src/config/viewer-config.js` (`SUPPORTED_FORMATS`) | Frontend format metadata (name, MIME, features, icons) |
+| `src/loaders/registry.js` | Maps each extension to its loader module |
+| `src/main.js` (`SUPPORTED_MIMES`) | MIME types registered with the Nextcloud Viewer API |
+| `appinfo/mimetypemapping.json` | Nextcloud's extension-to-MIME mapping for file detection |
+
+### Rules
+
+1. Every model extension in the PHP `EXT_MIME_MAP` must appear in `SUPPORTED_FORMATS`, `registry.js`, and `mimetypemapping.json`.
+2. The primary MIME type for each extension must match across all files.
+3. Every unique MIME type must be registered in `main.js` `SUPPORTED_MIMES` (except `application/octet-stream`, which is too generic).
+4. Extra compatibility MIMEs (`application/sla` for STL, `model/x.ply` for PLY) may be added to `main.js` only.
+
+### Automated enforcement
+
+```bash
+npm run format:check     # runs scripts/check-format-parity.mjs
+```
+
+This check runs in CI (`.github/workflows/node.yml`) before the build step and will fail the pipeline on any extension or MIME drift.
+
+### Adding a new format
+
+1. Add the extension and MIME type(s) to `SupportedFormats.php` `EXT_MIME_MAP`
+2. Add the extension to `CONTENT_TYPE_MAP` in the same file
+3. Add the format entry to `SUPPORTED_FORMATS` in `viewer-config.js`
+4. Create or reuse a loader in `src/loaders/types/` and register it in `registry.js`
+5. Add the primary MIME to `SUPPORTED_MIMES` in `main.js`
+6. Add the extension to `appinfo/mimetypemapping.json`
+7. Run `npm run format:check` to verify parity
+
 ## Performance Monitoring
 
 ### Overview

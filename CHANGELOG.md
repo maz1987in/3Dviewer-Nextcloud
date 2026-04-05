@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Cache settings in Personal Settings**: Configurable max cache size, max file size, expiration days, enable/disable toggle, and clear cache button
 - **Cache hits/misses in performance overlay**: Shows individual hit and miss counts alongside hit rate percentage
 - **Cache privacy documentation**: Documented local-only storage, per-browser isolation, and user control in TECHNICAL.md
+- **Format parity guard**: Build-time script (`npm run format:check`) validates that PHP, JS, loader registry, Viewer MIME list, and mimetypemapping.json stay synchronized
+- **X3D/VRML MIME registration**: Added `model/x3d+xml` and `model/vrml` to Nextcloud Viewer MIME list so these formats open in the viewer
 
 ### Fixed
 - **EufyStudio URL parsing**: Replaced fragile regex filename extraction with proper URL parsing
