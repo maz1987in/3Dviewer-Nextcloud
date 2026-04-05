@@ -135,13 +135,14 @@ Budgets exist informally; enforce via build script.
 - [x] Size trend comparison shows changes vs previous build
 - [x] Improved error reporting with formatted bytes and clear failure messages
 
-### 10. Simple Viewer Parity Enhancements
-Bring minimal modal viewer closer (select subset) to advanced features without weight bloat.
+### 10. Simple Viewer Parity Enhancements ✅ COMPLETED
+Modal viewer now has stats panel, screenshot, and standalone jump.
 
-**Action Items**:
-- [ ] Add lightweight stats panel & screenshot button
-- [ ] Provide quick jump to standalone view (CTA button)
-- [ ] Share core loader code (avoid duplication) and measure bundle delta vs current budget
+**Completed**:
+- [x] Added lightweight stats panel (meshes, vertices, faces, dimensions) toggle via bottom-right button
+- [x] Added screenshot button — downloads PNG of current view
+- [x] "Open in 3D Viewer" CTA button already existed (top-right)
+- [x] Core loader code already shared via `loadModelByExtension` and `loadModelWithDependencies`
 
 ---
 

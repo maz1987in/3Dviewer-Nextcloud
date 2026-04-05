@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Slicer: Copy share link**: Copy the temporary Nextcloud share URL to clipboard for manual use
 - **Slicer: Size validation**: Warns and blocks uploads exceeding 50MB before attempting server transfer
 - **Slicer: Upload size display**: Shows file size in MB during upload for files >5MB
+- **Modal viewer stats panel**: Lightweight model info overlay (meshes, vertices, faces, dimensions) accessible via bottom-right button
+- **Modal viewer screenshot**: Download a PNG screenshot of the current view from the modal preview
 - **Cache settings in Personal Settings**: Configurable max cache size, max file size, expiration days, enable/disable toggle, and clear cache button
 - **Cache hits/misses in performance overlay**: Shows individual hit and miss counts alongside hit rate percentage
 - **Cache privacy documentation**: Documented local-only storage, per-browser isolation, and user control in TECHNICAL.md

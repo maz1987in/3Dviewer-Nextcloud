@@ -66,6 +66,43 @@
 			@click.prevent="toggleAnimation">
 			{{ isAnimationPlayingComputed ? '⏸️' : '▶️' }}
 		</NcButton>
+
+		<!-- Bottom-right action buttons -->
+		<div v-if="hasLoaded" class="viewer-bottom-actions">
+			<button
+				class="viewer-action-btn"
+				:title="t('threedviewer', 'Screenshot')"
+				@click.prevent="captureScreenshot">
+				📸
+			</button>
+			<button
+				class="viewer-action-btn"
+				:class="{ active: showStats }"
+				:title="t('threedviewer', 'Model info')"
+				@click.prevent="showStats = !showStats">
+				📊
+			</button>
+		</div>
+
+		<!-- Stats panel overlay -->
+		<div v-if="showStats && modelStats" class="viewer-stats-panel">
+			<div class="stats-row">
+				<span class="stats-label">{{ t('threedviewer', 'Meshes') }}</span>
+				<span class="stats-value">{{ modelStats.meshes }}</span>
+			</div>
+			<div class="stats-row">
+				<span class="stats-label">{{ t('threedviewer', 'Vertices') }}</span>
+				<span class="stats-value">{{ formatNumber(modelStats.vertices) }}</span>
+			</div>
+			<div class="stats-row">
+				<span class="stats-label">{{ t('threedviewer', 'Faces') }}</span>
+				<span class="stats-value">{{ formatNumber(modelStats.faces) }}</span>
+			</div>
+			<div class="stats-row">
+				<span class="stats-label">{{ t('threedviewer', 'Size') }}</span>
+				<span class="stats-value">{{ modelStats.dimensions }}</span>
+			</div>
+		</div>
 	</div>
 </template>
 
@@ -81,6 +118,7 @@ import { useScene } from '../composables/useScene.js'
 import { useCamera } from '../composables/useCamera.js'
 import { useAnimation } from '../composables/useAnimation.js'
 import { useThumbnailCapture } from '../composables/useThumbnailCapture.js'
+import { useScreenshot } from '../composables/useScreenshot.js'
 import { logger } from '../utils/logger.js'
 
 export default {
@@ -138,6 +176,7 @@ export default {
 		const cameraComposable = useCamera()
 		const animationComposable = useAnimation()
 		const thumbnailCapture = useThumbnailCapture()
+		const screenshotComposable = useScreenshot()
 
 		// Return composables for use in Options API methods
 		return {
@@ -145,6 +184,7 @@ export default {
 			cameraComposable,
 			animationComposable,
 			thumbnailCapture,
+			screenshotComposable,
 		}
 	},
 
@@ -175,6 +215,9 @@ export default {
 			isAnimationPlaying: false,
 			// Thumbnail setting
 			enableThumbnails: true, // Default to enabled
+			// Stats panel
+			showStats: false,
+			modelStats: null,
 		}
 	},
 
@@ -449,6 +492,53 @@ export default {
 			window.open(this.fullViewerUrl, '_blank', 'noopener,noreferrer')
 		},
 
+		captureScreenshot() {
+			if (!this.renderer) return
+			const name = this.basename?.replace(/\.[^.]+$/, '') || 'model'
+			this.screenshotComposable.captureAndDownload(this.renderer, {
+				format: 'png',
+				filename: `${name}-screenshot.png`,
+			})
+		},
+
+		computeModelStats() {
+			if (!this.scene || !this._THREE) return
+			let meshes = 0
+			let vertices = 0
+			let faces = 0
+			const box = new this._THREE.Box3()
+			let hasGeometry = false
+
+			this.scene.traverse((child) => {
+				if (child.isMesh && child.geometry) {
+					meshes++
+					const pos = child.geometry.attributes.position
+					if (pos) vertices += pos.count
+					if (child.geometry.index) {
+						faces += child.geometry.index.count / 3
+					} else if (pos) {
+						faces += pos.count / 3
+					}
+					box.expandByObject(child)
+					hasGeometry = true
+				}
+			})
+
+			let dimensions = ''
+			if (hasGeometry && !box.isEmpty()) {
+				const size = new this._THREE.Vector3()
+				box.getSize(size)
+				const fmt = (v) => v < 0.01 ? v.toExponential(1) : v.toFixed(2)
+				dimensions = `${fmt(size.x)} × ${fmt(size.y)} × ${fmt(size.z)}`
+			}
+
+			this.modelStats = { meshes, vertices: Math.round(vertices), faces: Math.round(faces), dimensions }
+		},
+
+		formatNumber(n) {
+			return typeof n === 'number' ? n.toLocaleString() : n
+		},
+
 		/**
 		 * Initialize the 3D viewer
 		 * Sets up Three.js scene, camera, controls, and loads the model
@@ -489,6 +579,7 @@ export default {
 
 				const THREE = await import(/* webpackChunkName: "three" */ 'three')
 				const { OrbitControls } = await import(/* webpackChunkName: "OrbitControls" */ 'three/examples/jsm/controls/OrbitControls.js')
+				this._THREE = THREE
 
 				// Check cancellation after imports
 				if (this.loadingCancelled) {
@@ -591,6 +682,7 @@ export default {
 
 				// Mark as loaded
 				this.hasLoaded = true
+				this.computeModelStats()
 
 				// Hide progress and tell Viewer we're done loading
 				this.updateProgress(false)
@@ -1410,5 +1502,71 @@ export default {
 
 .texture-warning-button:hover {
 	opacity: 0.85;
+}
+
+/* Bottom-right action buttons — raised above NC footer bar */
+.viewer-bottom-actions {
+	position: absolute;
+	bottom: 56px;
+	inset-inline-end: 16px;
+	display: flex;
+	gap: 6px;
+	z-index: 1000;
+}
+
+.viewer-action-btn {
+	width: 40px;
+	height: 40px;
+	border: none;
+	border-radius: 50%;
+	background: rgba(0, 0, 0, 0.55);
+	color: #fff;
+	font-size: 18px;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-shadow: 0 2px 8px rgb(0 0 0 / 30%);
+	transition: background 0.15s;
+}
+
+.viewer-action-btn:hover {
+	background: rgba(0, 0, 0, 0.75);
+}
+
+.viewer-action-btn.active {
+	background: var(--color-primary-element, #0082c9);
+}
+
+/* Stats panel — positioned above action buttons */
+.viewer-stats-panel {
+	position: absolute;
+	bottom: 108px;
+	inset-inline-end: 16px;
+	background: rgba(0, 0, 0, 0.75);
+	color: #fff;
+	border-radius: var(--border-radius-large, 8px);
+	padding: 10px 14px;
+	z-index: 999;
+	min-width: 180px;
+	box-shadow: 0 2px 12px rgb(0 0 0 / 40%);
+	backdrop-filter: blur(4px);
+	font-size: 13px;
+}
+
+.stats-row {
+	display: flex;
+	justify-content: space-between;
+	gap: 16px;
+	padding: 3px 0;
+}
+
+.stats-label {
+	opacity: 0.75;
+}
+
+.stats-value {
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
 }
 </style>
