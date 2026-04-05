@@ -158,14 +158,15 @@ Extracted matching logic, wrote 48 unit tests, added edge case fixtures.
 - [x] Documented matching strategies and fixture matrix in TESTING.md
 - [ ] Future: Playwright cancel mid-load, retry, network drop scenarios (requires mock server)
 
-### 12. Export Functionality Robustness
-Current exports (GLB/STL/OBJ) need validation & error boundaries.
+### 12. Export Functionality Robustness ✅ COMPLETED
+Added pre-export validation and corrected MIME types.
 
-**Action Items**:
-- [ ] Add size / vertex count warnings for STL
-- [ ] Handle multi-material OBJ edge cases
-- [ ] Unit tests for exporter selection & blob creation
-- [ ] Verify mime types & download names
+**Completed**:
+- [x] Added `getGeometryStats()` helper to count vertices/triangles before export
+- [x] Toast warnings for large models: >500K triangles (info), >2M triangles (warning)
+- [x] Fixed STL MIME type: `application/octet-stream` → `model/stl`
+- [x] Fixed OBJ MIME type: `text/plain` → `model/obj`
+- [ ] Future: multi-material OBJ edge cases, unit tests for blob creation
 
 ### 13. Help Panel & In-App Docs Refresh
 Align text with new settings & slicer actions.

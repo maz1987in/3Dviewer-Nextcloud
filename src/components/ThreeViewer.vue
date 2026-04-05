@@ -425,7 +425,7 @@ import { useComparison } from '../composables/useComparison.js'
 import { useMeasurement } from '../composables/useMeasurement.js'
 import { useAnnotation } from '../composables/useAnnotation.js'
 import { usePerformance } from '../composables/usePerformance.js'
-import { useExport } from '../composables/useExport.js'
+import { useExport, getGeometryStats } from '../composables/useExport.js'
 import { useModelStats } from '../composables/useModelStats.js'
 import { useProgressiveTextures } from '../composables/useProgressiveTextures.js'
 import { useTheme } from '../composables/useTheme.js'
@@ -1849,6 +1849,24 @@ export default {
 
 			try {
 				logger.info('ThreeViewer', 'Starting export', { format })
+
+				// Pre-export geometry check
+				const stats = getGeometryStats(modelRoot.value)
+				logger.info('ThreeViewer', 'Export geometry stats', stats)
+
+				if (stats.triangles > 2_000_000) {
+					emit('push-toast', {
+						type: 'warning',
+						title: 'Large Model',
+						message: `${(stats.triangles / 1_000_000).toFixed(1)}M triangles — export may take a while`,
+					})
+				} else if (stats.triangles > 500_000) {
+					emit('push-toast', {
+						type: 'info',
+						title: 'Export Started',
+						message: `${(stats.triangles / 1000).toFixed(0)}K triangles`,
+					})
+				}
 
 				// Extract filename from props or use default
 				const baseFilename = props.filename

@@ -9,6 +9,28 @@ import { STLExporter } from 'three/examples/jsm/exporters/STLExporter.js'
 import { OBJExporter } from 'three/examples/jsm/exporters/OBJExporter.js'
 import { logger } from '../utils/logger.js'
 
+/**
+ * Count vertices and triangles in an object hierarchy.
+ * @param {THREE.Object3D} object
+ * @return {{ vertices: number, triangles: number }}
+ */
+export function getGeometryStats(object) {
+	let vertices = 0
+	let triangles = 0
+	object.traverse((child) => {
+		if (child.isMesh && child.geometry) {
+			const pos = child.geometry.attributes.position
+			if (pos) vertices += pos.count
+			if (child.geometry.index) {
+				triangles += child.geometry.index.count / 3
+			} else if (pos) {
+				triangles += pos.count / 3
+			}
+		}
+	})
+	return { vertices: Math.round(vertices), triangles: Math.round(triangles) }
+}
+
 export function useExport() {
 	// State
 	const exporting = ref(false)
@@ -241,7 +263,7 @@ export function useExport() {
 			exportProgress.value = { stage: 'Creating binary STL file...', percentage: 70 }
 			await new Promise(resolve => setTimeout(resolve, 100))
 
-			const blob = new Blob([result], { type: 'application/octet-stream' })
+			const blob = new Blob([result], { type: 'model/stl' })
 
 			const sizeMB = (blob.size / 1024 / 1024).toFixed(2)
 			logger.info('useExport', 'STL export complete', { filename, sizeMB: `${sizeMB}MB` })
@@ -294,7 +316,7 @@ export function useExport() {
 			exportProgress.value = { stage: 'Creating text file...', percentage: 70 }
 			await new Promise(resolve => setTimeout(resolve, 100))
 
-			const blob = new Blob([result], { type: 'text/plain' })
+			const blob = new Blob([result], { type: 'model/obj' })
 
 			const sizeMB = (blob.size / 1024 / 1024).toFixed(2)
 			logger.info('useExport', 'OBJ export complete', { filename, sizeMB: `${sizeMB}MB` })
