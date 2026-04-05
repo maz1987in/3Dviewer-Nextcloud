@@ -168,13 +168,14 @@ Added pre-export validation and corrected MIME types.
 - [x] Fixed OBJ MIME type: `text/plain` → `model/obj`
 - [ ] Future: multi-material OBJ edge cases, unit tests for blob creation
 
-### 13. Help Panel & In-App Docs Refresh
-Align text with new settings & slicer actions.
+### 13. Help Panel & In-App Docs Refresh ✅ COMPLETED
+Updated help panel with all new features.
 
-**Action Items**:
-- [ ] Add section for sending to slicer
-- [ ] Add section for cache management once implemented
-- [ ] Link to COMPOSABLES_API.md in developer help
+**Completed**:
+- [x] Added Slicer & Export section (Send to Slicer, Export Model, Screenshot)
+- [x] Added cross-section and exploded view to Tools section
+- [x] Added lighting presets, bookmarks, dependency cache to Settings section
+- [x] Updated tips with slicer share link and cache config notes
 
 ### 14. Internationalization Audit
 Ensure new strings (settings, slicer, indexing) are translatable.

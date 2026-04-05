@@ -160,6 +160,48 @@
 								<p>{{ t('threedviewer', 'Compare two 3D models side-by-side. Select a second model to compare with the current one.') }}</p>
 							</div>
 						</div>
+						<div class="help-item">
+							<span class="help-icon">✂️</span>
+							<div class="help-text">
+								<h4>{{ t('threedviewer', 'Cross-Section') }}</h4>
+								<p>{{ t('threedviewer', 'Slice through the model along X, Y, or Z axes. Adjust position with the slider and flip direction to view either side.') }}</p>
+							</div>
+						</div>
+						<div class="help-item">
+							<span class="help-icon">💥</span>
+							<div class="help-text">
+								<h4>{{ t('threedviewer', 'Exploded View') }}</h4>
+								<p>{{ t('threedviewer', 'For multi-mesh models, spread parts outward from center. Adjust the explosion factor with the slider. Only available when the model has 2 or more meshes.') }}</p>
+							</div>
+						</div>
+					</div>
+				</section>
+
+				<!-- SLICER & EXPORT Section -->
+				<section class="help-section">
+					<h3>{{ t('threedviewer', 'SLICER & EXPORT') }}</h3>
+					<div class="help-grid">
+						<div class="help-item">
+							<span class="help-icon">🖨️</span>
+							<div class="help-text">
+								<h4>{{ t('threedviewer', 'Send to Slicer') }}</h4>
+								<p>{{ t('threedviewer', 'Export and send the model to a desktop slicer app (PrusaSlicer, Cura, BambuStudio, etc.). Choose STL, OBJ, or PLY format before sending. A temporary share link is created automatically.') }}</p>
+							</div>
+						</div>
+						<div class="help-item">
+							<span class="help-icon">📦</span>
+							<div class="help-text">
+								<h4>{{ t('threedviewer', 'Export Model') }}</h4>
+								<p>{{ t('threedviewer', 'Download the model as GLB (with textures), STL (for 3D printing), or OBJ (universal format). Large models show a triangle count warning before export.') }}</p>
+							</div>
+						</div>
+						<div class="help-item">
+							<span class="help-icon">📷</span>
+							<div class="help-text">
+								<h4>{{ t('threedviewer', 'Screenshot') }}</h4>
+								<p>{{ t('threedviewer', 'Capture a PNG screenshot of the current view. Also available in the modal file preview.') }}</p>
+							</div>
+						</div>
 					</div>
 				</section>
 
@@ -182,6 +224,20 @@
 							</div>
 						</div>
 						<div class="help-item">
+							<span class="help-icon">💡</span>
+							<div class="help-text">
+								<h4>{{ t('threedviewer', 'Lighting Presets') }}</h4>
+								<p>{{ t('threedviewer', 'Quick-switch between 5 lighting setups: Default, Studio, Outdoor, Dramatic, and Flat. Each adjusts ambient, directional, and point lights.') }}</p>
+							</div>
+						</div>
+						<div class="help-item">
+							<span class="help-icon">🔖</span>
+							<div class="help-text">
+								<h4>{{ t('threedviewer', 'Bookmarks') }}</h4>
+								<p>{{ t('threedviewer', 'Save camera positions with display state (grid, axes, wireframe). Click a bookmark to restore the view. Bookmarks persist in your browser.') }}</p>
+							</div>
+						</div>
+						<div class="help-item">
 							<span class="help-icon">📊</span>
 							<div class="help-text">
 								<h4>{{ t('threedviewer', 'Model Statistics') }}</h4>
@@ -189,24 +245,10 @@
 							</div>
 						</div>
 						<div class="help-item">
-							<span class="help-icon">📦</span>
+							<span class="help-icon">🗄️</span>
 							<div class="help-text">
-								<h4>{{ t('threedviewer', 'Export Model') }}</h4>
-								<p>{{ t('threedviewer', 'Export the current model as GLB (with textures), STL (for 3D printing), or OBJ (universal format).') }}</p>
-							</div>
-						</div>
-						<div class="help-item">
-							<span class="help-icon">🗑️</span>
-							<div class="help-text">
-								<h4>{{ t('threedviewer', 'Clear Cache') }}</h4>
-								<p>{{ t('threedviewer', 'Clear cached textures and dependencies. Use if models aren\'t loading correctly.') }}</p>
-							</div>
-						</div>
-						<div class="help-item">
-							<span class="help-icon">📷</span>
-							<div class="help-text">
-								<h4>{{ t('threedviewer', 'Screenshot') }}</h4>
-								<p>{{ t('threedviewer', 'Capture high-quality screenshots of the current 3D view. Screenshots are saved as PNG images with the model name and timestamp.') }}</p>
+								<h4>{{ t('threedviewer', 'Dependency Cache') }}</h4>
+								<p>{{ t('threedviewer', 'Textures and materials are cached locally in your browser for faster reloads. Configure max size, expiration, or clear the cache in Personal Settings.') }}</p>
 							</div>
 						</div>
 					</div>
@@ -249,10 +291,10 @@
 					<ul class="tips-list">
 						<li>{{ t('threedviewer', 'Models load instantly! Textures appear progressively in the background.') }}</li>
 						<li>{{ t('threedviewer', 'Textures in subdirectories (like "Texture/" folder) are automatically found.') }}</li>
-						<li>{{ t('threedviewer', 'Dependencies (MTL files, textures) are cached for 7 days for faster reloads.') }}</li>
+						<li>{{ t('threedviewer', 'Dependencies (MTL files, textures) are cached locally for faster reloads. Configure in Personal Settings.') }}</li>
 						<li>{{ t('threedviewer', 'Auto mode detects your device capabilities for optimal performance.') }}</li>
 						<li>{{ t('threedviewer', 'All formats supported: {formats}', { formats: supportedFormats }) }}</li>
-						<li>{{ t('threedviewer', 'Use comparison mode to spot differences between model versions.') }}</li>
+						<li>{{ t('threedviewer', 'Send to Slicer creates a temporary 24-hour share link — the file is auto-cleaned after use.') }}</li>
 					</ul>
 				</section>
 			</div>
