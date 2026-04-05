@@ -116,6 +116,9 @@
 					@toggle-measurement="onToggleMeasurement"
 					@toggle-annotation="onToggleAnnotation"
 					@toggle-comparison="onToggleComparison"
+					@toggle-transform-gizmo="onToggleTransformGizmo"
+					@set-transform-mode="onSetTransformMode"
+					@reset-transform="onResetTransform"
 					@cycle-performance-mode="onCyclePerformanceMode"
 					@cycle-theme="onCycleTheme"
 					@toggle-stats="onToggleStats"
@@ -170,6 +173,8 @@
 					:measurement-mode="measurementMode"
 					:annotation-mode="annotationMode"
 					:comparison-mode="comparisonMode"
+					:transform-gizmo-active="transformGizmoActive"
+					:transform-gizmo-mode="transformGizmoMode"
 					:performance-mode="performanceMode"
 					@model-loaded="onModelLoaded"
 					@loading-state-changed="onLoadingStateChanged"
@@ -276,6 +281,8 @@ export default {
 			measurementMode: false,
 			annotationMode: false,
 			comparisonMode: false,
+			transformGizmoActive: false,
+			transformGizmoMode: 'translate',
 			performanceMode: 'auto',
 			themeMode: 'auto',
 			toasts: [],
@@ -614,7 +621,26 @@ export default {
 			this.comparisonMode = !this.comparisonMode
 			this.measurementMode = false
 			this.annotationMode = false
+			this.transformGizmoActive = false
 			this.$refs.viewer?.toggleComparisonMode?.()
+		},
+
+		onToggleTransformGizmo() {
+			this.transformGizmoActive = !this.transformGizmoActive
+			if (this.transformGizmoActive) {
+				this.measurementMode = false
+				this.annotationMode = false
+			}
+			this.$refs.viewer?.toggleTransformGizmo?.()
+		},
+
+		onSetTransformMode(mode) {
+			this.transformGizmoMode = mode
+			this.$refs.viewer?.setTransformMode?.(mode)
+		},
+
+		onResetTransform() {
+			this.$refs.viewer?.resetTransform?.()
 		},
 
 		onTogglePerformance() {
@@ -1156,6 +1182,11 @@ export default {
 					this.explodedViewAvailable = ev.hasMeshes?.value ?? ev.hasMeshes ?? false
 					this.explodedViewActive = ev.isActive?.value ?? ev.isActive ?? false
 					this.explodedViewFactor = ev.factor?.value ?? ev.factor ?? 0
+				}
+				// Transform gizmo state
+				if (viewer.transformGizmoActive !== undefined) {
+					this.transformGizmoActive = viewer.transformGizmoActive?.value ?? viewer.transformGizmoActive ?? false
+					this.transformGizmoMode = viewer.transformGizmoMode?.value ?? viewer.transformGizmoMode ?? 'translate'
 				}
 			}
 		},

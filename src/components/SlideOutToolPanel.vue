@@ -214,6 +214,42 @@
 									:value="explodedViewFactor"
 									@input="emit('set-exploded-factor', parseFloat($event.target.value))">
 							</div>
+							<!-- Transform Gizmo -->
+							<button class="tool-btn feature-btn"
+								:class="{ 'active': transformGizmoActive }"
+								:disabled="!modelLoaded"
+								@click="emit('toggle-transform-gizmo')">
+								<span class="tool-icon">🔀</span>
+								<span class="tool-label">{{ t('threedviewer', 'Transform') }}</span>
+								<span v-if="transformGizmoActive" class="active-badge">{{ t('threedviewer', 'Active') }}</span>
+							</button>
+							<div v-if="transformGizmoActive" class="clipping-controls">
+								<div class="axis-buttons">
+									<button class="axis-btn"
+										:class="{ 'active': transformGizmoMode === 'translate' }"
+										:title="t('threedviewer', 'Move')"
+										@click="emit('set-transform-mode', 'translate')">
+										↔
+									</button>
+									<button class="axis-btn"
+										:class="{ 'active': transformGizmoMode === 'rotate' }"
+										:title="t('threedviewer', 'Rotate')"
+										@click="emit('set-transform-mode', 'rotate')">
+										🔄
+									</button>
+									<button class="axis-btn"
+										:class="{ 'active': transformGizmoMode === 'scale' }"
+										:title="t('threedviewer', 'Scale')"
+										@click="emit('set-transform-mode', 'scale')">
+										⤢
+									</button>
+									<button class="axis-btn"
+										:title="t('threedviewer', 'Reset transform')"
+										@click="emit('reset-transform')">
+										↩
+									</button>
+								</div>
+							</div>
 							<!-- Model Statistics -->
 							<button class="tool-btn"
 								:disabled="!modelLoaded"
@@ -398,6 +434,8 @@ export default {
 		measurementMode: { type: Boolean, default: false },
 		annotationMode: { type: Boolean, default: false },
 		comparisonMode: { type: Boolean, default: false },
+		transformGizmoActive: { type: Boolean, default: false },
+		transformGizmoMode: { type: String, default: 'translate' },
 		modelLoaded: { type: Boolean, default: false },
 		performanceMode: { type: String, default: 'auto' },
 		themeMode: { type: String, default: 'auto' },
@@ -451,6 +489,9 @@ export default {
 		'toggle-measurement',
 		'toggle-annotation',
 		'toggle-comparison',
+		'toggle-transform-gizmo',
+		'set-transform-mode',
+		'reset-transform',
 		'cycle-performance-mode',
 		'cycle-theme',
 		'toggle-stats',

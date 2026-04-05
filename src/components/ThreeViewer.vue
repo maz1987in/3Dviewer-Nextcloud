@@ -438,6 +438,7 @@ import { useClippingPlane } from '../composables/useClippingPlane.js'
 import { useLightingPresets } from '../composables/useLightingPresets.js'
 import { useBookmarks } from '../composables/useBookmarks.js'
 import { useExplodedView } from '../composables/useExplodedView.js'
+import { useTransformGizmo } from '../composables/useTransformGizmo.js'
 import { logger } from '../utils/logger.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
 import { initCache, clearExpired, clearAll, getCacheStats } from '../utils/dependencyCache.js'
@@ -521,6 +522,7 @@ export default {
 		const lightingPresets = useLightingPresets()
 		const bookmarksComposable = useBookmarks()
 		const explodedView = useExplodedView()
+		const transformGizmo = useTransformGizmo()
 
 		// Computed properties
 		const isMobile = computed(() => camera.isMobile.value)
@@ -596,6 +598,9 @@ export default {
 
 				// Initialize clipping plane system
 				clippingPlane.init(renderer.value, scene.value)
+
+				// Initialize transform gizmo
+				await transformGizmo.init(scene.value, camera.camera.value, renderer.value, camera.controls.value)
 
 				// Initialize lighting presets (pass lights array from scene)
 				// lights are stored in the scene's children; collect them after setupScene
@@ -1722,6 +1727,23 @@ export default {
 			}
 			annotation.toggleAnnotation()
 			emit('toggle-annotation')
+		}
+
+		const toggleTransformGizmo = () => {
+			// Turn off measurement/annotation when enabling gizmo
+			if (!transformGizmo.isActive.value) {
+				if (measurement.isActive.value) measurement.toggleMeasurement()
+				if (annotation.isActive.value) annotation.toggleAnnotation()
+			}
+			transformGizmo.toggle(modelRoot.value)
+		}
+
+		const setTransformMode = (newMode) => {
+			transformGizmo.setMode(newMode)
+		}
+
+		const resetTransform = () => {
+			transformGizmo.resetTransform()
 		}
 
 		const togglePerformanceStats = () => {
@@ -2881,6 +2903,7 @@ export default {
 			lightingPresets.dispose()
 			bookmarksComposable.dispose()
 			explodedView.dispose()
+			transformGizmo.dispose()
 
 			// Dispose performance monitoring
 			if (performance && typeof performance.dispose === 'function') {
@@ -3002,6 +3025,11 @@ export default {
 			handleUnitChange,
 			deleteMeasurement,
 			toggleAnnotationMode,
+			toggleTransformGizmo,
+			setTransformMode,
+			resetTransform,
+			transformGizmoActive: transformGizmo.isActive,
+			transformGizmoMode: transformGizmo.mode,
 			deleteAnnotation,
 			updateAnnotationText,
 			clearAllAnnotations,

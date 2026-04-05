@@ -208,7 +208,7 @@ Audited and fixed ARIA roles and keyboard navigation.
 3. ~~Animation Timeline Scrubber~~ ✅ Implemented
 4. ~~View State Bookmarks~~ ✅ Implemented
 5. ~~Lighting Presets~~ ✅ Implemented
-6. Basic transform gizmos (translate / rotate / scale)
+6. ~~Basic transform gizmos (translate / rotate / scale)~~ ✅ Implemented
 7. Volume & surface area measurement
 8. WebXR preview (VR mode) — Three.js has built-in WebXR support
 9. ZIP packaging of multi-file models (+ dependencies)
