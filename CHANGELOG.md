@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Export triangle count warnings**: Toast notifications for large models (>500K info, >2M warning) before export starts
 - **Export MIME type fix**: STL exports use `model/stl`, OBJ exports use `model/obj` instead of generic types
 - **Help panel refresh**: Added Slicer & Export section, cross-section, exploded view, lighting presets, bookmarks, dependency cache documentation
+- **i18n audit**: Wrapped hardcoded export/error toast strings in `t()`, added 31 new keys to `l10n/en.json`, documented i18n checklist in TECHNICAL.md
 - **Format parity guard**: Build-time script (`npm run format:check`) validates that PHP, JS, loader registry, Viewer MIME list, and mimetypemapping.json stay synchronized
 - **X3D/VRML MIME registration**: Added `model/x3d+xml` and `model/vrml` to Nextcloud Viewer MIME list so these formats open in the viewer
 - **Slicer security documentation**: Documented full security posture — authentication, path traversal prevention, MIME validation, size limits, share expiry, and file lifecycle in TECHNICAL.md

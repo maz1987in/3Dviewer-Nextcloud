@@ -57,7 +57,7 @@
 					📦
 				</div>
 				<div class="export-stage">
-					{{ exportProgress.stage || 'Preparing export...' }}
+					{{ exportProgress.stage || t('threedviewer', 'Preparing export...') }}
 				</div>
 				<div class="export-percentage">
 					{{ exportProgress.percentage }}%
@@ -174,7 +174,7 @@
 					⚠️
 				</div>
 				<div class="error-message">
-					{{ errorState?.message || 'An error occurred' }}
+					{{ errorState?.message || t('threedviewer', 'An error occurred') }}
 				</div>
 				<div v-if="errorState?.details" class="error-details">
 					{{ errorState.details }}
@@ -1841,8 +1841,8 @@ export default {
 				logger.warn('ThreeViewer', 'No model loaded for export')
 				emit('push-toast', {
 					type: 'error',
-					title: 'Export Failed',
-					message: 'No model loaded to export',
+					title: t('threedviewer', 'Export Failed'),
+					message: t('threedviewer', 'No model loaded to export'),
 				})
 				return
 			}
@@ -1857,14 +1857,14 @@ export default {
 				if (stats.triangles > 2_000_000) {
 					emit('push-toast', {
 						type: 'warning',
-						title: 'Large Model',
-						message: `${(stats.triangles / 1_000_000).toFixed(1)}M triangles — export may take a while`,
+						title: t('threedviewer', 'Large Model'),
+						message: t('threedviewer', '{count}M triangles — export may take a while', { count: (stats.triangles / 1_000_000).toFixed(1) }),
 					})
 				} else if (stats.triangles > 500_000) {
 					emit('push-toast', {
 						type: 'info',
-						title: 'Export Started',
-						message: `${(stats.triangles / 1000).toFixed(0)}K triangles`,
+						title: t('threedviewer', 'Export Started'),
+						message: t('threedviewer', '{count}K triangles', { count: (stats.triangles / 1000).toFixed(0) }),
 					})
 				}
 
@@ -1879,24 +1879,24 @@ export default {
 					await exportComposable.exportAsGLB(modelRoot.value, baseFilename)
 					emit('push-toast', {
 						type: 'success',
-						title: 'Export Successful',
-						message: `Model exported as ${baseFilename}.glb`,
+						title: t('threedviewer', 'Export Successful'),
+						message: t('threedviewer', 'Model exported as {name}', { name: `${baseFilename}.glb` }),
 					})
 					break
 				case 'stl':
 					await exportComposable.exportAsSTL(modelRoot.value, baseFilename)
 					emit('push-toast', {
 						type: 'success',
-						title: 'Export Successful',
-						message: `Model exported as ${baseFilename}.stl`,
+						title: t('threedviewer', 'Export Successful'),
+						message: t('threedviewer', 'Model exported as {name}', { name: `${baseFilename}.stl` }),
 					})
 					break
 				case 'obj':
 					await exportComposable.exportAsOBJ(modelRoot.value, baseFilename)
 					emit('push-toast', {
 						type: 'success',
-						title: 'Export Successful',
-						message: `Model exported as ${baseFilename}.obj`,
+						title: t('threedviewer', 'Export Successful'),
+						message: t('threedviewer', 'Model exported as {name}', { name: `${baseFilename}.obj` }),
 					})
 					break
 				default:
@@ -1908,8 +1908,8 @@ export default {
 				logger.error('ThreeViewer', 'Export failed', error)
 				emit('push-toast', {
 					type: 'error',
-					title: 'Export Failed',
-					message: error.message || 'Failed to export model',
+					title: t('threedviewer', 'Export Failed'),
+					message: error.message || t('threedviewer', 'Failed to export model'),
 				})
 			}
 		}

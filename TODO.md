@@ -177,14 +177,14 @@ Updated help panel with all new features.
 - [x] Added lighting presets, bookmarks, dependency cache to Settings section
 - [x] Updated tips with slicer share link and cache config notes
 
-### 14. Internationalization Audit
-Ensure new strings (settings, slicer, indexing) are translatable.
+### 14. Internationalization Audit ✅ COMPLETED
+Audited and fixed hardcoded strings, updated baseline.
 
-**Action Items**:
-- [ ] Run extraction tool & diff
-- [ ] Add missing keys (`l10n/en.json` baseline)
-- [ ] Mark newly added strings in PR
-- [ ] Add a short i18n checklist reference in docs/README.md or TECHNICAL.md
+**Completed**:
+- [x] Wrapped hardcoded export/error toast strings in `t()` (ThreeViewer.vue export handler, template fallbacks)
+- [x] Added 31 new translation keys to `l10n/en.json` (export, cache, modal viewer, help panel features)
+- [x] Documented i18n checklist (how to add new strings) in TECHNICAL.md
+- [ ] Future: automated string extraction tooling, sync non-English translations
 
 ### 15. Accessibility Review
 Check ARIA roles / keyboard navigation for new components.

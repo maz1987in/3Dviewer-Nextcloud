@@ -1595,6 +1595,29 @@ Frontend (JavaScript)
 - useScene.js
 - useUI.js
 
+## Internationalization (i18n)
+
+All user-visible strings must be wrapped in `t('threedviewer', '...')`. The translation baseline is `l10n/en.json`.
+
+### Checklist for new strings
+
+1. Wrap the string: `t('threedviewer', 'Your text here')`
+2. For variables use `{key}` placeholders: `t('threedviewer', '{count} items', { count: 5 })`
+3. Add the key to `l10n/en.json` in the `translations` object
+4. Import: use `import { translate as t } from '@nextcloud/l10n'` in `<script setup>` or composables; use global `t` in Options API components via `app.config.globalProperties`
+5. Avoid: `OC.L10N.translate` (legacy pattern, only in PersonalSettings.vue)
+
+### Translation files
+
+| File | Purpose |
+|------|---------|
+| `l10n/en.json` | English baseline (source of truth) |
+| `l10n/ar.json` | Arabic |
+| `l10n/de.json` | German |
+| `l10n/es.json` | Spanish |
+
+Translations are maintained manually. There is no automated extraction tool — when adding new `t()` calls, always update `l10n/en.json`.
+
 ---
 
 ## Viewer Integration and Decoders
