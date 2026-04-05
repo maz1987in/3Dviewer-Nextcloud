@@ -1224,6 +1224,56 @@ Settings are stored server-side per user and applied when the viewer loads.
 - **No sensitive data**: Only model dependency files (textures, materials, binary geometry) are cached — never credentials, tokens, or user metadata.
 - **Automatic cleanup**: Expired entries are removed on every viewer initialization.
 
+## Slicer Temporary Files — Security Posture
+
+The "Send to Slicer" feature creates temporary public share links so desktop slicer applications can download exported models. This section documents the security controls in place.
+
+### Threat model
+
+An exported file is stored in the user's Nextcloud storage (`.3dviewer_temp/`) and a read-only public share link is created. The link is passed to the slicer via a URL scheme. The main risks are: unauthorized access to the file, path traversal, resource exhaustion, and stale shares.
+
+### Controls
+
+| Layer | Control | Implementation |
+|-------|---------|----------------|
+| **Authentication** | All API endpoints require a logged-in user | `IUserSession` check; returns 401 if absent |
+| **Path traversal** | Filename sanitized with `basename()` + regex whitelist | `preg_replace('/[^a-zA-Z0-9_\-\.]/', '_', ...)` |
+| **Path containment** | Files verified inside `.3dviewer_temp/` before access | `str_starts_with($filePath, $tempFolderPath . '/')` |
+| **Extension allowlist** | Only slicer-relevant formats accepted | `stl, obj, ply, gcode, gco, nc, g, gx, 3mf, amf` |
+| **MIME validation** | `finfo` sniffs actual content; heuristics for STL/G-code | Rejects files that don't match expected content |
+| **Per-file size limit** | 50 MB hard cap | Checked via Content-Length header and actual data length |
+| **Folder quota** | 200 MB rolling cap per user | Enforced before each upload |
+| **Share permissions** | Read-only public link | `Constants::PERMISSION_READ` only |
+| **Share expiry** | 24 hours, enforced by Nextcloud share system | `setExpirationDate('+1 day')` |
+| **File expiry** | 24 hours, checked on every access and upload | Files older than `MAX_TEMP_FILE_AGE` are deleted |
+| **Background cleanup** | Cron job every 6 hours | `CleanupTempFiles` deletes expired files + shares |
+| **Frontend cleanup** | Auto-delete after 2 minutes on successful send | `setTimeout(() => fetch(DELETE), 120000)` |
+| **Unique filenames** | Timestamp prefix prevents collision | `time() . '_' . $filename` |
+| **Logging** | All operations logged with user, size, MIME, errors | Via `LoggerInterface` |
+
+### File lifecycle
+
+```
+Upload (POST /api/slicer/temp)
+  → Authenticate → Size check → MIME/extension validate
+  → Sanitize filename → Check folder quota → Save file
+  → Create read-only share (24h expiry) → Return download URL
+
+Access (GET /api/slicer/temp/{fileId})
+  → Authenticate → Verify file in temp folder → Check 24h age
+  → Return file with no-cache headers
+
+Delete (DELETE /api/slicer/temp/{fileId})
+  → Authenticate → Verify file in temp folder → Delete shares → Delete file
+
+Cleanup (cron, every 6h)
+  → For each user → Scan .3dviewer_temp/ → Delete files > 24h old + their shares
+```
+
+### CORS
+
+The download endpoint returns `Access-Control-Allow-Origin: *` intentionally, because desktop slicer applications fetch files via HTTP from arbitrary origins. Share tokens are cryptographically random and not guessable.
+
 ## KTX2 Texture Compression Support
 
 ### Overview

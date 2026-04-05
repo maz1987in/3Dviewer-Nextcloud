@@ -486,7 +486,7 @@ class SlicerController extends Controller
      */
     private function getAllowedExtensions(): array
     {
-        return ['stl', 'gcode', 'gco', 'nc', 'g', 'gx', '3mf', 'amf'];
+        return ['stl', 'obj', 'ply', 'gcode', 'gco', 'nc', 'g', 'gx', '3mf', 'amf'];
     }
 
     /**
@@ -506,6 +506,9 @@ class SlicerController extends Controller
             'model/stl',
             'application/sla',
             'application/octet-stream',
+            // OBJ / PLY (exported as text or binary)
+            'model/obj',
+            'model/ply',
             // G-code (often text/plain or octet-stream)
             'text/plain',
             'application/gcode',

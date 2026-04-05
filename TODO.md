@@ -88,15 +88,17 @@ Backend and frontend format definitions are now automatically validated.
 - [x] Fixed missing X3D/VRML MIME registrations in main.js
 - [x] Documented the format parity contract and "adding a new format" checklist in TECHNICAL.md
 
-### 6. Security Review: Slicer Temporary Files
-Assess lifetime & access scope of temporary share links.
+### 6. Security Review: Slicer Temporary Files ✅ COMPLETED
+Security audit of slicer temporary file system completed.
 
-**Action Items**:
-- [ ] Confirm 24h expiry enforced server-side
-- [ ] Validate path sanitization & extension restrictions
-- [ ] Add size limit & mime validation prior to temp copy
-- [ ] Log creation/deletion events (audit trail)
-- [ ] Document security posture in TECHNICAL.md
+**Completed**:
+- [x] Confirmed 24h expiry enforced server-side (share expiration + file age check + 6h cron cleanup)
+- [x] Validated path sanitization (basename + regex whitelist + path containment check)
+- [x] Size limits already enforced: 50 MB per file, 200 MB folder cap, Content-Length pre-check
+- [x] MIME validation via finfo sniffing + extension allowlist + heuristic fallbacks
+- [x] Comprehensive logging of all operations (user, size, MIME, errors) already in place
+- [x] Documented full security posture in TECHNICAL.md
+- [x] Fixed OBJ/PLY missing from upload extension allowlist
 
 ### 7. Performance Scaling for Large Models ✅ COMPLETED
 Implement optional LOD / simplification strategies for very large meshes.

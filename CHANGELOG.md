@@ -24,8 +24,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Cache privacy documentation**: Documented local-only storage, per-browser isolation, and user control in TECHNICAL.md
 - **Format parity guard**: Build-time script (`npm run format:check`) validates that PHP, JS, loader registry, Viewer MIME list, and mimetypemapping.json stay synchronized
 - **X3D/VRML MIME registration**: Added `model/x3d+xml` and `model/vrml` to Nextcloud Viewer MIME list so these formats open in the viewer
+- **Slicer security documentation**: Documented full security posture — authentication, path traversal prevention, MIME validation, size limits, share expiry, and file lifecycle in TECHNICAL.md
 
 ### Fixed
+- **Slicer OBJ/PLY upload**: Added `obj` and `ply` to backend upload allowlist — OBJ/PLY format selector was added to frontend but backend rejected these formats
 - **EufyStudio URL parsing**: Replaced fragile regex filename extraction with proper URL parsing
 - **Slicer upload timeout**: Added 2-minute timeout to XMLHttpRequest (previously no timeout — could hang forever)
 
