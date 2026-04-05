@@ -21,24 +21,25 @@ export function useTransformGizmo() {
 	 * Call after scene, camera, and renderer are ready.
 	 */
 	const init = async (scene, camera, renderer, orbitControls) => {
-		sceneRef.value = scene
-		cameraRef.value = camera
-		rendererRef.value = renderer
-		orbitControlsRef.value = orbitControls
+		// Store raw references to avoid Vue proxy issues with Three.js
+		const rawScene = toRaw(scene)
+		const rawCamera = toRaw(camera)
+		const rawRenderer = toRaw(renderer)
+
+		sceneRef.value = rawScene
+		cameraRef.value = rawCamera
+		rendererRef.value = rawRenderer
+		orbitControlsRef.value = toRaw(orbitControls)
 
 		const { TransformControls } = await import('three/examples/jsm/controls/TransformControls.js')
 
-		const rawCamera = toRaw(camera)
-		const rawRenderer = toRaw(renderer)
-		const rawScene = toRaw(scene)
-
-		const tc = markRaw(new TransformControls(rawCamera, rawRenderer.domElement))
+		const tc = new TransformControls(rawCamera, rawRenderer.domElement)
 		tc.setMode(mode.value)
 		tc.setSize(0.8)
 
 		// Disable orbit while dragging the gizmo
 		tc.addEventListener('dragging-changed', (event) => {
-			const orbit = toRaw(orbitControlsRef.value)
+			const orbit = orbitControlsRef.value
 			if (orbit) orbit.enabled = !event.value
 		})
 
@@ -46,8 +47,9 @@ export function useTransformGizmo() {
 		tc.enabled = false
 		rawScene.add(tc)
 
-		controlsRef.value = tc
-		logger.info('useTransformGizmo', 'Initialized')
+		// Store as markRaw to prevent Vue from wrapping it
+		controlsRef.value = markRaw(tc)
+		logger.info('useTransformGizmo', 'Initialized', { sceneChildren: rawScene.children.length })
 	}
 
 	/**
@@ -55,9 +57,12 @@ export function useTransformGizmo() {
 	 * When turning on, attaches to the model root.
 	 */
 	const toggle = (modelRoot) => {
-		if (!controlsRef.value) return
+		if (!controlsRef.value) {
+			logger.warn('useTransformGizmo', 'Toggle called but controls not initialized')
+			return
+		}
 
-		const tc = toRaw(controlsRef.value)
+		const tc = controlsRef.value // already markRaw
 		isActive.value = !isActive.value
 
 		if (isActive.value && modelRoot) {
@@ -65,14 +70,15 @@ export function useTransformGizmo() {
 			tc.attach(obj)
 			tc.visible = true
 			tc.enabled = true
-			attachedObject.value = modelRoot
-			logger.info('useTransformGizmo', 'Attached to model', { mode: mode.value })
+			attachedObject.value = obj
+			logger.info('useTransformGizmo', 'Attached to model', { mode: mode.value, isActive: isActive.value })
 		} else {
 			tc.detach()
 			tc.visible = false
 			tc.enabled = false
+			isActive.value = false
 			attachedObject.value = null
-			logger.info('useTransformGizmo', 'Detached')
+			logger.info('useTransformGizmo', 'Detached', { isActive: isActive.value })
 		}
 	}
 

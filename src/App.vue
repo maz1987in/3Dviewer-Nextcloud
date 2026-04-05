@@ -626,12 +626,14 @@ export default {
 		},
 
 		onToggleTransformGizmo() {
-			this.transformGizmoActive = !this.transformGizmoActive
+			if (this.$refs.viewer?.transformGizmo) {
+				this.$refs.viewer.toggleTransformGizmo()
+				this.transformGizmoActive = this.$refs.viewer.transformGizmo.isActive.value ?? this.$refs.viewer.transformGizmo.isActive
+			}
 			if (this.transformGizmoActive) {
 				this.measurementMode = false
 				this.annotationMode = false
 			}
-			this.$refs.viewer?.toggleTransformGizmo?.()
 		},
 
 		onSetTransformMode(mode) {
@@ -1183,10 +1185,10 @@ export default {
 					this.explodedViewActive = ev.isActive?.value ?? ev.isActive ?? false
 					this.explodedViewFactor = ev.factor?.value ?? ev.factor ?? 0
 				}
-				// Transform gizmo state
-				if (viewer.transformGizmoActive !== undefined) {
-					this.transformGizmoActive = viewer.transformGizmoActive?.value ?? viewer.transformGizmoActive ?? false
-					this.transformGizmoMode = viewer.transformGizmoMode?.value ?? viewer.transformGizmoMode ?? 'translate'
+				// Transform gizmo state (synced from composable, same pattern as clipping)
+				if (viewer.transformGizmo) {
+					this.transformGizmoActive = viewer.transformGizmo.isActive?.value ?? viewer.transformGizmo.isActive ?? false
+					this.transformGizmoMode = viewer.transformGizmo.mode?.value ?? viewer.transformGizmo.mode ?? 'translate'
 				}
 			}
 		},
