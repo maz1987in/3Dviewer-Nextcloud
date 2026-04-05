@@ -412,7 +412,7 @@
 </template>
 
 <script>
-import { ref, shallowRef, markRaw, onMounted, onBeforeUnmount, watch, computed, nextTick } from 'vue'
+import { ref, shallowRef, markRaw, toRaw, onMounted, onBeforeUnmount, watch, computed, nextTick } from 'vue'
 import * as THREE from 'three'
 import { NcProgressBar, NcButton } from '@nextcloud/vue'
 import { generateUrl, imagePath } from '@nextcloud/router'
@@ -599,8 +599,8 @@ export default {
 				// Initialize clipping plane system
 				clippingPlane.init(renderer.value, scene.value)
 
-				// Initialize transform gizmo
-				await transformGizmo.init(scene.value, camera.camera.value, renderer.value, camera.controls.value)
+				// Initialize transform gizmo (pass raw objects to avoid Vue proxy issues)
+				await transformGizmo.init(toRaw(scene.value), toRaw(camera.camera.value), toRaw(renderer.value), toRaw(camera.controls.value))
 
 				// Initialize lighting presets (pass lights array from scene)
 				// lights are stored in the scene's children; collect them after setupScene
@@ -1735,7 +1735,7 @@ export default {
 				if (measurement.isActive.value) measurement.toggleMeasurement()
 				if (annotation.isActive.value) annotation.toggleAnnotation()
 			}
-			transformGizmo.toggle(modelRoot.value)
+			transformGizmo.toggle(toRaw(modelRoot.value))
 		}
 
 		const setTransformMode = (newMode) => {
