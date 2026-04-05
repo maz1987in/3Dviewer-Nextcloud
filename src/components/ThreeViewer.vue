@@ -278,6 +278,14 @@
 					<span class="stat-value">{{ cacheStats.sizeMB.toFixed(1) }}MB</span>
 				</div>
 				<div v-if="cacheStats.enabled && cacheStats.hits + cacheStats.misses > 0" class="stat-item cache-stats">
+					<span class="stat-label">Hits:</span>
+					<span class="stat-value good">{{ cacheStats.hits }}</span>
+				</div>
+				<div v-if="cacheStats.enabled && cacheStats.hits + cacheStats.misses > 0" class="stat-item cache-stats">
+					<span class="stat-label">Misses:</span>
+					<span class="stat-value poor">{{ cacheStats.misses }}</span>
+				</div>
+				<div v-if="cacheStats.enabled && cacheStats.hits + cacheStats.misses > 0" class="stat-item cache-stats">
 					<span class="stat-label">Hit Rate:</span>
 					<span class="stat-value" :class="{ 'good': cacheStats.hitRate >= 70, 'warning': cacheStats.hitRate >= 50 && cacheStats.hitRate < 70, 'poor': cacheStats.hitRate < 50 }">
 						{{ cacheStats.hitRate.toFixed(1) }}%

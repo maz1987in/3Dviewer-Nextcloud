@@ -542,3 +542,17 @@ export function disableCache() {
 	cacheEnabled = false
 	logger.info('DependencyCache', 'Caching disabled')
 }
+
+/**
+ * Re-evaluate enabled state from VIEWER_CONFIG.
+ * Call after user settings have been merged into VIEWER_CONFIG.
+ */
+export function applyCacheConfig() {
+	if (VIEWER_CONFIG.cache?.enabled === false) {
+		cacheEnabled = false
+		logger.info('DependencyCache', 'Caching disabled by user settings')
+	} else if (!cacheEnabled && isInitialized) {
+		cacheEnabled = true
+		logger.info('DependencyCache', 'Caching re-enabled by user settings')
+	}
+}

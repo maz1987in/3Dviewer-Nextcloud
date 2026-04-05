@@ -5,7 +5,7 @@ All notable changes to the 3D Viewer Nextcloud app will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [3.1.0] - 2026-04-04
+## [Unreleased]
 
 ### Added
 - **Cross-Section tool**: Interactive clipping plane to slice models along X/Y/Z axes with position slider, flip direction, and DoubleSide rendering for visible interiors
@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Slicer: Copy share link**: Copy the temporary Nextcloud share URL to clipboard for manual use
 - **Slicer: Size validation**: Warns and blocks uploads exceeding 50MB before attempting server transfer
 - **Slicer: Upload size display**: Shows file size in MB during upload for files >5MB
+- **Cache settings in Personal Settings**: Configurable max cache size, max file size, expiration days, enable/disable toggle, and clear cache button
+- **Cache hits/misses in performance overlay**: Shows individual hit and miss counts alongside hit rate percentage
+- **Cache privacy documentation**: Documented local-only storage, per-browser isolation, and user control in TECHNICAL.md
 
 ### Fixed
 - **EufyStudio URL parsing**: Replaced fragile regex filename extraction with proper URL parsing

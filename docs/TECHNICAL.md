@@ -1157,12 +1157,33 @@ The caching system integrates seamlessly with the multi-file loading architectur
 3. **Cache Miss**: Fetch from server and store in cache
 4. **Cache Update**: Update cache when files are modified
 
+### User Configuration
+
+Cache behavior is configurable via **Personal Settings → 3D Viewer → Dependency Cache**:
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Enable Cache | `true` | Master toggle for the caching system |
+| Max Cache Size | `100 MB` | Total size limit; oldest entries are evicted (LRU) when exceeded |
+| Max File Size | `10 MB` | Individual files larger than this are not cached |
+| Expiration | `7 days` | Entries older than this are automatically removed |
+
+Settings are stored server-side per user and applied when the viewer loads.
+
 ### Performance Benefits
 
 - **Faster Loading**: Subsequent loads of the same model are significantly faster
 - **Reduced Bandwidth**: Avoid re-downloading unchanged dependencies
 - **Offline Support**: Cached files available when offline
 - **Smart Invalidation**: Automatic cache updates when files change
+
+### Privacy Considerations
+
+- **Local-only storage**: All cached data is stored in the browser's IndexedDB. No cache data is sent to the server or shared with other users.
+- **Per-browser**: The cache is tied to the specific browser profile. Different browsers or devices maintain independent caches.
+- **User-controlled**: Users can clear the cache at any time from Personal Settings or from the viewer's Settings panel.
+- **No sensitive data**: Only model dependency files (textures, materials, binary geometry) are cached — never credentials, tokens, or user metadata.
+- **Automatic cleanup**: Expired entries are removed on every viewer initialization.
 
 ## KTX2 Texture Compression Support
 

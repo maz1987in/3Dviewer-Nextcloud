@@ -197,6 +197,7 @@ import { NcContent, NcAppContent } from '@nextcloud/vue'
 import axios from '@nextcloud/axios'
 import { generateUrl } from '@nextcloud/router'
 import { VIEWER_CONFIG, SLICER_SETTINGS } from './config/viewer-config.js'
+import { applyCacheConfig } from './utils/dependencyCache.js'
 
 export default {
 	name: 'App',
@@ -478,6 +479,9 @@ export default {
 
 					// Deep merge settings into VIEWER_CONFIG
 					this.deepMerge(VIEWER_CONFIG, settings)
+
+					// Apply cache config from merged settings
+					applyCacheConfig()
 
 					// Update App state props that control the viewer
 					if (settings.grid && typeof settings.grid.visible === 'boolean') this.grid = settings.grid.visible

@@ -153,6 +153,27 @@
 						</NcButton>
 					</div>
 
+					<!-- Custom Clear Cache Field -->
+					<div v-else-if="field.type === 'custom-clear-cache'" class="setting-row">
+						<div class="setting-label">
+							<label>{{ field.label }}</label>
+							<span v-if="field.description" class="setting-description">{{ field.description }}</span>
+							<span v-if="cacheInfo" class="setting-description cache-info-text">
+								{{ t('threedviewer', '{count} files, {size} MB', { count: cacheInfo.count, size: cacheInfo.sizeMB }) }}
+							</span>
+						</div>
+						<NcButton
+							type="secondary"
+							:disabled="clearingCache"
+							@click="clearCache">
+							<template #icon>
+								<Loading v-if="clearingCache" :size="20" class="spin" />
+								<Delete v-else :size="20" />
+							</template>
+							{{ t('threedviewer', 'Clear cache') }}
+						</NcButton>
+					</div>
+
 					<!-- Custom Clear Thumbnails Field -->
 					<div v-else-if="field.type === 'custom-clear-thumbnails'" class="setting-row">
 						<div class="setting-label">
@@ -225,7 +246,9 @@ import {
 	VISUAL_SIZING_SETTINGS,
 	SLICER_SETTINGS,
 	THUMBNAIL_SETTINGS,
+	CACHE_SETTINGS,
 } from '../config/viewer-config.js'
+import { initCache, clearAll, getCacheStats } from '../utils/dependencyCache.js'
 
 export default {
 	name: 'PersonalSettings',
@@ -250,6 +273,8 @@ export default {
 			saving: false,
 			reindexing: false,
 			clearingThumbnails: false,
+			clearingCache: false,
+			cacheInfo: null,
 			userSettings: {}, // Holds the user's overrides
 
 			// Define structure for the UI form
@@ -436,6 +461,50 @@ export default {
 						},
 					},
 				},
+				cache: {
+					title: this.t('threedviewer', 'Dependency Cache'),
+					description: this.t('threedviewer', 'Model textures and dependencies are cached locally in your browser using IndexedDB. This data never leaves your device.'),
+					fields: {
+						'cache.enabled': {
+							label: this.t('threedviewer', 'Enable Cache'),
+							description: this.t('threedviewer', 'Cache model dependencies (textures, materials) in your browser for faster loading.'),
+							type: 'boolean',
+							default: CACHE_SETTINGS.enabled,
+						},
+						'cache.maxSizeMB': {
+							label: this.t('threedviewer', 'Maximum Cache Size (MB)'),
+							description: this.t('threedviewer', 'When the cache exceeds this size, the oldest entries are automatically removed.'),
+							type: 'number',
+							default: CACHE_SETTINGS.maxSizeMB,
+							min: 10,
+							max: 1000,
+							step: 10,
+						},
+						'cache.maxFileSizeMB': {
+							label: this.t('threedviewer', 'Maximum File Size (MB)'),
+							description: this.t('threedviewer', 'Individual files larger than this will not be cached.'),
+							type: 'number',
+							default: CACHE_SETTINGS.maxFileSizeMB,
+							min: 1,
+							max: 100,
+							step: 1,
+						},
+						'cache.expirationDays': {
+							label: this.t('threedviewer', 'Cache Expiration (days)'),
+							description: this.t('threedviewer', 'Cached entries older than this are automatically removed.'),
+							type: 'number',
+							default: CACHE_SETTINGS.expirationDays,
+							min: 1,
+							max: 90,
+							step: 1,
+						},
+						'cache.clear': {
+							type: 'custom-clear-cache',
+							label: this.t('threedviewer', 'Clear Dependency Cache'),
+							description: this.t('threedviewer', 'Delete all cached textures and materials from your browser. They will be re-downloaded when needed.'),
+						},
+					},
+				},
 				slicer: {
 					title: this.t('threedviewer', 'Slicer & export'),
 					description: this.t('threedviewer', 'Choose which formats to send directly. All others convert to STL.'),
@@ -570,10 +639,11 @@ export default {
 	},
 	mounted() {
 		this.fetchSettings()
+		this.loadCacheInfo()
 	},
 	methods: {
-		t(app, text) {
-			return OC.L10N.translate(app, text)
+		t(app, text, vars) {
+			return OC.L10N.translate(app, text, vars)
 		},
 
 		async fetchSettings() {
@@ -675,6 +745,40 @@ export default {
 				showError(this.t('threedviewer', 'Could not clear thumbnails'))
 			} finally {
 				this.clearingThumbnails = false
+			}
+		},
+
+		async loadCacheInfo() {
+			try {
+				await initCache()
+				const stats = await getCacheStats()
+				if (stats.enabled) {
+					this.cacheInfo = {
+						count: stats.count,
+						sizeMB: stats.sizeMB.toFixed(1),
+					}
+				}
+			} catch (e) {
+				// Cache not available — ignore
+			}
+		},
+
+		async clearCache() {
+			if (!confirm(this.t('threedviewer', 'Are you sure you want to clear the dependency cache?'))) {
+				return
+			}
+
+			this.clearingCache = true
+			try {
+				await initCache()
+				await clearAll()
+				this.cacheInfo = { count: 0, sizeMB: '0.0' }
+				showSuccess(this.t('threedviewer', 'Cache cleared'))
+			} catch (e) {
+				console.error('Error clearing cache', e)
+				showError(this.t('threedviewer', 'Could not clear cache'))
+			} finally {
+				this.clearingCache = false
 			}
 		},
 
@@ -868,6 +972,11 @@ input[type="color"] {
 	display: block;
 	margin-top: 4px;
 	font-style: italic;
+}
+
+.cache-info-text {
+	font-weight: 600;
+	color: var(--color-text-maxcontrast);
 }
 
 .occ-hint code {
