@@ -201,6 +201,10 @@ tests/fixtures/*.fbx
 tests/fixtures/*.dae
 tests/fixtures/*.ply
 tests/fixtures/*.3mf
+# Keep small text-based edge case fixtures
+!tests/fixtures/mixed-case.OBJ
+!tests/fixtures/no-mtl.obj
+!tests/fixtures/orphan-texture.obj
 
 # Keep small test fixtures
 !tests/fixtures/triangle.gltf

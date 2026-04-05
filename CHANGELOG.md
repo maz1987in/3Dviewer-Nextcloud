@@ -24,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Cache settings in Personal Settings**: Configurable max cache size, max file size, expiration days, enable/disable toggle, and clear cache button
 - **Cache hits/misses in performance overlay**: Shows individual hit and miss counts alongside hit rate percentage
 - **Cache privacy documentation**: Documented local-only storage, per-browser isolation, and user control in TECHNICAL.md
+- **Multi-file matching test suite**: 48 tests covering texture/MTL name matching strategies (space normalization, prefix removal, plural handling, color/body mapping, partial matching)
+- **Edge case fixtures**: mixed-case extensions, missing MTL, orphaned textures for multi-file loading tests
 - **Format parity guard**: Build-time script (`npm run format:check`) validates that PHP, JS, loader registry, Viewer MIME list, and mimetypemapping.json stay synchronized
 - **X3D/VRML MIME registration**: Added `model/x3d+xml` and `model/vrml` to Nextcloud Viewer MIME list so these formats open in the viewer
 - **Slicer security documentation**: Documented full security posture — authentication, path traversal prevention, MIME validation, size limits, share expiry, and file lifecycle in TECHNICAL.md

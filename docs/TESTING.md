@@ -493,6 +493,44 @@ test('viewer loads and displays canvas', async ({ page }) => {
 - [ ] Tests are comprehensive
 - [ ] Security is maintained
 
+## Multi-File Dependency Matching Tests
+
+The viewer loads models with external dependencies (MTL files, textures, BIN buffers). Matching requested filenames to available files uses a multi-strategy fallback chain implemented in `src/loaders/matchHelpers.js`.
+
+Run with `npm run test:match` (48 test cases).
+
+### Texture Matching Strategies
+
+| # | Strategy | Example: requested → matched |
+|---|----------|------------------------------|
+| 1 | Exact match (case-insensitive) | `Diffuse.JPG` → `diffuse.jpg` |
+| 2 | Space/underscore normalization | `wolf eyes.jpg` → `wolf_eyes.jpg` |
+| 3 | Prefix removal | `Wolf_Eyes.jpg` → `model_Eyes.jpg` |
+| 4 | Plural normalization | `eye_2.jpg` → `eyes_2.jpg` |
+| 5 | Partial substring (length-bounded) | `wolf_body_d.jpg` → `wolf_body.jpg` |
+| 6 | Color/body semantic mapping | `wolf_col.jpg` → `wolf_body.jpg` |
+
+### File (MTL) Matching Strategies
+
+| # | Strategy | Example: requested → matched |
+|---|----------|------------------------------|
+| 1 | Exact match (case-insensitive) | `Model.MTL` → `model.mtl` |
+| 2 | Flexible substring (50% tolerance) | `wolf_done_obj.mtl` → `wolf_obj.mtl` |
+| 3 | Common word removal (`_done`, `_final`, `_v2`) | `cube_final.mtl` → `cube.mtl` |
+
+### Edge Case Test Fixtures
+
+| Fixture | Format | Tests |
+|---------|--------|-------|
+| `triangle.obj` + `triangle.mtl` | OBJ+MTL | Standard multi-file loading |
+| `triangle.gltf` | GLTF | Single-file JSON glTF |
+| `triangle.stl` | STL | Single-file binary |
+| `triangle.ply` | PLY | Single-file point cloud |
+| `triangle-draco.gltf` | GLTF+Draco | Compressed geometry |
+| `mixed-case.OBJ` + `mixed-case.mtl` | OBJ | Mixed-case extension handling |
+| `no-mtl.obj` | OBJ | Missing MTL graceful degradation |
+| `orphan-texture.obj` + `.mtl` | OBJ+MTL | MTL references missing texture |
+
 ---
 
 For more information, see:

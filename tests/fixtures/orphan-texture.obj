@@ -1,0 +1,9 @@
+# OBJ with MTL that references missing texture
+mtllib orphan-texture.mtl
+o cube
+v 0 0 0
+v 1 0 0
+v 1 1 0
+v 0 1 0
+usemtl textured
+f 1 2 3 4

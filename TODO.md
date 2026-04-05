@@ -148,14 +148,15 @@ Modal viewer now has stats panel, screenshot, and standalone jump.
 
 ## 🔧 Medium Priority
 
-### 11. Multi-File & Dependency Edge Case Test Suite
-Core multi-file logic shipped; expand edge coverage.
+### 11. Multi-File & Dependency Edge Case Test Suite ✅ COMPLETED
+Extracted matching logic, wrote 48 unit tests, added edge case fixtures.
 
-**Action Items**:
-- [ ] Fixtures: mixed-case extensions, missing MTL, orphaned textures, alternate BIN/texture names
-- [ ] Test fallback logic for flexible texture name matching and partial dependency availability
-- [ ] Playwright scenarios: cancel mid-load, retry, and recovery after network drop
-- [ ] Document matrix of tested combinations in TESTING.md
+**Completed**:
+- [x] Extracted pure matching functions into `src/loaders/matchHelpers.js` (texture + file matching)
+- [x] 48-test suite covering all 6 texture strategies + 3 file strategies + edge cases (`npm run test:match`)
+- [x] Fixtures: mixed-case extensions (`mixed-case.OBJ`), missing MTL (`no-mtl.obj`), orphaned textures (`orphan-texture.obj`)
+- [x] Documented matching strategies and fixture matrix in TESTING.md
+- [ ] Future: Playwright cancel mid-load, retry, network drop scenarios (requires mock server)
 
 ### 12. Export Functionality Robustness
 Current exports (GLB/STL/OBJ) need validation & error boundaries.

@@ -1,0 +1,4 @@
+# MTL referencing a texture that doesn't exist — tests missing texture fallback
+newmtl textured
+Kd 0.8 0.8 0.8
+map_Kd does_not_exist.png
