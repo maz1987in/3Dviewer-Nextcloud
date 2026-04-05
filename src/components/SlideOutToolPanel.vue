@@ -31,12 +31,13 @@
 					<section class="panel-section">
 						<button class="section-header"
 							:aria-expanded="sections.view"
+							aria-controls="panel-section-view"
 							@click="toggleSection('view')">
 							<span class="section-icon">📷</span>
 							<span class="section-title">{{ t('threedviewer', 'View') }}</span>
 							<span class="expand-icon">{{ sections.view ? '▼' : '▶' }}</span>
 						</button>
-						<div v-show="sections.view" class="section-content">
+						<div id="panel-section-view" v-show="sections.view" class="section-content">
 							<button class="tool-btn" @click="emit('reset-view')">
 								<span class="tool-icon">🔄</span>
 								<span class="tool-label">{{ t('threedviewer', 'Reset View') }}</span>
@@ -86,12 +87,13 @@
 					<section class="panel-section">
 						<button class="section-header"
 							:aria-expanded="sections.scene"
+							aria-controls="panel-section-scene"
 							@click="toggleSection('scene')">
 							<span class="section-icon">🎨</span>
 							<span class="section-title">{{ t('threedviewer', 'Scene') }}</span>
 							<span class="expand-icon">{{ sections.scene ? '▼' : '▶' }}</span>
 						</button>
-						<div v-show="sections.scene" class="section-content">
+						<div id="panel-section-scene" v-show="sections.scene" class="section-content">
 							<label class="toggle-row" @click.prevent="emit('toggle-grid')">
 								<span class="toggle-switch" :class="{ on: grid }" />
 								<span class="toggle-text">{{ t('threedviewer', 'Grid') }}</span>
@@ -137,12 +139,13 @@
 					<section class="panel-section">
 						<button class="section-header"
 							:aria-expanded="sections.analyze"
+							aria-controls="panel-section-analyze"
 							@click="toggleSection('analyze')">
 							<span class="section-icon">📐</span>
 							<span class="section-title">{{ t('threedviewer', 'Analyze') }}</span>
 							<span class="expand-icon">{{ sections.analyze ? '▼' : '▶' }}</span>
 						</button>
-						<div v-show="sections.analyze" class="section-content">
+						<div id="panel-section-analyze" v-show="sections.analyze" class="section-content">
 							<button class="tool-btn feature-btn"
 								:class="{ 'active': measurementMode }"
 								@click="emit('toggle-measurement')">
@@ -225,12 +228,13 @@
 					<section v-if="hasAnimations" class="panel-section">
 						<button class="section-header"
 							:aria-expanded="sections.animation"
+							aria-controls="panel-section-animation"
 							@click="toggleSection('animation')">
 							<span class="section-icon">▶️</span>
 							<span class="section-title">{{ t('threedviewer', 'Animation') }}</span>
 							<span class="expand-icon">{{ sections.animation ? '▼' : '▶' }}</span>
 						</button>
-						<div v-show="sections.animation" class="section-content">
+						<div id="panel-section-animation" v-show="sections.animation" class="section-content">
 							<div class="animation-controls">
 								<button class="tool-btn"
 									:class="{ 'active': isAnimationPlaying }"
@@ -267,12 +271,13 @@
 					<section class="panel-section">
 						<button class="section-header"
 							:aria-expanded="sections.export"
+							aria-controls="panel-section-export"
 							@click="toggleSection('export')">
 							<span class="section-icon">📤</span>
 							<span class="section-title">{{ t('threedviewer', 'Export') }}</span>
 							<span class="expand-icon">{{ sections.export ? '▼' : '▶' }}</span>
 						</button>
-						<div v-show="sections.export" class="section-content">
+						<div id="panel-section-export" v-show="sections.export" class="section-content">
 							<button class="tool-btn" @click="emit('take-screenshot')">
 								<span class="tool-icon">📷</span>
 								<span class="tool-label">{{ t('threedviewer', 'Screenshot') }}</span>
@@ -310,12 +315,13 @@
 					<section class="panel-section">
 						<button class="section-header"
 							:aria-expanded="sections.settings"
+							aria-controls="panel-section-settings"
 							@click="toggleSection('settings')">
 							<span class="section-icon">⚙️</span>
 							<span class="section-title">{{ t('threedviewer', 'Settings') }}</span>
 							<span class="expand-icon">{{ sections.settings ? '▼' : '▶' }}</span>
 						</button>
-						<div v-show="sections.settings" class="section-content">
+						<div id="panel-section-settings" v-show="sections.settings" class="section-content">
 							<button class="tool-btn" @click="cyclePerformanceMode">
 								<span class="tool-icon">⚡</span>
 								<span class="tool-label">{{ t('threedviewer', 'Performance') }}: {{ getPerformanceModeText() }}</span>

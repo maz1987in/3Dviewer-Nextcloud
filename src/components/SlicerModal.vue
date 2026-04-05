@@ -1,9 +1,13 @@
 <template>
 	<div v-if="isOpen" class="slicer-modal-backdrop" @click="handleBackdropClick">
-		<div class="slicer-modal" :class="{ 'dark-theme': isDarkTheme }" @click.stop>
+		<div class="slicer-modal"
+			role="dialog"
+			aria-labelledby="slicer-modal-title"
+			:class="{ 'dark-theme': isDarkTheme }"
+			@click.stop>
 			<!-- Modal Header -->
 			<div class="modal-header">
-				<h2 class="modal-title">
+				<h2 id="slicer-modal-title" class="modal-title">
 					{{ t('threedviewer', 'Send to Slicer') }}
 				</h2>
 				<button class="close-btn"
@@ -91,8 +95,16 @@
 
 				<!-- Share link copy -->
 				<div v-if="lastShareUrl" class="share-link-row">
-					<input type="text" :value="lastShareUrl" readonly class="share-link-input" @focus="$event.target.select()">
-					<button class="copy-btn" :title="t('threedviewer', 'Copy link')" @click="copyShareLink">
+					<input type="text"
+						:value="lastShareUrl"
+						readonly
+						:aria-label="t('threedviewer', 'Share link')"
+						class="share-link-input"
+						@focus="$event.target.select()">
+					<button class="copy-btn"
+						:aria-label="t('threedviewer', 'Copy link')"
+						:title="t('threedviewer', 'Copy link')"
+						@click="copyShareLink">
 						{{ copied ? '✓' : '📋' }}
 					</button>
 				</div>

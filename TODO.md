@@ -186,13 +186,17 @@ Audited and fixed hardcoded strings, updated baseline.
 - [x] Documented i18n checklist (how to add new strings) in TECHNICAL.md
 - [ ] Future: automated string extraction tooling, sync non-English translations
 
-### 15. Accessibility Review
-Check ARIA roles / keyboard navigation for new components.
+### 15. Accessibility Review ✅ COMPLETED
+Audited and fixed ARIA roles and keyboard navigation.
 
-**Action Items**:
-- [ ] Stats panel & slicer modal focus order
-- [ ] High-contrast mode test
-- [ ] Add skip-to-viewer shortcut
+**Completed**:
+- [x] Added `role="dialog"` + `aria-labelledby` to SlicerModal
+- [x] Added `aria-controls` + section IDs to all 6 panel collapsible sections
+- [x] Added `aria-label` to emoji-only buttons (screenshot, stats toggle, copy link)
+- [x] Added `role="alert"` to texture warning banner in ViewerComponent
+- [x] Added `role="region"` + `aria-label` to stats panel with `aria-expanded` on toggle
+- [x] Added `aria-label` to share link input
+- [ ] Future: focus trap for modals, high-contrast mode test, skip-to-viewer shortcut
 
 ---
 

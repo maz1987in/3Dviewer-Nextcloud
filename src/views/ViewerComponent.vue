@@ -16,7 +16,7 @@
 		</div>
 
 		<!-- CSP Texture Warning Banner -->
-		<div v-if="hasLoaded && showTextureWarning" class="texture-warning-banner">
+		<div v-if="hasLoaded && showTextureWarning" role="alert" class="texture-warning-banner">
 			<div class="texture-warning-content">
 				<svg class="texture-warning-icon"
 					width="20"
@@ -71,6 +71,7 @@
 		<div v-if="hasLoaded" class="viewer-bottom-actions">
 			<button
 				class="viewer-action-btn"
+				:aria-label="t('threedviewer', 'Screenshot')"
 				:title="t('threedviewer', 'Screenshot')"
 				@click.prevent="captureScreenshot">
 				📸
@@ -78,6 +79,9 @@
 			<button
 				class="viewer-action-btn"
 				:class="{ active: showStats }"
+				:aria-label="t('threedviewer', 'Model info')"
+				:aria-expanded="showStats"
+				aria-controls="viewer-stats-panel"
 				:title="t('threedviewer', 'Model info')"
 				@click.prevent="showStats = !showStats">
 				📊
@@ -85,7 +89,11 @@
 		</div>
 
 		<!-- Stats panel overlay -->
-		<div v-if="showStats && modelStats" class="viewer-stats-panel">
+		<div v-if="showStats && modelStats"
+			id="viewer-stats-panel"
+			role="region"
+			:aria-label="t('threedviewer', 'Model statistics')"
+			class="viewer-stats-panel">
 			<div class="stats-row">
 				<span class="stats-label">{{ t('threedviewer', 'Meshes') }}</span>
 				<span class="stats-value">{{ modelStats.meshes }}</span>
