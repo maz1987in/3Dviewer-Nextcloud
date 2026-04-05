@@ -76,10 +76,12 @@
     "vite": "^7.3.1"
   },
   "overrides": {
-    "postcss": "^8.4.49"
+    "postcss": "^8.4.49",
+    "fast-xml-parser": ">=5.5.7"
   },
   "resolutions": {
-    "postcss": "^8.4.49"
+    "postcss": "^8.4.49",
+    "fast-xml-parser": ">=5.5.7"
   },
   "babel": {
     "presets": [

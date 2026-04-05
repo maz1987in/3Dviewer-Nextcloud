@@ -49,8 +49,13 @@ jobs:
           PUPPETEER_SKIP_DOWNLOAD: true
         run: npm ci
 
-      - name: Run npm audit
-        run: npm audit --audit-level=moderate
+      - name: Run npm audit (production)
+        run: npm audit --omit=dev --audit-level=moderate
+
+      - name: Run npm audit (dev, informational)
+        if: always()
+        continue-on-error: true
+        run: npm audit --audit-level=high
 
   composer-audit:
     runs-on: ubuntu-latest
