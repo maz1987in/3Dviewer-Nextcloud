@@ -366,16 +366,37 @@
 		</div>
 
 		<!-- Annotation overlay -->
-		<div v-if="annotationActive && annotations.length > 0" class="annotation-overlay" :class="{ 'mobile': isMobile }">
+		<div v-if="annotationActive" class="annotation-overlay" :class="{ 'mobile': isMobile }">
 			<div class="annotation-header">
 				<h3>{{ t('threedviewer', 'Annotations') }}</h3>
-				<button type="button"
-					class="clear-annotations-btn"
-					:class="{ 'mobile': isMobile }"
-					@click="clearAllAnnotations">
-					{{ t('threedviewer', 'Clear All') }}
-				</button>
+				<div class="annotation-header-actions">
+					<button type="button"
+						class="annotation-header-btn"
+						:title="t('threedviewer', 'Import annotations from JSON')"
+						@click="triggerAnnotationImport">
+						{{ t('threedviewer', 'Import') }}
+					</button>
+					<button type="button"
+						class="annotation-header-btn"
+						:disabled="annotations.length === 0"
+						:title="t('threedviewer', 'Export annotations as JSON')"
+						@click="exportAnnotationsJSON">
+						{{ t('threedviewer', 'Export') }}
+					</button>
+					<button type="button"
+						class="clear-annotations-btn"
+						:class="{ 'mobile': isMobile }"
+						:disabled="annotations.length === 0"
+						@click="clearAllAnnotations">
+						{{ t('threedviewer', 'Clear All') }}
+					</button>
+				</div>
 			</div>
+			<input ref="annotationImportInput"
+				type="file"
+				accept=".json,application/json"
+				style="display: none;"
+				@change="onAnnotationImportFile">
 			<div class="annotation-list">
 				<div v-for="(annotation, index) in annotations" :key="annotation.id" class="annotation-item">
 					<div class="annotation-info">
@@ -2038,6 +2059,69 @@ export default {
 			annotation.clearAllAnnotations()
 		}
 
+		const annotationImportInput = ref(null)
+
+		const exportAnnotationsJSON = () => {
+			try {
+				const doc = annotation.exportAsJSON(props.filename || '')
+				const blob = new Blob([JSON.stringify(doc, null, 2)], { type: 'application/json' })
+				const url = URL.createObjectURL(blob)
+				const link = document.createElement('a')
+				link.href = url
+				const baseName = (props.filename || 'model').split('/').pop().replace(/\.[^.]+$/, '')
+				link.download = `${baseName}-annotations.json`
+				document.body.appendChild(link)
+				link.click()
+				setTimeout(() => {
+					document.body.removeChild(link)
+					URL.revokeObjectURL(url)
+				}, 100)
+				emit('push-toast', {
+					type: 'success',
+					title: t('threedviewer', 'Annotations exported'),
+					message: t('threedviewer', '{count} annotation(s) saved to JSON', { count: doc.annotations.length }),
+				})
+			} catch (error) {
+				logger.error('ThreeViewer', 'Failed to export annotations', error)
+				emit('push-toast', {
+					type: 'error',
+					title: t('threedviewer', 'Export failed'),
+					message: error.message || t('threedviewer', 'Could not export annotations'),
+				})
+			}
+		}
+
+		const triggerAnnotationImport = () => {
+			annotationImportInput.value?.click()
+		}
+
+		const onAnnotationImportFile = async (event) => {
+			const file = event.target.files?.[0]
+			if (!file) return
+
+			try {
+				const text = await file.text()
+				const result = annotation.importFromJSON(text)
+				emit('push-toast', {
+					type: 'success',
+					title: t('threedviewer', 'Annotations imported'),
+					message: t('threedviewer', '{added} added, {skipped} skipped', result),
+				})
+			} catch (error) {
+				logger.error('ThreeViewer', 'Failed to import annotations', error)
+				emit('push-toast', {
+					type: 'error',
+					title: t('threedviewer', 'Import failed'),
+					message: error.message || t('threedviewer', 'Could not parse annotation file'),
+				})
+			} finally {
+				// Reset so the same file can be picked again
+				if (annotationImportInput.value) {
+					annotationImportInput.value.value = ''
+				}
+			}
+		}
+
 		const toggleComparisonMode = async () => {
 			try {
 				if (!comparison.isComparisonMode.value) {
@@ -3125,6 +3209,10 @@ export default {
 			deleteAnnotation,
 			updateAnnotationText,
 			clearAllAnnotations,
+			annotationImportInput,
+			exportAnnotationsJSON,
+			triggerAnnotationImport,
+			onAnnotationImportFile,
 			toggleComparisonMode,
 			directPan,
 			setPerformanceMode,
@@ -4137,6 +4225,31 @@ export default {
 	color: #f00;
 }
 
+.annotation-header-actions {
+	display: flex;
+	gap: 6px;
+	align-items: center;
+}
+
+.annotation-header-btn {
+	background: rgb(255 255 255 / 10%);
+	color: white;
+	border: 1px solid rgb(255 255 255 / 30%);
+	padding: 5px 10px;
+	border-radius: 4px;
+	cursor: pointer;
+	font-size: 12px;
+}
+
+.annotation-header-btn:hover:not(:disabled) {
+	background: rgb(255 255 255 / 20%);
+}
+
+.annotation-header-btn:disabled {
+	opacity: 0.4;
+	cursor: not-allowed;
+}
+
 .clear-annotations-btn {
 	background: #f44;
 	color: white;
@@ -4147,8 +4260,13 @@ export default {
 	font-size: 12px;
 }
 
-.clear-annotations-btn:hover {
+.clear-annotations-btn:hover:not(:disabled) {
 	background: #f66;
+}
+
+.clear-annotations-btn:disabled {
+	opacity: 0.4;
+	cursor: not-allowed;
 }
 
 .annotation-list {

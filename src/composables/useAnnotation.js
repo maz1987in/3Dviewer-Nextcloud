@@ -429,6 +429,95 @@ export function useAnnotation() {
 	}
 
 	/**
+	 * Export annotations as a JSON document.
+	 *
+	 * The schema is versioned so older exports remain importable when fields
+	 * are added later. The `format` discriminator lets the importer reject
+	 * unrelated JSON files (e.g., bookmarks or model exports) before parsing.
+	 *
+	 * @param {string} [modelFilename=''] - Source model filename, stored as a
+	 *   hint for the user but not used for matching
+	 * @return {object} Serializable annotation document
+	 */
+	const exportAsJSON = (modelFilename = '') => {
+		return {
+			format: 'threedviewer-annotations',
+			version: 1,
+			exportedAt: new Date().toISOString(),
+			modelFilename,
+			annotations: annotations.value.map(a => ({
+				id: a.id,
+				point: { x: a.point.x, y: a.point.y, z: a.point.z },
+				text: a.text,
+				timestamp: a.timestamp,
+			})),
+		}
+	}
+
+	/**
+	 * Import annotations from a JSON document produced by `exportAsJSON`.
+	 *
+	 * Validates the schema, then re-creates each annotation with its original
+	 * world-space position and label. Existing annotations are preserved by
+	 * default — pass `{ replace: true }` to clear them first.
+	 *
+	 * @param {object|string} json - Parsed object or raw JSON string
+	 * @param {object} [options]
+	 * @param {boolean} [options.replace=false] - Clear existing annotations first
+	 * @return {{ added: number, skipped: number }}
+	 */
+	const importFromJSON = (json, options = {}) => {
+		const { replace = false } = options
+
+		const data = typeof json === 'string' ? JSON.parse(json) : json
+
+		if (!data || typeof data !== 'object') {
+			throw new Error('Invalid annotation file: not an object')
+		}
+		if (data.format !== 'threedviewer-annotations') {
+			throw new Error('Invalid annotation file: format mismatch')
+		}
+		if (!Array.isArray(data.annotations)) {
+			throw new Error('Invalid annotation file: missing annotations array')
+		}
+
+		if (replace) {
+			clearAllAnnotations()
+		}
+
+		let added = 0
+		let skipped = 0
+
+		for (const item of data.annotations) {
+			if (!item || !item.point
+				|| typeof item.point.x !== 'number'
+				|| typeof item.point.y !== 'number'
+				|| typeof item.point.z !== 'number') {
+				skipped++
+				continue
+			}
+
+			const point = new THREE.Vector3(item.point.x, item.point.y, item.point.z)
+			addAnnotationPoint(point)
+
+			// Apply the imported text/timestamp to the freshly created annotation
+			const fresh = annotations.value[annotations.value.length - 1]
+			if (fresh) {
+				if (typeof item.text === 'string' && item.text.length > 0) {
+					updateAnnotationText(fresh.id, item.text)
+				}
+				if (typeof item.timestamp === 'string') {
+					fresh.timestamp = item.timestamp
+				}
+			}
+			added++
+		}
+
+		logger.info('useAnnotation', 'Annotations imported', { added, skipped, total: data.annotations.length })
+		return { added, skipped }
+	}
+
+	/**
 	 * Dispose of annotation resources
 	 */
 	const dispose = () => {
@@ -462,6 +551,8 @@ export function useAnnotation() {
 		deleteAnnotation,
 		clearAllAnnotations,
 		getAnnotationSummary,
+		exportAsJSON,
+		importFromJSON,
 		dispose,
 	}
 }
