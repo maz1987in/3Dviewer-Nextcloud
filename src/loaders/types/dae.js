@@ -19,11 +19,47 @@ class DaeLoader extends BaseLoader {
 	 * @return {Promise<object>} Load result
 	 */
 	async loadModel(arrayBuffer, context) {
+		const { THREE, additionalFiles = [] } = context
+
 		// Convert ArrayBuffer to text for XML parsing
 		const text = decodeTextFromBuffer(arrayBuffer)
 
+		// Set up texture loading from dependencies (data URIs for CSP)
+		let loadingManager
+		if (additionalFiles.length > 0 && THREE) {
+			const dataUriMap = new Map()
+			for (const file of additionalFiles) {
+				const fileName = file.name.split(/[/\\]/).pop().toLowerCase()
+				if (/\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(fileName)) {
+					try {
+						const dataUri = await new Promise((resolve, reject) => {
+							const reader = new FileReader()
+							reader.onload = () => resolve(reader.result)
+							reader.onerror = reject
+							reader.readAsDataURL(file)
+						})
+						dataUriMap.set(fileName, dataUri)
+					} catch (e) {
+						this.logWarning('Failed to convert texture to data URI', { fileName })
+					}
+				}
+			}
+			if (dataUriMap.size > 0) {
+				loadingManager = new THREE.LoadingManager()
+				loadingManager.setURLModifier((url) => {
+					const textureName = url.split(/[/\\]/).pop()
+					const dataUri = dataUriMap.get(textureName.toLowerCase())
+					if (dataUri) {
+						this.logInfo('Loading DAE texture from dependencies', { textureName })
+						return dataUri
+					}
+					return url
+				})
+			}
+		}
+
 		// Create Collada loader
-		this.loader = new ColladaLoader()
+		this.loader = new ColladaLoader(loadingManager)
 
 		// Parse the DAE content
 		const collada = this.loader.parse(text)

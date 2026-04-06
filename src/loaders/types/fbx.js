@@ -390,6 +390,25 @@ class FbxLoader extends BaseLoader {
 	async loadFbxStandard(arrayBuffer, context) {
 		const { THREE, additionalFiles = [] } = context
 
+		// Pre-convert texture files to data URIs (blob: URLs blocked by Nextcloud CSP)
+		const dataUriMap = new Map()
+		for (const file of additionalFiles) {
+			const fileName = file.name.split(/[/\\]/).pop().toLowerCase()
+			if (/\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(fileName)) {
+				try {
+					const dataUri = await new Promise((resolve, reject) => {
+						const reader = new FileReader()
+						reader.onload = () => resolve(reader.result)
+						reader.onerror = reject
+						reader.readAsDataURL(file)
+					})
+					dataUriMap.set(fileName, dataUri)
+				} catch (e) {
+					logger.warn('FBXLoader', 'Failed to convert texture to data URI', { fileName, error: e.message })
+				}
+			}
+		}
+
 		// Create loading manager to handle texture paths
 		const manager = new THREE.LoadingManager()
 
@@ -397,32 +416,25 @@ class FbxLoader extends BaseLoader {
 		manager.setURLModifier((url) => {
 			const textureName = url.split('/').pop().split('\\').pop()
 
-			const textureFile = this.findTextureFile(textureName, additionalFiles)
-
-			if (textureFile) {
-				const blob = new Blob([textureFile], { type: textureFile.type })
-				const blobUrl = URL.createObjectURL(blob)
-				logger.info('FBXLoader', 'Loading texture from dependencies', {
-					textureName,
-					matchedFileName: textureFile.name,
-					blobUrl,
-				})
-				return blobUrl
+			// Try data URI map first (CSP-safe)
+			const dataUri = dataUriMap.get(textureName.toLowerCase())
+			if (dataUri) {
+				logger.info('FBXLoader', 'Loading texture from dependencies', { textureName })
+				return dataUri
 			}
 
-			// Extract just filenames for clearer logging
-			const availableFileNames = additionalFiles.map(f => {
-				const name = f.name.split('/').pop().split('\\').pop()
-				return name
-			})
-			const availableFileNamesStr = availableFileNames.join(', ')
+			// Try flexible matching
+			const textureFile = this.findTextureFile(textureName, additionalFiles)
+			if (textureFile) {
+				const matchedName = textureFile.name.split(/[/\\]/).pop().toLowerCase()
+				const matchedUri = dataUriMap.get(matchedName)
+				if (matchedUri) {
+					logger.info('FBXLoader', 'Loading texture from dependencies (fuzzy match)', { textureName, matchedName })
+					return matchedUri
+				}
+			}
 
-			logger.warn('FBXLoader', `Texture "${textureName}" not found in dependencies. Available files: ${availableFileNamesStr}`, {
-				textureName,
-				url,
-				availableFiles: availableFileNamesStr,
-				availableFilesCount: availableFileNames.length,
-			})
+			logger.warn('FBXLoader', `Texture "${textureName}" not found in dependencies`)
 			return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
 		})
 
@@ -443,6 +455,26 @@ class FbxLoader extends BaseLoader {
 
 		if (!object3D || object3D.children.length === 0) {
 			throw new Error('No valid geometry found in FBX file')
+		}
+
+		// Brighten textured materials after textures load (async via LoadingManager).
+		// FBX from Blender often exports materials with black diffuse + texture map,
+		// so set color to white for all textured materials to let textures show.
+		if (dataUriMap.size > 0) {
+			manager.onLoad = () => {
+				logger.info('FBXLoader', 'All textures loaded, adjusting material colors')
+				object3D.traverse((child) => {
+					if (child.isMesh && child.material) {
+						const mats = Array.isArray(child.material) ? child.material : [child.material]
+						mats.forEach(mat => {
+							if (mat.map && mat.color) {
+								mat.color.setRGB(1, 1, 1)
+								mat.needsUpdate = true
+							}
+						})
+					}
+				})
+			}
 		}
 
 		return this.processFbxResult(object3D, context, additionalFiles)
