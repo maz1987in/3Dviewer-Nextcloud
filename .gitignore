@@ -40,6 +40,9 @@ blob-report/
 .nyc_output/
 coverage/
 smoke-temp.html
+# Ad-hoc Playwright screenshots saved to repo root (e.g. comparison-diff-overlay.png).
+# Tracked product screenshots live under img/, so this only catches stray dev artifacts.
+/*.png
 
 # ---- Logs & Temp ----
 *.log
