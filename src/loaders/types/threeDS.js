@@ -24,40 +24,53 @@ class ThreeDSLoader extends BaseLoader {
 		let loadingManager = THREE.DefaultLoadingManager
 		const missingTextures = []
 
-		// If additional files provided, set up custom texture loading
+		// Pre-create data URIs for textures (blob: URLs are blocked by Nextcloud CSP)
+		const dataUriMap = new Map()
+
 		if (additionalFiles && additionalFiles.length > 0) {
+			// Convert texture files to data URIs before parsing
+			for (const file of additionalFiles) {
+				const fileName = file.name.split(/[/\\]/).pop().toLowerCase()
+				if (/\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(fileName)) {
+					try {
+						const dataUri = await new Promise((resolve, reject) => {
+							const reader = new FileReader()
+							reader.onload = () => resolve(reader.result)
+							reader.onerror = reject
+							reader.readAsDataURL(file)
+						})
+						dataUriMap.set(fileName, dataUri)
+					} catch (e) {
+						this.logWarning('Failed to convert texture to data URI', { fileName, error: e.message })
+					}
+				}
+			}
+
 			loadingManager = new THREE.LoadingManager()
 
-			// Override URL modifier to use pre-fetched textures
+			// Override URL modifier to use data URIs
 			loadingManager.setURLModifier((url) => {
-				// Extract just the filename from the URL
 				const textureName = url.split(/[/\\]/).pop()
+				const dataUri = dataUriMap.get(textureName.toLowerCase())
 
-				// Find the texture in pre-fetched files (case-insensitive)
-				const textureFile = additionalFiles.find(f => {
-					const fileName = f.name.split(/[/\\]/).pop()
-					return fileName.toLowerCase() === textureName.toLowerCase()
-				})
-
-				if (textureFile) {
+				if (dataUri) {
 					this.logInfo('Loading 3DS texture from dependencies', { textureName })
-					const blob = new Blob([textureFile], { type: textureFile.type || 'image/jpeg' })
-					return URL.createObjectURL(blob)
+					return dataUri
 				}
 
-				// Track missing texture
 				missingTextures.push(textureName)
 				this.logWarning('3DS texture not found in dependencies', { textureName, url })
 				return url
 			})
 
 			this.logInfo('3DS loader configured with external texture support', {
-				textureCount: additionalFiles.length,
+				textureCount: dataUriMap.size,
 			})
 		}
 
 		// Create 3DS loader with custom manager
 		this.loader = new TDSLoader(loadingManager)
+		this.loader.setResourcePath('')
 
 		// Parse the 3DS file directly from arrayBuffer
 		const object3D = this.loader.parse(arrayBuffer)
