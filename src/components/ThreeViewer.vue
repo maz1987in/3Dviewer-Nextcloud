@@ -4212,8 +4212,8 @@ export default {
 
 .annotation-header {
 	display: flex;
-	justify-content: space-between;
-	align-items: center;
+	flex-direction: column;
+	gap: 8px;
 	margin-bottom: 10px;
 	padding-bottom: 10px;
 	border-bottom: 1px solid #f00;
@@ -4229,6 +4229,13 @@ export default {
 	display: flex;
 	gap: 6px;
 	align-items: center;
+	flex-wrap: wrap;
+}
+
+.annotation-header-actions > * {
+	flex: 1;
+	min-width: 0;
+	white-space: nowrap;
 }
 
 .annotation-header-btn {
