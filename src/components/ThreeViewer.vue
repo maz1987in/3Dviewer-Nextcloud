@@ -491,6 +491,7 @@ export default {
 		const grid = shallowRef(null)
 		const axes = shallowRef(null)
 		const modelRoot = shallowRef(null)
+		const modelSourceFiles = shallowRef(null) // File[] for ZIP export
 		const aborting = ref(false)
 		const initializing = ref(true) // Show loading during initial setup
 		const animationFrameId = ref(null) // Track animation frame for cleanup
@@ -936,6 +937,9 @@ export default {
 				if (loadedModel && loadedModel.object3D) {
 					// Update cache stats immediately after model loads (files may have been cached)
 					await updateCacheStats()
+
+					// Store source files for ZIP export
+					modelSourceFiles.value = loadedModel.sourceFiles || null
 
 					// Add the loaded model to the scene first
 					modelRoot.value = markRaw(loadedModel.object3D)
@@ -1921,6 +1925,22 @@ export default {
 						message: t('threedviewer', 'Model exported as {name}', { name: `${baseFilename}.obj` }),
 					})
 					break
+				case 'zip':
+					if (!modelSourceFiles.value || modelSourceFiles.value.length <= 1) {
+						emit('push-toast', {
+							type: 'warning',
+							title: t('threedviewer', 'ZIP Not Available'),
+							message: t('threedviewer', 'This model has no additional files to package'),
+						})
+						return
+					}
+					await exportComposable.exportAsZIP(modelSourceFiles.value, baseFilename)
+					emit('push-toast', {
+						type: 'success',
+						title: t('threedviewer', 'Export Successful'),
+						message: t('threedviewer', 'Model exported as {name} ({count} files)', { name: `${baseFilename}.zip`, count: modelSourceFiles.value.length }),
+					})
+					break
 				default:
 					throw new Error(`Unsupported export format: ${format}`)
 				}
@@ -2685,6 +2705,7 @@ export default {
 				if (modelRoot.value) {
 					scene.value.remove(modelRoot.value)
 					modelRoot.value = null
+					modelSourceFiles.value = null
 				}
 
 				// Clear model stats
@@ -3055,6 +3076,7 @@ export default {
 			handleNudgeCamera,
 			handleControllerPositionChange,
 			hasModel: computed(() => modelRoot.value !== null),
+			hasMultipleSourceFiles: computed(() => modelSourceFiles.value && modelSourceFiles.value.length > 1),
 		}
 	},
 }

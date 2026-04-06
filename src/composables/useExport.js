@@ -339,6 +339,72 @@ export function useExport() {
 	}
 
 	/**
+	 * Export source files as a ZIP archive (model + textures + materials)
+	 * @param {File[]} sourceFiles - Array of File objects from loading pipeline
+	 * @param {string} filename - Base filename (without extension)
+	 * @return {Promise<void>}
+	 */
+	const exportAsZIP = async (sourceFiles, filename = 'model') => {
+		if (!sourceFiles || sourceFiles.length === 0) {
+			throw new Error('No source files available for ZIP export')
+		}
+
+		exporting.value = true
+		exportError.value = null
+		exportProgress.value = { stage: 'Preparing ZIP archive...', percentage: 0 }
+
+		try {
+			logger.info('useExport', 'Starting ZIP export', { filename, fileCount: sourceFiles.length })
+
+			// Dynamic import of fflate (bundled with Three.js)
+			const { zipSync } = await import('three/examples/jsm/libs/fflate.module.js')
+
+			const zipData = {}
+			const totalFiles = sourceFiles.length
+
+			for (let i = 0; i < totalFiles; i++) {
+				const file = sourceFiles[i]
+				const progress = Math.round(((i + 1) / totalFiles) * 80)
+				exportProgress.value = {
+					stage: `Packing ${file.name} (${i + 1}/${totalFiles})...`,
+					percentage: progress,
+				}
+
+				const buffer = await file.arrayBuffer()
+				zipData[file.name] = new Uint8Array(buffer)
+			}
+
+			exportProgress.value = { stage: 'Compressing...', percentage: 85 }
+			await new Promise(resolve => setTimeout(resolve, 50))
+
+			const zipped = zipSync(zipData, { level: 6 })
+
+			exportProgress.value = { stage: 'Creating download file...', percentage: 95 }
+			await new Promise(resolve => setTimeout(resolve, 50))
+
+			const blob = new Blob([zipped], { type: 'application/zip' })
+			const sizeMB = (blob.size / 1024 / 1024).toFixed(2)
+			logger.info('useExport', 'ZIP export complete', {
+				filename,
+				files: totalFiles,
+				sizeMB: `${sizeMB}MB`,
+			})
+
+			triggerDownload(blob, `${filename}.zip`)
+
+			exportProgress.value = { stage: 'Export complete!', percentage: 100 }
+			await new Promise(resolve => setTimeout(resolve, 500))
+
+			exporting.value = false
+		} catch (error) {
+			logger.error('useExport', 'ZIP export error', error)
+			exportError.value = error.message
+			exporting.value = false
+			throw error
+		}
+	}
+
+	/**
 	 * Clear error state
 	 */
 	const clearError = () => {
@@ -356,6 +422,7 @@ export function useExport() {
 		exportAsGLTF,
 		exportAsSTL,
 		exportAsOBJ,
+		exportAsZIP,
 		clearError,
 	}
 }

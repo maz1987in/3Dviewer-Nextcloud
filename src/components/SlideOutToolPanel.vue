@@ -336,6 +336,9 @@
 									<option value="obj">
 										{{ t('threedviewer', 'OBJ (Universal)') }}
 									</option>
+									<option v-if="hasMultipleSourceFiles" value="zip">
+										{{ t('threedviewer', 'ZIP (All Files)') }}
+									</option>
 								</select>
 							</div>
 							<button class="tool-btn"
@@ -437,6 +440,7 @@ export default {
 		transformGizmoActive: { type: Boolean, default: false },
 		transformGizmoMode: { type: String, default: 'translate' },
 		modelLoaded: { type: Boolean, default: false },
+		hasMultipleSourceFiles: { type: Boolean, default: false },
 		performanceMode: { type: String, default: 'auto' },
 		themeMode: { type: String, default: 'auto' },
 

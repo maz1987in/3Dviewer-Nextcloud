@@ -86,6 +86,7 @@
 					:wireframe="wireframe"
 					:background-color="background"
 					:model-loaded="modelLoaded"
+					:has-multiple-source-files="hasMultipleSourceFiles"
 					:performance-mode="performanceMode"
 					:theme-mode="themeMode"
 					:has-animations="hasAnimations"
@@ -277,6 +278,7 @@ export default {
 			lastError: null,
 			modelMeta: null,
 			modelLoaded: false,
+			hasMultipleSourceFiles: false,
 			// Advanced features
 			measurementMode: false,
 			annotationMode: false,
@@ -828,6 +830,7 @@ export default {
 			this.lastError = null
 			this.isLoading = false
 			this.modelLoaded = true
+			this.hasMultipleSourceFiles = this.$refs.viewer?.hasMultipleSourceFiles ?? false
 
 			// Check if the loaded model is a G-code file
 			if (meta.filename) {

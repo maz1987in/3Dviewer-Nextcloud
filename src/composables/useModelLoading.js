@@ -214,6 +214,8 @@ export function useModelLoading() {
 							dependencies: result.dependencies.length,
 						})
 
+						// Attach source files for ZIP export
+						modelResult.sourceFiles = result.allFiles || [result.mainFile, ...result.dependencies]
 						// Add missing files info to result for error reporting
 						modelResult.missingFiles = result.missingFiles || []
 						modelResult.missingTextures = loadingContext.missingTextures || []
@@ -340,6 +342,9 @@ export function useModelLoading() {
 			if (result && result.object3D) {
 				modelRoot.value = markRaw(result.object3D)
 				currentFileId.value = fileId
+
+				// Attach source file for ZIP export (single-file models)
+				result.sourceFiles = [new File([arrayBuffer.buffer], filename)]
 
 				// Clear loading state
 				loading.value = false
