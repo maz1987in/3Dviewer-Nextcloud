@@ -185,11 +185,16 @@ class ObjLoader extends BaseLoader {
 			}
 		}
 
-		// When a diffuse texture map is present, set color to white so the
-		// texture isn't darkened by the Kd value
+		// When a diffuse texture exists, the Kd color multiplies with the texture.
+		// Dark Kd values make textured surfaces appear too dim. Override to white
+		// so the texture shows at full brightness, unless the material is
+		// intentionally black (Kd near 0) which indicates a design choice.
 		for (const mat of Object.values(materials)) {
 			if (mat._mapPath) {
-				mat.color.setRGB(1, 1, 1)
+				const lum = mat.color.r * 0.299 + mat.color.g * 0.587 + mat.color.b * 0.114
+				if (lum > 0.05) {
+					mat.color.setRGB(1, 1, 1)
+				}
 			}
 		}
 
@@ -662,18 +667,13 @@ class ObjLoader extends BaseLoader {
 						const texture = new THREE.Texture(image)
 						texture.needsUpdate = true
 
-						// Configure texture properties based on best practices
-						texture.flipY = false // OBJ files typically use different Y orientation
 						texture.wrapS = THREE.RepeatWrapping
 						texture.wrapT = THREE.RepeatWrapping
-						texture.minFilter = THREE.LinearMipmapLinearFilter // Better filtering
+						texture.minFilter = THREE.LinearMipmapLinearFilter
 						texture.magFilter = THREE.LinearFilter
 						texture.generateMipmaps = true
-						texture.anisotropy = 4 // Improve texture quality
-
-						// Ensure proper format and type
-						texture.format = THREE.RGBAFormat
-						texture.type = THREE.UnsignedByteType
+						texture.anisotropy = 4
+						texture.colorSpace = THREE.SRGBColorSpace
 
 						logger.info('OBJLoader', 'loadTextureFromDependencies success', { texturePath, width: image?.width, height: image?.height })
 
