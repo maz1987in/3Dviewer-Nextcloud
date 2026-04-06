@@ -457,18 +457,46 @@ class FbxLoader extends BaseLoader {
 			throw new Error('No valid geometry found in FBX file')
 		}
 
-		// Brighten textured materials after textures load (async via LoadingManager).
-		// FBX from Blender often exports materials with black diffuse + texture map,
-		// so set color to white for all textured materials to let textures show.
+		// After all textures load, fix colorSpace, colors, and detect mis-assigned textures
 		if (dataUriMap.size > 0) {
 			manager.onLoad = () => {
-				logger.info('FBXLoader', 'All textures loaded, adjusting material colors')
+				logger.info('FBXLoader', 'All textures loaded, final material adjustment')
+
+				// Find the largest diffuse texture resolution
+				let maxMapRes = 0
 				object3D.traverse((child) => {
 					if (child.isMesh && child.material) {
 						const mats = Array.isArray(child.material) ? child.material : [child.material]
 						mats.forEach(mat => {
-							if (mat.map && mat.color) {
-								mat.color.setRGB(1, 1, 1)
+							if (mat.map?.image) {
+								maxMapRes = Math.max(maxMapRes, mat.map.image.width)
+							}
+						})
+					}
+				})
+
+				object3D.traverse((child) => {
+					if (child.isMesh && child.material) {
+						const mats = Array.isArray(child.material) ? child.material : [child.material]
+						mats.forEach(mat => {
+							if (mat.map) {
+								mat.map.colorSpace = THREE.SRGBColorSpace
+								mat.map.needsUpdate = true
+								if (mat.color) {
+									mat.color.setRGB(1, 1, 1)
+								}
+
+								// Detect mis-assigned textures: if this diffuse map is much smaller
+								// than the largest one, it's likely a reflection/specular map.
+								// Make the material transparent so inner meshes show through.
+								const mapW = mat.map.image?.width || 0
+								if (maxMapRes > 1024 && mapW > 0 && mapW < maxMapRes * 0.5) {
+									logger.info('FBXLoader', `Transparent shell detected: ${child.name} (map ${mapW}px vs max ${maxMapRes}px)`)
+									mat.transparent = true
+									mat.opacity = 0.15
+									mat.depthWrite = false
+								}
+
 								mat.needsUpdate = true
 							}
 						})
@@ -490,6 +518,20 @@ class FbxLoader extends BaseLoader {
 	processFbxResult(object3D, context, additionalFiles) {
 		const { THREE } = context
 
+		// Normalize scale — FBX files often use centimeters while the viewer's
+		// lighting is designed for models ~5 units in size. Compute bounding box
+		// and scale the model to a reasonable size.
+		const tempBox = new THREE.Box3().setFromObject(object3D)
+		const tempSize = new THREE.Vector3()
+		tempBox.getSize(tempSize)
+		const maxDim = Math.max(tempSize.x, tempSize.y, tempSize.z)
+		if (maxDim > 50) {
+			const targetSize = 5
+			const scaleFactor = targetSize / maxDim
+			object3D.scale.multiplyScalar(scaleFactor)
+			logger.info('FBXLoader', `Normalized scale: ${maxDim.toFixed(1)} → ${targetSize} (factor: ${scaleFactor.toFixed(4)})`)
+		}
+
 		// Ensure materials are visible and count textures
 		let meshCount = 0
 		let texturesKeptCount = 0
@@ -497,9 +539,50 @@ class FbxLoader extends BaseLoader {
 			if (child.isMesh) {
 				meshCount++
 				if (child.material) {
-					const materials = Array.isArray(child.material) ? child.material : [child.material]
+					const isArray = Array.isArray(child.material)
+					const materials = isArray ? child.material : [child.material]
 
-					materials.forEach((mat, idx) => {
+					const upgraded = materials.map((mat, idx) => {
+						// Upgrade MeshLambertMaterial to MeshPhongMaterial for better lighting
+						if (mat.type === 'MeshLambertMaterial') {
+							const phong = new THREE.MeshPhongMaterial()
+							phong.name = mat.name
+							if (mat.color) phong.color.copy(mat.color)
+							if (mat.emissive) phong.emissive.copy(mat.emissive)
+							phong.emissiveIntensity = mat.emissiveIntensity ?? 1
+							phong.map = mat.map
+							phong.alphaMap = mat.alphaMap
+							phong.emissiveMap = mat.emissiveMap
+							phong.envMap = mat.envMap
+							phong.normalMap = mat.normalMap
+							phong.bumpMap = mat.bumpMap
+							phong.opacity = mat.opacity
+							phong.transparent = mat.transparent
+							mat.dispose()
+							mat = phong
+							logger.info('FBXLoader', 'Upgraded Lambert → Phong', {
+								childName: child.name || 'unnamed',
+								materialIndex: idx,
+							})
+						}
+
+						// Set SRGBColorSpace on diffuse textures for correct brightness
+						if (mat.map) {
+							mat.map.colorSpace = THREE.SRGBColorSpace
+						}
+
+						// FBX exports non-white base colors that darken textures
+						// (final = texture * color). Always set textured materials to white
+						// so textures render at full brightness.
+						if (mat.map && mat.color) {
+							mat.color.setRGB(1, 1, 1)
+						} else if (mat.color) {
+							const lum = mat.color.r * 0.299 + mat.color.g * 0.587 + mat.color.b * 0.114
+							if (lum < 0.1) {
+								mat.color.setRGB(0.8, 0.8, 0.8)
+							}
+						}
+
 						// Count textures for logging
 						const textureProps = ['map', 'normalMap', 'bumpMap', 'specularMap', 'emissiveMap',
 										   'aoMap', 'roughnessMap', 'metalnessMap', 'alphaMap', 'lightMap']
@@ -521,12 +604,13 @@ class FbxLoader extends BaseLoader {
 							childName: child.name || 'unnamed',
 							materialIndex: idx,
 							type: mat.type,
-							color: mat.color ? { r: mat.color.r.toFixed(2), g: mat.color.g.toFixed(2), b: mat.color.b.toFixed(2) } : null,
-							opacity: mat.opacity,
-							transparent: mat.transparent,
 							hasMap: !!mat.map,
 						})
+
+						return mat
 					})
+
+					child.material = isArray ? upgraded : upgraded[0]
 				} else {
 					// No material at all - create a basic one
 					child.material = new THREE.MeshStandardMaterial({
