@@ -836,6 +836,14 @@ export const TEXTURE_SETTINGS = {
 }
 
 /**
+ * Texture optimization settings
+ * quality: 'original' | 'high' (4096) | 'medium' (2048) | 'low' (1024)
+ */
+export const TEXTURE_OPTIMIZATION_SETTINGS = {
+	quality: 'original',
+}
+
+/**
  * Main viewer configuration object
  */
 export const VIEWER_CONFIG = {
@@ -875,6 +883,7 @@ export const VIEWER_CONFIG = {
 	gridDynamicSizing: GRID_DYNAMIC_SIZING,
 	performanceDetection: PERFORMANCE_DETECTION,
 	texture: TEXTURE_SETTINGS,
+	textureOptimization: TEXTURE_OPTIMIZATION_SETTINGS,
 	// Derived from SUPPORTED_FORMATS - no need to maintain separately
 	supportedExtensions: MODEL_EXTENSIONS,
 	multiFileFormats: MULTI_FILE_FORMATS,

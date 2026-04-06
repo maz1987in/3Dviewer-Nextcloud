@@ -289,7 +289,14 @@
     "Cache Expiration (days)": "Cache Expiration (days)",
     "Clear Dependency Cache": "Clear Dependency Cache",
     "Cache cleared": "Cache cleared",
-    "{count} files, {size} MB": "{count} files, {size} MB"
+    "{count} files, {size} MB": "{count} files, {size} MB",
+    "Texture Quality": "Texture Quality",
+    "Downscale large textures to save memory. Lower quality improves performance on older devices.": "Downscale large textures to save memory. Lower quality improves performance on older devices.",
+    "Original (no limit)": "Original (no limit)",
+    "High (4096px)": "High (4096px)",
+    "Medium (2048px)": "Medium (2048px)",
+    "Low (1024px)": "Low (1024px)",
+    "Texture Memory": "Texture Memory"
   },
   "pluralForm": "nplurals=2; plural=(n != 1);"
 }

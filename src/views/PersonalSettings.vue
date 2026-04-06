@@ -398,6 +398,18 @@ export default {
 							type: 'boolean',
 							default: PERFORMANCE_SETTINGS.enableAntialiasing,
 						},
+						'textureOptimization.quality': {
+							label: this.t('threedviewer', 'Texture Quality'),
+							description: this.t('threedviewer', 'Downscale large textures to save memory. Lower quality improves performance on older devices.'),
+							type: 'select',
+							default: 'original',
+							options: [
+								{ value: 'original', label: this.t('threedviewer', 'Original (no limit)') },
+								{ value: 'high', label: this.t('threedviewer', 'High (4096px)') },
+								{ value: 'medium', label: this.t('threedviewer', 'Medium (2048px)') },
+								{ value: 'low', label: this.t('threedviewer', 'Low (1024px)') },
+							],
+						},
 					},
 				},
 				navigation: {

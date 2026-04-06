@@ -10,6 +10,7 @@ import {
 	applyWireframe,
 	disposeObject,
 } from '../utils/three-utils.js'
+import { optimizeAllTextures, estimateTextureMemory } from '../utils/textureOptimizer.js'
 import {
 	handleLoaderError,
 	createErrorState,
@@ -144,6 +145,10 @@ export class BaseLoader {
 		// This is especially important for DAE files which have a Z-up to Y-up rotation
 		object3D.updateMatrixWorld(true)
 
+		// Optimize textures based on quality settings
+		const texStats = optimizeAllTextures(object3D, THREE)
+		const texMemory = estimateTextureMemory(object3D)
+
 		// Calculate bounding box
 		const { box, center, size } = calculateBoundingBox(object3D)
 
@@ -161,6 +166,10 @@ export class BaseLoader {
 			center,
 			size,
 			isEmpty: box.isEmpty(),
+			textureStats: {
+				...texStats,
+				memory: texMemory,
+			},
 		}
 	}
 
