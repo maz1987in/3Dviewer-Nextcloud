@@ -135,53 +135,63 @@ class ObjLoader extends BaseLoader {
 
 			const parts = trimmedLine.split(/\s+/)
 			const command = parts[0]
+			const restOfLine = parts.slice(1).join(' ').trim()
 
 			if (command === 'newmtl') {
-				// Create new material
-				const materialName = parts[1]
-				currentMaterial = new THREE.MeshLambertMaterial({
+				const materialName = parts.slice(1).join(' ')
+				currentMaterial = new THREE.MeshPhongMaterial({
 					color: 0xffffff,
 					side: THREE.DoubleSide,
 					transparent: false,
 					opacity: 1.0,
-					map: null, // Explicitly initialize to null
+					map: null,
 					normalMap: null,
 					specularMap: null,
 				})
 				materials[materialName] = currentMaterial
 			} else if (currentMaterial && command === 'map_Kd') {
-				// Store texture path for later loading, but keep material.map as null
-				// Never set material.map to a string - it must be null or THREE.Texture
-				const texturePath = parts.slice(1).join(' ').trim() // Handle paths with spaces
-				currentMaterial._mapPath = texturePath // Temporary storage for path
-				currentMaterial.map = null // Keep as null until texture loads
+				currentMaterial._mapPath = restOfLine
+				currentMaterial.map = null
+			} else if (currentMaterial && (command === 'map_Bump' || command === 'bump' || command === 'map_bump')) {
+				currentMaterial._normalMapPath = restOfLine
+				currentMaterial.normalMap = null
+			} else if (currentMaterial && (command === 'map_Ks' || command === 'map_Ns')) {
+				currentMaterial._specularMapPath = restOfLine
+				currentMaterial.specularMap = null
 			} else if (currentMaterial && command === 'Kd') {
-				// Set diffuse color
 				const r = parseFloat(parts[1]) || 1.0
 				const g = parseFloat(parts[2]) || 1.0
 				const b = parseFloat(parts[3]) || 1.0
 				currentMaterial.color.setRGB(r, g, b)
-			} else if (currentMaterial && command === 'Ka') {
-				// Ambient color present in MTL, no direct mapping in MeshLambertMaterial
-				// Intentionally ignored to avoid unused variable warnings
 			} else if (currentMaterial && command === 'Ks') {
-				// Specular color present in MTL, not supported by MeshLambertMaterial
-				// Intentionally ignored to avoid unused variable warnings
+				const r = parseFloat(parts[1]) || 0.0
+				const g = parseFloat(parts[2]) || 0.0
+				const b = parseFloat(parts[3]) || 0.0
+				currentMaterial.specular.setRGB(r, g, b)
 			} else if (currentMaterial && command === 'Ns') {
-				// Shininess value present in MTL, not supported by MeshLambertMaterial
-				// Intentionally ignored
+				currentMaterial.shininess = parseFloat(parts[1]) || 30
+			} else if (currentMaterial && command === 'd') {
+				const opacity = parseFloat(parts[1])
+				if (opacity < 1.0) {
+					currentMaterial.transparent = true
+					currentMaterial.opacity = opacity
+				}
 			} else if (currentMaterial && command === 'Tr') {
-				// Set transparency
-				const transparency = parseFloat(parts[1]) || 1.0
-				currentMaterial.transparent = transparency < 1.0
-				currentMaterial.opacity = transparency
-			} else if (currentMaterial && command === 'illum') {
-				// Illumination model present in MTL, not directly supported
-				// Intentionally ignored
+				const transparency = parseFloat(parts[1]) || 0.0
+				if (transparency > 0.0) {
+					currentMaterial.transparent = true
+					currentMaterial.opacity = 1.0 - transparency
+				}
 			}
 		}
 
-		// Manual MTL parsing completed
+		// When a diffuse texture map is present, set color to white so the
+		// texture isn't darkened by the Kd value
+		for (const mat of Object.values(materials)) {
+			if (mat._mapPath) {
+				mat.color.setRGB(1, 1, 1)
+			}
+		}
 
 		// Return in the same format as MTLLoader with create method
 		const materialsWrapper = {

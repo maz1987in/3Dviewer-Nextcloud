@@ -459,8 +459,8 @@ export function parseObjMaterialFiles(objContent) {
  * @return {string[]} - Array of texture filenames
  */
 export function parseMtlTextureFiles(mtlContent) {
-	// Match lines like: map_Kd texture.jpg, map_Ka ambient.png, etc.
-	const matches = [...mtlContent.matchAll(/^\s*map_[A-Za-z0-9_]+[^\S\r\n]+(.*?)$/gm)]
+	// Match lines like: map_Kd texture.jpg, map_Ka ambient.png, bump normal.jpg, refl env.jpg
+	const matches = [...mtlContent.matchAll(/^\s*(?:map_[A-Za-z0-9_]+|bump|refl)[^\S\r\n]+(.*?)$/gm)]
 
 	// Extract basenames only (strip directory paths and normalize separators)
 	// OBJ/MTL files often reference textures in subdirectories (e.g., 'images\texture.jpg')
