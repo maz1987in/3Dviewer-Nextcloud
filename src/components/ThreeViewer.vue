@@ -227,7 +227,90 @@
 					<span class="btn-icon">📏</span>
 					<span class="btn-text">{{ t('threedviewer', 'Fit Both') }}</span>
 				</button>
+				<button
+					v-if="diffStats && !showDiffOverlay"
+					class="comparison-btn"
+					:title="t('threedviewer', 'Show diff overlay')"
+					@click="showDiffOverlayPanel">
+					<span class="btn-icon">📊</span>
+					<span class="btn-text">{{ t('threedviewer', 'Diff') }}</span>
+				</button>
 			</div>
+		</div>
+
+		<!-- Comparison diff overlay (vertex/face/bbox deltas) -->
+		<div
+			v-if="isComparisonMode && hasComparisonModel && diffStats && showDiffOverlay"
+			class="comparison-diff-overlay"
+			:class="{ 'mobile': isMobile }">
+			<div class="diff-header">
+				<span class="diff-title">{{ t('threedviewer', 'Scene Diff') }}</span>
+				<button
+					class="diff-close-btn"
+					:title="t('threedviewer', 'Hide diff overlay')"
+					@click="dismissDiffOverlay">
+					×
+				</button>
+			</div>
+			<div class="diff-labels">
+				<span class="diff-label diff-label-orig" :title="diffStats.originalLabel">{{ truncateLabel(diffStats.originalLabel) }}</span>
+				<span class="diff-label-vs">vs</span>
+				<span class="diff-label diff-label-comp" :title="diffStats.comparisonLabel">{{ truncateLabel(diffStats.comparisonLabel) }}</span>
+			</div>
+			<table class="diff-table">
+				<thead>
+					<tr>
+						<th />
+						<th class="diff-col-orig">{{ t('threedviewer', 'Original') }}</th>
+						<th class="diff-col-comp">{{ t('threedviewer', 'Compare') }}</th>
+						<th class="diff-col-delta">{{ t('threedviewer', 'Δ') }}</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td>{{ t('threedviewer', 'Vertices') }}</td>
+						<td class="diff-col-orig">{{ diffStats.original.vertices.toLocaleString() }}</td>
+						<td class="diff-col-comp">{{ diffStats.comparison.vertices.toLocaleString() }}</td>
+						<td class="diff-col-delta" :class="diffDeltaClass(diffStats.delta.vertices)">{{ formatDeltaInt(diffStats.delta.vertices) }}</td>
+					</tr>
+					<tr>
+						<td>{{ t('threedviewer', 'Faces') }}</td>
+						<td class="diff-col-orig">{{ diffStats.original.faces.toLocaleString() }}</td>
+						<td class="diff-col-comp">{{ diffStats.comparison.faces.toLocaleString() }}</td>
+						<td class="diff-col-delta" :class="diffDeltaClass(diffStats.delta.faces)">{{ formatDeltaInt(diffStats.delta.faces) }}</td>
+					</tr>
+					<tr>
+						<td>{{ t('threedviewer', 'Meshes') }}</td>
+						<td class="diff-col-orig">{{ diffStats.original.meshes }}</td>
+						<td class="diff-col-comp">{{ diffStats.comparison.meshes }}</td>
+						<td class="diff-col-delta" :class="diffDeltaClass(diffStats.delta.meshes)">{{ formatDeltaInt(diffStats.delta.meshes) }}</td>
+					</tr>
+					<tr>
+						<td>{{ t('threedviewer', 'BBox X') }}</td>
+						<td class="diff-col-orig">{{ diffStats.original.bbox.x.toFixed(2) }}</td>
+						<td class="diff-col-comp">{{ diffStats.comparison.bbox.x.toFixed(2) }}</td>
+						<td class="diff-col-delta" :class="diffDeltaClass(diffStats.delta.bbox.x)">{{ formatDeltaFloat(diffStats.delta.bbox.x) }}</td>
+					</tr>
+					<tr>
+						<td>{{ t('threedviewer', 'BBox Y') }}</td>
+						<td class="diff-col-orig">{{ diffStats.original.bbox.y.toFixed(2) }}</td>
+						<td class="diff-col-comp">{{ diffStats.comparison.bbox.y.toFixed(2) }}</td>
+						<td class="diff-col-delta" :class="diffDeltaClass(diffStats.delta.bbox.y)">{{ formatDeltaFloat(diffStats.delta.bbox.y) }}</td>
+					</tr>
+					<tr>
+						<td>{{ t('threedviewer', 'BBox Z') }}</td>
+						<td class="diff-col-orig">{{ diffStats.original.bbox.z.toFixed(2) }}</td>
+						<td class="diff-col-comp">{{ diffStats.comparison.bbox.z.toFixed(2) }}</td>
+						<td class="diff-col-delta" :class="diffDeltaClass(diffStats.delta.bbox.z)">{{ formatDeltaFloat(diffStats.delta.bbox.z) }}</td>
+					</tr>
+					<tr>
+						<td>{{ t('threedviewer', 'Diagonal') }}</td>
+						<td class="diff-col-orig">{{ diffStats.original.bboxDiagonal.toFixed(2) }}</td>
+						<td class="diff-col-comp">{{ diffStats.comparison.bboxDiagonal.toFixed(2) }}</td>
+						<td class="diff-col-delta" :class="diffDeltaClass(diffStats.delta.bboxDiagonal)">{{ formatDeltaFloat(diffStats.delta.bboxDiagonal) }}</td>
+					</tr>
+				</tbody>
+			</table>
 		</div>
 
 		<!-- Texture Loading Indicator (Bottom-Right) -->
@@ -1847,6 +1930,51 @@ export default {
 		}
 
 		/**
+		 * Format an integer delta with explicit sign for the diff overlay.
+		 * @param {number} value - Signed integer delta
+		 * @return {string} Formatted string like "+12", "-5", "0"
+		 */
+		const formatDeltaInt = (value) => {
+			if (value == null || !isFinite(value)) return '—'
+			if (value === 0) return '0'
+			const sign = value > 0 ? '+' : ''
+			return `${sign}${value.toLocaleString()}`
+		}
+
+		/**
+		 * Format a float delta (e.g. bbox dimensions) with explicit sign.
+		 * @param {number} value - Signed float delta
+		 * @return {string} Formatted string like "+1.42", "-0.30", "0.00"
+		 */
+		const formatDeltaFloat = (value) => {
+			if (value == null || !isFinite(value)) return '—'
+			if (Math.abs(value) < 0.005) return '0.00'
+			const sign = value > 0 ? '+' : ''
+			return `${sign}${value.toFixed(2)}`
+		}
+
+		/**
+		 * Pick a CSS class for the diff column based on delta sign.
+		 * @param {number} value - Signed delta
+		 * @return {string} CSS class name
+		 */
+		const diffDeltaClass = (value) => {
+			if (value == null || !isFinite(value) || Math.abs(value) < 0.005) return 'delta-zero'
+			return value > 0 ? 'delta-pos' : 'delta-neg'
+		}
+
+		/**
+		 * Truncate a filename label so the diff overlay header stays compact.
+		 * @param {string} label - Original filename
+		 * @return {string} Truncated label
+		 */
+		const truncateLabel = (label) => {
+			if (!label) return ''
+			if (label.length <= 22) return label
+			return label.slice(0, 10) + '…' + label.slice(-10)
+		}
+
+		/**
 		 * Update cache statistics
 		 */
 		const updateCacheStats = async () => {
@@ -2213,6 +2341,14 @@ export default {
 											// One more matrix update after positioning to ensure everything is valid
 											if (scene.value) {
 												scene.value.updateMatrixWorld(true)
+											}
+
+											// Compute the side-by-side diff stats now that both models
+											// have valid world matrices and are placed in the scene.
+											try {
+												comparison.computeDiffStats(modelRoot.value, props.filename || '')
+											} catch (diffError) {
+												logger.warn('ThreeViewer', 'Failed to compute comparison diff stats', diffError)
 											}
 										} catch (fitError) {
 											logger.warn('ThreeViewer', 'Failed to fit models to view', fitError)
@@ -3125,6 +3261,11 @@ export default {
 
 			// Comparison
 			isComparisonLoading: comparison.isComparisonLoading,
+			comparisonFilenameRef: comparison.comparisonFilename,
+			diffStats: comparison.diffStats,
+			showDiffOverlay: comparison.showDiffOverlay,
+			dismissDiffOverlay: comparison.dismissDiffOverlay,
+			showDiffOverlayPanel: comparison.showDiffOverlayPanel,
 
 			// Camera composable
 			camera,
@@ -3221,6 +3362,10 @@ export default {
 			togglePerformanceStats,
 			toggleModelStats,
 			formatStatNumber,
+			formatDeltaInt,
+			formatDeltaFloat,
+			diffDeltaClass,
+			truncateLabel,
 			toggleVR,
 			webxrSupported: webxr.isSupported,
 			webxrActive: webxr.isSessionActive,
@@ -3828,6 +3973,144 @@ export default {
 	gap: 4px;
 	align-items: center;
 	flex-wrap: wrap;
+}
+
+.comparison-diff-overlay {
+	position: absolute;
+	top: 110px; /* Sit just below comparison-controls */
+	inset-inline-end: 8px;
+	z-index: 10;
+	background: rgb(0 0 0 / 55%);
+	backdrop-filter: blur(8px);
+	color: #fff;
+	padding: 8px 10px 10px;
+	border-radius: 8px;
+	border: 1px solid rgb(255 255 255 / 10%);
+	box-shadow: 0 4px 12px rgb(0 0 0 / 25%);
+	min-width: 250px;
+	max-width: 320px;
+	font-size: 11px;
+}
+
+.comparison-diff-overlay .diff-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 6px;
+}
+
+.comparison-diff-overlay .diff-title {
+	font-weight: 600;
+	font-size: 12px;
+}
+
+.comparison-diff-overlay .diff-close-btn {
+	background: transparent;
+	color: #fff;
+	border: none;
+	font-size: 18px;
+	line-height: 1;
+	cursor: pointer;
+	padding: 0 4px;
+	min-height: 22px;
+	border-radius: 4px;
+}
+
+.comparison-diff-overlay .diff-close-btn:hover {
+	background: rgb(255 255 255 / 12%);
+}
+
+.comparison-diff-overlay .diff-labels {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 10px;
+	opacity: 0.85;
+	margin-bottom: 6px;
+	flex-wrap: nowrap;
+}
+
+.comparison-diff-overlay .diff-label {
+	flex: 1 1 0;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.comparison-diff-overlay .diff-label-orig {
+	color: #8fd6ff;
+}
+
+.comparison-diff-overlay .diff-label-comp {
+	color: #ffc78f;
+	text-align: end;
+}
+
+.comparison-diff-overlay .diff-label-vs {
+	flex: 0 0 auto;
+	opacity: 0.6;
+}
+
+.comparison-diff-overlay .diff-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 11px;
+}
+
+.comparison-diff-overlay .diff-table th,
+.comparison-diff-overlay .diff-table td {
+	padding: 3px 4px;
+	text-align: end;
+	font-variant-numeric: tabular-nums;
+}
+
+.comparison-diff-overlay .diff-table th:first-child,
+.comparison-diff-overlay .diff-table td:first-child {
+	text-align: start;
+	opacity: 0.85;
+}
+
+.comparison-diff-overlay .diff-table thead th {
+	font-weight: 600;
+	font-size: 10px;
+	opacity: 0.7;
+	border-bottom: 1px solid rgb(255 255 255 / 12%);
+}
+
+.comparison-diff-overlay .diff-table tbody tr + tr td {
+	border-top: 1px solid rgb(255 255 255 / 6%);
+}
+
+.comparison-diff-overlay .diff-col-orig {
+	color: #8fd6ff;
+}
+
+.comparison-diff-overlay .diff-col-comp {
+	color: #ffc78f;
+}
+
+.comparison-diff-overlay .diff-col-delta.delta-pos {
+	color: #7fdc7f;
+	font-weight: 600;
+}
+
+.comparison-diff-overlay .diff-col-delta.delta-neg {
+	color: #ff8a80;
+	font-weight: 600;
+}
+
+.comparison-diff-overlay .diff-col-delta.delta-zero {
+	opacity: 0.6;
+}
+
+.comparison-diff-overlay.mobile {
+	top: auto;
+	bottom: 8px;
+	inset-inline-start: 8px;
+	inset-inline-end: 8px;
+	min-width: 0;
+	max-width: none;
 }
 
 .comparison-btn {

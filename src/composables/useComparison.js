@@ -18,6 +18,7 @@ export function useComparison() {
 	const comparisonMode = ref(false)
 	const comparisonModel = shallowRef(null)
 	const comparisonIndicator = shallowRef(null)
+	const comparisonFilename = ref(null)
 
 	// Animation state for comparison model
 	const comparisonMixer = shallowRef(null)
@@ -28,6 +29,10 @@ export function useComparison() {
 	const loadingComparison = ref(false)
 	const comparisonError = ref(null)
 	const abortController = ref(null)
+
+	// Diff overlay state — populated by computeDiffStats() once both models are loaded
+	const diffStats = shallowRef(null)
+	const showDiffOverlay = ref(true)
 
 	// Computed properties
 	const isComparisonMode = computed(() => comparisonMode.value)
@@ -180,11 +185,16 @@ export function useComparison() {
 			const filename = pathParts.pop()
 			const extension = filename.split('.').pop().toLowerCase()
 
-			// Get file ID from path using the same method as the main viewer
-			const fileId = await getFileIdByPath(filePath)
-			if (!fileId) {
+			// Track filename so the diff overlay can label rows
+			comparisonFilename.value = filename
+
+			// Get file ID from path using the same method as the main viewer.
+			// getFileIdByPath returns { id, subdir } | null — destructure the integer.
+			const fileLookup = await getFileIdByPath(filePath)
+			if (!fileLookup || typeof fileLookup.id !== 'number') {
 				throw new Error(`Failed to get file ID for path: ${filePath}`)
 			}
+			const fileId = fileLookup.id
 
 			logger.info('useComparison', 'Found file ID', { filePath, fileId, filename })
 
@@ -1214,6 +1224,163 @@ export function useComparison() {
 	}
 
 	/**
+	 * Detect helper meshes (transform gizmo pickers, axes, grids, annotations,
+	 * measurement points, comparison indicators) so they don't pollute diff stats.
+	 * Mirrors the filter used in useAnnotation.js for the annotation overlay fix.
+	 * @param {THREE.Object3D} obj - Candidate object to test
+	 * @return {boolean} True if obj should be excluded from stats
+	 */
+	const isHelperMesh = (obj) => {
+		if (!obj) return false
+		const name = obj.name || ''
+		if (name.startsWith('annotation') || name.startsWith('measurement')) return true
+		const type = obj.type || ''
+		if (type.startsWith('TransformControls')) return true
+		if (type === 'AxesHelper' || type === 'GridHelper' || type === 'Box3Helper') return true
+		let p = obj.parent
+		while (p) {
+			if ((p.type || '').startsWith('TransformControls')) return true
+			p = p.parent
+		}
+		return false
+	}
+
+	/**
+	 * Walk a model tree and collect raw geometry counts + a Box3 for the
+	 * non-helper meshes only.
+	 * @param {THREE.Object3D} root - Model root (or wrapper Group)
+	 * @return {{vertices: number, faces: number, meshes: number, box: THREE.Box3}}
+	 */
+	const collectModelStats = (root) => {
+		let vertices = 0
+		let faces = 0
+		let meshes = 0
+		const box = new THREE.Box3()
+		const tmpBox = new THREE.Box3()
+
+		if (!root) {
+			return { vertices, faces, meshes, box }
+		}
+
+		// Make sure world matrices are current before reading bounds
+		try {
+			root.updateMatrixWorld(true)
+		} catch (e) {
+			// matrices may be in a partial state during a load — non-fatal
+		}
+
+		root.traverse((child) => {
+			if (!child || !child.isMesh || !child.geometry) return
+			if (isHelperMesh(child)) return
+
+			meshes++
+			const pos = child.geometry.attributes && child.geometry.attributes.position
+			if (pos) {
+				vertices += pos.count
+				if (child.geometry.index) {
+					faces += child.geometry.index.count / 3
+				} else {
+					faces += pos.count / 3
+				}
+			}
+
+			tmpBox.setFromObject(child)
+			if (!tmpBox.isEmpty()) {
+				box.union(tmpBox)
+			}
+		})
+
+		return { vertices, faces: Math.floor(faces), meshes, box }
+	}
+
+	/**
+	 * Compute side-by-side and delta stats for the original + comparison models.
+	 * Result is stored in diffStats and consumed by the comparison diff overlay.
+	 * @param {THREE.Object3D} originalModel - Currently loaded primary model
+	 * @param {string} originalFilenameInput - Filename of the primary model
+	 * @return {object|null} The diff stats object, or null if either model missing
+	 */
+	const computeDiffStats = (originalModel, originalFilenameInput = '') => {
+		if (!originalModel || !comparisonModel.value) {
+			diffStats.value = null
+			return null
+		}
+
+		try {
+			const origRaw = collectModelStats(originalModel)
+			const compRaw = collectModelStats(comparisonModel.value)
+
+			const origSize = new THREE.Vector3()
+			const compSize = new THREE.Vector3()
+			if (!origRaw.box.isEmpty()) origRaw.box.getSize(origSize)
+			if (!compRaw.box.isEmpty()) compRaw.box.getSize(compSize)
+
+			const origStats = {
+				vertices: origRaw.vertices,
+				faces: origRaw.faces,
+				meshes: origRaw.meshes,
+				bbox: { x: origSize.x, y: origSize.y, z: origSize.z },
+				bboxDiagonal: origSize.length(),
+			}
+			const compStats = {
+				vertices: compRaw.vertices,
+				faces: compRaw.faces,
+				meshes: compRaw.meshes,
+				bbox: { x: compSize.x, y: compSize.y, z: compSize.z },
+				bboxDiagonal: compSize.length(),
+			}
+
+			const delta = {
+				vertices: compStats.vertices - origStats.vertices,
+				faces: compStats.faces - origStats.faces,
+				meshes: compStats.meshes - origStats.meshes,
+				bbox: {
+					x: compStats.bbox.x - origStats.bbox.x,
+					y: compStats.bbox.y - origStats.bbox.y,
+					z: compStats.bbox.z - origStats.bbox.z,
+				},
+				bboxDiagonal: compStats.bboxDiagonal - origStats.bboxDiagonal,
+			}
+
+			const result = {
+				originalLabel: (originalFilenameInput || '').split('/').pop() || 'Original',
+				comparisonLabel: comparisonFilename.value || 'Comparison',
+				original: origStats,
+				comparison: compStats,
+				delta,
+				computedAt: Date.now(),
+			}
+
+			diffStats.value = result
+			showDiffOverlay.value = true
+			logger.info('useComparison', 'Diff stats computed', {
+				origVerts: origStats.vertices,
+				compVerts: compStats.vertices,
+				vertDelta: delta.vertices,
+			})
+			return result
+		} catch (error) {
+			logger.error('useComparison', 'Failed to compute diff stats', error)
+			diffStats.value = null
+			return null
+		}
+	}
+
+	/**
+	 * Hide the diff overlay without clearing the underlying stats.
+	 */
+	const dismissDiffOverlay = () => {
+		showDiffOverlay.value = false
+	}
+
+	/**
+	 * Re-show the diff overlay (used by the "Diff" button in comparison controls).
+	 */
+	const showDiffOverlayPanel = () => {
+		showDiffOverlay.value = true
+	}
+
+	/**
 	 * Clear comparison
 	 * @param {THREE.Scene} scene - Optional scene to remove model from
 	 */
@@ -1245,6 +1412,9 @@ export function useComparison() {
 
 		comparisonError.value = null
 		loadingComparison.value = false
+		comparisonFilename.value = null
+		diffStats.value = null
+		showDiffOverlay.value = true
 
 		logger.info('useComparison', 'Comparison cleared')
 	}
@@ -1288,10 +1458,13 @@ export function useComparison() {
 		comparisonMode: readonly(comparisonMode),
 		comparisonModel: readonly(comparisonModel),
 		comparisonIndicator: readonly(comparisonIndicator),
+		comparisonFilename: readonly(comparisonFilename),
 		loadingComparison: readonly(loadingComparison),
 		comparisonError: readonly(comparisonError),
 		comparisonAnimations: readonly(comparisonAnimations),
 		comparisonMixer: readonly(comparisonMixer),
+		diffStats: readonly(diffStats),
+		showDiffOverlay: readonly(showDiffOverlay),
 
 		// Computed
 		isComparisonMode,
@@ -1315,6 +1488,9 @@ export function useComparison() {
 		initComparisonAnimations,
 		updateComparisonAnimations,
 		disposeComparisonAnimations,
+		computeDiffStats,
+		dismissDiffOverlay,
+		showDiffOverlayPanel,
 		dispose,
 	}
 }
