@@ -94,6 +94,8 @@
 					:is-animation-looping="isAnimationLooping"
 					:animation-current-time="animationCurrentTime"
 					:animation-duration="animationDuration"
+					:animation-clip-names="animationClipNames"
+					:animation-active-clip-index="animationActiveClipIndex"
 					:clipping-active="clippingActive"
 					:clipping-axis="clippingAxis"
 					:clipping-position="clippingPosition"
@@ -136,6 +138,7 @@
 					@animation-seek="onAnimationSeek"
 					@animation-step-forward="onAnimationStepForward"
 					@animation-step-backward="onAnimationStepBackward"
+					@animation-select-clip="onAnimationSelectClip"
 					@toggle-clipping="onToggleClipping"
 					@set-clipping-axis="onSetClippingAxis"
 					@set-clipping-position="onSetClippingPosition"
@@ -322,6 +325,8 @@ export default {
 			// Animation timeline
 			animationCurrentTime: 0,
 			animationDuration: 0,
+			animationClipNames: [],
+			animationActiveClipIndex: 0,
 			// Exploded view
 			explodedViewActive: false,
 			explodedViewAvailable: false,
@@ -856,10 +861,11 @@ export default {
 			this.pushToast({ type: 'success', title: this.tSuccessTitle(), message: this.tLoadedMessage(meta.filename) })
 		},
 		onAnimationsInitialized(data) {
-			// Called when animations are initialized in ThreeViewer
 			this.hasAnimations = data.hasAnimations || false
 			this.isAnimationPlaying = data.isPlaying || false
-			this.isAnimationLooping = data.isLooping ?? true // Default to true (animations loop by default)
+			this.isAnimationLooping = data.isLooping ?? true
+			this.animationClipNames = data.clipNames || []
+			this.animationActiveClipIndex = data.activeClipIndex ?? 0
 		},
 		onPushToast(toastData) {
 			// Handle toast events from ThreeViewer
@@ -1169,6 +1175,8 @@ export default {
 				const viewer = this.$refs.viewer
 				this.animationCurrentTime = viewer.animationCurrentTime?.value ?? viewer.animationCurrentTime ?? 0
 				this.animationDuration = viewer.animationDuration?.value ?? viewer.animationDuration ?? 0
+				this.animationClipNames = viewer.animationClipNames?.value ?? viewer.animationClipNames ?? []
+				this.animationActiveClipIndex = viewer.animationActiveClipIndex?.value ?? viewer.animationActiveClipIndex ?? 0
 
 				// Update lighting presets list (only once)
 				if (this.lightingPresetsList.length === 0 && viewer.lightingPresets) {
@@ -1211,6 +1219,12 @@ export default {
 		onAnimationStepBackward() {
 			if (this.$refs.viewer?.animation) {
 				this.$refs.viewer.animation.stepBackward()
+				this.updateAnimationState()
+			}
+		},
+		onAnimationSelectClip(index) {
+			if (this.$refs.viewer?.animation) {
+				this.$refs.viewer.animation.playClip(index)
 				this.updateAnimationState()
 			}
 		},

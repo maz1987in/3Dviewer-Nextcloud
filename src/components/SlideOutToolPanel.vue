@@ -271,6 +271,19 @@
 							<span class="expand-icon">{{ sections.animation ? '▼' : '▶' }}</span>
 						</button>
 						<div id="panel-section-animation" v-show="sections.animation" class="section-content">
+							<!-- Clip selector -->
+							<div v-if="animationClipNames.length > 1" class="clip-selector">
+								<label class="clip-label">{{ t('threedviewer', 'Clip') }}</label>
+								<select class="clip-dropdown"
+									:value="animationActiveClipIndex"
+									@change="emit('animation-select-clip', parseInt($event.target.value))">
+									<option v-for="(name, idx) in animationClipNames"
+										:key="idx"
+										:value="idx">
+										{{ name }}
+									</option>
+								</select>
+							</div>
 							<div class="animation-controls">
 								<button class="tool-btn"
 									:class="{ 'active': isAnimationPlaying }"
@@ -450,6 +463,8 @@ export default {
 		isAnimationLooping: { type: Boolean, default: false },
 		animationCurrentTime: { type: Number, default: 0 },
 		animationDuration: { type: Number, default: 0 },
+		animationClipNames: { type: Array, default: () => [] },
+		animationActiveClipIndex: { type: Number, default: 0 },
 
 		// Clipping plane props
 		clippingActive: { type: Boolean, default: false },
@@ -509,6 +524,7 @@ export default {
 		'animation-seek',
 		'animation-step-forward',
 		'animation-step-backward',
+		'animation-select-clip',
 		'toggle-clipping',
 		'set-clipping-axis',
 		'set-clipping-position',
@@ -881,6 +897,36 @@ export default {
 	color: var(--color-text-maxcontrast);
 	margin-bottom: 8px;
 	font-weight: 500;
+}
+
+/* Clip selector */
+.clip-selector {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 8px;
+}
+
+.clip-label {
+	font-size: 12px;
+	color: var(--color-text-maxcontrast);
+	white-space: nowrap;
+}
+
+.clip-dropdown {
+	flex: 1;
+	padding: 4px 8px;
+	border: 1px solid var(--color-border);
+	border-radius: 4px;
+	background: var(--color-main-background);
+	color: var(--color-main-text);
+	font-size: 12px;
+	cursor: pointer;
+	min-width: 0;
+}
+
+.clip-dropdown:hover {
+	border-color: var(--color-primary-element);
 }
 
 /* Animation Controls */

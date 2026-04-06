@@ -1061,6 +1061,8 @@ export default {
 							hasAnimations: animation.hasAnimations.value,
 							isPlaying: animation.isPlaying.value,
 							isLooping: animation.isLooping.value,
+							clipNames: animation.clipNames.value,
+							activeClipIndex: animation.activeClipIndex.value,
 						})
 					} else {
 						logger.info('ThreeViewer', 'No animations found in model')
@@ -2994,6 +2996,8 @@ export default {
 			isAnimationLooping: isAnimationLoopingComputed,
 			animationCurrentTime: animation.currentTime,
 			animationDuration: animation.duration,
+			animationClipNames: animation.clipNames,
+			animationActiveClipIndex: animation.activeClipIndex,
 
 			// Clipping plane
 			clippingPlane,

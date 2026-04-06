@@ -14,6 +14,8 @@ export function useAnimation() {
 	const isLooping = ref(true) // Default to looping
 	const currentTime = ref(0)
 	const duration = ref(0)
+	const activeClipIndex = ref(0)
+	const clipNames = ref([])
 
 	// Computed properties
 	const hasAnimations = computed(() => mixer.value !== null && actions.value.length > 0)
@@ -41,24 +43,35 @@ export function useAnimation() {
 			// Create new AnimationMixer
 			mixer.value = new AnimationMixer(object3D)
 
-			// Create clip actions for all animations
+			// Store clip names for the selector UI
+			clipNames.value = animations.map((clip, i) => clip.name || `Animation ${i + 1}`)
+
+			// Create clip actions for all animations (but don't play them yet)
 			actions.value = animations.map((clip) => {
 				const action = mixer.value.clipAction(clip)
-				action.setLoop(LoopRepeat) // Default to looping
+				action.setLoop(LoopRepeat)
+				action.clampWhenFinished = true
 				return action
 			})
 
-			// Calculate total duration (max of all clips)
-			duration.value = Math.max(...animations.map(clip => clip.duration), 0)
+			// Update isPlaying when a LoopOnce action finishes
+			mixer.value.addEventListener('finished', () => {
+				isPlaying.value = false
+				logger.info('useAnimation', 'Animation finished')
+			})
+
+			// Default to the first clip
+			activeClipIndex.value = 0
+			duration.value = animations[0].duration
 
 			logger.info('useAnimation', 'Animations initialized', {
 				count: animations.length,
 				duration: duration.value,
-				clips: animations.map(clip => clip.name || 'unnamed'),
+				clips: clipNames.value,
 			})
 
-			// Auto-play animations
-			play()
+			// Auto-play only the first clip
+			playClip(0)
 		} catch (error) {
 			logger.error('useAnimation', 'Failed to initialize animations', error)
 			dispose()
@@ -66,7 +79,7 @@ export function useAnimation() {
 	}
 
 	/**
-	 * Play all animations
+	 * Play the active animation clip
 	 */
 	const play = () => {
 		if (!hasAnimations.value) {
@@ -74,17 +87,50 @@ export function useAnimation() {
 			return
 		}
 
-		actions.value.forEach((action) => {
+		const action = actions.value[activeClipIndex.value]
+		if (action) {
+			// If the action finished (LoopOnce), reset it before playing
+			if (!action.isRunning()) {
+				action.reset()
+			}
 			action.paused = false
 			action.play()
-		})
+		}
 
 		isPlaying.value = true
-		logger.info('useAnimation', 'Animations started')
+		logger.info('useAnimation', 'Animation started', { clip: clipNames.value[activeClipIndex.value] })
 	}
 
 	/**
-	 * Pause all animations
+	 * Switch to and play a specific animation clip
+	 * @param {number} index - Index of the clip to play
+	 */
+	const playClip = (index) => {
+		if (!hasAnimations.value || index < 0 || index >= actions.value.length) return
+
+		// Stop all actions
+		actions.value.forEach((action) => {
+			action.stop()
+			action.reset()
+		})
+
+		// Update active index and duration
+		activeClipIndex.value = index
+		const clip = actions.value[index]
+		duration.value = clip.getClip().duration
+		currentTime.value = 0
+
+		// Play the selected clip
+		const loopMode = isLooping.value ? LoopRepeat : LoopOnce
+		clip.setLoop(loopMode)
+		clip.play()
+
+		isPlaying.value = true
+		logger.info('useAnimation', 'Switched to clip', { index, name: clipNames.value[index] })
+	}
+
+	/**
+	 * Pause the active animation
 	 */
 	const pause = () => {
 		if (!hasAnimations.value) {
@@ -92,16 +138,17 @@ export function useAnimation() {
 			return
 		}
 
-		actions.value.forEach((action) => {
+		const action = actions.value[activeClipIndex.value]
+		if (action) {
 			action.paused = true
-		})
+		}
 
 		isPlaying.value = false
-		logger.info('useAnimation', 'Animations paused')
+		logger.info('useAnimation', 'Animation paused')
 	}
 
 	/**
-	 * Stop and reset all animations
+	 * Stop and reset the active animation
 	 */
 	const stop = () => {
 		if (!hasAnimations.value) {
@@ -137,15 +184,16 @@ export function useAnimation() {
 		if (!hasAnimations.value) return
 
 		const clampedTime = Math.max(0, Math.min(time, duration.value))
+		const action = actions.value[activeClipIndex.value]
+		if (!action) return
 
-		actions.value.forEach((action) => {
-			action.paused = true
-			action.time = clampedTime
-			action.play()
-		})
+		// Ensure action is active, set its local time, then pause
+		action.play()
+		action.time = clampedTime
+		action.paused = true
 
-		// Advance mixer to apply the seek
-		mixer.value.setTime(clampedTime)
+		// Force mixer to render the pose at this time
+		mixer.value.update(0)
 		currentTime.value = clampedTime
 		isPlaying.value = false
 	}
@@ -177,13 +225,18 @@ export function useAnimation() {
 		}
 
 		isLooping.value = !isLooping.value
-		const loopMode = isLooping.value
-			? LoopRepeat
-			: LoopOnce
+		const loopMode = isLooping.value ? LoopRepeat : LoopOnce
 
-		actions.value.forEach((action) => {
+		const action = actions.value[activeClipIndex.value]
+		if (action) {
 			action.setLoop(loopMode)
-		})
+			// If switching back to loop and the action had finished, restart it
+			if (isLooping.value && !isPlaying.value) {
+				action.reset()
+				action.play()
+				isPlaying.value = true
+			}
+		}
 
 		logger.info('useAnimation', 'Loop mode toggled', { looping: isLooping.value })
 	}
@@ -196,9 +249,10 @@ export function useAnimation() {
 		if (mixer.value && isPlaying.value) {
 			mixer.value.update(deltaTime)
 
-			// Update current time (use first action's time as reference)
-			if (actions.value.length > 0 && actions.value[0].time !== undefined) {
-				currentTime.value = actions.value[0].time
+			// Update current time from active clip
+			const action = actions.value[activeClipIndex.value]
+			if (action && action.time !== undefined) {
+				currentTime.value = action.time
 			}
 		}
 	}
@@ -224,6 +278,8 @@ export function useAnimation() {
 		isLooping.value = true
 		currentTime.value = 0
 		duration.value = 0
+		activeClipIndex.value = 0
+		clipNames.value = []
 
 		logger.info('useAnimation', 'Animations disposed')
 	}
@@ -236,6 +292,8 @@ export function useAnimation() {
 		isLooping,
 		currentTime,
 		duration,
+		activeClipIndex,
+		clipNames,
 
 		// Computed
 		hasAnimations,
@@ -245,6 +303,7 @@ export function useAnimation() {
 		// Methods
 		initAnimations,
 		play,
+		playClip,
 		pause,
 		stop,
 		togglePlay,
