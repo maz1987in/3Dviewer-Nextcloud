@@ -371,7 +371,10 @@ export function useExport() {
 				}
 
 				const buffer = await file.arrayBuffer()
-				zipData[file.name] = new Uint8Array(buffer)
+				// Prefer the relative path (preserves subdirectory layout) when present;
+				// fall back to the basename for files at the model's root.
+				const entryPath = file._relativePath || file.name
+				zipData[entryPath] = new Uint8Array(buffer)
 			}
 
 			exportProgress.value = { stage: 'Compressing...', percentage: 85 }

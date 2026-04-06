@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **WebXR / VR mode**: Enter immersive VR via the 🥽 button in the top bar (only shown when the browser advertises `immersive-vr` support). Animation loop swaps to `renderer.setAnimationLoop` during XR sessions, and FPS throttling is bypassed since the headset enforces its own cadence. Testable without a headset using the Chrome WebXR API Emulator extension.
 
 ### Fixed
+- **ZIP export — main file path**: The main model file is now packed under its basename (e.g. `eyeball.obj`) instead of its full Nextcloud path (e.g. `/3D files/Eyeball/eyeball.obj`). The leading slash is invalid in ZIP archives and broke extraction on some platforms.
+- **ZIP export — preserved subdirectory layout**: Textures discovered in subdirectories (e.g. `textures/`) are now packed under their original relative paths in the ZIP instead of being flattened to the root, so the unzipped folder mirrors the original Nextcloud layout and re-imports cleanly.
+
+### Fixed
 - **Animation playback**: Previously all animation clips played simultaneously, causing blended/static poses. Now only one clip plays at a time
 - **Animation timeline seek**: Slider scrubber now correctly updates the model pose when dragged (replaced `mixer.setTime()` with `action.time` + `mixer.update(0)`)
 - **Animation loop toggle**: Toggling Loop off and back on no longer leaves the animation stuck; finished LoopOnce actions properly restart

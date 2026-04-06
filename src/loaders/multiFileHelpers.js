@@ -82,9 +82,14 @@ export async function fetchFileFromUrl(url, name, defaultType = 'application/oct
 }
 
 /**
- * Gets file ID by path using the file listing API
+ * Gets file ID by path using the file listing API.
+ *
+ * Returns `{ id, subdir }` where `subdir` is the subdirectory the file was
+ * found in (relative to the requested directory), or `null` if found at the
+ * root. Returns `null` instead of an object if the file is not found at all.
+ *
  * @param {string} filePath - Path to the file
- * @return {Promise<number|null>} File ID or null if not found
+ * @return {Promise<{id: number, subdir: string|null}|null>}
  */
 export async function getFileIdByPath(filePath) {
 	let filename = ''
@@ -125,7 +130,7 @@ export async function getFileIdByPath(filePath) {
 					const fileData = await findResponse.json()
 					if (fileData && fileData.id) {
 						logger.info('MultiFileHelpers', ' Found file by path:', fullPath, 'id:', fileData.id)
-						return fileData.id
+						return { id: fileData.id, subdir: null }
 					}
 				} else {
 					logger.debug('MultiFileHelpers', ' Direct path lookup returned:', findResponse.status, 'for:', fullPath)
@@ -322,6 +327,9 @@ export async function getFileIdByPath(filePath) {
 		}
 
 		// If not found in root, search in subdirectories (like "Texture", "textures", "images", etc.)
+		// `foundInSubdir` tracks which subdirectory the file was discovered in
+		// so callers can preserve the original directory structure (e.g., for ZIP exports).
+		let foundInSubdir = null
 		if (!file) {
 			const folderNames = Array.isArray(folders) ? folders.map(d => d?.name || d?.path || d) : []
 			logger.warn('MultiFileHelpers', ' File not in root, checking subdirectories:', folderNames)
@@ -339,6 +347,7 @@ export async function getFileIdByPath(filePath) {
 						file = subdirFiles.find(f => f.name.toLowerCase() === filename.toLowerCase())
 
 						if (file) {
+							foundInSubdir = subdir.name
 							logger.info('MultiFileHelpers', ' Found file in subdirectory:', subdir.name, '/', filename)
 							break
 						}
@@ -384,7 +393,7 @@ export async function getFileIdByPath(filePath) {
 							const fileData = await findResponse.json()
 							if (fileData && fileData.id) {
 								logger.warn('MultiFileHelpers', ' ✓ Found file in texture subdirectory:', textureDir, '/', filename, 'id:', fileData.id)
-								return fileData.id
+								return { id: fileData.id, subdir: textureDir }
 							}
 						} else {
 							logger.warn('MultiFileHelpers', ' Texture path not found:', textureFilePath, 'status:', findResponse.status)
@@ -409,7 +418,7 @@ export async function getFileIdByPath(filePath) {
 			}
 		}
 
-		return file ? file.id : null
+		return file ? { id: file.id, subdir: foundInSubdir } : null
 	} catch (error) {
 		logger.warn('MultiFileHelpers', ' Error getting file ID for path:', filePath, error)
 		// Even if there's an error, try the texture subdirectory search as a last resort
@@ -428,7 +437,7 @@ export async function getFileIdByPath(filePath) {
 						const fileData = await findResponse.json()
 						if (fileData && fileData.id) {
 							logger.warn('MultiFileHelpers', ' ✓ Found file in texture subdirectory (fallback):', textureDir, '/', filename, 'id:', fileData.id)
-							return fileData.id
+							return { id: fileData.id, subdir: textureDir }
 						}
 					}
 				} catch (findError) {
@@ -539,11 +548,14 @@ export async function fetchObjDependencies(objContent, baseFilename, fileId, dir
 			const mtlPath = dirPath ? `${dirPath}/${mtlFilename}` : mtlFilename
 
 			// Use the file listing API to get file ID, then fetch by ID
-			const fileId = await getFileIdByPath(mtlPath)
+			const mtlLookup = await getFileIdByPath(mtlPath)
 
-			if (fileId) {
-				const url = generateUrl(`/apps/threedviewer/api/file/${fileId}`)
-				const file = await fetchFileFromUrl(url, mtlFilename, 'model/mtl', { fileId })
+			if (mtlLookup) {
+				const url = generateUrl(`/apps/threedviewer/api/file/${mtlLookup.id}`)
+				const file = await fetchFileFromUrl(url, mtlFilename, 'model/mtl', { fileId: mtlLookup.id })
+				if (mtlLookup.subdir) {
+					file._relativePath = `${mtlLookup.subdir}/${mtlFilename}`
+				}
 				logger.info('MultiFileHelpers', ' Fetched MTL:', mtlFilename)
 
 				// Parse textures from MTL
@@ -554,12 +566,15 @@ export async function fetchObjDependencies(objContent, baseFilename, fileId, dir
 				const texturePromises = textureFiles.map(async (texFilename) => {
 					try {
 						const texPath = dirPath ? `${dirPath}/${texFilename}` : texFilename
-						const fileId = await getFileIdByPath(texPath)
+						const texLookup = await getFileIdByPath(texPath)
 
-						if (fileId) {
-							const texUrl = generateUrl(`/apps/threedviewer/api/file/${fileId}`)
-							const texFile = await fetchFileFromUrl(texUrl, texFilename, 'application/octet-stream', { fileId })
-							logger.info('MultiFileHelpers', ' Fetched texture:', texFilename)
+						if (texLookup) {
+							const texUrl = generateUrl(`/apps/threedviewer/api/file/${texLookup.id}`)
+							const texFile = await fetchFileFromUrl(texUrl, texFilename, 'application/octet-stream', { fileId: texLookup.id })
+							if (texLookup.subdir) {
+								texFile._relativePath = `${texLookup.subdir}/${texFilename}`
+							}
+							logger.info('MultiFileHelpers', ' Fetched texture:', texFilename, texLookup.subdir ? `(in ${texLookup.subdir}/)` : '')
 							return { file: texFile, name: texFilename, found: true }
 						} else {
 							logger.warn('MultiFileHelpers', ' Could not find file ID for texture:', texFilename)
@@ -623,11 +638,17 @@ export async function fetchGltfDependencies(gltfContent, baseFilename, fileId, d
 			try {
 				// Use the file listing API to get file ID, then fetch by ID
 				const bufferPath = dirPath ? `${dirPath}/${bufferUri}` : bufferUri
-				const fileId = await getFileIdByPath(bufferPath)
+				const lookup = await getFileIdByPath(bufferPath)
 
-				if (fileId) {
-					const url = generateUrl(`/apps/threedviewer/api/file/${fileId}`)
-					const file = await fetchFileFromUrl(url, bufferUri, 'application/octet-stream', { fileId })
+				if (lookup) {
+					const url = generateUrl(`/apps/threedviewer/api/file/${lookup.id}`)
+					const file = await fetchFileFromUrl(url, bufferUri, 'application/octet-stream', { fileId: lookup.id })
+					// GLTF buffer URIs already encode the relative path, so use that directly
+					if (bufferUri.includes('/')) {
+						file._relativePath = bufferUri
+					} else if (lookup.subdir) {
+						file._relativePath = `${lookup.subdir}/${bufferUri}`
+					}
 					logger.info('MultiFileHelpers', ' Fetched buffer:', bufferUri)
 					return file
 				} else {
@@ -647,11 +668,17 @@ export async function fetchGltfDependencies(gltfContent, baseFilename, fileId, d
 			try {
 				// Use the file listing API to get file ID, then fetch by ID
 				const imagePath = dirPath ? `${dirPath}/${imageUri}` : imageUri
-				const fileId = await getFileIdByPath(imagePath)
+				const lookup = await getFileIdByPath(imagePath)
 
-				if (fileId) {
-					const url = generateUrl(`/apps/threedviewer/api/file/${fileId}`)
-					const file = await fetchFileFromUrl(url, imageUri, 'application/octet-stream', { fileId })
+				if (lookup) {
+					const url = generateUrl(`/apps/threedviewer/api/file/${lookup.id}`)
+					const file = await fetchFileFromUrl(url, imageUri, 'application/octet-stream', { fileId: lookup.id })
+					// GLTF image URIs already encode the relative path, so use that directly
+					if (imageUri.includes('/')) {
+						file._relativePath = imageUri
+					} else if (lookup.subdir) {
+						file._relativePath = `${lookup.subdir}/${imageUri}`
+					}
 					logger.info('MultiFileHelpers', ' Fetched image:', imageUri)
 					return file
 				} else {
@@ -692,6 +719,10 @@ async function fetchFbxDependencies(baseFilename, fileId, dirPath) {
 	const textureExtensions = ['png', 'jpg', 'jpeg', 'tga', 'tif', 'tiff', 'bmp', 'gif']
 	const visited = new Set()
 
+	// Strip leading slash from the model's root directory so we can compute
+	// each texture's path relative to it (used for preserving structure in ZIP).
+	const rootDir = (dirPath || '').replace(/^\//, '')
+
 	const collectTexturesFromFolder = async (folderPath) => {
 		const normalizedPath = folderPath ? folderPath.replace(/^\//, '') : ''
 		const visitKey = normalizedPath || '/'
@@ -699,6 +730,16 @@ async function fetchFbxDependencies(baseFilename, fileId, dirPath) {
 			return []
 		}
 		visited.add(visitKey)
+
+		// Compute the subdirectory relative to the model's root directory.
+		// e.g., if rootDir is "3D files/Eyeball" and normalizedPath is
+		// "3D files/Eyeball/textures", relativeSubdir is "textures".
+		let relativeSubdir = ''
+		if (rootDir && normalizedPath.startsWith(rootDir + '/')) {
+			relativeSubdir = normalizedPath.slice(rootDir.length + 1)
+		} else if (!rootDir) {
+			relativeSubdir = normalizedPath
+		}
 
 		const params = new URLSearchParams()
 		if (normalizedPath) {
@@ -738,7 +779,13 @@ async function fetchFbxDependencies(baseFilename, fileId, dirPath) {
 					const ext = (file.name?.split('.').pop() || '').toLowerCase()
 					const mimeType = `image/${ext === 'jpg' ? 'jpeg' : ext}`
 					const blob = new Blob([arrayBuffer], { type: mimeType })
-					return new File([blob], file.name, { type: mimeType })
+					const fileObj = new File([blob], file.name, { type: mimeType })
+					// Attach relative path so ZIP export can preserve subdirectory layout.
+					// This property is invisible to Three.js loaders that key off `file.name`.
+					if (relativeSubdir) {
+						fileObj._relativePath = `${relativeSubdir}/${file.name}`
+					}
+					return fileObj
 				}
 				return null
 			} catch (err) {
@@ -856,7 +903,9 @@ export async function loadModelWithDependencies(fileId, filename, extension, dir
 	}
 
 	const blob = new Blob([arrayBuffer], { type: getMimeType(extension) })
-	const mainFile = new File([blob], filename, { type: getMimeType(extension) })
+	// Use basename only — avoids leading-slash / full-path issues in ZIP exports
+	const mainBasename = filename.split('/').pop() || filename
+	const mainFile = new File([blob], mainBasename, { type: getMimeType(extension) })
 
 	logger.info('MultiFileHelpers', ' Created main file:', {
 		name: mainFile.name,
