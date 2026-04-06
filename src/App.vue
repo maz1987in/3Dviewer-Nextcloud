@@ -65,11 +65,14 @@
 					:is-gcode-model="isGcodeModel"
 					:gcode-color-mode="gcodeColorMode"
 					:gcode-single-color="gcodeSingleColor"
+					:webxr-supported="webxrSupported"
+					:webxr-active="webxrActive"
 					@reset-view="onReset"
 					@fit-to-view="onFitToView"
 					@toggle-performance="onTogglePerformance"
 					@toggle-controller="onToggleController"
 					@take-screenshot="onTakeScreenshot"
+					@toggle-vr="onToggleVR"
 					@toggle-help="onToggleHelp"
 					@toggle-tools="onToggleTools"
 					@toggle-animation-play="onToggleAnimationPlay"
@@ -331,6 +334,9 @@ export default {
 			explodedViewActive: false,
 			explodedViewAvailable: false,
 			explodedViewFactor: 0,
+			// WebXR
+			webxrSupported: false,
+			webxrActive: false,
 		}
 	},
 	computed: {
@@ -796,6 +802,14 @@ export default {
 			// Trigger screenshot on the viewer
 			this.$refs.viewer?.handleScreenshot?.()
 		},
+		async onToggleVR() {
+			if (this.$refs.viewer?.toggleVR) {
+				await this.$refs.viewer.toggleVR()
+				// Sync state after the session settles
+				const viewer = this.$refs.viewer
+				this.webxrActive = viewer.webxrActive?.value ?? viewer.webxrActive ?? false
+			}
+		},
 		onToggleHelp() {
 			// Toggle help panel visibility
 			this.showHelp = !this.showHelp
@@ -1177,6 +1191,10 @@ export default {
 				this.animationDuration = viewer.animationDuration?.value ?? viewer.animationDuration ?? 0
 				this.animationClipNames = viewer.animationClipNames?.value ?? viewer.animationClipNames ?? []
 				this.animationActiveClipIndex = viewer.animationActiveClipIndex?.value ?? viewer.animationActiveClipIndex ?? 0
+
+				// WebXR support flag (set asynchronously after the renderer is ready)
+				this.webxrSupported = viewer.webxrSupported?.value ?? viewer.webxrSupported ?? false
+				this.webxrActive = viewer.webxrActive?.value ?? viewer.webxrActive ?? false
 
 				// Update lighting presets list (only once)
 				if (this.lightingPresetsList.length === 0 && viewer.lightingPresets) {

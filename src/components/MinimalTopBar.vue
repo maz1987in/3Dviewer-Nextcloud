@@ -84,6 +84,15 @@
 				<span class="btn-icon">📷</span>
 			</button>
 
+			<button v-if="webxrSupported"
+				:aria-label="webxrActive ? t('threedviewer', 'Exit VR') : t('threedviewer', 'Enter VR')"
+				class="icon-btn"
+				:class="{ active: webxrActive }"
+				:title="webxrActive ? t('threedviewer', 'Exit VR') : t('threedviewer', 'Enter VR')"
+				@click="$emit('toggle-vr')">
+				<span class="btn-icon">🥽</span>
+			</button>
+
 			<button :aria-label="t('threedviewer', 'Help')"
 				class="icon-btn"
 				:title="t('threedviewer', 'Help & shortcuts')"
@@ -120,6 +129,8 @@ export default {
 		isMobile: { type: Boolean, default: false },
 		hasAnimations: { type: Boolean, default: false },
 		isAnimationPlaying: { type: Boolean, default: false },
+		webxrSupported: { type: Boolean, default: false },
+		webxrActive: { type: Boolean, default: false },
 		// G-code toolpath color controls
 		isGcodeModel: { type: Boolean, default: false },
 		gcodeColorMode: { type: String, default: 'single' }, // 'single' | 'gradient'
@@ -132,6 +143,7 @@ export default {
 		'toggle-performance',
 		'toggle-controller',
 		'take-screenshot',
+		'toggle-vr',
 		'toggle-help',
 		'toggle-tools',
 		'toggle-animation-play',

@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Texture optimization pipeline**: Quality presets (Original/High/Medium/Low) with Canvas 2D downscaling, memory tracking, and configurable setting in Personal Settings
 - **X3D parser**: Full XML-based parser replacing placeholder cube — supports IndexedFaceSet geometry, materials, textures, transforms, and DEF/USE references
 - **Volume & surface area measurement**: Model statistics panel now shows actual mesh surface area (sum of triangle areas) and mesh volume (signed tetrahedra method, accurate for watertight meshes), in addition to bounding box volume
+- **WebXR / VR mode**: Enter immersive VR via the 🥽 button in the top bar (only shown when the browser advertises `immersive-vr` support). Animation loop swaps to `renderer.setAnimationLoop` during XR sessions, and FPS throttling is bypassed since the headset enforces its own cadence. Testable without a headset using the Chrome WebXR API Emulator extension.
 
 ### Fixed
 - **Animation playback**: Previously all animation clips played simultaneously, causing blended/static poses. Now only one clip plays at a time

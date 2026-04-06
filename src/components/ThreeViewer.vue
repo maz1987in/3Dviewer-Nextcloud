@@ -447,6 +447,7 @@ import { useLightingPresets } from '../composables/useLightingPresets.js'
 import { useBookmarks } from '../composables/useBookmarks.js'
 import { useExplodedView } from '../composables/useExplodedView.js'
 import { useTransformGizmo } from '../composables/useTransformGizmo.js'
+import { useWebXR } from '../composables/useWebXR.js'
 import { logger } from '../utils/logger.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
 import { initCache, clearExpired, clearAll, getCacheStats } from '../utils/dependencyCache.js'
@@ -532,6 +533,7 @@ export default {
 		const bookmarksComposable = useBookmarks()
 		const explodedView = useExplodedView()
 		const transformGizmo = useTransformGizmo()
+		const webxr = useWebXR()
 
 		// Computed properties
 		const isMobile = computed(() => camera.isMobile.value)
@@ -652,6 +654,9 @@ export default {
 				// Initialization complete - hide loading indicator
 				initializing.value = false
 
+				// Detect WebXR availability for the VR button
+				webxr.checkSupport()
+
 				// Start animation loop
 				animate()
 
@@ -715,6 +720,8 @@ export default {
 				// Note: pixel ratio will be overridden by initPerformance() based on auto-detection
 				renderer.value.shadowMap.enabled = true
 				renderer.value.shadowMap.type = THREE.PCFSoftShadowMap
+				// Enable WebXR — required before any session can be started
+				renderer.value.xr.enabled = true
 
 				container.value.appendChild(renderer.value.domElement)
 
@@ -1456,7 +1463,11 @@ export default {
 		// Animation loop with FPS throttling
 		let lastFrameTime = 0
 		const animate = (time) => {
-			animationFrameId.value = requestAnimationFrame(animate)
+			// In a WebXR session the renderer drives the loop via setAnimationLoop;
+			// outside XR we self-schedule with rAF.
+			if (!renderer.value?.xr?.isPresenting) {
+				animationFrameId.value = requestAnimationFrame(animate)
+			}
 
 			// Handle initial call or missing time argument
 			if (!time) {
@@ -1468,13 +1479,13 @@ export default {
 				return
 			}
 
-			// FPS Throttling logic
+			// FPS Throttling logic — bypassed in XR (headset enforces its own cadence)
 			// Get target FPS from performance settings (respects user "Max Frame Rate")
 			const targetFPS = performance.targetFrameRate.value || 60
 			const interval = 1000 / targetFPS
 			const delta = time - lastFrameTime
 
-			if (delta < interval) {
+			if (!renderer.value.xr.isPresenting && delta < interval) {
 				return
 			}
 
@@ -1771,6 +1782,32 @@ export default {
 		const toggleModelStats = () => {
 			modelStatsComposable.toggleStatsPanel()
 			logger.info('ThreeViewer', 'Model stats toggled', { visible: modelStatsComposable.showStats.value })
+		}
+
+		/**
+		 * Enter or exit immersive VR. When entering, the renderer takes over the
+		 * animation loop via setAnimationLoop; when exiting, control returns to
+		 * the rAF-driven loop.
+		 */
+		const toggleVR = async () => {
+			if (!renderer.value) return
+
+			if (webxr.isSessionActive.value) {
+				await webxr.exitVR()
+				// Resume the rAF loop now that the headset isn't driving frames
+				animate()
+				return
+			}
+
+			const ok = await webxr.enterVR(renderer.value)
+			if (ok) {
+				// Cancel the rAF loop and let the XR runtime drive frames
+				if (animationFrameId.value !== null) {
+					cancelAnimationFrame(animationFrameId.value)
+					animationFrameId.value = null
+				}
+				renderer.value.setAnimationLoop((time) => animate(time))
+			}
 		}
 
 		/**
@@ -2910,6 +2947,14 @@ export default {
 		})
 
 		onBeforeUnmount(() => {
+			// End any active VR session and stop the XR-driven loop
+			if (webxr.isSessionActive.value) {
+				webxr.exitVR()
+			}
+			if (renderer.value?.xr?.enabled) {
+				renderer.value.setAnimationLoop(null)
+			}
+
 			// Cancel animation loop
 			if (animationFrameId.value !== null) {
 				cancelAnimationFrame(animationFrameId.value)
@@ -3088,6 +3133,9 @@ export default {
 			togglePerformanceStats,
 			toggleModelStats,
 			formatStatNumber,
+			toggleVR,
+			webxrSupported: webxr.isSupported,
+			webxrActive: webxr.isSessionActive,
 			handleExport,
 			getModelObject,
 			// Expose G-code recolor method to parent
