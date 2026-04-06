@@ -451,7 +451,16 @@
 		<!-- Annotation overlay -->
 		<div v-if="annotationActive" class="annotation-overlay" :class="{ 'mobile': isMobile }">
 			<div class="annotation-header">
-				<h3>{{ t('threedviewer', 'Annotations') }}</h3>
+				<h3>
+					{{ t('threedviewer', 'Annotations') }}
+					<span
+						v-if="annotationPersistenceStatus !== 'idle'"
+						class="annotation-sync-pill"
+						:class="`sync-${annotationPersistenceStatus}`"
+						:title="annotationSyncTooltip">
+						{{ annotationSyncLabel }}
+					</span>
+				</h3>
 				<div class="annotation-header-actions">
 					<button type="button"
 						class="annotation-header-btn"
@@ -1224,6 +1233,15 @@ export default {
 					measurement.updateVisualScale()
 					annotation.updateModelScale()
 
+					// Auto-load any persisted annotations for this file from the backend.
+					// Skipped for the synthetic 'comparison' fileId since the comparison
+					// model is loaded into the same scene but isn't user-annotatable.
+					if (fileId && fileId !== 'comparison') {
+						annotation.loadFromBackend(fileId, props.filename || '').catch((e) => {
+							logger.warn('ThreeViewer', 'Annotation backend load failed', e)
+						})
+					}
+
 					// Capture thumbnail for supported 3D formats (if enabled)
 					const supportedFormats = ['glb', 'gltf', 'obj', 'stl', 'ply', '3mf', 'fbx', 'dae', '3ds', 'x3d', 'wrl', 'vrml']
 					if (props.enableThumbnails && renderer.value && fileId && supportedFormats.includes(extension)) {
@@ -1973,6 +1991,28 @@ export default {
 			if (label.length <= 22) return label
 			return label.slice(0, 10) + '…' + label.slice(-10)
 		}
+
+		// User-facing labels for the annotation persistence pill in the
+		// annotation overlay header. Kept as computeds so they react to
+		// status changes without re-renders of the whole overlay.
+		const annotationSyncLabel = computed(() => {
+			switch (annotation.persistenceStatus.value) {
+			case 'loading': return t('threedviewer', 'Loading…')
+			case 'saving': return t('threedviewer', 'Saving…')
+			case 'saved': return t('threedviewer', 'Saved')
+			case 'error': return t('threedviewer', 'Save failed')
+			default: return ''
+			}
+		})
+		const annotationSyncTooltip = computed(() => {
+			switch (annotation.persistenceStatus.value) {
+			case 'loading': return t('threedviewer', 'Loading saved annotations…')
+			case 'saving': return t('threedviewer', 'Saving annotations to your Nextcloud account…')
+			case 'saved': return t('threedviewer', 'Annotations saved to your Nextcloud account')
+			case 'error': return t('threedviewer', 'Failed to sync annotations with the server')
+			default: return ''
+			}
+		})
 
 		/**
 		 * Update cache statistics
@@ -2940,6 +2980,30 @@ export default {
 			}
 		})
 
+		// Debounced auto-save for annotation persistence.
+		// We watch the lightweight summary (count + ids/text) instead of the
+		// raw annotations array because Vue would otherwise re-fire on every
+		// internal Vector3 mutation during point creation.
+		let annotationSaveTimer = null
+		const ANNOTATION_SAVE_DEBOUNCE_MS = 600
+		watch(
+			() => annotation.annotations.value.map(a => `${a.id}:${a.text}`).join('|'),
+			(newSig, oldSig) => {
+				// Skip the very first invocation (oldSig undefined) — that fires
+				// when the watcher is registered, before any user edit.
+				if (oldSig === undefined) return
+				if (!props.fileId || props.fileId === 'comparison') return
+
+				if (annotationSaveTimer) clearTimeout(annotationSaveTimer)
+				annotationSaveTimer = setTimeout(() => {
+					annotationSaveTimer = null
+					annotation.saveToBackend(props.fileId, props.filename || '').catch((e) => {
+						logger.warn('ThreeViewer', 'Annotation backend save failed', e)
+					})
+				}, ANNOTATION_SAVE_DEBOUNCE_MS)
+			},
+		)
+
 		// Emit loading state changes
 		watch(() => modelLoading.isLoading.value, (loading) => {
 			emit('loading-state-changed', loading)
@@ -3258,6 +3322,7 @@ export default {
 			annotationActive: annotation.isActive,
 			annotations: annotation.annotations,
 			annotationCount: annotation.annotationCount,
+			annotationPersistenceStatus: annotation.persistenceStatus,
 
 			// Comparison
 			isComparisonLoading: comparison.isComparisonLoading,
@@ -3366,6 +3431,8 @@ export default {
 			formatDeltaFloat,
 			diffDeltaClass,
 			truncateLabel,
+			annotationSyncLabel,
+			annotationSyncTooltip,
 			toggleVR,
 			webxrSupported: webxr.isSupported,
 			webxrActive: webxr.isSessionActive,
@@ -4506,6 +4573,39 @@ export default {
 	margin: 0;
 	font-size: 16px;
 	color: #f00;
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.annotation-sync-pill {
+	display: inline-flex;
+	align-items: center;
+	font-size: 10px;
+	font-weight: 500;
+	padding: 2px 8px;
+	border-radius: 10px;
+	background: rgb(255 255 255 / 12%);
+	color: #fff;
+	letter-spacing: 0.3px;
+	text-transform: uppercase;
+	white-space: nowrap;
+}
+
+.annotation-sync-pill.sync-loading,
+.annotation-sync-pill.sync-saving {
+	background: rgb(255 255 255 / 18%);
+	color: #ffe48a;
+}
+
+.annotation-sync-pill.sync-saved {
+	background: rgb(80 180 100 / 25%);
+	color: #b2f0c0;
+}
+
+.annotation-sync-pill.sync-error {
+	background: rgb(220 80 80 / 25%);
+	color: #ffb2b2;
 }
 
 .annotation-header-actions {

@@ -5,6 +5,7 @@
 
 import { ref, shallowRef, computed, readonly, toRaw } from 'vue'
 import * as THREE from 'three'
+import { generateUrl } from '@nextcloud/router'
 import { logger } from '../utils/logger.js'
 import { logError } from '../utils/error-handler.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
@@ -59,6 +60,13 @@ export function useAnnotation() {
 	const pointMeshes = ref([])
 	const sceneRef = shallowRef(null)
 	const modelScale = ref(1) // Scale factor based on model size
+
+	// Persistence state — drives the small status pill in the annotation overlay
+	// and lets ThreeViewer suppress auto-save while it's bulk-loading from the
+	// backend (so the load itself doesn't trigger a re-save round trip).
+	const persistenceStatus = ref('idle') // 'idle' | 'loading' | 'saving' | 'saved' | 'error'
+	const persistenceError = ref(null)
+	const persistenceSuppressed = ref(false)
 
 	// Computed properties
 	const hasAnnotations = computed(() => annotations.value.length > 0)
@@ -543,6 +551,163 @@ export function useAnnotation() {
 	}
 
 	/**
+	 * Load any saved annotations for a model from the Nextcloud backend.
+	 *
+	 * Calls `GET /api/annotations/{fileId}`. On success it suppresses the
+	 * auto-save watcher (so re-creating the annotations from the imported JSON
+	 * doesn't immediately PUT them back) and replaces existing annotations.
+	 * On 204 (no saved doc) the call is a no-op so a fresh model starts blank.
+	 *
+	 * @param {number|string} fileId - Nextcloud file ID
+	 * @param {string} [modelFilename] - Model filename (used as the import hint)
+	 * @return {Promise<{loaded: boolean, count: number}>}
+	 */
+	const loadFromBackend = async (fileId, modelFilename = '') => {
+		if (!fileId || fileId === 'comparison') {
+			return { loaded: false, count: 0 }
+		}
+
+		persistenceStatus.value = 'loading'
+		persistenceError.value = null
+
+		try {
+			const url = generateUrl(`/apps/threedviewer/api/annotations/${fileId}`)
+			const res = await fetch(url, {
+				method: 'GET',
+				credentials: 'same-origin',
+				headers: { Accept: 'application/json' },
+			})
+
+			// 204 = nothing saved yet for this (user, file) — leave annotations untouched.
+			if (res.status === 204) {
+				persistenceStatus.value = 'idle'
+				return { loaded: false, count: 0 }
+			}
+
+			if (!res.ok) {
+				throw new Error(`Backend returned ${res.status}`)
+			}
+
+			const body = await res.json()
+			const doc = body && body.annotations
+			if (!doc || typeof doc !== 'object') {
+				persistenceStatus.value = 'idle'
+				return { loaded: false, count: 0 }
+			}
+
+			// Suppress auto-save while we replay the saved doc through importFromJSON
+			// — otherwise every addAnnotationPoint call would mark dirty and trigger
+			// a PUT, racing with the load and creating a save loop.
+			persistenceSuppressed.value = true
+			let result
+			try {
+				result = importFromJSON(doc, { replace: true })
+			} finally {
+				persistenceSuppressed.value = false
+			}
+
+			persistenceStatus.value = 'saved'
+			logger.info('useAnnotation', 'Annotations loaded from backend', {
+				fileId,
+				added: result.added,
+				skipped: result.skipped,
+			})
+			return { loaded: true, count: result.added }
+		} catch (error) {
+			persistenceStatus.value = 'error'
+			persistenceError.value = error
+			logger.warn('useAnnotation', 'Failed to load annotations from backend', {
+				fileId,
+				error: error.message,
+			})
+			return { loaded: false, count: 0 }
+		}
+	}
+
+	/**
+	 * Persist the current annotations to the Nextcloud backend.
+	 *
+	 * No-op when:
+	 *   - the load is in progress (persistenceSuppressed)
+	 *   - fileId is missing or the synthetic 'comparison' marker
+	 *
+	 * When the in-memory list is empty we issue a DELETE so the backend file
+	 * is removed too — that way clearing all annotations actually clears them
+	 * across reloads, instead of leaving an empty document behind.
+	 *
+	 * @param {number|string} fileId
+	 * @param {string} [modelFilename]
+	 * @return {Promise<{saved: boolean}>}
+	 */
+	const saveToBackend = async (fileId, modelFilename = '') => {
+		if (!fileId || fileId === 'comparison' || persistenceSuppressed.value) {
+			return { saved: false }
+		}
+
+		persistenceStatus.value = 'saving'
+		persistenceError.value = null
+
+		try {
+			const url = generateUrl(`/apps/threedviewer/api/annotations/${fileId}`)
+
+			// Empty list → delete the backend doc rather than persist [].
+			if (annotations.value.length === 0) {
+				const res = await fetch(url, {
+					method: 'DELETE',
+					credentials: 'same-origin',
+					headers: { requesttoken: getRequestToken() },
+				})
+				if (!res.ok && res.status !== 404) {
+					throw new Error(`Backend returned ${res.status}`)
+				}
+				persistenceStatus.value = 'saved'
+				return { saved: true }
+			}
+
+			const body = JSON.stringify(exportAsJSON(modelFilename))
+			const res = await fetch(url, {
+				method: 'PUT',
+				credentials: 'same-origin',
+				headers: {
+					'Content-Type': 'application/json',
+					requesttoken: getRequestToken(),
+				},
+				body,
+			})
+
+			if (!res.ok) {
+				throw new Error(`Backend returned ${res.status}`)
+			}
+
+			persistenceStatus.value = 'saved'
+			logger.info('useAnnotation', 'Annotations saved to backend', {
+				fileId,
+				count: annotations.value.length,
+			})
+			return { saved: true }
+		} catch (error) {
+			persistenceStatus.value = 'error'
+			persistenceError.value = error
+			logger.warn('useAnnotation', 'Failed to save annotations to backend', {
+				fileId,
+				error: error.message,
+			})
+			return { saved: false }
+		}
+	}
+
+	/**
+	 * Read the Nextcloud requesttoken from the page so PUT/DELETE survive
+	 * the CSRF guard. We grab it lazily because the meta tag is injected by
+	 * the Nextcloud server template, not by Vite.
+	 */
+	function getRequestToken() {
+		if (typeof document === 'undefined') return ''
+		const meta = document.head?.querySelector('meta[name="requesttoken"]')
+		return meta?.getAttribute('content') || ''
+	}
+
+	/**
 	 * Dispose of annotation resources
 	 */
 	const dispose = () => {
@@ -561,6 +726,8 @@ export function useAnnotation() {
 		annotations: readonly(annotations),
 		currentAnnotation: readonly(currentAnnotation),
 		modelScale: readonly(modelScale),
+		persistenceStatus: readonly(persistenceStatus),
+		persistenceError: readonly(persistenceError),
 
 		// Computed
 		hasAnnotations,
@@ -578,6 +745,8 @@ export function useAnnotation() {
 		getAnnotationSummary,
 		exportAsJSON,
 		importFromJSON,
+		loadFromBackend,
+		saveToBackend,
 		dispose,
 	}
 }
