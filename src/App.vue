@@ -100,9 +100,11 @@
 					:animation-clip-names="animationClipNames"
 					:animation-active-clip-index="animationActiveClipIndex"
 					:clipping-active="clippingActive"
+					:clipping-mode="clippingMode"
 					:clipping-axis="clippingAxis"
 					:clipping-position="clippingPosition"
 					:clipping-flipped="clippingFlipped"
+					:clipping-box-offsets="clippingBoxOffsets"
 					:lighting-preset="lightingPreset"
 					:lighting-presets="lightingPresetsList"
 					:bookmarks="bookmarksList"
@@ -143,9 +145,12 @@
 					@animation-step-backward="onAnimationStepBackward"
 					@animation-select-clip="onAnimationSelectClip"
 					@toggle-clipping="onToggleClipping"
+					@set-clipping-mode="onSetClippingMode"
 					@set-clipping-axis="onSetClippingAxis"
 					@set-clipping-position="onSetClippingPosition"
 					@toggle-clipping-flip="onToggleClippingFlip"
+					@set-clipping-box-offset="onSetClippingBoxOffset"
+					@reset-clipping-box="onResetClippingBox"
 					@apply-lighting-preset="onApplyLightingPreset"
 					@toggle-exploded-view="onToggleExplodedView"
 					@set-exploded-factor="onSetExplodedFactor"
@@ -317,9 +322,13 @@ export default {
 			isGcodeModel: false,
 			// Clipping plane state
 			clippingActive: false,
+			clippingMode: 'plane', // 'plane' | 'box'
 			clippingAxis: 'y',
 			clippingPosition: 0,
 			clippingFlipped: false,
+			// Box-mode offsets, each 0..1. Synced from the composable after
+			// every setBoxOffset call so the slider bindings stay correct.
+			clippingBoxOffsets: { xMin: 0, xMax: 0, yMin: 0, yMax: 0, zMin: 0, zMax: 0 },
 			// Lighting presets
 			lightingPreset: 'default',
 			lightingPresetsList: [],
@@ -1269,6 +1278,30 @@ export default {
 			if (this.$refs.viewer?.clippingPlane) {
 				this.$refs.viewer.clippingPlane.toggleFlip()
 				this.clippingFlipped = this.$refs.viewer.clippingPlane.flipped.value ?? this.$refs.viewer.clippingPlane.flipped
+			}
+		},
+		onSetClippingMode(newMode) {
+			if (this.$refs.viewer?.clippingPlane) {
+				this.$refs.viewer.clippingPlane.setMode(newMode)
+				this.clippingMode = newMode
+			}
+		},
+		onSetClippingBoxOffset({ face, value }) {
+			if (this.$refs.viewer?.clippingPlane) {
+				this.$refs.viewer.clippingPlane.setBoxOffset(face, value)
+				// Mirror the composable state back into our reactive data so
+				// the slider v-bind values stay accurate.
+				const src = this.$refs.viewer.clippingPlane.boxOffsets.value
+					?? this.$refs.viewer.clippingPlane.boxOffsets
+				this.clippingBoxOffsets = { ...src }
+			}
+		},
+		onResetClippingBox() {
+			if (this.$refs.viewer?.clippingPlane) {
+				this.$refs.viewer.clippingPlane.resetBoxOffsets()
+				const src = this.$refs.viewer.clippingPlane.boxOffsets.value
+					?? this.$refs.viewer.clippingPlane.boxOffsets
+				this.clippingBoxOffsets = { ...src }
 			}
 		},
 		// Lighting presets

@@ -177,25 +177,79 @@
 								<span v-if="clippingActive" class="active-badge">{{ t('threedviewer', 'Active') }}</span>
 							</button>
 							<div v-if="clippingActive" class="clipping-controls">
-								<div class="axis-buttons">
-									<button v-for="a in ['x','y','z']" :key="a"
-										class="axis-btn"
-										:class="{ 'active': clippingAxis === a }"
-										@click="emit('set-clipping-axis', a)">
-										{{ a.toUpperCase() }}
+								<!-- Mode switch: single plane vs 6-plane box -->
+								<div class="axis-buttons clipping-mode-switch">
+									<button class="axis-btn"
+										:class="{ 'active': clippingMode === 'plane' }"
+										:title="t('threedviewer', 'Single cross-section plane')"
+										@click="emit('set-clipping-mode', 'plane')">
+										{{ t('threedviewer', 'Plane') }}
 									</button>
 									<button class="axis-btn"
-										:class="{ 'active': clippingFlipped }"
-										:title="t('threedviewer', 'Flip direction')"
-										@click="emit('toggle-clipping-flip')">
-										↕
+										:class="{ 'active': clippingMode === 'box' }"
+										:title="t('threedviewer', '6-plane clipping box')"
+										@click="emit('set-clipping-mode', 'box')">
+										{{ t('threedviewer', 'Box') }}
 									</button>
 								</div>
-								<input type="range"
-									class="clipping-slider"
-									min="-1" max="1" step="0.01"
-									:value="clippingPosition"
-									@input="emit('set-clipping-position', parseFloat($event.target.value))">
+
+								<!-- Plane mode: single axis + position slider -->
+								<template v-if="clippingMode === 'plane'">
+									<div class="axis-buttons">
+										<button v-for="a in ['x','y','z']" :key="a"
+											class="axis-btn"
+											:class="{ 'active': clippingAxis === a }"
+											@click="emit('set-clipping-axis', a)">
+											{{ a.toUpperCase() }}
+										</button>
+										<button class="axis-btn"
+											:class="{ 'active': clippingFlipped }"
+											:title="t('threedviewer', 'Flip direction')"
+											@click="emit('toggle-clipping-flip')">
+											↕
+										</button>
+									</div>
+									<input type="range"
+										class="clipping-slider"
+										min="-1" max="1" step="0.01"
+										:value="clippingPosition"
+										@input="emit('set-clipping-position', parseFloat($event.target.value))">
+								</template>
+
+								<!-- Box mode: three axis rows, each with a −/+ pair of sliders
+								     representing the offset inward from the min/max face. -->
+								<template v-else>
+									<div class="clipping-box-grid">
+										<div v-for="axis in ['x', 'y', 'z']" :key="axis" class="clipping-box-row">
+											<div class="clipping-box-label">
+												{{ axis.toUpperCase() }}
+											</div>
+											<div class="clipping-box-pair">
+												<span class="clipping-box-sublabel">−</span>
+												<input type="range"
+													class="clipping-slider clipping-slider-box"
+													min="0" max="1" step="0.01"
+													:value="clippingBoxOffsets[axis + 'Min']"
+													:aria-label="t('threedviewer', '{axis} min face offset', { axis: axis.toUpperCase() })"
+													@input="emit('set-clipping-box-offset', { face: axis + 'Min', value: parseFloat($event.target.value) })">
+											</div>
+											<div class="clipping-box-pair">
+												<span class="clipping-box-sublabel">+</span>
+												<input type="range"
+													class="clipping-slider clipping-slider-box"
+													min="0" max="1" step="0.01"
+													:value="clippingBoxOffsets[axis + 'Max']"
+													:aria-label="t('threedviewer', '{axis} max face offset', { axis: axis.toUpperCase() })"
+													@input="emit('set-clipping-box-offset', { face: axis + 'Max', value: parseFloat($event.target.value) })">
+											</div>
+										</div>
+									</div>
+									<button class="axis-btn clipping-box-reset"
+										:title="t('threedviewer', 'Reset all 6 box faces')"
+										@click="emit('reset-clipping-box')">
+										{{ t('threedviewer', 'Reset box') }}
+									</button>
+								</template>
 							</div>
 							<!-- Exploded View -->
 							<button v-if="explodedViewAvailable"
@@ -468,9 +522,15 @@ export default {
 
 		// Clipping plane props
 		clippingActive: { type: Boolean, default: false },
+		clippingMode: { type: String, default: 'plane' }, // 'plane' | 'box'
 		clippingAxis: { type: String, default: 'y' },
 		clippingPosition: { type: Number, default: 0 },
 		clippingFlipped: { type: Boolean, default: false },
+		// Box-mode offsets (0..1 per face). Keys match useClippingPlane.
+		clippingBoxOffsets: {
+			type: Object,
+			default: () => ({ xMin: 0, xMax: 0, yMin: 0, yMax: 0, zMin: 0, zMax: 0 }),
+		},
 
 		// Lighting preset
 		lightingPreset: { type: String, default: 'default' },
@@ -526,9 +586,12 @@ export default {
 		'animation-step-backward',
 		'animation-select-clip',
 		'toggle-clipping',
+		'set-clipping-mode',
 		'set-clipping-axis',
 		'set-clipping-position',
 		'toggle-clipping-flip',
+		'set-clipping-box-offset',
+		'reset-clipping-box',
 		'apply-lighting-preset',
 		'add-bookmark',
 		'load-bookmark',
@@ -1019,6 +1082,56 @@ export default {
 	width: 100%;
 	accent-color: var(--color-primary-element);
 	cursor: pointer;
+}
+
+.clipping-mode-switch {
+	margin-bottom: 4px;
+}
+
+.clipping-box-grid {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	margin-top: 2px;
+}
+
+.clipping-box-row {
+	display: grid;
+	grid-template-columns: 16px 1fr 1fr;
+	align-items: center;
+	gap: 6px;
+}
+
+.clipping-box-label {
+	font-size: 11px;
+	font-weight: 600;
+	text-align: center;
+	color: var(--color-text-maxcontrast);
+}
+
+.clipping-box-pair {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	min-width: 0;
+}
+
+.clipping-box-sublabel {
+	font-size: 10px;
+	color: var(--color-text-maxcontrast);
+	width: 10px;
+	text-align: center;
+	font-weight: 700;
+}
+
+.clipping-slider-box {
+	flex: 1;
+	min-width: 0;
+}
+
+.clipping-box-reset {
+	margin-top: 4px;
+	font-size: 11px !important;
 }
 
 /* Lighting preset buttons */
