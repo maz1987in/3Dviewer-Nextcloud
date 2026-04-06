@@ -876,8 +876,8 @@ export async function loadModelWithDependencies(fileId, filename, extension, dir
 		dependencyResult = await fetchGltfDependencies(gltfText, filename, fileId, dirPath)
 	} else if (extension === 'fbx') {
 		dependencyResult = await fetchFbxDependencies(filename, fileId, dirPath)
-	} else if (extension === '3ds' || extension === 'dae') {
-		// 3DS and DAE files can reference external textures
+	} else if (extension === '3ds' || extension === 'dae' || extension === 'x3d') {
+		// 3DS, DAE, and X3D files can reference external textures
 		// Fetch all texture files in the directory (similar to FBX)
 		dependencyResult = await fetchFbxDependencies(filename, fileId, dirPath)
 	}

@@ -439,7 +439,7 @@ export const SUPPORTED_FORMATS = {
 		description: 'Extensible 3D format',
 		mimeType: 'model/x3d+xml',
 		features: ['materials', 'animations'],
-		multiFile: false,
+		multiFile: true,
 		displayOrder: 10,
 		icon: imagePath('threedviewer', 'filetypes/x3d.svg'),
 	},

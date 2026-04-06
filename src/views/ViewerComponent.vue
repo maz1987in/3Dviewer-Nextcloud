@@ -844,7 +844,7 @@ export default {
 				const dirPath = this.filename.substring(0, this.filename.lastIndexOf('/'))
 
 				// Check if this is a multi-file format
-				const isMultiFile = ['obj', 'gltf', 'fbx', '3ds', 'dae'].includes(extension)
+				const isMultiFile = ['obj', 'gltf', 'fbx', '3ds', 'dae', 'x3d'].includes(extension)
 
 				if (isMultiFile) {
 					logger.info('ViewerComponent', 'Multi-file format detected, loading with dependencies')
