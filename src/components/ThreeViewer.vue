@@ -556,6 +556,12 @@ import { useScreenshot } from '../composables/useScreenshot.js'
 import { useThumbnailCapture } from '../composables/useThumbnailCapture.js'
 import { useAnimation } from '../composables/useAnimation.js'
 import { useClippingPlane } from '../composables/useClippingPlane.js'
+import {
+	serializeCameraState,
+	readCameraStateFromUrl,
+	applyCameraState,
+	buildShareableUrl,
+} from '../utils/cameraUrlState.js'
 import { useLightingPresets } from '../composables/useLightingPresets.js'
 import { useBookmarks } from '../composables/useBookmarks.js'
 import { useExplodedView } from '../composables/useExplodedView.js'
@@ -1157,6 +1163,19 @@ export default {
 					const newBox = new THREE.Box3().setFromObject(modelRoot.value)
 					const newCenter = newBox.getCenter(new THREE.Vector3())
 					camera.fitCameraToObject(modelRoot.value, newCenter)
+
+					// Shareable view link: if the page URL carries a `cam=...` param,
+					// restore that exact viewpoint AFTER fitCameraToObject so the
+					// auto-fit doesn't immediately stomp on it. The param is only
+					// read on the first successful load — navigating to a different
+					// file clears the URL before reaching this branch.
+					const sharedState = readCameraStateFromUrl()
+					if (sharedState && camera.camera?.value && camera.controls?.value) {
+						const ok = applyCameraState(camera.camera.value, camera.controls.value, sharedState)
+						if (ok) {
+							logger.info('ThreeViewer', 'Restored camera view from cam URL parameter')
+						}
+					}
 
 					// Update grid size
 					updateGridSize(modelRoot.value)
@@ -1837,6 +1856,20 @@ export default {
 
 		const resetView = () => {
 			camera.resetView()
+		}
+
+		/**
+		 * Build a shareable viewer URL embedding the current camera
+		 * viewpoint. Returns null if the camera/controls aren't ready —
+		 * UI should disable the Copy link button in that case.
+		 *
+		 * @return {string|null}
+		 */
+		const getShareableViewLink = () => {
+			if (!camera.camera?.value || !camera.controls?.value) return null
+			const serialized = serializeCameraState(camera.camera.value, camera.controls.value)
+			if (!serialized) return null
+			return buildShareableUrl(serialized)
 		}
 
 		// Advanced feature methods
@@ -3404,6 +3437,7 @@ export default {
 			toggleCameraProjection: camera.toggleCameraProjection,
 			resetView,
 			fitToView,
+			getShareableViewLink,
 			toggleMeasurementMode,
 			handleUnitChange,
 			deleteMeasurement,

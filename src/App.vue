@@ -119,6 +119,7 @@
 					@fit-to-view="onFitToView"
 					@toggle-auto-rotate="onToggleAutoRotate"
 					@toggle-projection="onToggleProjection"
+					@copy-view-link="onCopyViewLink"
 					@toggle-grid="grid = !grid"
 					@toggle-axes="axes = !axes"
 					@toggle-wireframe="wireframe = !wireframe"
@@ -611,6 +612,57 @@ export default {
 			// Update camera type from viewer
 			if (this.$refs.viewer?.cameraType) {
 				this.cameraType = this.$refs.viewer.cameraType
+			}
+		},
+		/**
+		 * Copy a shareable link to the current camera viewpoint.
+		 *
+		 * Recipients who open the link see the exact position/target/zoom
+		 * we're looking at right now. Requires a model to be loaded so the
+		 * camera/controls exist. Uses navigator.clipboard with a hidden
+		 * textarea fallback for older contexts.
+		 */
+		async onCopyViewLink() {
+			const link = this.$refs.viewer?.getShareableViewLink?.()
+			if (!link) {
+				this.pushToast({
+					type: 'error',
+					title: this.t('threedviewer', 'Copy failed'),
+					message: this.t('threedviewer', 'Load a model before sharing its view.'),
+				})
+				return
+			}
+			try {
+				// Prefer the modern async clipboard API. It requires a secure
+				// context (HTTPS or localhost) — both apply to Nextcloud.
+				if (navigator.clipboard && window.isSecureContext) {
+					await navigator.clipboard.writeText(link)
+				} else {
+					// Fallback: offscreen textarea + execCommand. Deprecated but
+					// still works in every browser shipped in the last decade,
+					// and is the only option on non-secure contexts.
+					const ta = document.createElement('textarea')
+					ta.value = link
+					ta.style.position = 'fixed'
+					ta.style.opacity = '0'
+					document.body.appendChild(ta)
+					ta.focus()
+					ta.select()
+					document.execCommand('copy')
+					document.body.removeChild(ta)
+				}
+				this.pushToast({
+					type: 'success',
+					title: this.t('threedviewer', 'Link copied'),
+					message: this.t('threedviewer', 'Share this link to send the exact viewpoint.'),
+					timeout: 4000,
+				})
+			} catch (error) {
+				this.pushToast({
+					type: 'error',
+					title: this.t('threedviewer', 'Copy failed'),
+					message: error?.message || this.t('threedviewer', 'Could not access clipboard.'),
+				})
 			}
 		},
 		onChangePreset(presetName) {

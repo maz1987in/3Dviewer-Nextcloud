@@ -58,6 +58,17 @@
 								<span class="tool-icon">📐</span>
 								<span class="tool-label">{{ cameraType === 'perspective' ? t('threedviewer', 'Perspective') : t('threedviewer', 'Orthographic') }}</span>
 							</button>
+							<!-- Copy shareable view link: encodes current camera state
+							     (position, target, zoom) into the URL as a `cam=...`
+							     parameter so others can open the same exact viewpoint.
+							     Feedback is surfaced via a toast, not inline. -->
+							<button class="tool-btn"
+								:disabled="!modelLoaded"
+								:title="t('threedviewer', 'Copy a link to this exact viewpoint')"
+								@click="emit('copy-view-link')">
+								<span class="tool-icon">🔗</span>
+								<span class="tool-label">{{ t('threedviewer', 'Copy View Link') }}</span>
+							</button>
 							<!-- Bookmarks -->
 							<div class="tool-group">
 								<label class="tool-label-small">{{ t('threedviewer', 'Bookmarks') }}</label>
@@ -561,6 +572,7 @@ export default {
 		'fit-to-view',
 		'toggle-auto-rotate',
 		'toggle-projection',
+		'copy-view-link',
 		'toggle-grid',
 		'toggle-axes',
 		'toggle-wireframe',
