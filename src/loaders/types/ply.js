@@ -18,6 +18,7 @@ class PlyLoader extends BaseLoader {
 	 * @return {Promise<object>} Load result
 	 */
 	async loadModel(arrayBuffer, context) {
+		const { THREE } = context
 
 		// Create PLY loader
 		this.loader = new PLYLoader()
@@ -29,17 +30,30 @@ class PlyLoader extends BaseLoader {
 			throw new Error('No valid geometry found in PLY file')
 		}
 
-		// Compute vertex normals for better lighting
-		geometry.computeVertexNormals()
+		// Only compute normals if the PLY doesn't already have them
+		if (!geometry.attributes.normal) {
+			geometry.computeVertexNormals()
+		}
 
-		// Create material with PLY-specific defaults
-		const material = this.createMaterial({
-			color: 0xb0bec5,
+		// Check for vertex colors
+		const hasVertexColors = !!geometry.attributes.color
+
+		// Create material — use vertex colors if available, otherwise neutral gray
+		const matProps = {
 			flatShading: false,
-		})
+			side: THREE.DoubleSide,
+		}
+
+		if (hasVertexColors) {
+			matProps.vertexColors = true
+		} else {
+			matProps.color = 0xb0bec5
+		}
+
+		const material = new THREE.MeshPhongMaterial(matProps)
 
 		// Create mesh
-		const mesh = this.createMesh(geometry, material)
+		const mesh = new THREE.Mesh(geometry, material)
 
 		// PLY files are often exported with Z-up coordinate system
 		// Rotate to Y-up (Three.js standard) by rotating -90° around X-axis
@@ -47,7 +61,7 @@ class PlyLoader extends BaseLoader {
 
 		this.logInfo('PLY model loaded successfully', {
 			vertices: geometry.attributes.position.count,
-			faces: geometry.attributes.position.count / 3,
+			hasVertexColors,
 		})
 
 		// Process the result
