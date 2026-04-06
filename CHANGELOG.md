@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Transform Gizmo**: Translate, rotate, and scale models interactively with Three.js TransformControls. Mode selector (Move/Rotate/Scale) and reset button in the Analyze section. Disables orbit controls while dragging.
+- **Animation clip selector**: Dropdown in the Animation panel to switch between individual animation clips (e.g., Run, Walk, Idle) for models with multiple animations
+- **Texture optimization pipeline**: Quality presets (Original/High/Medium/Low) with Canvas 2D downscaling, memory tracking, and configurable setting in Personal Settings
+- **X3D parser**: Full XML-based parser replacing placeholder cube — supports IndexedFaceSet geometry, materials, textures, transforms, and DEF/USE references
+- **Volume & surface area measurement**: Model statistics panel now shows actual mesh surface area (sum of triangle areas) and mesh volume (signed tetrahedra method, accurate for watertight meshes), in addition to bounding box volume
+
+### Fixed
+- **Animation playback**: Previously all animation clips played simultaneously, causing blended/static poses. Now only one clip plays at a time
+- **Animation timeline seek**: Slider scrubber now correctly updates the model pose when dragged (replaced `mixer.setTime()` with `action.time` + `mixer.update(0)`)
+- **Animation loop toggle**: Toggling Loop off and back on no longer leaves the animation stuck; finished LoopOnce actions properly restart
+- **FBX rendering**: Fixed dark/black eyeball — upgraded Lambert to Phong materials, added SRGBColorSpace, normalized scale, detected transparent shells
+- **PLY loader**: Preserved original vertex normals from file instead of always recomputing them
 
 ## [3.2.0] - 2026-04-05
 

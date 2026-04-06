@@ -137,6 +137,106 @@ export function useModelStats() {
 	}
 
 	/**
+	 * Compute mesh surface area by summing triangle areas.
+	 * @param {THREE.Object3D} object3D - Object to analyze
+	 * @return {number} Total surface area in squared scene units
+	 */
+	const computeSurfaceArea = (object3D) => {
+		let totalArea = 0
+		const vA = new THREE.Vector3()
+		const vB = new THREE.Vector3()
+		const vC = new THREE.Vector3()
+		const ab = new THREE.Vector3()
+		const ac = new THREE.Vector3()
+
+		object3D.traverse((child) => {
+			if (!child.isMesh || !child.geometry) return
+
+			const geo = child.geometry
+			const pos = geo.attributes.position
+			if (!pos) return
+
+			// Get world matrix to account for transforms
+			child.updateWorldMatrix(true, false)
+			const matrix = child.matrixWorld
+
+			const index = geo.index
+			const triCount = index ? index.count / 3 : pos.count / 3
+
+			for (let i = 0; i < triCount; i++) {
+				if (index) {
+					vA.fromBufferAttribute(pos, index.getX(i * 3))
+					vB.fromBufferAttribute(pos, index.getX(i * 3 + 1))
+					vC.fromBufferAttribute(pos, index.getX(i * 3 + 2))
+				} else {
+					vA.fromBufferAttribute(pos, i * 3)
+					vB.fromBufferAttribute(pos, i * 3 + 1)
+					vC.fromBufferAttribute(pos, i * 3 + 2)
+				}
+
+				// Apply world transform
+				vA.applyMatrix4(matrix)
+				vB.applyMatrix4(matrix)
+				vC.applyMatrix4(matrix)
+
+				ab.subVectors(vB, vA)
+				ac.subVectors(vC, vA)
+				totalArea += ab.cross(ac).length() * 0.5
+			}
+		})
+
+		return totalArea
+	}
+
+	/**
+	 * Compute mesh volume using the signed tetrahedra method (divergence theorem).
+	 * Accurate for watertight meshes; approximate for open meshes.
+	 * @param {THREE.Object3D} object3D - Object to analyze
+	 * @return {number} Absolute volume in cubic scene units
+	 */
+	const computeMeshVolume = (object3D) => {
+		let totalVolume = 0
+		const vA = new THREE.Vector3()
+		const vB = new THREE.Vector3()
+		const vC = new THREE.Vector3()
+
+		object3D.traverse((child) => {
+			if (!child.isMesh || !child.geometry) return
+
+			const geo = child.geometry
+			const pos = geo.attributes.position
+			if (!pos) return
+
+			child.updateWorldMatrix(true, false)
+			const matrix = child.matrixWorld
+
+			const index = geo.index
+			const triCount = index ? index.count / 3 : pos.count / 3
+
+			for (let i = 0; i < triCount; i++) {
+				if (index) {
+					vA.fromBufferAttribute(pos, index.getX(i * 3))
+					vB.fromBufferAttribute(pos, index.getX(i * 3 + 1))
+					vC.fromBufferAttribute(pos, index.getX(i * 3 + 2))
+				} else {
+					vA.fromBufferAttribute(pos, i * 3)
+					vB.fromBufferAttribute(pos, i * 3 + 1)
+					vC.fromBufferAttribute(pos, i * 3 + 2)
+				}
+
+				vA.applyMatrix4(matrix)
+				vB.applyMatrix4(matrix)
+				vC.applyMatrix4(matrix)
+
+				// Signed volume of tetrahedron formed with origin
+				totalVolume += vA.dot(new THREE.Vector3().crossVectors(vB, vC)) / 6
+			}
+		})
+
+		return Math.abs(totalVolume)
+	}
+
+	/**
 	 * Format bytes to human-readable string
 	 * @param {number} bytes - Bytes to format
 	 * @return {string} Formatted string
@@ -180,6 +280,10 @@ export function useModelStats() {
 			const boundingInfo = getBoundingInfo(object3D)
 			const volume = calculateVolume(boundingInfo.size)
 
+			// Compute actual mesh surface area and volume
+			const surfaceArea = computeSurfaceArea(object3D)
+			const meshVolume = computeMeshVolume(object3D)
+
 			// Extract file extension
 			const format = filename.split('.').pop().toLowerCase()
 
@@ -211,6 +315,8 @@ export function useModelStats() {
 					z: boundingInfo.center.z,
 				},
 				volume,
+				surfaceArea,
+				meshVolume,
 
 				// File
 				fileSize,
@@ -225,6 +331,8 @@ export function useModelStats() {
 				faces: stats.faces,
 				materials: stats.materialCount,
 				textures: stats.textureCount,
+				surfaceArea: stats.surfaceArea,
+				meshVolume: stats.meshVolume,
 			})
 
 			return stats

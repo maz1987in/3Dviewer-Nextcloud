@@ -147,8 +147,16 @@
 						<span class="stat-value">{{ modelStats.boundingBox.z.toFixed(2) }} units</span>
 					</div>
 					<div class="stat-row">
-						<span>{{ t('threedviewer', 'Volume') }}:</span>
-						<span class="stat-value">{{ modelStats.volume.toFixed(2) }} cu. units</span>
+						<span>{{ t('threedviewer', 'Surface Area') }}:</span>
+						<span class="stat-value">{{ formatStatNumber(modelStats.surfaceArea) }} sq. units</span>
+					</div>
+					<div class="stat-row">
+						<span>{{ t('threedviewer', 'Mesh Volume') }}:</span>
+						<span class="stat-value">{{ formatStatNumber(modelStats.meshVolume) }} cu. units</span>
+					</div>
+					<div class="stat-row">
+						<span>{{ t('threedviewer', 'Bounding Box Vol.') }}:</span>
+						<span class="stat-value">{{ formatStatNumber(modelStats.volume) }} cu. units</span>
 					</div>
 				</div>
 
@@ -1766,6 +1774,21 @@ export default {
 		}
 
 		/**
+		 * Format a number for the stats panel — uses scientific notation for very small/large
+		 * values and locale-formatted decimals for normal ranges.
+		 * @param {number} value - Number to format
+		 * @return {string} Formatted display string
+		 */
+		const formatStatNumber = (value) => {
+			if (value == null || !isFinite(value)) return '0'
+			const abs = Math.abs(value)
+			if (abs === 0) return '0.00'
+			if (abs < 0.01 || abs >= 1e6) return value.toExponential(2)
+			if (abs >= 1000) return value.toLocaleString(undefined, { maximumFractionDigits: 1 })
+			return value.toFixed(2)
+		}
+
+		/**
 		 * Update cache statistics
 		 */
 		const updateCacheStats = async () => {
@@ -3064,6 +3087,7 @@ export default {
 			setTheme: themeComposable.setTheme,
 			togglePerformanceStats,
 			toggleModelStats,
+			formatStatNumber,
 			handleExport,
 			getModelObject,
 			// Expose G-code recolor method to parent
