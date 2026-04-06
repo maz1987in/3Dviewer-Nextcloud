@@ -152,6 +152,60 @@
 			</div>
 		</div>
 
+		<!-- Search & filter toolbar -->
+		<div v-if="showFilterToolbar" class="file-filter-toolbar" role="search">
+			<div class="filter-row">
+				<label class="filter-search">
+					<span class="visually-hidden">{{ t('threedviewer', 'Search files') }}</span>
+					<input
+						v-model="searchQuery"
+						type="search"
+						class="filter-search-input"
+						:placeholder="t('threedviewer', 'Search files…')"
+						:aria-label="t('threedviewer', 'Search files by name')">
+					<button
+						v-if="searchQuery"
+						type="button"
+						class="filter-clear-btn"
+						:aria-label="t('threedviewer', 'Clear search')"
+						@click="searchQuery = ''">
+						×
+					</button>
+				</label>
+				<select
+					v-if="showLeafFilters"
+					v-model="sizeFilter"
+					class="filter-size-select"
+					:aria-label="t('threedviewer', 'Filter by file size')">
+					<option value="all">{{ t('threedviewer', 'Any size') }}</option>
+					<option value="small">{{ t('threedviewer', '< 1 MB') }}</option>
+					<option value="medium">{{ t('threedviewer', '1–10 MB') }}</option>
+					<option value="large">{{ t('threedviewer', '> 10 MB') }}</option>
+				</select>
+				<button
+					v-if="hasActiveFilters"
+					type="button"
+					class="filter-clear-all-btn"
+					@click="resetFilters">
+					{{ t('threedviewer', 'Clear filters') }}
+				</button>
+			</div>
+			<!-- Format chip row — only render in leaf views with 2+ formats present
+			     (one format = nothing meaningful to filter; overview = no format axis) -->
+			<div v-if="showLeafFilters && availableFormats.length >= 2" class="filter-format-row">
+				<button
+					v-for="ext in availableFormats"
+					:key="`fmt-${ext}`"
+					type="button"
+					class="filter-format-chip"
+					:class="{ 'active': selectedFormats.includes(ext) }"
+					:aria-pressed="selectedFormats.includes(ext)"
+					@click="toggleFormatFilter(ext)">
+					{{ ext.toUpperCase() }}
+				</button>
+			</div>
+		</div>
+
 		<!-- Loading State -->
 		<div v-if="loading" class="file-browser-loading">
 			<h2 class="icon-loading-small" />
@@ -160,21 +214,59 @@
 
 		<!-- Folders/Types/Dates Grid (only show when no specific folder/type/date is selected) -->
 		<template v-else-if="!loading && (folders || types || dates) && !currentPath && !currentType && !currentDate">
-			<div :key="`overview-container-${viewMode}`" :class="viewMode === 'list' ? 'file-list' : 'file-grid'">
-				<!-- Folders - Show hierarchical structure -->
+			<!-- Global recursive search results — used at the overview level
+			     when the user has typed a query. Walks the whole tree and
+			     shows matching files as a flat grid with their path. -->
+			<template v-if="showGlobalSearchResults">
+				<div :key="`search-results-${viewMode}`" :class="viewMode === 'list' ? 'file-list' : 'file-grid'">
+					<template v-if="globalSearchResults.length > 0">
+						<div
+							v-for="file in globalSearchResults"
+							:key="`search-${file.id}`"
+							class="file-card"
+							:class="{ 'selected': file.id === selectedFileId }"
+							@click="selectFile(file)">
+							<div class="file-thumbnail">
+								<FileIcon :size="48" />
+								<div class="file-extension">
+									{{ (file.extension || '').toUpperCase() }}
+								</div>
+							</div>
+							<div class="file-info">
+								<div class="file-name" :title="file.name">
+									{{ file.name }}
+								</div>
+								<div v-if="file._searchPath" class="file-search-path" :title="file._searchPath">
+									{{ file._searchPath }}
+								</div>
+								<div class="file-meta">
+									<span v-if="file.size">{{ formatFileSize(file.size) }}</span>
+									<span v-if="file.mtime" class="file-date">{{ formatDate(file.mtime) }}</span>
+								</div>
+							</div>
+						</div>
+					</template>
+					<div v-else class="file-browser-empty">
+						<p>{{ t('threedviewer', 'No files match “{query}”', { query: searchQuery }) }}</p>
+					</div>
+				</div>
+			</template>
+
+			<div v-else :key="`overview-container-${viewMode}`" :class="viewMode === 'list' ? 'file-list' : 'file-grid'">
+				<!-- Folders - Show hierarchical structure (search-filtered) -->
 				<template v-if="folders">
 					<FolderHierarchy
-						v-for="folder in folders"
+						v-for="folder in filteredFoldersOverview"
 						:key="folder.path || 'root'"
 						:folder="folder"
 						@navigate-folder="navigateFolder"
 						@select-file="selectFile" />
 				</template>
 
-				<!-- Types -->
+				<!-- Types (search-filtered) -->
 				<template v-if="types">
 					<div
-						v-for="type in types"
+						v-for="type in filteredTypesOverview"
 						:key="type.extension"
 						class="folder-card"
 						@click="navigateType(type)">
@@ -192,10 +284,10 @@
 					</div>
 				</template>
 
-				<!-- Dates - Show years -->
+				<!-- Dates - Show years (search-filtered) -->
 				<template v-if="dates">
 					<div
-						v-for="year in dates"
+						v-for="year in filteredDatesOverview"
 						:key="year.year"
 						class="folder-card"
 						@click="navigateDate(year)">
@@ -256,10 +348,12 @@
 			:class="viewMode === 'list' ? 'file-list' : 'file-grid'"
 			:tabindex="viewMode === 'list' ? 0 : -1"
 			@keydown="handleKeydown">
-			<!-- Show subfolders if available -->
-			<template v-if="folders && folders.length > 0">
+			<!-- Show subfolders if available — also narrowed by the search query
+			     so typing "eye" inside a folder finds both the Eyeball subfolder
+			     AND any files that match. -->
+			<template v-if="filteredSubfolders.length > 0">
 				<FolderHierarchy
-					v-for="folder in folders"
+					v-for="folder in filteredSubfolders"
 					:key="folder.path || 'root'"
 					:folder="folder"
 					@navigate-folder="navigateFolder"
@@ -407,17 +501,265 @@ export default {
 			focusedIndex: -1, // For keyboard navigation
 			userSettings: {}, // Store user settings
 			settingsLoaded: false, // Track if settings have been loaded
+			// Search & filter state — see filteredFiles below for how these compose.
+			// Reset automatically when the user navigates between folders/types/dates
+			// via the watchers further down.
+			searchQuery: '',
+			selectedFormats: [], // array of lowercase extensions, empty = no format restriction
+			sizeFilter: 'all', // 'all' | 'small' | 'medium' | 'large'
 		}
 	},
 	computed: {
-		// Backend already filters - just return files as-is
+		/**
+		 * The filtered file list shown in the grid/list. The pipeline is:
+		 *   raw files  →  search by name  →  format filter  →  size bucket
+		 *
+		 * Backend already restricts the result to 3D mime types, so we only
+		 * apply user-driven narrowing here. Each stage short-circuits when its
+		 * input is empty so the common "no filters set" case stays cheap.
+		 */
 		filteredFiles() {
-			// Ensure files is an array
 			if (!Array.isArray(this.files)) {
 				return []
 			}
-			// Backend already filters out images and only returns 3D files
-			return this.files
+			let result = this.files
+
+			// 1. Free-text search on filename (case-insensitive substring)
+			const q = this.searchQuery.trim().toLowerCase()
+			if (q) {
+				result = result.filter(f => (f.name || '').toLowerCase().includes(q))
+			}
+
+			// 2. Format filter — keep files whose extension is in the selected set.
+			//    Empty selection means "all formats".
+			if (this.selectedFormats.length > 0) {
+				const allowed = new Set(this.selectedFormats.map(e => e.toLowerCase()))
+				result = result.filter(f => allowed.has((f.extension || '').toLowerCase()))
+			}
+
+			// 3. Size bucket — three coarse ranges keyed off file.size in bytes.
+			if (this.sizeFilter !== 'all') {
+				const KB = 1024
+				const MB = 1024 * KB
+				result = result.filter(f => {
+					const s = f.size || 0
+					if (this.sizeFilter === 'small') return s < MB
+					if (this.sizeFilter === 'medium') return s >= MB && s <= 10 * MB
+					if (this.sizeFilter === 'large') return s > 10 * MB
+					return true
+				})
+			}
+
+			return result
+		},
+
+		/**
+		 * Distinct file extensions present in the *unfiltered* file list.
+		 * Drives the format chip row so we never show a chip for a format
+		 * that has no files in the current view.
+		 */
+		availableFormats() {
+			if (!Array.isArray(this.files)) return []
+			const seen = new Set()
+			for (const f of this.files) {
+				const ext = (f.extension || '').toLowerCase()
+				if (ext) seen.add(ext)
+			}
+			return Array.from(seen).sort()
+		},
+
+		/** True when any user filter is active — used to gate the "Clear" button. */
+		hasActiveFilters() {
+			return this.searchQuery.trim().length > 0
+				|| this.selectedFormats.length > 0
+				|| this.sizeFilter !== 'all'
+		},
+
+		/**
+		 * Show the filter toolbar at every non-loading view that has something
+		 * to narrow down — including the Folders/Types/Dates overview, where
+		 * the search box is the only useful control (you may have many top
+		 * level folders and want to find one by name).
+		 *
+		 * `showLeafFilters` below gates the format chips and size dropdown,
+		 * which only make sense once you've drilled into a leaf view.
+		 */
+		showFilterToolbar() {
+			if (this.loading) return false
+			// In a leaf view (folder/type/date already chosen) → always relevant.
+			const inLeaf = !!(this.currentPath || this.currentType
+				|| (this.currentDate && this.currentDate.month))
+			// Flat list view (favorites / 'all') with no overview props → relevant.
+			const inListView = !this.folders && !this.types && !this.dates
+			// Overview view (root listing of folders/types/dates) → relevant
+			// for search only. The template checks `showLeafFilters` to hide
+			// format chips and size in this case.
+			const inOverview = !!(this.folders || this.types || this.dates)
+			return inLeaf || inListView || inOverview
+		},
+
+		/**
+		 * Format chips + size dropdown only make sense once we're looking at
+		 * actual files. At the overview level (folder/type/date cards) we hide
+		 * these and only expose the search box.
+		 */
+		showLeafFilters() {
+			const inLeaf = !!(this.currentPath || this.currentType
+				|| (this.currentDate && this.currentDate.month))
+			const inListView = !this.folders && !this.types && !this.dates
+			return inLeaf || inListView
+		},
+
+		/**
+		 * Folders to render in the Folders overview, narrowed by the search
+		 * query. Match is case-insensitive substring against `folder.name`.
+		 * Empty query → return the original array reference so Vue's keyed
+		 * v-for stays stable.
+		 */
+		filteredFoldersOverview() {
+			if (!Array.isArray(this.folders)) return this.folders
+			const q = this.searchQuery.trim().toLowerCase()
+			if (!q) return this.folders
+			return this.folders.filter(f => (f.name || '').toLowerCase().includes(q))
+		},
+
+		filteredTypesOverview() {
+			if (!Array.isArray(this.types)) return this.types
+			const q = this.searchQuery.trim().toLowerCase()
+			if (!q) return this.types
+			return this.types.filter(t => {
+				const name = (t.name || '').toLowerCase()
+				const ext = (t.extension || '').toLowerCase()
+				return name.includes(q) || ext.includes(q)
+			})
+		},
+
+		filteredDatesOverview() {
+			if (!Array.isArray(this.dates)) return this.dates
+			const q = this.searchQuery.trim().toLowerCase()
+			if (!q) return this.dates
+			return this.dates.filter(d => String(d.year || '').includes(q))
+		},
+
+		/**
+		 * Subfolders rendered alongside files in a leaf view (e.g., when you're
+		 * inside "3D files" you see "Eyeball", "gltf", etc. as subfolder cards).
+		 * Narrowed by the same search query as the file list, so typing a name
+		 * filters subfolders and files together.
+		 */
+		filteredSubfolders() {
+			if (!Array.isArray(this.folders)) return []
+			const q = this.searchQuery.trim().toLowerCase()
+			if (!q) return this.folders
+			return this.folders.filter(f => (f.name || '').toLowerCase().includes(q))
+		},
+
+		/**
+		 * Global recursive search results, used at the Folders/Types/Dates
+		 * **overview** level when the user has typed a query.
+		 *
+		 * Returns `null` when no search is active OR when there are no
+		 * matching files — both signals to fall back to the normal overview
+		 * card rendering.
+		 *
+		 * Walks every file under the current overview tree (folders → nested
+		 * children → files; types/dates → their files arrays) and returns the
+		 * matches as a flat file array, decorated with `_searchPath` so the
+		 * card markup can show where each result lives.
+		 */
+		globalSearchResults() {
+			const q = this.searchQuery.trim().toLowerCase()
+			if (!q) return null
+
+			// Only kick in at the overview level — leaf views already filter
+			// their own files via `filteredFiles`.
+			const inOverview = !this.currentPath && !this.currentType
+				&& !(this.currentDate && this.currentDate.month)
+			if (!inOverview) return null
+
+			const results = []
+
+			// Helper that walks one folder subtree and pushes matching files,
+			// tagging each match with the folder path for context.
+			const walkFolder = (folder, parentPath) => {
+				if (!folder) return
+				const here = folder.name
+					? (parentPath ? `${parentPath}/${folder.name}` : folder.name)
+					: parentPath
+				// Files in this folder
+				let files = []
+				if (folder.files) {
+					if (Array.isArray(folder.files)) files = folder.files
+					else if (typeof folder.files === 'object') files = Object.values(folder.files)
+				}
+				for (const f of files) {
+					if ((f.name || '').toLowerCase().includes(q)) {
+						results.push({ ...f, _searchPath: here })
+					}
+				}
+				// Recurse into children
+				if (Array.isArray(folder.children)) {
+					for (const child of folder.children) walkFolder(child, here)
+				}
+			}
+
+			if (Array.isArray(this.folders)) {
+				for (const f of this.folders) walkFolder(f, '')
+			}
+			// Types: each entry has its own `files` array (no children).
+			if (Array.isArray(this.types)) {
+				for (const type of this.types) {
+					const files = Array.isArray(type.files) ? type.files : []
+					for (const f of files) {
+						if ((f.name || '').toLowerCase().includes(q)) {
+							results.push({ ...f, _searchPath: type.name || type.extension })
+						}
+					}
+				}
+			}
+			// Dates: year → months[] → files[]
+			if (Array.isArray(this.dates)) {
+				for (const year of this.dates) {
+					const months = Array.isArray(year.months) ? year.months : []
+					for (const month of months) {
+						const files = Array.isArray(month.files) ? month.files : []
+						for (const f of files) {
+							if ((f.name || '').toLowerCase().includes(q)) {
+								results.push({ ...f, _searchPath: `${year.year} / ${month.name || month}` })
+							}
+						}
+					}
+				}
+			}
+
+			// Apply the same format + size filters as leaf view, so chips would
+			// stack with search even if we surface them at the overview later.
+			let filtered = results
+			if (this.selectedFormats.length > 0) {
+				const allowed = new Set(this.selectedFormats.map(e => e.toLowerCase()))
+				filtered = filtered.filter(f => allowed.has((f.extension || '').toLowerCase()))
+			}
+			if (this.sizeFilter !== 'all') {
+				const KB = 1024
+				const MB = 1024 * KB
+				filtered = filtered.filter(f => {
+					const s = f.size || 0
+					if (this.sizeFilter === 'small') return s < MB
+					if (this.sizeFilter === 'medium') return s >= MB && s <= 10 * MB
+					if (this.sizeFilter === 'large') return s > 10 * MB
+					return true
+				})
+			}
+
+			return filtered
+		},
+
+		/**
+		 * True when the overview should switch to the global-search results
+		 * grid instead of the normal folder/type/date card grid.
+		 */
+		showGlobalSearchResults() {
+			return this.globalSearchResults !== null
 		},
 		displayTitle() {
 			if (this.currentPath) {
@@ -545,6 +887,17 @@ export default {
 		viewMode(newVal, oldVal) {
 			// View mode changed - Vue will handle the re-render automatically
 		},
+		// Reset search and filters when the user navigates to a different view.
+		// Without this, switching folders carries over the previous query and
+		// the new folder appears empty for no obvious reason.
+		currentPath() { this.resetFilters() },
+		currentType() { this.resetFilters() },
+		currentDate(newVal, oldVal) {
+			// currentDate is an object — only reset on actual identity change,
+			// not on inner-key mutation
+			if (newVal !== oldVal) this.resetFilters()
+		},
+		sort() { this.resetFilters() },
 		// Watch for changes in userSettings to update view mode if setting changes
 		'userSettings.fileBrowser.defaultView'(newVal) {
 			if (this.settingsLoaded && newVal) {
@@ -747,6 +1100,41 @@ export default {
 			const i = Math.floor(Math.log(bytes) / Math.log(1024))
 			return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i]
 		},
+
+		/**
+		 * Toggle a format chip on/off. We mutate via splice/push instead of
+		 * `selectedFormats = [...]` so the same array reference is preserved
+		 * (Vue 3 reactivity handles either, but this matches the rest of this
+		 * Options-API component).
+		 */
+		toggleFormatFilter(ext) {
+			const i = this.selectedFormats.indexOf(ext)
+			if (i >= 0) {
+				this.selectedFormats.splice(i, 1)
+			} else {
+				this.selectedFormats.push(ext)
+			}
+			// Reset focus when filtering changes the visible row count
+			this.focusedIndex = -1
+		},
+
+		/** Clear search + format + size filters in one go. */
+		resetFilters() {
+			this.searchQuery = ''
+			this.selectedFormats = []
+			this.sizeFilter = 'all'
+			this.focusedIndex = -1
+		},
+
+		/** Human-readable label for the active size bucket — used in the active filter pill. */
+		sizeFilterLabel(value) {
+			switch (value) {
+			case 'small': return this.t('threedviewer', '< 1 MB')
+			case 'medium': return this.t('threedviewer', '1–10 MB')
+			case 'large': return this.t('threedviewer', '> 10 MB')
+			default: return this.t('threedviewer', 'Any size')
+			}
+		},
 		formatDate(timestamp) {
 			if (!timestamp) return ''
 			const date = new Date(timestamp * 1000)
@@ -937,6 +1325,130 @@ export default {
 	p {
 		margin: 0;
 	}
+}
+
+.file-filter-toolbar {
+	padding: 8px 16px 12px;
+	border-bottom: 1px solid var(--color-border, #e0e0e0);
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	background: var(--color-main-background, #fff);
+}
+
+.file-filter-toolbar .filter-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-wrap: wrap;
+}
+
+.file-filter-toolbar .filter-search {
+	position: relative;
+	flex: 1 1 200px;
+	min-width: 0;
+	display: flex;
+	align-items: center;
+}
+
+.file-filter-toolbar .filter-search-input {
+	width: 100%;
+	padding: 6px 28px 6px 10px;
+	border: 1px solid var(--color-border-dark, #c0c0c0);
+	border-radius: 6px;
+	background: var(--color-main-background, #fff);
+	color: var(--color-main-text, #222);
+	font-size: 13px;
+}
+
+.file-filter-toolbar .filter-search-input:focus {
+	outline: 2px solid var(--color-primary-element, #0082c9);
+	outline-offset: -1px;
+	border-color: transparent;
+}
+
+.file-filter-toolbar .filter-clear-btn {
+	position: absolute;
+	inset-inline-end: 4px;
+	width: 20px;
+	height: 20px;
+	border: none;
+	background: transparent;
+	color: var(--color-text-maxcontrast, #888);
+	font-size: 18px;
+	line-height: 1;
+	cursor: pointer;
+	border-radius: 4px;
+}
+
+.file-filter-toolbar .filter-clear-btn:hover {
+	background: var(--color-background-hover, #ececec);
+	color: var(--color-main-text, #222);
+}
+
+.file-filter-toolbar .filter-size-select {
+	padding: 6px 10px;
+	border: 1px solid var(--color-border-dark, #c0c0c0);
+	border-radius: 6px;
+	background: var(--color-main-background, #fff);
+	color: var(--color-main-text, #222);
+	font-size: 13px;
+	cursor: pointer;
+}
+
+.file-filter-toolbar .filter-clear-all-btn {
+	padding: 6px 12px;
+	border: 1px solid var(--color-border-dark, #c0c0c0);
+	border-radius: 6px;
+	background: var(--color-background-hover, #f5f5f5);
+	color: var(--color-main-text, #222);
+	font-size: 12px;
+	cursor: pointer;
+	white-space: nowrap;
+}
+
+.file-filter-toolbar .filter-clear-all-btn:hover {
+	background: var(--color-background-darker, #e8e8e8);
+}
+
+.file-filter-toolbar .filter-format-row {
+	display: flex;
+	gap: 6px;
+	flex-wrap: wrap;
+}
+
+.file-filter-toolbar .filter-format-chip {
+	padding: 3px 10px;
+	border: 1px solid var(--color-border-dark, #c0c0c0);
+	border-radius: 12px;
+	background: transparent;
+	color: var(--color-main-text, #222);
+	font-size: 11px;
+	font-weight: 500;
+	cursor: pointer;
+	transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.file-filter-toolbar .filter-format-chip:hover {
+	background: var(--color-background-hover, #f0f0f0);
+}
+
+.file-filter-toolbar .filter-format-chip.active {
+	background: var(--color-primary-element, #0082c9);
+	border-color: var(--color-primary-element, #0082c9);
+	color: var(--color-primary-element-text, #fff);
+}
+
+.visually-hidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
 }
 
 .file-grid {
@@ -1131,6 +1643,18 @@ export default {
 	white-space: nowrap;
 	margin-bottom: 4px;
 	line-height: 1.3;
+}
+
+/* Path subtitle shown on global search result cards. */
+.file-search-path {
+	font-size: 11px;
+	color: var(--color-text-maxcontrast, #888);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	margin-bottom: 4px;
+	line-height: 1.2;
+	font-style: italic;
 }
 
 .folder-meta {
