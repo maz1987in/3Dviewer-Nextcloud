@@ -21,6 +21,34 @@ const ANNOTATION_SIZING = (VIEWER_CONFIG.visualSizing && VIEWER_CONFIG.visualSiz
 	labelWidthPercent: 20,
 }
 
+/**
+ * True if a mesh is a viewer helper (gizmo, picker, measurement, annotation
+ * marker) rather than part of the loaded model. Used to keep helpers out of
+ * the model bounding-box calculation that drives marker sizing — without this
+ * filter, the TransformControlsPlane (a 100,000-unit invisible picker plane)
+ * inflates `modelMaxDim` and pushes annotation labels hundreds of units away.
+ *
+ * @param {THREE.Object3D} obj - Mesh to test
+ * @return {boolean}
+ */
+function isHelperMesh(obj) {
+	if (!obj) return false
+	// Filter by name pattern
+	const name = obj.name || ''
+	if (name.startsWith('annotation') || name.startsWith('measurement')) return true
+	// Filter Three.js built-in helpers and TransformControls
+	const type = obj.type || ''
+	if (type.startsWith('TransformControls')) return true
+	if (type === 'AxesHelper' || type === 'GridHelper' || type === 'Box3Helper') return true
+	// Walk ancestors to catch the picker plane (whose ancestor is TransformControls)
+	let p = obj.parent
+	while (p) {
+		if ((p.type || '').startsWith('TransformControls')) return true
+		p = p.parent
+	}
+	return false
+}
+
 export function useAnnotation() {
 	// Annotation state
 	const isActive = ref(false)
@@ -136,7 +164,7 @@ export function useAnnotation() {
 			const box = new THREE.Box3()
 			const meshes = []
 			sceneRef.value.traverse((child) => {
-				if (child.isMesh && !child.name?.startsWith('measurement') && !child.name?.startsWith('annotation')) {
+				if (child.isMesh && !isHelperMesh(child)) {
 					meshes.push(child)
 					const meshBox = new THREE.Box3().setFromObject(child)
 					box.union(meshBox)
@@ -190,10 +218,7 @@ export function useAnnotation() {
 			if (sceneRef.value) {
 				const box = new THREE.Box3()
 				sceneRef.value.traverse((child) => {
-					if (child.isMesh
-						&& child.name !== 'annotationPoint'
-						&& child.name !== 'annotationText'
-						&& !child.name.startsWith('measurement')) {
+					if (child.isMesh && !isHelperMesh(child)) {
 						const meshBox = new THREE.Box3().setFromObject(child)
 						box.union(meshBox)
 					}
