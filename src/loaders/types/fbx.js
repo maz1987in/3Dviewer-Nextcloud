@@ -505,7 +505,10 @@ class FbxLoader extends BaseLoader {
 			}
 		}
 
-		return this.processFbxResult(object3D, context, additionalFiles)
+		// When no texture dependencies resolved at all, treat the model as a clay
+		// preview so dark Blender-default material colors don't render as a black
+		// silhouette. Downstream logic in processFbxResult uses this flag.
+		return this.processFbxResult(object3D, context, additionalFiles, dataUriMap.size === 0)
 	}
 
 	/**
@@ -513,9 +516,11 @@ class FbxLoader extends BaseLoader {
 	 * @param {THREE.Object3D} object3D - Loaded 3D object
 	 * @param {object} context - Loading context
 	 * @param {Array} additionalFiles - Additional dependency files
+	 * @param {boolean} clayMode - When true, force near-black materials to a
+	 *   pleasant clay grey so a model without textures still renders legibly
 	 * @return {object} Processed result
 	 */
-	processFbxResult(object3D, context, additionalFiles) {
+	processFbxResult(object3D, context, additionalFiles, clayMode = false) {
 		const { THREE } = context
 
 		// Normalize scale — FBX files often use centimeters while the viewer's
@@ -566,6 +571,23 @@ class FbxLoader extends BaseLoader {
 							})
 						}
 
+						// Detect our own missing-texture placeholder (see loadFbxStandard:
+						// a 1×1 base64 PNG is substituted when a referenced texture file
+						// isn't shipped alongside the .fbx). Leaving it attached makes
+						// `final = color × placeholder` darken the whole mesh to the
+						// placeholder's single pixel. Drop the map so the material
+						// falls through to the "no map" branch below, which brightens
+						// dark base colors.
+						const mapImg = mat.map?.image
+						const isPlaceholderMap = mat.map && (
+							(mapImg?.naturalWidth === 1 && mapImg?.naturalHeight === 1)
+							|| (mapImg?.width === 1 && mapImg?.height === 1)
+						)
+						if (isPlaceholderMap) {
+							mat.map.dispose?.()
+							mat.map = null
+						}
+
 						// Set SRGBColorSpace on diffuse textures for correct brightness
 						if (mat.map) {
 							mat.map.colorSpace = THREE.SRGBColorSpace
@@ -573,12 +595,34 @@ class FbxLoader extends BaseLoader {
 
 						// FBX exports non-white base colors that darken textures
 						// (final = texture * color). Always set textured materials to white
-						// so textures render at full brightness.
+						// so textures render at full brightness. When there's no map:
+						//  - In clay mode (no textures at all resolved in deps), brightly
+						//    lift anything up to ~mid-grey to a pleasant clay grey so a
+						//    textureless Blender export looks like a proper clay preview.
+						//    Near-greyscale dark colors become 0.75; coloured materials
+						//    (r/g/b clearly different) keep their hue, just shifted up.
+						//  - Otherwise, only lift near-black to preserve deliberately-dark
+						//    window / tire / trim colors when most textures did load.
 						if (mat.map && mat.color) {
 							mat.color.setRGB(1, 1, 1)
 						} else if (mat.color) {
-							const lum = mat.color.r * 0.299 + mat.color.g * 0.587 + mat.color.b * 0.114
-							if (lum < 0.1) {
+							const c = mat.color
+							const lum = c.r * 0.299 + c.g * 0.587 + c.b * 0.114
+							if (clayMode) {
+								// Greyscale-ish dark → clay grey. Colored materials (like green
+								// license plate or red brake lights) retain hue but brighten
+								// proportionally so they don't wash out to black.
+								const maxCh = Math.max(c.r, c.g, c.b)
+								const minCh = Math.min(c.r, c.g, c.b)
+								const isNearGrey = (maxCh - minCh) < 0.08
+								if (isNearGrey && lum < 0.55) {
+									mat.color.setRGB(0.75, 0.75, 0.75)
+								} else if (lum < 0.35 && maxCh > 0) {
+									// Brighten hue-preserving: scale channels so max hits ~0.75
+									const scale = 0.75 / maxCh
+									mat.color.setRGB(c.r * scale, c.g * scale, c.b * scale)
+								}
+							} else if (lum < 0.1) {
 								mat.color.setRGB(0.8, 0.8, 0.8)
 							}
 						}
@@ -593,11 +637,18 @@ class FbxLoader extends BaseLoader {
 							}
 						})
 
-						// Ensure material is visible and opaque
+						// Preserve intentional transparency (taillight/headlight lenses,
+						// glass, etc.). Only force opaque when opacity looks broken
+						// (zero or negative, which would render the mesh invisible).
 						mat.side = THREE.DoubleSide
 						mat.visible = true
-						mat.opacity = 1.0
-						mat.transparent = false
+						if (!(mat.opacity > 0)) {
+							mat.opacity = 1.0
+							mat.transparent = false
+						} else if (mat.opacity < 1.0) {
+							mat.transparent = true
+							mat.depthWrite = false
+						}
 						mat.needsUpdate = true
 
 						logger.info('FBXLoader', 'Processed material', {

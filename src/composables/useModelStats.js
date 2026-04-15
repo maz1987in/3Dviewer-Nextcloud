@@ -57,6 +57,8 @@ export function useModelStats() {
 	const getTextures = (object3D) => {
 		const textures = new Map()
 		let totalMemory = 0
+		let pendingCount = 0
+		let missingCount = 0
 
 		object3D.traverse((child) => {
 			if (child.material) {
@@ -67,20 +69,47 @@ export function useModelStats() {
 						const value = mat[key]
 						if (value && value.isTexture) {
 							if (!textures.has(value.uuid)) {
-								// Calculate texture memory
-								const width = value.image?.width || 512
-								const height = value.image?.height || 512
-								const memory = width * height * 4 // RGBA = 4 bytes per pixel
+								// Read real image dimensions. Loaders sometimes attach a
+								// Texture with no image, or with an Image element that
+								// failed to load, when a referenced file is missing (e.g.
+								// FBX pointing to texture.png that isn't shipped alongside
+								// the .fbx). Distinguish that from an image that is
+								// genuinely mid-decode so the UI can say "missing" vs
+								// "loading…" instead of reporting a fake 0 MB.
+								const img = value.image
+								const rawW = img?.width ?? 0
+								const rawH = img?.height ?? 0
+								const imageLoaded = rawW >= 4 && rawH >= 4
+								// Multiple ways a reference "didn't resolve":
+								// - no image attached at all
+								// - HTMLImageElement without any src assigned
+								// - HTMLImageElement that finished loading with naturalWidth 0 (broken image)
+								// - 1×1 placeholder (our FBX loader substitutes a 1px base64
+								//   PNG when a referenced texture file is missing). We can't
+								//   distinguish this from a legit 1-pixel texture, but those
+								//   essentially never ship in real models.
+								const isHtmlImg = typeof HTMLImageElement !== 'undefined' && img instanceof HTMLImageElement
+								const isPlaceholder = (rawW === 1 && rawH === 1)
+									|| (img?.naturalWidth === 1 && img?.naturalHeight === 1)
+								const isMissing = !img
+									|| (isHtmlImg && !img.src)
+									|| (isHtmlImg && img.complete && img.naturalWidth === 0)
+									|| isPlaceholder
+								const memory = imageLoaded ? rawW * rawH * 4 : 0 // RGBA bytes
 
 								textures.set(value.uuid, {
 									uuid: value.uuid,
 									name: value.name || key,
-									width,
-									height,
+									width: rawW || null,
+									height: rawH || null,
 									memory,
+									pending: !imageLoaded && !isMissing,
+									missing: isMissing,
 								})
 
-								totalMemory += memory
+								if (imageLoaded) totalMemory += memory
+								else if (isMissing) missingCount++
+								else pendingCount++
 							}
 						}
 					})
@@ -91,6 +120,8 @@ export function useModelStats() {
 		return {
 			textures: Array.from(textures.values()),
 			count: textures.size,
+			pendingCount,
+			missingCount,
 			memoryBytes: totalMemory,
 			memoryMB: totalMemory / (1024 * 1024),
 		}
@@ -365,6 +396,8 @@ export function useModelStats() {
 				// Textures
 				textures: textureInfo.textures,
 				textureCount: textureInfo.count,
+				texturePendingCount: textureInfo.pendingCount,
+				textureMissingCount: textureInfo.missingCount,
 				textureMemoryMB: textureInfo.memoryMB,
 
 				// Dimensions

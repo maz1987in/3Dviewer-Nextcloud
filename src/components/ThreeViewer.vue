@@ -124,7 +124,21 @@
 					<h4>{{ t('threedviewer', 'Textures') }} ({{ modelStats.textureCount }})</h4>
 					<div v-if="modelStats.textureCount > 0" class="stat-row">
 						<span>{{ t('threedviewer', 'Memory') }}:</span>
-						<span class="stat-value">{{ modelStats.textureMemoryMB.toFixed(2) }} MB</span>
+						<span class="stat-value">
+							<template v-if="modelStats.textureMissingCount === modelStats.textureCount">
+								{{ t('threedviewer', 'missing') }}
+							</template>
+							<template v-else-if="modelStats.texturePendingCount === modelStats.textureCount">
+								{{ t('threedviewer', 'loading…') }}
+							</template>
+							<template v-else>
+								{{ modelStats.textureMemoryMB.toFixed(2) }} MB<template v-if="modelStats.texturePendingCount > 0 || modelStats.textureMissingCount > 0">
+									<span class="stat-hint">
+										(<template v-if="modelStats.texturePendingCount > 0">+{{ modelStats.texturePendingCount }} {{ t('threedviewer', 'loading') }}<template v-if="modelStats.textureMissingCount > 0">, </template></template><template v-if="modelStats.textureMissingCount > 0">{{ modelStats.textureMissingCount }} {{ t('threedviewer', 'missing') }}</template>)
+									</span>
+								</template>
+							</template>
+						</span>
 					</div>
 					<div v-else class="no-items">
 						{{ t('threedviewer', 'No textures') }}
@@ -1343,10 +1357,40 @@ export default {
 						logger.info('ThreeViewer', 'No animations found in model')
 					}
 
-					// Calculate model statistics
-					const fileSize = modelLoading.progress.value.total || 0
+					// Calculate model statistics. Prefer the authoritative `.size` of
+					// the main source file (multi-file loaders use progress.total as
+					// a 0..100 percentage, which would mislabel a 20 MB FBX as 0 MB).
+					let fileSize = 0
+					if (Array.isArray(modelSourceFiles.value) && modelSourceFiles.value.length > 0) {
+						const base = (filename || '').split('/').pop()
+						const mainFile = modelSourceFiles.value.find(f => f?.name === base) || modelSourceFiles.value[0]
+						fileSize = mainFile?.size || 0
+					}
+					if (!fileSize) {
+						// Fall back to progress.total only when it looks like a real byte count
+						const progressTotal = modelLoading.progress.value.total || 0
+						if (progressTotal > 1000) fileSize = progressTotal
+					}
 					const stats = modelStatsComposable.analyzeModel(modelRoot.value, filename, fileSize)
 					evaluatePerformanceScaling(stats)
+
+					// Textures from FBX/MTL/progressive pipelines load asynchronously.
+					// Re-run the stats pass a few times over 8 s so the Textures section
+					// catches up as images finish decoding. Stop polling as soon as no
+					// pending textures remain — textures flagged "missing" (no image
+					// attached, e.g. FBX referencing a .png not shipped in the folder)
+					// are never going to resolve, so we don't re-poll for them.
+					if (stats?.texturePendingCount > 0) {
+						const fn = filename
+						const fs = fileSize
+						let attempts = 0
+						const retryId = setInterval(() => {
+							attempts++
+							if (!modelRoot.value) { clearInterval(retryId); return }
+							const s = modelStatsComposable.analyzeModel(modelRoot.value, fn, fs)
+							if (!s?.texturePendingCount || attempts >= 8) clearInterval(retryId)
+						}, 1000)
+					}
 
 					// Check for loading warnings (missing files/textures)
 					const missingFiles = loadedModel.missingFiles || []
