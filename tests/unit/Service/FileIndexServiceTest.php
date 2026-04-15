@@ -11,6 +11,8 @@ use OCA\ThreeDViewer\Service\ModelFileSupport;
 use OCP\Files\File;
 use OCP\Files\Folder;
 use OCP\Files\IRootFolder;
+use OCP\ICache;
+use OCP\ICacheFactory;
 use OCP\IUserSession;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -26,6 +28,8 @@ class FileIndexServiceTest extends TestCase
     private $userSession;
     /** @var ModelFileSupport&MockObject */
     private $modelFileSupport;
+    /** @var ICacheFactory&MockObject */
+    private $cacheFactory;
     /** @var LoggerInterface&MockObject */
     private $logger;
     /** @var Folder&MockObject */
@@ -38,6 +42,8 @@ class FileIndexServiceTest extends TestCase
         $this->rootFolder = $this->createMock(IRootFolder::class);
         $this->userSession = $this->createMock(IUserSession::class);
         $this->modelFileSupport = $this->createMock(ModelFileSupport::class);
+        $this->cacheFactory = $this->createMock(ICacheFactory::class);
+        $this->cacheFactory->method('createDistributed')->willReturn($this->createMock(ICache::class));
         $this->logger = $this->createMock(LoggerInterface::class);
         $this->userFolder = $this->createMock(Folder::class);
 
@@ -65,6 +71,7 @@ class FileIndexServiceTest extends TestCase
             $this->rootFolder,
             $this->userSession,
             $this->modelFileSupport,
+            $this->cacheFactory,
             $this->logger
         );
 
@@ -114,6 +121,7 @@ class FileIndexServiceTest extends TestCase
             $this->rootFolder,
             $this->userSession,
             $this->modelFileSupport,
+            $this->cacheFactory,
             $this->logger
         );
 
@@ -157,6 +165,7 @@ class FileIndexServiceTest extends TestCase
             $this->rootFolder,
             $this->userSession,
             $this->modelFileSupport,
+            $this->cacheFactory,
             $this->logger
         );
 
@@ -189,6 +198,7 @@ class FileIndexServiceTest extends TestCase
             $this->rootFolder,
             $this->userSession,
             $this->modelFileSupport,
+            $this->cacheFactory,
             $this->logger
         );
 
@@ -209,6 +219,7 @@ class FileIndexServiceTest extends TestCase
             $this->rootFolder,
             $this->userSession,
             $this->modelFileSupport,
+            $this->cacheFactory,
             $this->logger
         );
 
@@ -269,6 +280,7 @@ class FileIndexServiceTest extends TestCase
             $this->rootFolder,
             $this->userSession,
             $this->modelFileSupport,
+            $this->cacheFactory,
             $this->logger
         );
 

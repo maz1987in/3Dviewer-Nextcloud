@@ -7,11 +7,25 @@ import { ref, computed } from 'vue'
 import { logger } from '../utils/logger.js'
 import { THEME_SETTINGS } from '../config/viewer-config.js'
 
+// Color palette keys the user can override. We only expose keys the viewer
+// actually consumes: scene background (Three.js scene.background) and grid
+// color (GridHelper). Toolbar chrome stays on Nextcloud's theme to keep the
+// app visually consistent with the rest of the NC UI.
+const PALETTE_KEYS = ['background', 'gridColor']
+const HEX_COLOR_RE = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i
+
 export function useTheme() {
 	// State
 	const currentTheme = ref('auto') // 'auto', 'light', 'dark'
 	const direction = ref('ltr') // 'ltr', 'rtl'
 	const systemTheme = ref('light')
+	// User overrides merged on top of the resolved base theme. null values
+	// mean "fall through to the base theme"; setting a hex string overrides
+	// that key until reset.
+	const customPalette = ref({
+		background: null,
+		gridColor: null,
+	})
 
 	// Computed
 	const resolvedTheme = computed(() => {
@@ -69,28 +83,94 @@ export function useTheme() {
 	const applyThemeColors = (theme) => {
 		const root = document.documentElement
 		const themeColors = THEME_SETTINGS[theme] || THEME_SETTINGS.light
+		// Merge custom overrides on top — non-null custom values win over the base theme.
+		const merged = {
+			background: customPalette.value.background || themeColors.background,
+			gridColor: customPalette.value.gridColor || themeColors.gridColor,
+		}
 
-		// Apply theme colors to CSS variables
-		// Note: We primarily use Nextcloud's existing CSS variables
-		// These are supplementary for 3D viewer specific elements
-		if (themeColors.background) {
-			root.style.setProperty('--viewer-background', themeColors.background)
+		// Apply theme colors to CSS variables. These are supplementary for 3D
+		// viewer-specific elements; toolbar chrome stays on Nextcloud's vars.
+		if (merged.background) {
+			root.style.setProperty('--viewer-background', merged.background)
 		}
-		if (themeColors.gridColor) {
-			root.style.setProperty('--viewer-grid-color', themeColors.gridColor)
-		}
-		if (themeColors.toolbarBg) {
-			root.style.setProperty('--viewer-toolbar-bg', themeColors.toolbarBg)
-		}
-		if (themeColors.toolbarText) {
-			root.style.setProperty('--viewer-toolbar-text', themeColors.toolbarText)
+		if (merged.gridColor) {
+			root.style.setProperty('--viewer-grid-color', merged.gridColor)
 		}
 
 		// Add theme class to body for CSS selectors
 		document.body.classList.remove('theme--light', 'theme--dark')
 		document.body.classList.add(`theme--${theme}`)
 
-		logger.info('useTheme', 'Theme colors applied', { theme, colors: themeColors })
+		logger.info('useTheme', 'Theme colors applied', { theme, colors: merged })
+	}
+
+	/**
+	 * Override one entry in the active palette. Pass `null` to clear the
+	 * override for that key and fall back to the base theme color. Persists
+	 * to localStorage under `threedviewer:customPalette`.
+	 *
+	 * @param {string} key - One of PALETTE_KEYS
+	 * @param {string|null} hex - Hex color string (#rgb or #rrggbb) or null to clear
+	 */
+	const setPaletteColor = (key, hex) => {
+		if (!PALETTE_KEYS.includes(key)) {
+			logger.warn('useTheme', 'Unknown palette key', { key })
+			return
+		}
+		if (hex !== null && !HEX_COLOR_RE.test(hex)) {
+			logger.warn('useTheme', 'Invalid hex color', { key, hex })
+			return
+		}
+		customPalette.value = { ...customPalette.value, [key]: hex }
+		applyThemeColors(resolvedTheme.value)
+		persistCustomPalette()
+	}
+
+	/**
+	 * Clear all palette overrides and fall back to the base theme.
+	 */
+	const resetPalette = () => {
+		customPalette.value = { background: null, gridColor: null }
+		applyThemeColors(resolvedTheme.value)
+		persistCustomPalette()
+	}
+
+	const persistCustomPalette = () => {
+		try {
+			localStorage.setItem('threedviewer:customPalette', JSON.stringify(customPalette.value))
+		} catch (error) {
+			logger.warn('useTheme', 'Failed to save custom palette', error)
+		}
+	}
+
+	const loadCustomPalette = () => {
+		try {
+			const stored = localStorage.getItem('threedviewer:customPalette')
+			if (!stored) return
+			const parsed = JSON.parse(stored)
+			for (const key of PALETTE_KEYS) {
+				const v = parsed?.[key]
+				if (v === null || v === undefined) continue
+				if (HEX_COLOR_RE.test(v)) customPalette.value[key] = v
+			}
+		} catch (error) {
+			logger.warn('useTheme', 'Failed to load custom palette', error)
+		}
+	}
+
+	/**
+	 * Returns the effective palette (base theme + overrides merged) so the UI
+	 * can seed color pickers with the current values.
+	 *
+	 * @return {{background:string,gridColor:string}}
+	 */
+	const getEffectivePalette = () => {
+		const base = THEME_SETTINGS[resolvedTheme.value] || THEME_SETTINGS.light
+		return {
+			background: customPalette.value.background || base.background || '#ffffff',
+			gridColor: customPalette.value.gridColor || base.gridColor || '#888888',
+		}
 	}
 
 	/**
@@ -202,6 +282,9 @@ export function useTheme() {
 		// Use saved direction or auto-detect
 		const detectedDirection = savedDirection || detectLanguageDirection()
 
+		// Load any saved palette overrides before the first apply
+		loadCustomPalette()
+
 		// Apply theme and direction
 		currentTheme.value = savedTheme
 		applyThemeColors(savedTheme === 'auto' ? systemTheme.value : savedTheme)
@@ -273,6 +356,7 @@ export function useTheme() {
 		systemTheme: computed(() => systemTheme.value),
 		direction: computed(() => direction.value),
 		isRTL,
+		customPalette: computed(() => ({ ...customPalette.value })),
 
 		// Methods
 		setTheme,
@@ -284,5 +368,8 @@ export function useTheme() {
 		applyDirection,
 		getThemeText,
 		getThemeIcon,
+		setPaletteColor,
+		resetPalette,
+		getEffectivePalette,
 	}
 }

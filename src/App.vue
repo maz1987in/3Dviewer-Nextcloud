@@ -87,7 +87,6 @@
 					:grid="grid"
 					:axes="axes"
 					:wireframe="wireframe"
-					:background-color="background"
 					:model-loaded="modelLoaded"
 					:has-multiple-source-files="hasMultipleSourceFiles"
 					:performance-mode="performanceMode"
@@ -113,6 +112,7 @@
 					:exploded-view-factor="explodedViewFactor"
 					:is-mobile="isMobile"
 					:cache-stats="cacheStats"
+					:custom-palette="customPalette"
 					:transform-gizmo-active="transformGizmoActive"
 					:transform-gizmo-mode="transformGizmoMode"
 					@reset-view="onReset"
@@ -123,7 +123,6 @@
 					@toggle-grid="grid = !grid"
 					@toggle-axes="axes = !axes"
 					@toggle-wireframe="wireframe = !wireframe"
-					@change-background="onBackgroundChange"
 					@toggle-measurement="onToggleMeasurement"
 					@toggle-annotation="onToggleAnnotation"
 					@toggle-comparison="onToggleComparison"
@@ -132,6 +131,8 @@
 					@reset-transform="onResetTransform"
 					@cycle-performance-mode="onCyclePerformanceMode"
 					@cycle-theme="onCycleTheme"
+					@set-palette-color="onSetPaletteColor"
+					@reset-palette="onResetPalette"
 					@toggle-stats="onToggleStats"
 					@take-screenshot="onTakeScreenshot"
 					@export-model="onExportModel"
@@ -299,6 +300,12 @@ export default {
 			transformGizmoMode: 'translate',
 			performanceMode: 'auto',
 			themeMode: 'auto',
+			// Custom color palette mirrors useTheme.customPalette so the panel
+			// shows the active overrides. Kept in sync via onThemePaletteUpdate.
+			customPalette: {
+				background: null,
+				gridColor: null,
+			},
 			toasts: [],
 			lastSortState: null,
 			prefsLoaded: false,
@@ -736,6 +743,16 @@ export default {
 			this.$refs.viewer?.setTheme?.(mode)
 		},
 
+		onSetPaletteColor({ key, hex }) {
+			this.$refs.viewer?.setPaletteColor?.(key, hex)
+			this.customPalette = { ...this.customPalette, [key]: hex }
+		},
+
+		onResetPalette() {
+			this.$refs.viewer?.resetPalette?.()
+			this.customPalette = { background: null, gridColor: null }
+		},
+
 		// G-code color controls (topbar)
 		onToggleGcodeColorMode() {
 			this.gcodeColorMode = this.gcodeColorMode === 'single' ? 'gradient' : 'single'
@@ -856,9 +873,6 @@ export default {
 			}
 		},
 
-		onBackgroundChange(val) {
-			this.background = val
-		},
 		onTakeScreenshot() {
 			// Trigger screenshot on the viewer
 			this.$refs.viewer?.handleScreenshot?.()

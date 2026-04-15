@@ -35,6 +35,13 @@ export function usePerformance() {
 	const maxDrawCalls = ref(100)
 	const maxMemoryUsage = ref(500) // MB
 
+	// Memory pressure tracking — step down quality when heap approaches the cap
+	const memoryPressureActive = ref(false)
+	const memoryPressureAutoApplied = ref(false)
+	const memoryPressureLastAction = ref(0)
+	const MEMORY_PRESSURE_COOLDOWN_MS = 5000
+	const MEMORY_PRESSURE_RATIO = 0.85
+
 	// Performance monitoring
 	const frameCount = ref(0)
 	const lastTime = ref(0)
@@ -393,6 +400,44 @@ export function usePerformance() {
 		// Auto-optimize if enabled
 		if (autoOptimize.value) {
 			autoOptimizePerformance(renderer, scene)
+			checkMemoryPressure(renderer)
+		}
+	}
+
+	/**
+	 * Detect JS heap memory pressure (Chromium-only API) and step the performance
+	 * mode down to 'low' when it crosses MEMORY_PRESSURE_RATIO of maxMemoryUsage.
+	 * Clears the flag once memory drops back under 70% of the cap so the UI can
+	 * show a one-time "Auto-reduced quality due to memory" notice. Rate-limited by
+	 * MEMORY_PRESSURE_COOLDOWN_MS to avoid thrashing.
+	 *
+	 * @param {THREE.WebGLRenderer} renderer - WebGL renderer used when setting mode
+	 */
+	const checkMemoryPressure = (renderer) => {
+		if (!performance.memory) return
+		const cap = maxMemoryUsage.value
+		if (!cap || cap <= 0) return
+
+		const ratio = memoryUsage.value / cap
+		const now = performance.now()
+		const underCooldown = now - memoryPressureLastAction.value < MEMORY_PRESSURE_COOLDOWN_MS
+
+		if (ratio >= MEMORY_PRESSURE_RATIO && !memoryPressureAutoApplied.value && !underCooldown) {
+			memoryPressureActive.value = true
+			memoryPressureAutoApplied.value = true
+			memoryPressureLastAction.value = now
+			logger.warn('usePerformance', 'Memory pressure detected — stepping down quality', {
+				memoryMB: memoryUsage.value,
+				capMB: cap,
+				ratio: ratio.toFixed(2),
+			})
+			if (performanceMode.value !== 'low') {
+				setPerformanceMode('low', renderer)
+			}
+		} else if (ratio < 0.7 && memoryPressureActive.value) {
+			// Release the flag so UI can stop showing the warning; leave the
+			// performance mode as-is so the user can re-raise it manually.
+			memoryPressureActive.value = false
 		}
 	}
 
@@ -668,6 +713,8 @@ export function usePerformance() {
 		maxTriangles,
 		maxDrawCalls,
 		maxMemoryUsage,
+		memoryPressureActive,
+		memoryPressureAutoApplied,
 		performanceHistory,
 
 		// Computed

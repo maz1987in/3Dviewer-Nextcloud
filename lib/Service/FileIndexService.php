@@ -9,18 +9,77 @@ use OCA\ThreeDViewer\Db\FileIndex;
 use OCA\ThreeDViewer\Db\FileIndexMapper;
 use OCP\Files\File;
 use OCP\Files\IRootFolder;
+use OCP\ICache;
+use OCP\ICacheFactory;
 use OCP\IUserSession;
 use Psr\Log\LoggerInterface;
 
 class FileIndexService
 {
+    private const PROGRESS_CACHE_NS = 'threedviewer-index-progress';
+    private const PROGRESS_TTL = 3600; // 1 hour
+
+    private ?ICache $progressCache = null;
+
     public function __construct(
         private readonly FileIndexMapper $fileIndexMapper,
         private readonly IRootFolder $rootFolder,
         private readonly IUserSession $userSession,
         private readonly ModelFileSupport $modelFileSupport,
+        private readonly ICacheFactory $cacheFactory,
         private readonly LoggerInterface $logger,
     ) {
+    }
+
+    private function getProgressCache(): ICache
+    {
+        if ($this->progressCache === null) {
+            $this->progressCache = $this->cacheFactory->createDistributed(self::PROGRESS_CACHE_NS);
+        }
+
+        return $this->progressCache;
+    }
+
+    /**
+     * Get indexing progress for the given user.
+     *
+     * @return array{active: bool, processed: int, total: int, percent: int, startedAt: ?int, updatedAt: ?int}
+     */
+    public function getIndexProgress(string $userId): array
+    {
+        $raw = $this->getProgressCache()->get($userId);
+        if (!is_array($raw)) {
+            return [
+                'active' => false,
+                'processed' => 0,
+                'total' => 0,
+                'percent' => 0,
+                'startedAt' => null,
+                'updatedAt' => null,
+            ];
+        }
+        $total = max(0, (int) ($raw['total'] ?? 0));
+        $processed = max(0, (int) ($raw['processed'] ?? 0));
+        $percent = $total > 0 ? (int) floor(min(100, ($processed / $total) * 100)) : 0;
+
+        return [
+            'active' => (bool) ($raw['active'] ?? false),
+            'processed' => $processed,
+            'total' => $total,
+            'percent' => $percent,
+            'startedAt' => isset($raw['startedAt']) ? (int) $raw['startedAt'] : null,
+            'updatedAt' => isset($raw['updatedAt']) ? (int) $raw['updatedAt'] : null,
+        ];
+    }
+
+    private function setProgress(string $userId, array $data): void
+    {
+        $this->getProgressCache()->set($userId, $data, self::PROGRESS_TTL);
+    }
+
+    private function clearProgress(string $userId): void
+    {
+        $this->getProgressCache()->remove($userId);
     }
 
     /**
@@ -120,6 +179,9 @@ class FileIndexService
 
     /**
      * Reindex all files for a user.
+     *
+     * Tracks progress in the distributed cache so a parallel GET /api/files/index-status
+     * request can show a progress bar while the POST /api/files/index request blocks.
      */
     public function reindexUser(string $userId): void
     {
@@ -135,14 +197,81 @@ class FileIndexService
                 'root_path' => $userFolder->getPath(),
             ]);
 
+            // Pre-scan to count total 3D files for progress bar. Uses the same
+            // folder-skipping rules as the actual index pass.
+            $total = $this->countSupportedFiles($userFolder);
+            $now = time();
+            $this->setProgress($userId, [
+                'active' => true,
+                'total' => $total,
+                'processed' => 0,
+                'startedAt' => $now,
+                'updatedAt' => $now,
+            ]);
+
             // Recursively index all 3D files
             $this->indexFolder($userFolder, $userId);
+
+            // Mark done (keep a non-active snapshot for a minute so UI can read final state)
+            $this->setProgress($userId, [
+                'active' => false,
+                'total' => $total,
+                'processed' => $total,
+                'startedAt' => $now,
+                'updatedAt' => time(),
+            ]);
         } catch (\Throwable $e) {
             $this->logger->error('Failed to reindex user files: ' . $e->getMessage(), [
                 'user_id' => $userId,
                 'exception' => $e,
             ]);
+            // Best-effort cleanup so a failed run doesn't leave a "100%" ghost in the cache
+            $this->clearProgress($userId);
         }
+    }
+
+    /**
+     * Count how many supported 3D files live under the folder, honoring the
+     * same skip rules (hidden folders, .no3d markers) as indexFolder.
+     */
+    private function countSupportedFiles(\OCP\Files\Folder $folder): int
+    {
+        try {
+            $folderName = $folder->getName();
+            if (str_starts_with($folderName, '.') && $folderName !== '') {
+                return 0;
+            }
+            if ($folder->nodeExists('.no3d')) {
+                return 0;
+            }
+
+            $count = 0;
+            foreach ($folder->getDirectoryListing() as $node) {
+                if ($node instanceof File) {
+                    $ext = strtolower($node->getExtension());
+                    if ($this->modelFileSupport->isSupported($ext)) {
+                        $count++;
+                    }
+                } elseif ($node instanceof \OCP\Files\Folder) {
+                    $count += $this->countSupportedFiles($node);
+                }
+            }
+
+            return $count;
+        } catch (\Throwable $e) {
+            return 0;
+        }
+    }
+
+    private function bumpProgress(string $userId): void
+    {
+        $current = $this->getProgressCache()->get($userId);
+        if (!is_array($current)) {
+            return;
+        }
+        $current['processed'] = (int) ($current['processed'] ?? 0) + 1;
+        $current['updatedAt'] = time();
+        $this->setProgress($userId, $current);
     }
 
     /**
@@ -177,7 +306,11 @@ class FileIndexService
 
             foreach ($children as $node) {
                 if ($node instanceof File) {
-                    $this->indexFile($node, $userId);
+                    $ext = strtolower($node->getExtension());
+                    if ($this->modelFileSupport->isSupported($ext)) {
+                        $this->indexFile($node, $userId);
+                        $this->bumpProgress($userId);
+                    }
                 } elseif ($node instanceof \OCP\Files\Folder) {
                     $this->indexFolder($node, $userId);
                 }

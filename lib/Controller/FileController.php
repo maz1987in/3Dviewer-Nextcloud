@@ -283,6 +283,31 @@ class FileController extends BaseController
     }
 
     /**
+     * Return current indexing progress for the logged-in user.
+     * Poll this while POST /api/files/index is in flight to show a progress bar.
+     */
+    #[NoAdminRequired]
+    #[NoCSRFRequired]
+    #[FrontpageRoute(verb: 'GET', url: '/api/files/index-status')]
+    public function indexStatus(): JSONResponse
+    {
+        try {
+            $user = $this->userSession->getUser();
+            if ($user === null) {
+                return $this->responseBuilder->createUnauthorizedResponse('User not authenticated');
+            }
+            $status = $this->fileIndexService->getIndexProgress($user->getUID());
+
+            return new JSONResponse([
+                'status' => 'success',
+                'data' => $status,
+            ]);
+        } catch (\Throwable $e) {
+            return $this->handleException($e);
+        }
+    }
+
+    /**
      * List 3D files in user's folder.
      * Supports sorting: folders, type, date, favorites.
      */

@@ -117,20 +117,6 @@
 								<span class="toggle-switch" :class="{ on: wireframe }" />
 								<span class="toggle-text">{{ t('threedviewer', 'Wireframe') }}</span>
 							</label>
-							<div class="tool-group">
-								<label class="tool-label-small">{{ t('threedviewer', 'Background') }}</label>
-								<div class="color-picker-wrapper">
-									<input type="color"
-										:value="backgroundColor || '#ffffff'"
-										class="color-input"
-										@input="emit('change-background', $event.target.value)">
-									<button class="reset-color-btn"
-										:title="t('threedviewer', 'Reset background')"
-										@click="emit('change-background', null)">
-										{{ t('threedviewer', 'Reset') }}
-									</button>
-								</div>
-							</div>
 							<!-- Lighting Presets -->
 							<div v-if="lightingPresets.length > 0" class="tool-group">
 								<label class="tool-label-small">{{ t('threedviewer', 'Lighting') }}</label>
@@ -447,6 +433,43 @@
 								<span class="tool-icon">{{ getThemeIcon() }}</span>
 								<span class="tool-label">{{ t('threedviewer', 'Theme') }}: {{ getThemeText() }}</span>
 							</button>
+							<div class="tool-group palette-group">
+								<label class="tool-label-small">{{ t('threedviewer', 'Custom palette') }}</label>
+								<div class="palette-row">
+									<span class="palette-key">{{ t('threedviewer', 'Background') }}</span>
+									<input type="color"
+										class="palette-swatch"
+										:value="paletteValueFor('background')"
+										:aria-label="t('threedviewer', 'Background color')"
+										@input="onPaletteInput('background', $event.target.value)">
+									<button v-if="customPalette.background"
+										class="palette-clear"
+										:title="t('threedviewer', 'Reset to theme default')"
+										@click="emit('set-palette-color', { key: 'background', hex: null })">
+										×
+									</button>
+								</div>
+								<div class="palette-row">
+									<span class="palette-key">{{ t('threedviewer', 'Grid') }}</span>
+									<input type="color"
+										class="palette-swatch"
+										:value="paletteValueFor('gridColor')"
+										:aria-label="t('threedviewer', 'Grid color')"
+										@input="onPaletteInput('gridColor', $event.target.value)">
+									<button v-if="customPalette.gridColor"
+										class="palette-clear"
+										:title="t('threedviewer', 'Reset to theme default')"
+										@click="emit('set-palette-color', { key: 'gridColor', hex: null })">
+										×
+									</button>
+								</div>
+								<button v-if="hasAnyPaletteOverride"
+									class="tool-btn palette-reset"
+									@click="emit('reset-palette')">
+									<span class="tool-icon">↺</span>
+									<span class="tool-label">{{ t('threedviewer', 'Reset all palette colors') }}</span>
+								</button>
+							</div>
 							<!-- Cache Management -->
 							<div v-if="cacheStats.enabled" class="tool-group cache-group">
 								<label class="tool-label-small">{{ t('threedviewer', 'Dependency Cache') }}</label>
@@ -493,7 +516,7 @@
 </template>
 
 <script>
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 // eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
 import { translate as t } from '@nextcloud/l10n'
 
@@ -509,7 +532,6 @@ export default {
 		grid: { type: Boolean, default: true },
 		axes: { type: Boolean, default: true },
 		wireframe: { type: Boolean, default: false },
-		backgroundColor: { type: String, default: null },
 
 		// Tool states
 		measurementMode: { type: Boolean, default: false },
@@ -563,6 +585,12 @@ export default {
 			type: Object,
 			default: () => ({ enabled: false, count: 0, sizeMB: 0, hits: 0, misses: 0, hitRate: 0 }),
 		},
+
+		// Custom color palette — null per-key means "use base theme color"
+		customPalette: {
+			type: Object,
+			default: () => ({ background: null, gridColor: null }),
+		},
 	},
 
 	emits: [
@@ -576,7 +604,6 @@ export default {
 		'toggle-grid',
 		'toggle-axes',
 		'toggle-wireframe',
-		'change-background',
 		'toggle-measurement',
 		'toggle-annotation',
 		'toggle-comparison',
@@ -585,6 +612,8 @@ export default {
 		'reset-transform',
 		'cycle-performance-mode',
 		'cycle-theme',
+		'set-palette-color',
+		'reset-palette',
 		'toggle-stats',
 		'take-screenshot',
 		'export-model',
@@ -723,6 +752,25 @@ export default {
 			}
 		}
 
+		// Palette helpers ----------------------------------------------------
+		// Fall-through defaults when the user hasn't overridden a key yet —
+		// these mirror the `light` theme in VIEWER_CONFIG.THEME_SETTINGS and
+		// exist purely so the color input shows a sensible initial swatch.
+		const PALETTE_DEFAULTS = {
+			background: '#ffffff',
+			gridColor: '#888888',
+		}
+		const paletteValueFor = (key) => {
+			return (props.customPalette && props.customPalette[key]) || PALETTE_DEFAULTS[key]
+		}
+		const onPaletteInput = (key, hex) => {
+			emit('set-palette-color', { key, hex })
+		}
+		const hasAnyPaletteOverride = computed(() => {
+			const p = props.customPalette || {}
+			return !!(p.background || p.gridColor)
+		})
+
 		return {
 			t,
 			isOpen,
@@ -737,6 +785,9 @@ export default {
 			cycleTheme,
 			getThemeText,
 			getThemeIcon,
+			paletteValueFor,
+			onPaletteInput,
+			hasAnyPaletteOverride,
 			emit,
 		}
 	},
@@ -1288,6 +1339,59 @@ export default {
 /* Cache Management */
 .cache-group {
 	margin-top: 0;
+}
+
+.palette-group {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding: 8px;
+	background: var(--color-background-dark);
+	border: 1px solid var(--color-border);
+	border-radius: 4px;
+}
+
+.palette-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.palette-key {
+	flex: 1;
+	font-size: 12px;
+	color: var(--color-text-maxcontrast);
+}
+
+.palette-swatch {
+	width: 36px;
+	height: 24px;
+	border: 1px solid var(--color-border);
+	border-radius: 4px;
+	background: transparent;
+	cursor: pointer;
+	padding: 0;
+}
+
+.palette-clear {
+	width: 22px;
+	height: 22px;
+	border: none;
+	background: var(--color-background-hover);
+	color: var(--color-text-maxcontrast);
+	border-radius: 3px;
+	cursor: pointer;
+	font-size: 14px;
+	line-height: 22px;
+	padding: 0;
+}
+
+.palette-clear:hover {
+	background: var(--color-background-darker);
+}
+
+.palette-reset {
+	margin-top: 4px;
 }
 
 .cache-info {

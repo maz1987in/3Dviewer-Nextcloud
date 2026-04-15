@@ -152,6 +152,18 @@
 							{{ t('threedviewer', 'Re-index now') }}
 						</NcButton>
 					</div>
+					<div v-if="indexProgress" class="index-progress-row">
+						<NcProgressBar :value="indexProgress.percent" :max="100" size="medium" />
+						<span class="index-progress-text">
+							<template v-if="indexProgress.total > 0">
+								{{ indexProgress.processed }} / {{ indexProgress.total }}
+								({{ indexProgress.percent }}%)
+							</template>
+							<template v-else>
+								{{ t('threedviewer', 'Scanning…') }}
+							</template>
+						</span>
+					</div>
 
 					<!-- Custom Clear Cache Field -->
 					<div v-else-if="field.type === 'custom-clear-cache'" class="setting-row">
@@ -222,7 +234,7 @@
 </template>
 
 <script>
-import { NcSettingsSection, NcButton, NcCheckboxRadioSwitch, NcTextField, NcSelect, NcSettingsSelectGroup } from '@nextcloud/vue'
+import { NcSettingsSection, NcButton, NcCheckboxRadioSwitch, NcTextField, NcSelect, NcSettingsSelectGroup, NcProgressBar } from '@nextcloud/vue'
 import { generateUrl, imagePath } from '@nextcloud/router'
 // eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
 import axios from '@nextcloud/axios'
@@ -259,6 +271,7 @@ export default {
 		NcTextField,
 		NcSelect,
 		NcSettingsSelectGroup,
+		NcProgressBar,
 		ContentSave,
 		Sync,
 		History,
@@ -272,6 +285,8 @@ export default {
 			loading: true,
 			saving: false,
 			reindexing: false,
+		// Live indexing progress polled from /api/files/index-status while reindexing
+		indexProgress: null,
 			clearingThumbnails: false,
 			clearingCache: false,
 			cacheInfo: null,
@@ -729,15 +744,33 @@ export default {
 
 		async reindexFiles() {
 			this.reindexing = true
+			this.indexProgress = { active: true, processed: 0, total: 0, percent: 0 }
+			// Poll /api/files/index-status in parallel with the blocking POST
+			// so we can surface a live progress bar. Clean up on finish or error.
+			const statusUrl = generateUrl('/apps/threedviewer/api/files/index-status')
+			const poll = async () => {
+				try {
+					const res = await axios.get(statusUrl)
+					const data = res.data?.data
+					if (data) this.indexProgress = data
+				} catch (_) {
+					// swallow poll failures — the main POST will surface the real error
+				}
+			}
+			const pollTimer = setInterval(poll, 750)
 			try {
 				const url = generateUrl('/apps/threedviewer/api/files/index')
 				await axios.post(url)
+				await poll() // final snapshot
 				showSuccess(this.t('threedviewer', 'Files indexed successfully'))
 			} catch (e) {
 				console.error('Error reindexing files', e)
 				showError(this.t('threedviewer', 'Could not re-index files'))
 			} finally {
+				clearInterval(pollTimer)
 				this.reindexing = false
+				// Keep the last progress visible for a second so users see 100 %
+				setTimeout(() => { this.indexProgress = null }, 1500)
 			}
 		},
 
@@ -997,5 +1030,19 @@ input[type="color"] {
 	border-radius: 4px;
 	font-family: monospace;
 	font-style: normal;
+}
+
+.index-progress-row {
+	grid-column: 1 / -1;
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin-top: 8px;
+}
+
+.index-progress-text {
+	font-size: 12px;
+	color: var(--color-text-maxcontrast);
+	white-space: nowrap;
 }
 </style>

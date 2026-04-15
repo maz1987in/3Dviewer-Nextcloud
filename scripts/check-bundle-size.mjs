@@ -16,8 +16,8 @@ const pipe = promisify(pipeline);
 // Based on current build sizes with reasonable headroom for growth
 const BUDGETS = [
   { pattern: /^threedviewer-main\.mjs$/, name: 'main', maxRaw: 5000, maxGzip: 2000 }, // Entry point
-  { pattern: /^gltf-.*\.chunk\.mjs$/, name: 'gltf-loader', maxRaw: 20000, maxGzip: 5000 }, // GLTF loader chunk
-  { pattern: /^App-.*\.chunk\.mjs$/, name: 'app', maxRaw: 345000, maxGzip: 94000 }, // Main app component (includes clipping plane + 6-plane clipping box, lighting, bookmarks, timeline, volume/surface area, annotation JSON I/O, scene diff overlay, annotation backend persistence, file browser search & filters, shareable view URL)
+  { pattern: /^gltf-.*\.chunk\.mjs$/, name: 'gltf-loader', maxRaw: 22000, maxGzip: 6000 }, // GLTF loader chunk (includes decoder worker pool tuning via setWorkerLimit)
+  { pattern: /^App-.*\.chunk\.mjs$/, name: 'app', maxRaw: 360000, maxGzip: 100000 }, // Main app component (includes clipping plane + 6-plane clipping box, lighting, bookmarks, timeline, volume/surface area, annotation JSON I/O, scene diff overlay, annotation backend persistence, file browser search & filters, shareable view URL, measurement suite with per-mesh + watertightness + units + copy, custom color palette editor, memory pressure auto step-down, indexing status polling, adaptive texture streaming)
   { pattern: /^three-core-.*\.chunk\.mjs$/, name: 'three-core', maxRaw: 800000, maxGzip: 210000 }, // Three.js core
   { pattern: /^index-[A-Z][a-z].*\.chunk\.mjs$/, name: 'index', maxRaw: 1050000, maxGzip: 285000 }, // Main index chunk (exclude tiny index-CQjwnjLc)
   { pattern: /^NcSelect-.*\.chunk\.mjs$/, name: 'nc-select', maxRaw: 1250000, maxGzip: 320000 }, // Nextcloud Select component

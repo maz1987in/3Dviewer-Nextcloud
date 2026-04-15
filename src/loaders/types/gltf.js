@@ -767,14 +767,23 @@ class GltfLoader extends BaseLoader {
 	 * @param {boolean} hasMeshopt - Whether Meshopt is available
 	 */
 	async configureDecoders(renderer, hasDraco, hasKtx2, hasMeshopt) {
+		// Tune worker pool size to physical core count, capped at 4 to keep headroom
+		// for the main thread and competing tabs. Falls back to 2 on browsers that
+		// report navigator.hardwareConcurrency === 0 (very old or locked-down devices).
+		const hw = (typeof navigator !== 'undefined' && navigator.hardwareConcurrency) || 0
+		const workerLimit = Math.max(2, Math.min(4, hw - 1 || 2))
+
 		// Configure DRACO loader
 		if (hasDraco) {
 			try {
 				const { DRACOLoader } = await import('three/examples/jsm/loaders/DRACOLoader.js')
 				const dracoLoader = new DRACOLoader()
 				dracoLoader.setDecoderPath(generateUrl('/apps/threedviewer/draco/'))
+				if (typeof dracoLoader.setWorkerLimit === 'function') {
+					dracoLoader.setWorkerLimit(workerLimit)
+				}
 				this.loader.setDRACOLoader(dracoLoader)
-				this.logInfo('DRACO loader configured', { path: generateUrl('/apps/threedviewer/draco/') })
+				this.logInfo('DRACO loader configured', { path: generateUrl('/apps/threedviewer/draco/'), workerLimit })
 			} catch (error) {
 				this.logWarning('DRACO loader unavailable', { error: error.message })
 			}
@@ -786,9 +795,12 @@ class GltfLoader extends BaseLoader {
 				const { KTX2Loader } = await import('three/examples/jsm/loaders/KTX2Loader.js')
 				const ktx2Loader = new KTX2Loader()
 				ktx2Loader.setTranscoderPath(generateUrl('/apps/threedviewer/basis/'))
+				if (typeof ktx2Loader.setWorkerLimit === 'function') {
+					ktx2Loader.setWorkerLimit(workerLimit)
+				}
 				ktx2Loader.detectSupport(renderer)
 				this.loader.setKTX2Loader(ktx2Loader)
-				this.logInfo('KTX2 loader configured', { path: generateUrl('/apps/threedviewer/basis/') })
+				this.logInfo('KTX2 loader configured', { path: generateUrl('/apps/threedviewer/basis/'), workerLimit })
 			} catch (error) {
 				this.logWarning('KTX2 loader unavailable', { error: error.message })
 			}

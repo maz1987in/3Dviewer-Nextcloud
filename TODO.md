@@ -209,23 +209,23 @@ Audited and fixed ARIA roles and keyboard navigation.
 4. ~~View State Bookmarks~~ ✅ Implemented
 5. ~~Lighting Presets~~ ✅ Implemented
 6. ~~Basic transform gizmos (translate / rotate / scale)~~ ✅ Implemented
-7. Volume & surface area measurement
-8. WebXR preview (VR mode) — Three.js has built-in WebXR support
-9. ZIP packaging of multi-file models (+ dependencies)
-10. Texture optimization pipeline (resample / compress)
-11. Annotation export / import JSON schema
-12. Scene comparison diff overlay (bounding box / vertex count changes)
-13. Annotations Persistence — Save to Nextcloud backend per-file JSON
-14. Advanced File Search & Filters — Search box + filters in file browser
-15. Clipping Box / Section Analysis — Draggable bounding box (extends clipping plane to 6 planes)
-16. Collaborative Viewing Sessions — Share live camera view via WebSocket
+7. ~~Volume & surface area measurement~~ ✅ Implemented (per-mesh breakdown, watertightness check, unit picker, viewport mesh pick, copy-to-clipboard)
+8. ~~WebXR preview (VR mode)~~ ✅ Implemented
+9. ~~ZIP packaging of multi-file models (+ dependencies)~~ ✅ Implemented (fflate zipSync, preserved subdirectory layout, UI-gated on multi-file models)
+10. ~~Texture optimization pipeline (resample / compress)~~ ✅ Implemented
+11. ~~Annotation export / import JSON schema~~ ✅ Implemented
+12. ~~Scene comparison diff overlay (bounding box / vertex count changes)~~ ✅ Implemented
+13. ~~Annotations Persistence — Save to Nextcloud backend per-file JSON~~ ✅ Implemented
+14. ~~Advanced File Search & Filters — Search box + filters in file browser~~ ✅ Implemented
+15. ~~Clipping Box / Section Analysis — Draggable bounding box (extends clipping plane to 6 planes)~~ ✅ Implemented
+16. ~~Collaborative Viewing Sessions — Share live camera view via URL~~ ✅ Implemented (Option A: shareable camera URL)
 
 ### Optimization / UX
-17. Custom user color themes beyond system (schema & palette editor)  
-18. Adaptive texture streaming (prioritize visible materials)  
-19. Parallel decoder loading / worker pool tuning  
-20. Automatic memory pressure detection & quality step-down  
-21. Background indexing status indicator / progress API
+17. ~~Custom user color themes beyond system (schema & palette editor)~~ ✅ Implemented (palette with scene background + grid color pickers in Settings panel, localStorage persistence, grid rebuild + scene bg apply on change — toolbar chrome stays on Nextcloud's theme vars)
+18. ~~Adaptive texture streaming (prioritize visible materials)~~ ✅ Implemented (`useProgressiveTextures` sorts queue by frustum visibility before each batch when `setStreamingContext(camera, scene)` is set — scaffolding ready for future loader consumers)
+19. ~~Parallel decoder loading / worker pool tuning~~ ✅ Implemented (`DRACOLoader.setWorkerLimit` + `KTX2Loader.setWorkerLimit` tuned to `navigator.hardwareConcurrency - 1`, capped at 4, floor 2)
+20. ~~Automatic memory pressure detection & quality step-down~~ ✅ Implemented (`checkMemoryPressure` in `usePerformance` — auto-switches to Low when heap > 85% cap; one-time toast; clears flag under 70%)
+21. ~~Background indexing status indicator / progress API~~ ✅ Implemented (`GET /api/files/index-status` via distributed cache, PersonalSettings polls every 750 ms with progress bar)
 
 ---
 

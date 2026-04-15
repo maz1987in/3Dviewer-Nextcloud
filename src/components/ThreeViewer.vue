@@ -133,30 +133,103 @@
 
 				<!-- Dimensions Section -->
 				<div class="stats-section">
-					<h4>{{ t('threedviewer', 'Dimensions') }}</h4>
+					<div class="stats-section-header">
+						<h4>{{ t('threedviewer', 'Measurements') }}</h4>
+						<select
+							class="stats-unit-select"
+							:value="statsCurrentUnit"
+							:aria-label="t('threedviewer', 'Display unit')"
+							@change="setStatsUnit($event.target.value)">
+							<option v-for="u in statsAvailableUnits" :key="u.value" :value="u.value">
+								{{ u.label }} ({{ u.suffix }})
+							</option>
+						</select>
+					</div>
+					<!-- Watertightness badge -->
+					<div class="stats-watertight-row">
+						<span v-if="modelStats.allWatertight === true" class="stats-badge stats-badge-ok">
+							✓ {{ t('threedviewer', 'Watertight — volume is reliable') }}
+						</span>
+						<span v-else-if="modelStats.allWatertight === false" class="stats-badge stats-badge-warn" :title="t('threedviewer', 'Open edges detected — computed volume treats the mesh as if closed and may not match the real enclosed volume.')">
+							⚠ {{ t('threedviewer', 'Not watertight — volume may be unreliable') }}
+						</span>
+						<span v-else class="stats-badge stats-badge-unknown" :title="t('threedviewer', 'Watertightness check skipped for non-indexed or very large meshes.')">
+							? {{ t('threedviewer', 'Watertightness unknown') }}
+						</span>
+					</div>
+					<!-- Selected mesh header (if any) -->
+					<div v-if="activeMeshStats" class="stats-selected-row">
+						<span class="stats-selected-label">
+							{{ t('threedviewer', 'Focused:') }} <strong>{{ activeMeshStats.name }}</strong>
+						</span>
+						<button class="stats-link-btn" type="button" @click="clearStatsMeshSelection">
+							{{ t('threedviewer', 'Show all') }}
+						</button>
+					</div>
 					<div class="stat-row">
 						<span>{{ t('threedviewer', 'Width (X)') }}:</span>
-						<span class="stat-value">{{ modelStats.boundingBox.x.toFixed(2) }} units</span>
+						<span class="stat-value">{{ formatStatNumber(modelStats.boundingBox.x * statsLengthScale) }} {{ statsUnitConfig.suffix }}</span>
 					</div>
 					<div class="stat-row">
 						<span>{{ t('threedviewer', 'Height (Y)') }}:</span>
-						<span class="stat-value">{{ modelStats.boundingBox.y.toFixed(2) }} units</span>
+						<span class="stat-value">{{ formatStatNumber(modelStats.boundingBox.y * statsLengthScale) }} {{ statsUnitConfig.suffix }}</span>
 					</div>
 					<div class="stat-row">
 						<span>{{ t('threedviewer', 'Depth (Z)') }}:</span>
-						<span class="stat-value">{{ modelStats.boundingBox.z.toFixed(2) }} units</span>
+						<span class="stat-value">{{ formatStatNumber(modelStats.boundingBox.z * statsLengthScale) }} {{ statsUnitConfig.suffix }}</span>
 					</div>
 					<div class="stat-row">
 						<span>{{ t('threedviewer', 'Surface Area') }}:</span>
-						<span class="stat-value">{{ formatStatNumber(modelStats.surfaceArea) }} sq. units</span>
+						<span class="stat-value">{{ formatStatNumber(activeSurfaceArea * statsAreaScale) }} {{ statsUnitConfig.suffix }}²</span>
 					</div>
 					<div class="stat-row">
 						<span>{{ t('threedviewer', 'Mesh Volume') }}:</span>
-						<span class="stat-value">{{ formatStatNumber(modelStats.meshVolume) }} cu. units</span>
+						<span class="stat-value">{{ formatStatNumber(activeVolume * statsVolumeScale) }} {{ statsUnitConfig.suffix }}³</span>
 					</div>
-					<div class="stat-row">
+					<div v-if="!activeMeshStats" class="stat-row">
 						<span>{{ t('threedviewer', 'Bounding Box Vol.') }}:</span>
-						<span class="stat-value">{{ formatStatNumber(modelStats.volume) }} cu. units</span>
+						<span class="stat-value">{{ formatStatNumber(modelStats.volume * statsVolumeScale) }} {{ statsUnitConfig.suffix }}³</span>
+					</div>
+					<!-- Per-mesh breakdown (only when >1 mesh) -->
+					<div v-if="modelStats.perMesh && modelStats.perMesh.length > 1" class="per-mesh-panel">
+						<div class="per-mesh-header">
+							<span>{{ t('threedviewer', 'Per mesh') }} ({{ modelStats.perMesh.length }})</span>
+						</div>
+						<ul class="per-mesh-list">
+							<li
+								v-for="mesh in modelStats.perMesh"
+								:key="mesh.uuid"
+								class="per-mesh-item"
+								:class="{ 'is-selected': statsSelectedMeshUuid === mesh.uuid }"
+								:title="t('threedviewer', 'Click to focus this mesh')"
+								@click="selectStatsMesh(mesh.uuid)">
+								<span class="per-mesh-name">{{ mesh.name }}</span>
+								<span class="per-mesh-meta">
+									{{ formatStatNumber(mesh.surfaceArea * statsAreaScale) }} {{ statsUnitConfig.suffix }}² ·
+									{{ formatStatNumber(mesh.volume * statsVolumeScale) }} {{ statsUnitConfig.suffix }}³
+								</span>
+								<span v-if="mesh.watertight === false" class="per-mesh-flag" :title="t('threedviewer', 'Open mesh — volume is approximate')">⚠</span>
+								<span v-else-if="mesh.watertight === true" class="per-mesh-flag per-mesh-flag-ok" :title="t('threedviewer', 'Watertight')">✓</span>
+							</li>
+						</ul>
+					</div>
+					<!-- Action bar: viewport pick + copy -->
+					<div class="stats-actions">
+						<button
+							class="stats-action-btn"
+							type="button"
+							:class="{ 'is-active': statsIsPickingMesh }"
+							:title="t('threedviewer', 'Click a mesh in the viewport to focus it')"
+							@click="toggleStatsMeshPick">
+							{{ statsIsPickingMesh ? t('threedviewer', 'Click a mesh…') : t('threedviewer', 'Pick mesh in viewport') }}
+						</button>
+						<button
+							class="stats-action-btn"
+							type="button"
+							:title="t('threedviewer', 'Copy measurements to clipboard')"
+							@click="copyMeasurementReport">
+							{{ t('threedviewer', 'Copy measurements') }}
+						</button>
 					</div>
 				</div>
 
@@ -630,6 +703,8 @@ export default {
 		const CACHE_STATS_UPDATE_INTERVAL = 2000 // Update cache stats every 2 seconds (more responsive)
 		const performanceSuggestionCooldown = ref(0)
 		const performanceModeAutoApplied = ref(false)
+		// One-shot viewport mesh-pick mode toggled from the stats panel
+		const isPickingMesh = ref(false)
 
 		// Composables
 		const camera = useCamera()
@@ -678,6 +753,24 @@ export default {
 		const hasAnimationsComputed = computed(() => animation.hasAnimations.value)
 		const isAnimationPlayingComputed = computed(() => animation.isPlaying.value)
 		const isAnimationLoopingComputed = computed(() => animation.isLooping.value)
+
+		// Stats "focus" — if a mesh is selected, dimensions/area/volume show its numbers
+		// instead of the whole model's. Fall back to totals when no selection.
+		const activeMeshStats = computed(() => {
+			const uuid = modelStatsComposable.selectedMeshUuid.value
+			if (!uuid || !modelStatsComposable.modelStats.value?.perMesh) return null
+			return modelStatsComposable.modelStats.value.perMesh.find(m => m.uuid === uuid) || null
+		})
+		const activeSurfaceArea = computed(() => {
+			const focus = activeMeshStats.value
+			if (focus) return focus.surfaceArea
+			return modelStatsComposable.modelStats.value?.surfaceArea || 0
+		})
+		const activeVolume = computed(() => {
+			const focus = activeMeshStats.value
+			if (focus) return focus.volume
+			return modelStatsComposable.modelStats.value?.meshVolume || 0
+		})
 
 		// Methods
 		const init = async () => {
@@ -739,6 +832,11 @@ export default {
 
 				// Initialize bookmarks
 				bookmarksComposable.init(camera.camera.value, camera.controls.value)
+
+				// Register camera + scene with the progressive texture scheduler so
+				// any queued textures get re-ordered by frustum visibility before
+				// each batch. No-op when nothing is ever queued.
+				progressiveTexturesComposable.setStreamingContext(camera.camera.value, scene.value)
 
 				// Initialize performance monitoring
 				performance.initPerformance(renderer.value)
@@ -903,11 +1001,13 @@ export default {
 		}
 
 		const setupHelpers = () => {
-			// Grid helper - use config values for consistency
+			// Grid helper - use config values for consistency; custom palette
+			// color wins over the default so user-chosen grid tint applies.
 			if (props.showGrid) {
 				const gridSize = VIEWER_CONFIG.grid?.defaultSize || 10
 				const gridDivisions = VIEWER_CONFIG.grid?.defaultDivisions || 10
-				const gridColor = VIEWER_CONFIG.grid?.colorGrid || 0x00ff00
+				const palette = themeComposable.getEffectivePalette?.()
+				const gridColor = palette?.gridColor || VIEWER_CONFIG.grid?.colorGrid || 0x00ff00
 
 				grid.value = markRaw(new THREE.GridHelper(gridSize, gridDivisions, gridColor, gridColor))
 				grid.value.material.opacity = VIEWER_CONFIG.grid?.opacity || 1.0
@@ -920,6 +1020,34 @@ export default {
 				const axesSize = VIEWER_CONFIG.axes?.size || 5
 				axes.value = markRaw(new THREE.AxesHelper(axesSize))
 				scene.value.add(axes.value)
+			}
+		}
+
+		/**
+		 * Rebuild the grid helper in place so a new palette color takes effect
+		 * without toggling showGrid. Called by the palette watcher below.
+		 */
+		const rebuildGridForPalette = () => {
+			if (!scene.value) return
+			if (grid.value) {
+				scene.value.remove(grid.value)
+				grid.value.geometry?.dispose?.()
+				if (Array.isArray(grid.value.material)) {
+					grid.value.material.forEach(m => m.dispose?.())
+				} else {
+					grid.value.material?.dispose?.()
+				}
+				grid.value = null
+			}
+			if (props.showGrid) {
+				const gridSize = VIEWER_CONFIG.grid?.defaultSize || 10
+				const gridDivisions = VIEWER_CONFIG.grid?.defaultDivisions || 10
+				const palette = themeComposable.getEffectivePalette?.()
+				const gridColor = palette?.gridColor || VIEWER_CONFIG.grid?.colorGrid || 0x00ff00
+				grid.value = markRaw(new THREE.GridHelper(gridSize, gridDivisions, gridColor, gridColor))
+				grid.value.material.opacity = VIEWER_CONFIG.grid?.opacity || 1.0
+				grid.value.material.transparent = VIEWER_CONFIG.grid?.transparent || false
+				scene.value.add(grid.value)
 			}
 		}
 
@@ -1794,6 +1922,12 @@ export default {
 		}
 
 		const onCanvasClick = (event) => {
+			// Handle stats mesh-pick mode (one-shot)
+			if (isPickingMesh.value) {
+				handleMeshPickClick(event)
+				return
+			}
+
 			// Handle measurement clicks
 			if (measurement.isActive.value) {
 				measurement.handleClick(event, camera.camera.value)
@@ -1802,6 +1936,101 @@ export default {
 			// Handle annotation clicks
 			if (annotation.isActive.value) {
 				annotation.handleClick(event, camera.camera.value)
+			}
+		}
+
+		/**
+		 * One-shot pick of a mesh in the viewport to focus the stats panel.
+		 * Raycasts against visible model meshes (excludes helpers/gizmos), then
+		 * surfaces the hit mesh UUID to the model-stats composable.
+		 *
+		 * @param {MouseEvent} event - Canvas click event
+		 */
+		const handleMeshPickClick = (event) => {
+			try {
+				if (!camera.camera?.value || !renderer.value || !modelRoot.value) {
+					isPickingMesh.value = false
+					return
+				}
+				const rect = renderer.value.domElement.getBoundingClientRect()
+				const ndc = new THREE.Vector2(
+					((event.clientX - rect.left) / rect.width) * 2 - 1,
+					-((event.clientY - rect.top) / rect.height) * 2 + 1,
+				)
+				const raycaster = new THREE.Raycaster()
+				raycaster.setFromCamera(ndc, camera.camera.value)
+				const targets = []
+				modelRoot.value.traverse((child) => {
+					if (child.isMesh && child.visible) {
+						const n = child.name || ''
+						if (n === 'TransformControlsPlane' || n.startsWith('__helper')) return
+						targets.push(child)
+					}
+				})
+				const hits = raycaster.intersectObjects(targets, true)
+				if (hits.length > 0 && hits[0].object?.uuid) {
+					modelStatsComposable.selectMesh(hits[0].object.uuid)
+					logger.info('ThreeViewer', 'Mesh picked for stats focus', { uuid: hits[0].object.uuid, name: hits[0].object.name })
+				} else {
+					logger.info('ThreeViewer', 'No mesh hit under pick click')
+				}
+			} catch (err) {
+				logger.error('ThreeViewer', 'Mesh pick failed', err)
+			} finally {
+				isPickingMesh.value = false
+			}
+		}
+
+		const toggleStatsMeshPick = () => {
+			isPickingMesh.value = !isPickingMesh.value
+		}
+
+		const selectStatsMesh = (uuid) => {
+			modelStatsComposable.selectMesh(uuid)
+		}
+
+		const clearStatsMeshSelection = () => {
+			modelStatsComposable.selectMesh(null)
+		}
+
+		const setStatsUnit = (unit) => {
+			modelStatsComposable.setUnit(unit)
+		}
+
+		/**
+		 * Copy the current measurement report (bbox, surface area, volume,
+		 * watertightness, per-mesh breakdown) to the clipboard using the same
+		 * secure-context + textarea fallback pattern as App.onCopyViewLink.
+		 */
+		const copyMeasurementReport = async () => {
+			const text = modelStatsComposable.buildMeasurementReport()
+			const tr = (s) => (typeof window !== 'undefined' && window.t) ? window.t('threedviewer', s) : s
+			if (!text) {
+				emit('push-toast', { type: 'error', title: tr('No measurements to copy') })
+				return
+			}
+			try {
+				if (navigator.clipboard && window.isSecureContext) {
+					await navigator.clipboard.writeText(text)
+				} else {
+					const ta = document.createElement('textarea')
+					ta.value = text
+					ta.style.position = 'fixed'
+					ta.style.opacity = '0'
+					document.body.appendChild(ta)
+					ta.focus()
+					ta.select()
+					document.execCommand('copy')
+					document.body.removeChild(ta)
+				}
+				emit('push-toast', {
+					type: 'success',
+					title: tr('Measurements copied'),
+					message: tr('Report placed on clipboard.'),
+				})
+			} catch (err) {
+				logger.error('ThreeViewer', 'Failed to copy measurement report', err)
+				emit('push-toast', { type: 'error', title: tr('Copy failed') })
 			}
 		}
 
@@ -2872,6 +3101,34 @@ export default {
 		}
 
 		// Watchers
+		// Surface a one-time toast when auto-memory-pressure trips. The flag
+		// latches in usePerformance until memory drops under 70 %, so this watcher
+		// only fires once per pressure event.
+		watch(() => performance.memoryPressureAutoApplied?.value, (applied, wasApplied) => {
+			if (applied && !wasApplied) {
+				emit('push-toast', {
+					type: 'warning',
+					title: t('threedviewer', 'Auto-reduced quality'),
+					message: t('threedviewer', 'Memory pressure detected — switched to low performance mode. You can raise it again from the performance overlay.'),
+				})
+			}
+		})
+
+		// Rebuild the grid + apply scene background whenever the user edits
+		// their palette. Deep watch so any key change re-fires.
+		watch(() => themeComposable.customPalette?.value, (palette) => {
+			if (!scene.value || !palette) return
+			rebuildGridForPalette()
+			const bg = palette.background
+			if (bg && scene.value) {
+				try {
+					scene.value.background = new THREE.Color(bg)
+				} catch (err) {
+					logger.warn('ThreeViewer', 'Invalid palette background color, ignoring', { bg })
+				}
+			}
+		}, { deep: true })
+
 		watch(() => props.showGrid, (val) => {
 			if (grid.value) {
 				grid.value.visible = val
@@ -3413,6 +3670,17 @@ export default {
 			// Model stats
 			modelStats: modelStatsComposable.modelStats,
 			showModelStats: modelStatsComposable.showStats,
+			statsCurrentUnit: modelStatsComposable.currentUnit,
+			statsAvailableUnits: computed(() => modelStatsComposable.getAvailableUnits()),
+			statsUnitConfig: modelStatsComposable.unitConfig,
+			statsLengthScale: modelStatsComposable.lengthScale,
+			statsAreaScale: modelStatsComposable.areaScale,
+			statsVolumeScale: modelStatsComposable.volumeScale,
+			statsSelectedMeshUuid: modelStatsComposable.selectedMeshUuid,
+			statsIsPickingMesh: isPickingMesh,
+			activeMeshStats,
+			activeSurfaceArea,
+			activeVolume,
 
 			// Progressive textures
 			loadingTextures: progressiveTexturesComposable.loadingTextures,
@@ -3423,6 +3691,10 @@ export default {
 			resolvedTheme: themeComposable.resolvedTheme,
 			direction: themeComposable.direction,
 			isRTL: themeComposable.isRTL,
+			customPalette: themeComposable.customPalette,
+			setPaletteColor: themeComposable.setPaletteColor,
+			resetPalette: themeComposable.resetPalette,
+			getEffectivePalette: themeComposable.getEffectivePalette,
 
 			// Methods
 			toggleOriginalModel,
@@ -3460,6 +3732,11 @@ export default {
 			setTheme: themeComposable.setTheme,
 			togglePerformanceStats,
 			toggleModelStats,
+			setStatsUnit,
+			selectStatsMesh,
+			clearStatsMeshSelection,
+			toggleStatsMeshPick,
+			copyMeasurementReport,
 			formatStatNumber,
 			formatDeltaInt,
 			formatDeltaFloat,
@@ -3821,6 +4098,189 @@ export default {
 	padding: 8px 12px;
 	text-align: center;
 	font-style: italic;
+}
+
+/* Measurements section: unit picker, watertightness, per-mesh breakdown */
+.stats-section-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 10px;
+}
+
+.stats-section-header h4 {
+	margin: 0;
+}
+
+.stats-unit-select {
+	background: rgb(255 255 255 / 10%);
+	color: #fff;
+	border: 1px solid rgb(255 255 255 / 20%);
+	border-radius: 4px;
+	padding: 4px 6px;
+	font-size: 12px;
+	cursor: pointer;
+}
+
+.stats-unit-select:focus {
+	outline: 1px solid rgb(255 255 255 / 40%);
+}
+
+.stats-watertight-row {
+	margin-bottom: 10px;
+}
+
+.stats-badge {
+	display: inline-block;
+	padding: 4px 8px;
+	border-radius: 4px;
+	font-size: 12px;
+	font-weight: 500;
+	cursor: default;
+}
+
+.stats-badge-ok {
+	background: rgb(76 175 80 / 18%);
+	color: #8fe2a3;
+}
+
+.stats-badge-warn {
+	background: rgb(255 152 0 / 22%);
+	color: #ffb74d;
+}
+
+.stats-badge-unknown {
+	background: rgb(255 255 255 / 8%);
+	color: rgb(255 255 255 / 70%);
+}
+
+.stats-selected-row {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 6px 8px;
+	margin-bottom: 6px;
+	background: rgb(33 150 243 / 18%);
+	border-radius: 4px;
+	font-size: 12px;
+}
+
+.stats-selected-label {
+	color: rgb(255 255 255 / 85%);
+}
+
+.stats-link-btn {
+	background: transparent;
+	border: none;
+	color: #90caf9;
+	font-size: 12px;
+	cursor: pointer;
+	padding: 0;
+	text-decoration: underline;
+}
+
+.stats-link-btn:hover {
+	color: #bbdefb;
+}
+
+.per-mesh-panel {
+	margin-top: 12px;
+	padding-top: 10px;
+	border-top: 1px dashed rgb(255 255 255 / 15%);
+}
+
+.per-mesh-header {
+	font-size: 12px;
+	color: rgb(255 255 255 / 70%);
+	margin-bottom: 6px;
+}
+
+.per-mesh-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	max-height: 180px;
+	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.per-mesh-item {
+	display: grid;
+	grid-template-columns: 1fr auto auto;
+	column-gap: 8px;
+	align-items: center;
+	padding: 6px 8px;
+	background: rgb(255 255 255 / 4%);
+	border-radius: 4px;
+	font-size: 12px;
+	cursor: pointer;
+	transition: background-color 0.15s ease;
+}
+
+.per-mesh-item:hover {
+	background: rgb(255 255 255 / 10%);
+}
+
+.per-mesh-item.is-selected {
+	background: rgb(33 150 243 / 28%);
+	outline: 1px solid rgb(33 150 243 / 55%);
+}
+
+.per-mesh-name {
+	color: #fff;
+	font-weight: 500;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.per-mesh-meta {
+	color: rgb(255 255 255 / 70%);
+	font-family: 'Courier New', monospace;
+	font-size: 11px;
+	text-align: right;
+}
+
+.per-mesh-flag {
+	font-size: 12px;
+	color: #ffb74d;
+}
+
+.per-mesh-flag-ok {
+	color: #8fe2a3;
+}
+
+.stats-actions {
+	display: flex;
+	gap: 8px;
+	margin-top: 12px;
+	flex-wrap: wrap;
+}
+
+.stats-action-btn {
+	flex: 1 1 auto;
+	min-width: 120px;
+	padding: 6px 10px;
+	background: rgb(255 255 255 / 8%);
+	color: #fff;
+	border: 1px solid rgb(255 255 255 / 20%);
+	border-radius: 4px;
+	font-size: 12px;
+	cursor: pointer;
+	transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.stats-action-btn:hover {
+	background: rgb(255 255 255 / 15%);
+	border-color: rgb(255 255 255 / 35%);
+}
+
+.stats-action-btn.is-active {
+	background: rgb(33 150 243 / 35%);
+	border-color: rgb(33 150 243 / 70%);
 }
 
 /* Mobile adjustments for stats panel */
