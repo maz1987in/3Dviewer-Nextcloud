@@ -35,6 +35,10 @@ const SUPPORTED_MIMES = [
 	'model/vrml', // .vrml, .wrl
 	'text/x-gcode', // .gcode, .gco, .nc, .acode, .g
 	'application/x-gcode', // .gx, .g3drem, .makerbot, .thing
+	'model/off', // .off — Geomview OFF (plain-text mesh)
+	'application/x-amf', // .amf — Additive Manufacturing Format
+	'model/amf', // .amf alternative MIME
+	'model/3dm', // .3dm — Rhinoceros
 ]
 
 // Mode 1: Register simple viewer handler with Viewer API (modal preview)

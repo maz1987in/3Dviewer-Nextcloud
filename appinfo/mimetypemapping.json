@@ -22,6 +22,9 @@
     "g3drem": "application/x-gcode",
     "makerbot": "application/x-gcode",
     "thing": "application/x-gcode",
+    "off": "model/off",
+    "amf": "application/x-amf",
+    "3dm": "model/3dm",
     "mtl": "text/plain"
   }
 }

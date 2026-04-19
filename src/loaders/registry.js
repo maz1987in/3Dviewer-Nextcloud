@@ -26,6 +26,9 @@ const loaders = {
 	g3drem: () => import('./types/gcode.js'), // Dremel G-code
 	makerbot: () => import('./types/gcode.js'), // Makerbot G-code
 	thing: () => import('./types/gcode.js'), // Makerbot Thing format
+	off: () => import('./types/off.js'),
+	amf: () => import('./types/amf.js'),
+	'3dm': () => import('./types/threeDM.js'),
 }
 
 export async function loadModelByExtension(ext, arrayBuffer, context) {

@@ -542,6 +542,33 @@ export const SUPPORTED_FORMATS = {
 		displayOrder: 21,
 		icon: imagePath('threedviewer', 'filetypes/thing.svg'),
 	},
+	off: {
+		name: 'OFF',
+		description: 'Geomview Object File Format',
+		mimeType: 'model/off',
+		features: ['geometry-only', 'vertex-colors'],
+		multiFile: false,
+		displayOrder: 22,
+		icon: imagePath('threedviewer', 'filetypes/off.svg'),
+	},
+	amf: {
+		name: 'AMF',
+		description: 'Additive Manufacturing Format',
+		mimeType: 'application/x-amf',
+		features: ['materials', 'colors'],
+		multiFile: false,
+		displayOrder: 23,
+		icon: imagePath('threedviewer', 'filetypes/amf.svg'),
+	},
+	'3dm': {
+		name: '3DM',
+		description: 'Rhinoceros 3DM',
+		mimeType: 'model/3dm',
+		features: ['materials', 'nurbs', 'layers'],
+		multiFile: false,
+		displayOrder: 24,
+		icon: imagePath('threedviewer', 'filetypes/3dm.svg'),
+	},
 }
 
 /**

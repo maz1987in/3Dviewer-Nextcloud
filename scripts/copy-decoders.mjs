@@ -17,6 +17,10 @@ const root = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), '..'
 const sources = {
   draco: path.join(root, 'node_modules/three/examples/jsm/libs/draco'),
   basis: path.join(root, 'node_modules/three/examples/jsm/libs/basis'),
+  // rhino3dm WASM + loader JS for the 3DM format. three.js ships this under
+  // examples/jsm/libs/rhino3dm; Rhino3dmLoader downloads these files from
+  // the path we hand it via setLibraryPath().
+  rhino3dm: path.join(root, 'node_modules/three/examples/jsm/libs/rhino3dm'),
 }
 
 // Files we care about (kept small to avoid shipping unneeded encoders)
@@ -32,6 +36,12 @@ const fileGlobs = {
     'basis_transcoder.wasm',
     // Some releases include an additional wasm variant
     'basis_transcoder.wasm.wasm',
+  ],
+  rhino3dm: [
+    'rhino3dm.js',
+    'rhino3dm.wasm',
+    // Module form is loaded by the Rhino3dmLoader worker in newer three.js
+    'rhino3dm.module.js',
   ],
 }
 

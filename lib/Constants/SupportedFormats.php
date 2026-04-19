@@ -47,6 +47,11 @@ class SupportedFormats
         'makerbot' => ['application/x-gcode'], // Makerbot G-code
         'thing' => ['application/x-gcode'], // Makerbot Thing format
 
+        // Additional mesh / CAD formats
+        'off' => ['model/off'], // Geomview OFF (plain-text)
+        'amf' => ['application/x-amf', 'model/amf'], // Additive Manufacturing Format (XML, optionally zipped)
+        '3dm' => ['model/3dm', 'application/octet-stream'], // Rhinoceros 3DM
+
         // Material/texture files
         'mtl' => ['text/plain'],
     ];
@@ -80,6 +85,9 @@ class SupportedFormats
         'g3drem' => 'application/x-gcode',
         'makerbot' => 'application/x-gcode',
         'thing' => 'application/x-gcode',
+        'off' => 'model/off',
+        'amf' => 'application/x-amf',
+        '3dm' => 'model/3dm',
 
         // Material file
         'mtl' => 'text/plain',

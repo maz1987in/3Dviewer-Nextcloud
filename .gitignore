@@ -69,10 +69,12 @@ Thumbs.db
 # WebAssembly files (large binary files)
 draco/*.wasm
 basis/*.wasm
+rhino3dm/*.wasm
 
 # Keep decoder JS files for production
 # draco/*.js
 # basis/*.js
+# rhino3dm/*.js
 
 # ---- IDE / Editor Files ----
 .idea/
