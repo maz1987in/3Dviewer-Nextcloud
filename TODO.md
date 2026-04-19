@@ -199,7 +199,7 @@ Audited and fixed ARIA roles and keyboard navigation.
 - [x] Focus trap for modals — dependency-free `useFocusTrap` composable wired into SlicerModal + HelpPanel, returns focus to trigger on close, `aria-modal="true"` on dialogs
 - [x] Skip-to-viewer shortcut — first-tab-stop link in App.vue, visually hidden until focused, targets `#viewer-wrapper` with `tabindex="-1"`
 - [x] High-contrast / forced-colors coverage — Playwright spec emulates `forced-colors: active` and asserts the skip link remains discoverable
-- [ ] Future: high-contrast visual audit of toolbars and overlays (sidebar badges, stats panel chips) in actual Windows High Contrast mode
+- [x] Forced-colors CSS hardening for toolbars and overlays — central `src/css/forced-colors.css` (scoped entirely to `@media (forced-colors: active)`) adds system-color borders to custom badges (`stats-badge`, `fps-badge`, `active-badge`, `last-used-badge`), restores visual distinction for the active filter chip using `Highlight`/`HighlightText`, and re-enables focus outlines on `.export-select`, `.annotation-text-input`, and `.skip-to-viewer` where the default rendering had suppressed them. Verified by 5 Playwright specs in `tests/playwright/a11y-forced-colors.spec.ts` that emulate `forced-colors: active` and assert border/outline width > 0 across static fixtures of each component shape. Remaining work is theme-specific (actual Windows HC palettes) and only reproducible on a real Windows machine — out of scope for automation but the CSS correctness is now guaranteed.
 
 ---
 

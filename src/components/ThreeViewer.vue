@@ -4726,8 +4726,7 @@ export default {
 .comparison-diff-overlay.mobile {
 	top: auto;
 	bottom: 8px;
-	inset-inline-start: 8px;
-	inset-inline-end: 8px;
+	inset-inline: 8px;
 	min-width: 0;
 	max-width: none;
 }

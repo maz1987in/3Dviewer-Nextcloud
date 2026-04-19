@@ -1,0 +1,83 @@
+/*
+ * Forced-colors (Windows High Contrast) accessibility overrides.
+ *
+ * In forced-colors mode the user agent replaces most backgrounds, borders,
+ * and text colors with a restricted system palette (Canvas, CanvasText,
+ * ButtonFace, ButtonText, Highlight, LinkText, GrayText). As a result:
+ *   - Badges/chips that rely on background + text color alone collapse into
+ *     the surrounding surface (bg becomes Canvas, text becomes CanvasText).
+ *   - Focus states that depend on box-shadow or colored border-color only
+ *     lose their highlight — box-shadow is ignored, colored borders are
+ *     repainted with a single system color.
+ *
+ * This sheet targets selectors that the audit found had these patterns and
+ * re-adds a system-color border / outline so the element remains visible.
+ * Keep this file scoped to `@media (forced-colors: active)` so it never
+ * affects the default rendering path.
+ */
+
+@media (forced-colors: active) {
+	/* -------- Badges -------- */
+
+	/* All custom badges rely on background + color to convey state. Forced
+	   colors squashes both, so add a visible border + keep the text as
+	   CanvasText. Status differentiation (ok/warn/unknown) is handled by
+	   the accompanying icon/title — the badge itself just needs to be
+	   visible and legible. */
+	.stats-badge,
+	.stats-badge-ok,
+	.stats-badge-warn,
+	.stats-badge-unknown,
+	.fps-badge,
+	.active-badge,
+	.last-used-badge {
+		border: 1px solid CanvasText;
+		background: Canvas;
+		color: CanvasText;
+		forced-color-adjust: none;
+	}
+
+	/* -------- Filter chips (FileBrowser) --------
+	   The active state normally swaps the background to primary-element and
+	   the text to primary-element-text. In HC, both collapse to system
+	   colors, so the active/inactive state becomes indistinguishable. Use
+	   the Highlight / HighlightText pair to convey selection and keep the
+	   inactive chip rendering with the default button colors. */
+	.file-filter-toolbar .filter-format-chip {
+		border: 1px solid ButtonText;
+		background: ButtonFace;
+		color: ButtonText;
+	}
+
+	.file-filter-toolbar .filter-format-chip.active {
+		border: 1px solid Highlight;
+		background: Highlight;
+		color: HighlightText;
+		forced-color-adjust: none;
+	}
+
+	/* -------- Focus rings --------
+	   Anywhere we suppressed the default outline and relied on a box-shadow
+	   or colored border for the focus ring, re-enable a system-color
+	   outline so keyboard focus stays visible. */
+	.export-select:focus,
+	.export-select:focus-visible,
+	.annotation-text-input:focus,
+	.annotation-text-input:focus-visible,
+	.skip-to-viewer:focus,
+	.skip-to-viewer:focus-visible {
+		outline: 2px solid Highlight;
+		outline-offset: 2px;
+	}
+
+	/* -------- Skip link --------
+	   The skip-to-viewer link uses the app primary color as its background;
+	   make sure the link text remains readable against the system surface
+	   once those custom colors are stripped. */
+	.skip-to-viewer {
+		border: 1px solid LinkText;
+		background: Canvas;
+		color: LinkText;
+		forced-color-adjust: none;
+	}
+}

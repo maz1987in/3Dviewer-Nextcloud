@@ -8,6 +8,10 @@ import { translate, translatePlural } from '@nextcloud/l10n'
 // Import Nextcloud dialogs styles
 import '@nextcloud/dialogs/style.css'
 
+// Forced-colors (Windows High Contrast) accessibility overrides — scoped
+// entirely to @media (forced-colors: active), no effect on default rendering.
+import './css/forced-colors.css'
+
 // Make translation functions globally available for all components
 if (typeof window !== 'undefined') {
 	window.t = translate
