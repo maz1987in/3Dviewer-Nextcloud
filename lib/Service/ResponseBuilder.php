@@ -257,6 +257,10 @@ class ResponseBuilder
         // Allow blob URLs for GLTF texture loading and WebGL contexts
         // These are needed when GLTFLoader extracts embedded textures from GLB files
         $csp->addAllowedConnectDomain('blob:');
+        // glTF files commonly embed buffers as `data:application/octet-stream;base64,...`
+        // URIs. GLTFLoader fetches those URIs, which hits connect-src — without `data:`
+        // allowed here the browser blocks the load and the model fails to parse.
+        $csp->addAllowedConnectDomain('data:');
         $csp->addAllowedImageDomain('blob:');
         $csp->addAllowedImageDomain('data:');
 

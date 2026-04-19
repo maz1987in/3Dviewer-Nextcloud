@@ -1,12 +1,16 @@
 <template>
-	<NcContent app-name="threedviewer">
-		<!--
-			Skip link: first tab stop on the page. Visually hidden until focused
-			so keyboard users can jump past navigation straight to the viewer.
-		-->
+	<!--
+		App-specific skip link, teleported to <body> so it's reachable early
+		in the tab order (before NcContent's nav chrome). Jumps keyboard users
+		directly into the 3D viewer, bypassing Nextcloud's app header and the
+		file navigation sidebar. Visually hidden until focused.
+	-->
+	<Teleport to="body">
 		<a class="skip-to-viewer" href="#viewer-wrapper" @click.prevent="focusViewer">
 			{{ t('threedviewer', 'Skip to 3D viewer') }}
 		</a>
+	</Teleport>
+	<NcContent app-name="threedviewer">
 		<FileNavigation
 			ref="fileNavigation"
 			:selected-file-id="fileId"
