@@ -1,3 +1,4 @@
+import * as THREE from 'three'
 import { TDSLoader } from 'three/examples/jsm/loaders/TDSLoader.js'
 import { BaseLoader } from '../BaseLoader.js'
 
@@ -79,12 +80,25 @@ class ThreeDSLoader extends BaseLoader {
 			throw new Error('No valid geometry found in 3DS file')
 		}
 
-		// 3DS format uses Z-up coordinate system
-		// Rotate to Y-up (Three.js standard) by rotating -90° around X-axis
-		object3D.rotation.x = -Math.PI / 2
+		// 3DS format has no reliable up-axis metadata. Tools export either
+		// Z-up (3ds Max, CAD) or Y-up (Blender, Maya, modern exporters),
+		// and bbox-based heuristics fail on both sides: a tall building has
+		// up=biggest-axis but a flat cottage has up=smallest-axis. We default
+		// to "no rotation" (assume authored in Three.js's Y-up convention)
+		// since most modern content is Y-up; Z-up outliers can be fixed with
+		// the manual orientation toggle in the toolbar.
+		const preRotationBox = new THREE.Box3().setFromObject(object3D)
+		const preRotationSize = new THREE.Vector3()
+		preRotationBox.getSize(preRotationSize)
 
 		this.logInfo('3DS model loaded successfully', {
 			children: object3D.children.length,
+			preRotationSize: {
+				x: preRotationSize.x.toFixed(2),
+				y: preRotationSize.y.toFixed(2),
+				z: preRotationSize.z.toFixed(2),
+			},
+			rotatedToYUp: false,
 		})
 
 		// Add missing textures info to context for error reporting
