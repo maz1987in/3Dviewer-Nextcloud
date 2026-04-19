@@ -569,6 +569,15 @@ export const SUPPORTED_FORMATS = {
 		displayOrder: 24,
 		icon: imagePath('threedviewer', 'filetypes/3dm.svg'),
 	},
+	bim: {
+		name: 'BIM',
+		description: 'dotbim (JSON-based BIM)',
+		mimeType: 'application/dotbim+json',
+		features: ['materials', 'elements', 'metadata'],
+		multiFile: false,
+		displayOrder: 25,
+		icon: imagePath('threedviewer', 'filetypes/bim.svg'),
+	},
 }
 
 /**

@@ -51,6 +51,7 @@ class SupportedFormats
         'off' => ['model/off'], // Geomview OFF (plain-text)
         'amf' => ['application/x-amf', 'model/amf'], // Additive Manufacturing Format (XML, optionally zipped)
         '3dm' => ['model/3dm', 'application/octet-stream'], // Rhinoceros 3DM
+        'bim' => ['application/dotbim+json'], // dotbim (JSON-based BIM)
 
         // Material/texture files
         'mtl' => ['text/plain'],
@@ -88,6 +89,7 @@ class SupportedFormats
         'off' => 'model/off',
         'amf' => 'application/x-amf',
         '3dm' => 'model/3dm',
+        'bim' => 'application/dotbim+json',
 
         // Material file
         'mtl' => 'text/plain',

@@ -29,6 +29,7 @@ const loaders = {
 	off: () => import('./types/off.js'),
 	amf: () => import('./types/amf.js'),
 	'3dm': () => import('./types/threeDM.js'),
+	bim: () => import('./types/dotbim.js'),
 }
 
 export async function loadModelByExtension(ext, arrayBuffer, context) {

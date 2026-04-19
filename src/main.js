@@ -39,6 +39,7 @@ const SUPPORTED_MIMES = [
 	'application/x-amf', // .amf — Additive Manufacturing Format
 	'model/amf', // .amf alternative MIME
 	'model/3dm', // .3dm — Rhinoceros
+	'application/dotbim+json', // .bim — dotbim (JSON-based BIM)
 ]
 
 // Mode 1: Register simple viewer handler with Viewer API (modal preview)

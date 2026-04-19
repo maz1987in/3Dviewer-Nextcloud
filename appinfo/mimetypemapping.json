@@ -25,6 +25,7 @@
     "off": "model/off",
     "amf": "application/x-amf",
     "3dm": "model/3dm",
+    "bim": "application/dotbim+json",
     "mtl": "text/plain"
   }
 }
