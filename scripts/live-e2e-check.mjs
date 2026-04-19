@@ -76,9 +76,16 @@ async function main() {
 	const page = await context.newPage()
 
 	const consoleErrors = []
+	const ktx2Warnings = []
 	page.on('pageerror', (e) => consoleErrors.push(`pageerror: ${e.message}`))
 	page.on('console', (m) => {
-		if (m.type() === 'error') consoleErrors.push(`console.error: ${m.text()}`)
+		const text = m.text()
+		if (m.type() === 'error') consoleErrors.push(`console.error: ${text}`)
+		// KTX2 init complaints — whether logged via logger.warn (shows up as
+		// browser 'warning') or console.warn. Either way we want to catch them.
+		if (/KTX2.*unavailable|isWebGPURenderer/i.test(text)) {
+			ktx2Warnings.push(`${m.type()}: ${text}`)
+		}
 	})
 
 	// Login
@@ -181,6 +188,12 @@ async function main() {
 		for (const e of consoleErrors) log('  -', e)
 	} else {
 		log('no console errors during the run')
+	}
+	if (ktx2Warnings.length > 0) {
+		log('KTX2 / WebGPU complaints during the run:')
+		for (const w of ktx2Warnings) log('  -', w)
+	} else {
+		log('no KTX2 init complaints during the run')
 	}
 
 	await browser.close()

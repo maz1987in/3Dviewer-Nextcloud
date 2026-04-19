@@ -1204,6 +1204,11 @@ export default {
 					filename,
 					dir: dirPath,
 					THREE,
+					// KTX2Loader.detectSupport(renderer) needs the live renderer to
+					// query GL extensions for compressed-texture support. Without
+					// it, KTX2 init throws "Cannot read properties of undefined
+					// (reading 'isWebGPURenderer')" on Three.js r182+.
+					renderer: renderer.value,
 					gcodeOptions: {
 						colorMode: props.gcodeColorMode,
 						singleColor: props.gcodeSingleColor,

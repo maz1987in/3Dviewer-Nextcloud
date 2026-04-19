@@ -791,18 +791,29 @@ class GltfLoader extends BaseLoader {
 
 		// Configure KTX2 loader
 		if (hasKtx2) {
-			try {
-				const { KTX2Loader } = await import('three/examples/jsm/loaders/KTX2Loader.js')
-				const ktx2Loader = new KTX2Loader()
-				ktx2Loader.setTranscoderPath(generateUrl('/apps/threedviewer/basis/'))
-				if (typeof ktx2Loader.setWorkerLimit === 'function') {
-					ktx2Loader.setWorkerLimit(workerLimit)
+			// KTX2Loader.detectSupport(renderer) reads either
+			// renderer.isWebGPURenderer (WebGPU) or renderer.extensions (WebGL)
+			// to decide which compressed-texture formats to transcode into.
+			// Without a renderer, Three.js r182+ throws on the `isWebGPURenderer`
+			// read. Rather than attempting a half-configured loader we skip
+			// KTX2 entirely and log why — the callsite is responsible for
+			// passing `context.renderer`.
+			if (!renderer) {
+				this.logWarning('KTX2 loader skipped: no renderer available in context — compressed textures will not be transcoded')
+			} else {
+				try {
+					const { KTX2Loader } = await import('three/examples/jsm/loaders/KTX2Loader.js')
+					const ktx2Loader = new KTX2Loader()
+					ktx2Loader.setTranscoderPath(generateUrl('/apps/threedviewer/basis/'))
+					if (typeof ktx2Loader.setWorkerLimit === 'function') {
+						ktx2Loader.setWorkerLimit(workerLimit)
+					}
+					ktx2Loader.detectSupport(renderer)
+					this.loader.setKTX2Loader(ktx2Loader)
+					this.logInfo('KTX2 loader configured', { path: generateUrl('/apps/threedviewer/basis/'), workerLimit })
+				} catch (error) {
+					this.logWarning('KTX2 loader unavailable', { error: error.message })
 				}
-				ktx2Loader.detectSupport(renderer)
-				this.loader.setKTX2Loader(ktx2Loader)
-				this.logInfo('KTX2 loader configured', { path: generateUrl('/apps/threedviewer/basis/'), workerLimit })
-			} catch (error) {
-				this.logWarning('KTX2 loader unavailable', { error: error.message })
 			}
 		}
 
