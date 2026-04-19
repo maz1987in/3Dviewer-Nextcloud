@@ -26,6 +26,7 @@
     "amf": "application/x-amf",
     "3dm": "model/3dm",
     "bim": "application/dotbim+json",
+    "ifc": "application/x-step",
     "mtl": "text/plain"
   }
 }

@@ -21,6 +21,11 @@ const sources = {
   // examples/jsm/libs/rhino3dm; Rhino3dmLoader downloads these files from
   // the path we hand it via setLibraryPath().
   rhino3dm: path.join(root, 'node_modules/three/examples/jsm/libs/rhino3dm'),
+  // web-ifc WASM for the IFC format. ThatOpen's `web-ifc` package ships
+  // both single-threaded and multi-threaded WASM builds; IfcAPI picks the
+  // variant that matches the runtime. SetWasmPath(...) points at the copy
+  // served by our app so air-gapped deploys still work.
+  'web-ifc': path.join(root, 'node_modules/web-ifc'),
 }
 
 // Files we care about (kept small to avoid shipping unneeded encoders)
@@ -42,6 +47,11 @@ const fileGlobs = {
     'rhino3dm.wasm',
     // Module form is loaded by the Rhino3dmLoader worker in newer three.js
     'rhino3dm.module.js',
+  ],
+  'web-ifc': [
+    'web-ifc.wasm',
+    // Multi-threaded variant; IfcAPI auto-selects based on runtime features.
+    'web-ifc-mt.wasm',
   ],
 }
 

@@ -70,11 +70,13 @@ Thumbs.db
 draco/*.wasm
 basis/*.wasm
 rhino3dm/*.wasm
+web-ifc/*.wasm
 
 # Keep decoder JS files for production
 # draco/*.js
 # basis/*.js
 # rhino3dm/*.js
+# web-ifc has no JS asset to keep — only WASM
 
 # ---- IDE / Editor Files ----
 .idea/

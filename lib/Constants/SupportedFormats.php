@@ -52,6 +52,7 @@ class SupportedFormats
         'amf' => ['application/x-amf', 'model/amf'], // Additive Manufacturing Format (XML, optionally zipped)
         '3dm' => ['model/3dm', 'application/octet-stream'], // Rhinoceros 3DM
         'bim' => ['application/dotbim+json'], // dotbim (JSON-based BIM)
+        'ifc' => ['application/x-step', 'application/ifc'], // Industry Foundation Classes (BIM, STEP-based text)
 
         // Material/texture files
         'mtl' => ['text/plain'],
@@ -90,6 +91,7 @@ class SupportedFormats
         'amf' => 'application/x-amf',
         '3dm' => 'model/3dm',
         'bim' => 'application/dotbim+json',
+        'ifc' => 'application/x-step',
 
         // Material file
         'mtl' => 'text/plain',

@@ -578,6 +578,15 @@ export const SUPPORTED_FORMATS = {
 		displayOrder: 25,
 		icon: imagePath('threedviewer', 'filetypes/bim.svg'),
 	},
+	ifc: {
+		name: 'IFC',
+		description: 'Industry Foundation Classes (BIM)',
+		mimeType: 'application/x-step',
+		features: ['materials', 'elements', 'metadata', 'bim'],
+		multiFile: false,
+		displayOrder: 26,
+		icon: imagePath('threedviewer', 'filetypes/ifc.svg'),
+	},
 }
 
 /**

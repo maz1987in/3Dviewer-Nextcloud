@@ -40,6 +40,8 @@ const SUPPORTED_MIMES = [
 	'model/amf', // .amf alternative MIME
 	'model/3dm', // .3dm — Rhinoceros
 	'application/dotbim+json', // .bim — dotbim (JSON-based BIM)
+	'application/x-step', // .ifc — Industry Foundation Classes
+	'application/ifc', // .ifc alternative MIME
 ]
 
 // Mode 1: Register simple viewer handler with Viewer API (modal preview)

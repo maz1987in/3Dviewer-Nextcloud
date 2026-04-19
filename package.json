@@ -50,7 +50,8 @@
     "@nextcloud/vue": "^9.6.0",
     "three": "^0.184.0",
     "vue": "^3.5.32",
-    "vue-material-design-icons": "^5.3.1"
+    "vue-material-design-icons": "^5.3.1",
+    "web-ifc": "^0.0.77"
   },
   "devDependencies": {
     "@babel/core": "^7.29.0",
