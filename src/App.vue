@@ -1,5 +1,12 @@
 <template>
 	<NcContent app-name="threedviewer">
+		<!--
+			Skip link: first tab stop on the page. Visually hidden until focused
+			so keyboard users can jump past navigation straight to the viewer.
+		-->
+		<a class="skip-to-viewer" href="#viewer-wrapper" @click.prevent="focusViewer">
+			{{ t('threedviewer', 'Skip to 3D viewer') }}
+		</a>
 		<FileNavigation
 			ref="fileNavigation"
 			:selected-file-id="fileId"
@@ -32,7 +39,11 @@
 				@navigate-all="onNavigateAll" />
 
 			<!-- 3D Viewer -->
-			<div v-else id="viewer-wrapper" key="viewer-wrapper">
+			<div v-else
+				id="viewer-wrapper"
+				ref="viewerWrapper"
+				key="viewer-wrapper"
+				tabindex="-1">
 				<ToastContainer :toasts="toasts" @dismiss="dismissToast" />
 
 				<!-- Help Panel -->
@@ -889,6 +900,21 @@ export default {
 			// Toggle help panel visibility
 			this.showHelp = !this.showHelp
 		},
+		focusViewer() {
+			// Handler for the skip-to-viewer link. If the user is currently in the
+			// file browser view, switch to the viewer first so the wrapper exists,
+			// then move focus to it on the next tick.
+			if (this.showFileBrowser) {
+				this.onNavigateViewer()
+			}
+			this.$nextTick(() => {
+				const wrapper = this.$refs.viewerWrapper
+				if (wrapper && typeof wrapper.focus === 'function') {
+					wrapper.focus()
+					wrapper.scrollIntoView({ block: 'start', behavior: 'auto' })
+				}
+			})
+		},
 		onToggleTools() {
 			// Toggle the tools panel
 			if (this.$refs.toolsPanel) {
@@ -1457,5 +1483,35 @@ export default {
 	height: 100%;
 	padding: 0;
 	margin: 0;
+}
+
+#viewer-wrapper:focus {
+	// Don't draw a thick focus ring inside the 3D canvas area; the skip link
+	// already provides a visible focus state on the link itself, and users who
+	// arrive here via the skip link are about to interact with canvas controls.
+	outline: none;
+}
+
+// Skip link: visually hidden off-screen by default, slides into view when
+// focused via keyboard. Uses high z-index to sit above the Nextcloud chrome.
+.skip-to-viewer {
+	position: absolute;
+	inset-inline-start: 8px;
+	top: -40px;
+	z-index: 10001;
+	padding: 8px 16px;
+	background: var(--color-primary-element, #0082c9);
+	color: var(--color-primary-element-text, #fff);
+	border-radius: 0 0 6px 6px;
+	font-weight: 600;
+	text-decoration: none;
+	transition: top 0.15s ease;
+
+	&:focus,
+	&:focus-visible {
+		top: 0;
+		outline: 2px solid var(--color-main-background, #fff);
+		outline-offset: 2px;
+	}
 }
 </style>

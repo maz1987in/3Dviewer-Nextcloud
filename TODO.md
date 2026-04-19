@@ -196,7 +196,10 @@ Audited and fixed ARIA roles and keyboard navigation.
 - [x] Added `role="alert"` to texture warning banner in ViewerComponent
 - [x] Added `role="region"` + `aria-label` to stats panel with `aria-expanded` on toggle
 - [x] Added `aria-label` to share link input
-- [ ] Future: focus trap for modals, high-contrast mode test, skip-to-viewer shortcut
+- [x] Focus trap for modals — dependency-free `useFocusTrap` composable wired into SlicerModal + HelpPanel, returns focus to trigger on close, `aria-modal="true"` on dialogs
+- [x] Skip-to-viewer shortcut — first-tab-stop link in App.vue, visually hidden until focused, targets `#viewer-wrapper` with `tabindex="-1"`
+- [x] High-contrast / forced-colors coverage — Playwright spec emulates `forced-colors: active` and asserts the skip link remains discoverable
+- [ ] Future: high-contrast visual audit of toolbars and overlays (sidebar badges, stats panel chips) in actual Windows High Contrast mode
 
 ---
 

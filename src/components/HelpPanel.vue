@@ -1,8 +1,11 @@
 <template>
 	<div class="help-panel-backdrop" @click="close">
-		<div class="help-panel"
+		<div ref="panelRef"
+			class="help-panel"
 			role="dialog"
+			aria-modal="true"
 			aria-labelledby="help-title"
+			tabindex="-1"
 			@click.stop>
 			<!-- Header -->
 			<div class="help-header">
@@ -303,9 +306,11 @@
 </template>
 
 <script>
+import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
 // eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
 import { translate as t } from '@nextcloud/l10n'
 import { FORMATS_DISPLAY_LIST } from '../config/viewer-config.js'
+import { useFocusTrap } from '../composables/useFocusTrap.js'
 
 export default {
 	name: 'HelpPanel',
@@ -313,6 +318,9 @@ export default {
 	emits: ['close'],
 
 	setup(props, { emit }) {
+		const panelRef = ref(null)
+		const focusTrap = useFocusTrap(panelRef)
+
 		const close = () => {
 			emit('close')
 		}
@@ -324,28 +332,27 @@ export default {
 			}
 		}
 
-		// Add event listener on mount
-		if (typeof window !== 'undefined') {
-			window.addEventListener('keydown', handleKeydown)
-		}
+		onMounted(() => {
+			if (typeof window !== 'undefined') {
+				window.addEventListener('keydown', handleKeydown)
+			}
+			// Panel is only mounted when open; activate trap once template is ready.
+			nextTick(() => focusTrap.activate())
+		})
 
-		// Cleanup on unmount
-		const cleanup = () => {
+		onBeforeUnmount(() => {
 			if (typeof window !== 'undefined') {
 				window.removeEventListener('keydown', handleKeydown)
 			}
-		}
+			focusTrap.deactivate()
+		})
 
 		return {
 			t,
+			panelRef,
 			close,
-			cleanup,
 			supportedFormats: FORMATS_DISPLAY_LIST,
 		}
-	},
-
-	beforeUnmount() {
-		this.cleanup()
 	},
 }
 </script>

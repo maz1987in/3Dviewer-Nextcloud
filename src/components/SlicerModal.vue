@@ -1,8 +1,11 @@
 <template>
 	<div v-if="isOpen" class="slicer-modal-backdrop" @click="handleBackdropClick">
-		<div class="slicer-modal"
+		<div ref="modalRef"
+			class="slicer-modal"
 			role="dialog"
+			aria-modal="true"
 			aria-labelledby="slicer-modal-title"
+			tabindex="-1"
 			:class="{ 'dark-theme': isDarkTheme }"
 			@click.stop>
 			<!-- Modal Header -->
@@ -122,12 +125,13 @@
 </template>
 
 <script>
-import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 // eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
 import { translate as t } from '@nextcloud/l10n'
 import { generateUrl } from '@nextcloud/router'
 import { showWarning } from '@nextcloud/dialogs'
 import { useSlicerIntegration } from '../composables/useSlicerIntegration.js'
+import { useFocusTrap } from '../composables/useFocusTrap.js'
 import { logger } from '../utils/logger.js'
 
 export default {
@@ -174,6 +178,8 @@ export default {
 	setup(props, { emit }) {
 		// Composables
 		const slicerIntegration = useSlicerIntegration()
+		const modalRef = ref(null)
+		const focusTrap = useFocusTrap(modalRef)
 
 		// Local state
 		const exporting = ref(false)
@@ -562,9 +568,13 @@ export default {
 			errorMessage.value = null
 		}
 
-		// Watch for modal close to cleanup
+		// Watch for modal open/close: activate focus trap on open, deactivate on close.
+		// Trap is installed after nextTick so v-if has rendered the modal element.
 		watch(() => props.isOpen, (isOpen) => {
-			if (!isOpen) {
+			if (isOpen) {
+				nextTick(() => focusTrap.activate())
+			} else {
+				focusTrap.deactivate()
 				exporting.value = false
 				errorMessage.value = null
 				exportMessage.value = ''
@@ -576,10 +586,15 @@ export default {
 		// Keyboard event listeners
 		onMounted(() => {
 			window.addEventListener('keydown', handleKeyPress)
+			// If the modal is mounted already open (e.g. test harness), activate now.
+			if (props.isOpen) {
+				nextTick(() => focusTrap.activate())
+			}
 		})
 
 		onBeforeUnmount(() => {
 			window.removeEventListener('keydown', handleKeyPress)
+			focusTrap.deactivate()
 			// Cleanup blob URL
 			if (tempBlobUrl.value) {
 				slicerIntegration.revokeBlobUrl(tempBlobUrl.value)
@@ -588,6 +603,7 @@ export default {
 
 		return {
 			t,
+			modalRef,
 			slicers,
 			lastUsedSlicer,
 			exporting,

@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Accessibility follow-ups**: Keyboard users now get a "Skip to 3D viewer" link as the first tab stop (visually hidden until focused, slides into view on focus) that jumps focus past the navigation directly to `#viewer-wrapper`. Both modals (SlicerModal, HelpPanel) now trap Tab/Shift+Tab inside the dialog while open and restore focus to the element that opened them on close — implemented via a dependency-free `useFocusTrap` composable. Modals also gained `aria-modal="true"` and `tabindex="-1"` on the dialog surface. Covered by a new Jest unit suite (`tests/unit/composables/useFocusTrap.test.js`) and a Playwright a11y spec (`tests/playwright/a11y-skip-link.spec.ts`) that verifies skip-link behavior under `forced-colors: active` (Windows High Contrast).
 - **Transform Gizmo**: Translate, rotate, and scale models interactively with Three.js TransformControls. Mode selector (Move/Rotate/Scale) and reset button in the Analyze section. Disables orbit controls while dragging.
 - **Animation clip selector**: Dropdown in the Animation panel to switch between individual animation clips (e.g., Run, Walk, Idle) for models with multiple animations
 - **Texture optimization pipeline**: Quality presets (Original/High/Medium/Low) with Canvas 2D downscaling, memory tracking, and configurable setting in Personal Settings
