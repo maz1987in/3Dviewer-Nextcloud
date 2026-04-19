@@ -1419,6 +1419,11 @@ export default {
 					emit('model-loaded', { fileId, filename })
 					logger.info('ThreeViewer', 'Model loaded successfully')
 
+					// Test harness hook
+					if (typeof window !== 'undefined') {
+						window.__LOAD_COMPLETE = true
+					}
+
 					// Update visual scale for measurements/annotations after model loads
 					// This ensures measurement/annotation elements are properly sized for the new model
 					measurement.updateVisualScale()
@@ -1469,6 +1474,10 @@ export default {
 				if (error.name !== 'AbortError') {
 					logger.error('ThreeViewer', 'Failed to load model', error)
 					emit('error', error)
+					// Test harness hook — capture the error message for Playwright assertions
+					if (typeof window !== 'undefined') {
+						window.__LOAD_ERROR = error?.message || String(error)
+					}
 					// Don't show demo scene - let error state handle it so user knows file failed
 				}
 				// Re-throw error so caller knows it failed

@@ -156,7 +156,7 @@ Extracted matching logic, wrote 48 unit tests, added edge case fixtures.
 - [x] 48-test suite covering all 6 texture strategies + 3 file strategies + edge cases (`npm run test:match`)
 - [x] Fixtures: mixed-case extensions (`mixed-case.OBJ`), missing MTL (`no-mtl.obj`), orphaned textures (`orphan-texture.obj`)
 - [x] Documented matching strategies and fixture matrix in TESTING.md
-- [ ] Future: Playwright cancel mid-load, retry, network drop scenarios (requires mock server)
+- [x] Playwright cancel mid-load, retry, network drop scenarios — `tests/smoke/viewer.spec.ts` adds retry-after-cancel (page.route intercepts first fetch and hangs, fulfills on retry) and network-drop (route.abort('failed')); ThreeViewer exposes `window.__LOAD_COMPLETE` and `window.__LOAD_ERROR` test hooks
 
 ### 12. Export Functionality Robustness ✅ COMPLETED
 Added pre-export validation and corrected MIME types.

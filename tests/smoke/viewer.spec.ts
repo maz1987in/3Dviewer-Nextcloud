@@ -240,3 +240,98 @@ test('abort cancels load (stable)', async ({ page }) => {
   const aborted = await page.evaluate(() => (window as any).__ABORTED)
   expect(aborted).toBe(true)
 })
+
+// Retry-after-cancel test: start a slow load, cancel it, then call retryLoad().
+// The second fetch is intercepted by page.route() and served the fixture, so the
+// retry succeeds and the viewer reports __LOAD_COMPLETE. This verifies that the
+// retry path correctly re-runs loadModel after an abort left state dirty.
+test('retry succeeds after user cancel', async ({ page }) => {
+  const triangleFixture = fs.readFileSync(path.resolve(process.cwd(), 'tests/fixtures/triangle.gltf'), 'utf8')
+
+  let fetchCallCount = 0
+  // Match both primary (/apps/threedviewer/api/file/N) and fallback
+  // (/ocs/v2.php/apps/threedviewer/api/file/N) URLs that the loader tries.
+  await page.route(/\/apps\/threedviewer\/api\/file\/4242(\?.*)?$/, async (route) => {
+    fetchCallCount++
+    if (fetchCallCount === 1) {
+      // First call: hang forever. The test will cancel mid-flight.
+      // Playwright leaves the request pending until the page navigates or aborts.
+      return
+    }
+    // Retry: fulfill with the real fixture.
+    await route.fulfill({
+      status: 200,
+      contentType: 'model/gltf+json',
+      headers: {
+        'Content-Length': String(triangleFixture.length),
+        'Content-Disposition': 'inline; filename="triangle.gltf"',
+      },
+      body: triangleFixture,
+    })
+  })
+
+  const html = `<!DOCTYPE html><html><head><meta charset='utf-8'><title>Retry Test</title><style>html, body { height: 100%; margin: 0; padding: 0; }</style></head><body><div id="threedviewer" style="height: 100vh;"></div>
+  <script>
+  window.__TEST_FILE_ID = 4242;
+  window.history.replaceState({}, '', '?fileId=' + window.__TEST_FILE_ID);
+  window.OCA = window.OCA || {}; var OCA = window.OCA;
+  window.OCA.Viewer = window.OCA.Viewer || { handlers: {}, registerHandler: function(h) { this.handlers[h.id || 'threedviewer'] = h; }, open: function() {} };
+  window.OC = window.OC || {}; var OC = window.OC;
+  window.OC.filePath = function(app, type, p) { return '/' + p.replace(/^\\//, ''); };
+  </script>
+  <script type="module" src="/js/threedviewer-main.mjs"></script></body></html>`
+  fs.writeFileSync(TEMP_HTML, html, 'utf8')
+  await page.goto(baseURL + '/smoke-temp.html')
+  await page.waitForSelector('#threedviewer', { timeout: 8000 })
+  await page.waitForFunction(() => (window as any).__LOAD_STARTED === true, { timeout: 8000 })
+
+  // Cancel the first (hanging) fetch.
+  await page.evaluate(() => { (window as any).__THREEDVIEWER_VIEWER.cancelLoad() })
+  await page.waitForFunction(() => (window as any).__ABORTED === true, { timeout: 8000 })
+
+  // Retry — the second fetch should go through and succeed.
+  await page.evaluate(() => { (window as any).__THREEDVIEWER_VIEWER.retryLoad() })
+  await page.waitForFunction(() => (window as any).__LOAD_COMPLETE === true, { timeout: 10000 })
+
+  expect(fetchCallCount).toBeGreaterThanOrEqual(2)
+  const complete = await page.evaluate(() => (window as any).__LOAD_COMPLETE)
+  expect(complete).toBe(true)
+})
+
+// Network-drop test: Playwright aborts the fetch at the network layer so the
+// viewer's fetch() rejects with a network error. The loader's error handler
+// should set window.__LOAD_ERROR rather than __LOAD_COMPLETE or __ABORTED
+// (which is reserved for user-initiated cancellations).
+test('network drop surfaces a load error', async ({ page }) => {
+  // Intercept both primary and fallback paths so the loader can't recover via the fallback.
+  await page.route(/\/apps\/threedviewer\/api\/file\/9999(\?.*)?$/, async (route) => {
+    await route.abort('failed')
+  })
+
+  const html = `<!DOCTYPE html><html><head><meta charset='utf-8'><title>Network Drop Test</title><style>html, body { height: 100%; margin: 0; padding: 0; }</style></head><body><div id="threedviewer" style="height: 100vh;"></div>
+  <script>
+  window.__TEST_FILE_ID = 9999;
+  window.history.replaceState({}, '', '?fileId=' + window.__TEST_FILE_ID);
+  window.OCA = window.OCA || {}; var OCA = window.OCA;
+  window.OCA.Viewer = window.OCA.Viewer || { handlers: {}, registerHandler: function(h) { this.handlers[h.id || 'threedviewer'] = h; }, open: function() {} };
+  window.OC = window.OC || {}; var OC = window.OC;
+  window.OC.filePath = function(app, type, p) { return '/' + p.replace(/^\\//, ''); };
+  </script>
+  <script type="module" src="/js/threedviewer-main.mjs"></script></body></html>`
+  fs.writeFileSync(TEMP_HTML, html, 'utf8')
+  await page.goto(baseURL + '/smoke-temp.html')
+  await page.waitForSelector('#threedviewer', { timeout: 8000 })
+
+  // Either __LOAD_ERROR becomes truthy, or the error path didn't fire (test fails).
+  await page.waitForFunction(() => typeof (window as any).__LOAD_ERROR === 'string' && (window as any).__LOAD_ERROR.length > 0, { timeout: 10000 })
+
+  const errorMessage = await page.evaluate(() => (window as any).__LOAD_ERROR)
+  expect(errorMessage).toBeTruthy()
+
+  // Must NOT be treated as a user cancellation.
+  const aborted = await page.evaluate(() => (window as any).__ABORTED === true)
+  expect(aborted).toBe(false)
+  // Must NOT report a successful load.
+  const complete = await page.evaluate(() => (window as any).__LOAD_COMPLETE === true)
+  expect(complete).toBe(false)
+})
