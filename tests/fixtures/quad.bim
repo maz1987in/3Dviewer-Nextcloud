@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0.0",
+  "meshes": [{
+    "mesh_id": 0,
+    "coordinates": [0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0],
+    "indices": [0, 1, 2, 0, 2, 3]
+  }],
+  "elements": [{
+    "mesh_id": 0,
+    "vector": {"x": 0, "y": 0, "z": 0},
+    "rotation": {"qx": 0, "qy": 0, "qz": 0, "qw": 1},
+    "guid": "76e051c5-1cb4-4d1e-8c23-2a3b4c5d6e7f",
+    "type": "Plate",
+    "color": {"r": 255, "g": 100, "b": 50, "a": 255},
+    "info": {"Name": "E2E_TestPlate"}
+  }],
+  "info": {"Author": "live-e2e"}
+}
