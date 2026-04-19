@@ -26,6 +26,9 @@ const sources = {
   // variant that matches the runtime. SetWasmPath(...) points at the copy
   // served by our app so air-gapped deploys still work.
   'web-ifc': path.join(root, 'node_modules/web-ifc'),
+  // OpenCascade WASM used by the STEP/IGES/BREP/FCSTD loaders. One WASM
+  // file, one JS glue — shared across all four loaders via occt-runtime.js.
+  occt: path.join(root, 'node_modules/occt-import-js/dist'),
 }
 
 // Files we care about (kept small to avoid shipping unneeded encoders)
@@ -52,6 +55,9 @@ const fileGlobs = {
     'web-ifc.wasm',
     // Multi-threaded variant; IfcAPI auto-selects based on runtime features.
     'web-ifc-mt.wasm',
+  ],
+  occt: [
+    'occt-import-js.wasm',
   ],
 }
 

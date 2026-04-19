@@ -40,8 +40,15 @@ const SUPPORTED_MIMES = [
 	'model/amf', // .amf alternative MIME
 	'model/3dm', // .3dm — Rhinoceros
 	'application/dotbim+json', // .bim — dotbim (JSON-based BIM)
-	'application/x-step', // .ifc — Industry Foundation Classes
+	'application/x-step', // .ifc — Industry Foundation Classes (also STEP-based)
 	'application/ifc', // .ifc alternative MIME
+	'model/step', // .step, .stp — STEP (ISO 10303)
+	'application/step', // STEP alternative MIME
+	'model/iges', // .iges, .igs — IGES
+	'application/iges', // IGES alternative MIME
+	'model/brep', // .brep, .brp — OpenCascade native B-Rep
+	'application/x-brep', // BREP alternative MIME
+	'application/x-fcstd', // .fcstd — FreeCAD document
 ]
 
 // Mode 1: Register simple viewer handler with Viewer API (modal preview)

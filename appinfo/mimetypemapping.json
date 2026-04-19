@@ -27,6 +27,13 @@
     "3dm": "model/3dm",
     "bim": "application/dotbim+json",
     "ifc": "application/x-step",
+    "step": "model/step",
+    "stp": "model/step",
+    "iges": "model/iges",
+    "igs": "model/iges",
+    "brep": "model/brep",
+    "brp": "model/brep",
+    "fcstd": "application/x-fcstd",
     "mtl": "text/plain"
   }
 }

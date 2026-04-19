@@ -71,12 +71,14 @@ draco/*.wasm
 basis/*.wasm
 rhino3dm/*.wasm
 web-ifc/*.wasm
+occt/*.wasm
 
 # Keep decoder JS files for production
 # draco/*.js
 # basis/*.js
 # rhino3dm/*.js
 # web-ifc has no JS asset to keep — only WASM
+# occt has no JS asset to keep — the emscripten glue lives in the bundle
 
 # ---- IDE / Editor Files ----
 .idea/

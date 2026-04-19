@@ -31,6 +31,13 @@ const loaders = {
 	'3dm': () => import('./types/threeDM.js'),
 	bim: () => import('./types/dotbim.js'),
 	ifc: () => import('./types/ifc.js'),
+	step: () => import('./types/step.js'),
+	stp: () => import('./types/step.js'), // STEP alternative extension
+	iges: () => import('./types/iges.js'),
+	igs: () => import('./types/iges.js'), // IGES alternative extension
+	brep: () => import('./types/brep.js'),
+	brp: () => import('./types/brep.js'), // BREP alternative extension
+	fcstd: () => import('./types/fcstd.js'),
 }
 
 export async function loadModelByExtension(ext, arrayBuffer, context) {

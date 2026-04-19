@@ -53,6 +53,13 @@ class SupportedFormats
         '3dm' => ['model/3dm', 'application/octet-stream'], // Rhinoceros 3DM
         'bim' => ['application/dotbim+json'], // dotbim (JSON-based BIM)
         'ifc' => ['application/x-step', 'application/ifc'], // Industry Foundation Classes (BIM, STEP-based text)
+        'step' => ['model/step', 'application/step'], // STEP ISO 10303
+        'stp' => ['model/step', 'application/step'], // STEP alternative extension
+        'iges' => ['model/iges', 'application/iges'], // IGES
+        'igs' => ['model/iges', 'application/iges'], // IGES alternative extension
+        'brep' => ['model/brep', 'application/x-brep'], // OpenCascade native B-Rep
+        'brp' => ['model/brep', 'application/x-brep'], // BREP alternative extension
+        'fcstd' => ['application/x-fcstd'], // FreeCAD native document (ZIP + BREP)
 
         // Material/texture files
         'mtl' => ['text/plain'],
@@ -92,6 +99,13 @@ class SupportedFormats
         '3dm' => 'model/3dm',
         'bim' => 'application/dotbim+json',
         'ifc' => 'application/x-step',
+        'step' => 'model/step',
+        'stp' => 'model/step',
+        'iges' => 'model/iges',
+        'igs' => 'model/iges',
+        'brep' => 'model/brep',
+        'brp' => 'model/brep',
+        'fcstd' => 'application/x-fcstd',
 
         // Material file
         'mtl' => 'text/plain',
