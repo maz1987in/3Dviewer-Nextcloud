@@ -3,11 +3,14 @@
 	  xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
 	<id>threedviewer</id>
 	<name>3D Viewer</name>
-	<summary>View, analyze &amp; export 3D models with 10+ formats, auto-thumbnails, personal settings, annotations, measurements &amp; rendering</summary>
-	<description><![CDATA[A comprehensive 3D model viewer that allows you to view, interact with, and analyze 3D models directly within Nextcloud. Supports 10+ formats including GLB, GLTF, OBJ, STL, PLY, FBX, 3MF, and 3DS with full material and texture support.
+	<summary>View, analyze &amp; export 3D models across 20+ formats (mesh, CAD, BIM, G-code), with auto-thumbnails, personal settings, annotations, measurements &amp; rendering</summary>
+	<description><![CDATA[A comprehensive 3D model viewer that allows you to view, interact with, and analyze 3D models directly within Nextcloud. Supports 20+ formats across mesh, CAD, and BIM families with full material and texture support.
 
 **📦 Format Support:**
-- 🎨 Multi-format support: GLB, GLTF, OBJ+MTL, STL, PLY, FBX, 3MF, 3DS, DAE, X3D, VRML
+- 🎨 Mesh formats: GLB, GLTF, OBJ+MTL, STL, PLY, FBX, 3MF, 3DS, DAE, X3D, VRML, OFF, AMF
+- 🏗️ CAD formats: STEP (.step/.stp), IGES (.iges/.igs), BREP (.brep/.brp), FCSTD (FreeCAD) — powered by a shared OpenCascade (OCCT) runtime
+- 🏛️ BIM formats: IFC (via web-ifc WASM), BIM (dotbim JSON), 3DM (Rhinoceros via rhino3dm WASM)
+- 🧊 WASM loaders lazy-chunk: a 3–7 MB runtime only downloads when the user opens a file of that format; air-gapped deploys ship their own WASM copies (no CDN required)
 - 🚀 Enhanced loaders: Significantly improved FBX, VRML, and DAE loaders with better material and texture support
 - 📁 Multi-file models: Full support for OBJ+MTL+textures and GLTF+bins+images
 - 🗜️ Compression: DRACO geometry and KTX2/Basis texture compression (needs more work)

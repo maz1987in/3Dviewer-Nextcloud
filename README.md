@@ -55,7 +55,7 @@ A comprehensive 3D model viewer application for Nextcloud that supports multiple
 ## ✨ Key Features
 
 - **Automatic Thumbnails** - Smart thumbnail generation for 3D files with content-aware cropping (configurable in settings)
-- **Multi-Format Support** - GLB, GLTF, OBJ (+MTL), STL, PLY, FBX, 3MF, 3DS, DAE, X3D, VRML, G-code (`.gcode`, `.gco`, `.nc`, `.acode`)
+- **Multi-Format Support** - 33 extensions across 22 formats: GLB, GLTF, OBJ (+MTL), STL, PLY, FBX, 3MF, 3DS, DAE, X3D, VRML, OFF, AMF, 3DM (Rhino), BIM (dotbim), IFC, STEP, IGES, BREP, FCSTD (FreeCAD), G-code (`.gcode`, `.gco`, `.nc`, `.acode`, `.g`, `.gx`, `.g3drem`, `.makerbot`, `.thing`)
 - **G-code Toolpath Visualization** - View 3D printer and CNC toolpaths with smooth rainbow gradient coloring, intelligent travel/retraction filtering, and automatic layer detection
 - **Enhanced File Loaders** - Significantly improved FBX, VRML, and DAE loaders with better material and texture support
 - **Multi-File Models** - Full support for OBJ+MTL+textures and GLTF+bins+images
@@ -169,6 +169,17 @@ The UI will also call `POST /apps/threedviewer/api/files/index` the first time i
 | 3MF    | `.3mf`    | No | 3D Manufacturing format |
 | X3D    | `.x3d`    | Limited | Web3D standard |
 | VRML   | `.wrl`, `.vrml` | Limited | Legacy format |
+| OFF    | `.off`    | No | Geomview Object File Format (plain-text, COFF vertex colors) |
+| AMF    | `.amf`    | Yes (ZIP-compressed) | Additive Manufacturing Format (XML, ISO/ASTM 52915) |
+| 3DM    | `.3dm`    | No | Rhinoceros (WASM, ~4 MB lazy-loaded) |
+| BIM    | `.bim`    | No | dotbim (JSON-based BIM, zero WASM) |
+| IFC    | `.ifc`    | No | Industry Foundation Classes (BIM, web-ifc WASM ~5 MB lazy-loaded) |
+| STEP   | `.step`, `.stp` | No | CAD NURBS (OCCT WASM ~7 MB, shared across STEP/IGES/BREP/FCSTD) |
+| IGES   | `.iges`, `.igs` | No | Legacy CAD NURBS (shared OCCT WASM) |
+| BREP   | `.brep`, `.brp` | No | OpenCascade native B-Rep (shared OCCT WASM) |
+| FCSTD  | `.fcstd`  | No | FreeCAD document (ZIP containing BREP bodies, shared OCCT WASM) |
+
+> WASM loaders are lazy-chunked — the 3–7 MB runtime only downloads when a user opens a file of that format.
 
 ### Supporting File Types
 
