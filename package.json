@@ -65,7 +65,7 @@
     "@nextcloud/vite-config": "^2.5.2",
     "@playwright/test": "^1.59.1",
     "@types/jest": "^30.0.0",
-    "babel-jest": "^29.7.0",
+    "babel-jest": "^30.3.0",
     "jest": "^30.3.0",
     "jest-environment-jsdom": "^30.3.0",
     "postcss": "^8.4.49",
