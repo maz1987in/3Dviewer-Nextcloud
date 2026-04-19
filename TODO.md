@@ -166,7 +166,7 @@ Added pre-export validation and corrected MIME types.
 - [x] Toast warnings for large models: >500K triangles (info), >2M triangles (warning)
 - [x] Fixed STL MIME type: `application/octet-stream` → `model/stl`
 - [x] Fixed OBJ MIME type: `text/plain` → `model/obj`
-- [ ] Future: multi-material OBJ edge cases, unit tests for blob creation
+- [x] Multi-material OBJ edge cases + unit tests for blob creation — `tests/unit/composables/useExport.test.js` covers getGeometryStats (indexed/non-indexed/group traversal) and the full exportAsSTL/OBJ/GLB blob pipeline with mocked Three.js exporters (MIME type `model/stl`/`model/obj`/`model/gltf-binary`, byte length, multi-material mesh passes through with material array + geometry groups intact, null-object guards). Also fixed stale MIME types in SlicerModal.vue (`application/octet-stream` → `model/stl`, `text/plain` → `model/obj`) so the slicer-export path matches the main Export Model path.
 
 ### 13. Help Panel & In-App Docs Refresh ✅ COMPLETED
 Updated help panel with all new features.

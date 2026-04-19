@@ -293,7 +293,8 @@ export default {
 					const result = exporter.parse(props.modelObject, { binary: true })
 					exportMessage.value = t('threedviewer', 'Creating file...')
 					await new Promise(resolve => setTimeout(resolve, 100))
-					exportedBlob = new Blob([result], { type: 'application/octet-stream' })
+					// Match useExport.js: STL is a first-class format with a registered MIME.
+					exportedBlob = new Blob([result], { type: 'model/stl' })
 				} else if (format === 'obj') {
 					const { OBJExporter } = await import('three/examples/jsm/exporters/OBJExporter.js')
 					const exporter = new OBJExporter()
@@ -302,7 +303,7 @@ export default {
 					const result = exporter.parse(props.modelObject)
 					exportMessage.value = t('threedviewer', 'Creating file...')
 					await new Promise(resolve => setTimeout(resolve, 100))
-					exportedBlob = new Blob([result], { type: 'text/plain' })
+					exportedBlob = new Blob([result], { type: 'model/obj' })
 				} else if (format === 'ply') {
 					const { PLYExporter } = await import('three/examples/jsm/exporters/PLYExporter.js')
 					const exporter = new PLYExporter()

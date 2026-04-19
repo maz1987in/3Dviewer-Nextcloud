@@ -102,6 +102,9 @@
     "transform": {
       "^.+\\.(js|jsx|ts|tsx)$": "babel-jest"
     },
+    "transformIgnorePatterns": [
+      "/node_modules/(?!three)"
+    ],
     "testPathIgnorePatterns": [
       "<rootDir>/tests/playwright/",
       "<rootDir>/tests/smoke/"
