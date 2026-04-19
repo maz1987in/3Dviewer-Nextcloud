@@ -184,7 +184,7 @@ Audited and fixed hardcoded strings, updated baseline.
 - [x] Wrapped hardcoded export/error toast strings in `t()` (ThreeViewer.vue export handler, template fallbacks)
 - [x] Added 31 new translation keys to `l10n/en.json` (export, cache, modal viewer, help panel features)
 - [x] Documented i18n checklist (how to add new strings) in TECHNICAL.md
-- [ ] Future: automated string extraction tooling, sync non-English translations
+- [x] Automated string extraction tooling — `scripts/check-i18n.mjs` walks `src/` and `lib/` and extracts every `t('threedviewer', …)` / `this.t(…)` / `->t(…)` call, diffs against `l10n/en.json`, reports missing keys, orphans, and per-locale coverage (including keys left behind after renames). Runs as `npm run i18n:check` (added to `validate` chain) and `npm run i18n:sync` to rewrite `l10n/en.json` from source. Synced en.json closed a 329-string gap plus removed 87 orphans. Non-English translation sync is still manual work — ar/de/es currently sit at ~27% after the gap was closed, surfacing the real coverage picture instead of the previously-inflated number.
 
 ### 15. Accessibility Review ✅ COMPLETED
 Audited and fixed ARIA roles and keyboard navigation.
