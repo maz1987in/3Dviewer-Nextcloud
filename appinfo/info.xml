@@ -3,7 +3,7 @@
 	  xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
 	<id>threedviewer</id>
 	<name>3D Viewer</name>
-	<summary>View, analyze &amp; export 3D models across 20+ formats (mesh, CAD, BIM, G-code), with auto-thumbnails, personal settings, annotations, measurements &amp; rendering</summary>
+	<summary>View, analyze &amp; export 3D models across 20+ formats (mesh, CAD, BIM) with thumbnails, annotations &amp; rendering</summary>
 	<description><![CDATA[A comprehensive 3D model viewer that allows you to view, interact with, and analyze 3D models directly within Nextcloud. Supports 20+ formats across mesh, CAD, and BIM families with full material and texture support.
 
 **📦 Format Support:**
