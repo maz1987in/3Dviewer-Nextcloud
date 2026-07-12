@@ -265,7 +265,7 @@ class ResponseBuilder
         $csp->addAllowedImageDomain('data:');
 
         // Allow workers with blob URLs (for Web Workers)
-        $csp->addAllowedChildSrcDomain('blob:');
+        $csp->addAllowedWorkerSrcDomain('blob:');
 
         // Also allow blob: in script-src for dynamic imports if needed
         $csp->addAllowedScriptDomain('blob:');
