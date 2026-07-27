@@ -40,6 +40,7 @@
 					<p>{{ t('threedviewer', 'Some textures may not load in this preview. For full texture support, open the model in the main 3D Viewer.') }}</p>
 				</div>
 				<NcButton
+					v-if="!isPublic"
 					type="primary"
 					class="texture-warning-button"
 					@click.prevent="openInFullViewer">
@@ -50,7 +51,7 @@
 
 		<!-- Open in full viewer button -->
 		<NcButton
-			v-if="hasLoaded && !showTextureWarning"
+			v-if="hasLoaded && !showTextureWarning && !isPublic"
 			type="primary"
 			class="open-in-app-button"
 			@click.prevent="openInFullViewer">
@@ -118,6 +119,7 @@
 import { markRaw } from 'vue'
 import { NcProgressBar, NcButton } from '@nextcloud/vue'
 import { generateUrl } from '@nextcloud/router'
+import { buildFileUrl, getPublicShareContext, isPublicShare } from '../composables/usePublicShare.js'
 // eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
 import axios from '@nextcloud/axios'
 import { loadModelWithDependencies } from '../loaders/multiFileHelpers.js'
@@ -230,6 +232,30 @@ export default {
 	},
 
 	computed: {
+		/**
+		 * True on a public share page, where anything requiring a user account
+		 * must stay hidden rather than bouncing the visitor to a login screen.
+		 */
+		isPublic() {
+			return isPublicShare()
+		},
+
+		/**
+		 * Filename to derive the loader extension from.
+		 *
+		 * On a single-file public share the Viewer opens us with the public DAV root
+		 * as davPath and a filename of '/', because there is no path component to
+		 * take a name from. The share's initial state carries the real name, so
+		 * prefer that whenever the passed-in prop has no usable extension.
+		 */
+		effectiveFilename() {
+			const own = this.filename || ''
+			if (own.includes('.')) {
+				return own
+			}
+			return getPublicShareContext()?.filename || own
+		},
+
 		/**
 		 * Generate URL to open model in full 3D viewer app
 		 */
@@ -382,6 +408,11 @@ export default {
 		 * Load the thumbnail setting from user preferences
 		 */
 		async loadThumbnailSetting() {
+			// Per-user preferences do not exist for an anonymous share visitor; the
+			// request would 401 and the default below is the right answer anyway.
+			if (isPublicShare()) {
+				return
+			}
 			try {
 				const response = await axios.get(generateUrl('/apps/threedviewer/settings'))
 				const settings = response.data?.settings || {}
@@ -400,7 +431,7 @@ export default {
 		captureThumbnail() {
 			if (!this.enableThumbnails) return
 
-			const extension = this.filename.split('.').pop()?.toLowerCase() || ''
+			const extension = this.effectiveFilename.split('.').pop()?.toLowerCase() || ''
 			const supportedFormats = ['glb', 'gltf', 'obj', 'stl', 'ply', '3mf', 'fbx', 'dae', '3ds', 'x3d', 'wrl', 'vrml']
 
 			if (this.renderer && this.fileid && supportedFormats.includes(extension)) {
@@ -831,7 +862,7 @@ export default {
 		async loadModel(THREE) {
 			try {
 				// Extract extension from filename
-				const extension = this.filename.split('.').pop().toLowerCase()
+				const extension = this.effectiveFilename.split('.').pop().toLowerCase()
 				logger.info('ViewerComponent', 'Loading model', {
 					filename: this.filename,
 					extension,
@@ -873,8 +904,9 @@ export default {
 				// Single-file loading (fallback or non-multi-file formats)
 				// Fetch model data from ApiController endpoint
 				this.updateProgress(true, 0, this.t('threedviewer', 'Downloading model...'), this.filename, false)
-				// Note: Using /api/file/{fileId} (not /file/{fileId})
-				const response = await fetch(generateUrl(`/apps/threedviewer/api/file/${this.fileid}`))
+				// buildFileUrl resolves to the token-keyed public endpoint on a share
+				// page, where the session-authenticated route below would 404.
+				const response = await fetch(buildFileUrl(this.fileid))
 
 				if (!response.ok) {
 					throw new Error(`Failed to fetch model: ${response.status} ${response.statusText}`)

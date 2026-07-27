@@ -40,3 +40,11 @@ if (!interface_exists('OC\\Hooks\\Emitter')) {
 if (!class_exists('OC\\User\\NoUserException')) {
     eval('namespace OC\\User; class NoUserException extends \Exception {}');
 }
+
+// files_sharing is a shipped app, not part of the nextcloud/ocp package, so its
+// public-share event is absent outside a full server. Without this stub every test
+// touching the public share page silently skips — which looks green but protects
+// nothing.
+if (!class_exists('OCA\\Files_Sharing\\Event\\BeforeTemplateRenderedEvent')) {
+    require_once __DIR__ . '/stubs/Files_Sharing_BeforeTemplateRenderedEvent.php';
+}

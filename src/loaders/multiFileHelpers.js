@@ -7,6 +7,7 @@
  */
 
 import { generateUrl } from '@nextcloud/router'
+import { buildFileUrl, buildPublicMtlUrl, isPublicShare } from '../composables/usePublicShare.js'
 import { logger } from '../utils/logger.js'
 import { getFulfilledValues } from '../utils/arrayHelpers.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
@@ -94,6 +95,13 @@ export async function fetchFileFromUrl(url, name, defaultType = 'application/oct
 export async function getFileIdByPath(filePath) {
 	let filename = ''
 	let normalizedDirPath = ''
+
+	// The file-listing API requires a session. On a public share every call here
+	// would 401, so short-circuit: callers fall back to the token-keyed public
+	// routes where one exists (the OBJ's .mtl), and skip the dependency otherwise.
+	if (isPublicShare()) {
+		return null
+	}
 
 	try {
 		// Validate input
@@ -547,6 +555,16 @@ export async function fetchObjDependencies(objContent, baseFilename, fileId, dir
 			// Construct relative path
 			const mtlPath = dirPath ? `${dirPath}/${mtlFilename}` : mtlFilename
 
+			// On a public share the file-listing API is not reachable anonymously, so
+			// there is no sibling id to look up. PublicFileController exposes the .mtl
+			// keyed by the OBJ's id and the material name instead.
+			const publicMtlUrl = buildPublicMtlUrl(fileId, mtlFilename)
+			if (publicMtlUrl) {
+				const file = await fetchFileFromUrl(publicMtlUrl, mtlFilename, 'model/mtl', { fileId })
+				logger.info('MultiFileHelpers', ' Fetched MTL via public share:', mtlFilename)
+				return file
+			}
+
 			// Use the file listing API to get file ID, then fetch by ID
 			const mtlLookup = await getFileIdByPath(mtlPath)
 
@@ -842,7 +860,8 @@ export async function loadModelWithDependencies(fileId, filename, extension, dir
 	})
 
 	// Fetch main file
-	const response = await fetch(generateUrl(`/apps/threedviewer/api/file/${fileId}`))
+	// buildFileUrl resolves to the token-keyed public route on a share page.
+	const response = await fetch(buildFileUrl(fileId))
 
 	if (!response.ok) {
 		// Try to extract error message from response
