@@ -182,7 +182,7 @@ final class BinaryModelScanner
             return [];
         }
 
-        return array_slice(array_values($matches[1]), 0, self::MAX_TEXTURES);
+        return array_slice($matches[1], 0, self::MAX_TEXTURES);
     }
 
     /** @return list<string> */
