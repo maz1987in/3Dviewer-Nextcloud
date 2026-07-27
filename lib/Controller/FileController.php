@@ -842,8 +842,13 @@ class FileController extends BaseController
                 $pathParts = explode('/', $subfolderPath);
                 $childName = $pathParts[0];
             } else {
-                // Child level - extract relative path
-                $relativePath = str_replace($normalizedParentPath . '/', '', $subfolderPath);
+                // Child level - strip only the leading parent prefix. Removing
+                // every occurrence mislabels a child that repeats its parent's
+                // name, e.g. "models/models" listed as "v2".
+                $prefix = $normalizedParentPath . '/';
+                $relativePath = str_starts_with($subfolderPath, $prefix)
+                    ? substr($subfolderPath, strlen($prefix))
+                    : $subfolderPath;
                 $childName = explode('/', $relativePath)[0];
             }
 
