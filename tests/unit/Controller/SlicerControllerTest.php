@@ -60,6 +60,12 @@ class SlicerControllerTest extends TestCase
         // Default: authenticated user (can be overridden in individual tests)
         $this->userSession->method('getUser')->willReturn($this->user);
         $this->rootFolder->method('getUserFolder')->with('testuser')->willReturn($this->userFolder);
+        // The controller resolves the temp folder and compares paths before it will
+        // serve or delete anything. $this->tempFolder was created but never wired up,
+        // so get() returned null and the path check died on an Error — which the
+        // controller's catch (\Exception) does not catch, surfacing as a 500.
+        $this->tempFolder->method('getPath')->willReturn('/testuser/.3dviewer_temp');
+        $this->userFolder->method('get')->willReturn($this->tempFolder);
     }
 
     public function testTestEndpointReturnsOk(): void
@@ -217,6 +223,7 @@ class SlicerControllerTest extends TestCase
         $file->method('getPath')->willReturn('/testuser/.3dviewer_temp/file.stl');
         $file->method('getName')->willReturn('file.stl');
         $file->method('getContent')->willReturn($fileContent);
+        $file->method('getMTime')->willReturn(time());
 
         $this->userFolder->method('getById')
             ->with(123)
