@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- **Resolved four npm advisories in production dependencies** via `npm audit fix` — lockfile only, no `package.json` ranges changed: `form-data` CRLF injection via unescaped multipart field names ([GHSA-hmw2-7cc7-3qxx](https://github.com/advisories/GHSA-hmw2-7cc7-3qxx), high), `postcss` path traversal in source-map auto-loading ([GHSA-r28c-9q8g-f849](https://github.com/advisories/GHSA-r28c-9q8g-f849), high), `fast-xml-builder` attribute/comment sanitisation bypasses (high), and nine `dompurify` sanitisation bypasses (moderate). Build and the Jest suite pass unchanged; all five bundles remain within budget.
+- **Known unresolved: `brace-expansion` DoS ([GHSA-mh99-v99m-4gvg](https://github.com/advisories/GHSA-mh99-v99m-4gvg), high).** Reached through `minimatch` → `webdav` → `@nextcloud/{dialogs,files,sharing,vue}`, and it does ship, inside the FilePicker chunk. It is not fixable here: the advisory covers everything `<= 5.0.7` with 5.0.8 the sole patched release, while `minimatch@9` requires `brace-expansion@^2.0.2` and the newest `webdav` (5.10.0) still pins `minimatch@^9.0.9`. Forcing 5.0.8 through an override would jump three majors under a library we ship to browsers, to mitigate a denial of service that needs an attacker-controlled glob pattern — something this app never accepts. Tracking upstream instead; `npm audit --audit-level=moderate` in `security.yml` will keep failing until the Nextcloud dependency chain moves.
+
 ## [3.3.2] - 2026-07-27
 
 Security release. Upgrade immediately if you use password-protected link shares containing 3D models.
