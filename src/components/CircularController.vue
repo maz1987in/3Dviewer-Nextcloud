@@ -125,6 +125,7 @@
 import { ref, shallowRef, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import * as THREE from 'three'
 import { logger } from '../utils/logger.js'
+import { clampToContainer, clampWithinContainer } from '../utils/controllerPosition.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
 
 export default {
@@ -155,6 +156,17 @@ export default {
 	setup(props, { emit }) {
 		// Refs
 		const controllerRef = ref(null)
+
+		/**
+		 * Bounds of the element the controller is positioned against.
+		 *
+		 * `.three-viewer` is the offset parent, so this is the 3D scene's own box —
+		 * never the window, which is what used to let the controller sit under the
+		 * app navigation.
+		 *
+		 * @return {DOMRect|null} the offset parent's rect, or null before mount
+		 */
+		const containerRect = () => controllerRef.value?.offsetParent?.getBoundingClientRect() ?? null
 		const cubeContainerRef = ref(null)
 
 		// State
@@ -1076,20 +1088,14 @@ export default {
 		const handleDragMove = (event) => {
 			if (!isDragging.value) return
 
-			// Current mouse position minus the offset within the controller
-			const targetX = event.clientX - dragOffset.value.x
-			const targetY = event.clientY - dragOffset.value.y
-
-			const newX = Math.max(0, Math.min(
-				window.innerWidth - controllerSize.value,
-				targetX,
-			))
-			const newY = Math.max(0, Math.min(
-				window.innerHeight - controllerSize.value,
-				targetY,
-			))
-
-			position.value = { x: newX, y: newY }
+			position.value = clampToContainer({
+				pointerX: event.clientX,
+				pointerY: event.clientY,
+				offsetX: dragOffset.value.x,
+				offsetY: dragOffset.value.y,
+				container: containerRect(),
+				size: controllerSize.value,
+			})
 		}
 
 		/**
@@ -1134,20 +1140,14 @@ export default {
 			event.preventDefault()
 			const touch = event.touches[0]
 
-			// Current touch position minus the offset within the controller
-			const targetX = touch.clientX - dragOffset.value.x
-			const targetY = touch.clientY - dragOffset.value.y
-
-			const newX = Math.max(0, Math.min(
-				window.innerWidth - controllerSize.value,
-				targetX,
-			))
-			const newY = Math.max(0, Math.min(
-				window.innerHeight - controllerSize.value,
-				targetY,
-			))
-
-			position.value = { x: newX, y: newY }
+			position.value = clampToContainer({
+				pointerX: touch.clientX,
+				pointerY: touch.clientY,
+				offsetX: dragOffset.value.x,
+				offsetY: dragOffset.value.y,
+				container: containerRect(),
+				size: controllerSize.value,
+			})
 		}
 
 		/**
@@ -1174,8 +1174,16 @@ export default {
 				if (saved) {
 					const pos = JSON.parse(saved)
 					if (pos && typeof pos.x === 'number' && typeof pos.y === 'number') {
-						position.value = pos
-						logger.info('CircularController', 'Position loaded', pos)
+						// Older builds stored viewport offsets, and any saved position can
+						// outlive the window it was saved at, so a stored value may land
+						// outside the viewer entirely.
+						position.value = clampWithinContainer({
+							x: pos.x,
+							y: pos.y,
+							container: containerRect(),
+							size: controllerSize.value,
+						})
+						logger.info('CircularController', 'Position loaded', position.value)
 					}
 				}
 			} catch (error) {

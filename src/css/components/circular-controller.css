@@ -4,7 +4,11 @@
  */
 
 .circular-controller {
-	position: fixed;
+	/* Absolute, not fixed: fixed anchors to the viewport, so the default 20px offset
+	   put the controller underneath Nextcloud's app navigation — which is frosted
+	   glass, so it showed through washed out instead of sitting on the scene.
+	   `.three-viewer` is position: relative and is the offset parent. */
+	position: absolute;
 	width: 250px;
 	height: 250px;
 	pointer-events: auto;
