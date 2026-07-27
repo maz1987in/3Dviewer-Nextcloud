@@ -2,7 +2,7 @@
 	<div
 		ref="controllerRef"
 		class="circular-controller"
-		:class="{ 'mobile': isMobile, 'dragging': isDragging, 'hidden': !visible, 'fade-in': fadeIn, 'idle': isIdle }"
+		:class="{ 'mobile': isMobile, 'dragging': isDragging, 'hidden': !visible, 'fade-in': fadeIn, 'idle': isIdle && visible }"
 		:style="controllerStyle"
 		role="region"
 		:aria-label="t('threedviewer', '3D navigation controller')"

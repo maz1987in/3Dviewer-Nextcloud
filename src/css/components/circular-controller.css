@@ -26,15 +26,19 @@
 	transition: opacity 0.3s ease;
 }
 
-.circular-controller.hidden {
-	opacity: 0;
-	pointer-events: none;
-}
-
 /* Fades back after a spell untouched so it stops competing with the model. Any
    pointer over it restores full opacity. */
 .circular-controller.idle {
 	opacity: 0.4;
+}
+
+/* Last, and deliberately so: `.hidden` and `.idle` are both one extra class on the
+   same element, so they carry equal specificity and source order decides. Idle is the
+   normal resting state, so if it won here, hiding the controller would leave it sitting
+   on screen at 40%. */
+.circular-controller.hidden {
+	opacity: 0;
+	pointer-events: none;
 }
 
 .circular-controller.dragging {

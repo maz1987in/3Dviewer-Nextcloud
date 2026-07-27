@@ -210,6 +210,38 @@ async function main() {
 			restored > 0.9
 				? pass('pointing at it brings it back')
 				: fail('pointing at it brings it back', `opacity only recovered to ${restored}`)
+
+			// Hiding has to beat the idle fade. Both are single extra classes on the same
+			// element, so whichever rule comes last in the sheet wins — and a controller
+			// left alone for a few seconds is the normal case, not the edge case.
+			const toggle = page.locator('button[aria-label="3D Controller"]').first()
+			if (!(await toggle.count())) {
+				fail('the 3D Controller button is present', 'no button with that label')
+			} else {
+				await page.mouse.move(5, 5)
+				await new Promise((r) => setTimeout(r, 3200))
+				await toggle.click()
+				await new Promise((r) => setTimeout(r, 600))
+
+				const hidden = await page.locator('.circular-controller').first()
+					.evaluate((el) => parseFloat(getComputedStyle(el).opacity))
+
+				hidden === 0
+					? pass('hiding an idle controller actually hides it')
+					: fail('hiding an idle controller actually hides it',
+						`opacity is ${hidden}; the idle fade is overriding the hidden state`)
+
+				await toggle.click()
+				await new Promise((r) => setTimeout(r, 600))
+				const back = await page.locator('.circular-controller').first()
+					.evaluate((el) => parseFloat(getComputedStyle(el).opacity))
+
+				// Not full opacity: the pointer is on the toolbar, not the controller, so
+				// the idle fade legitimately applies again. It just has to be visible.
+				back >= 0.4
+					? pass('showing it again brings it back')
+					: fail('showing it again brings it back', `opacity is ${back}`)
+			}
 		}
 
 		// --- 4. a narrower window, navigation still docked -------------------
