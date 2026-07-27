@@ -6,20 +6,27 @@ namespace OCA\ThreeDViewer\Migration;
 
 use Closure;
 use Doctrine\DBAL\Types\Type;
-use OC;
 use OCP\DB\ISchemaWrapper;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\DB\Types;
+use OCP\IDBConnection;
 use OCP\Migration\IOutput;
 use OCP\Migration\SimpleMigrationStep;
+use OCP\Server;
 
 class Version010903Date20251121000000 extends SimpleMigrationStep
 {
-    private $connection;
+    private IDBConnection $connection;
 
     public function __construct()
     {
-        $this->connection = \OCP\Server::get(\OCP\IDBConnection::class);
+        // Resolved through the public service locator rather than injected:
+        // MigrationService::createInstance() falls back to `new $class()` when the
+        // container cannot resolve the step, and a constructor-injected dependency
+        // would turn that fallback into an ArgumentCountError. Must not use
+        // `OC::$server->getDatabaseConnection()` — that method was removed from the
+        // private server container in NC 34 and fatals the upgrade.
+        $this->connection = Server::get(IDBConnection::class);
     }
 
     public function changeSchema(IOutput $output, Closure $schemaClosure, array $options)

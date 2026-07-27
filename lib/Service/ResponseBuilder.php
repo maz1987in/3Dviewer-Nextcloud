@@ -264,7 +264,11 @@ class ResponseBuilder
         $csp->addAllowedImageDomain('blob:');
         $csp->addAllowedImageDomain('data:');
 
-        // Allow workers with blob URLs (for Web Workers)
+        // Allow workers with blob URLs (for Web Workers).
+        // Must be worker-src, not the legacy child-src helper: Nextcloud removed
+        // `addAllowedChildSrcDomain()` from EmptyContentSecurityPolicy in NC 34,
+        // and calling it fatals the request. `addAllowedWorkerSrcDomain()` has
+        // existed since NC 17, so it is safe across the whole 31–34 range.
         $csp->addAllowedWorkerSrcDomain('blob:');
 
         // Also allow blob: in script-src for dynamic imports if needed

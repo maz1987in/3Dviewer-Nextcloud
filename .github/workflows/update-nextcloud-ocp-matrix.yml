@@ -25,7 +25,10 @@ jobs:
       fail-fast: false
       matrix:
         branches: ['main']
-        target: ['stable30']
+        # Must track the max-version in appinfo/info.xml. Left at stable30 this job
+        # silently re-pins composer.json to an API surface three releases behind
+        # what the app claims to support, every Sunday.
+        target: ['stable34']
 
     name: update-nextcloud-ocp-${{ matrix.branches }}
 
