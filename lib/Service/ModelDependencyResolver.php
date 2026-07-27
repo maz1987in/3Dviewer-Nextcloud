@@ -119,6 +119,7 @@ class ModelDependencyResolver
             'obj' => $this->objDependencies($model, $parent),
             'gltf' => $this->gltfDependencies($model),
             'dae', 'x3d' => $this->xmlDependencies($model),
+            'fbx', '3ds' => $this->binaryDependencies($model),
             // STL, PLY, GLB and the rest carry their data inline, so they declare nothing
             // and nothing beside them is reachable through this route.
             default => [],
@@ -197,6 +198,42 @@ class ModelDependencyResolver
                     }
                 }
             }
+        }
+
+        return $map;
+    }
+
+    /**
+     * FBX and 3DS name their textures in binary structures, so they are walked rather
+     * than pattern-matched. See BinaryModelScanner for why the walk is structural.
+     *
+     * @return array<string, string>
+     */
+    private function binaryDependencies(File $model): array
+    {
+        try {
+            $handle = $model->fopen('r');
+        } catch (\Throwable) {
+            return [];
+        }
+        if (!is_resource($handle)) {
+            return [];
+        }
+
+        try {
+            $paths = strtolower($model->getExtension()) === 'fbx'
+                ? BinaryModelScanner::fbxTexturePaths($handle)
+                : BinaryModelScanner::threeDsTexturePaths($handle);
+        } finally {
+            fclose($handle);
+        }
+
+        /** @var array<string, string> $map */
+        $map = [];
+        foreach ($paths as $path) {
+            // normalise() applies the same rules the other formats get: Windows
+            // separators folded, absolute paths and schemes refused, `..` collapsed.
+            $this->register($map, $path);
         }
 
         return $map;
