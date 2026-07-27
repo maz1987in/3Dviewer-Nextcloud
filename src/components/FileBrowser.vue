@@ -177,10 +177,18 @@
 					v-model="sizeFilter"
 					class="filter-size-select"
 					:aria-label="t('threedviewer', 'Filter by file size')">
-					<option value="all">{{ t('threedviewer', 'Any size') }}</option>
-					<option value="small">{{ t('threedviewer', '< 1 MB') }}</option>
-					<option value="medium">{{ t('threedviewer', '1–10 MB') }}</option>
-					<option value="large">{{ t('threedviewer', '> 10 MB') }}</option>
+					<option value="all">
+						{{ t('threedviewer', 'Any size') }}
+					</option>
+					<option value="small">
+						{{ t('threedviewer', '< 1 MB') }}
+					</option>
+					<option value="medium">
+						{{ t('threedviewer', '1–10 MB') }}
+					</option>
+					<option value="large">
+						{{ t('threedviewer', '> 10 MB') }}
+					</option>
 				</select>
 				<button
 					v-if="hasActiveFilters"
@@ -1106,6 +1114,7 @@ export default {
 		 * `selectedFormats = [...]` so the same array reference is preserved
 		 * (Vue 3 reactivity handles either, but this matches the rest of this
 		 * Options-API component).
+		 * @param ext
 		 */
 		toggleFormatFilter(ext) {
 			const i = this.selectedFormats.indexOf(ext)
@@ -1126,7 +1135,10 @@ export default {
 			this.focusedIndex = -1
 		},
 
-		/** Human-readable label for the active size bucket — used in the active filter pill. */
+		/**
+		 * Human-readable label for the active size bucket — used in the active filter pill.
+		 * @param value
+		 */
 		sizeFilterLabel(value) {
 			switch (value) {
 			case 'small': return this.t('threedviewer', '< 1 MB')

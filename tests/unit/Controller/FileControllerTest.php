@@ -15,6 +15,8 @@ use OCP\AppFramework\Http\StreamResponse;
 use OCP\Files\File;
 use OCP\Files\Folder;
 use OCP\Files\IRootFolder;
+use OCP\ICache;
+use OCP\ICacheFactory;
 use OCP\IRequest;
 use OCP\IUser;
 use OCP\IUserSession;
@@ -40,6 +42,8 @@ class FileControllerTest extends TestCase
     private $responseBuilder;
     /** @var LoggerInterface&MockObject */
     private $logger;
+    /** @var ICacheFactory&MockObject */
+    private $cacheFactory;
     /** @var IUser&MockObject */
     private $user;
     /** @var Folder&MockObject */
@@ -56,6 +60,10 @@ class FileControllerTest extends TestCase
         $this->modelFileSupport = $this->createMock(ModelFileSupport::class);
         $this->responseBuilder = $this->createMock(ResponseBuilder::class);
         $this->logger = $this->createMock(LoggerInterface::class);
+        // BaseController calls createDistributed() in its constructor, so the factory
+        // has to hand back a cache rather than null.
+        $this->cacheFactory = $this->createMock(ICacheFactory::class);
+        $this->cacheFactory->method('createDistributed')->willReturn($this->createMock(ICache::class));
         $this->user = $this->createMock(IUser::class);
         $this->userFolder = $this->createMock(Folder::class);
 
@@ -91,7 +99,8 @@ class FileControllerTest extends TestCase
             null, // systemTagManager is nullable
             $this->modelFileSupport,
             $this->responseBuilder,
-            $this->logger
+            $this->logger,
+            $this->cacheFactory
         );
         $response = $controller->serveFile(42);
         $this->assertInstanceOf(StreamResponse::class, $response);
@@ -113,7 +122,8 @@ class FileControllerTest extends TestCase
             null, // systemTagManager is nullable
             $this->modelFileSupport,
             $this->responseBuilder,
-            $this->logger
+            $this->logger,
+            $this->cacheFactory
         );
         $response = $controller->serveFile(10);
         $this->assertInstanceOf(JSONResponse::class, $response);
@@ -146,7 +156,8 @@ class FileControllerTest extends TestCase
             null, // systemTagManager is nullable
             $this->modelFileSupport,
             $this->responseBuilder,
-            $this->logger
+            $this->logger,
+            $this->cacheFactory
         );
         $response = $controller->serveFile(11);
         $this->assertInstanceOf(JSONResponse::class, $response);

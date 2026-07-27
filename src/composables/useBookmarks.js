@@ -4,7 +4,6 @@
  */
 
 import { ref } from 'vue'
-import { Vector3 } from 'three'
 import { logger } from '../utils/logger.js'
 
 const STORAGE_KEY = '3dviewer-bookmarks'
@@ -46,11 +45,13 @@ export function useBookmarks() {
 				y: cam.position.y,
 				z: cam.position.z,
 			},
-			target: ctrl ? {
-				x: ctrl.target.x,
-				y: ctrl.target.y,
-				z: ctrl.target.z,
-			} : { x: 0, y: 0, z: 0 },
+			target: ctrl
+				? {
+					x: ctrl.target.x,
+					y: ctrl.target.y,
+					z: ctrl.target.z,
+				}
+				: { x: 0, y: 0, z: 0 },
 			display: { ...displayState },
 			createdAt: Date.now(),
 		}
@@ -63,7 +64,7 @@ export function useBookmarks() {
 	/**
 	 * Restore a bookmarked view
 	 * @param {number} index
-	 * @returns {object|null} The display state to apply, or null
+	 * @return {object|null} The display state to apply, or null
 	 */
 	const loadBookmark = (index) => {
 		const bookmark = bookmarks.value[index]

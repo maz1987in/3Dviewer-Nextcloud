@@ -468,7 +468,7 @@ export function useAnnotation() {
 	 * are added later. The `format` discriminator lets the importer reject
 	 * unrelated JSON files (e.g., bookmarks or model exports) before parsing.
 	 *
-	 * @param {string} [modelFilename=''] - Source model filename, stored as a
+	 * @param {string} [modelFilename] - Source model filename, stored as a
 	 *   hint for the user but not used for matching
 	 * @return {object} Serializable annotation document
 	 */
@@ -496,7 +496,7 @@ export function useAnnotation() {
 	 *
 	 * @param {object|string} json - Parsed object or raw JSON string
 	 * @param {object} [options]
-	 * @param {boolean} [options.replace=false] - Clear existing annotations first
+	 * @param {boolean} [options.replace] - Clear existing annotations first
 	 * @return {{ added: number, skipped: number }}
 	 */
 	const importFromJSON = (json, options = {}) => {

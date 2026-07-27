@@ -348,53 +348,101 @@
 				<thead>
 					<tr>
 						<th />
-						<th class="diff-col-orig">{{ t('threedviewer', 'Original') }}</th>
-						<th class="diff-col-comp">{{ t('threedviewer', 'Compare') }}</th>
-						<th class="diff-col-delta">{{ t('threedviewer', 'Δ') }}</th>
+						<th class="diff-col-orig">
+							{{ t('threedviewer', 'Original') }}
+						</th>
+						<th class="diff-col-comp">
+							{{ t('threedviewer', 'Compare') }}
+						</th>
+						<th class="diff-col-delta">
+							{{ t('threedviewer', 'Δ') }}
+						</th>
 					</tr>
 				</thead>
 				<tbody>
 					<tr>
 						<td>{{ t('threedviewer', 'Vertices') }}</td>
-						<td class="diff-col-orig">{{ diffStats.original.vertices.toLocaleString() }}</td>
-						<td class="diff-col-comp">{{ diffStats.comparison.vertices.toLocaleString() }}</td>
-						<td class="diff-col-delta" :class="diffDeltaClass(diffStats.delta.vertices)">{{ formatDeltaInt(diffStats.delta.vertices) }}</td>
+						<td class="diff-col-orig">
+							{{ diffStats.original.vertices.toLocaleString() }}
+						</td>
+						<td class="diff-col-comp">
+							{{ diffStats.comparison.vertices.toLocaleString() }}
+						</td>
+						<td class="diff-col-delta" :class="diffDeltaClass(diffStats.delta.vertices)">
+							{{ formatDeltaInt(diffStats.delta.vertices) }}
+						</td>
 					</tr>
 					<tr>
 						<td>{{ t('threedviewer', 'Faces') }}</td>
-						<td class="diff-col-orig">{{ diffStats.original.faces.toLocaleString() }}</td>
-						<td class="diff-col-comp">{{ diffStats.comparison.faces.toLocaleString() }}</td>
-						<td class="diff-col-delta" :class="diffDeltaClass(diffStats.delta.faces)">{{ formatDeltaInt(diffStats.delta.faces) }}</td>
+						<td class="diff-col-orig">
+							{{ diffStats.original.faces.toLocaleString() }}
+						</td>
+						<td class="diff-col-comp">
+							{{ diffStats.comparison.faces.toLocaleString() }}
+						</td>
+						<td class="diff-col-delta" :class="diffDeltaClass(diffStats.delta.faces)">
+							{{ formatDeltaInt(diffStats.delta.faces) }}
+						</td>
 					</tr>
 					<tr>
 						<td>{{ t('threedviewer', 'Meshes') }}</td>
-						<td class="diff-col-orig">{{ diffStats.original.meshes }}</td>
-						<td class="diff-col-comp">{{ diffStats.comparison.meshes }}</td>
-						<td class="diff-col-delta" :class="diffDeltaClass(diffStats.delta.meshes)">{{ formatDeltaInt(diffStats.delta.meshes) }}</td>
+						<td class="diff-col-orig">
+							{{ diffStats.original.meshes }}
+						</td>
+						<td class="diff-col-comp">
+							{{ diffStats.comparison.meshes }}
+						</td>
+						<td class="diff-col-delta" :class="diffDeltaClass(diffStats.delta.meshes)">
+							{{ formatDeltaInt(diffStats.delta.meshes) }}
+						</td>
 					</tr>
 					<tr>
 						<td>{{ t('threedviewer', 'BBox X') }}</td>
-						<td class="diff-col-orig">{{ diffStats.original.bbox.x.toFixed(2) }}</td>
-						<td class="diff-col-comp">{{ diffStats.comparison.bbox.x.toFixed(2) }}</td>
-						<td class="diff-col-delta" :class="diffDeltaClass(diffStats.delta.bbox.x)">{{ formatDeltaFloat(diffStats.delta.bbox.x) }}</td>
+						<td class="diff-col-orig">
+							{{ diffStats.original.bbox.x.toFixed(2) }}
+						</td>
+						<td class="diff-col-comp">
+							{{ diffStats.comparison.bbox.x.toFixed(2) }}
+						</td>
+						<td class="diff-col-delta" :class="diffDeltaClass(diffStats.delta.bbox.x)">
+							{{ formatDeltaFloat(diffStats.delta.bbox.x) }}
+						</td>
 					</tr>
 					<tr>
 						<td>{{ t('threedviewer', 'BBox Y') }}</td>
-						<td class="diff-col-orig">{{ diffStats.original.bbox.y.toFixed(2) }}</td>
-						<td class="diff-col-comp">{{ diffStats.comparison.bbox.y.toFixed(2) }}</td>
-						<td class="diff-col-delta" :class="diffDeltaClass(diffStats.delta.bbox.y)">{{ formatDeltaFloat(diffStats.delta.bbox.y) }}</td>
+						<td class="diff-col-orig">
+							{{ diffStats.original.bbox.y.toFixed(2) }}
+						</td>
+						<td class="diff-col-comp">
+							{{ diffStats.comparison.bbox.y.toFixed(2) }}
+						</td>
+						<td class="diff-col-delta" :class="diffDeltaClass(diffStats.delta.bbox.y)">
+							{{ formatDeltaFloat(diffStats.delta.bbox.y) }}
+						</td>
 					</tr>
 					<tr>
 						<td>{{ t('threedviewer', 'BBox Z') }}</td>
-						<td class="diff-col-orig">{{ diffStats.original.bbox.z.toFixed(2) }}</td>
-						<td class="diff-col-comp">{{ diffStats.comparison.bbox.z.toFixed(2) }}</td>
-						<td class="diff-col-delta" :class="diffDeltaClass(diffStats.delta.bbox.z)">{{ formatDeltaFloat(diffStats.delta.bbox.z) }}</td>
+						<td class="diff-col-orig">
+							{{ diffStats.original.bbox.z.toFixed(2) }}
+						</td>
+						<td class="diff-col-comp">
+							{{ diffStats.comparison.bbox.z.toFixed(2) }}
+						</td>
+						<td class="diff-col-delta" :class="diffDeltaClass(diffStats.delta.bbox.z)">
+							{{ formatDeltaFloat(diffStats.delta.bbox.z) }}
+						</td>
 					</tr>
 					<tr>
 						<td>{{ t('threedviewer', 'Diagonal') }}</td>
-						<td class="diff-col-orig">{{ diffStats.original.bboxDiagonal.toFixed(2) }}</td>
-						<td class="diff-col-comp">{{ diffStats.comparison.bboxDiagonal.toFixed(2) }}</td>
-						<td class="diff-col-delta" :class="diffDeltaClass(diffStats.delta.bboxDiagonal)">{{ formatDeltaFloat(diffStats.delta.bboxDiagonal) }}</td>
+						<td class="diff-col-orig">
+							{{ diffStats.original.bboxDiagonal.toFixed(2) }}
+						</td>
+						<td class="diff-col-comp">
+							{{ diffStats.comparison.bboxDiagonal.toFixed(2) }}
+						</td>
+						<td class="diff-col-delta" :class="diffDeltaClass(diffStats.delta.bboxDiagonal)">
+							{{ formatDeltaFloat(diffStats.delta.bboxDiagonal) }}
+						</td>
 					</tr>
 				</tbody>
 			</table>

@@ -100,7 +100,7 @@ export function useLightingPresets() {
 
 	/**
 	 * Get all preset names and labels
-	 * @returns {Array<{name: string, label: string}>}
+	 * @return {Array<{name: string, label: string}>}
 	 */
 	const getPresets = () => {
 		return Object.entries(PRESETS).map(([name, p]) => ({ name, label: p.label }))

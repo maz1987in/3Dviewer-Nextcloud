@@ -30,7 +30,8 @@
 				<div v-if="!exporting && !isPassthrough" class="format-selector">
 					<label class="tool-label-small">{{ t('threedviewer', 'Export format') }}</label>
 					<div class="format-buttons">
-						<button v-for="fmt in ['stl', 'obj', 'ply']" :key="fmt"
+						<button v-for="fmt in ['stl', 'obj', 'ply']"
+							:key="fmt"
 							class="format-btn"
 							:class="{ active: selectedFormat === fmt }"
 							@click="selectedFormat = fmt">
@@ -358,6 +359,8 @@ export default {
 
 		/**
 		 * Upload blob to server with progress tracking via XMLHttpRequest
+		 * @param url
+		 * @param blob
 		 */
 		const uploadWithProgress = (url, blob) => {
 			return new Promise((resolve, reject) => {

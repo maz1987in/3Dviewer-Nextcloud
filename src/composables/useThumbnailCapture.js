@@ -17,7 +17,7 @@ export function useThumbnailCapture() {
 	 * @param {THREE.WebGLRenderer} renderer - Three.js renderer
 	 * @param {number} fileId - File ID to upload thumbnail for
 	 * @param {object} options - Capture options
-	 * @returns {Promise<boolean>} Success status
+	 * @return {Promise<boolean>} Success status
 	 */
 	const captureAndUpload = async (renderer, fileId, options = {}) => {
 		if (!renderer?.domElement || !fileId || fileId <= 0 || isCapturing.value) {
@@ -59,6 +59,8 @@ export function useThumbnailCapture() {
 
 	/**
 	 * Find the bounding box of non-background content in canvas
+	 * @param canvas
+	 * @param threshold
 	 */
 	const findContentBounds = (canvas, threshold = 10) => {
 		const tempCanvas = document.createElement('canvas')
@@ -113,6 +115,9 @@ export function useThumbnailCapture() {
 
 	/**
 	 * Crop and resize canvas to focus on content
+	 * @param sourceCanvas
+	 * @param width
+	 * @param height
 	 */
 	const cropAndResizeCanvas = (sourceCanvas, width, height) => {
 		const bounds = findContentBounds(sourceCanvas)
@@ -158,6 +163,8 @@ export function useThumbnailCapture() {
 
 	/**
 	 * Upload thumbnail blob to server
+	 * @param blob
+	 * @param fileId
 	 */
 	const uploadThumbnail = async (blob, fileId) => {
 		try {
@@ -177,6 +184,7 @@ export function useThumbnailCapture() {
 
 	/**
 	 * Convert blob to base64 string
+	 * @param blob
 	 */
 	const blobToBase64 = (blob) => {
 		return new Promise((resolve, reject) => {

@@ -67,7 +67,6 @@ Built with Three.js for high-performance WebGL rendering. ✨]]></description>
 	<version>3.3.2</version>
 	<licence>agpl</licence>
 	<author mail="maz1987in@gmail.com" homepage="https://github.com/maz1987in">Mazin Al Saadi</author>
-	<donation title="Donate to the developers with PayPal" type="paypal">https://www.paypal.com/ncp/payment/KZCB3XTCHGKZC</donation>
 	<namespace>ThreeDViewer</namespace>
 	<category>multimedia</category>
 	<website>https://github.com/maz1987in/3Dviewer-Nextcloud</website>
@@ -77,37 +76,13 @@ Built with Three.js for high-performance WebGL rendering. ✨]]></description>
 	<screenshot>https://raw.githubusercontent.com/maz1987in/3Dviewer-Nextcloud/main/img/screenshots/03-toolbar-features.png</screenshot>
 	<screenshot>https://raw.githubusercontent.com/maz1987in/3Dviewer-Nextcloud/main/img/screenshots/04-multi-file-support.png</screenshot>
 	<screenshot>https://raw.githubusercontent.com/maz1987in/3Dviewer-Nextcloud/main/img/screenshots/05-dark-theme.png</screenshot>
-	<settings>
-		<personal>OCA\ThreeDViewer\Settings\Personal</personal>
-		<personal-section>OCA\ThreeDViewer\Settings\Section</personal-section>
-	</settings>
+	<donation title="Donate to the developers with PayPal" type="paypal">https://www.paypal.com/ncp/payment/KZCB3XTCHGKZC</donation>
 	<dependencies>
 		<nextcloud min-version="31" max-version="34"/>
 	</dependencies>
-	<navigations>
-		<navigation>
-			<name>3D Viewer</name>
-			<route>threedviewer.page.index</route>
-			<icon>app.svg</icon>
-		</navigation>
-	</navigations>
-	<routes>
-		<!-- Asset routes are handled via FrontpageRoute attributes in AssetController -->
-		<!-- They are accessible at /apps/threedviewer/asset/{type}/... paths -->
-		<route name="threedviewer.file.serve" url="/file/{fileId}" verb="GET" controller="FileController" action="serveFile">
-			<param name="fileId" default="" />
-		</route>
-		<route name="threedviewer.files.list" url="/api/files/list" verb="GET" controller="FileController" action="listFiles" />
-		<route name="threedviewer.page.viewer" url="/f/{fileId}" verb="GET" controller="PageController" action="viewer" />
-		<route name="threedviewer.slicer.test" url="/api/slicer/test" verb="GET" controller="SlicerController" action="test" />
-		<route name="threedviewer.slicer.saveTempFile" url="/api/slicer/temp" verb="POST" controller="SlicerController" action="saveTempFile" />
-		<route name="threedviewer.slicer.getTempFile" url="/api/slicer/temp/{fileId}" verb="GET" controller="SlicerController" action="getTempFile">
-			<param name="fileId" default="" />
-		</route>
-		<route name="threedviewer.slicer.deleteTempFile" url="/api/slicer/temp/{fileId}" verb="DELETE" controller="SlicerController" action="deleteTempFile">
-			<param name="fileId" default="" />
-		</route>
-	</routes>
+	<background-jobs>
+		<job>OCA\ThreeDViewer\Cron\CleanupTempFiles</job>
+	</background-jobs>
 	<repair-steps>
 		<install>
 			<!-- Register 3D model MIME types in database and create config files -->
@@ -118,14 +93,18 @@ Built with Three.js for high-performance WebGL rendering. ✨]]></description>
 			<step>OCA\ThreeDViewer\Repair\UnregisterThreeDMimeTypes</step>
 		</uninstall>
 	</repair-steps>
-	<!-- Declare custom MIME type mapping file -->
-	<types>
-		<type>model</type>
-	</types>
-	<background-jobs>
-		<job>OCA\ThreeDViewer\Cron\CleanupTempFiles</job>
-	</background-jobs>
 	<commands>
 		<command>OCA\ThreeDViewer\Command\IndexFiles</command>
 	</commands>
+	<settings>
+		<personal>OCA\ThreeDViewer\Settings\Personal</personal>
+		<personal-section>OCA\ThreeDViewer\Settings\Section</personal-section>
+	</settings>
+	<navigations>
+		<navigation>
+			<name>3D Viewer</name>
+			<route>threedviewer.page.index</route>
+			<icon>app.svg</icon>
+		</navigation>
+	</navigations>
 </info>
