@@ -71,6 +71,11 @@ class X3dLoader extends BaseLoader {
 
 	/**
 	 * Recursively parse child elements
+	 * @param el
+	 * @param parent
+	 * @param THREE
+	 * @param dataUriMap
+	 * @param defRegistry
 	 */
 	parseChildren(el, parent, THREE, dataUriMap, defRegistry) {
 		for (const child of el.children) {
@@ -105,6 +110,8 @@ class X3dLoader extends BaseLoader {
 
 	/**
 	 * Apply X3D Transform attributes to a Three.js group
+	 * @param el
+	 * @param group
 	 */
 	applyTransform(el, group) {
 		const translation = this.parseVec3(el.getAttribute('translation'))
@@ -127,6 +134,10 @@ class X3dLoader extends BaseLoader {
 
 	/**
 	 * Parse a Shape element into a Three.js mesh
+	 * @param shapeEl
+	 * @param THREE
+	 * @param dataUriMap
+	 * @param defRegistry
 	 */
 	parseShape(shapeEl, THREE, dataUriMap, defRegistry) {
 		const appearance = shapeEl.querySelector('Appearance')
@@ -146,6 +157,8 @@ class X3dLoader extends BaseLoader {
 
 	/**
 	 * Parse IndexedFaceSet into BufferGeometry
+	 * @param ifs
+	 * @param THREE
 	 */
 	parseIndexedFaceSet(ifs, THREE) {
 		const coordEl = ifs.querySelector('Coordinate')
@@ -273,6 +286,10 @@ class X3dLoader extends BaseLoader {
 
 	/**
 	 * Parse Appearance/Material into a Three.js material
+	 * @param appearance
+	 * @param THREE
+	 * @param dataUriMap
+	 * @param defRegistry
 	 */
 	parseMaterial(appearance, THREE, dataUriMap, defRegistry) {
 		if (!appearance) {
@@ -342,6 +359,9 @@ class X3dLoader extends BaseLoader {
 
 	/**
 	 * Load texture from X3D ImageTexture url attribute
+	 * @param urlAttr
+	 * @param THREE
+	 * @param dataUriMap
 	 */
 	loadX3dTexture(urlAttr, THREE, dataUriMap) {
 		// X3D url can be: '"path1" "path2" "path3"'
@@ -372,20 +392,29 @@ class X3dLoader extends BaseLoader {
 		return null
 	}
 
-	/** Parse space-separated floats */
+	/**
+	 * Parse space-separated floats
+	 * @param str
+	 */
 	parseFloatArray(str) {
 		if (!str) return []
 		return str.trim().split(/[\s,]+/).map(Number).filter(n => !isNaN(n))
 	}
 
-	/** Parse "x y z" string to [x,y,z] */
+	/**
+	 * Parse "x y z" string to [x,y,z]
+	 * @param str
+	 */
 	parseVec3(str) {
 		if (!str) return null
 		const parts = str.trim().split(/\s+/).map(Number)
 		return parts.length >= 3 ? parts : null
 	}
 
-	/** Parse "x y z w" string to [x,y,z,w] */
+	/**
+	 * Parse "x y z w" string to [x,y,z,w]
+	 * @param str
+	 */
 	parseVec4(str) {
 		if (!str) return null
 		const parts = str.trim().split(/\s+/).map(Number)

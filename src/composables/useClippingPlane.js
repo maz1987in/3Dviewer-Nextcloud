@@ -115,9 +115,7 @@ export function useClippingPlane() {
 		const bounds = modelBounds.value
 		const t = (position.value + 1) / 2 // map [-1,1] → [0,1]
 		let min, max
-		if (axis.value === 'x') { min = bounds.xMin ?? bounds.min; max = bounds.xMax ?? bounds.max }
-		else if (axis.value === 'y') { min = bounds.yMin ?? bounds.min; max = bounds.yMax ?? bounds.max }
-		else { min = bounds.zMin ?? bounds.min; max = bounds.zMax ?? bounds.max }
+		if (axis.value === 'x') { min = bounds.xMin ?? bounds.min; max = bounds.xMax ?? bounds.max } else if (axis.value === 'y') { min = bounds.yMin ?? bounds.min; max = bounds.yMax ?? bounds.max } else { min = bounds.zMin ?? bounds.min; max = bounds.zMax ?? bounds.max }
 		// Add 5% margin beyond model bounds to avoid Z-fighting at extremes
 		const margin = (max - min) * 0.05
 		return (min - margin) + t * ((max + margin) - (min - margin))

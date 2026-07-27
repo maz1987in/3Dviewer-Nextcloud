@@ -23,6 +23,10 @@ export function useTransformGizmo() {
 	/**
 	 * Initialize transform controls.
 	 * Call after scene, camera, and renderer are ready.
+	 * @param rawScene
+	 * @param rawCamera
+	 * @param rawRenderer
+	 * @param rawOrbitControls
 	 */
 	const init = async (rawScene, rawCamera, rawRenderer, rawOrbitControls) => {
 		try {
@@ -55,6 +59,7 @@ export function useTransformGizmo() {
 	/**
 	 * Toggle the gizmo on/off.
 	 * When turning on, attaches to the model root.
+	 * @param modelRoot
 	 */
 	const toggle = (modelRoot) => {
 		if (!controls) {
@@ -78,6 +83,7 @@ export function useTransformGizmo() {
 
 	/**
 	 * Switch gizmo mode.
+	 * @param newMode
 	 */
 	const setMode = (newMode) => {
 		if (!['translate', 'rotate', 'scale'].includes(newMode)) return
