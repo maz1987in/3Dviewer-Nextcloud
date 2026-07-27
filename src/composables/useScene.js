@@ -75,7 +75,10 @@ export function useScene() {
 			renderer.value.setSize(width, height)
 			renderer.value.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 			renderer.value.shadowMap.enabled = options.shadows ?? true
-			renderer.value.shadowMap.type = THREE.PCFSoftShadowMap
+			// PCFSoftShadowMap is deprecated as of three r184 — WebGLShadowMap
+			// reassigns it to PCFShadowMap on the first shadow pass and warns, so
+			// this is what was rendering anyway.
+			renderer.value.shadowMap.type = THREE.PCFShadowMap
 			renderer.value.outputColorSpace = THREE.SRGBColorSpace
 
 			container.appendChild(renderer.value.domElement)
