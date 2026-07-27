@@ -998,7 +998,8 @@ export default {
 				renderer.value.setSize(containerWidth, containerHeight)
 				// Note: pixel ratio will be overridden by initPerformance() based on auto-detection
 				renderer.value.shadowMap.enabled = true
-				renderer.value.shadowMap.type = THREE.PCFSoftShadowMap
+				// Deprecated in three r184; see the note in useScene.js.
+				renderer.value.shadowMap.type = THREE.PCFShadowMap
 				// Enable WebXR — required before any session can be started
 				renderer.value.xr.enabled = true
 
