@@ -1446,7 +1446,10 @@ export default {
 	padding: 0;
 	margin: -1px;
 	overflow: hidden;
-	clip: rect(0, 0, 0, 0);
+
+	/* clip-path rather than the deprecated `clip`; same effect — the element stays
+	   in the accessibility tree for screen readers but is not visually rendered. */
+	clip-path: inset(50%);
 	white-space: nowrap;
 	border: 0;
 }
@@ -1477,7 +1480,7 @@ export default {
 
 	&:hover {
 		border-color: var(--color-primary, #0082c9);
-		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+		box-shadow: 0 2px 8px rgb(0, 0, 0, 0.1);
 		transform: translateY(-2px);
 	}
 
@@ -1574,7 +1577,7 @@ export default {
 
 	&:hover {
 		border-color: var(--color-primary, #0082c9);
-		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+		box-shadow: 0 2px 8px rgb(0, 0, 0, 0.1);
 		transform: translateY(-2px);
 	}
 
