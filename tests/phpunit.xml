@@ -1,7 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" bootstrap="bootstrap.php" timeoutForSmallTests="900" timeoutForMediumTests="900" timeoutForLargeTests="900" xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/10.4/phpunit.xsd" cacheDirectory=".phpunit.cache">
+	<!--
+		Names the directory it covers rather than globbing `.` and excluding the rest.
+		Globbing collected tests/integration too — those need a real server, and running
+		them here put 18 errors into the unit suite. An <exclude> would have masked that
+		by omission; saying which directory this suite *is* cannot drift the same way.
+	-->
 	<testsuite name="Three D Viewer Tests">
-		<directory suffix="Test.php">.</directory>
+		<directory suffix="Test.php">unit</directory>
 	</testsuite>
 	<source>
 		<include>
