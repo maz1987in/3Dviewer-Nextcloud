@@ -169,10 +169,10 @@
    ~310px tall beside a 150px ring, which is taller than the dial it replaced. */
 .rail {
 	display: grid;
-	grid-template-columns: repeat(2, 38px);
-	gap: 4px;
-	padding: 6px 6px 8px;
-	border-radius: 20px;
+	grid-template-columns: repeat(2, 32px);
+	gap: 3px;
+	padding: 5px 5px 7px;
+	border-radius: 17px;
 	background: color-mix(in srgb, var(--color-main-background, #181818) 86%, transparent);
 	backdrop-filter: blur(12px);
 	border: 1px solid var(--color-border, rgb(255 255 255 / 13%));
@@ -180,13 +180,13 @@
 }
 
 .rail-btn {
-	width: 38px;
-	height: 38px;
+	width: 32px;
+	height: 32px;
 	border: 0;
-	border-radius: 12px;
+	border-radius: 10px;
 	background: transparent;
 	color: var(--color-main-text, #d8d8d8);
-	font: 400 19px/1 inherit;
+	font: 400 16px/1 inherit;
 	cursor: pointer;
 	display: grid;
 	place-items: center;
@@ -224,7 +224,7 @@
 	grid-column: 1 / -1;
 	height: 1px;
 	background: var(--color-border, rgb(255 255 255 / 10%));
-	margin: 1px 4px;
+	margin: 1px 3px;
 }
 
 .drag-handle {
@@ -234,7 +234,7 @@
 .grip {
 	display: grid;
 	grid-template-columns: repeat(2, 3px);
-	gap: 3px;
+	gap: 2px;
 }
 
 .grip i {
@@ -258,18 +258,24 @@
 
 /* ---- Mobile -------------------------------------------------------------- */
 
+/* Touch needs a larger target than a mouse does; the rail is deliberately bigger on
+   mobile than on desktop rather than smaller. */
 .mobile .rail-btn {
-	width: 36px;
-	height: 36px;
-	border-radius: 11px;
-	font-size: 17px;
+	width: 40px;
+	height: 40px;
+	border-radius: 12px;
+	font-size: 18px;
 }
 
 .mobile .rail {
-	grid-template-columns: repeat(2, 36px);
+	grid-template-columns: repeat(2, 40px);
+	gap: 4px;
+	padding: 6px 6px 8px;
+	border-radius: 21px;
+}
+
+.mobile .grip {
 	gap: 3px;
-	padding: 5px 5px 7px;
-	border-radius: 18px;
 }
 
 .mobile .console-row {

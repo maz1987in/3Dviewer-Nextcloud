@@ -782,8 +782,8 @@ export const CONTROLLER_SETTINGS = {
 	},
 	// Width the two-column rail adds beside the ring, including the gap.
 	railWidth: {
-		desktop: 102,
-		mobile: 94,
+		desktop: 87,
+		mobile: 105,
 	},
 	cubeSize: {
 		desktop: 78, // cube viewport in the middle of the annulus
