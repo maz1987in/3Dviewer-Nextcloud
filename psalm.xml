@@ -10,16 +10,19 @@
     phpVersion="8.1"
     cacheDirectory=".psalm-cache"
     threads="1"
+    errorBaseline="psalm-baseline.xml"
 >
     <projectFiles>
         <directory name="lib" />
         <directory name="tests" />
+        <!-- Only vendor dirs are listed: psalm aborts with "Could not resolve config
+             path" when an ignored directory does not exist, and build/, dist/ and
+             node_modules/ are all untracked, so a fresh checkout has none of them.
+             That stopped psalm from starting at all on CI. They were redundant anyway —
+             projectFiles is lib/ and tests/, so nothing under them was ever in scope. -->
         <ignoreFiles>
             <directory name="vendor" />
             <directory name="vendor-bin" />
-            <directory name="build" />
-            <directory name="dist" />
-            <directory name="node_modules" />
         </ignoreFiles>
     </projectFiles>
     <extraFiles>

@@ -39,6 +39,15 @@ class ShareFileServiceTest extends TestCase
 
     public function testNotFoundShare(): void
     {
+        // Nextcloud 33 narrowed IManager::getShareByToken() to a non-nullable IShare,
+        // so PHPUnit refuses to stub a null return there. The production null check
+        // stays for the 31/32 range this app still supports; the "no share" path on
+        // newer servers is covered by the ShareNotFound tests instead.
+        $returnType = (new \ReflectionMethod(IManager::class, 'getShareByToken'))->getReturnType();
+        if ($returnType !== null && !$returnType->allowsNull()) {
+            $this->markTestSkipped('getShareByToken is non-nullable on this Nextcloud version');
+        }
+
         if (!interface_exists(IManager::class)) {
             $this->markTestSkipped('Share interfaces not available');
         }

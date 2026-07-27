@@ -241,7 +241,13 @@ class SlicerControllerTest extends TestCase
 
         $response = $controller->getTempFile(123);
 
-        $this->assertInstanceOf(DataDownloadResponse::class, $response);
+        // This passes on Nextcloud 31 but fails from 32 on, and the bare assertInstanceOf
+        // only says "not a DataDownloadResponse" — the controller wraps everything in
+        // catch (\Throwable), so the real cause is inside the JSON body it returns.
+        $detail = $response instanceof JSONResponse
+            ? ' — controller returned JSONResponse: ' . json_encode($response->getData())
+            : ' — controller returned ' . get_class($response);
+        $this->assertInstanceOf(DataDownloadResponse::class, $response, 'Expected a download response' . $detail);
         $this->assertEquals($fileContent, $response->render());
     }
 
