@@ -774,13 +774,20 @@ export function getEnvironmentConfig(environment = 'production') {
 export const CONTROLLER_SETTINGS = {
 	defaultVisible: true,
 	defaultPosition: { x: 20, y: 80 }, // offset from top-left
+	// Split console layout: a steering annulus with the button rail attached beside it,
+	// rather than buttons docked on the ring they would otherwise be steering.
 	size: {
-		desktop: 180, // Reduced from 250
-		mobile: 140, // Reduced from 180
+		desktop: 150, // diameter of the steering ring
+		mobile: 126,
+	},
+	// Width the attached rail adds beside the ring, including the gap.
+	railWidth: {
+		desktop: 58,
+		mobile: 52,
 	},
 	cubeSize: {
-		desktop: 80, // Reduced from 100
-		mobile: 60, // Reduced from 70
+		desktop: 78, // cube viewport in the middle of the annulus
+		mobile: 66,
 	},
 	arrowNudgeAmount: 0.1, // radians
 	zoomStep: 0.1,

@@ -160,7 +160,59 @@ async function main() {
 			fail('drag handle is present', 'no .drag-handle to drag')
 		}
 
-		// --- 3. a narrower window, navigation still docked -------------------
+		// --- 3. the Split console's own behaviours ---------------------------
+		{
+			const ring = page.locator('.steer-ring').first()
+			const readout = page.locator('.readout').first()
+
+			if (!(await ring.count())) {
+				fail('steering ring is present', 'no .steer-ring in the DOM')
+			} else {
+				// Keyboard steering: the eight arrow glyphs used to be aria-hidden
+				// decoration, so the ring had no keyboard path at all.
+				await ring.focus()
+				await page.keyboard.down('ArrowUp')
+				await new Promise((r) => setTimeout(r, 400))
+				const steering = (await readout.textContent()).trim()
+				await page.keyboard.up('ArrowUp')
+				await new Promise((r) => setTimeout(r, 300))
+				const idleText = (await readout.textContent()).trim()
+
+				const steersUp = new RegExp('0\\s*°').test(steering)
+				const hasStrength = new RegExp('\\d+\\s*%').test(steering)
+
+				steersUp && hasStrength
+					? pass(`arrow keys steer the ring ("${steering}")`)
+					: fail('arrow keys steer the ring',
+						`readout after ArrowUp was "${steering}", expected a 0° bearing and a strength`)
+
+				idleText.includes('%')
+					? fail('releasing the key stops the camera', `readout stayed at "${idleText}"`)
+					: pass('releasing the key stops the camera')
+			}
+
+			// Idle fade: back to 40% after a spell untouched, restored on pointer-enter.
+			await page.mouse.move(5, 5)
+			await new Promise((r) => setTimeout(r, 3200))
+			const faded = await page.locator('.circular-controller').first()
+				.evaluate((el) => parseFloat(getComputedStyle(el).opacity))
+
+			faded < 0.6
+				? pass(`controller fades when left alone (opacity ${faded})`)
+				: fail('controller fades when left alone', `opacity stayed at ${faded}`)
+
+			const gizmo = await page.locator('.gizmo').first().boundingBox()
+			await page.mouse.move(gizmo.x + gizmo.width / 2, gizmo.y + gizmo.height / 2)
+			await new Promise((r) => setTimeout(r, 500))
+			const restored = await page.locator('.circular-controller').first()
+				.evaluate((el) => parseFloat(getComputedStyle(el).opacity))
+
+			restored > 0.9
+				? pass('pointing at it brings it back')
+				: fail('pointing at it brings it back', `opacity only recovered to ${restored}`)
+		}
+
+		// --- 4. a narrower window, navigation still docked -------------------
 		await page.setViewportSize({ width: 1100, height: 900 })
 		await new Promise((r) => setTimeout(r, 1500))
 		const narrow = await measure(page)

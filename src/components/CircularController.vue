@@ -2,67 +2,91 @@
 	<div
 		ref="controllerRef"
 		class="circular-controller"
-		:class="{ 'mobile': isMobile, 'dragging': isDragging, 'hidden': !visible, 'fade-in': fadeIn }"
+		:class="{ 'mobile': isMobile, 'dragging': isDragging, 'hidden': !visible, 'fade-in': fadeIn, 'idle': isIdle }"
 		:style="controllerStyle"
 		role="region"
-		:aria-label="t('threedviewer', '3D navigation controller')">
-		<div class="controller-layers">
-			<!-- Outer zoom ring with tick marks (visual only) -->
-			<div class="zoom-ring">
-				<svg viewBox="0 0 250 250" xmlns="http://www.w3.org/2000/svg">
-					<circle
-						class="zoom-ring-circle"
-						cx="125"
-						cy="125"
-						:r="ringRadius" />
-					<g class="zoom-ring-ticks">
-						<line
-							v-for="i in 12"
-							:key="`tick-${i}`"
-							:x1="125 + ringRadius * Math.cos((i * 30 - 90) * Math.PI / 180)"
-							:y1="125 + ringRadius * Math.sin((i * 30 - 90) * Math.PI / 180)"
-							:x2="125 + (ringRadius - 5) * Math.cos((i * 30 - 90) * Math.PI / 180)"
-							:y2="125 + (ringRadius - 5) * Math.sin((i * 30 - 90) * Math.PI / 180)" />
-					</g>
-				</svg>
-			</div>
-
-			<!-- Movement ring (full interactive area) -->
-			<div
-				class="movement-ring"
-				:class="{ 'panning-mode': isPanningMode }"
-				:aria-label="isPanningMode ? t('threedviewer', 'Click or drag to pan view') : t('threedviewer', 'Click or drag to rotate view')"
-				:title="isPanningMode ? t('threedviewer', 'Click anywhere to pan - farther from center = faster') : t('threedviewer', 'Click anywhere to rotate - farther from center = faster')"
-				@mousedown="handleMovementStart"
-				@touchstart.prevent="handleMovementTouchStart">
-				<!-- Directional arrows (visual indicators only) -->
-				<div class="arrow-indicators">
-					<div
-						v-for="arrow in arrows"
-						:key="arrow.direction"
-						:class="['direction-arrow', `arrow-${arrow.direction}`]"
-						:aria-hidden="true">
-						{{ arrow.icon }}
-					</div>
+		:aria-label="t('threedviewer', '3D navigation controller')"
+		@pointerenter="wakeFromIdle"
+		@pointermove="wakeFromIdle">
+		<div class="console-row">
+			<!-- Steering annulus with the cube compass in its hole -->
+			<div class="gizmo" :style="gizmoStyle">
+				<div
+					ref="ringRef"
+					class="steer-ring"
+					:class="{ 'panning-mode': isPanningMode }"
+					tabindex="0"
+					role="application"
+					:aria-label="isPanningMode
+						? t('threedviewer', 'Pan the view. Drag the ring, or use the arrow keys.')
+						: t('threedviewer', 'Orbit the view. Drag the ring, or use the arrow keys.')"
+					@mousedown="handleMovementStart"
+					@touchstart.prevent="handleMovementTouchStart"
+					@keydown="handleRingKeydown"
+					@keyup="handleRingKeyup"
+					@blur="handleRingKeyup">
+					<!-- Live wedge: direction from the angle, opacity from the strength -->
+					<div class="steer-wedge" :style="wedgeStyle" aria-hidden="true" />
+					<!-- Four cardinal notches replace the twelve decorative ticks -->
+					<div class="notch notch-n" aria-hidden="true" />
+					<div class="notch notch-s" aria-hidden="true" />
+					<div class="notch notch-w" aria-hidden="true" />
+					<div class="notch notch-e" aria-hidden="true" />
+					<div class="steer-dot" :style="dotStyle" aria-hidden="true" />
+					<div class="ring-hole" aria-hidden="true" />
 				</div>
 
-				<!-- Zoom buttons (replacing left/right arrows) -->
+				<!-- Central cube gizmo (Three.js canvas is inserted here) -->
+				<div
+					ref="cubeContainerRef"
+					class="cube-container"
+					:style="cubeStyle"
+					:aria-label="t('threedviewer', 'Orientation cube. Drag to orbit, double-click a face to snap to that view.')"
+					:title="t('threedviewer', 'Drag to orbit · double-click a face to snap')" />
+			</div>
+
+			<!-- Attached button rail -->
+			<div class="rail">
+				<div
+					class="rail-btn drag-handle"
+					role="button"
+					tabindex="0"
+					:aria-label="t('threedviewer', 'Move controller')"
+					:title="t('threedviewer', 'Drag to reposition controller')"
+					@mousedown.stop="handleDragStart"
+					@touchstart.stop.prevent="handleDragTouchStart">
+					<span class="grip" aria-hidden="true">
+						<i /><i /><i /><i /><i /><i />
+					</span>
+				</div>
+
+				<div class="rail-divider" aria-hidden="true" />
+
 				<button
-					class="zoom-btn zoom-out"
-					:aria-label="t('threedviewer', 'Zoom Out')"
-					:title="t('threedviewer', 'Zoom Out')"
-					@click.stop="handleZoomOut"
-					@mousedown.stop="handleZoomOutStart"
-					@mouseup.stop="handleZoomStop"
-					@mouseleave.stop="handleZoomStop"
-					@touchstart.stop="handleZoomOutStart"
-					@touchend.stop="handleZoomStop">
-					−
+					class="rail-btn"
+					:class="{ active: !isPanningMode }"
+					:aria-pressed="String(!isPanningMode)"
+					:aria-label="t('threedviewer', 'Rotate mode')"
+					:title="t('threedviewer', 'Rotate mode')"
+					@click.stop="setRotateMode">
+					↻
 				</button>
 				<button
-					class="zoom-btn zoom-in"
-					:aria-label="t('threedviewer', 'Zoom In')"
-					:title="t('threedviewer', 'Zoom In')"
+					class="rail-btn"
+					:class="{ active: isPanningMode }"
+					:aria-pressed="String(isPanningMode)"
+					:aria-label="t('threedviewer', 'Pan mode')"
+					:title="t('threedviewer', 'Pan mode')"
+					@click.stop="setPanMode">
+					✥
+				</button>
+
+				<div class="rail-divider" aria-hidden="true" />
+
+				<button
+					class="rail-btn"
+					:aria-label="t('threedviewer', 'Zoom in')"
+					:title="t('threedviewer', 'Zoom in — hold to repeat')"
 					@click.stop="handleZoomIn"
 					@mousedown.stop="handleZoomInStart"
 					@mouseup.stop="handleZoomStop"
@@ -71,52 +95,34 @@
 					@touchend.stop="handleZoomStop">
 					+
 				</button>
-
-				<!-- Panning mode toggle button -->
 				<button
-					class="mode-btn panning-toggle"
-					:class="{ active: isPanningMode }"
-					:aria-label="isPanningMode ? t('threedviewer', 'Switch to Rotation Mode') : t('threedviewer', 'Switch to Panning Mode')"
-					:title="isPanningMode ? t('threedviewer', 'Switch to Rotation Mode') : t('threedviewer', 'Switch to Panning Mode')"
-					@click.stop="togglePanningMode">
-					{{ isPanningMode ? '↻' : '↔' }}
+					class="rail-btn"
+					:aria-label="t('threedviewer', 'Zoom out')"
+					:title="t('threedviewer', 'Zoom out — hold to repeat')"
+					@click.stop="handleZoomOut"
+					@mousedown.stop="handleZoomOutStart"
+					@mouseup.stop="handleZoomStop"
+					@mouseleave.stop="handleZoomStop"
+					@touchstart.stop="handleZoomOutStart"
+					@touchend.stop="handleZoomStop">
+					−
 				</button>
 
-				<!-- Panning reset button (only visible in panning mode) -->
+				<!-- Disabled rather than hidden outside pan mode, so nothing below it shifts -->
 				<button
-					v-if="isPanningMode"
-					class="mode-btn panning-reset"
-					:aria-label="t('threedviewer', 'Reset camera position')"
-					:title="t('threedviewer', 'Reset camera position')"
+					class="rail-btn"
+					:disabled="!isPanningMode"
+					:aria-label="t('threedviewer', 'Recentre view')"
+					:title="t('threedviewer', 'Recentre — keeps your zoom and angle')"
 					@click.stop="resetPanning">
-					⌂
+					⌖
 				</button>
-
-				<!-- Inner dashed ring (visual guide) -->
-				<div class="orbit-ring-visual" />
-
-				<!-- Center dot indicator -->
-				<div class="center-dot" />
 			</div>
+		</div>
 
-			<!-- Central cube gizmo -->
-			<div
-				ref="cubeContainerRef"
-				class="cube-container"
-				:aria-label="t('threedviewer', 'Click cube face to snap to view')"
-				:title="t('threedviewer', 'Click cube face to snap to view')">
-				<!-- Canvas will be inserted here by Three.js -->
-			</div>
-
-			<!-- Drag handle for repositioning -->
-			<div
-				class="drag-handle"
-				:aria-label="t('threedviewer', 'Move Controller')"
-				:title="t('threedviewer', 'Drag to reposition controller')"
-				@mousedown.stop="handleDragStart"
-				@touchstart.stop.prevent="handleDragTouchStart">
-				⋮⋮
-			</div>
+		<!-- Live readout: what the ring is actually sending -->
+		<div class="readout" aria-live="off">
+			{{ readout }}
 		</div>
 	</div>
 </template>
@@ -124,8 +130,11 @@
 <script>
 import { ref, shallowRef, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import * as THREE from 'three'
+// eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
+import { translate as t } from '@nextcloud/l10n'
 import { logger } from '../utils/logger.js'
 import { clampToContainer, clampWithinContainer } from '../utils/controllerPosition.js'
+import { dotOffset, readoutValues, steerFromPointer } from '../utils/controllerSteering.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
 
 export default {
@@ -168,6 +177,16 @@ export default {
 		 */
 		const containerRect = () => controllerRef.value?.offsetParent?.getBoundingClientRect() ?? null
 		const cubeContainerRef = ref(null)
+		const ringRef = ref(null)
+
+		// Live steering state, shared by the wedge, the dot and the readout so all three
+		// describe the same vector.
+		const steerAngle = ref(0)
+		const steerStrength = ref(0)
+		const steerLive = ref(false)
+		const isPanningMode = ref(false)
+		const isIdle = ref(false)
+		const idleTimer = ref(null)
 
 		// State
 		const position = ref({ x: 20, y: 80 }) // x: left offset, y: top offset
@@ -191,25 +210,112 @@ export default {
 
 		// Configuration
 		const config = VIEWER_CONFIG.controller
+		/** Room under the console for the live readout line. */
+		const READOUT_HEIGHT = 22
+		/** How long the controller sits untouched before it fades back. */
+		const IDLE_AFTER_MS = 2500
+		/** Strength applied by a held arrow key, matching a mid-ring drag. */
+		const KEY_STRENGTH = 0.6
 		const controllerSize = computed(() => props.isMobile ? config.size.mobile : config.size.desktop)
 		const cubeSize = computed(() => props.isMobile ? config.cubeSize.mobile : config.cubeSize.desktop)
-		const ringRadius = computed(() => controllerSize.value / 2 - 10)
-
-		// Arrow definitions
-		const arrows = [
-			{ direction: 'up', icon: '▲', label: 'Rotate Up' },
-			{ direction: 'down', icon: '▼', label: 'Rotate Down' },
-			{ direction: 'up-left', icon: '◤', label: 'Rotate Up-Left' },
-			{ direction: 'up-right', icon: '◥', label: 'Rotate Up-Right' },
-			{ direction: 'down-left', icon: '◣', label: 'Rotate Down-Left' },
-			{ direction: 'down-right', icon: '◢', label: 'Rotate Down-Right' },
-		]
+		const railWidth = computed(() => props.isMobile ? config.railWidth.mobile : config.railWidth.desktop)
+		// The console is a ring plus an attached rail, so it is no longer square — the
+		// drag clamp needs both dimensions to keep it inside the scene.
+		const footprint = computed(() => ({
+			width: controllerSize.value + railWidth.value,
+			height: controllerSize.value + READOUT_HEIGHT,
+		}))
 
 		// Computed style for positioning
 		const controllerStyle = computed(() => ({
 			top: `${position.value.y}px`,
 			left: `${position.value.x}px`,
 		}))
+
+		const gizmoStyle = computed(() => ({
+			width: `${controllerSize.value}px`,
+			height: `${controllerSize.value}px`,
+		}))
+
+		const cubeStyle = computed(() => ({
+			width: `${cubeSize.value}px`,
+			height: `${cubeSize.value}px`,
+		}))
+
+		/**
+		 * The wedge painted under the pointer: a narrow accent arc centred on the
+		 * steering angle, masked into the annulus. Its opacity carries the strength, so
+		 * distance-scaled speed becomes something you can see rather than folklore.
+		 */
+		const wedgeStyle = computed(() => {
+			// The mask leaves the ring's hole clear so the cube stays readable.
+			const mask = 'radial-gradient(circle, transparent 46%, #000 58%, #000 96%, transparent 99%)'
+			const accent = 'var(--color-primary-element, #0082c9)'
+			const lead = steerAngle.value - 26 - 90
+
+			return {
+				opacity: steerStrength.value > 0.001 ? (steerLive.value ? 1 : 0.45) : 0,
+				background: `conic-gradient(from ${lead}deg, transparent 0deg, ${accent} 26deg, transparent 52deg)`,
+				maskImage: mask,
+				WebkitMaskImage: mask,
+			}
+		})
+
+		/** Dot tracking the pointer, so the ring shows where the vector points. */
+		const dotStyle = computed(() => {
+			const { x, y, scale } = dotOffset({
+				angle: steerAngle.value,
+				strength: steerStrength.value,
+				diameter: controllerSize.value,
+			})
+
+			return {
+				opacity: steerStrength.value > 0.001 ? 1 : 0,
+				transform: `translate(-50%, -50%) translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) scale(${scale.toFixed(2)})`,
+			}
+		})
+
+		const readout = computed(() => {
+			const mode = isPanningMode.value
+				? t('threedviewer', 'pan')
+				: t('threedviewer', 'orbit')
+			const { degrees, strengthPercent, steering } = readoutValues({
+				angle: steerAngle.value,
+				strength: steerStrength.value,
+			})
+
+			if (!steering) {
+				return mode + '  ·  ' + t('threedviewer', 'drag the ring to steer')
+			}
+
+			return `${mode}  ·  ${degrees}°  ·  ` + t('threedviewer', 'strength {percent}%', { percent: strengthPercent })
+		})
+
+		/**
+		 * Record the vector the ring is currently sending.
+		 *
+		 * @param {number} angle - degrees clockwise from up
+		 * @param {number} strength - 0-1
+		 * @param {boolean} live - whether the pointer is still down
+		 */
+		const setSteer = (angle, strength, live) => {
+			steerAngle.value = angle
+			steerStrength.value = strength
+			steerLive.value = live
+		}
+
+		const clearSteer = () => setSteer(steerAngle.value, 0, false)
+
+		/** Any interaction pulls the controller back to full opacity and restarts the clock. */
+		const wakeFromIdle = () => {
+			isIdle.value = false
+			if (idleTimer.value) {
+				clearTimeout(idleTimer.value)
+			}
+			idleTimer.value = setTimeout(() => {
+				isIdle.value = true
+			}, IDLE_AFTER_MS)
+		}
 
 		/**
 		 * Create canvas with text label for cube faces
@@ -554,6 +660,71 @@ export default {
 		 * Handle movement ring mouse down - calculate direction and start continuous rotation
 		 * @param event
 		 */
+		/**
+		 * Convert a steering vector into the movement the camera loop consumes.
+		 *
+		 * The loop already knows how to turn a direction into orbit or pan, so this only
+		 * has to translate angle+strength back into the x/y it expects, and start the
+		 * loop if it is not already running.
+		 *
+		 * @param {number} angle - degrees clockwise from up
+		 * @param {number} strength - 0-1
+		 */
+		const applySteer = (angle, strength) => {
+			const radians = ((angle - 90) * Math.PI) / 180
+			movementDirection.value = {
+				x: Math.cos(radians) * strength * 0.02,
+				y: Math.sin(radians) * strength * 0.02,
+			}
+
+			if (!isMoving.value) {
+				isMoving.value = true
+				startContinuousMovement()
+			}
+		}
+
+		/** Rotate mode and pan mode are now separate buttons, not one toggle. */
+		const setRotateMode = () => {
+			isPanningMode.value = false
+			wakeFromIdle()
+		}
+
+		const setPanMode = () => {
+			isPanningMode.value = true
+			wakeFromIdle()
+		}
+
+		/**
+		 * Arrow keys steer a focused ring.
+		 *
+		 * The eight arrow glyphs in the old design were aria-hidden decoration, so the
+		 * ring had no keyboard path at all. These map each arrow onto the same vector a
+		 * drag in that direction would produce.
+		 *
+		 * @param {KeyboardEvent} event - keydown on the ring
+		 */
+		const handleRingKeydown = (event) => {
+			const bearings = {
+				ArrowUp: 0,
+				ArrowRight: 90,
+				ArrowDown: 180,
+				ArrowLeft: 270,
+			}
+			const angle = bearings[event.key]
+			if (angle === undefined) return
+
+			event.preventDefault()
+			wakeFromIdle()
+			setSteer(angle, KEY_STRENGTH, true)
+			applySteer(angle, KEY_STRENGTH)
+		}
+
+		/** Releasing the key — or losing focus mid-press — stops the camera. */
+		const handleRingKeyup = () => {
+			if (!isMoving.value) return
+			handleMovementEnd()
+		}
+
 		const handleMovementStart = (event) => {
 		// Prevent default behavior and stop propagation
 			event.preventDefault()
@@ -562,46 +733,23 @@ export default {
 			// Don't start a new movement if already moving
 			if (isMoving.value) return
 
-			if (!controllerRef.value) return
+			if (!ringRef.value) return
 
-			const rect = controllerRef.value.getBoundingClientRect()
-			const centerX = rect.left + rect.width / 2
-			const centerY = rect.top + rect.height / 2
+			// Deliberately not focusing here: a programmatic focus paints the keyboard
+			// focus ring on every mouse drag. The ring is still reachable with Tab.
+			wakeFromIdle()
 
-			// Calculate direction vector from center to click point
-			const deltaX = event.clientX - centerX
-			const deltaY = event.clientY - centerY
-			const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
+			const { angle, strength, inRange } = steerFromPointer({
+				pointerX: event.clientX,
+				pointerY: event.clientY,
+				rect: ringRef.value.getBoundingClientRect(),
+			})
 
-			// Normalize direction - accept clicks up to slightly beyond the controller radius
-			// But exclude clicks too close to center (where cube is) - minimum 15% of radius
-			const maxRadius = (controllerSize.value / 2) * 1.1 // 110% to include edge clicks with margin
-			const minRadius = (controllerSize.value / 2) * 0.15
-			if (distance > minRadius && distance <= maxRadius) {
-				const normalizedX = deltaX / distance
-				const normalizedY = deltaY / distance
-				const strength = Math.min(distance / (maxRadius * 0.5), 1.0)
+			// Outside the ring, or inside the dead zone where the cube lives.
+			if (!inRange || strength <= 0) return
 
-				if (isPanningMode.value) {
-				// Panning mode - start continuous movement
-					movementDirection.value = {
-						x: normalizedX * strength * 0.02,
-						y: normalizedY * strength * 0.02,
-					}
-
-					isMoving.value = true
-					startContinuousMovement()
-				} else {
-				// Rotation mode - emit rotation events
-					movementDirection.value = {
-						x: normalizedX * strength * 0.02,
-						y: normalizedY * strength * 0.02,
-					}
-
-					isMoving.value = true
-					startContinuousMovement()
-				}
-			}
+			setSteer(angle, strength, true)
+			applySteer(angle, strength)
 
 			document.addEventListener('mousemove', handleMovementMove)
 			document.addEventListener('mouseup', handleMovementEnd)
@@ -612,39 +760,34 @@ export default {
 		 * @param event
 		 */
 		const handleMovementMove = (event) => {
-			if (!isMoving.value || !controllerRef.value) return
+			if (!isMoving.value || !ringRef.value) return
 
-			const rect = controllerRef.value.getBoundingClientRect()
-			const centerX = rect.left + rect.width / 2
-			const centerY = rect.top + rect.height / 2
+			const { angle, strength, inRange } = steerFromPointer({
+				pointerX: event.clientX,
+				pointerY: event.clientY,
+				rect: ringRef.value.getBoundingClientRect(),
+			})
 
-			const deltaX = event.clientX - centerX
-			const deltaY = event.clientY - centerY
-			const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
-
-			const maxRadius = controllerSize.value / 2
-			if (distance > 0 && distance < maxRadius * 0.9) {
-				const normalizedX = deltaX / distance
-				const normalizedY = deltaY / distance
-				const strength = Math.min(distance / (maxRadius * 0.5), 1.0)
-
-				// Update movement direction for both rotation and panning modes
-				movementDirection.value = {
-					x: normalizedX * strength * 0.02,
-					y: normalizedY * strength * 0.02,
-				}
-			} else {
-				// Stop movement if drag goes outside valid range
+			if (!inRange) {
+				// Dragged away from the ring: stop steering but keep the loop alive so
+				// coming back does not need a fresh press.
 				movementDirection.value = { x: 0, y: 0 }
+				clearSteer()
+				return
 			}
+
+			setSteer(angle, strength, true)
+			applySteer(angle, strength)
 		}
 
 		/**
 		 * Stop continuous movement
 		 * @param event
 		 */
-		const handleMovementEnd = (event) => {
+		const handleMovementEnd = () => {
 			isMoving.value = false
+			movementDirection.value = { x: 0, y: 0 }
+			clearSteer()
 			if (movementInterval.value) {
 				clearInterval(movementInterval.value)
 				movementInterval.value = null
@@ -783,43 +926,19 @@ export default {
 		 * @param event
 		 */
 		const handleMovementTouchStart = (event) => {
-			if (event.touches.length !== 1 || !controllerRef.value) return
-
+			if (event.touches.length !== 1 || !ringRef.value) return
 			const touch = event.touches[0]
-			const rect = controllerRef.value.getBoundingClientRect()
-			const centerX = rect.left + rect.width / 2
-			const centerY = rect.top + rect.height / 2
 
-			const deltaX = touch.clientX - centerX
-			const deltaY = touch.clientY - centerY
-			const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
+			wakeFromIdle()
+			const { angle, strength, inRange } = steerFromPointer({
+				pointerX: touch.clientX,
+				pointerY: touch.clientY,
+				rect: ringRef.value.getBoundingClientRect(),
+			})
+			if (!inRange || strength <= 0) return
 
-			// Normalize direction - accept clicks up to slightly beyond the controller radius
-			// But exclude clicks too close to center (where cube is) - minimum 15% of radius
-			const maxRadius = (controllerSize.value / 2) * 1.1 // 110% to include edge clicks with margin
-			const minRadius = (controllerSize.value / 2) * 0.15
-			if (distance > minRadius && distance <= maxRadius) {
-				const normalizedX = deltaX / distance
-				const normalizedY = deltaY / distance
-				const strength = Math.min(distance / (maxRadius * 0.5), 1.0)
-
-				movementDirection.value = {
-					x: normalizedX * strength * 0.02,
-					y: normalizedY * strength * 0.02,
-				}
-
-				isMoving.value = true
-				startContinuousMovement()
-
-				logger.info('CircularController', 'Touch movement started', {
-					deltaX,
-					deltaY,
-					distance,
-					maxRadius,
-					strength,
-					direction: movementDirection.value,
-				})
-			}
+			setSteer(angle, strength, true)
+			applySteer(angle, strength)
 
 			document.addEventListener('touchmove', handleMovementTouchMove, { passive: false })
 			document.addEventListener('touchend', handleMovementTouchEnd)
@@ -830,29 +949,24 @@ export default {
 		 * @param event
 		 */
 		const handleMovementTouchMove = (event) => {
-			if (!isMoving.value || event.touches.length !== 1 || !controllerRef.value) return
-
+			if (!isMoving.value || event.touches.length !== 1 || !ringRef.value) return
 			event.preventDefault()
 			const touch = event.touches[0]
-			const rect = controllerRef.value.getBoundingClientRect()
-			const centerX = rect.left + rect.width / 2
-			const centerY = rect.top + rect.height / 2
 
-			const deltaX = touch.clientX - centerX
-			const deltaY = touch.clientY - centerY
-			const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
+			const { angle, strength, inRange } = steerFromPointer({
+				pointerX: touch.clientX,
+				pointerY: touch.clientY,
+				rect: ringRef.value.getBoundingClientRect(),
+			})
 
-			const maxRadius = controllerSize.value / 2
-			if (distance > 0 && distance < maxRadius * 0.9) {
-				const normalizedX = deltaX / distance
-				const normalizedY = deltaY / distance
-				const strength = Math.min(distance / (maxRadius * 0.5), 1.0)
-
-				movementDirection.value = {
-					x: normalizedX * strength * 0.02,
-					y: normalizedY * strength * 0.02,
-				}
+			if (!inRange) {
+				movementDirection.value = { x: 0, y: 0 }
+				clearSteer()
+				return
 			}
+
+			setSteer(angle, strength, true)
+			applySteer(angle, strength)
 		}
 
 		/**
@@ -860,6 +974,8 @@ export default {
 		 */
 		const handleMovementTouchEnd = () => {
 			isMoving.value = false
+			movementDirection.value = { x: 0, y: 0 }
+			clearSteer()
 			if (movementInterval.value) {
 				clearInterval(movementInterval.value)
 				movementInterval.value = null
@@ -940,16 +1056,9 @@ export default {
 			}
 		}
 
-		// Panning mode state
-		const isPanningMode = ref(false)
-
 		/**
 		 * Toggle between rotation and panning mode
 		 */
-		const togglePanningMode = () => {
-			isPanningMode.value = !isPanningMode.value
-			logger.info('CircularController', 'Mode toggled', { isPanningMode: isPanningMode.value })
-		}
 
 		/**
 		 * Reset camera panning to original position
@@ -976,94 +1085,29 @@ export default {
 			}
 		}
 
-		// Zoom ring interaction state
-		const isZoomDragging = ref(false)
-		const zoomStartY = ref(0)
-		const zoomStartDistance = ref(0)
-
 		/**
 		 * Handle zoom ring mouse start
 		 * @param event
 		 */
-		const handleZoomRingStart = (event) => {
-			if (!controllerRef.value) return
-
-			const rect = controllerRef.value.getBoundingClientRect()
-			const centerY = rect.top + rect.height / 2
-			zoomStartY.value = event.clientY
-			zoomStartDistance.value = Math.abs(event.clientY - centerY)
-			isZoomDragging.value = true
-
-			// Add event listeners for mouse move and up
-			document.addEventListener('mousemove', handleZoomRingMove)
-			document.addEventListener('mouseup', handleZoomRingEnd)
-
-			logger.info('CircularController', 'Zoom ring interaction started')
-		}
 
 		/**
 		 * Handle zoom ring mouse move
 		 * @param event
 		 */
-		const handleZoomRingMove = (event) => {
-			if (!isZoomDragging.value || !controllerRef.value) return
-
-			const currentY = event.clientY
-			const deltaY = currentY - zoomStartY.value
-
-			// Determine zoom direction based on vertical movement
-			if (Math.abs(deltaY) > 10) { // Minimum movement threshold
-				const zoomDelta = deltaY > 0 ? -1 : 1 // Down = zoom out, Up = zoom in
-				emit('camera-zoom', { delta: zoomDelta * 0.5 }) // Slower zoom for ring
-				zoomStartY.value = currentY // Reset start position for continuous zoom
-			}
-		}
 
 		/**
 		 * Handle zoom ring mouse end
 		 */
-		const handleZoomRingEnd = () => {
-			if (isZoomDragging.value) {
-				isZoomDragging.value = false
-				document.removeEventListener('mousemove', handleZoomRingMove)
-				document.removeEventListener('mouseup', handleZoomRingEnd)
-				logger.info('CircularController', 'Zoom ring interaction ended')
-			}
-		}
 
 		/**
 		 * Handle zoom ring touch start
 		 * @param event
 		 */
-		const handleZoomRingTouchStart = (event) => {
-			if (!controllerRef.value || event.touches.length !== 1) return
-
-			const rect = controllerRef.value.getBoundingClientRect()
-			const centerY = rect.top + rect.height / 2
-			zoomStartY.value = event.touches[0].clientY
-			zoomStartDistance.value = Math.abs(event.touches[0].clientY - centerY)
-			isZoomDragging.value = true
-
-			logger.info('CircularController', 'Zoom ring touch started')
-		}
 
 		/**
 		 * Handle zoom ring touch move
 		 * @param event
 		 */
-		const handleZoomRingTouchMove = (event) => {
-			if (!isZoomDragging.value || !controllerRef.value || event.touches.length !== 1) return
-
-			const currentY = event.touches[0].clientY
-			const deltaY = currentY - zoomStartY.value
-
-			// Determine zoom direction based on vertical movement
-			if (Math.abs(deltaY) > 10) { // Minimum movement threshold
-				const zoomDelta = deltaY > 0 ? -1 : 1 // Down = zoom out, Up = zoom in
-				emit('camera-zoom', { delta: zoomDelta * 0.5 }) // Slower zoom for ring
-				zoomStartY.value = currentY // Reset start position for continuous zoom
-			}
-		}
 
 		/**
 		 * Handle controller drag start
@@ -1094,7 +1138,7 @@ export default {
 				offsetX: dragOffset.value.x,
 				offsetY: dragOffset.value.y,
 				container: containerRect(),
-				size: controllerSize.value,
+				size: footprint.value,
 			})
 		}
 
@@ -1146,7 +1190,7 @@ export default {
 				offsetX: dragOffset.value.x,
 				offsetY: dragOffset.value.y,
 				container: containerRect(),
-				size: controllerSize.value,
+				size: footprint.value,
 			})
 		}
 
@@ -1181,7 +1225,7 @@ export default {
 							x: pos.x,
 							y: pos.y,
 							container: containerRect(),
-							size: controllerSize.value,
+							size: footprint.value,
 						})
 						logger.info('CircularController', 'Position loaded', position.value)
 					}
@@ -1260,6 +1304,11 @@ export default {
 			document.removeEventListener('touchmove', handleDragTouchMove)
 			document.removeEventListener('touchend', handleDragTouchEnd)
 
+			if (idleTimer.value) {
+				clearTimeout(idleTimer.value)
+				idleTimer.value = null
+			}
+
 			logger.info('CircularController', 'Controller disposed')
 		}
 
@@ -1267,6 +1316,7 @@ export default {
 		onMounted(() => {
 			loadPosition()
 			initCubeGizmo()
+			wakeFromIdle()
 			// Add fade-in animation
 			setTimeout(() => {
 				fadeIn.value = true
@@ -1283,28 +1333,33 @@ export default {
 		}, { deep: true })
 
 		return {
+			t,
 			controllerRef,
 			cubeContainerRef,
+			ringRef,
 			controllerStyle,
+			gizmoStyle,
+			cubeStyle,
+			wedgeStyle,
+			dotStyle,
+			readout,
 			isDragging,
 			fadeIn,
-			arrows,
-			ringRadius,
+			isIdle,
+			wakeFromIdle,
 			isPanningMode,
-			togglePanningMode,
+			setRotateMode,
+			setPanMode,
 			resetPanning,
 			handleMovementStart,
 			handleMovementTouchStart,
+			handleRingKeydown,
+			handleRingKeyup,
 			handleZoomIn,
 			handleZoomOut,
 			handleZoomInStart,
 			handleZoomOutStart,
 			handleZoomStop,
-			handleZoomRingStart,
-			handleZoomRingMove,
-			handleZoomRingEnd,
-			handleZoomRingTouchStart,
-			handleZoomRingTouchMove,
 			handleDragStart,
 			handleDragTouchStart,
 		}

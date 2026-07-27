@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **The 3D navigation controller is now a "Split console": a steering annulus with the buttons on an attached rail.** Previously the mode toggle, both zoom buttons and the recentre button were docked on the ring itself, overhanging its edge — so reaching for zoom sat on top of the surface that steers the camera, and the ring's decorative backdrop stopped short of the buttons, leaving them with nothing behind them. The buttons now live in a vertical rail beside the ring, where they read as an ordinary Nextcloud button group.
+
+  The eight directional arrows are gone. They were `aria-hidden` glyphs that never did anything — the ring has always been one continuous control whose direction comes from the angle to your pointer and whose speed comes from how far out you are. In their place the ring paints a live wedge on the angle you are steering, with its opacity carrying the strength, plus a dot that travels from the dead-zone edge to the rim. A readout under the console names the same numbers (`orbit · 63° · strength 77%`). The twelve decorative tick marks become four cardinal notches. The single rotate/pan toggle becomes two explicit buttons, and recentre now sits permanently in the rail — disabled rather than hidden outside pan mode, so nothing below it shifts when the mode changes.
+
+  Every colour is a Nextcloud token (`--color-main-background`, `--color-border`, `--color-primary-element`, `--color-primary-element-text`, `--color-text-maxcontrast`), so light, dark and custom accents follow the server theme instead of the hard-coded near-black gradient the old dial used. Forced-colors and reduced-motion blocks are included.
+
+  The behaviour contract is unchanged: the same 15% dead zone, 110%-of-radius hit slop, hold-to-repeat zoom, target-only recentre that preserves zoom and angle, live Three.js cube with drag-to-orbit and double-click-to-snap, and the same emit-only surface (`camera-rotate`, `camera-zoom`, `snap-to-view`, `cameraPan`, `nudge-camera`, `position-changed`). The steering maths moved out of the component into `src/utils/controllerSteering.js` so the wedge, the dot and the camera all read the same vector; 16 unit tests pin the dead zone, the linear ramp, the slop band and the bearing normalisation.
+
+  Two additions on top of the layout. **Arrow keys now steer a focused ring** — the ring previously had no keyboard path at all, since the arrows that looked like controls were decoration. And the controller **fades to 40% after 2.5s untouched** and restores on pointer-enter, so it stops competing with the model. Both are asserted live in `scripts/live-viewer-overlay-check.mjs`.
+
+  Footprint note: the console measures 225×327px against the design's stated "~210 wide / 150 tall". The rail stacks seven controls at 38px, which is ~310px on its own — the mock's own markup produces the same, so the 150px figure describes the gizmo rather than the assembly.
+
 ### Fixed
 - **"Reset" and "Fit" could not be clicked.** The viewer's top bar is `position: absolute`, but `#viewer-wrapper` had no `position`, so it established no containing block and the bar resolved against a far wider ancestor — stretching from x=8 to x=1432 on a 1440px window while the viewer itself begins at x=309. Its left end, which is where Reset and Fit live, therefore sat underneath Nextcloud's docked navigation, and the navigation is `z-index: 1800` against the bar's `100`, so it swallowed the clicks: `elementFromPoint` at each button's own centre returned an `app-navigation-entry`, not the button. The bar's dark background also painted over the first two navigation entries. `#viewer-wrapper` is now `position: relative`, which fixes every absolutely-positioned overlay it hosts at once — a sweep for descendants escaping the wrapper's bounds now returns none.
 

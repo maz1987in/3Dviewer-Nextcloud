@@ -14,7 +14,7 @@ import { clampToContainer, clampWithinContainer } from '../../../src/utils/contr
 
 /** A 300px-wide sidebar, then the viewer filling the rest of a 1024x900 window. */
 const VIEWER = { left: 300, top: 50, width: 724, height: 850 }
-const SIZE = 250
+const SIZE = { width: 210, height: 150 }
 
 describe('clampToContainer', () => {
 	it('translates a viewport pointer into container-relative coordinates', () => {
@@ -40,7 +40,7 @@ describe('clampToContainer', () => {
 			pointerX: 5000, pointerY: 5000, offsetX: 0, offsetY: 0, container: VIEWER, size: SIZE,
 		})
 
-		expect(pos).toEqual({ x: VIEWER.width - SIZE, y: VIEWER.height - SIZE })
+		expect(pos).toEqual({ x: VIEWER.width - SIZE.width, y: VIEWER.height - SIZE.height })
 	})
 
 	it('does not let the controller drift back under the sidebar', () => {
@@ -84,7 +84,7 @@ describe('clampWithinContainer', () => {
 	 */
 	it('pulls a stale saved position back inside the container', () => {
 		expect(clampWithinContainer({ x: 5000, y: 5000, container: VIEWER, size: SIZE }))
-			.toEqual({ x: VIEWER.width - SIZE, y: VIEWER.height - SIZE })
+			.toEqual({ x: VIEWER.width - SIZE.width, y: VIEWER.height - SIZE.height })
 	})
 
 	it('rejects a negative saved position', () => {

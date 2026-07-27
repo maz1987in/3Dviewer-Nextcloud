@@ -20,7 +20,7 @@
  * @param {number} args.offsetY - where inside the controller the drag started
  * @param {{left: number, top: number, width: number, height: number}|null} args.container
  *   bounding rect of the viewer container, or null before it is mounted
- * @param {number} args.size - controller width/height in px
+ * @param {{width: number, height: number}} args.size - controller footprint in px
  * @return {{x: number, y: number}} container-relative offsets for `left`/`top`
  */
 export function clampToContainer({ pointerX, pointerY, offsetX, offsetY, container, size }) {
@@ -49,7 +49,7 @@ export function clampToContainer({ pointerX, pointerY, offsetX, offsetY, contain
  * @param {number} args.y - container-relative top offset
  * @param {{width: number, height: number}|null} args.container - container bounds, or
  *   null when it cannot be measured yet, in which case the position is left alone
- * @param {number} args.size - controller width/height in px
+ * @param {{width: number, height: number}} args.size - controller footprint in px
  * @return {{x: number, y: number}} clamped offsets
  */
 export function clampWithinContainer({ x, y, container, size }) {
@@ -60,7 +60,7 @@ export function clampWithinContainer({ x, y, container, size }) {
 	// Math.max last, so a container smaller than the controller pins it to the origin
 	// instead of pushing it out through the top-left.
 	return {
-		x: Math.max(0, Math.min(container.width - size, x)),
-		y: Math.max(0, Math.min(container.height - size, y)),
+		x: Math.max(0, Math.min(container.width - size.width, x)),
+		y: Math.max(0, Math.min(container.height - size.height, y)),
 	}
 }
