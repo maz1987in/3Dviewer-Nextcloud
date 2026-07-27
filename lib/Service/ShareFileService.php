@@ -9,6 +9,7 @@ use OCP\Files\File;
 use OCP\Files\Folder;
 use OCP\Files\Node;
 use OCP\Files\NotFoundException;
+use OCP\Share\Exceptions\ShareNotFound;
 use OCP\Share\IManager as ShareManager;
 use OCP\Share\IShare;
 
@@ -94,11 +95,52 @@ class ShareFileService
      */
     private function loadLinkShare(string $token): IShare
     {
-        // Some Nextcloud versions expose getShareByToken(string $token): ?IShare
-        $share = $this->shareManager->getShareByToken($token);
-        /* @psalm-suppress DocblockTypeContradiction Legacy interface may return null */
+        $share = $this->findValidLinkShare($token);
         if ($share === null) {
             throw new NotFoundException('Share not found');
+        }
+
+        return $share;
+    }
+
+    /**
+     * Resolve a token to a share that is actually publicly shareable.
+     *
+     * `getShareByToken()` matches on the token alone, so it happily returns shares
+     * that have expired or were never public to begin with. Everything reachable
+     * without a session must go through this method.
+     *
+     * Password protection is deliberately NOT checked here: whether the caller
+     * satisfied the password is a request-scoped question answered by
+     * PublicShareController, which needs the share (and its password hash) in hand
+     * to do so. Callers outside that flow must not use this to bypass it.
+     */
+    public function findValidLinkShare(string $token): ?IShare
+    {
+        try {
+            // Some Nextcloud versions expose getShareByToken(string $token): ?IShare
+            $share = $this->shareManager->getShareByToken($token);
+        } catch (ShareNotFound) {
+            // How the manager reports an unknown *or expired* share. Without this the
+            // exception escapes as a 500 and leaks that the token once existed.
+            return null;
+        }
+
+        /* @psalm-suppress DocblockTypeContradiction Legacy interface may return null */
+        if ($share === null) {
+            return null;
+        }
+
+        // Only link and email shares are reachable anonymously; a user or group
+        // share carries a token too, but reaching it requires being that user.
+        $shareType = $share->getShareType();
+        if ($shareType !== IShare::TYPE_LINK && $shareType !== IShare::TYPE_EMAIL) {
+            return null;
+        }
+
+        $expiration = $share->getExpirationDate();
+        if ($expiration !== null && $expiration->getTimestamp() < time()) {
+            return null;
         }
 
         return $share;

@@ -7,31 +7,81 @@ namespace OCA\ThreeDViewer\Controller;
 use OCA\ThreeDViewer\Service\Exception\UnsupportedFileTypeException;
 use OCA\ThreeDViewer\Service\ModelFileSupport;
 use OCA\ThreeDViewer\Service\ShareFileService;
-use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\ApiRoute;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\Attribute\PublicPage;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\Http\StreamResponse;
+use OCP\AppFramework\PublicShareController;
 use OCP\Files\NotFoundException;
 use OCP\IRequest;
+use OCP\ISession;
+use OCP\Share\IShare;
 use RuntimeException;
 
 /**
  * Public (unauthenticated) streaming of shared 3D files via share token.
  *
+ * MUST extend PublicShareController rather than plain Controller: PublicShareMiddleware
+ * returns early for anything that is not a PublicShareController instance, so a
+ * `#[PublicPage]` controller performs no share authorisation at all and will serve
+ * password-protected shares to any caller holding the token. Extending it delegates
+ * password and token validation to the framework, and brings brute-force throttling
+ * with it.
+ *
  * @psalm-suppress UnusedClass Routed via attribute registration in Nextcloud runtime.
  */
-class PublicFileController extends Controller
+class PublicFileController extends PublicShareController
 {
+    /**
+     * Memoises the share lookup: the middleware calls isValidToken(), then
+     * isAuthenticated() reaches isPasswordProtected() and getPasswordHash(), which
+     * would otherwise each hit the share backend for one request.
+     */
+    private ?IShare $resolvedShare = null;
+
+    private bool $shareResolved = false;
+
     public function __construct(
         string $appName,
         IRequest $request,
+        ISession $session,
         private readonly ShareFileService $shareFileService,
         private readonly ModelFileSupport $support,
     ) {
-        parent::__construct($appName, $request);
+        parent::__construct($appName, $request, $session);
+    }
+
+    /**
+     * Whether the token maps to a share that is reachable without a session at all.
+     * Password protection is handled separately by isAuthenticated().
+     */
+    public function isValidToken(): bool
+    {
+        return $this->share() !== null;
+    }
+
+    protected function isPasswordProtected(): bool
+    {
+        $password = $this->share()?->getPassword();
+
+        return $password !== null && $password !== '';
+    }
+
+    protected function getPasswordHash(): ?string
+    {
+        return $this->share()?->getPassword();
+    }
+
+    private function share(): ?IShare
+    {
+        if (!$this->shareResolved) {
+            $this->resolvedShare = $this->shareFileService->findValidLinkShare($this->getToken());
+            $this->shareResolved = true;
+        }
+
+        return $this->resolvedShare;
     }
 
     #[PublicPage]
