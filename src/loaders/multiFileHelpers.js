@@ -8,6 +8,7 @@
 
 import { generateUrl } from '@nextcloud/router'
 import { buildFileUrl, buildPublicDepUrl, isPublicShare } from '../composables/usePublicShare.js'
+import { parse3dsDependencies, parseFbxDependencies } from './binaryModelDependencies.js'
 import { logger } from '../utils/logger.js'
 import { getFulfilledValues } from '../utils/arrayHelpers.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
@@ -714,21 +715,60 @@ export async function fetchObjDependencies(objContent, baseFilename, fileId, dir
  * @return {Promise<{found: File[], missing: string[]}>} Fetched dependencies
  */
 export async function fetchXmlDependencies(content, extension, fileId, dirPath) {
-	const dependencies = []
-	const missingFiles = []
-	const declared = parseXmlModelDependencies(content, extension)
+	return fetchDeclaredDependencies(parseXmlModelDependencies(content, extension), extension, fileId, dirPath)
+}
 
-	logger.info('MultiFileHelpers', ` ${extension.toUpperCase()} declares ${declared.length} texture(s)`, declared)
+/**
+ * Fetch the textures an FBX or 3DS names in its binary structures.
+ *
+ * These were the last two formats resolving their textures by listing the model's folder
+ * and taking every image in it, which needs a session — so they rendered untextured on a
+ * public share. Parsed, they resolve by declaration like every other format, and the
+ * request set narrows to what the model actually points at.
+ *
+ * @param {ArrayBuffer|Uint8Array} buffer - Raw bytes of the model
+ * @param {string} extension - "fbx" or "3ds"
+ * @param {number} fileId - File id of the model
+ * @param {string} dirPath - Directory holding the model
+ * @return {Promise<{found: File[], missing: string[]}>} Fetched dependencies
+ */
+export async function fetchBinaryDependencies(buffer, extension, fileId, dirPath) {
+	const declared = extension === 'fbx'
+		? parseFbxDependencies(buffer)
+		: parse3dsDependencies(buffer)
+
+	return fetchDeclaredDependencies(declared, extension, fileId, dirPath)
+}
+
+/**
+ * Fetch every companion file a model declared, by the name it declared.
+ *
+ * Shared by the formats that name their dependencies — XML documents and the binary
+ * ones. Signed in, `locateDependency` turns each name into a file id; on a share it
+ * becomes a request to the token-keyed route, where the model's own declarations are
+ * what authorise it.
+ *
+ * @param {string[]} declared - Relative paths as the model wrote them
+ * @param {string} label - Format name, for logging
+ * @param {number} fileId - File id of the model
+ * @param {string} dirPath - Directory holding the model
+ * @return {Promise<{found: File[], missing: string[]}>} Fetched dependencies
+ */
+async function fetchDeclaredDependencies(declared, label, fileId, dirPath) {
+	const missingFiles = []
+
+	logger.info('MultiFileHelpers', ` ${label.toUpperCase()} declares ${declared.length} texture(s)`, declared)
 
 	const results = await Promise.allSettled(declared.map(async (ref) => {
 		try {
 			const location = await locateDependency(fileId, ref, dirPath)
 			if (!location) {
-				// X3D url lists alternatives, so a miss is expected rather than an error.
+				// An X3D url lists alternatives, and an exporter can name a texture that
+				// was never shipped, so a miss is reported rather than thrown.
 				missingFiles.push(ref)
 				return null
 			}
-			// The loader matches these against the paths written in the document, so the
+			// The loader matches these against the paths written in the model, so the
 			// declared name is kept rather than just the basename.
 			const name = ref.split('/').pop()
 			const file = await fetchFileFromUrl(location.url, name, 'application/octet-stream', { fileId: location.cacheId })
@@ -739,15 +779,13 @@ export async function fetchXmlDependencies(content, extension, fileId, dirPath) 
 			}
 			return file
 		} catch (err) {
-			logger.warn('MultiFileHelpers', ` Failed to fetch ${extension} texture:`, ref, err)
+			logger.warn('MultiFileHelpers', ` Failed to fetch ${label} texture:`, ref, err)
 			missingFiles.push(ref)
 			return null
 		}
 	}))
 
-	dependencies.push(...getFulfilledValues(results))
-
-	return { found: dependencies, missing: missingFiles }
+	return { found: getFulfilledValues(results), missing: missingFiles }
 }
 
 /**
@@ -1037,8 +1075,19 @@ export async function loadModelWithDependencies(fileId, filename, extension, dir
 	} else if (extension === 'gltf') {
 		const gltfText = await mainFile.text()
 		dependencyResult = await fetchGltfDependencies(gltfText, filename, fileId, dirPath)
-	} else if (extension === 'fbx') {
-		dependencyResult = await fetchFbxDependencies(filename, fileId, dirPath)
+	} else if (extension === 'fbx' || extension === '3ds') {
+		// Both name their textures in binary structures. Parsed, they resolve by
+		// declaration like every other format — the only route open on a public share,
+		// where the folder listing needs a session.
+		dependencyResult = await fetchBinaryDependencies(arrayBuffer, extension, fileId, dirPath)
+
+		// A document whose declarations resolved to nothing still finds its textures by
+		// listing the folder when signed in. Keeping that means models the parsers do not
+		// cover — an exporter writing only an absolute FileName, say — are no worse off
+		// than before; on a share page there is nothing to fall back to.
+		if (dependencyResult.found.length === 0 && !isPublicShare()) {
+			dependencyResult = await fetchFbxDependencies(filename, fileId, dirPath)
+		}
 	} else if (extension === 'dae' || extension === 'x3d') {
 		// COLLADA and X3D name their textures, so they resolve by declaration — the
 		// only route open on a public share, where the folder listing needs a session.
@@ -1052,10 +1101,6 @@ export async function loadModelWithDependencies(fileId, filename, extension, dir
 		if (dependencyResult.found.length === 0 && !isPublicShare()) {
 			dependencyResult = await fetchFbxDependencies(filename, fileId, dirPath)
 		}
-	} else if (extension === '3ds') {
-		// 3DS names its textures in binary chunks, which are not parsed here yet, so
-		// it still relies on listing the folder and remains untextured on a share.
-		dependencyResult = await fetchFbxDependencies(filename, fileId, dirPath)
 	}
 	// GLB, STL, PLY, etc. are single-file formats - no dependencies
 

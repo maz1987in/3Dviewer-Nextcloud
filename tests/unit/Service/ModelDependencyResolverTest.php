@@ -441,6 +441,286 @@ class ModelDependencyResolverTest extends TestCase
         $this->resolver->resolve($model, 'wood.png');
     }
 
+    // FBX and 3DS name their textures in binary structures rather than in readable text,
+    // which is why they were the last two formats rendering untextured on a share: the
+    // route had no declaration to authorise against. Both are walked structurally — a
+    // name occurring inside mesh data is not a declaration, and the tests below plant
+    // exactly that.
+
+    public function testServesATextureAnFbxDeclares(): void
+    {
+        $texture = $this->fileNamed('wood.png');
+        $model = $this->modelNamed(
+            'scene.fbx',
+            $this->fbxDocumentWith(['textures/wood.png']),
+            ['textures/wood.png' => $texture],
+        );
+
+        $this->assertSame($texture, $this->resolver->resolve($model, 'wood.png'));
+    }
+
+    public function testNormalisesTheBackslashesAnFbxExporterWrites(): void
+    {
+        $texture = $this->fileNamed('wood.png');
+        $model = $this->modelNamed(
+            'scene.fbx',
+            $this->fbxDocumentWith(['textures\\wood.png']),
+            ['textures/wood.png' => $texture],
+        );
+
+        $this->assertSame($texture, $this->resolver->resolve($model, 'wood.png'));
+    }
+
+    public function testRefusesASiblingAnFbxNeverDeclares(): void
+    {
+        $declared = $this->fileNamed('wood.png');
+        $model = $this->modelNamed(
+            'scene.fbx',
+            $this->fbxDocumentWith(['wood.png']),
+            [
+                'wood.png' => $declared,
+                'passport-scan.png' => $this->fileNamed('passport-scan.png'),
+            ],
+        );
+
+        // Asserted first so the refusal below cannot pass merely because the document
+        // was never parsed: an FBX that declares nothing refuses everything.
+        $this->assertSame($declared, $this->resolver->resolve($model, 'wood.png'));
+
+        $this->expectException(NotFoundException::class);
+        $this->resolver->resolve($model, 'passport-scan.png');
+    }
+
+    /**
+     * Vertex data is bytes the uploader chose. A scan for the marker text would treat
+     * this as a declaration; walking the node structure never reads inside a property.
+     */
+    public function testIgnoresAFilenamePlantedInsideFbxGeometry(): void
+    {
+        // Byte-for-byte what a real declaration looks like: the node name, then a string
+        // property. Only its position gives it away — it sits inside an array property,
+        // where a walker never reads.
+        $planted = $this->fbxNode('Geometry', [$this->fbxArrayProperty(
+            'RelativeFilename' . $this->fbxStringProperty('evil.png'),
+        )], []);
+        $texture = $this->fbxNode('Texture', [], [
+            $this->fbxNode('RelativeFilename', [$this->fbxStringProperty('real.png')], []),
+        ]);
+        $model = $this->modelNamed(
+            'scene.fbx',
+            $this->fbxDocument([$this->fbxNode('Objects', [], [$planted, $texture])]),
+            [
+                'real.png' => $this->fileNamed('real.png'),
+                'evil.png' => $this->fileNamed('evil.png'),
+            ],
+        );
+
+        $this->expectException(NotFoundException::class);
+        $this->resolver->resolve($model, 'evil.png');
+    }
+
+    public function testServesATextureAnAsciiFbxDeclares(): void
+    {
+        $texture = $this->fileNamed('wood.png');
+        $model = $this->modelNamed(
+            'scene.fbx',
+            "Objects:  {\n\tTexture: 1, \"Texture::map\", \"\" {\n"
+            . "\t\tRelativeFilename: \"textures/wood.png\"\n\t}\n}\n",
+            ['textures/wood.png' => $texture],
+        );
+
+        $this->assertSame($texture, $this->resolver->resolve($model, 'wood.png'));
+    }
+
+    public function testRefusesAnAbsoluteFbxTexturePath(): void
+    {
+        $model = $this->modelNamed(
+            'scene.fbx',
+            $this->fbxDocumentWith(['C:\\Users\\someone\\wood.png']),
+            ['C:/Users/someone/wood.png' => $this->fileNamed('wood.png')],
+        );
+
+        $this->expectException(NotFoundException::class);
+        $this->resolver->resolve($model, 'wood.png');
+    }
+
+    public function testServesATextureA3dsDeclares(): void
+    {
+        $texture = $this->fileNamed('WOOD.JPG');
+        $model = $this->modelNamed(
+            'scene.3ds',
+            $this->threeDsDocumentWith(['WOOD.JPG']),
+            ['WOOD.JPG' => $texture],
+        );
+
+        $this->assertSame($texture, $this->resolver->resolve($model, 'WOOD.JPG'));
+    }
+
+    public function testReadsEvery3dsTextureSlot(): void
+    {
+        $bump = $this->fileNamed('bump.jpg');
+        $model = $this->modelNamed(
+            'scene.3ds',
+            $this->threeDsDocument([
+                $this->chunk(0xa200, '', [$this->chunk(0xa300, "diffuse.jpg\x00")]),
+                $this->chunk(0xa230, '', [$this->chunk(0xa300, "bump.jpg\x00")]),
+            ]),
+            ['diffuse.jpg' => $this->fileNamed('diffuse.jpg'), 'bump.jpg' => $bump],
+        );
+
+        $this->assertSame($bump, $this->resolver->resolve($model, 'bump.jpg'));
+    }
+
+    /**
+     * 0xB000 is a keyframer block, not a material, so it is stepped over whole. A walker
+     * that descended into everything would read the map chunk forged in its payload.
+     */
+    public function testIgnoresAMapChunkForgedInsideANon3dsContainer(): void
+    {
+        $forged = $this->chunk(0xa300, "evil.jpg\x00");
+        $model = $this->modelNamed(
+            'scene.3ds',
+            $this->chunk(0x4d4d, '', [
+                $this->chunk(0xb000, $forged),
+                $this->chunk(0x3d3d, '', [$this->chunk(0xafff, '', [
+                    $this->chunk(0xa200, '', [$this->chunk(0xa300, "real.jpg\x00")]),
+                ])]),
+            ]),
+            [
+                'real.jpg' => $this->fileNamed('real.jpg'),
+                'evil.jpg' => $this->fileNamed('evil.jpg'),
+            ],
+        );
+
+        $this->expectException(NotFoundException::class);
+        $this->resolver->resolve($model, 'evil.jpg');
+    }
+
+    public function testSurvivesA3dsChunkDeclaringAnImpossibleLength(): void
+    {
+        $model = $this->modelNamed(
+            'scene.3ds',
+            pack('v', 0x4d4d) . pack('V', 0) . pack('v', 0x3d3d) . pack('V', 0),
+            ['wood.png' => $this->fileNamed('wood.png')],
+        );
+
+        $this->expectException(NotFoundException::class);
+        $this->resolver->resolve($model, 'wood.png');
+    }
+
+    public function testSurvivesATruncatedFbx(): void
+    {
+        $model = $this->modelNamed(
+            'scene.fbx',
+            substr($this->fbxDocumentWith(['wood.png']), 0, 40),
+            ['wood.png' => $this->fileNamed('wood.png')],
+        );
+
+        $this->expectException(NotFoundException::class);
+        $this->resolver->resolve($model, 'wood.png');
+    }
+
+    // --- binary document builders -------------------------------------------------
+
+    /** An FBX string property: type tag, 4-byte length, bytes. */
+    private function fbxStringProperty(string $value): string
+    {
+        return 'S' . pack('V', strlen($value)) . $value;
+    }
+
+    /** A raw byte-array property, used to plant bytes a scanner would trip over. */
+    private function fbxArrayProperty(string $bytes): string
+    {
+        return 'b' . pack('VVV', strlen($bytes), 0, strlen($bytes)) . $bytes;
+    }
+
+    /**
+     * One node record, deferred until its absolute start offset is known — every record
+     * stores the absolute offset of its own end.
+     *
+     * @param list<string>            $properties encoded properties
+     * @param list<callable(int):string> $children  nested node builders
+     *
+     * @return callable(int): string
+     */
+    private function fbxNode(string $name, array $properties, array $children): callable
+    {
+        return static function (int $start) use ($name, $properties, $children): string {
+            $propertyBytes = implode('', $properties);
+            $cursor = $start + 13 + strlen($name) + strlen($propertyBytes);
+
+            $childBytes = '';
+            foreach ($children as $child) {
+                $bytes = $child($cursor);
+                $childBytes .= $bytes;
+                $cursor += strlen($bytes);
+            }
+            if ($children !== []) {
+                $cursor += 13;
+            }
+
+            return pack('VVV', $cursor, count($properties), strlen($propertyBytes))
+                . chr(strlen($name)) . $name . $propertyBytes . $childBytes
+                . ($children !== [] ? str_repeat(chr(0), 13) : '');
+        };
+    }
+
+    /** @param list<callable(int):string> $nodes */
+    private function fbxDocument(array $nodes): string
+    {
+        // 20-character magic, its NUL, the 0x1A 0x00 pair, then the version.
+        $document = 'Kaydara FBX Binary  ' . chr(0) . chr(0x1a) . chr(0) . pack('V', 7400);
+
+        $cursor = strlen($document);
+        foreach ($nodes as $node) {
+            $bytes = $node($cursor);
+            $document .= $bytes;
+            $cursor += strlen($bytes);
+        }
+
+        return $document . str_repeat(chr(0), 13);
+    }
+
+    /** @param list<string> $paths */
+    private function fbxDocumentWith(array $paths): string
+    {
+        $textures = [];
+        foreach ($paths as $path) {
+            $textures[] = $this->fbxNode('Texture', [], [
+                $this->fbxNode('RelativeFilename', [$this->fbxStringProperty($path)], []),
+            ]);
+        }
+
+        return $this->fbxDocument([$this->fbxNode('Objects', [], $textures)]);
+    }
+
+    /** @param list<string> $children */
+    private function chunk(int $id, string $payload = '', array $children = []): string
+    {
+        $body = $payload . implode('', $children);
+
+        return pack('v', $id) . pack('V', 6 + strlen($body)) . $body;
+    }
+
+    /** @param list<string> $mapChunks */
+    private function threeDsDocument(array $mapChunks): string
+    {
+        return $this->chunk(0x4d4d, '', [
+            $this->chunk(0x3d3d, '', [$this->chunk(0xafff, '', $mapChunks)]),
+        ]);
+    }
+
+    /** @param list<string> $names */
+    private function threeDsDocumentWith(array $names): string
+    {
+        $slots = [];
+        foreach ($names as $name) {
+            $slots[] = $this->chunk(0xa200, '', [$this->chunk(0xa300, $name . chr(0))]);
+        }
+
+        return $this->threeDsDocument($slots);
+    }
+
     private function fileNamed(string $path, string $content = ''): File
     {
         $file = $this->createMock(File::class);

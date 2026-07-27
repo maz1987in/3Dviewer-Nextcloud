@@ -190,6 +190,99 @@ describe('OBJ dependencies on an authenticated page', () => {
 	})
 })
 
+describe('FBX and 3DS dependencies on a public share', () => {
+	const FBX_ASCII = [
+		'; FBX 7.4.0 project file',
+		'Objects:  {',
+		'\tTexture: 1234, "Texture::map", "" {',
+		'\t\tRelativeFilename: "textures/wood.png"',
+		'\t}',
+		'}',
+	].join('\n')
+
+	/**
+	 * Smallest 3DS that declares one texture: main > editor > material > map > name.
+	 *
+	 * @param {string} name - the map name to declare
+	 * @return {ArrayBuffer} document bytes
+	 */
+	function threeDsWith(name) {
+		const chunk = (id, body) => {
+			const out = new Uint8Array(6 + body.length)
+			const view = new DataView(out.buffer)
+			view.setUint16(0, id, true)
+			view.setUint32(2, out.length, true)
+			out.set(body, 6)
+			return out
+		}
+		const asciiz = Uint8Array.from([...name].map((c) => c.charCodeAt(0)).concat(0))
+		return chunk(0x4d4d, chunk(0x3d3d, chunk(0xafff, chunk(0xa200, chunk(0xa300, asciiz))))).buffer
+	}
+
+	it('fetches the texture an FBX names, rather than listing the folder', async () => {
+		serve({ '/dep/wood.png': 'PNG' })
+		const { fetchBinaryDependencies } = await loadHelpers(PUBLIC)
+
+		const result = await fetchBinaryDependencies(
+			new TextEncoder().encode(FBX_ASCII).buffer, 'fbx', 42, '',
+		)
+
+		expect(result.found.map((f) => f.name)).toEqual(['wood.png'])
+		expect(requested).toEqual([`${DEP}/wood.png`])
+	})
+
+	it('keeps the declared subdirectory so the loader can match the FBX reference', async () => {
+		serve({ '/dep/wood.png': 'PNG' })
+		const { fetchBinaryDependencies } = await loadHelpers(PUBLIC)
+
+		const result = await fetchBinaryDependencies(
+			new TextEncoder().encode(FBX_ASCII).buffer, 'fbx', 42, '',
+		)
+
+		expect(result.found[0]._relativePath).toBe('textures/wood.png')
+	})
+
+	it('fetches the map name a 3DS declares', async () => {
+		serve({ '/dep/WOOD.JPG': 'JPG' })
+		const { fetchBinaryDependencies } = await loadHelpers(PUBLIC)
+
+		const result = await fetchBinaryDependencies(threeDsWith('WOOD.JPG'), '3ds', 42, '')
+
+		expect(result.found.map((f) => f.name)).toEqual(['WOOD.JPG'])
+	})
+
+	it('never touches the file-listing API, which 401s anonymously', async () => {
+		serve({ '/dep/wood.png': 'PNG' })
+		const { fetchBinaryDependencies } = await loadHelpers(PUBLIC)
+
+		await fetchBinaryDependencies(new TextEncoder().encode(FBX_ASCII).buffer, 'fbx', 42, '')
+
+		expect(requested.filter((u) => u.includes('/api/files/'))).toEqual([])
+	})
+
+	it('reports a declared texture the share will not serve instead of failing the model', async () => {
+		serve({})
+		const { fetchBinaryDependencies } = await loadHelpers(PUBLIC)
+
+		const result = await fetchBinaryDependencies(
+			new TextEncoder().encode(FBX_ASCII).buffer, 'fbx', 42, '',
+		)
+
+		expect(result.found).toEqual([])
+		expect(result.missing).toEqual(['textures/wood.png'])
+	})
+
+	it('declares nothing for a model that names no textures', async () => {
+		serve({})
+		const { fetchBinaryDependencies } = await loadHelpers(PUBLIC)
+
+		const result = await fetchBinaryDependencies(new ArrayBuffer(0), 'fbx', 42, '')
+
+		expect(result.found).toEqual([])
+		expect(requested).toEqual([])
+	})
+})
+
 describe('glTF dependencies on a public share', () => {
 	const GLTF = JSON.stringify({
 		buffers: [{ uri: 'scene.bin' }],
