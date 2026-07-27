@@ -527,6 +527,62 @@ export function parseMtlTextureFiles(mtlContent) {
 }
 
 /**
+ * Texture paths a COLLADA or X3D document declares, in document order.
+ *
+ * Matched with patterns rather than parsed with DOMParser: only the paths are needed,
+ * and the document comes from whoever uploaded it. The server applies the same rules in
+ * ModelDependencyResolver, which is what actually gates the public route — this is the
+ * client half, so it knows which names to ask for.
+ *
+ * @param {string} content - Raw document text
+ * @param {string} extension - "dae" or "x3d"
+ * @return {string[]} Declared relative paths, deduplicated, embedded and remote dropped
+ */
+export function parseXmlModelDependencies(content, extension) {
+	if (typeof content !== 'string' || content === '') {
+		return []
+	}
+
+	const found = []
+	const push = (raw) => {
+		const value = String(raw).trim()
+		// A scheme means it is not a file beside the model: data:, http:, https:, file:.
+		if (value === '' || /^[a-z][a-z0-9+.-]*:/i.test(value) || value.startsWith('/')) {
+			return
+		}
+		let decoded = value
+		try {
+			decoded = decodeURIComponent(value)
+		} catch {
+			// Leave a malformed escape sequence as written.
+		}
+		if (!found.includes(decoded)) {
+			found.push(decoded)
+		}
+	}
+
+	if (extension === 'dae') {
+		// COLLADA 1.4 writes <init_from>path</init_from>; 1.5 wraps it in <ref>.
+		const pattern = /<init_from\b[^>]*>\s*(?:<ref\b[^>]*>\s*)?([^<]+?)\s*(?:<\/ref>\s*)?<\/init_from>/gi
+		let match
+		while ((match = pattern.exec(content)) !== null) {
+			push(match[1])
+		}
+	} else if (extension === 'x3d') {
+		// url is an MFString: whitespace-separated, quoted alternatives.
+		const pattern = /\burl\s*=\s*(["'])([\s\S]*?)\1/gi
+		let match
+		while ((match = pattern.exec(content)) !== null) {
+			for (const entry of match[2].trim().split(/\s+/)) {
+				push(entry.replace(/^["']|["']$/g, ''))
+			}
+		}
+	}
+
+	return found
+}
+
+/**
  * Parse GLTF JSON to find referenced binary buffers and textures
  * @param {object} gltfJson - Parsed GLTF JSON
  * @return {object} - Object with buffers and images arrays
@@ -642,6 +698,56 @@ export async function fetchObjDependencies(objContent, baseFilename, fileId, dir
 	const allFiles = getFulfilledValues(results, false).flatMap(r => r)
 
 	return { found: allFiles, missing: missingFiles }
+}
+
+/**
+ * Fetch the textures a COLLADA or X3D document declares.
+ *
+ * Mirrors fetchGltfDependencies: the document names its files, so they resolve without
+ * the folder listing that fetchFbxDependencies relies on — and that listing needs a
+ * session, which is why these formats render untextured on a public share.
+ *
+ * @param {string} content - Raw document text
+ * @param {string} extension - "dae" or "x3d"
+ * @param {number} fileId - File id of the model
+ * @param {string} dirPath - Directory holding the model
+ * @return {Promise<{found: File[], missing: string[]}>} Fetched dependencies
+ */
+export async function fetchXmlDependencies(content, extension, fileId, dirPath) {
+	const dependencies = []
+	const missingFiles = []
+	const declared = parseXmlModelDependencies(content, extension)
+
+	logger.info('MultiFileHelpers', ` ${extension.toUpperCase()} declares ${declared.length} texture(s)`, declared)
+
+	const results = await Promise.allSettled(declared.map(async (ref) => {
+		try {
+			const location = await locateDependency(fileId, ref, dirPath)
+			if (!location) {
+				// X3D url lists alternatives, so a miss is expected rather than an error.
+				missingFiles.push(ref)
+				return null
+			}
+			// The loader matches these against the paths written in the document, so the
+			// declared name is kept rather than just the basename.
+			const name = ref.split('/').pop()
+			const file = await fetchFileFromUrl(location.url, name, 'application/octet-stream', { fileId: location.cacheId })
+			if (ref.includes('/')) {
+				file._relativePath = ref
+			} else if (location.subdir) {
+				file._relativePath = `${location.subdir}/${ref}`
+			}
+			return file
+		} catch (err) {
+			logger.warn('MultiFileHelpers', ` Failed to fetch ${extension} texture:`, ref, err)
+			missingFiles.push(ref)
+			return null
+		}
+	}))
+
+	dependencies.push(...getFulfilledValues(results))
+
+	return { found: dependencies, missing: missingFiles }
 }
 
 /**
@@ -933,9 +1039,22 @@ export async function loadModelWithDependencies(fileId, filename, extension, dir
 		dependencyResult = await fetchGltfDependencies(gltfText, filename, fileId, dirPath)
 	} else if (extension === 'fbx') {
 		dependencyResult = await fetchFbxDependencies(filename, fileId, dirPath)
-	} else if (extension === '3ds' || extension === 'dae' || extension === 'x3d') {
-		// 3DS, DAE, and X3D files can reference external textures
-		// Fetch all texture files in the directory (similar to FBX)
+	} else if (extension === 'dae' || extension === 'x3d') {
+		// COLLADA and X3D name their textures, so they resolve by declaration — the
+		// only route open on a public share, where the folder listing needs a session.
+		const xmlText = await mainFile.text()
+		dependencyResult = await fetchXmlDependencies(xmlText, extension, fileId, dirPath)
+
+		// Signed in, a document whose declarations resolved to nothing still used to
+		// find its textures by listing the folder. Keep that as a fallback so this is
+		// not a regression for files the patterns do not cover; on a share page the
+		// listing is unavailable and there is nothing to fall back to.
+		if (dependencyResult.found.length === 0 && !isPublicShare()) {
+			dependencyResult = await fetchFbxDependencies(filename, fileId, dirPath)
+		}
+	} else if (extension === '3ds') {
+		// 3DS names its textures in binary chunks, which are not parsed here yet, so
+		// it still relies on listing the folder and remains untextured on a share.
 		dependencyResult = await fetchFbxDependencies(filename, fileId, dirPath)
 	}
 	// GLB, STL, PLY, etc. are single-file formats - no dependencies

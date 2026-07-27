@@ -350,6 +350,97 @@ class ModelDependencyResolverTest extends TestCase
         );
     }
 
+    public function testServesATextureACollodaFileDeclares(): void
+    {
+        $texture = $this->fileNamed('wood.png');
+        $model = $this->modelNamed(
+            'chair.dae',
+            '<?xml version="1.0"?><COLLADA><library_images>'
+            . '<image id="wood"><init_from>textures/wood.png</init_from></image>'
+            . '</library_images></COLLADA>',
+            ['textures/wood.png' => $texture],
+        );
+
+        $this->assertSame($texture, $this->resolver->resolve($model, 'wood.png'));
+    }
+
+    public function testHandlesTheCollada15RefForm(): void
+    {
+        // COLLADA 1.5 wraps the path in <ref>; 1.4 puts it directly in <init_from>.
+        $texture = $this->fileNamed('wood.png');
+        $model = $this->modelNamed(
+            'chair.dae',
+            '<COLLADA><library_images><image><init_from><ref>wood.png</ref></init_from>'
+            . '</image></library_images></COLLADA>',
+            ['wood.png' => $texture],
+        );
+
+        $this->assertSame($texture, $this->resolver->resolve($model, 'wood.png'));
+    }
+
+    public function testServesATextureAnX3dFileDeclares(): void
+    {
+        $texture = $this->fileNamed('wood.png');
+        $model = $this->modelNamed(
+            'chair.x3d',
+            '<X3D><Scene><Shape><Appearance>'
+            . '<ImageTexture url=\'"textures/wood.png"\'/>'
+            . '</Appearance></Shape></Scene></X3D>',
+            ['textures/wood.png' => $texture],
+        );
+
+        $this->assertSame($texture, $this->resolver->resolve($model, 'wood.png'));
+    }
+
+    public function testTakesEveryUrlInAnX3dFallbackList(): void
+    {
+        // X3D url is an MFString: a whitespace-separated list of alternatives, tried
+        // in order. Any of them may be the one that exists beside the model.
+        $texture = $this->fileNamed('local.png');
+        $model = $this->modelNamed(
+            'chair.x3d',
+            '<X3D><ImageTexture url=\'"https://example.invalid/remote.png" "local.png"\'/></X3D>',
+            ['local.png' => $texture],
+        );
+
+        $this->assertSame($texture, $this->resolver->resolve($model, 'local.png'));
+    }
+
+    public function testRefusesAnUndeclaredSiblingOfAColladaFile(): void
+    {
+        $model = $this->modelNamed(
+            'chair.dae',
+            '<COLLADA><library_images><image><init_from>wood.png</init_from></image>'
+            . '</library_images></COLLADA>',
+            ['wood.png' => $this->fileNamed('wood.png'), 'private.png' => $this->fileNamed('private.png')],
+        );
+
+        $this->expectException(NotFoundException::class);
+        $this->resolver->resolve($model, 'private.png');
+    }
+
+    public function testIgnoresRemoteAndEmbeddedXmlTextureUris(): void
+    {
+        // The siblings below sit at the paths a leaked scheme would normalise to
+        // (`https://a/b` loses one slash and becomes the relative `https:/a/b`). Without
+        // them the request would fail merely because the folder is empty, and the test
+        // would pass whether or not the scheme was actually rejected.
+        $model = $this->modelNamed(
+            'chair.dae',
+            '<COLLADA><library_images>'
+            . '<image><init_from>https://example.invalid/wood.png</init_from></image>'
+            . '<image><init_from>data:image/png;base64,AAAA</init_from></image>'
+            . '</library_images></COLLADA>',
+            [
+                'https:/example.invalid/wood.png' => $this->fileNamed('wood.png'),
+                'data:image/png;base64,AAAA' => $this->fileNamed('AAAA.png'),
+            ],
+        );
+
+        $this->expectException(NotFoundException::class);
+        $this->resolver->resolve($model, 'wood.png');
+    }
+
     private function fileNamed(string $path, string $content = ''): File
     {
         $file = $this->createMock(File::class);
