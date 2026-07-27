@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.1] - 2026-07-27
+
+Hotfix for Nextcloud 34. 3.3.0 is unusable on NC 34 — both the viewer page and every model download return HTTP 500, and the app cannot be upgraded or enabled. Nothing else changed.
+
+### Added
+- **Regression tests for both fatals.** `tests/unit/Service/ResponseBuilderCspTest.php` drives `addCspHeaders()` against a policy double that mirrors the NC 34 API surface with no `__call()` fallback, so it raises the same `Error` production did. `tests/unit/NoPrivateServerApiTest.php` scans `lib/` for any use of the private `\OC` container or the legacy `OC_*` static classes, stripping comments via `token_get_all()` first so documentation *about* a removed API isn't mistaken for a call to it. Both fail on the pre-fix code. Note that `composer test:unit` is not currently run by any CI workflow — `test-integration.yml` runs only `test:integration` and `test:migration` — so these are verified locally until that gap is closed.
+
 ### Changed
 - **`nextcloud/ocp` dev dependency moved from `dev-stable30` to `dev-stable31`**, to match the `min-version="31"` declared in `appinfo/info.xml`; the weekly `update-nextcloud-ocp-matrix.yml` job, which had `target: ['stable30']` hardcoded and kept re-pinning it, now tracks `stable31` too. The pin deliberately follows *min*-version, not max: pinning to the oldest supported server is what stops us using APIs that don't exist there yet, and `ocp` stable33+ requires php `~8.2`, which cannot coexist with the `config.platform` php 8.1 that NC 31 support demands. Verifying against the newest branch is `psalm-matrix.yml`'s job — it already builds an ocp matrix across the full min..max range from `info.xml`. Psalm run manually against stable34 for this release confirms no further removed-API calls in `lib/` beyond the two fixed below, and flags ten `DeprecatedMethod` notices worth scheduling: `IConfig::getUserValue`/`setUserValue`/`deleteUserValue` in `PageController`, `SettingsController` and `ConfigController`, plus `IContainer::query` in `Application`. None break on 34.
 
