@@ -25,6 +25,10 @@ class ShareFileServiceTest extends TestCase
         $file = $this->createMock(File::class);
         $file->method('getExtension')->willReturn('txt');
         $share->method('getNode')->willReturn($file);
+        // Must be a genuinely public, unexpired share, otherwise the access check
+        // rejects it before the file type is ever considered.
+        $share->method('getShareType')->willReturn(IShare::TYPE_LINK);
+        $share->method('getExpirationDate')->willReturn(null);
         $shareManager->method('getShareByToken')->willReturn($share);
         $support = $this->createMock(ModelFileSupport::class);
         $support->method('isSupported')->willReturn(false);

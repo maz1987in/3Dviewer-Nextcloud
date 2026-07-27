@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.2] - 2026-07-27
+
+Security release. Upgrade immediately if you use password-protected link shares containing 3D models.
+
+### Security
+- **Share passwords were not enforced on the public 3D file endpoint.** `PublicFileController` extended plain `Controller` with `#[PublicPage]`, and `PublicShareMiddleware` returns early for anything that is not a `PublicShareController` — so no share authorisation ran at all. Combined with `ShareFileService::loadLinkShare()`, which only checked that `getShareByToken()` matched, anyone holding a share token could read the file regardless of its password. The token is the part of the URL people paste into chats and emails; the password exists precisely for when the token alone should not be enough. `PublicFileController` now extends `PublicShareController` and implements `isValidToken()`, `isPasswordProtected()` and `getPasswordHash()`, delegating password and token validation to the framework and picking up brute-force throttling with it. `findValidLinkShare()` additionally rejects non-link/email share types and expired shares, and treats a `ShareNotFound` from the share manager as "no share" rather than letting it escape as a 500. Present since the controller was added in `1b0ca86` (2025-09-15), so every release from v1.7.9 through v3.3.1 is affected. Verified on Nextcloud 34.0.2.1: a password-protected share now returns 404 without the password and 200 with it, ordinary public shares are unaffected, and expired shares return 404 instead of 500.
+
 ## [3.3.1] - 2026-07-27
 
 Hotfix for Nextcloud 34. 3.3.0 is unusable on NC 34 — both the viewer page and every model download return HTTP 500, and the app cannot be upgraded or enabled. Nothing else changed.

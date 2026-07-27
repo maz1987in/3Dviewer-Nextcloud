@@ -14,6 +14,7 @@ use OCP\AppFramework\Http\StreamResponse;
 use OCP\Files\File;
 use OCP\Files\NotFoundException;
 use OCP\IRequest;
+use OCP\ISession;
 use PHPUnit\Framework\TestCase;
 
 class PublicFileControllerTest extends TestCase
@@ -30,7 +31,7 @@ class PublicFileControllerTest extends TestCase
         $file->method('getSize')->willReturn(10);
         $file->method('getName')->willReturn('model.obj');
         $service->method('getFileFromShare')->willReturn($file);
-        $c = new PublicFileController('threedviewer', $req, $service, $support);
+        $c = new PublicFileController('threedviewer', $req, $this->createMock(ISession::class), $service, $support);
         $r = $c->stream('tok', 1);
         $this->assertInstanceOf(StreamResponse::class, $r);
     }
@@ -42,7 +43,7 @@ class PublicFileControllerTest extends TestCase
         $support = $this->createMock(ModelFileSupport::class);
         $support->method('mapContentType')->willReturn('model/obj');
         $service->method('getFileFromShare')->willThrowException(new NotFoundException('x'));
-        $c = new PublicFileController('threedviewer', $req, $service, $support);
+        $c = new PublicFileController('threedviewer', $req, $this->createMock(ISession::class), $service, $support);
         $r = $c->stream('tok', 1);
         $this->assertInstanceOf(JSONResponse::class, $r);
         $this->assertSame(Http::STATUS_NOT_FOUND, $r->getStatus());
@@ -55,7 +56,7 @@ class PublicFileControllerTest extends TestCase
         $support = $this->createMock(ModelFileSupport::class);
         $support->method('mapContentType')->willReturn('model/obj');
         $service->method('getFileFromShare')->willThrowException(new UnsupportedFileTypeException('bad'));
-        $c = new PublicFileController('threedviewer', $req, $service, $support);
+        $c = new PublicFileController('threedviewer', $req, $this->createMock(ISession::class), $service, $support);
         $r = $c->stream('tok', 1);
         $this->assertInstanceOf(JSONResponse::class, $r);
         $this->assertSame(415, $r->getStatus());
@@ -72,7 +73,7 @@ class PublicFileControllerTest extends TestCase
         $mtl->method('getExtension')->willReturn('mtl');
         $mtl->method('getSize')->willReturn(5);
         $service->method('getSiblingMaterialFromShare')->willReturn($mtl);
-        $c = new PublicFileController('threedviewer', $req, $service, $support);
+        $c = new PublicFileController('threedviewer', $req, $this->createMock(ISession::class), $service, $support);
         $r = $c->streamSiblingMtl('tok', 1, 'model.mtl');
         $this->assertInstanceOf(StreamResponse::class, $r);
     }
@@ -84,7 +85,7 @@ class PublicFileControllerTest extends TestCase
         $support = $this->createMock(ModelFileSupport::class);
         $support->method('mapContentType')->willReturn('text/plain');
         $service->method('getSiblingMaterialFromShare')->willThrowException(new NotFoundException('x'));
-        $c = new PublicFileController('threedviewer', $req, $service, $support);
+        $c = new PublicFileController('threedviewer', $req, $this->createMock(ISession::class), $service, $support);
         $r = $c->streamSiblingMtl('tok', 1, 'missing.mtl');
         $this->assertInstanceOf(JSONResponse::class, $r);
         $this->assertSame(Http::STATUS_NOT_FOUND, $r->getStatus());
@@ -97,7 +98,7 @@ class PublicFileControllerTest extends TestCase
         $support = $this->createMock(ModelFileSupport::class);
         $support->method('mapContentType')->willReturn('text/plain');
         $service->method('getSiblingMaterialFromShare')->willThrowException(new UnsupportedFileTypeException('not obj'));
-        $c = new PublicFileController('threedviewer', $req, $service, $support);
+        $c = new PublicFileController('threedviewer', $req, $this->createMock(ISession::class), $service, $support);
         $r = $c->streamSiblingMtl('tok', 1, 'model.mtl');
         $this->assertInstanceOf(JSONResponse::class, $r);
         $this->assertSame(415, $r->getStatus());
