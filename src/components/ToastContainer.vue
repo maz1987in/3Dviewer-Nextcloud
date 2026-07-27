@@ -39,11 +39,6 @@ export default {
 			pausedState: {}, // { [toastId]: boolean }
 		}
 	},
-	created() {
-		// Keep Maps outside reactive data — Vue 3 proxy breaks Map.has()/Map.get()
-		this._timers = new Map()
-		this._progressIntervals = new Map()
-	},
 	watch: {
 		toasts: {
 			deep: true,
@@ -66,6 +61,11 @@ export default {
 			},
 			immediate: true,
 		},
+	},
+	created() {
+		// Keep Maps outside reactive data — Vue 3 proxy breaks Map.has()/Map.get()
+		this._timers = new Map()
+		this._progressIntervals = new Map()
 	},
 	beforeUnmount() {
 		// Clean up all timers

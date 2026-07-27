@@ -1,4 +1,3 @@
-import * as THREE from 'three'
 import { TDSLoader } from 'three/examples/jsm/loaders/TDSLoader.js'
 import { BaseLoader } from '../BaseLoader.js'
 

@@ -34,7 +34,7 @@ const URL_PARAM = 'cam'
  * Build the `cam` query parameter value from a Three.js camera + controls pair.
  *
  * @param {THREE.Camera} camera - Perspective or Orthographic camera
- * @param {Object} controls - OrbitControls instance (needs `.target`)
+ * @param {object} controls - OrbitControls instance (needs `.target`)
  * @return {string|null} The serialized string, or null if inputs are invalid
  */
 export function serializeCameraState(camera, controls) {
@@ -121,7 +121,7 @@ export function buildShareableUrl(serialized) {
  * (spherical distance, etc.) matches the new position.
  *
  * @param {THREE.Camera} camera
- * @param {Object} controls - OrbitControls instance
+ * @param {object} controls - OrbitControls instance
  * @param {{position, target, zoom}} state
  * @return {boolean} True on success, false if inputs were invalid
  */

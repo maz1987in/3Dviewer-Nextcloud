@@ -160,20 +160,30 @@ class FormatSyncTest extends TestCase
      */
     public function testNoPlaceholderMimeTypes(): void
     {
-        $allowedOctetStream = ['fbx', '3ds']; // These legitimately use octet-stream
-        $allowedTextPlain = ['mtl']; // MTL files are text files, not 3D models
+        // Formats with no better registered type than the generic binary one.
+        $allowedOctetStream = ['fbx', '3ds', '3dm'];
 
         foreach (SupportedFormats::CONTENT_TYPE_MAP as $ext => $contentType) {
-            if (in_array($ext, $allowedOctetStream) ||
-                in_array($ext, $allowedTextPlain) ||
-                !in_array($ext, SupportedFormats::getModelExtensions())) {
+            if (!in_array($ext, SupportedFormats::getModelExtensions(), true)) {
+                continue;
+            }
+            if (in_array($ext, $allowedOctetStream, true)) {
                 continue;
             }
 
-            $this->assertStringStartsWith(
-                'model/',
+            // The check is "no placeholder", not "starts with model/". Requiring a
+            // model/ prefix was wrong for everything this app gained after the mesh
+            // formats: there is no model/gcode, .bim is JSON and .fcstd is a ZIP, so
+            // the rule could only be satisfied by inventing MIME types.
+            $this->assertNotSame(
+                'application/octet-stream',
                 $contentType,
-                "Extension '$ext' should use 'model/' MIME type, not '$contentType'"
+                "Extension '{$ext}' falls back to the generic binary type; give it a real MIME type or add it to the allow-list"
+            );
+            $this->assertMatchesRegularExpression(
+                '#^[a-z]+/[a-zA-Z0-9.+_-]+$#',
+                $contentType,
+                "Extension '{$ext}' has '{$contentType}', which is not a MIME type"
             );
         }
     }

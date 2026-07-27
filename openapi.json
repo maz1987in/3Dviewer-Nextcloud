@@ -3,7 +3,7 @@
     "info": {
         "title": "threedviewer",
         "version": "0.0.1",
-        "description": "View, analyze & export 3D models with 10+ formats, auto-thumbnails, personal settings, annotations, measurements & rendering",
+        "description": "View, analyze & export 3D models across 20+ formats (mesh, CAD, BIM) with thumbnails, annotations & rendering",
         "license": {
             "name": "agpl"
         }
@@ -278,6 +278,10 @@
     },
     "tags": [
         {
+            "name": "annotations",
+            "description": "Stores per-file annotation documents in app data so users don't have to manually export/import their annotations between sessions. Routes are scoped per file ID and authenticated. The user must have access to the underlying model file (verified via the user folder lookup) before we'll touch their annotation blob — this prevents leaking or stomping on annotations through guessed file IDs."
+        },
+        {
             "name": "file",
             "description": "Controller for serving 3D files using Nextcloud filesystem API."
         },
@@ -291,7 +295,7 @@
         },
         {
             "name": "public_file",
-            "description": "Public (unauthenticated) streaming of shared 3D files via share token."
+            "description": "Public (unauthenticated) streaming of shared 3D files via share token. MUST extend PublicShareController rather than plain Controller: PublicShareMiddleware returns early for anything that is not a PublicShareController instance, so a `#[PublicPage]` controller performs no share authorisation at all and will serve password-protected shares to any caller holding the token. Extending it delegates password and token validation to the framework, and brings brute-force throttling with it."
         }
     ]
 }
