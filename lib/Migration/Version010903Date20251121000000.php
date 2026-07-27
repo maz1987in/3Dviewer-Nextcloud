@@ -19,7 +19,7 @@ class Version010903Date20251121000000 extends SimpleMigrationStep
 
     public function __construct()
     {
-        $this->connection = OC::$server->getDatabaseConnection();
+        $this->connection = \OCP\Server::get(\OCP\IDBConnection::class);
     }
 
     public function changeSchema(IOutput $output, Closure $schemaClosure, array $options)
