@@ -29,6 +29,12 @@ class ModelDependencyResolver
     /** `mtllib chair.mtl` */
     private const MTLLIB_LINE = '/^[^\S\r\n]*mtllib[^\S\r\n]+(.+?)[^\S\r\n]*$/mi';
 
+    /** COLLADA `<init_from>wood.png</init_from>`, and the 1.5 `<init_from><ref>…</ref></init_from>` */
+    private const COLLADA_IMAGE = '#<init_from\b[^>]*>\s*(?:<ref\b[^>]*>\s*)?([^<]+?)\s*(?:</ref>\s*)?</init_from>#i';
+
+    /** X3D `url='"wood.png"'` or `url="wood.png"`, capturing the whole MFString list */
+    private const X3D_URL = '#\burl\s*=\s*(["\'])(.*?)\1#is';
+
     /** `map_Kd wood.png`, `bump normal.png`, `refl env.png`, `disp height.png` */
     private const MAP_LINE = '/^[^\S\r\n]*(?:map_[A-Za-z0-9_]+|bump|refl|disp|decal)[^\S\r\n]+(.+?)[^\S\r\n]*$/mi';
 
@@ -112,6 +118,7 @@ class ModelDependencyResolver
         return match (strtolower($model->getExtension())) {
             'obj' => $this->objDependencies($model, $parent),
             'gltf' => $this->gltfDependencies($model),
+            'dae', 'x3d' => $this->xmlDependencies($model),
             // STL, PLY, GLB and the rest carry their data inline, so they declare nothing
             // and nothing beside them is reachable through this route.
             default => [],
@@ -151,6 +158,50 @@ class ModelDependencyResolver
         return $map;
     }
 
+    /**
+     * COLLADA and X3D name their textures in the document, the same way glTF does.
+     *
+     * Matched with patterns rather than parsed with an XML reader on purpose: these
+     * documents arrive from whoever uploaded them, and a real parser brings entity
+     * expansion with it — external entities and billion-laughs. Nothing here needs the
+     * tree, only the texture paths, so the parser is not worth its attack surface.
+     *
+     * @return array<string, string>
+     */
+    private function xmlDependencies(File $model): array
+    {
+        $document = $this->head($model, self::DEPENDENCY_SCAN_BYTES);
+        /** @var array<string, string> $map */
+        $map = [];
+
+        // COLLADA 1.4 writes <init_from>path</init_from>; 1.5 wraps it in <ref>.
+        /** @var array<int, array<int, string>> $matches */
+        $matches = [];
+        if (preg_match_all(self::COLLADA_IMAGE, $document, $matches) > 0) {
+            foreach ($matches[1] as $value) {
+                $this->register($map, rawurldecode(trim($value)));
+            }
+        }
+
+        // X3D's url is an MFString: whitespace-separated, quoted alternatives tried in
+        // order, so any one of them may be the file sitting beside the model.
+        /** @var array<int, array<int, string>> $urls */
+        $urls = [];
+        if (preg_match_all(self::X3D_URL, $document, $urls) > 0) {
+            foreach ($urls[2] as $list) {
+                $entries = preg_split('/\s+/', trim($list));
+                foreach ($entries === false ? [] : $entries as $value) {
+                    $value = trim($value, "\"'");
+                    if ($value !== '') {
+                        $this->register($map, rawurldecode($value));
+                    }
+                }
+            }
+        }
+
+        return $map;
+    }
+
     /** @return array<string, string> */
     private function gltfDependencies(File $model): array
     {
@@ -159,6 +210,7 @@ class ModelDependencyResolver
             return [];
         }
 
+        /** @var array<string, string> $map */
         $map = [];
         foreach (['buffers', 'images'] as $section) {
             /** @var mixed $entries */
