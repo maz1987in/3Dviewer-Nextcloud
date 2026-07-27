@@ -4093,7 +4093,7 @@ export default {
 	font-weight: 700;
 	line-height: 1;
 	padding: 4px 8px;
-	background: rgba(255, 255, 255, 0.2);
+	background: rgb(255, 255, 255, 0.2);
 	border-radius: 4px;
 	letter-spacing: 0.5px;
 	display: flex;
