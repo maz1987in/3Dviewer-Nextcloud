@@ -126,7 +126,11 @@ class ShareFileService
             return null;
         }
 
-        /* @psalm-suppress DocblockTypeContradiction Legacy interface may return null */
+        /* Nextcloud 31/32 declare getShareByToken() as nullable and 33+ do not, so
+           psalm reports this defensive check as DocblockTypeContradiction on the older
+           branches and TypeDoesNotContainNull on the newer ones. The check stays while
+           info.xml still supports 31. */
+        /* @psalm-suppress DocblockTypeContradiction, TypeDoesNotContainNull */
         if ($share === null) {
             return null;
         }

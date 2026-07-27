@@ -50,6 +50,7 @@
 	"require-dev": {
 		"nextcloud/ocp": "dev-stable31",
 		"roave/security-advisories": "dev-latest",
+		"symfony/http-foundation": "^6.4 || ^7.0",
 		"symfony/string": "^6.4 || ^7.0"
 	},
 	"config": {
