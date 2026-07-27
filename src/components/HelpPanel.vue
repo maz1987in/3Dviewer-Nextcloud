@@ -849,7 +849,7 @@ export default {
 
 /* Theme-aware colors */
 .theme--dark .help-icon {
-	background: rgba(var(--color-primary-element-rgb), 0.2);
+	background: rgb(var(--color-primary-element-rgb), 0.2);
 }
 
 .theme--dark .help-item:hover {

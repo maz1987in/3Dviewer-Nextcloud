@@ -1,8 +1,10 @@
-# Runs the PHP unit suite.
+# Runs the PHP unit suite — the only workflow that runs PHP tests.
 #
-# `composer test:unit` ran in no workflow at all: test-integration.yml only invoked
-# test:integration and test:migration, so the unit tests — including the regression
-# tests written for the Nextcloud 34 fatals — never executed on CI.
+# It used to run none of them: the unit suite was in no workflow at all, while
+# test-integration.yml invoked test:integration and test:migration, which passed
+# a positional `tests` path that overrode their configured testsuite and so ran
+# the same unit suite under two other names. That workflow has been retired; the
+# matrix below is what actually covers lib/.
 #
 # SPDX-License-Identifier: MIT
 

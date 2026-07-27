@@ -1473,11 +1473,11 @@ export default {
 	left: 10px;
 	right: 10px;
 	z-index: 20;
-	background: rgba(255, 193, 7, 0.25); /* Increased opacity for better visibility */
-	border: 1px solid rgba(255, 193, 7, 0.5);
+	background: rgb(255, 193, 7, 0.25); /* Increased opacity for better visibility */
+	border: 1px solid rgb(255, 193, 7, 0.5);
 	border-radius: var(--border-radius-large, 8px);
 	padding: 10px 14px;
-	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+	box-shadow: 0 1px 4px rgb(0, 0, 0, 0.1);
 	max-width: 500px;
 	margin: 0 auto;
 	backdrop-filter: blur(4px);
@@ -1570,7 +1570,7 @@ export default {
 	height: 40px;
 	border: none;
 	border-radius: 50%;
-	background: rgba(0, 0, 0, 0.55);
+	background: rgb(0, 0, 0, 0.55);
 	color: #fff;
 	font-size: 18px;
 	cursor: pointer;
@@ -1582,7 +1582,7 @@ export default {
 }
 
 .viewer-action-btn:hover {
-	background: rgba(0, 0, 0, 0.75);
+	background: rgb(0, 0, 0, 0.75);
 }
 
 .viewer-action-btn.active {
@@ -1594,7 +1594,7 @@ export default {
 	position: absolute;
 	bottom: 108px;
 	inset-inline-end: 16px;
-	background: rgba(0, 0, 0, 0.75);
+	background: rgb(0, 0, 0, 0.75);
 	color: #fff;
 	border-radius: var(--border-radius-large, 8px);
 	padding: 10px 14px;

@@ -334,7 +334,8 @@ export function usePerformance() {
 
 		// Set shadows
 		renderer.shadowMap.enabled = shadows.value
-		renderer.shadowMap.type = shadows.value ? THREE.PCFSoftShadowMap : THREE.BasicShadowMap
+		// Deprecated in three r184; see the note in useScene.js.
+		renderer.shadowMap.type = shadows.value ? THREE.PCFShadowMap : THREE.BasicShadowMap
 
 		logger.info('usePerformance', 'Performance settings applied', {
 			pixelRatio: renderer.getPixelRatio(),

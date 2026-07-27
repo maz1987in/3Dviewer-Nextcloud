@@ -634,7 +634,7 @@ export default {
 .slicer-modal-backdrop {
 	position: fixed;
 	inset: 0;
-	background: rgba(0, 0, 0, 0.6);
+	background: rgb(0, 0, 0, 0.6);
 	backdrop-filter: blur(4px);
 	z-index: 10000;
 	display: flex;
@@ -659,7 +659,7 @@ export default {
 .slicer-modal {
 	background: var(--color-main-background, #fff);
 	border-radius: 12px;
-	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+	box-shadow: 0 8px 32px rgb(0, 0, 0, 0.3);
 	max-width: 800px;
 	width: 100%;
 	max-height: 90vh;
@@ -768,7 +768,7 @@ export default {
 	flex-direction: column;
 	align-items: center;
 	padding: 40px 20px;
-	background: rgba(220, 53, 69, 0.1);
+	background: rgb(220, 53, 69, 0.1);
 	border-radius: 8px;
 	margin-bottom: 20px;
 }
@@ -929,13 +929,13 @@ export default {
 
 .slicer-card:hover {
 	border-color: var(--slicer-color, var(--color-primary-element, #0082c9));
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+	box-shadow: 0 4px 12px rgb(0, 0, 0, 0.1);
 	transform: translateY(-2px);
 }
 
 .slicer-card.last-used {
 	border-color: var(--slicer-color, var(--color-primary-element, #0082c9));
-	background: var(--color-primary-element-light, rgba(0, 130, 201, 0.05));
+	background: var(--color-primary-element-light, rgb(0, 130, 201, 0.05));
 }
 
 .slicer-icon {
@@ -946,7 +946,7 @@ export default {
 	justify-content: center;
 	background: var(--color-main-background, #fff);
 	border-radius: 12px;
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+	box-shadow: 0 2px 8px rgb(0, 0, 0, 0.08);
 	padding: 8px;
 }
 
@@ -1039,7 +1039,7 @@ export default {
 .slicer-btn.primary:hover:not(:disabled) {
 	filter: brightness(1.1);
 	transform: translateY(-1px);
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+	box-shadow: 0 2px 8px rgb(0, 0, 0, 0.15);
 }
 
 .slicer-btn:disabled {
@@ -1080,7 +1080,7 @@ export default {
 }
 
 .slicer-modal.dark-theme .modal-header {
-	border-bottom-color: rgba(255, 255, 255, 0.1);
+	border-bottom-color: rgb(255, 255, 255, 0.1);
 }
 
 .slicer-modal.dark-theme .modal-title,
@@ -1089,16 +1089,16 @@ export default {
 }
 
 .slicer-modal.dark-theme .close-btn:hover {
-	background: rgba(255, 255, 255, 0.1);
+	background: rgb(255, 255, 255, 0.1);
 }
 
 .slicer-modal.dark-theme .modal-description {
-	color: rgba(255, 255, 255, 0.7);
+	color: rgb(255, 255, 255, 0.7);
 }
 
 .slicer-modal.dark-theme .slicer-card {
 	background: #333;
-	border-color: rgba(255, 255, 255, 0.2);
+	border-color: rgb(255, 255, 255, 0.2);
 }
 
 .slicer-modal.dark-theme .slicer-card:hover {
@@ -1106,7 +1106,7 @@ export default {
 }
 
 .slicer-modal.dark-theme .slicer-card.last-used {
-	background: rgba(66, 135, 245, 0.15);
+	background: rgb(66, 135, 245, 0.15);
 }
 
 .slicer-modal.dark-theme .slicer-icon {
@@ -1118,20 +1118,20 @@ export default {
 }
 
 .slicer-modal.dark-theme .slicer-description {
-	color: rgba(255, 255, 255, 0.6);
+	color: rgb(255, 255, 255, 0.6);
 }
 
 .slicer-modal.dark-theme .modal-info {
-	background: rgba(255, 255, 255, 0.05);
+	background: rgb(255, 255, 255, 0.05);
 	border-left-color: #4287f5;
 }
 
 .slicer-modal.dark-theme .info-text {
-	color: rgba(255, 255, 255, 0.7);
+	color: rgb(255, 255, 255, 0.7);
 }
 
 .slicer-modal.dark-theme .spinner {
-	border-color: rgba(255, 255, 255, 0.2);
+	border-color: rgb(255, 255, 255, 0.2);
 	border-top-color: #4287f5;
 }
 

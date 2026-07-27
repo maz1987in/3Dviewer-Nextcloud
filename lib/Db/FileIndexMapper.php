@@ -118,7 +118,11 @@ class FileIndexMapper extends QBMapper
         if ($parentFolder !== null && $parentFolder !== '') {
             // Get all folders that are descendants of the parent folder
             // This includes nested folders at any depth
-            $escapedParent = $qb->escapeLikeParameter($parentFolder);
+            // escapeLikeParameter() is declared on IDBConnection, not on
+            // IQueryBuilder — calling it on the builder only works because the
+            // server's concrete class happens to carry it, which is the same
+            // bet that fataled the NC 34 upgrade elsewhere in this app.
+            $escapedParent = $this->db->escapeLikeParameter($parentFolder);
             $qb->andWhere($qb->expr()->like('folder_path', $qb->createNamedParameter($escapedParent . '/%', IQueryBuilder::PARAM_STR)));
         } else {
             // Get all folders (not just root-level) to support deep structures like Group Folders
@@ -152,9 +156,17 @@ class FileIndexMapper extends QBMapper
         $immediateChildren = [];
         $seenPaths = [];
 
+        // Only the leading parent prefix comes off. str_replace() removed every
+        // occurrence, so "models/models/v2" under "models" became "models/v2",
+        // and with no parent at all the prefix was a bare "/" — which stripped
+        // every separator and turned "models/textures" into "modelstextures",
+        // a folder name that does not exist.
+        $prefix = $parentFolder === '' ? '' : $parentFolder . '/';
+
         foreach ($allFolderPaths as $folderPath) {
-            // Remove parent path prefix
-            $relativePath = str_replace($parentFolder . '/', '', $folderPath);
+            $relativePath = ($prefix !== '' && str_starts_with($folderPath, $prefix))
+                ? substr($folderPath, strlen($prefix))
+                : $folderPath;
 
             // Get the first segment (immediate child)
             $pathParts = explode('/', $relativePath);

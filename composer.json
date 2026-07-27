@@ -26,8 +26,6 @@
 		"cs:fix": "php-cs-fixer fix",
 		"psalm": "psalm --threads=1 --no-cache",
 		"test:unit": "phpunit tests -c tests/phpunit.xml --colors=always --fail-on-warning --fail-on-risky",
-		"test:integration": "phpunit tests -c tests/phpunit.integration.xml --colors=always --fail-on-warning --fail-on-risky",
-		"test:migration": "phpunit tests -c tests/phpunit.migration.xml --colors=always --fail-on-warning --fail-on-risky",
 		"test:coverage": "phpunit tests -c tests/phpunit.xml --colors=always --coverage-html coverage --coverage-clover coverage.xml",
 		"openapi": "generate-spec",
 		"rector": "rector && composer cs:fix",

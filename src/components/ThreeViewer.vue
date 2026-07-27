@@ -998,7 +998,8 @@ export default {
 				renderer.value.setSize(containerWidth, containerHeight)
 				// Note: pixel ratio will be overridden by initPerformance() based on auto-detection
 				renderer.value.shadowMap.enabled = true
-				renderer.value.shadowMap.type = THREE.PCFSoftShadowMap
+				// Deprecated in three r184; see the note in useScene.js.
+				renderer.value.shadowMap.type = THREE.PCFShadowMap
 				// Enable WebXR — required before any session can be started
 				renderer.value.xr.enabled = true
 
@@ -4092,7 +4093,7 @@ export default {
 	font-weight: 700;
 	line-height: 1;
 	padding: 4px 8px;
-	background: rgba(255, 255, 255, 0.2);
+	background: rgb(255, 255, 255, 0.2);
 	border-radius: 4px;
 	letter-spacing: 0.5px;
 	display: flex;
