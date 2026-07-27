@@ -43,6 +43,17 @@ class ModelDependencyResolver
     private const DEPENDENCY_SCAN_BYTES = 16 * 1024 * 1024;
 
     /**
+     * How many distinct material libraries one model may pull in.
+     *
+     * Every `mtllib` name costs a storage lookup, and roughly 226,000 of them fit inside
+     * MODEL_SCAN_BYTES. Unbounded, one crafted OBJ turns each `/dep/{name}` request on
+     * its public share into hundreds of thousands of lookups — and since anyone with an
+     * account can upload and share the model themselves, no victim has to cooperate.
+     * Real exporters emit one `mtllib`; a handful is already unusual.
+     */
+    public const MAX_MATERIALS = 16;
+
+    /**
      * Find the file a public client asked for by name.
      *
      * @param File   $model         the shared model, already authorised against the share
@@ -123,8 +134,8 @@ class ModelDependencyResolver
         }
 
         // Textures are named by the material, not by the OBJ, and relative to wherever
-        // that material lives.
-        foreach (array_unique($materialPaths) as $materialPath) {
+        // that material lives. Capped: see MAX_MATERIALS.
+        foreach (array_slice(array_unique($materialPaths), 0, self::MAX_MATERIALS) as $materialPath) {
             $material = $this->readableSibling($parent, $materialPath, 'mtl');
             if ($material === null) {
                 continue;

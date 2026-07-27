@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- **Capped how many material libraries one model may pull in.** Every `mtllib` name in an OBJ costs a storage lookup, and roughly 226,000 distinct names fit inside the 4 MiB header the resolver scans — `register()` keys by basename, so distinct names all survive the `array_unique`. One crafted model therefore turned each `/dep/{name}` request on its public share into hundreds of thousands of `Folder::get()` calls, with no rate limit on the route. The share does not have to belong to a victim: anyone with an account can upload the model, publish a link, then hit the endpoint anonymously and repeatedly. `ModelDependencyResolver::MAX_MATERIALS` now bounds the scan at 16 — real exporters emit one `mtllib`, and a handful is already unusual. Covered by a test that fails on the old code with `scanned 500 materials for a model declaring 500`, re-checked by removing the cap again.
+
 ### Added
 - **3D models are now viewable through public share links** ([#115](https://github.com/maz1987in/3Dviewer-Nextcloud/issues/115)). Previously nothing happened at all on a share page — `LoadFilesListener` returns early for anonymous visitors and the Viewer app does not dispatch its `LoadViewer` event on the public template, so the bundle never loaded. `PublicFileController` had been serving those bytes correctly since 2025, but the only client-side trace of it was an unused `API_ENDPOINTS.PUBLIC_FILE` constant pointing at a route that was never registered (`#[ApiRoute]` publishes under OCS, not `/apps/…/api`).
 

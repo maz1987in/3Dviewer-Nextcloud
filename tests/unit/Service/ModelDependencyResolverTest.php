@@ -312,6 +312,44 @@ class ModelDependencyResolverTest extends TestCase
         return $folder;
     }
 
+    public function testStopsScanningAfterAReasonableNumberOfMaterials(): void
+    {
+        // Each distinct mtllib name costs one storage lookup, and ~226,000 of them fit
+        // inside the model scan window. Left unbounded, a single crafted OBJ turns every
+        // /dep/{name} request on its public share into hundreds of thousands of lookups —
+        // and the attacker can be the sharer, so no victim has to cooperate.
+        $declared = 500;
+        $lines = '';
+        for ($i = 0; $i < $declared; $i++) {
+            $lines .= "mtllib m{$i}.mtl\n";
+        }
+
+        $lookups = 0;
+        $folder = $this->createMock(Folder::class);
+        $folder->method('get')->willReturnCallback(
+            static function (string $path) use (&$lookups): File {
+                $lookups++;
+
+                throw new NotFoundException('no node at ' . $path);
+            }
+        );
+
+        $model = $this->fileNamed('chair.obj', $lines);
+        $model->method('getParent')->willReturn($folder);
+
+        try {
+            $this->resolver->resolve($model, 'wood.png');
+        } catch (NotFoundException) {
+            // Expected — nothing resolves. The cost of finding that out is the point.
+        }
+
+        $this->assertLessThanOrEqual(
+            ModelDependencyResolver::MAX_MATERIALS,
+            $lookups,
+            "scanned {$lookups} materials for a model declaring {$declared}"
+        );
+    }
+
     private function fileNamed(string $path, string $content = ''): File
     {
         $file = $this->createMock(File::class);
