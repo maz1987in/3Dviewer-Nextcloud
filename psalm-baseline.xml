@@ -608,15 +608,11 @@
     </MixedArrayAccess>
     <MixedAssignment>
       <code><![CDATA[$allFolderPaths[]]]></code>
-      <code><![CDATA[$escapedParent]]></code>
       <code><![CDATA[$row]]></code>
       <code><![CDATA[$row]]></code>
       <code><![CDATA[$row]]></code>
       <code><![CDATA[$row]]></code>
     </MixedAssignment>
-    <MixedOperand>
-      <code><![CDATA[$escapedParent]]></code>
-    </MixedOperand>
     <MoreSpecificReturnType>
       <code><![CDATA[?FileIndex]]></code>
       <code><![CDATA[FileIndex[]]]></code>
@@ -630,9 +626,6 @@
       <code><![CDATA[getMonths]]></code>
       <code><![CDATA[getYears]]></code>
     </PossiblyUnusedMethod>
-    <UndefinedInterfaceMethod>
-      <code><![CDATA[escapeLikeParameter]]></code>
-    </UndefinedInterfaceMethod>
   </file>
   <file src="lib/Listener/FileIndexListener.php">
     <PossiblyUnusedMethod>
@@ -934,6 +927,14 @@
     </UndefinedClass>
     <UnusedClass>
       <code><![CDATA[SlicerControllerTest]]></code>
+    </UnusedClass>
+  </file>
+  <file src="tests/unit/Db/FileIndexMapperFolderTest.php">
+    <UndefinedClass>
+      <code><![CDATA[TestCase]]></code>
+    </UndefinedClass>
+    <UnusedClass>
+      <code><![CDATA[FileIndexMapperFolderTest]]></code>
     </UnusedClass>
   </file>
   <file src="tests/unit/Migration/Version010902Date20251116061241Test.php">
