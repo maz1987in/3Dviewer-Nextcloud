@@ -1483,6 +1483,11 @@ export default {
 }
 
 #viewer-wrapper {
+	// Establishes the containing block for the viewer's absolutely-positioned
+	// overlays — the top bar, panels and toasts. Without it they resolve against a
+	// far wider ancestor and stretch out under Nextcloud's docked navigation, which
+	// sits at a higher z-index and swallows their clicks.
+	position: relative;
 	width: 100%;
 	height: 100%;
 	padding: 0;

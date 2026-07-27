@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Checks that the circular navigation controller sits on the 3D scene rather than
+ * Checks that the viewer's floating overlays sit on the 3D scene rather than
  * underneath Nextcloud's app navigation, against a running dev container.
  *
  * The controller used to be `position: fixed` with a 20px left offset, which anchors
@@ -9,7 +9,12 @@
  * glass in Nextcloud 28+, so it did not vanish; it showed through, washed out, which
  * reads as a rendering fault rather than a placement one.
  *
- * Usage: `node scripts/live-controller-check.mjs`
+ * The top bar had the same defect from a different direction: it is absolutely
+ * positioned but #viewer-wrapper was static, so it resolved against a far wider
+ * ancestor and stretched under the navigation, which swallowed its clicks — Reset and
+ * Fit could not be pressed at all on a docked-navigation layout.
+ *
+ * Usage: `node scripts/live-viewer-overlay-check.mjs`
  * Requires: docker compose up -d (container on :8080), and a build of the frontend.
  */
 import { chromium } from '@playwright/test'
@@ -19,7 +24,7 @@ const USER = 'admin'
 const PASS = 'admin'
 
 let failures = 0
-const log = (...a) => console.log('[controller]', ...a)
+const log = (...a) => console.log('[overlay]', ...a)
 const pass = (n, d) => console.log(`  ✓ ${n}${d ? `  (${d})` : ''}`)
 const fail = (n, d) => { failures++; console.error(`  ✗ ${n}\n      ${d}`) }
 
@@ -51,10 +56,25 @@ async function measure(page) {
 			controller.top + controller.height / 2,
 		)
 
+		const topBar = rect('.minimal-top-bar')
+		const quickButtons = [...document.querySelectorAll('.minimal-top-bar .quick-btn')].map((el) => {
+			const b = el.getBoundingClientRect()
+			const hit = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2)
+			return {
+				label: el.textContent.replace(/\s+/g, ' ').trim(),
+				// Whether a click at the button's own centre would actually reach it.
+				reachable: !!hit && (hit === el || el.contains(hit)),
+				coveredBy: hit && !(hit === el || el.contains(hit)) ? (hit.className || hit.tagName) : null,
+			}
+		})
+
 		return {
 			controller,
 			nav,
 			viewer,
+			topBar,
+			quickButtons,
+			topBarOverlapsNav: overlaps(topBar, nav),
 			overlapsNav: overlaps(controller, nav),
 			insideViewer: !!viewer
 				&& controller.left >= viewer.left - 1 && controller.top >= viewer.top - 1
@@ -104,6 +124,20 @@ async function main() {
 				? pass('controller sits inside the 3D scene')
 				: fail('controller sits inside the 3D scene',
 					`controller ${JSON.stringify(desktop.controller)} not within viewer ${JSON.stringify(desktop.viewer)}`)
+
+			// The viewer's own top bar is absolutely positioned too, and shares the
+			// controller's original defect: without a positioned ancestor it resolves
+			// against the whole app and stretches underneath the docked navigation.
+			desktop.topBarOverlapsNav
+				? fail('viewer top bar clears the docked navigation',
+					`top bar ${JSON.stringify(desktop.topBar)} overlaps navigation ${JSON.stringify(desktop.nav)}`)
+				: pass('viewer top bar clears the docked navigation')
+
+			const unreachable = desktop.quickButtons.filter((b) => !b.reachable)
+			unreachable.length
+				? fail('Reset and Fit are clickable',
+					unreachable.map((b) => `"${b.label}" is covered by ${b.coveredBy}`).join('; '))
+				: pass(`Reset and Fit are clickable (${desktop.quickButtons.length} buttons)`)
 		}
 
 		// --- 2. dragging cannot push it back out ----------------------------
@@ -142,4 +176,4 @@ async function main() {
 	process.exit(failures === 0 ? 0 : 1)
 }
 
-main().catch((e) => { console.error('[controller] FATAL:', e); process.exit(1) })
+main().catch((e) => { console.error('[overlay] FATAL:', e); process.exit(1) })
