@@ -126,11 +126,11 @@ class ShareFileService
             return null;
         }
 
-        /* Nextcloud 31/32 declare getShareByToken() as nullable and 33+ do not, so
-           psalm reports this defensive check as DocblockTypeContradiction on the older
-           branches and TypeDoesNotContainNull on the newer ones. The check stays while
-           info.xml still supports 31. */
-        /* @psalm-suppress DocblockTypeContradiction, TypeDoesNotContainNull */
+        // Nextcloud 31/32 declare getShareByToken() as nullable and 33+ do not, so this
+        // defensive check reads as a contradiction on the newer branches. It is
+        // suppressed per-file in psalm.xml rather than with an annotation here, because
+        // php-cs-fixer rewrites the docblock into a plain comment and psalm then ignores
+        // the annotation. The check stays while info.xml declares min-version 31.
         if ($share === null) {
             return null;
         }

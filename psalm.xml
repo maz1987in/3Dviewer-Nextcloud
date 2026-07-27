@@ -38,5 +38,25 @@
              the call sites are in PageController, SettingsController and
              ConfigController. -->
         <DeprecatedMethod errorLevel="info" />
+        <!-- getShareByToken() is nullable on Nextcloud 31/32 and not on 33+, so the
+             defensive null check in findValidLinkShare is a contradiction on exactly
+             half the supported range. Declared here rather than as an annotation:
+             php-cs-fixer's phpdoc handling rewrites the docblock into a plain comment,
+             which psalm does not read annotations from. -->
+        <DocblockTypeContradiction>
+            <errorLevel type="suppress">
+                <file name="lib/Service/ShareFileService.php" />
+            </errorLevel>
+        </DocblockTypeContradiction>
+        <TypeDoesNotContainNull>
+            <errorLevel type="suppress">
+                <file name="lib/Service/ShareFileService.php" />
+            </errorLevel>
+        </TypeDoesNotContainNull>
+        <RedundantCondition>
+            <errorLevel type="suppress">
+                <file name="lib/Service/ShareFileService.php" />
+            </errorLevel>
+        </RedundantCondition>
     </issueHandlers>
 </psalm>
