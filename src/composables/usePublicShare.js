@@ -76,26 +76,31 @@ export function buildFileUrl(fileId) {
 }
 
 /**
- * URL for an OBJ's sibling .mtl on a public share.
+ * URL for a companion file a model declares — its material, that material's textures,
+ * or a glTF buffer — on a public share.
  *
- * Public-only by design. When signed in, the loader finds the .mtl through the
- * file-listing API and fetches it by its own id via buildFileUrl — that listing is
- * not reachable anonymously, which is why PublicFileController exposes a dedicated
- * route keyed by the OBJ's id plus the material name instead.
+ * Public-only by design. When signed in, the loader finds each dependency through the
+ * file-listing API and fetches it by its own id via buildFileUrl. That listing is not
+ * reachable anonymously, so the only handle left is the name written inside the model,
+ * which is what PublicFileController resolves — against the model's own declarations,
+ * so a name cannot reach files the share does not cover.
  *
- * @param {number|string} objFileId - file id of the .obj
- * @param {string} mtlName - material filename referenced by the OBJ
+ * Keyed by the model's file id rather than the share root: in a folder share the server
+ * has to know whose declarations to check.
+ *
+ * @param {number|string} modelFileId - file id of the .obj or .gltf that names it
+ * @param {string} name - dependency filename, as parsed out of the model
  * @return {string|null} absolute URL, or null when not on a public share
  */
-export function buildPublicMtlUrl(objFileId, mtlName) {
+export function buildPublicDepUrl(modelFileId, name) {
 	const ctx = getPublicShareContext()
 	if (!ctx?.token) {
 		return null
 	}
-	return generateOcsUrl('apps/threedviewer/public/file/{token}/{fileId}/mtl/{mtlName}', {
+	return generateOcsUrl('apps/threedviewer/public/file/{token}/{fileId}/dep/{name}', {
 		token: ctx.token,
-		fileId: objFileId,
-		mtlName,
+		fileId: modelFileId,
+		name,
 	})
 }
 

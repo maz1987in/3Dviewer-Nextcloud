@@ -100,8 +100,16 @@ GET /apps/threedviewer/files                       # list files
 **Public Share Endpoints:**
 ```
 GET /ocs/v2.php/apps/threedviewer/public/file/{token}/{id}
-GET /ocs/v2.php/apps/threedviewer/public/file/{token}/{id}/mtl/{mtlName}
+GET /ocs/v2.php/apps/threedviewer/public/file/{token}/{id}/dep/{name}
+GET /ocs/v2.php/apps/threedviewer/public/file/{token}/{id}/mtl/{mtlName}   # deprecated alias of /dep/
 ```
+
+`/dep/{name}` serves a companion file — a material, one of its textures, or a glTF
+buffer — for the model identified by `{id}`. Anonymous callers cannot reach the
+file-listing API, so there is no id to fetch these by; the name is the handle instead.
+A name is only served when the model itself declares it (`mtllib`, `map_*`, `bump`,
+`refl`, or a glTF `buffers[].uri` / `images[].uri`), which is what stops a share link
+from becoming a way to name-guess files beside the model that were never shared.
 
 ### Frontend Architecture
 
@@ -1632,7 +1640,7 @@ The in-browser 3D viewer is implemented with Vue 2 + Three.js with lazy-loaded o
 
 - **Dynamic imports:** Individual Three.js loaders (`GLTFLoader`, `OBJLoader`, `MTLLoader`, `STLLoader`, `PLYLoader`, `FBXLoader`) are code-split so they only load when a matching extension is requested.
 
-- **OBJ + MTL:** After streaming an OBJ, the viewer parses its `mtllib` directive and performs a second request to `/file/{fileId}/mtl/{mtlName}` (or the public variant) to load materials when present. Missing or invalid MTL files gracefully degrade to untextured materials.
+- **OBJ + MTL + textures:** After streaming an OBJ, the viewer parses its `mtllib` directive, fetches the material, then parses that material for `map_*`/`bump`/`refl` references and fetches those too. Signed in, each name is resolved to a file id through the file-listing API; on a public share that API needs a session, so the names go to `/public/file/{token}/{fileId}/dep/{name}` and the server resolves them against the model's own declarations. Missing or refused dependencies degrade to untextured materials rather than failing the model.
 
 - **Camera framing:** On initial model load, the scene bounding box is computed and the camera + orbit controls are adjusted to frame the model (with a small margin) and set a sensible near/far range.
 

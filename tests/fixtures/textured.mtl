@@ -1,0 +1,7 @@
+# Material naming a texture that sits beside it
+newmtl surface
+Ka 1 1 1
+Kd 1 1 1
+d 1
+illum 2
+map_Kd checker.png

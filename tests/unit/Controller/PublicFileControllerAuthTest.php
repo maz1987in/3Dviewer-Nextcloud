@@ -6,6 +6,7 @@ namespace OCA\ThreeDViewer\Tests\Unit\Controller;
 
 use DateTime;
 use OCA\ThreeDViewer\Controller\PublicFileController;
+use OCA\ThreeDViewer\Service\ModelDependencyResolver;
 use OCA\ThreeDViewer\Service\ModelFileSupport;
 use OCA\ThreeDViewer\Service\ShareFileService;
 use OCP\AppFramework\PublicShareController;
@@ -131,7 +132,7 @@ class PublicFileControllerAuthTest extends TestCase
             'threedviewer',
             $this->createMock(IRequest::class),
             $sessionMock,
-            new ShareFileService($shareManager, $support),
+            new ShareFileService($shareManager, $support, new ModelDependencyResolver()),
             $support,
         );
     }

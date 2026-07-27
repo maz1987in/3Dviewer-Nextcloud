@@ -116,15 +116,23 @@ class PublicFileController extends PublicShareController
         return $response;
     }
 
+    /**
+     * Stream a companion file the shared model declares — its material, that material's
+     * textures, or a glTF buffer.
+     *
+     * Keyed by name rather than by file id because the id would have to come from the
+     * file-listing API, which needs a session. ModelDependencyResolver is what stops a
+     * name from being a way to read whatever else sits beside the model.
+     */
     #[PublicPage]
     #[NoCSRFRequired]
-    #[ApiRoute(verb: 'GET', url: '/public/file/{token}/{fileId}/mtl/{mtlName}')]
-    public function streamSiblingMtl(string $token, int $fileId, string $mtlName): StreamResponse|JSONResponse
+    #[ApiRoute(verb: 'GET', url: '/public/file/{token}/{fileId}/dep/{name}')]
+    public function streamDependency(string $token, int $fileId, string $name): StreamResponse|JSONResponse
     {
         try {
-            $file = $this->shareFileService->getSiblingMaterialFromShare($token, $fileId, $mtlName);
+            $file = $this->shareFileService->getDependencyFromShare($token, $fileId, $name);
         } catch (NotFoundException $e) {
-            return new JSONResponse(['error' => 'MTL not found'], Http::STATUS_NOT_FOUND);
+            return new JSONResponse(['error' => 'Dependency not found'], Http::STATUS_NOT_FOUND);
         } catch (UnsupportedFileTypeException $e) {
             return new JSONResponse(['error' => $e->getMessage()], 415);
         } catch (RuntimeException $e) {
@@ -135,10 +143,26 @@ class PublicFileController extends PublicShareController
             return new JSONResponse(['error' => 'Failed to open file'], Http::STATUS_INTERNAL_SERVER_ERROR);
         }
         $response = new StreamResponse($stream);
-        $response->addHeader('Content-Type', 'text/plain');
+        // Textures have to arrive as their real image type or the browser will not
+        // decode them into a texture.
+        $response->addHeader('Content-Type', $this->support->mapContentType(strtolower($file->getExtension())));
         $response->addHeader('Content-Length', (string) $file->getSize());
         $response->addHeader('Cache-Control', 'no-store');
 
         return $response;
+    }
+
+    /**
+     * Materials only. Superseded by streamDependency(), which serves the whole chain;
+     * kept because this URL is published in the app's API documentation.
+     *
+     * @deprecated use the /dep/{name} route
+     */
+    #[PublicPage]
+    #[NoCSRFRequired]
+    #[ApiRoute(verb: 'GET', url: '/public/file/{token}/{fileId}/mtl/{mtlName}')]
+    public function streamSiblingMtl(string $token, int $fileId, string $mtlName): StreamResponse|JSONResponse
+    {
+        return $this->streamDependency($token, $fileId, $mtlName);
     }
 }

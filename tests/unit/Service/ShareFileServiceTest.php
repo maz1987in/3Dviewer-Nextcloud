@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OCA\ThreeDViewer\Tests\Unit\Service;
 
 use OCA\ThreeDViewer\Service\Exception\UnsupportedFileTypeException;
+use OCA\ThreeDViewer\Service\ModelDependencyResolver;
 use OCA\ThreeDViewer\Service\ModelFileSupport;
 use OCA\ThreeDViewer\Service\ShareFileService;
 use OCP\Files\File;
@@ -32,7 +33,7 @@ class ShareFileServiceTest extends TestCase
         $shareManager->method('getShareByToken')->willReturn($share);
         $support = $this->createMock(ModelFileSupport::class);
         $support->method('isSupported')->willReturn(false);
-        $service = new ShareFileService($shareManager, $support);
+        $service = new ShareFileService($shareManager, $support, new ModelDependencyResolver());
         $this->expectException(UnsupportedFileTypeException::class);
         $service->getFileFromShare('token', null);
     }
@@ -45,7 +46,7 @@ class ShareFileServiceTest extends TestCase
         $shareManager = $this->createMock(IManager::class);
         $shareManager->method('getShareByToken')->willReturn(null);
         $support = $this->createMock(ModelFileSupport::class);
-        $service = new ShareFileService($shareManager, $support);
+        $service = new ShareFileService($shareManager, $support, new ModelDependencyResolver());
         $this->expectException(NotFoundException::class);
         $service->getFileFromShare('missing', null);
     }

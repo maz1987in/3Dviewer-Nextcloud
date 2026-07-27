@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OCA\ThreeDViewer\Tests\Unit\Service;
 
 use DateTime;
+use OCA\ThreeDViewer\Service\ModelDependencyResolver;
 use OCA\ThreeDViewer\Service\ModelFileSupport;
 use OCA\ThreeDViewer\Service\ShareFileService;
 use OCP\Files\File;
@@ -71,7 +72,7 @@ class ShareFileServiceSecurityTest extends TestCase
     {
         $shareManager = $this->createMock(IManager::class);
         $shareManager->method('getShareByToken')->willThrowException(new ShareNotFound('expired'));
-        $service = new ShareFileService($shareManager, $this->createMock(ModelFileSupport::class));
+        $service = new ShareFileService($shareManager, $this->createMock(ModelFileSupport::class), new ModelDependencyResolver());
 
         $this->assertNull($service->findValidLinkShare('expired-token'));
     }
@@ -80,7 +81,7 @@ class ShareFileServiceSecurityTest extends TestCase
     {
         $shareManager = $this->createMock(IManager::class);
         $shareManager->method('getShareByToken')->willThrowException(new ShareNotFound('expired'));
-        $service = new ShareFileService($shareManager, $this->createMock(ModelFileSupport::class));
+        $service = new ShareFileService($shareManager, $this->createMock(ModelFileSupport::class), new ModelDependencyResolver());
 
         $this->expectException(NotFoundException::class);
         $service->getFileFromShare('expired-token', null);
@@ -90,7 +91,7 @@ class ShareFileServiceSecurityTest extends TestCase
     {
         $shareManager = $this->createMock(IManager::class);
         $shareManager->method('getShareByToken')->willReturn(null);
-        $service = new ShareFileService($shareManager, $this->createMock(ModelFileSupport::class));
+        $service = new ShareFileService($shareManager, $this->createMock(ModelFileSupport::class), new ModelDependencyResolver());
 
         $this->assertNull($service->findValidLinkShare('nope'));
     }
@@ -117,6 +118,27 @@ class ShareFileServiceSecurityTest extends TestCase
         $this->assertInstanceOf(File::class, $service->getFileFromShare('token', null));
     }
 
+    /**
+     * The dependency route is the one place a name — rather than a file id — picks the
+     * file, so it must clear the same share gate as everything else before the
+     * declaration check ever runs.
+     */
+    public function testDependencyLookupIsGatedByTheShareCheck(): void
+    {
+        $service = $this->serviceForShare($this->share(shareType: IShare::TYPE_USER));
+
+        $this->expectException(NotFoundException::class);
+        $service->getDependencyFromShare('token', 1, 'wood.png');
+    }
+
+    public function testExpiredShareServesNoDependencies(): void
+    {
+        $service = $this->serviceForShare($this->share(expiration: new DateTime('2020-01-01T00:00:00Z')));
+
+        $this->expectException(NotFoundException::class);
+        $service->getDependencyFromShare('token', 1, 'wood.png');
+    }
+
     private function serviceForShare(IShare $share): ShareFileService
     {
         $shareManager = $this->createMock(IManager::class);
@@ -125,7 +147,7 @@ class ShareFileServiceSecurityTest extends TestCase
         $support = $this->createMock(ModelFileSupport::class);
         $support->method('isSupported')->willReturn(true);
 
-        return new ShareFileService($shareManager, $support);
+        return new ShareFileService($shareManager, $support, new ModelDependencyResolver());
     }
 
     private function share(

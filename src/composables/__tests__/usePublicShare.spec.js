@@ -50,9 +50,10 @@ describe('usePublicShare', () => {
 			expect(m.buildFileUrl(42)).toBe('/index.php/apps/threedviewer/api/file/42')
 		})
 
-		it('has no public MTL URL to offer', async () => {
+		it('has no public dependency URL to offer', async () => {
 			const m = await withState(null)
-			expect(m.buildPublicMtlUrl(42, 'model.mtl')).toBeNull()
+			expect(m.buildPublicDepUrl(42, 'model.mtl')).toBeNull()
+			expect(m.buildPublicDepUrl(42, 'wood.png')).toBeNull()
 		})
 	})
 
@@ -72,10 +73,26 @@ describe('usePublicShare', () => {
 			)
 		})
 
-		it('uses the dedicated sibling route for the MTL', async () => {
+		it('uses the dependency route for the MTL', async () => {
 			const m = await withState(ctx)
-			expect(m.buildPublicMtlUrl(42, 'model.mtl')).toBe(
-				'/ocs/v2.php/apps/threedviewer/public/file/Ed96SnZ8K4PW4dx/42/mtl/model.mtl',
+			expect(m.buildPublicDepUrl(42, 'model.mtl')).toBe(
+				'/ocs/v2.php/apps/threedviewer/public/file/Ed96SnZ8K4PW4dx/42/dep/model.mtl',
+			)
+		})
+
+		it('uses the same route for a texture the material names', async () => {
+			const m = await withState(ctx)
+			expect(m.buildPublicDepUrl(42, 'wood.png')).toBe(
+				'/ocs/v2.php/apps/threedviewer/public/file/Ed96SnZ8K4PW4dx/42/dep/wood.png',
+			)
+		})
+
+		it('keys the dependency off the model that declared it, not off the share root', async () => {
+			// In a folder share the model is one file among many; the server needs to know
+			// which model's declarations to check.
+			const m = await withState({ token: 'tok', fileId: null, isSingleFile: false })
+			expect(m.buildPublicDepUrl(77, 'wood.png')).toBe(
+				'/ocs/v2.php/apps/threedviewer/public/file/tok/77/dep/wood.png',
 			)
 		})
 

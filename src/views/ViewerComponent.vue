@@ -745,16 +745,23 @@ export default {
 		 * Load model with multiple associated files (e.g., OBJ with MTL)
 		 * @param {object} result - Result from loadModelWithDependencies
 		 * @param {object} THREE - Three.js module
+		 * @param {string} fallbackExtension - Extension to dispatch on when the main
+		 *   file carries no name of its own, as on a single-file public share
 		 */
-		async loadModelWithFiles(result, THREE) {
+		async loadModelWithFiles(result, THREE, fallbackExtension) {
 			try {
 				logger.info('ViewerComponent', 'Loading model with files', {
 					mainFile: result.mainFile.name,
 					dependencies: result.dependencies.length,
 				})
 
-				// Extract extension from main file
-				const extension = result.mainFile.name.split('.').pop().toLowerCase()
+				// The main file names itself when it can. A single-file public share has
+				// no path to take a name from, so fall back to the extension we already
+				// dispatched on rather than handing the registry a '/'.
+				const mainName = result.mainFile.name || ''
+				const extension = mainName.includes('.')
+					? mainName.split('.').pop().toLowerCase()
+					: (fallbackExtension || '').toLowerCase()
 
 				// Create a mock context for multi-file loading
 				const context = {
@@ -881,10 +888,14 @@ export default {
 					logger.info('ViewerComponent', 'Multi-file format detected, loading with dependencies')
 
 					try {
-						// Load model with dependencies for multi-file formats
+						// Load model with dependencies for multi-file formats.
+						// effectiveFilename, not filename: the main file is named after what
+						// is passed here, and on a single-file public share the raw prop is
+						// '/' — which leaves the loader with no extension to dispatch on and
+						// silently drops every dependency it just fetched.
 						const result = await loadModelWithDependencies(
 							this.fileid,
-							this.filename,
+							this.effectiveFilename,
 							extension,
 							dirPath,
 						)
@@ -892,7 +903,7 @@ export default {
 						logger.info('ViewerComponent', 'Multi-file loading successful', { mainFile: result.mainFile?.name })
 
 						// Process the result and load the model
-						await this.loadModelWithFiles(result, THREE)
+						await this.loadModelWithFiles(result, THREE, extension)
 						return
 
 					} catch (error) {
