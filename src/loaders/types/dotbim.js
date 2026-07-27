@@ -137,6 +137,8 @@ class DotBimLoader extends BaseLoader {
 	 *
 	 * Requires an indexed geometry; un-indexes the geometry in place so each
 	 * face's three vertices can carry the face's color.
+	 * @param geometry
+	 * @param faceColors
 	 */
 	applyFaceColors(geometry, faceColors) {
 		const index = geometry.getIndex()
