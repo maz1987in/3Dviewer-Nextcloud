@@ -417,9 +417,6 @@ npm run lint:fix
 # Run unit tests
 composer test:unit
 
-# Run integration tests
-composer test:integration
-
 # Run with coverage
 composer test:coverage
 ```
