@@ -53,11 +53,13 @@ if (file_exists($serverTestBootstrap)) {
     exit(1);
 }
 
-if (!class_exists('OC')) {
+// The app supplies the services under test, so the suite is meaningless if the server
+// did not load it. Written as a positive guard because OC_App is a server-internal class
+// that static analysis cannot see from the app alone — inside class_exists() it knows
+// not to ask.
+if (class_exists('OC') && class_exists('OC_App')) {
+    \OC_App::loadApp('threedviewer');
+} else {
     fwrite(STDERR, "Nextcloud loaded but its bootstrap did not complete.\n");
     exit(1);
 }
-
-// The app supplies the services under test, so the suite is meaningless if the server
-// did not load it.
-\OC_App::loadApp('threedviewer');

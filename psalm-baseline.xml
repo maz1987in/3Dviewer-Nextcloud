@@ -878,6 +878,30 @@
       <code><![CDATA[getThumbnailPath]]></code>
     </PossiblyUnusedMethod>
   </file>
+  <file src="tests/integration/FileIndexMapperTest.php">
+    <UndefinedClass>
+      <code><![CDATA[TestCase]]></code>
+    </UndefinedClass>
+    <UnusedClass>
+      <code><![CDATA[FileIndexMapperTest]]></code>
+    </UnusedClass>
+  </file>
+  <file src="tests/integration/ModelDependencyResolverTest.php">
+    <UndefinedClass>
+      <code><![CDATA[TestCase]]></code>
+    </UndefinedClass>
+    <UnusedClass>
+      <code><![CDATA[ModelDependencyResolverTest]]></code>
+    </UnusedClass>
+  </file>
+  <file src="tests/integration/ServerEnvironmentTest.php">
+    <UndefinedClass>
+      <code><![CDATA[TestCase]]></code>
+    </UndefinedClass>
+    <UnusedClass>
+      <code><![CDATA[ServerEnvironmentTest]]></code>
+    </UnusedClass>
+  </file>
   <file src="tests/stubs/Files_Sharing_BeforeTemplateRenderedEvent.php">
     <PossiblyUnusedMethod>
       <code><![CDATA[__construct]]></code>
