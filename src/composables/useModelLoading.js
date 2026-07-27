@@ -5,7 +5,6 @@
 
 import { ref, shallowRef, computed, markRaw } from 'vue'
 import * as THREE from 'three'
-import { generateUrl } from '@nextcloud/router'
 import { loadModelByExtension, isSupportedExtension } from '../loaders/registry.js'
 import { loadModelWithDependencies } from '../loaders/multiFileHelpers.js'
 import { buildFileUrl } from './usePublicShare.js'
