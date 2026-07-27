@@ -285,8 +285,8 @@ export default {
 			loading: true,
 			saving: false,
 			reindexing: false,
-		// Live indexing progress polled from /api/files/index-status while reindexing
-		indexProgress: null,
+			// Live indexing progress polled from /api/files/index-status while reindexing
+			indexProgress: null,
 			clearingThumbnails: false,
 			clearingCache: false,
 			cacheInfo: null,
