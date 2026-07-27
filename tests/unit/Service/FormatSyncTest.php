@@ -140,6 +140,22 @@ class FormatSyncTest extends TestCase
     }
 
     /**
+     * Dependency formats are streamed to public share pages, and the browser needs the
+     * real image type to decode a texture. An entry with no content type would be served
+     * as application/octet-stream.
+     */
+    public function testEveryDependencyExtensionHasAContentType(): void
+    {
+        foreach (SupportedFormats::DEPENDENCY_EXTENSIONS as $ext) {
+            $this->assertArrayHasKey(
+                $ext,
+                SupportedFormats::CONTENT_TYPE_MAP,
+                "Dependency extension '{$ext}' has no entry in CONTENT_TYPE_MAP",
+            );
+        }
+    }
+
+    /**
      * Test that no extensions use placeholder MIME types unintentionally.
      */
     public function testNoPlaceholderMimeTypes(): void

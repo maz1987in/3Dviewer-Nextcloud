@@ -123,6 +123,27 @@ class SupportedFormats
     ];
 
     /**
+     * Companion files a model may reference — materials, glTF buffers and textures.
+     *
+     * Not derivable from the two maps above: `mtl` appears in EXT_MIME_MAP so Nextcloud
+     * registers a MIME type for it, but having a registered type is not the same as being
+     * a format the viewer can open on its own.
+     *
+     * Every entry must also appear in CONTENT_TYPE_MAP, since these are streamed;
+     * FormatSyncTest holds that line.
+     */
+    public const DEPENDENCY_EXTENSIONS = [
+        'mtl',
+        'bin',
+        'png',
+        'jpg',
+        'jpeg',
+        'tga',
+        'bmp',
+        'webp',
+    ];
+
+    /**
      * List of all supported model file extensions (excluding textures and dependencies).
      *
      * @return list<string>
@@ -130,6 +151,14 @@ class SupportedFormats
     public static function getModelExtensions(): array
     {
         return array_keys(self::EXT_MIME_MAP);
+    }
+
+    /**
+     * Whether an extension is a companion file rather than a model in its own right.
+     */
+    public static function isDependencyFormat(string $ext): bool
+    {
+        return in_array(strtolower($ext), self::DEPENDENCY_EXTENSIONS, true);
     }
 
     /**

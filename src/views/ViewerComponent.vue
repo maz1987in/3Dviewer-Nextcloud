@@ -40,6 +40,7 @@
 					<p>{{ t('threedviewer', 'Some textures may not load in this preview. For full texture support, open the model in the main 3D Viewer.') }}</p>
 				</div>
 				<NcButton
+					v-if="!isPublic"
 					type="primary"
 					class="texture-warning-button"
 					@click.prevent="openInFullViewer">
@@ -50,7 +51,7 @@
 
 		<!-- Open in full viewer button -->
 		<NcButton
-			v-if="hasLoaded && !showTextureWarning"
+			v-if="hasLoaded && !showTextureWarning && !isPublic"
 			type="primary"
 			class="open-in-app-button"
 			@click.prevent="openInFullViewer">
@@ -118,6 +119,7 @@
 import { markRaw } from 'vue'
 import { NcProgressBar, NcButton } from '@nextcloud/vue'
 import { generateUrl } from '@nextcloud/router'
+import { buildFileUrl, getPublicShareContext, isPublicShare } from '../composables/usePublicShare.js'
 // eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
 import axios from '@nextcloud/axios'
 import { loadModelWithDependencies } from '../loaders/multiFileHelpers.js'
@@ -230,6 +232,30 @@ export default {
 	},
 
 	computed: {
+		/**
+		 * True on a public share page, where anything requiring a user account
+		 * must stay hidden rather than bouncing the visitor to a login screen.
+		 */
+		isPublic() {
+			return isPublicShare()
+		},
+
+		/**
+		 * Filename to derive the loader extension from.
+		 *
+		 * On a single-file public share the Viewer opens us with the public DAV root
+		 * as davPath and a filename of '/', because there is no path component to
+		 * take a name from. The share's initial state carries the real name, so
+		 * prefer that whenever the passed-in prop has no usable extension.
+		 */
+		effectiveFilename() {
+			const own = this.filename || ''
+			if (own.includes('.')) {
+				return own
+			}
+			return getPublicShareContext()?.filename || own
+		},
+
 		/**
 		 * Generate URL to open model in full 3D viewer app
 		 */
@@ -382,6 +408,11 @@ export default {
 		 * Load the thumbnail setting from user preferences
 		 */
 		async loadThumbnailSetting() {
+			// Per-user preferences do not exist for an anonymous share visitor; the
+			// request would 401 and the default below is the right answer anyway.
+			if (isPublicShare()) {
+				return
+			}
 			try {
 				const response = await axios.get(generateUrl('/apps/threedviewer/settings'))
 				const settings = response.data?.settings || {}
@@ -400,7 +431,7 @@ export default {
 		captureThumbnail() {
 			if (!this.enableThumbnails) return
 
-			const extension = this.filename.split('.').pop()?.toLowerCase() || ''
+			const extension = this.effectiveFilename.split('.').pop()?.toLowerCase() || ''
 			const supportedFormats = ['glb', 'gltf', 'obj', 'stl', 'ply', '3mf', 'fbx', 'dae', '3ds', 'x3d', 'wrl', 'vrml']
 
 			if (this.renderer && this.fileid && supportedFormats.includes(extension)) {
@@ -714,16 +745,23 @@ export default {
 		 * Load model with multiple associated files (e.g., OBJ with MTL)
 		 * @param {object} result - Result from loadModelWithDependencies
 		 * @param {object} THREE - Three.js module
+		 * @param {string} fallbackExtension - Extension to dispatch on when the main
+		 *   file carries no name of its own, as on a single-file public share
 		 */
-		async loadModelWithFiles(result, THREE) {
+		async loadModelWithFiles(result, THREE, fallbackExtension) {
 			try {
 				logger.info('ViewerComponent', 'Loading model with files', {
 					mainFile: result.mainFile.name,
 					dependencies: result.dependencies.length,
 				})
 
-				// Extract extension from main file
-				const extension = result.mainFile.name.split('.').pop().toLowerCase()
+				// The main file names itself when it can. A single-file public share has
+				// no path to take a name from, so fall back to the extension we already
+				// dispatched on rather than handing the registry a '/'.
+				const mainName = result.mainFile.name || ''
+				const extension = mainName.includes('.')
+					? mainName.split('.').pop().toLowerCase()
+					: (fallbackExtension || '').toLowerCase()
 
 				// Create a mock context for multi-file loading
 				const context = {
@@ -831,7 +869,7 @@ export default {
 		async loadModel(THREE) {
 			try {
 				// Extract extension from filename
-				const extension = this.filename.split('.').pop().toLowerCase()
+				const extension = this.effectiveFilename.split('.').pop().toLowerCase()
 				logger.info('ViewerComponent', 'Loading model', {
 					filename: this.filename,
 					extension,
@@ -850,10 +888,14 @@ export default {
 					logger.info('ViewerComponent', 'Multi-file format detected, loading with dependencies')
 
 					try {
-						// Load model with dependencies for multi-file formats
+						// Load model with dependencies for multi-file formats.
+						// effectiveFilename, not filename: the main file is named after what
+						// is passed here, and on a single-file public share the raw prop is
+						// '/' — which leaves the loader with no extension to dispatch on and
+						// silently drops every dependency it just fetched.
 						const result = await loadModelWithDependencies(
 							this.fileid,
-							this.filename,
+							this.effectiveFilename,
 							extension,
 							dirPath,
 						)
@@ -861,7 +903,7 @@ export default {
 						logger.info('ViewerComponent', 'Multi-file loading successful', { mainFile: result.mainFile?.name })
 
 						// Process the result and load the model
-						await this.loadModelWithFiles(result, THREE)
+						await this.loadModelWithFiles(result, THREE, extension)
 						return
 
 					} catch (error) {
@@ -873,8 +915,9 @@ export default {
 				// Single-file loading (fallback or non-multi-file formats)
 				// Fetch model data from ApiController endpoint
 				this.updateProgress(true, 0, this.t('threedviewer', 'Downloading model...'), this.filename, false)
-				// Note: Using /api/file/{fileId} (not /file/{fileId})
-				const response = await fetch(generateUrl(`/apps/threedviewer/api/file/${this.fileid}`))
+				// buildFileUrl resolves to the token-keyed public endpoint on a share
+				// page, where the session-authenticated route below would 404.
+				const response = await fetch(buildFileUrl(this.fileid))
 
 				if (!response.ok) {
 					throw new Error(`Failed to fetch model: ${response.status} ${response.statusText}`)

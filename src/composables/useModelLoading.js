@@ -8,6 +8,7 @@ import * as THREE from 'three'
 import { generateUrl } from '@nextcloud/router'
 import { loadModelByExtension, isSupportedExtension } from '../loaders/registry.js'
 import { loadModelWithDependencies } from '../loaders/multiFileHelpers.js'
+import { buildFileUrl } from './usePublicShare.js'
 import { createErrorState } from '../utils/error-handler.js'
 import { logger } from '../utils/logger.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
@@ -233,7 +234,9 @@ export function useModelLoading() {
 			// Single-file loading (fallback or non-multi-file formats)
 			progress.value = { loaded: 0, total: 0, message: 'Downloading model...' }
 
-			const response = await fetch(generateUrl(`/apps/threedviewer/api/file/${fileId}`), {
+			// buildFileUrl picks the public token endpoint on a share page, where the
+			// session-authenticated route below would 404.
+			const response = await fetch(buildFileUrl(fileId), {
 				signal: abortController.value?.signal,
 				headers: {
 					Accept: 'application/octet-stream',

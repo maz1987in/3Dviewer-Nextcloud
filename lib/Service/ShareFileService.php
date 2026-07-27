@@ -26,6 +26,7 @@ class ShareFileService
     public function __construct(
         private readonly ShareManager $shareManager,
         private readonly ModelFileSupport $support,
+        private readonly ModelDependencyResolver $dependencies,
     ) {
     }
 
@@ -58,15 +59,21 @@ class ShareFileService
     }
 
     /**
-     * Locate a sibling .mtl file for an OBJ within a share by OBJ fileId + mtlName.
+     * Locate a companion file — material, texture or glTF buffer — that the shared model
+     * declares, by the name the client read out of the model.
+     *
+     * Both gates matter and they are separate questions: the share must be publicly
+     * readable (here), and the model must actually point at that name
+     * (ModelDependencyResolver).
+     *
      * @throws NotFoundException
      * @throws UnsupportedFileTypeException
      */
-    public function getSiblingMaterialFromShare(string $token, int $objFileId, string $mtlName): File
+    public function getDependencyFromShare(string $token, int $fileId, string $name): File
     {
-        $obj = $this->getFileFromShare($token, $objFileId);
+        $model = $this->getFileFromShare($token, $fileId);
 
-        return $this->support->findSiblingMtl($obj, $mtlName);
+        return $this->dependencies->resolve($model, $name);
     }
 
     /**

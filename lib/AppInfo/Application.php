@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace OCA\ThreeDViewer\AppInfo;
 
+use OCA\Files_Sharing\Event\BeforeTemplateRenderedEvent as PublicShareTemplateRenderedEvent;
 use OCA\ThreeDViewer\Listener\FileIndexListener;
 use OCA\ThreeDViewer\Listener\LoadFilesListener;
+use OCA\ThreeDViewer\Listener\LoadPublicShareListener;
 use OCA\ThreeDViewer\Listener\LoadViewerListener;
 use OCA\ThreeDViewer\Preview\ModelPreviewProvider;
 use OCA\ThreeDViewer\Repair\RegisterThreeDMimeTypes;
@@ -53,6 +55,12 @@ class Application extends App implements IBootstrap
         // Register listener to load our script on every page (Files app context)
         // This ensures our viewer handler is registered before Files app renders
         $context->registerEventListener(BeforeTemplateRenderedEvent::class, LoadFilesListener::class);
+
+        // Public share pages are a separate render path: LoadFilesListener skips them
+        // (no logged-in user) and the Viewer app does not dispatch LoadViewer there.
+        if (class_exists(PublicShareTemplateRenderedEvent::class)) {
+            $context->registerEventListener(PublicShareTemplateRenderedEvent::class, LoadPublicShareListener::class);
+        }
 
         // Ensure our MIME registration repair step runs during `occ maintenance:repair`
         // in addition to install/enable flows declared in info.xml

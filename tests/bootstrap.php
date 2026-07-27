@@ -106,3 +106,11 @@ if (!class_exists('Doctrine\\DBAL\\Types\\Type')) {
         public function getName(): string { return $this->name; }
     }');
 }
+
+// files_sharing is a shipped app, not part of the nextcloud/ocp package, so its
+// public-share event is absent outside a full server. Without this stub every test
+// touching the public share page silently skips — which looks green but protects
+// nothing.
+if (!class_exists('OCA\\Files_Sharing\\Event\\BeforeTemplateRenderedEvent')) {
+    require_once __DIR__ . '/stubs/Files_Sharing_BeforeTemplateRenderedEvent.php';
+}

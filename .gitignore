@@ -214,6 +214,7 @@ tests/fixtures/*.3mf
 !tests/fixtures/mixed-case.OBJ
 !tests/fixtures/no-mtl.obj
 !tests/fixtures/orphan-texture.obj
+!tests/fixtures/textured.obj
 
 # Keep small test fixtures
 !tests/fixtures/triangle.gltf

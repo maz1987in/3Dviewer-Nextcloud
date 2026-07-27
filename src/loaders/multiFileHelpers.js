@@ -7,6 +7,7 @@
  */
 
 import { generateUrl } from '@nextcloud/router'
+import { buildFileUrl, buildPublicDepUrl, isPublicShare } from '../composables/usePublicShare.js'
 import { logger } from '../utils/logger.js'
 import { getFulfilledValues } from '../utils/arrayHelpers.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
@@ -94,6 +95,13 @@ export async function fetchFileFromUrl(url, name, defaultType = 'application/oct
 export async function getFileIdByPath(filePath) {
 	let filename = ''
 	let normalizedDirPath = ''
+
+	// The file-listing API requires a session. On a public share every call here
+	// would 401, so short-circuit: callers fall back to the token-keyed public
+	// routes where one exists (the OBJ's .mtl), and skip the dependency otherwise.
+	if (isPublicShare()) {
+		return null
+	}
 
 	try {
 		// Validate input
@@ -452,6 +460,39 @@ export async function getFileIdByPath(filePath) {
 }
 
 /**
+ * Where to fetch a companion file the model names, in whichever context we are in.
+ *
+ * Two different questions behind one call. Signed in, a name has to become a file id
+ * first, through the file-listing API. On a public share that API is unreachable, so the
+ * name *is* the handle: the server resolves it against the model's own declarations,
+ * which is why the model's id has to travel with it.
+ *
+ * @param {number} modelFileId - id of the model that declared the dependency
+ * @param {string} refPath - dependency path as written in the model, subdirectory and all
+ * @param {string} dirPath - directory holding the model (authenticated lookups only)
+ * @return {Promise<{url: string, cacheId: number|string, subdir: string|null}|null>}
+ *         null when the dependency cannot be located at all
+ */
+async function locateDependency(modelFileId, refPath, dirPath) {
+	// The public route takes a plain filename; the server remembers which subdirectory
+	// the model pointed at.
+	const name = refPath.replace(/\\/g, '/').split('/').pop()
+	const publicUrl = buildPublicDepUrl(modelFileId, name)
+	if (publicUrl) {
+		// Cache under the model's id: dependency ids are unknown here, and the key
+		// already includes the filename.
+		return { url: publicUrl, cacheId: modelFileId, subdir: null }
+	}
+
+	const lookup = await getFileIdByPath(dirPath ? `${dirPath}/${refPath}` : refPath)
+	if (!lookup) {
+		return null
+	}
+
+	return { url: buildFileUrl(lookup.id), cacheId: lookup.id, subdir: lookup.subdir }
+}
+
+/**
  * Parse OBJ file content to find referenced MTL files
  * @param {string} objContent - Text content of OBJ file
  * @return {string[]} - Array of MTL filenames
@@ -544,62 +585,52 @@ export async function fetchObjDependencies(objContent, baseFilename, fileId, dir
 	// Fetch all MTL files
 	const mtlPromises = mtlFiles.map(async (mtlFilename) => {
 		try {
-			// Construct relative path
-			const mtlPath = dirPath ? `${dirPath}/${mtlFilename}` : mtlFilename
+			const mtlLocation = await locateDependency(fileId, mtlFilename, dirPath)
 
-			// Use the file listing API to get file ID, then fetch by ID
-			const mtlLookup = await getFileIdByPath(mtlPath)
-
-			if (mtlLookup) {
-				const url = generateUrl(`/apps/threedviewer/api/file/${mtlLookup.id}`)
-				const file = await fetchFileFromUrl(url, mtlFilename, 'model/mtl', { fileId: mtlLookup.id })
-				if (mtlLookup.subdir) {
-					file._relativePath = `${mtlLookup.subdir}/${mtlFilename}`
-				}
-				logger.info('MultiFileHelpers', ' Fetched MTL:', mtlFilename)
-
-				// Parse textures from MTL
-				const mtlText = await file.text()
-				const textureFiles = parseMtlTextureFiles(mtlText)
-
-				// Fetch textures using file listing approach
-				const texturePromises = textureFiles.map(async (texFilename) => {
-					try {
-						const texPath = dirPath ? `${dirPath}/${texFilename}` : texFilename
-						const texLookup = await getFileIdByPath(texPath)
-
-						if (texLookup) {
-							const texUrl = generateUrl(`/apps/threedviewer/api/file/${texLookup.id}`)
-							const texFile = await fetchFileFromUrl(texUrl, texFilename, 'application/octet-stream', { fileId: texLookup.id })
-							if (texLookup.subdir) {
-								texFile._relativePath = `${texLookup.subdir}/${texFilename}`
-							}
-							logger.info('MultiFileHelpers', ' Fetched texture:', texFilename, texLookup.subdir ? `(in ${texLookup.subdir}/)` : '')
-							return { file: texFile, name: texFilename, found: true }
-						} else {
-							logger.warn('MultiFileHelpers', ' Could not find file ID for texture:', texFilename)
-							missingFiles.push(texFilename)
-							return { file: null, name: texFilename, found: false }
-						}
-					} catch (err) {
-						logger.warn('MultiFileHelpers', ' Failed to fetch texture:', texFilename, err)
-						missingFiles.push(texFilename)
-						return { file: null, name: texFilename, found: false }
-					}
-				})
-
-				const textureResults = await Promise.allSettled(texturePromises)
-				const textures = textureResults
-					.filter(r => r.status === 'fulfilled' && r.value?.found)
-					.map(r => r.value.file)
-
-				return [file, ...textures]
-			} else {
+			if (!mtlLocation) {
 				logger.warn('MultiFileHelpers', ' Could not find file ID for MTL:', mtlFilename)
 				missingFiles.push(mtlFilename)
 				return []
 			}
 
+			const file = await fetchFileFromUrl(mtlLocation.url, mtlFilename, 'model/mtl', { fileId: mtlLocation.cacheId })
+			if (mtlLocation.subdir) {
+				file._relativePath = `${mtlLocation.subdir}/${mtlFilename}`
+			}
+			logger.info('MultiFileHelpers', ' Fetched MTL:', mtlFilename)
+
+			// Textures are named by the material, not by the OBJ, so this chain only
+			// becomes visible once the MTL itself is in hand.
+			const textureFiles = parseMtlTextureFiles(await file.text())
+
+			const texturePromises = textureFiles.map(async (texFilename) => {
+				try {
+					const texLocation = await locateDependency(fileId, texFilename, dirPath)
+
+					if (!texLocation) {
+						logger.warn('MultiFileHelpers', ' Could not find file ID for texture:', texFilename)
+						missingFiles.push(texFilename)
+						return null
+					}
+
+					const texFile = await fetchFileFromUrl(texLocation.url, texFilename, 'application/octet-stream', { fileId: texLocation.cacheId })
+					if (texLocation.subdir) {
+						texFile._relativePath = `${texLocation.subdir}/${texFilename}`
+					}
+					logger.info('MultiFileHelpers', ' Fetched texture:', texFilename, texLocation.subdir ? `(in ${texLocation.subdir}/)` : '')
+					return texFile
+				} catch (err) {
+					// A texture the share will not serve, or one that is simply gone:
+					// either way the geometry still renders, just untextured.
+					logger.warn('MultiFileHelpers', ' Failed to fetch texture:', texFilename, err)
+					missingFiles.push(texFilename)
+					return null
+				}
+			})
+
+			const textures = getFulfilledValues(await Promise.allSettled(texturePromises))
+
+			return [file, ...textures]
 		} catch (err) {
 			logger.warn('MultiFileHelpers', ' Failed to fetch MTL:', mtlFilename, err)
 			missingFiles.push(mtlFilename)
@@ -633,67 +664,41 @@ export async function fetchGltfDependencies(gltfContent, baseFilename, fileId, d
 
 		logger.info('MultiFileHelpers', ' GLTF dependencies:', deps)
 
-		// Fetch buffers using file listing approach
-		const bufferPromises = deps.buffers.map(async (bufferUri) => {
+		// Buffers and images resolve identically — both are URIs the glTF declares,
+		// relative to the document.
+		const fetchDeclared = async (uri, label) => {
 			try {
-				// Use the file listing API to get file ID, then fetch by ID
-				const bufferPath = dirPath ? `${dirPath}/${bufferUri}` : bufferUri
-				const lookup = await getFileIdByPath(bufferPath)
+				const location = await locateDependency(fileId, uri, dirPath)
 
-				if (lookup) {
-					const url = generateUrl(`/apps/threedviewer/api/file/${lookup.id}`)
-					const file = await fetchFileFromUrl(url, bufferUri, 'application/octet-stream', { fileId: lookup.id })
-					// GLTF buffer URIs already encode the relative path, so use that directly
-					if (bufferUri.includes('/')) {
-						file._relativePath = bufferUri
-					} else if (lookup.subdir) {
-						file._relativePath = `${lookup.subdir}/${bufferUri}`
-					}
-					logger.info('MultiFileHelpers', ' Fetched buffer:', bufferUri)
-					return file
-				} else {
-					logger.warn('MultiFileHelpers', ' Could not find file ID for buffer:', bufferUri)
-					missingFiles.push(bufferUri)
+				if (!location) {
+					logger.warn('MultiFileHelpers', ` Could not find file ID for ${label}:`, uri)
+					missingFiles.push(uri)
 					return null
 				}
-			} catch (err) {
-				logger.warn('MultiFileHelpers', ' Failed to fetch buffer:', bufferUri, err)
-				missingFiles.push(bufferUri)
-				return null
-			}
-		})
 
-		// Fetch images using file listing approach
-		const imagePromises = deps.images.map(async (imageUri) => {
-			try {
-				// Use the file listing API to get file ID, then fetch by ID
-				const imagePath = dirPath ? `${dirPath}/${imageUri}` : imageUri
-				const lookup = await getFileIdByPath(imagePath)
-
-				if (lookup) {
-					const url = generateUrl(`/apps/threedviewer/api/file/${lookup.id}`)
-					const file = await fetchFileFromUrl(url, imageUri, 'application/octet-stream', { fileId: lookup.id })
-					// GLTF image URIs already encode the relative path, so use that directly
-					if (imageUri.includes('/')) {
-						file._relativePath = imageUri
-					} else if (lookup.subdir) {
-						file._relativePath = `${lookup.subdir}/${imageUri}`
-					}
-					logger.info('MultiFileHelpers', ' Fetched image:', imageUri)
-					return file
-				} else {
-					logger.warn('MultiFileHelpers', ' Could not find file ID for image:', imageUri)
-					missingFiles.push(imageUri)
-					return null
+				// The loader matches these against the URIs in the document, so the file
+				// keeps the declared name, not just its basename.
+				const name = uri.split('/').pop()
+				const file = await fetchFileFromUrl(location.url, name, 'application/octet-stream', { fileId: location.cacheId })
+				// GLTF URIs already encode the relative path, so use that directly
+				if (uri.includes('/')) {
+					file._relativePath = uri
+				} else if (location.subdir) {
+					file._relativePath = `${location.subdir}/${uri}`
 				}
+				logger.info('MultiFileHelpers', ` Fetched ${label}:`, uri)
+				return file
 			} catch (err) {
-				logger.warn('MultiFileHelpers', ' Failed to fetch image:', imageUri, err)
-				missingFiles.push(imageUri)
+				logger.warn('MultiFileHelpers', ` Failed to fetch ${label}:`, uri, err)
+				missingFiles.push(uri)
 				return null
 			}
-		})
+		}
 
-		const results = await Promise.allSettled([...bufferPromises, ...imagePromises])
+		const results = await Promise.allSettled([
+			...deps.buffers.map(uri => fetchDeclared(uri, 'buffer')),
+			...deps.images.map(uri => fetchDeclared(uri, 'image')),
+		])
 		dependencies.push(...getFulfilledValues(results))
 
 	} catch (err) {
@@ -842,7 +847,8 @@ export async function loadModelWithDependencies(fileId, filename, extension, dir
 	})
 
 	// Fetch main file
-	const response = await fetch(generateUrl(`/apps/threedviewer/api/file/${fileId}`))
+	// buildFileUrl resolves to the token-keyed public route on a share page.
+	const response = await fetch(buildFileUrl(fileId))
 
 	if (!response.ok) {
 		// Try to extract error message from response
@@ -903,8 +909,10 @@ export async function loadModelWithDependencies(fileId, filename, extension, dir
 	}
 
 	const blob = new Blob([arrayBuffer], { type: getMimeType(extension) })
-	// Use basename only — avoids leading-slash / full-path issues in ZIP exports
-	const mainBasename = filename.split('/').pop() || filename
+	// Use basename only — avoids leading-slash / full-path issues in ZIP exports.
+	// A public share can hand us the DAV root as the filename, whose basename is empty;
+	// falling back to the raw '/' would leave callers with nothing to dispatch on.
+	const mainBasename = filename.split('/').pop() || `model.${extension}`
 	const mainFile = new File([blob], mainBasename, { type: getMimeType(extension) })
 
 	logger.info('MultiFileHelpers', ' Created main file:', {

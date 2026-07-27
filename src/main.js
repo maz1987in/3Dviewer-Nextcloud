@@ -7,6 +7,7 @@ import { translate, translatePlural } from '@nextcloud/l10n'
 
 // Import Nextcloud dialogs styles
 import '@nextcloud/dialogs/style.css'
+import { getPublicShareContext } from './composables/usePublicShare.js'
 
 // Forced-colors (Windows High Contrast) accessibility overrides — scoped
 // entirely to @media (forced-colors: active), no effect on default rendering.
@@ -89,6 +90,46 @@ if (globalThis?.OCA?.Viewer && !isHandlerAlreadyRegistered) {
 			delete window[VIEWER_REGISTRATION_KEY]
 			delete globalThis[VIEWER_REGISTRATION_KEY]
 		}
+	}
+}
+
+// Mode 1b: Public share of a single 3D file.
+// There is no file list to click and no #threedviewer container — files_sharing owns
+// this template — so render the viewer in place of the default download page. Folder
+// shares need nothing extra: the Viewer handler registered above already fires when a
+// model is opened from the listing.
+const publicShare = getPublicShareContext()
+if (publicShare?.isSingleFile && publicShare.fileId) {
+	const content = document.getElementById('content')
+	if (content) {
+		const mount = document.createElement('div')
+		mount.id = 'threedviewer-public'
+		mount.style.width = '100%'
+		mount.style.height = '100%'
+		content.replaceChildren(mount)
+
+		Promise.all([
+			import('vue'),
+			import('./views/ViewerComponent.vue'),
+		]).then(([{ createApp, h }, { default: ViewerComponent }]) => {
+			const app = createApp({
+				render: () => h(ViewerComponent, {
+					// davPath is only consulted by the multi-file loader, which falls
+					// back to the id-based public routes on a share page.
+					davPath: '',
+					filename: publicShare.filename || '',
+					basename: publicShare.filename || '',
+					mime: publicShare.mime || '',
+					fileid: publicShare.fileId,
+					active: true,
+				}),
+			})
+			app.config.globalProperties.t = translate
+			app.config.globalProperties.n = translatePlural
+			app.mount('#threedviewer-public')
+		}).catch(err => {
+			console.error('[ThreeDViewer] Failed to mount public share viewer:', err)
+		})
 	}
 }
 

@@ -544,8 +544,13 @@ Responses: 200 stream, 401 unauthorized, 404 not found, 415 unsupported.
 #### Public Share Streaming
 ```http
 GET /ocs/v2.php/apps/threedviewer/public/file/{token}/{fileId}
-GET /ocs/v2.php/apps/threedviewer/public/file/{token}/{fileId}/mtl/{mtlName}
+GET /ocs/v2.php/apps/threedviewer/public/file/{token}/{fileId}/dep/{name}
+GET /ocs/v2.php/apps/threedviewer/public/file/{token}/{fileId}/mtl/{mtlName}   # deprecated alias of /dep/
 ```
+
+`/dep/{name}` streams a companion file (material, texture, glTF buffer) for the model
+identified by `{fileId}`, and only when that model declares the name. Responses: 200
+stream, 404 not declared or not found, 415 unsupported.
 
 ### Frontend Component API
 

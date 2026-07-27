@@ -632,6 +632,11 @@
       <code><![CDATA[__construct]]></code>
     </PossiblyUnusedMethod>
   </file>
+  <file src="lib/Listener/LoadPublicShareListener.php">
+    <PossiblyUnusedMethod>
+      <code><![CDATA[__construct]]></code>
+    </PossiblyUnusedMethod>
+  </file>
   <file src="lib/Listener/LoadViewerListener.php">
     <ImplementedParamTypeMismatch>
       <code><![CDATA[$event]]></code>
@@ -873,6 +878,11 @@
       <code><![CDATA[getThumbnailPath]]></code>
     </PossiblyUnusedMethod>
   </file>
+  <file src="tests/stubs/Files_Sharing_BeforeTemplateRenderedEvent.php">
+    <PossiblyUnusedMethod>
+      <code><![CDATA[__construct]]></code>
+    </PossiblyUnusedMethod>
+  </file>
   <file src="tests/unit/Constants/SupportedFormatsTest.php">
     <UndefinedClass>
       <code><![CDATA[TestCase]]></code>
@@ -937,6 +947,14 @@
       <code><![CDATA[FileIndexMapperFolderTest]]></code>
     </UnusedClass>
   </file>
+  <file src="tests/unit/Listener/LoadPublicShareListenerTest.php">
+    <UndefinedClass>
+      <code><![CDATA[TestCase]]></code>
+    </UndefinedClass>
+    <UnusedClass>
+      <code><![CDATA[LoadPublicShareListenerTest]]></code>
+    </UnusedClass>
+  </file>
   <file src="tests/unit/Migration/Version010902Date20251116061241Test.php">
     <UndefinedClass>
       <code><![CDATA[TestCase]]></code>
@@ -991,6 +1009,14 @@
     </UndefinedClass>
     <UnusedClass>
       <code><![CDATA[FormatSyncTest]]></code>
+    </UnusedClass>
+  </file>
+  <file src="tests/unit/Service/ModelDependencyResolverTest.php">
+    <UndefinedClass>
+      <code><![CDATA[TestCase]]></code>
+    </UndefinedClass>
+    <UnusedClass>
+      <code><![CDATA[ModelDependencyResolverTest]]></code>
     </UnusedClass>
   </file>
   <file src="tests/unit/Service/ModelFileSupport3dsTest.php">
