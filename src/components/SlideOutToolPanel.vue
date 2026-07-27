@@ -818,7 +818,7 @@ export default {
 	top: 0;
 	inset-inline: 0;
 	bottom: 0;
-	background: rgba(0, 0, 0, 0.5);
+	background: rgb(0, 0, 0, 0.5);
 	z-index: 1001;
 	backdrop-filter: blur(4px);
 }
@@ -832,7 +832,7 @@ export default {
 	width: 320px;
 	background: var(--color-main-background);
 	color: var(--color-main-text);
-	box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15);
+	box-shadow: -4px 0 20px rgb(0, 0, 0, 0.15);
 	z-index: 1002;
 	display: flex;
 	flex-direction: column;
