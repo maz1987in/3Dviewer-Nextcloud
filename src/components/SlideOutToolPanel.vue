@@ -37,7 +37,7 @@
 							<span class="section-title">{{ t('threedviewer', 'View') }}</span>
 							<span class="expand-icon">{{ sections.view ? '▼' : '▶' }}</span>
 						</button>
-						<div id="panel-section-view" v-show="sections.view" class="section-content">
+						<div v-show="sections.view" id="panel-section-view" class="section-content">
 							<button class="tool-btn" @click="emit('reset-view')">
 								<span class="tool-icon">🔄</span>
 								<span class="tool-label">{{ t('threedviewer', 'Reset View') }}</span>
@@ -104,7 +104,7 @@
 							<span class="section-title">{{ t('threedviewer', 'Scene') }}</span>
 							<span class="expand-icon">{{ sections.scene ? '▼' : '▶' }}</span>
 						</button>
-						<div id="panel-section-scene" v-show="sections.scene" class="section-content">
+						<div v-show="sections.scene" id="panel-section-scene" class="section-content">
 							<label class="toggle-row" @click.prevent="emit('toggle-grid')">
 								<span class="toggle-switch" :class="{ on: grid }" />
 								<span class="toggle-text">{{ t('threedviewer', 'Grid') }}</span>
@@ -121,7 +121,8 @@
 							<div v-if="lightingPresets.length > 0" class="tool-group">
 								<label class="tool-label-small">{{ t('threedviewer', 'Lighting') }}</label>
 								<div class="preset-buttons">
-									<button v-for="preset in lightingPresets" :key="preset.name"
+									<button v-for="preset in lightingPresets"
+										:key="preset.name"
 										class="preset-btn"
 										:class="{ 'active': lightingPreset === preset.name }"
 										@click="emit('apply-lighting-preset', preset.name)">
@@ -142,7 +143,7 @@
 							<span class="section-title">{{ t('threedviewer', 'Analyze') }}</span>
 							<span class="expand-icon">{{ sections.analyze ? '▼' : '▶' }}</span>
 						</button>
-						<div id="panel-section-analyze" v-show="sections.analyze" class="section-content">
+						<div v-show="sections.analyze" id="panel-section-analyze" class="section-content">
 							<button class="tool-btn feature-btn"
 								:class="{ 'active': measurementMode }"
 								@click="emit('toggle-measurement')">
@@ -193,7 +194,8 @@
 								<!-- Plane mode: single axis + position slider -->
 								<template v-if="clippingMode === 'plane'">
 									<div class="axis-buttons">
-										<button v-for="a in ['x','y','z']" :key="a"
+										<button v-for="a in ['x','y','z']"
+											:key="a"
 											class="axis-btn"
 											:class="{ 'active': clippingAxis === a }"
 											@click="emit('set-clipping-axis', a)">
@@ -208,7 +210,9 @@
 									</div>
 									<input type="range"
 										class="clipping-slider"
-										min="-1" max="1" step="0.01"
+										min="-1"
+										max="1"
+										step="0.01"
 										:value="clippingPosition"
 										@input="emit('set-clipping-position', parseFloat($event.target.value))">
 								</template>
@@ -225,7 +229,9 @@
 												<span class="clipping-box-sublabel">−</span>
 												<input type="range"
 													class="clipping-slider clipping-slider-box"
-													min="0" max="1" step="0.01"
+													min="0"
+													max="1"
+													step="0.01"
 													:value="clippingBoxOffsets[axis + 'Min']"
 													:aria-label="t('threedviewer', '{axis} min face offset', { axis: axis.toUpperCase() })"
 													@input="emit('set-clipping-box-offset', { face: axis + 'Min', value: parseFloat($event.target.value) })">
@@ -234,7 +240,9 @@
 												<span class="clipping-box-sublabel">+</span>
 												<input type="range"
 													class="clipping-slider clipping-slider-box"
-													min="0" max="1" step="0.01"
+													min="0"
+													max="1"
+													step="0.01"
 													:value="clippingBoxOffsets[axis + 'Max']"
 													:aria-label="t('threedviewer', '{axis} max face offset', { axis: axis.toUpperCase() })"
 													@input="emit('set-clipping-box-offset', { face: axis + 'Max', value: parseFloat($event.target.value) })">
@@ -261,7 +269,9 @@
 								<label class="tool-label-small">{{ t('threedviewer', 'Explosion') }}</label>
 								<input type="range"
 									class="clipping-slider"
-									min="0" max="1" step="0.01"
+									min="0"
+									max="1"
+									step="0.01"
 									:value="explodedViewFactor"
 									@input="emit('set-exploded-factor', parseFloat($event.target.value))">
 							</div>
@@ -321,7 +331,7 @@
 							<span class="section-title">{{ t('threedviewer', 'Animation') }}</span>
 							<span class="expand-icon">{{ sections.animation ? '▼' : '▶' }}</span>
 						</button>
-						<div id="panel-section-animation" v-show="sections.animation" class="section-content">
+						<div v-show="sections.animation" id="panel-section-animation" class="section-content">
 							<!-- Clip selector -->
 							<div v-if="animationClipNames.length > 1" class="clip-selector">
 								<label class="clip-label">{{ t('threedviewer', 'Clip') }}</label>
@@ -350,7 +360,9 @@
 							<!-- Timeline scrubber -->
 							<div v-if="animationDuration > 0" class="timeline-scrubber">
 								<div class="timeline-row">
-									<button class="step-btn" :title="t('threedviewer', 'Step back')" @click="emit('animation-step-backward')">⏮</button>
+									<button class="step-btn" :title="t('threedviewer', 'Step back')" @click="emit('animation-step-backward')">
+										⏮
+									</button>
 									<input type="range"
 										class="timeline-slider"
 										:min="0"
@@ -358,7 +370,9 @@
 										:step="animationDuration / 100"
 										:value="animationCurrentTime"
 										@input="emit('animation-seek', parseFloat($event.target.value))">
-									<button class="step-btn" :title="t('threedviewer', 'Step forward')" @click="emit('animation-step-forward')">⏭</button>
+									<button class="step-btn" :title="t('threedviewer', 'Step forward')" @click="emit('animation-step-forward')">
+										⏭
+									</button>
 								</div>
 								<div class="timeline-time">
 									{{ animationCurrentTime.toFixed(2) }}s / {{ animationDuration.toFixed(2) }}s
@@ -377,7 +391,7 @@
 							<span class="section-title">{{ t('threedviewer', 'Export') }}</span>
 							<span class="expand-icon">{{ sections.export ? '▼' : '▶' }}</span>
 						</button>
-						<div id="panel-section-export" v-show="sections.export" class="section-content">
+						<div v-show="sections.export" id="panel-section-export" class="section-content">
 							<button class="tool-btn" @click="emit('take-screenshot')">
 								<span class="tool-icon">📷</span>
 								<span class="tool-label">{{ t('threedviewer', 'Screenshot') }}</span>
@@ -424,7 +438,7 @@
 							<span class="section-title">{{ t('threedviewer', 'Settings') }}</span>
 							<span class="expand-icon">{{ sections.settings ? '▼' : '▶' }}</span>
 						</button>
-						<div id="panel-section-settings" v-show="sections.settings" class="section-content">
+						<div v-show="sections.settings" id="panel-section-settings" class="section-content">
 							<button class="tool-btn" @click="cyclePerformanceMode">
 								<span class="tool-icon">⚡</span>
 								<span class="tool-label">{{ t('threedviewer', 'Performance') }}: {{ getPerformanceModeText() }}</span>

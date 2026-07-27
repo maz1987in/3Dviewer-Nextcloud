@@ -73,6 +73,9 @@ export function buildGroupFromOccResult(result, loaderName) {
 
 /**
  * Recursively attach a node's meshes + children onto a THREE.Group.
+ * @param parent
+ * @param node
+ * @param meshes
  */
 function attachNode(parent, node, meshes) {
 	if (!node) return
