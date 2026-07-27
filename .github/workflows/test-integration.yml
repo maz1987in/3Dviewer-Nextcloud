@@ -110,13 +110,15 @@ jobs:
             --admin-pass=integration-suite-admin-Aa1
           php occ app:enable --force threedviewer
 
-      # files_external registers a mount provider that queries oc_external_mounts, and a
-      # fresh install from source leaves that table uncreated on stable32 and later. Any
-      # getUserFolder() then dies inside mount setup, before the code under test runs —
-      # which is what failed here on 32, 33 and 34 while 31 passed. Nothing in this app
-      # touches external storage.
-      - name: Drop the external-storage mount provider
-        run: php occ app:disable files_external || echo 'files_external was not enabled'
+      # files_external registers a mount provider that queries oc_external_mounts, and
+      # on stable32 and later a fresh install leaves that table uncreated: every
+      # getUserFolder() then dies inside mount setup, before any code under test runs.
+      #
+      # Disabling it does not help — occ reports it as not enabled while the server's
+      # test bootstrap loads it anyway, so the provider runs against a schema that was
+      # never installed. Enabling it is what actually creates the table.
+      - name: Install the external-storage schema
+        run: php occ app:enable files_external
 
       # Proves the app is actually installed before the suite claims anything about it.
       - name: Show app state
