@@ -165,12 +165,14 @@
 
 /* ---- Button rail --------------------------------------------------------- */
 
+/* Two-up rather than a single stack: seven controls in one column made the rail
+   ~310px tall beside a 150px ring, which is taller than the dial it replaced. */
 .rail {
-	display: flex;
-	flex-direction: column;
+	display: grid;
+	grid-template-columns: repeat(2, 38px);
 	gap: 4px;
-	padding: 7px 5px 9px;
-	border-radius: 22px;
+	padding: 6px 6px 8px;
+	border-radius: 20px;
 	background: color-mix(in srgb, var(--color-main-background, #181818) 86%, transparent);
 	backdrop-filter: blur(12px);
 	border: 1px solid var(--color-border, rgb(255 255 255 / 13%));
@@ -213,10 +215,16 @@
 	cursor: not-allowed;
 }
 
+.rail-wide {
+	grid-column: 1 / -1;
+	width: 100%;
+}
+
 .rail-divider {
+	grid-column: 1 / -1;
 	height: 1px;
 	background: var(--color-border, rgb(255 255 255 / 10%));
-	margin: 1px 6px;
+	margin: 1px 4px;
 }
 
 .drag-handle {
@@ -258,9 +266,10 @@
 }
 
 .mobile .rail {
+	grid-template-columns: repeat(2, 36px);
 	gap: 3px;
-	padding: 6px 4px 8px;
-	border-radius: 20px;
+	padding: 5px 5px 7px;
+	border-radius: 18px;
 }
 
 .mobile .console-row {

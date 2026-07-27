@@ -48,7 +48,7 @@
 			<!-- Attached button rail -->
 			<div class="rail">
 				<div
-					class="rail-btn drag-handle"
+					class="rail-btn drag-handle rail-wide"
 					role="button"
 					tabindex="0"
 					:aria-label="t('threedviewer', 'Move controller')"
@@ -110,7 +110,7 @@
 
 				<!-- Disabled rather than hidden outside pan mode, so nothing below it shifts -->
 				<button
-					class="rail-btn"
+					class="rail-btn rail-wide"
 					:disabled="!isPanningMode"
 					:aria-label="t('threedviewer', 'Recentre view')"
 					:title="t('threedviewer', 'Recentre — keeps your zoom and angle')"
@@ -134,7 +134,7 @@ import * as THREE from 'three'
 import { translate as t } from '@nextcloud/l10n'
 import { logger } from '../utils/logger.js'
 import { clampToContainer, clampWithinContainer } from '../utils/controllerPosition.js'
-import { dotOffset, readoutValues, steerFromPointer } from '../utils/controllerSteering.js'
+import { dotOffset, readoutValues, steerFromPointer, wedgeFromAngle } from '../utils/controllerSteering.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
 
 export default {
@@ -251,11 +251,12 @@ export default {
 			// The mask leaves the ring's hole clear so the cube stays readable.
 			const mask = 'radial-gradient(circle, transparent 46%, #000 58%, #000 96%, transparent 99%)'
 			const accent = 'var(--color-primary-element, #0082c9)'
-			const lead = steerAngle.value - 26 - 90
+			const spread = 52
+			const from = wedgeFromAngle({ angle: steerAngle.value, spread })
 
 			return {
 				opacity: steerStrength.value > 0.001 ? (steerLive.value ? 1 : 0.45) : 0,
-				background: `conic-gradient(from ${lead}deg, transparent 0deg, ${accent} 26deg, transparent 52deg)`,
+				background: `conic-gradient(from ${from}deg, transparent 0deg, ${accent} ${spread / 2}deg, transparent ${spread}deg)`,
 				maskImage: mask,
 				WebkitMaskImage: mask,
 			}

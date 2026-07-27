@@ -67,6 +67,23 @@ export function dotOffset({ angle, strength, diameter }) {
 }
 
 /**
+ * Start angle for the conic-gradient that paints the steering wedge.
+ *
+ * `conic-gradient(from Xdeg, ...)` measures clockwise from twelve o'clock, which is the
+ * same origin our bearings use — so the arc only has to shift back by half its own width
+ * to end up centred on the angle being steered. No quarter-turn correction belongs here;
+ * adding one paints six o'clock at three.
+ *
+ * @param {object} args - wedge geometry
+ * @param {number} args.angle - bearing being steered, degrees clockwise from up
+ * @param {number} [args.spread] - total arc width in degrees
+ * @return {number} value for the gradient's `from`
+ */
+export function wedgeFromAngle({ angle, spread = 52 }) {
+	return angle - spread / 2
+}
+
+/**
  * Numbers for the live readout under the controller.
  *
  * Returns values rather than a sentence so the component can translate it.

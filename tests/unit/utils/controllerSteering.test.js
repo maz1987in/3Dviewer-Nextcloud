@@ -9,7 +9,7 @@
  * rim, and 110%-of-radius hit slop so a click on the very edge still counts.
  */
 
-import { dotOffset, readoutValues, steerFromPointer } from '../../../src/utils/controllerSteering.js'
+import { dotOffset, readoutValues, steerFromPointer, wedgeFromAngle } from '../../../src/utils/controllerSteering.js'
 
 /** A 150px gizmo at the origin — centre is (75, 75), radius 75. */
 const RING = { left: 0, top: 0, width: 150, height: 150 }
@@ -95,6 +95,34 @@ describe('dotOffset', () => {
 		const strong = dotOffset({ angle: 0, strength: 1, diameter: 150 })
 
 		expect(strong.scale).toBeGreaterThan(weak.scale)
+	})
+})
+
+/**
+ * The wedge is drawn with a CSS conic-gradient, which measures clockwise from twelve
+ * o'clock — the same origin as our bearings. The arc therefore only needs shifting back
+ * by half its own width to sit centred on the steering angle. Getting this wrong is
+ * invisible in a unit of the maths but glaring on screen: the first cut carried an extra
+ * -90°, so pressing at six o'clock lit the ring up at three.
+ */
+describe('wedgeFromAngle', () => {
+	const SPREAD = 52
+	const peakOf = (angle) => wedgeFromAngle({ angle, spread: SPREAD }) + SPREAD / 2
+
+	it('centres the arc on the bearing being steered', () => {
+		expect(peakOf(0)).toBeCloseTo(0, 6) // up
+		expect(peakOf(90)).toBeCloseTo(90, 6) // right
+		expect(peakOf(180)).toBeCloseTo(180, 6) // down
+		expect(peakOf(270)).toBeCloseTo(270, 6) // left
+	})
+
+	it('does not rotate the arc a quarter turn off the pointer', () => {
+		// The specific regression: six o'clock must not paint at three o'clock.
+		expect(peakOf(180)).not.toBeCloseTo(90, 6)
+	})
+
+	it('tracks an arbitrary bearing', () => {
+		expect(peakOf(63.4)).toBeCloseTo(63.4, 6)
 	})
 })
 

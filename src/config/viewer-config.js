@@ -780,10 +780,10 @@ export const CONTROLLER_SETTINGS = {
 		desktop: 150, // diameter of the steering ring
 		mobile: 126,
 	},
-	// Width the attached rail adds beside the ring, including the gap.
+	// Width the two-column rail adds beside the ring, including the gap.
 	railWidth: {
-		desktop: 58,
-		mobile: 52,
+		desktop: 102,
+		mobile: 94,
 	},
 	cubeSize: {
 		desktop: 78, // cube viewport in the middle of the annulus
