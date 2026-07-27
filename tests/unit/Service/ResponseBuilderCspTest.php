@@ -65,7 +65,7 @@ class ResponseBuilderCspTest extends TestCase
      */
     private function createNc34CspRecorder(): object
     {
-        return new class {
+        return new class () {
             /** @var list<array{0: string, 1: string}> */
             public array $calls = [];
 

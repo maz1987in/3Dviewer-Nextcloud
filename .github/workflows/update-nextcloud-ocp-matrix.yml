@@ -25,10 +25,12 @@ jobs:
       fail-fast: false
       matrix:
         branches: ['main']
-        # Must track the max-version in appinfo/info.xml. Left at stable30 this job
-        # silently re-pins composer.json to an API surface three releases behind
-        # what the app claims to support, every Sunday.
-        target: ['stable34']
+        # Tracks the MIN-version in appinfo/info.xml, so the pinned stubs only
+        # expose APIs present in the oldest server we support. It cannot track
+        # max-version: ocp stable33+ requires php ~8.2, which conflicts with the
+        # config.platform php 8.1 needed for NC 31. Coverage of the full
+        # min..max range is psalm-matrix.yml's job, not this one's.
+        target: ['stable31']
 
     name: update-nextcloud-ocp-${{ matrix.branches }}
 
