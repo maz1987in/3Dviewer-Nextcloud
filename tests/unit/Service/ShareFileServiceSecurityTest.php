@@ -7,6 +7,7 @@ namespace OCA\ThreeDViewer\Tests\Unit\Service;
 use DateTime;
 use OCA\ThreeDViewer\Service\ModelDependencyResolver;
 use OCA\ThreeDViewer\Service\ModelFileSupport;
+use OCA\ThreeDViewer\Service\PathLocator;
 use OCA\ThreeDViewer\Service\ShareFileService;
 use OCP\Files\File;
 use OCP\Files\NotFoundException;
@@ -72,7 +73,7 @@ class ShareFileServiceSecurityTest extends TestCase
     {
         $shareManager = $this->createMock(IManager::class);
         $shareManager->method('getShareByToken')->willThrowException(new ShareNotFound('expired'));
-        $service = new ShareFileService($shareManager, $this->createMock(ModelFileSupport::class), new ModelDependencyResolver());
+        $service = new ShareFileService($shareManager, $this->createMock(ModelFileSupport::class), new ModelDependencyResolver(new PathLocator()));
 
         $this->assertNull($service->findValidLinkShare('expired-token'));
     }
@@ -81,7 +82,7 @@ class ShareFileServiceSecurityTest extends TestCase
     {
         $shareManager = $this->createMock(IManager::class);
         $shareManager->method('getShareByToken')->willThrowException(new ShareNotFound('expired'));
-        $service = new ShareFileService($shareManager, $this->createMock(ModelFileSupport::class), new ModelDependencyResolver());
+        $service = new ShareFileService($shareManager, $this->createMock(ModelFileSupport::class), new ModelDependencyResolver(new PathLocator()));
 
         $this->expectException(NotFoundException::class);
         $service->getFileFromShare('expired-token', null);
@@ -100,7 +101,7 @@ class ShareFileServiceSecurityTest extends TestCase
 
         $shareManager = $this->createMock(IManager::class);
         $shareManager->method('getShareByToken')->willReturn(null);
-        $service = new ShareFileService($shareManager, $this->createMock(ModelFileSupport::class), new ModelDependencyResolver());
+        $service = new ShareFileService($shareManager, $this->createMock(ModelFileSupport::class), new ModelDependencyResolver(new PathLocator()));
 
         $this->assertNull($service->findValidLinkShare('nope'));
     }
@@ -156,7 +157,7 @@ class ShareFileServiceSecurityTest extends TestCase
         $support = $this->createMock(ModelFileSupport::class);
         $support->method('isSupported')->willReturn(true);
 
-        return new ShareFileService($shareManager, $support, new ModelDependencyResolver());
+        return new ShareFileService($shareManager, $support, new ModelDependencyResolver(new PathLocator()));
     }
 
     private function share(

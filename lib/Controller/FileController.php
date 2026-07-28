@@ -7,6 +7,7 @@ namespace OCA\ThreeDViewer\Controller;
 use OCA\ThreeDViewer\Db\FileIndexMapper;
 use OCA\ThreeDViewer\Service\FileIndexService;
 use OCA\ThreeDViewer\Service\ModelFileSupport;
+use OCA\ThreeDViewer\Service\PathLocator;
 use OCA\ThreeDViewer\Service\ResponseBuilder;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\FrontpageRoute;
@@ -37,7 +38,8 @@ class FileController extends BaseController
         ModelFileSupport $modelFileSupport,
         ResponseBuilder $responseBuilder,
         LoggerInterface $logger,
-        ICacheFactory $cacheFactory
+        ICacheFactory $cacheFactory,
+        private readonly PathLocator $pathLocator
     ) {
         parent::__construct($appName, $request, $responseBuilder, $modelFileSupport, $logger, $cacheFactory);
     }
@@ -495,8 +497,16 @@ class FileController extends BaseController
 
         try {
             $userFolder = $this->rootFolder->getUserFolder($userId);
+            /**
+             * @var \OCP\Files\Folder $userFolder psalm cannot resolve IRootFolder's
+             * parents, so it reads getUserFolder() as mixed. The interface declares
+             * a Folder return.
+             */
             $normalizedPath = ltrim($folderPath, '/');
-            $currentFolder = $normalizedPath === '' ? $userFolder : $userFolder->get($normalizedPath);
+            // Same reason as findFileByPath: the folder here comes from a path a model
+            // declared, and `Textures/wood.png` beside a folder saved as `textures` is
+            // what an MTL written on Windows looks like.
+            $currentFolder = $normalizedPath === '' ? $userFolder : $this->pathLocator->locate($userFolder, $normalizedPath);
 
             if (!$currentFolder instanceof \OCP\Files\Folder) {
                 return [
@@ -1110,71 +1120,35 @@ class FileController extends BaseController
             }
 
             $userFolder = $this->rootFolder->getUserFolder($user->getUID());
+            /**
+             * @var \OCP\Files\Folder $userFolder psalm cannot resolve IRootFolder's
+             * parents, so it reads getUserFolder() as mixed. The interface declares
+             * a Folder return.
+             */
 
             // Normalize path (remove leading slash if present)
             $normalizedPath = ltrim($filePath, '/');
 
-            try {
-                $node = $userFolder->get($normalizedPath);
+            // Located rather than fetched: the client sends the path a model declared, and
+            // exporters write those in whatever case they please. See PathLocator.
+            $node = $this->pathLocator->locate($userFolder, $normalizedPath);
 
-                if ($node instanceof \OCP\Files\File) {
-                    return new JSONResponse([
-                        'id' => $node->getId(),
-                        'name' => $node->getName(),
-                        'path' => $filePath,
-                        'size' => $node->getSize(),
-                        'mtime' => $node->getMTime(),
-                    ]);
-                } else {
-                    return $this->responseBuilder->createNotFoundResponse('File not found');
-                }
-            } catch (\OCP\Files\NotFoundException $e) {
+            if (!$node instanceof \OCP\Files\File) {
+                // Also the answer for a path storage refuses outright — `../../etc/passwd`
+                // used to raise NotPermittedException, which this method did not catch, so
+                // probing the endpoint produced a 500 and a logged stack trace apiece.
                 return $this->responseBuilder->createNotFoundResponse('File not found: ' . $filePath);
             }
+
+            return new JSONResponse([
+                'id' => $node->getId(),
+                'name' => $node->getName(),
+                'path' => $filePath,
+                'size' => $node->getSize(),
+                'mtime' => $node->getMTime(),
+            ]);
         } catch (\Throwable $e) {
             return $this->handleException($e);
-        }
-    }
-
-    /**
-     * List files in a specific directory.
-     */
-    private function listFilesInDirectory($userFolder, string $path): JSONResponse
-    {
-        try {
-            // Normalize path (remove leading slash if present)
-            $normalizedPath = ltrim($path, '/');
-
-            // Get the directory
-            $directory = $userFolder->get($normalizedPath);
-
-            if (!$directory instanceof \OCP\Files\Folder) {
-                return new JSONResponse(['error' => 'Path is not a directory'], Http::STATUS_BAD_REQUEST);
-            }
-
-            $files = [];
-            foreach ($directory->getDirectoryListing() as $node) {
-                $files[] = [
-                    'id' => $node->getId(),
-                    'name' => $node->getName(),
-                    'path' => $node->getPath(),
-                    'size' => $node->getSize(),
-                    'mtime' => $node->getMTime(),
-                    'isFile' => $node instanceof \OCP\Files\File,
-                    'isFolder' => $node instanceof \OCP\Files\Folder,
-                ];
-            }
-
-            return new JSONResponse($files);
-        } catch (\OCP\Files\NotFoundException $e) {
-            return new JSONResponse(['error' => 'Directory not found: ' . $path], Http::STATUS_NOT_FOUND);
-        } catch (\Exception $e) {
-            $this->logger->error('Error listing directory: ' . $e->getMessage(), [
-                'path' => $path,
-                'exception' => $e,
-            ]);
-
-            return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_INTERNAL_SERVER_ERROR);
         }
     }
 }

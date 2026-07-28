@@ -878,6 +878,14 @@
       <code><![CDATA[getThumbnailPath]]></code>
     </PossiblyUnusedMethod>
   </file>
+  <file src="tests/integration/FileControllerLookupTest.php">
+    <UndefinedClass>
+      <code><![CDATA[TestCase]]></code>
+    </UndefinedClass>
+    <UnusedClass>
+      <code><![CDATA[FileControllerLookupTest]]></code>
+    </UnusedClass>
+  </file>
   <file src="tests/integration/FileIndexMapperTest.php">
     <UndefinedClass>
       <code><![CDATA[TestCase]]></code>

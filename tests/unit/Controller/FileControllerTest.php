@@ -8,6 +8,7 @@ use OCA\ThreeDViewer\Controller\FileController;
 use OCA\ThreeDViewer\Db\FileIndexMapper;
 use OCA\ThreeDViewer\Service\FileIndexService;
 use OCA\ThreeDViewer\Service\ModelFileSupport;
+use OCA\ThreeDViewer\Service\PathLocator;
 use OCA\ThreeDViewer\Service\ResponseBuilder;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
@@ -100,7 +101,8 @@ class FileControllerTest extends TestCase
             $this->modelFileSupport,
             $this->responseBuilder,
             $this->logger,
-            $this->cacheFactory
+            $this->cacheFactory,
+            new PathLocator()
         );
         $response = $controller->serveFile(42);
         $this->assertInstanceOf(StreamResponse::class, $response);
@@ -123,7 +125,8 @@ class FileControllerTest extends TestCase
             $this->modelFileSupport,
             $this->responseBuilder,
             $this->logger,
-            $this->cacheFactory
+            $this->cacheFactory,
+            new PathLocator()
         );
         $response = $controller->serveFile(10);
         $this->assertInstanceOf(JSONResponse::class, $response);
@@ -157,7 +160,8 @@ class FileControllerTest extends TestCase
             $this->modelFileSupport,
             $this->responseBuilder,
             $this->logger,
-            $this->cacheFactory
+            $this->cacheFactory,
+            new PathLocator()
         );
         $response = $controller->serveFile(11);
         $this->assertInstanceOf(JSONResponse::class, $response);

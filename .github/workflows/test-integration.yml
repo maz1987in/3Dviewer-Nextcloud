@@ -33,6 +33,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       ocp-matrix: ${{ steps.versions.outputs.ocp-matrix }}
+      branch-max: ${{ steps.versions.outputs.branches-max }}
+      php-max: ${{ steps.versions.outputs.php-max }}
     steps:
       - name: Checkout app
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -44,6 +46,18 @@ jobs:
       - name: Get version matrix
         id: versions
         uses: icewind1991/nextcloud-version-matrix@58becf3b4bb6dc6cef677b15e2fd8e7d48c0908f # v1.3.1
+
+      # An output that is renamed upstream, or misspelled here, arrives as an empty
+      # string — and a job that checks out an empty ref fails somewhere further down
+      # with a message about something else entirely. Say it here instead.
+      - name: Check the derived versions are not empty
+        env:
+          BRANCH_MAX: ${{ steps.versions.outputs.branches-max }}
+          PHP_MAX: ${{ steps.versions.outputs.php-max }}
+        run: |
+          test -n "$BRANCH_MAX" || { echo "branches-max is empty"; exit 1; }
+          test -n "$PHP_MAX" || { echo "php-max is empty"; exit 1; }
+          echo "newest supported server: $BRANCH_MAX on php $PHP_MAX"
 
   integration-tests:
     runs-on: ubuntu-latest
@@ -128,9 +142,128 @@ jobs:
         working-directory: apps/threedviewer
         run: composer test:integration
 
+  # The same suite against MySQL and Postgres.
+  #
+  # The job above covers the *version* axis on SQLite; this one covers the *database*
+  # axis, because that is where the queries behave differently rather than where the
+  # server does. Two examples the suite already touches: `escapeLikeParameter()` picks
+  # an escape character per platform, and MySQL's default collation is case-insensitive
+  # while SQLite's and Postgres's are not — so a folder listing that looks settled on
+  # one backend is not settled on the others.
+  #
+  # Newest supported server only. Crossing both axes would be eight more jobs on every
+  # pull request to re-answer a question neither axis asks of the other.
+  database-tests:
+    runs-on: ubuntu-latest
+    needs: matrix
+
+    strategy:
+      fail-fast: false
+      matrix:
+        database: [mysql, pgsql]
+
+    name: integration ${{ matrix.database }}
+
+    # Both containers start for both jobs: a service cannot be declared conditionally,
+    # and one idle database is cheaper than two near-identical copies of this job.
+    services:
+      mysql:
+        image: mysql:8.4@sha256:b3b90af2a6552ae30c266fdb7d5dd55f3afb72404bb78d37fe8a23eb857fd3fb
+        env:
+          MYSQL_ROOT_PASSWORD: integration-suite-db
+          MYSQL_DATABASE: nextcloud
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+      postgres:
+        image: postgres:16@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20
+        env:
+          POSTGRES_PASSWORD: integration-suite-db
+          POSTGRES_DB: nextcloud
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - name: Checkout server
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: nextcloud/server
+          ref: ${{ needs.matrix.outputs.branch-max }}
+          submodules: true
+          persist-credentials: false
+
+      - name: Checkout app
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          path: apps/threedviewer
+          persist-credentials: false
+
+      - name: Set up php${{ needs.matrix.outputs.php-max }}
+        uses: shivammathur/setup-php@cf4cade2721270509d5b1c766ab3549210a39a2a # v2.33.0
+        with:
+          php-version: ${{ needs.matrix.outputs.php-max }}
+          extensions: bz2, ctype, curl, dom, fileinfo, gd, iconv, intl, json, libxml, mbstring, openssl, pcntl, posix, session, simplexml, xmlreader, xmlwriter, zip, zlib, sqlite, pdo_sqlite, mysql, pdo_mysql, pgsql, pdo_pgsql
+          coverage: none
+          ini-file: development
+          ini-values: disable_functions=
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install app dependencies
+        working-directory: apps/threedviewer
+        run: composer install --no-interaction --no-progress
+
+      - name: Install Nextcloud on ${{ matrix.database }}
+        env:
+          DATABASE: ${{ matrix.database }}
+        run: |
+          mkdir -p data
+          if [ "$DATABASE" = "mysql" ]; then
+            port=3306
+            user=root
+          else
+            port=5432
+            user=postgres
+          fi
+          php occ maintenance:install \
+            --verbose \
+            --database="$DATABASE" \
+            --database-name=nextcloud \
+            --database-host=127.0.0.1 \
+            --database-port="$port" \
+            --database-user="$user" \
+            --database-pass=integration-suite-db \
+            --admin-user=admin \
+            --admin-pass=integration-suite-admin-Aa1
+          php occ app:enable --force threedviewer
+
+      # See the note on the SQLite job: enabling files_external is what creates the
+      # table its mount provider queries.
+      - name: Install the external-storage schema
+        run: php occ app:enable files_external
+
+      # Proves the suite ran against the database this job is named for, rather than
+      # falling back to SQLite because an install flag was ignored.
+      - name: Show the database in use
+        run: php occ config:system:get dbtype
+
+      - name: Run integration tests
+        working-directory: apps/threedviewer
+        run: composer test:integration
+
   summary:
     runs-on: ubuntu-latest
-    needs: [matrix, integration-tests]
+    needs: [matrix, integration-tests, database-tests]
 
     if: always()
 
@@ -138,4 +271,6 @@ jobs:
 
     steps:
       - name: Summary status
-        run: if ${{ needs.integration-tests.result != 'success' }}; then exit 1; fi
+        run: |
+          if ${{ needs.integration-tests.result != 'success' }}; then exit 1; fi
+          if ${{ needs.database-tests.result != 'success' }}; then exit 1; fi
