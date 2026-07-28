@@ -188,153 +188,6 @@ export async function getFileIdByPath(filePath) {
 		// Find the file by name (case-insensitive to handle Windows/Linux differences)
 		let file = files.find(f => f?.name && f.name.toLowerCase() === filename.toLowerCase())
 
-		// If exact match not found, try flexible matching (for cases like "Wolf_done_obj.mtl" -> "Wolf_obj.mtl")
-		// or texture files like "eye_2.jpg" -> "Wolf_Eyes_2.jpg", "wolf col.jpg" -> "Wolf_Body.jpg"
-		if (!file && files.length > 0) {
-			const normalizedFilename = filename.toLowerCase()
-			const filenameWithoutExt = normalizedFilename.replace(/\.[^.]+$/, '')
-			const fileExt = normalizedFilename.split('.').pop()
-			const isImageFile = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'tga', 'tiff', 'webp'].includes(fileExt)
-
-			// Try to find a similar file
-			for (const candidate of files) {
-				if (!candidate?.name) continue
-
-				const candidateName = candidate.name.toLowerCase()
-				const candidateWithoutExt = candidateName.replace(/\.[^.]+$/, '')
-				const candidateExt = candidateName.split('.').pop()
-
-				// Must have same extension
-				if (candidateExt !== fileExt) continue
-
-				// For image files, use sophisticated texture matching (like FBX loader)
-				if (isImageFile) {
-					// Strategy 1: Normalize spaces/underscores and compare
-					const normalizeSpaces = (str) => str.replace(/[\s_]/g, '_')
-					const searchNormalized = normalizeSpaces(filenameWithoutExt)
-					const candidateNormalized = normalizeSpaces(candidateWithoutExt)
-
-					if (searchNormalized === candidateNormalized) {
-						logger.info('MultiFileHelpers', ' Matched texture (normalized spaces):', filename, '->', candidate.name)
-						file = candidate
-						break // Exit outer loop immediately
-					}
-
-					// Strategy 2: Remove common word prefixes and compare
-					const removePrefix = (str) => {
-						// Remove word followed by underscore or space
-						const match = str.match(/^[a-z]+[_\s](.+)$/i)
-						return match ? match[1] : str
-					}
-
-					// Normalize spaces first
-					const normalizeSpacesFn = normalizeSpaces
-
-					// Try matching with and without prefixes removed
-					const searchBase = normalizeSpacesFn(filenameWithoutExt)
-					const candidateBase = normalizeSpacesFn(candidateWithoutExt)
-
-					// Also try with prefixes removed
-					const searchBaseNoPrefix = normalizeSpacesFn(removePrefix(filenameWithoutExt))
-					const candidateBaseNoPrefix = normalizeSpacesFn(removePrefix(candidateWithoutExt))
-
-					// Strategy 3: Handle singular/plural variations
-					const normalizePlural = (str) => {
-						// Handle cases like "eyes_2" -> "eye_2" or "eyes" -> "eye"
-						const pluralMatch = str.match(/^(.+?)(s)(_\d+)?$/i)
-						if (pluralMatch && pluralMatch[1].length > 0) {
-							return pluralMatch[3] ? `${pluralMatch[1]}${pluralMatch[3]}` : pluralMatch[1]
-						}
-						return str
-					}
-
-					// Try all combinations: with/without prefix, with/without plural normalization
-					const combinations = [
-						[searchBase, candidateBase],
-						[searchBaseNoPrefix, candidateBase],
-						[searchBase, candidateBaseNoPrefix],
-						[searchBaseNoPrefix, candidateBaseNoPrefix],
-					]
-
-					// Use a flag to track if we found a match in the inner loop
-					let foundMatch = false
-					for (const [searchStr, candidateStr] of combinations) {
-						const searchNormalizedPlural = normalizePlural(searchStr)
-						const candidateNormalizedPlural = normalizePlural(candidateStr)
-
-						if (searchNormalizedPlural === candidateNormalizedPlural) {
-							logger.info('MultiFileHelpers', ' Matched texture (normalized plural):', filename, '->', candidate.name)
-							file = candidate
-							foundMatch = true
-							break // Exit inner loop
-						}
-
-						// Strategy 4: Partial matching with length check
-						if (searchNormalizedPlural.includes(candidateNormalizedPlural)
-							|| candidateNormalizedPlural.includes(searchNormalizedPlural)) {
-							const lengthDiff = Math.abs(searchNormalizedPlural.length - candidateNormalizedPlural.length)
-							const avgLength = (searchNormalizedPlural.length + candidateNormalizedPlural.length) / 2
-							if (avgLength > 0 && lengthDiff / avgLength < 0.3) {
-								logger.info('MultiFileHelpers', ' Matched texture (partial):', filename, '->', candidate.name)
-								file = candidate
-								foundMatch = true
-								break // Exit inner loop
-							}
-						}
-					}
-
-					// If match found in inner loop, exit outer loop
-					if (foundMatch) {
-						break
-					}
-
-					// Strategy 5: Color/body mapping (col/color -> body/diffuse)
-					const colorTerms = ['col', 'color', 'colour', 'diffuse', 'base', 'albedo']
-					const bodyTerms = ['body', 'diffuse', 'base', 'albedo', 'main']
-
-					const searchIsColor = colorTerms.some(term => searchBaseNoPrefix.includes(term) || searchBase.includes(term))
-					const candidateIsBody = bodyTerms.some(term => candidateBaseNoPrefix.includes(term) || candidateBase.includes(term))
-
-					if (searchIsColor && candidateIsBody) {
-						logger.info('MultiFileHelpers', ' Matched texture (color=body):', filename, '->', candidate.name)
-						file = candidate
-						break // Exit outer loop
-					}
-				} else {
-					// For non-image files (like MTL), use simpler matching
-					// Strategy 1: One name contains the other (for cases like "done_obj" vs "obj")
-					if (filenameWithoutExt.includes(candidateWithoutExt)
-						|| candidateWithoutExt.includes(filenameWithoutExt)) {
-						// Only match if lengths are similar (within 50% difference to avoid false matches)
-						const lengthDiff = Math.abs(filenameWithoutExt.length - candidateWithoutExt.length)
-						const avgLength = (filenameWithoutExt.length + candidateWithoutExt.length) / 2
-						if (avgLength > 0 && lengthDiff / avgLength < 0.5) {
-							logger.info('MultiFileHelpers', ' Matched file (flexible):', filename, '->', candidate.name)
-							file = candidate
-							break
-						}
-					}
-
-					// Strategy 2: Remove common suffixes/prefixes and compare
-					// Handle cases like "Wolf_done_obj" -> "Wolf_obj" (remove middle word)
-					const removeCommonWords = (str) => {
-						// Remove common words like "done", "final", "v1", "v2", etc.
-						return str.replace(/_(done|final|v\d+|version\d+|old|new|backup|copy)(_|$)/gi, '_')
-							.replace(/^_+|_+$/g, '') // Remove leading/trailing underscores
-					}
-
-					const normalizedSearch = removeCommonWords(filenameWithoutExt)
-					const normalizedCandidate = removeCommonWords(candidateWithoutExt)
-
-					if (normalizedSearch === normalizedCandidate && normalizedSearch.length > 0) {
-						logger.info('MultiFileHelpers', ' Matched file (normalized):', filename, '->', candidate.name)
-						file = candidate
-						break
-					}
-				}
-			}
-		}
-
 		// If not found in root, search in subdirectories (like "Texture", "textures", "images", etc.)
 		// `foundInSubdir` tracks which subdirectory the file was discovered in
 		// so callers can preserve the original directory structure (e.g., for ZIP exports).
@@ -367,54 +220,11 @@ export async function getFileIdByPath(filePath) {
 			}
 		}
 
-		// If still not found, try common texture subdirectory names using the find endpoint
-		// Include both lowercase and capitalized versions
-		// This should ALWAYS run, even if directory listing failed
+		// If still not found, try the conventional texture directory names.
 		if (!file) {
-			try {
-				let commonTextureDirs = ['textures', 'texture', 'Texture', 'TEXTURE', 'TEXTURES', 'images', 'image', 'Image', 'IMAGE', 'tex', 'Tex', 'TEX', 'maps', 'map', 'Map', 'MAP']
-
-				// Optimization: If directory listing succeeded, only search in folders that actually exist
-				if (listingSucceeded) {
-					if (folders.length === 0) {
-						// No subdirectories exist, so no point searching
-						commonTextureDirs = []
-					} else {
-						// Only search in folders that exist (case-insensitive check)
-						const existingFolderNames = new Set(folders.map(f => (f.name || '').toLowerCase()))
-						commonTextureDirs = commonTextureDirs.filter(dir => existingFolderNames.has(dir.toLowerCase()))
-					}
-				}
-
-				if (commonTextureDirs.length > 0) {
-					logger.warn('MultiFileHelpers', ' File not found in API folders, trying common texture subdirectories for:', filename, 'in:', normalizedDirPath)
-				}
-
-				for (const textureDir of commonTextureDirs) {
-					try {
-						const textureDirPath = normalizedDirPath ? `${normalizedDirPath}/${textureDir}` : textureDir
-						const textureFilePath = `${textureDirPath}/${filename}`
-						const findUrl = generateUrl('/apps/threedviewer/api/files/find') + `?path=${encodeURIComponent(textureFilePath)}`
-						logger.warn('MultiFileHelpers', ' Trying texture path:', textureFilePath)
-						const findResponse = await fetch(findUrl)
-
-						if (findResponse.ok) {
-							const fileData = await findResponse.json()
-							if (fileData && fileData.id) {
-								logger.warn('MultiFileHelpers', ' ✓ Found file in texture subdirectory:', textureDir, '/', filename, 'id:', fileData.id)
-								return { id: fileData.id, subdir: textureDir }
-							}
-						} else {
-							logger.warn('MultiFileHelpers', ' Texture path not found:', textureFilePath, 'status:', findResponse.status)
-						}
-					} catch (findError) {
-						logger.warn('MultiFileHelpers', ' Error trying texture path:', textureDir, findError)
-						// Continue searching
-					}
-				}
-				logger.warn('MultiFileHelpers', ' ✗ File not found in any common texture subdirectories:', filename)
-			} catch (textureSearchError) {
-				logger.warn('MultiFileHelpers', ' Error in texture subdirectory search:', textureSearchError)
+			const found = await findInCommonTextureDirs(filename, normalizedDirPath, listingSucceeded ? folders : null)
+			if (found) {
+				return found
 			}
 		}
 
@@ -430,34 +240,79 @@ export async function getFileIdByPath(filePath) {
 		return file ? { id: file.id, subdir: foundInSubdir } : null
 	} catch (error) {
 		logger.warn('MultiFileHelpers', ' Error getting file ID for path:', filePath, error)
-		// Even if there's an error, try the texture subdirectory search as a last resort
-		try {
-			logger.warn('MultiFileHelpers', ' Attempting texture subdirectory search as fallback for:', filename, 'in:', normalizedDirPath)
-			const commonTextureDirs = ['textures', 'texture', 'Texture', 'TEXTURE', 'TEXTURES', 'images', 'image', 'Image', 'IMAGE', 'tex', 'Tex', 'TEX', 'maps', 'map', 'Map', 'MAP']
-			for (const textureDir of commonTextureDirs) {
-				try {
-					const textureDirPath = normalizedDirPath ? `${normalizedDirPath}/${textureDir}` : textureDir
-					const textureFilePath = `${textureDirPath}/${filename}`
-					const findUrl = generateUrl('/apps/threedviewer/api/files/find') + `?path=${encodeURIComponent(textureFilePath)}`
-					logger.warn('MultiFileHelpers', ' Trying texture path (fallback):', textureFilePath)
-					const findResponse = await fetch(findUrl)
 
-					if (findResponse.ok) {
-						const fileData = await findResponse.json()
-						if (fileData && fileData.id) {
-							logger.warn('MultiFileHelpers', ' ✓ Found file in texture subdirectory (fallback):', textureDir, '/', filename, 'id:', fileData.id)
-							return { id: fileData.id, subdir: textureDir }
-						}
-					}
-				} catch (findError) {
-					// Continue searching
-				}
-			}
-		} catch (fallbackError) {
-			logger.warn('MultiFileHelpers', ' Fallback texture search also failed:', fallbackError)
-		}
+		// The listing has its own error handling, so reaching here means something
+		// unexpected went wrong. The conventional directories are still worth one pass:
+		// with no listing to trust, every candidate is tried rather than only the
+		// folders known to exist.
+		return await findInCommonTextureDirs(filename, normalizedDirPath, null)
+	}
+}
+
+/**
+ * Names exporters conventionally use for a texture directory the model does not mention.
+ *
+ * Both cases are listed because the lookup is by exact path when the listing is
+ * unavailable; where a listing exists, matching against it is case-insensitive anyway.
+ */
+const COMMON_TEXTURE_DIRS = [
+	'textures', 'texture', 'Texture', 'TEXTURE', 'TEXTURES',
+	'images', 'image', 'Image', 'IMAGE',
+	'tex', 'Tex', 'TEX',
+	'maps', 'map', 'Map', 'MAP',
+]
+
+/**
+ * Look for a file in the texture directories a model is likely to keep it in.
+ *
+ * A model often names `wood.png` for a file that lives in `textures/wood.png`, and the
+ * declaration gives no way to know that. This is the guess of last resort — bounded to
+ * the directories that actually exist wherever the caller could find that out.
+ *
+ * @param {string} filename - basename to look for
+ * @param {string} dirPath - directory holding the model, without a leading slash
+ * @param {object[]|null} folders - subdirectories known to exist, or null if unknown
+ * @return {Promise<{id: number, subdir: string}|null>} the file, or null
+ */
+async function findInCommonTextureDirs(filename, dirPath, folders) {
+	let candidates = COMMON_TEXTURE_DIRS
+
+	// Knowing the folder listing turns sixteen speculative requests into only the ones
+	// that can succeed — and into none at all when the model has no subdirectories.
+	if (folders !== null) {
+		const existing = new Set(folders.map(folder => (folder?.name || '').toLowerCase()))
+		candidates = candidates.filter(dir => existing.has(dir.toLowerCase()))
+	}
+
+	if (candidates.length === 0) {
 		return null
 	}
+
+	logger.debug('MultiFileHelpers', 'Trying conventional texture directories', { filename, dirPath, candidates })
+
+	for (const textureDir of candidates) {
+		const textureDirPath = dirPath ? `${dirPath}/${textureDir}` : textureDir
+		try {
+			const findUrl = generateUrl('/apps/threedviewer/api/files/find')
+				+ `?path=${encodeURIComponent(`${textureDirPath}/${filename}`)}`
+			const response = await fetch(findUrl)
+
+			if (response.ok) {
+				const fileData = await response.json()
+				if (fileData?.id) {
+					logger.info('MultiFileHelpers', 'Found file in a texture directory', { textureDir, filename, id: fileData.id })
+					return { id: fileData.id, subdir: textureDir }
+				}
+			}
+		} catch (findError) {
+			// One unreachable candidate should not stop the others.
+			logger.debug('MultiFileHelpers', 'Texture directory lookup failed', { textureDirPath, error: findError })
+		}
+	}
+
+	logger.debug('MultiFileHelpers', 'Not in any conventional texture directory', { filename })
+
+	return null
 }
 
 /**
