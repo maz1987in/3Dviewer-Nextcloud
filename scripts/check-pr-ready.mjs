@@ -19,28 +19,15 @@
  * The same set is required by the repository ruleset on main, so GitHub enforces it on
  * the merge itself. This is for finding out before you get there.
  *
+ * The deciding is in pr-ready-lib.mjs, which has tests. What is left here is fetching
+ * and printing.
+ *
  * Usage:
  *   npm run pr:ready              # the PR for the current branch
  *   npm run pr:ready -- 137       # a specific PR
  */
 import { execFileSync } from 'child_process'
-
-/**
- * Every check that must be present and successful.
- *
- * Add a workflow here only if its summary job runs unconditionally on pull_request.
- * Requiring one that a paths filter can stop from reporting would block every merge that
- * does not touch those paths.
- */
-const REQUIRED = [
-	'eslint',
-	'jest-tests',
-	'node',
-	'php-lint-summary',
-	'phpunit-summary',
-	'phpunit-integration-summary',
-	'static-psalm-analysis-summary',
-]
+import { FAILING, PASSING, REQUIRED, WAITING, assess } from './pr-ready-lib.mjs'
 
 const GREEN = '\u001b[32m'
 const RED = '\u001b[31m'
@@ -85,60 +72,14 @@ if (pr.state !== 'OPEN') {
 	process.exit(0)
 }
 
-const rollup = Array.isArray(pr.statusCheckRollup) ? pr.statusCheckRollup : []
-
-const PASSING = new Set(['SUCCESS', 'NEUTRAL', 'SKIPPED'])
-const WAITING = new Set(['PENDING', 'QUEUED', 'IN_PROGRESS', 'EXPECTED', 'WAITING', 'REQUESTED'])
-const FAILING = new Set(['FAILURE', 'ERROR', 'CANCELLED', 'TIMED_OUT', 'ACTION_REQUIRED', 'STARTUP_FAILURE'])
-
-/**
- * The one state worth acting on, out of the two shapes GitHub returns.
- *
- * A CheckRun carries `status` plus a `conclusion` that stays an empty string until it
- * finishes; a legacy commit status carries `state` and no status at all. Reading
- * `conclusion || state` misses the running CheckRun entirely — it reported UNKNOWN for
- * every queued job, and this script called that a failure.
- *
- * @param {object} check - one statusCheckRollup entry
- * @return {string} an upper-case state
- */
-function stateOf(check) {
-	const conclusion = (check.conclusion || '').toUpperCase()
-	if (conclusion !== '') {
-		return conclusion
-	}
-
-	const status = (check.status || '').toUpperCase()
-	if (status !== '' && status !== 'COMPLETED') {
-		return status
-	}
-
-	return (check.state || '').toUpperCase() || 'UNKNOWN'
-}
-
-const byName = new Map(rollup.map((check) => [check.name || check.context, stateOf(check)]))
-
-const missing = REQUIRED.filter((name) => !byName.has(name))
-const failing = REQUIRED.filter((name) => FAILING.has(byName.get(name)))
-const waiting = REQUIRED.filter((name) => WAITING.has(byName.get(name)))
-// Neither passing, running nor failing: a state this script does not recognise. It
-// blocks, because the whole rule is that an unclear answer is not a green light.
-const unclear = REQUIRED.filter((name) => byName.has(name)
-	&& !PASSING.has(byName.get(name))
-	&& !WAITING.has(byName.get(name))
-	&& !FAILING.has(byName.get(name)))
-
-// Everything else on the PR, so a failure outside the required set is still visible.
-const otherFailing = rollup
-	.filter((check) => !REQUIRED.includes(check.name))
-	.filter((check) => ['FAILURE', 'ERROR', 'CANCELLED', 'TIMED_OUT'].includes(stateOf(check)))
-	.map((check) => check.name)
+const { states, missing, failing, waiting, unclear, otherFailing, superseded } = assess(pr.statusCheckRollup)
 
 console.log(`\nPR #${pr.number}  ${pr.title}`)
-console.log(`${DIM}${rollup.length} checks reported, ${REQUIRED.length} required${RESET}\n`)
+const supersededNote = superseded > 0 ? `, ${superseded} superseded by a later run` : ''
+console.log(`${DIM}${states.size} checks reported, ${REQUIRED.length} required${supersededNote}${RESET}\n`)
 
 for (const name of REQUIRED) {
-	const state = byName.get(name)
+	const state = states.get(name)
 	if (state === undefined) {
 		console.log(`  ${RED}ABSENT ${RESET} ${name}   ${DIM}never reported — not the same as passing${RESET}`)
 	} else if (PASSING.has(state)) {
