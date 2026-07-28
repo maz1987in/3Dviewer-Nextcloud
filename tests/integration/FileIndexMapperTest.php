@@ -92,6 +92,34 @@ class FileIndexMapperTest extends TestCase
         $this->assertSame(['a_b/child'], $folders);
     }
 
+    /**
+     * Two folders differing only in case can both exist, because Nextcloud storage is
+     * case-sensitive. Which of them a listing belongs to must not depend on how the
+     * database compares strings.
+     *
+     * It currently does not, on any supported backend — but not for a reason visible
+     * here. The descendant query is a LIKE, and MySQL's *server* default collation is
+     * `utf8mb4_0900_ai_ci`, under which `LIKE 'Models/%'` also matches `models/beta`.
+     * What keeps that from happening is `ConnectionFactory`, which creates every
+     * Nextcloud table `utf8_bin` (`utf8mb4_bin` with `mysql.utf8mb4`). The binary
+     * collation is the whole guarantee.
+     *
+     * So this pins an invariant that rests on a server setting rather than on anything
+     * in this app: were the collation ever to drift, the extra row would fail the prefix
+     * strip in extractImmediateChildren(), its first segment would be taken whole, and
+     * the browser would offer `Models/models` — a folder nobody has, the same shape as
+     * the `modelstextures` defect above.
+     */
+    public function testDoesNotListAChildOfADifferentlyCasedSibling(): void
+    {
+        $this->index('Models/alpha', 'one.obj');
+        $this->index('models/beta', 'two.obj');
+
+        $folders = $this->mapper->getFolders($this->userId, 'Models');
+
+        $this->assertSame(['Models/alpha'], $folders);
+    }
+
     public function testFindsFilesByFolderThroughTheHashedPath(): void
     {
         $this->index('models', 'chair.obj');
