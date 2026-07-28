@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.4.0] - 2026-07-28
+
+Public share links now render 3D models, and every format that carries external textures resolves them there. Also carries the security fixes listed below.
+
 ### Added
 - **A merge gate that treats an absent check as a failure**, as a ruleset on `main` and as `npm run pr:ready`. `gh pr checks` reports only the checks that exist, so a queued run contributes none and a pull request whose matrix has not started looks exactly like one where everything passed — which is how a broken eslint run reached `main`. The required set is the seven summary jobs: each aggregates its own matrix and reports unconditionally. Because the ruleset also covers pushes, work on `main` now goes through a pull request.
 - **The integration suite now also runs on MySQL and PostgreSQL.** The version axis is covered on SQLite; this adds the database axis, which is where the queries differ rather than where the server does — `escapeLikeParameter()` picks an escape character per platform, and MySQL's default collation is case-insensitive where SQLite's and PostgreSQL's are not, so a folder listing settled on one backend is not settled on the others. Newest supported server only, rather than crossing both axes.
