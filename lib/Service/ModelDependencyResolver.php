@@ -7,6 +7,7 @@ namespace OCA\ThreeDViewer\Service;
 use OCA\ThreeDViewer\Constants\SupportedFormats;
 use OCP\Files\File;
 use OCP\Files\Folder;
+use OCP\Files\Node;
 use OCP\Files\NotFoundException;
 
 /**
@@ -88,7 +89,7 @@ class ModelDependencyResolver
             throw new NotFoundException('Parent folder missing');
         }
 
-        $node = $parent->get($relativePath);
+        $node = $this->locate($parent, $relativePath);
         if (!$node instanceof File || !$this->isServableDependency($node)) {
             // Deliberately the same failure as "never declared": whether the name exists
             // on disk is not something an anonymous caller should be able to measure.
@@ -96,6 +97,74 @@ class ModelDependencyResolver
         }
 
         return $node;
+    }
+
+    /**
+     * The node a declared path points at, matching case only if it has to.
+     *
+     * 3DS keeps its map names in DOS 8.3 form, so exporters write WOOD.JPG for a file
+     * saved as wood.jpg; MTL files written on Windows do the same with subdirectories.
+     * Storage is case-sensitive, so the declaration resolved and the fetch then missed,
+     * leaving the model untextured with its texture sitting beside it.
+     *
+     * The exact path is tried first, so nothing changes for a model that matches. Only a
+     * miss walks the folder, one segment at a time, and it stops at the first segment
+     * with no match — so the work is bounded by the depth that actually exists, not by
+     * anything the model can ask for.
+     */
+    private function locate(Folder $parent, string $path): ?Node
+    {
+        try {
+            return $parent->get($path);
+        } catch (NotFoundException) {
+            // Fall through to the case-insensitive walk.
+        }
+
+        $current = $parent;
+        foreach (explode('/', $path) as $segment) {
+            if (!$current instanceof Folder) {
+                return null;
+            }
+
+            $current = $this->childNamed($current, $segment);
+            if ($current === null) {
+                return null;
+            }
+        }
+
+        return $current;
+    }
+
+    /**
+     * One directory level, matched without regard to case.
+     *
+     * Where several names differ only in case, an exact match wins and otherwise the
+     * lexicographically first does — listing order is not guaranteed, and which file a
+     * share serves should not depend on it.
+     */
+    private function childNamed(Folder $folder, string $segment): ?Node
+    {
+        $wanted = mb_strtolower($segment);
+
+        /** @var list<Node> $matches */
+        $matches = [];
+        foreach ($folder->getDirectoryListing() as $child) {
+            $name = $child->getName();
+            if ($name === $segment) {
+                return $child;
+            }
+            if (mb_strtolower($name) === $wanted) {
+                $matches[] = $child;
+            }
+        }
+
+        if ($matches === []) {
+            return null;
+        }
+
+        usort($matches, static fn (Node $a, Node $b): int => strcmp($a->getName(), $b->getName()));
+
+        return $matches[0];
     }
 
     /**

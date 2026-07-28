@@ -153,6 +153,60 @@ class ModelDependencyResolverTest extends TestCase
     }
 
     /**
+     * 3DS stores map names in DOS 8.3 form, so exporters routinely write WOOD.JPG for a
+     * file saved as wood.jpg. The declaration is matched case-insensitively already —
+     * the map is keyed by lowercase basename — but the fetch then asks the folder for
+     * the path exactly as the model wrote it, and storage is case-sensitive. The model
+     * renders untextured with its texture sitting right beside it.
+     *
+     * A mocked folder cannot show this: it answers to whatever path the test arranged.
+     */
+    public function testResolvesATextureWhoseDeclaredCaseDiffersFromTheFile(): void
+    {
+        $this->models->newFile('scene.3ds', $this->threeDsDeclaring('WOOD.JPG'));
+        $texture = $this->models->newFile('wood.jpg', 'JPG');
+        $model = $this->models->get('scene.3ds');
+        $this->assertInstanceOf(File::class, $model);
+
+        $resolved = $this->resolver->resolve($model, 'WOOD.JPG');
+
+        $this->assertSame($texture->getId(), $resolved->getId());
+    }
+
+    /**
+     * Storage here is case-sensitive, so both names can exist at once. Which file a
+     * share serves must not depend on the order the folder happens to list them in.
+     */
+    public function testPrefersTheExactNameWhenBothCasesExist(): void
+    {
+        $this->models->newFile('chair.obj', "mtllib chair.mtl\n");
+        $this->models->newFile('chair.mtl', "newmtl seat\nmap_Kd wood.png\n");
+        $this->models->newFile('Wood.png', 'WRONG');
+        $exact = $this->models->newFile('wood.png', 'RIGHT');
+        $model = $this->models->get('chair.obj');
+        $this->assertInstanceOf(File::class, $model);
+
+        $resolved = $this->resolver->resolve($model, 'wood.png');
+
+        $this->assertSame($exact->getId(), $resolved->getId());
+        $this->assertSame('RIGHT', $resolved->getContent());
+    }
+
+    public function testResolvesATextureInASubdirectoryDeclaredInADifferentCase(): void
+    {
+        $this->models->newFile('chair.obj', "mtllib chair.mtl\n");
+        $this->models->newFile('chair.mtl', "newmtl seat\nmap_Kd Textures/Wood.PNG\n");
+        $textures = $this->models->newFolder('textures');
+        $texture = $textures->newFile('wood.png', 'PNG');
+        $model = $this->models->get('chair.obj');
+        $this->assertInstanceOf(File::class, $model);
+
+        $resolved = $this->resolver->resolve($model, 'Wood.PNG');
+
+        $this->assertSame($texture->getId(), $resolved->getId());
+    }
+
+    /**
      * Reading a model back is what the scanner actually does, and the stream a real
      * storage hands out is not the in-memory one the unit suite supplies.
      */

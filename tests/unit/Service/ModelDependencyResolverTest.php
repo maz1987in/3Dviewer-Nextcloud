@@ -308,6 +308,17 @@ class ModelDependencyResolverTest extends TestCase
                 return $nodes[$key];
             }
         );
+        // Only the top level, since these mocks are keyed by whole path rather than
+        // arranged as a tree. Left unstubbed it returned null, and the resolver's
+        // case-insensitive fallback iterated that — a warning the real interface, which
+        // declares an array return, could never produce.
+        $folder->method('getDirectoryListing')->willReturn(
+            array_values(array_filter(
+                $nodes,
+                static fn (string $path): bool => !str_contains($path, '/'),
+                ARRAY_FILTER_USE_KEY,
+            )),
+        );
 
         return $folder;
     }
