@@ -8,6 +8,7 @@ use DateTime;
 use OCA\ThreeDViewer\Controller\PublicFileController;
 use OCA\ThreeDViewer\Service\ModelDependencyResolver;
 use OCA\ThreeDViewer\Service\ModelFileSupport;
+use OCA\ThreeDViewer\Service\PathLocator;
 use OCA\ThreeDViewer\Service\ShareFileService;
 use OCP\AppFramework\PublicShareController;
 use OCP\Files\File;
@@ -141,7 +142,7 @@ class PublicFileControllerAuthTest extends TestCase
             'threedviewer',
             $this->createMock(IRequest::class),
             $sessionMock,
-            new ShareFileService($shareManager, $support, new ModelDependencyResolver()),
+            new ShareFileService($shareManager, $support, new ModelDependencyResolver(new PathLocator())),
             $support,
         );
     }

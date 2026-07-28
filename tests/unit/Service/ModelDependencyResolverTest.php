@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OCA\ThreeDViewer\Tests\Unit\Service;
 
 use OCA\ThreeDViewer\Service\ModelDependencyResolver;
+use OCA\ThreeDViewer\Service\PathLocator;
 use OCP\Files\File;
 use OCP\Files\Folder;
 use OCP\Files\NotFoundException;
@@ -29,7 +30,7 @@ class ModelDependencyResolverTest extends TestCase
         if (!interface_exists(File::class)) {
             $this->markTestSkipped('OCP interfaces not available');
         }
-        $this->resolver = new ModelDependencyResolver();
+        $this->resolver = new ModelDependencyResolver(new PathLocator());
     }
 
     public function testServesATextureTheMaterialDeclares(): void
@@ -335,13 +336,25 @@ class ModelDependencyResolverTest extends TestCase
             $lines .= "mtllib m{$i}.mtl\n";
         }
 
-        $lookups = 0;
+        // Two kinds of storage work, counted separately: a material is fetched by path,
+        // and a fetch that misses is followed by a folder listing to retry the name
+        // without regard to case. Counting only the fetches would have let the listings
+        // grow unbounded behind a guard that still read as green.
+        $fetches = 0;
+        $listings = 0;
         $folder = $this->createMock(Folder::class);
         $folder->method('get')->willReturnCallback(
-            static function (string $path) use (&$lookups): File {
-                $lookups++;
+            static function (string $path) use (&$fetches): File {
+                $fetches++;
 
                 throw new NotFoundException('no node at ' . $path);
+            }
+        );
+        $folder->method('getDirectoryListing')->willReturnCallback(
+            static function () use (&$listings): array {
+                $listings++;
+
+                return [];
             }
         );
 
@@ -356,8 +369,13 @@ class ModelDependencyResolverTest extends TestCase
 
         $this->assertLessThanOrEqual(
             ModelDependencyResolver::MAX_MATERIALS,
-            $lookups,
-            "scanned {$lookups} materials for a model declaring {$declared}"
+            $fetches,
+            "fetched {$fetches} materials for a model declaring {$declared}"
+        );
+        $this->assertLessThanOrEqual(
+            ModelDependencyResolver::MAX_MATERIALS,
+            $listings,
+            "listed the folder {$listings} times for a model declaring {$declared}"
         );
     }
 

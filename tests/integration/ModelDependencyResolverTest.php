@@ -192,6 +192,25 @@ class ModelDependencyResolverTest extends TestCase
         $this->assertSame('RIGHT', $resolved->getContent());
     }
 
+    /**
+     * An OBJ's textures are named by its material, so the material has to be read before
+     * they are known at all. That read is a second path lookup, and it is not the one
+     * `resolve()` performs — so a `mtllib` written in another case leaves the map
+     * reachable and every texture inside it undeclared.
+     */
+    public function testResolvesATextureThroughAMaterialDeclaredInADifferentCase(): void
+    {
+        $this->models->newFile('chair.obj', "mtllib CHAIR.MTL\n");
+        $this->models->newFile('chair.mtl', "newmtl seat\nmap_Kd wood.png\n");
+        $texture = $this->models->newFile('wood.png', 'PNG');
+        $model = $this->models->get('chair.obj');
+        $this->assertInstanceOf(File::class, $model);
+
+        $resolved = $this->resolver->resolve($model, 'wood.png');
+
+        $this->assertSame($texture->getId(), $resolved->getId());
+    }
+
     public function testResolvesATextureInASubdirectoryDeclaredInADifferentCase(): void
     {
         $this->models->newFile('chair.obj', "mtllib chair.mtl\n");
