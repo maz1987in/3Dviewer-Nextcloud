@@ -200,7 +200,13 @@ export async function getFileIdByPath(filePath) {
 			for (const subdir of folders) {
 				try {
 					const subdirPath = subdir.path || (normalizedDirPath ? `${normalizedDirPath}/${subdir.name}` : subdir.name)
-					const subdirListUrl = generateUrl('/apps/threedviewer/api/files/list') + `?folder=${encodeURIComponent(subdirPath)}`
+					// includeDependencies is what makes this search able to find anything:
+					// without it the server filters the listing to 3D models and drops
+					// every image, so the one pass written to find textures in
+					// subdirectories returned none. Conventionally-named directories still
+					// resolved through the separate hardcoded-names pass, which hid it.
+					const subdirListUrl = generateUrl('/apps/threedviewer/api/files/list')
+						+ `?folder=${encodeURIComponent(subdirPath)}&includeDependencies=1`
 					const subdirResponse = await fetch(subdirListUrl)
 
 					if (subdirResponse.ok) {
