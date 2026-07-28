@@ -87,16 +87,46 @@ if (pr.state !== 'OPEN') {
 
 const rollup = Array.isArray(pr.statusCheckRollup) ? pr.statusCheckRollup : []
 
-/** GitHub reports a completed check under `conclusion` and a running one under `state`. */
-const stateOf = (check) => (check.conclusion || check.state || 'UNKNOWN').toUpperCase()
+const PASSING = new Set(['SUCCESS', 'NEUTRAL', 'SKIPPED'])
+const WAITING = new Set(['PENDING', 'QUEUED', 'IN_PROGRESS', 'EXPECTED', 'WAITING', 'REQUESTED'])
+const FAILING = new Set(['FAILURE', 'ERROR', 'CANCELLED', 'TIMED_OUT', 'ACTION_REQUIRED', 'STARTUP_FAILURE'])
+
+/**
+ * The one state worth acting on, out of the two shapes GitHub returns.
+ *
+ * A CheckRun carries `status` plus a `conclusion` that stays an empty string until it
+ * finishes; a legacy commit status carries `state` and no status at all. Reading
+ * `conclusion || state` misses the running CheckRun entirely — it reported UNKNOWN for
+ * every queued job, and this script called that a failure.
+ *
+ * @param {object} check - one statusCheckRollup entry
+ * @return {string} an upper-case state
+ */
+function stateOf(check) {
+	const conclusion = (check.conclusion || '').toUpperCase()
+	if (conclusion !== '') {
+		return conclusion
+	}
+
+	const status = (check.status || '').toUpperCase()
+	if (status !== '' && status !== 'COMPLETED') {
+		return status
+	}
+
+	return (check.state || '').toUpperCase() || 'UNKNOWN'
+}
 
 const byName = new Map(rollup.map((check) => [check.name || check.context, stateOf(check)]))
 
-const PASSING = new Set(['SUCCESS', 'NEUTRAL', 'SKIPPED'])
-
 const missing = REQUIRED.filter((name) => !byName.has(name))
-const failing = REQUIRED.filter((name) => byName.has(name) && ['FAILURE', 'ERROR', 'CANCELLED', 'TIMED_OUT', 'ACTION_REQUIRED'].includes(byName.get(name)))
-const waiting = REQUIRED.filter((name) => byName.has(name) && ['PENDING', 'QUEUED', 'IN_PROGRESS', 'EXPECTED', 'WAITING', 'REQUESTED'].includes(byName.get(name)))
+const failing = REQUIRED.filter((name) => FAILING.has(byName.get(name)))
+const waiting = REQUIRED.filter((name) => WAITING.has(byName.get(name)))
+// Neither passing, running nor failing: a state this script does not recognise. It
+// blocks, because the whole rule is that an unclear answer is not a green light.
+const unclear = REQUIRED.filter((name) => byName.has(name)
+	&& !PASSING.has(byName.get(name))
+	&& !WAITING.has(byName.get(name))
+	&& !FAILING.has(byName.get(name)))
 
 // Everything else on the PR, so a failure outside the required set is still visible.
 const otherFailing = rollup
@@ -113,10 +143,12 @@ for (const name of REQUIRED) {
 		console.log(`  ${RED}ABSENT ${RESET} ${name}   ${DIM}never reported — not the same as passing${RESET}`)
 	} else if (PASSING.has(state)) {
 		console.log(`  ${GREEN}ok     ${RESET} ${name}`)
-	} else if (waiting.includes(name)) {
+	} else if (WAITING.has(state)) {
 		console.log(`  ${YELLOW}waiting${RESET} ${name}   ${DIM}${state}${RESET}`)
-	} else {
+	} else if (FAILING.has(state)) {
 		console.log(`  ${RED}FAILED ${RESET} ${name}   ${DIM}${state}${RESET}`)
+	} else {
+		console.log(`  ${YELLOW}unclear${RESET} ${name}   ${DIM}${state} — not a state this gate recognises${RESET}`)
 	}
 }
 
@@ -135,6 +167,9 @@ if (failing.length > 0) {
 }
 if (waiting.length > 0) {
 	problems.push(`${waiting.length} required check(s) still running: ${waiting.join(', ')}`)
+}
+if (unclear.length > 0) {
+	problems.push(`${unclear.length} required check(s) in an unrecognised state: ${unclear.join(', ')}`)
 }
 if (otherFailing.length > 0) {
 	problems.push(`${otherFailing.length} other check(s) failed: ${otherFailing.join(', ')}`)
