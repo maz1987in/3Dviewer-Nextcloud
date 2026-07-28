@@ -138,15 +138,15 @@ export async function getFileIdByPath(filePath) {
 				if (findResponse.ok) {
 					const fileData = await findResponse.json()
 					if (fileData && fileData.id) {
-						logger.info('MultiFileHelpers', ' Found file by path:', fullPath, 'id:', fileData.id)
+						logger.debug('MultiFileHelpers', 'Found the dependency by path', { path: fullPath, id: fileData.id })
 						return { id: fileData.id, subdir: null }
 					}
 				} else {
-					logger.debug('MultiFileHelpers', ' Direct path lookup returned:', findResponse.status, 'for:', fullPath)
+					logger.debug('MultiFileHelpers', 'No dependency at that exact path', { path: fullPath, status: findResponse.status })
 				}
 			} catch (findError) {
 				// If direct path lookup fails, continue with directory listing
-				logger.debug('MultiFileHelpers', ' Direct path lookup failed, trying directory listing:', findError)
+				logger.debug('MultiFileHelpers', 'Direct path lookup failed, falling back to the folder listing', findError)
 			}
 		}
 
@@ -170,15 +170,15 @@ export async function getFileIdByPath(filePath) {
 				files = Array.isArray(data?.files) ? data.files : (data?.files ? Object.values(data.files) : [])
 				folders = Array.isArray(data?.folders) ? data.folders : (data?.folders ? Object.values(data.folders) : [])
 				listingSucceeded = true
-				logger.warn('MultiFileHelpers', ' Files in directory:', Array.isArray(files) ? files.map(f => f?.name || f) : 'not an array')
+				logger.debug('MultiFileHelpers', 'Listed the model folder', { folder: normalizedDirPath, files: files.map(f => f?.name ?? f) })
 			} else {
-				logger.warn('MultiFileHelpers', ' Failed to list files:', response.status, response.statusText)
+				logger.warn('MultiFileHelpers', 'Failed to list the model folder', { folder: normalizedDirPath, status: response.status })
 			}
 		} catch (listError) {
-			logger.warn('MultiFileHelpers', ' Error listing directory, will try texture subdirectories:', listError)
+			logger.warn('MultiFileHelpers', 'Error listing the model folder, falling back to texture directories', listError)
 		}
 
-		logger.warn('MultiFileHelpers', ' Looking for file:', filename, 'in path:', normalizedDirPath)
+		logger.debug('MultiFileHelpers', 'Looking for a dependency', { filename, folder: normalizedDirPath })
 
 		// Ensure files is an array before using .find()
 		if (!Array.isArray(files)) {
@@ -193,8 +193,9 @@ export async function getFileIdByPath(filePath) {
 		// so callers can preserve the original directory structure (e.g., for ZIP exports).
 		let foundInSubdir = null
 		if (!file) {
-			const folderNames = Array.isArray(folders) ? folders.map(d => d?.name || d?.path || d) : []
-			logger.warn('MultiFileHelpers', ' File not in root, checking subdirectories:', folderNames)
+			logger.debug('MultiFileHelpers', 'Not in the model folder, checking its subdirectories', {
+				subdirectories: folders.map(d => d?.name ?? d?.path ?? d),
+			})
 
 			// First, search in folders returned by the API
 			for (const subdir of folders) {
@@ -216,12 +217,12 @@ export async function getFileIdByPath(filePath) {
 
 						if (file) {
 							foundInSubdir = subdir.name
-							logger.info('MultiFileHelpers', ' Found file in subdirectory:', subdir.name, '/', filename)
+							logger.debug('MultiFileHelpers', 'Found the dependency in a subdirectory', { subdir: subdir.name, filename })
 							break
 						}
 					}
 				} catch (subdirError) {
-					logger.warn('MultiFileHelpers', ' Error searching subdirectory:', subdir.name, subdirError)
+					logger.warn('MultiFileHelpers', 'Error searching a subdirectory', { subdir: subdir?.name, error: subdirError })
 				}
 			}
 		}
@@ -235,17 +236,14 @@ export async function getFileIdByPath(filePath) {
 		}
 
 		if (!file) {
-			try {
-				const fileNames = Array.isArray(files) ? files.map(f => f?.name || f) : []
-				logger.warn('MultiFileHelpers', ' File not found:', filename, 'Available files:', fileNames)
-			} catch (logError) {
-				logger.warn('MultiFileHelpers', ' File not found:', filename, '(error logging available files)')
-			}
+			// A model naming a file that is not there is the caller's to report — it
+			// collects them into missingFiles and shows them once, rather than per lookup.
+			logger.debug('MultiFileHelpers', 'No such dependency', { filename, available: files.map(f => f?.name ?? f) })
 		}
 
 		return file ? { id: file.id, subdir: foundInSubdir } : null
 	} catch (error) {
-		logger.warn('MultiFileHelpers', ' Error getting file ID for path:', filePath, error)
+		logger.warn('MultiFileHelpers', 'Unexpected error resolving a dependency path', { filePath, error })
 
 		// The listing has its own error handling, so reaching here means something
 		// unexpected went wrong. The conventional directories are still worth one pass:
