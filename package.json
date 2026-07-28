@@ -26,6 +26,7 @@
     "test:smoke": "npm run build && playwright test tests/smoke",
     "test:smoke:headed": "npm run build && playwright test tests/smoke --headed",
     "size:check": "node scripts/check-bundle-size.mjs",
+    "pr:ready": "node scripts/check-pr-ready.mjs",
     "format:check": "node scripts/check-format-parity.mjs",
     "i18n:check": "node scripts/check-i18n.mjs",
     "i18n:sync": "node scripts/check-i18n.mjs --sync-en --prune",
