@@ -23,6 +23,9 @@ jest.mock('../../../src/utils/dependencyCache.js', () => ({
 	isCacheAvailable: () => false,
 }))
 
+/** What the server drops from a listing that did not ask for dependencies. */
+const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico', 'tiff', 'tif', 'heic', 'heif']
+
 /** @type {string[]} */
 let requested
 
@@ -48,9 +51,20 @@ function serveApi({ find = {}, list = {} }) {
 
 		if (parsed.pathname.endsWith('/api/files/list')) {
 			const folder = parsed.searchParams.get('folder') || ''
-			return Object.hasOwn(list, folder)
-				? { ok: true, status: 200, json: async () => ({ files: [], folders: [], ...list[folder] }) }
-				: { ok: false, status: 404, statusText: 'Not Found' }
+			if (!Object.hasOwn(list, folder)) {
+				return { ok: false, status: 404, statusText: 'Not Found' }
+			}
+
+			const entry = { files: [], folders: [], ...list[folder] }
+			// Faithful to FileController::listFiles: without includeDependencies the
+			// response is filtered to 3D models and images are dropped outright. A mock
+			// that answers with everything regardless makes a caller that forgets the
+			// flag look like it works.
+			const files = parsed.searchParams.get('includeDependencies')
+				? entry.files
+				: entry.files.filter((f) => !IMAGE_EXTENSIONS.includes((f.name.split('.').pop() || '').toLowerCase()))
+
+			return { ok: true, status: 200, json: async () => ({ ...entry, files }) }
 		}
 
 		return { ok: false, status: 404, statusText: 'Not Found' }
@@ -122,6 +136,28 @@ describe('getFileIdByPath: matching within a folder listing', () => {
 		const { getFileIdByPath } = await loadHelpers()
 
 		expect(await getFileIdByPath('models/wood.png')).toEqual({ id: 11, subdir: 'textures' })
+	})
+
+	/**
+	 * The subdirectory search walks whatever folders the listing reports, so a texture
+	 * directory named anything at all should be reachable. It was not: the request for
+	 * each subfolder omitted `includeDependencies`, and in that mode the server filters
+	 * its answer down to 3D models and drops every image — so the one search written to
+	 * find textures in subdirectories could never return one.
+	 *
+	 * Conventionally-named directories still worked, through a separate pass over
+	 * sixteen hardcoded names, which is what hid this.
+	 */
+	it('finds a texture in a subdirectory whose name is not a conventional one', async () => {
+		serveApi({
+			list: {
+				models: { files: [], folders: [{ name: 'skin', path: 'models/skin' }] },
+				'models/skin': { files: [file(11, 'wood.png')] },
+			},
+		})
+		const { getFileIdByPath } = await loadHelpers()
+
+		expect(await getFileIdByPath('models/wood.png')).toEqual({ id: 11, subdir: 'skin' })
 	})
 
 	it('gives up rather than inventing an id when nothing matches', async () => {
