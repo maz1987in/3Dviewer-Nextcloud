@@ -1,0 +1,406 @@
+/*
+ * 3D Viewer design system.
+ *
+ * Implements "Design System.dc.html". That sheet states its own premise — built on the
+ * Nextcloud design language, with full light/dark theme support — so its palette is read
+ * here as a statement of intent rather than as literal values to paste. "Primary #0082C9"
+ * means "the instance's primary colour", which on a themed Nextcloud is not #0082C9 at
+ * all. Every themed token below is therefore a Nextcloud variable with the design
+ * system's own value as the fallback: themed instances follow the admin, and anywhere the
+ * variable is missing still lands exactly on the specified colour.
+ *
+ * The one deliberate exception is the canvas chrome. "Canvas dark #171717" is scoped by
+ * the sheet to the viewer header and HUD, and the HUD variant is described as reserved
+ * for overlays sitting on the 3D canvas. Those must stay dark against the rendered scene
+ * whatever the UI theme is doing, so they are fixed rather than themed — a light-theme
+ * HUD would be unreadable over a dark model, which is the situation the fixed value
+ * exists to prevent.
+ */
+
+:root {
+	/* -------- Themed palette -------- */
+	--tdv-color-primary: var(--color-primary-element, #0082c9);
+	--tdv-color-primary-hover: var(--color-primary-element-hover, #006aa3);
+	--tdv-color-primary-light: var(--color-primary-element-light, #e5f1f8);
+	--tdv-color-on-primary: var(--color-primary-element-text, #fff);
+	--tdv-color-text: var(--color-main-text, #222);
+	--tdv-color-text-secondary: var(--color-text-maxcontrast, #666);
+	--tdv-color-border: var(--color-border, #e6e6e6);
+	--tdv-color-hover-bg: var(--color-background-hover, #ededed);
+	--tdv-color-surface: var(--color-main-background, #fff);
+	--tdv-color-surface-sunken: var(--color-background-dark, #f5f5f5);
+
+	/* Status colours are for live values only — FPS, load failures — never decoration. */
+	--tdv-color-success: var(--color-success, #2d7b41);
+	--tdv-color-warning: var(--color-warning, #a37200);
+	--tdv-color-error: var(--color-error, #db0606);
+
+	/* -------- Canvas chrome: deliberately not themed, see the header note -------- */
+	--tdv-canvas-dark: #171717;
+	--tdv-hud-bg: rgb(24, 24, 24, 0.85);
+	--tdv-hud-text: #f5f5f5;
+	--tdv-hud-text-secondary: #aaa;
+	--tdv-hud-chip-bg: rgb(255, 255, 255, 0.15);
+	--tdv-hud-hover-bg: rgb(255, 255, 255, 0.12);
+
+	/* Lighter than --tdv-color-success on purpose: that value is tuned for contrast on a
+	   light surface, and fails against the HUD's near-black background. */
+	--tdv-hud-success: #5ad471;
+
+	/* -------- Typography -------- */
+	--tdv-font: var(--font-face, -apple-system, blinkmacsystemfont, "Segoe UI", roboto, oxygen-sans, cantarell, ubuntu, "Helvetica Neue", arial, sans-serif);
+
+	/* Numeric readouts only. Values update every frame; a proportional font makes them
+	   jitter as digits change width. */
+	--tdv-font-mono: menlo, consolas, "Liberation Mono", monospace;
+	--tdv-font-size-heading: 20px;
+	--tdv-font-size-section: 16px;
+	--tdv-font-size-body: 15px;
+	--tdv-font-size-secondary: 13px;
+	--tdv-font-size-label: 12px;
+	--tdv-font-weight-bold: 700;
+	--tdv-font-weight-medium: 600;
+
+	/* -------- Geometry -------- */
+
+	/* 44px is both the design system's hit target and Nextcloud's clickable area. */
+	--tdv-hit-target: var(--default-clickable-area, 44px);
+	--tdv-radius-pill: 22px;
+	--tdv-radius-panel: 12px;
+	--tdv-radius-dialog: 16px;
+	--tdv-radius-row: 8px;
+	--tdv-icon-size: 20px;
+	--tdv-icon-size-row: 18px;
+	--tdv-shadow-panel: 0 4px 16px rgb(0, 0, 0, 0.08);
+	--tdv-shadow-floating: 0 8px 32px rgb(0, 0, 0, 0.16);
+	--tdv-shadow-dialog: 0 8px 40px rgb(0, 0, 0, 0.12);
+}
+
+/* ============================ Typography ============================ */
+
+.tdv-heading {
+	font-size: var(--tdv-font-size-heading);
+	font-weight: var(--tdv-font-weight-bold);
+	color: var(--tdv-color-text);
+}
+
+.tdv-section-title {
+	font-size: var(--tdv-font-size-section);
+	font-weight: var(--tdv-font-weight-bold);
+	color: var(--tdv-color-text);
+}
+
+/* Section headings inside a panel: subtle, small, bold. No emoji, per the sheet. */
+.tdv-section-label {
+	padding: 10px 12px 4px;
+	font-size: var(--tdv-font-size-label);
+	font-weight: var(--tdv-font-weight-bold);
+	letter-spacing: 0.02em;
+	color: var(--tdv-color-text-secondary);
+}
+
+.tdv-body {
+	font-size: var(--tdv-font-size-body);
+	color: var(--tdv-color-text);
+}
+
+.tdv-secondary {
+	font-size: var(--tdv-font-size-secondary);
+	color: var(--tdv-color-text-secondary);
+}
+
+.tdv-value {
+	font-family: var(--tdv-font-mono);
+	font-size: var(--tdv-font-size-secondary);
+	font-weight: var(--tdv-font-weight-medium);
+}
+
+/* ============================== Buttons ============================== */
+
+.tdv-btn {
+	display: inline-flex;
+	gap: 8px;
+	align-items: center;
+	justify-content: center;
+	height: var(--tdv-hit-target);
+	padding: 0 20px;
+	font-family: inherit;
+	font-size: var(--tdv-font-size-body);
+	font-weight: var(--tdv-font-weight-medium);
+	cursor: pointer;
+	border: none;
+	border-radius: var(--tdv-radius-pill);
+	background: transparent;
+	color: var(--tdv-color-text);
+}
+
+/* One primary per surface — the sheet reserves the accent for the main action. */
+.tdv-btn--primary {
+	background: var(--tdv-color-primary);
+	color: var(--tdv-color-on-primary);
+}
+
+.tdv-btn--primary:hover,
+.tdv-btn--primary:focus-visible {
+	background: var(--tdv-color-primary-hover);
+}
+
+.tdv-btn--secondary {
+	border: 2px solid var(--tdv-color-primary);
+	color: var(--tdv-color-primary);
+}
+
+.tdv-btn--secondary:hover,
+.tdv-btn--secondary:focus-visible {
+	background: var(--tdv-color-primary-light);
+}
+
+.tdv-btn--tertiary:hover,
+.tdv-btn--tertiary:focus-visible {
+	background: var(--tdv-color-hover-bg);
+}
+
+.tdv-btn--destructive {
+	background: var(--tdv-color-error);
+	color: #fff;
+}
+
+.tdv-btn--icon {
+	width: var(--tdv-hit-target);
+	height: var(--tdv-hit-target);
+	padding: 0;
+}
+
+.tdv-btn--icon:hover,
+.tdv-btn--icon:focus-visible {
+	background: var(--tdv-color-hover-bg);
+}
+
+/* Toggled-on icon button: primary-light background, primary glyph. */
+.tdv-btn--active {
+	background: var(--tdv-color-primary-light);
+	color: var(--tdv-color-primary);
+}
+
+.tdv-btn--icon svg {
+	width: var(--tdv-icon-size);
+	height: var(--tdv-icon-size);
+}
+
+/* Icon buttons on the dark canvas chrome cannot use the themed hover. */
+.tdv-btn--on-canvas {
+	color: #ddd;
+}
+
+.tdv-btn--on-canvas:hover,
+.tdv-btn--on-canvas:focus-visible {
+	background: var(--tdv-hud-hover-bg);
+}
+
+/* ========================= Panels and rows ========================= */
+
+.tdv-panel {
+	overflow: hidden;
+	border: 1px solid var(--tdv-color-border);
+	border-radius: var(--tdv-radius-panel);
+	background: var(--tdv-color-surface);
+	box-shadow: var(--tdv-shadow-panel);
+}
+
+.tdv-panel--floating {
+	box-shadow: var(--tdv-shadow-floating);
+}
+
+.tdv-panel-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 14px 12px 14px 20px;
+	border-bottom: 1px solid var(--tdv-color-border);
+}
+
+/* 44px list row: icon, label, then a trailing shortcut or control. */
+.tdv-row {
+	display: flex;
+	gap: 12px;
+	align-items: center;
+	min-height: var(--tdv-hit-target);
+	padding: 10px 12px;
+	font-size: var(--tdv-font-size-body);
+	cursor: pointer;
+	border-radius: var(--tdv-radius-row);
+	color: var(--tdv-color-text);
+}
+
+.tdv-row:hover,
+.tdv-row:focus-visible {
+	background: var(--tdv-color-surface-sunken);
+}
+
+.tdv-row svg {
+	width: var(--tdv-icon-size-row);
+	height: var(--tdv-icon-size-row);
+	flex-shrink: 0;
+	color: var(--tdv-color-text-secondary);
+}
+
+.tdv-row-trailing {
+	margin-inline-start: auto;
+	font-family: var(--tdv-font-mono);
+	font-size: var(--tdv-font-size-label);
+	color: var(--tdv-color-text-secondary);
+}
+
+/* ================================ HUD ================================ */
+
+/* Overlays that sit on the 3D canvas. Fixed dark, see the header note. */
+.tdv-hud {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	padding: 14px 16px;
+	border-radius: var(--tdv-radius-panel);
+	background: var(--tdv-hud-bg);
+	backdrop-filter: blur(8px);
+	color: var(--tdv-hud-text);
+}
+
+.tdv-hud-row {
+	display: flex;
+	justify-content: space-between;
+	font-size: var(--tdv-font-size-secondary);
+}
+
+.tdv-hud-row dt,
+.tdv-hud-label {
+	color: var(--tdv-hud-text-secondary);
+}
+
+.tdv-hud-value {
+	font-family: var(--tdv-font-mono);
+	font-weight: var(--tdv-font-weight-medium);
+}
+
+.tdv-hud-chip {
+	padding: 2px 8px;
+	font-size: 11px;
+	font-weight: var(--tdv-font-weight-bold);
+	border-radius: 10px;
+	background: var(--tdv-hud-chip-bg);
+	color: #ccc;
+}
+
+/* ============================== Dialog ============================== */
+
+.tdv-dialog {
+	overflow: hidden;
+	max-width: 560px;
+	border: 1px solid var(--tdv-color-border);
+	border-radius: var(--tdv-radius-dialog);
+	background: var(--tdv-color-surface);
+	box-shadow: var(--tdv-shadow-dialog);
+}
+
+.tdv-dialog-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 20px 16px 16px 24px;
+	font-size: var(--tdv-font-size-heading);
+	font-weight: var(--tdv-font-weight-bold);
+}
+
+.tdv-dialog-body {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	padding: 0 24px 20px;
+}
+
+/* One accent per row: the row itself is neutral, only its action carries colour. */
+.tdv-dialog-row {
+	display: flex;
+	gap: 14px;
+	align-items: center;
+	padding: 12px;
+	border: 1px solid var(--tdv-color-border);
+	border-radius: var(--tdv-radius-panel);
+}
+
+.tdv-dialog-row:hover {
+	border-color: var(--tdv-color-primary);
+}
+
+/* =========================== Form controls =========================== */
+
+.tdv-switch {
+	position: relative;
+	width: 40px;
+	height: 24px;
+	cursor: pointer;
+	border-radius: 12px;
+	background: #c9c9c9;
+}
+
+.tdv-switch--on {
+	background: var(--tdv-color-primary);
+}
+
+.tdv-switch::after {
+	position: absolute;
+	inset-block-start: 3px;
+	inset-inline-start: 3px;
+	width: 18px;
+	height: 18px;
+	border-radius: 50%;
+	background: #fff;
+	box-shadow: 0 1px 3px rgb(0, 0, 0, 0.3);
+	content: "";
+}
+
+.tdv-switch--on::after {
+	inset-inline: auto 3px;
+}
+
+.tdv-segmented {
+	display: flex;
+	overflow: hidden;
+	width: fit-content;
+	border: 2px solid var(--tdv-color-primary);
+	border-radius: var(--tdv-radius-pill);
+}
+
+.tdv-segmented button {
+	height: 40px;
+	padding: 0 24px;
+	font-family: inherit;
+	font-size: 14px;
+	font-weight: var(--tdv-font-weight-medium);
+	cursor: pointer;
+	border: none;
+	background: transparent;
+	color: var(--tdv-color-primary);
+}
+
+.tdv-segmented button[aria-pressed="true"] {
+	background: var(--tdv-color-primary);
+	color: var(--tdv-color-on-primary);
+}
+
+.tdv-select {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	height: var(--tdv-hit-target);
+	padding: 0 14px;
+	font-size: var(--tdv-font-size-body);
+	cursor: pointer;
+	border: 2px solid var(--tdv-color-border);
+	border-radius: var(--tdv-radius-row);
+	background: var(--tdv-color-surface);
+}
+
+.tdv-select:hover,
+.tdv-select:focus-visible {
+	border-color: var(--tdv-color-primary);
+}

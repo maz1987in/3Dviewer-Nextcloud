@@ -9,6 +9,10 @@ import { translate, translatePlural } from '@nextcloud/l10n'
 import '@nextcloud/dialogs/style.css'
 import { getPublicShareContext } from './composables/usePublicShare.js'
 
+// Design tokens and primitives for the viewer chrome. Themed values resolve to
+// Nextcloud variables, so a themed instance follows its own palette.
+import './css/design-system.css'
+
 // Forced-colors (Windows High Contrast) accessibility overrides — scoped
 // entirely to @media (forced-colors: active), no effect on default rendering.
 import './css/forced-colors.css'
