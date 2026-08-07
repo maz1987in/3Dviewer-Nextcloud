@@ -21,7 +21,7 @@
 						:aria-label="t('threedviewer', 'Close panel')"
 						:title="t('threedviewer', 'Close (T or Esc)')"
 						@click="closePanel">
-						<span class="icon">×</span>
+						<ViewerIcon name="close" :size="16" />
 					</button>
 				</div>
 
@@ -33,29 +33,31 @@
 							:aria-expanded="sections.view"
 							aria-controls="panel-section-view"
 							@click="toggleSection('view')">
-							<span class="section-icon">📷</span>
 							<span class="section-title">{{ t('threedviewer', 'View') }}</span>
-							<span class="expand-icon">{{ sections.view ? '▼' : '▶' }}</span>
+							<ViewerIcon class="expand-icon"
+								:class="{ collapsed: !sections.view }"
+								name="chevron"
+								:size="15" />
 						</button>
 						<div v-show="sections.view" id="panel-section-view" class="section-content">
 							<button class="tool-btn" @click="emit('reset-view')">
-								<span class="tool-icon">🔄</span>
+								<ViewerIcon class="tool-icon" name="resetView" :size="17" />
 								<span class="tool-label">{{ t('threedviewer', 'Reset View') }}</span>
 							</button>
 							<button class="tool-btn" @click="emit('fit-to-view')">
-								<span class="tool-icon">📏</span>
+								<ViewerIcon class="tool-icon" name="fitToView" :size="17" />
 								<span class="tool-label">{{ t('threedviewer', 'Fit to View') }}</span>
 							</button>
 							<button class="tool-btn"
 								:class="{ 'active': autoRotate }"
 								@click="emit('toggle-auto-rotate')">
-								<span class="tool-icon">🔄</span>
+								<ViewerIcon class="tool-icon" name="autoRotate" :size="17" />
 								<span class="tool-label">{{ autoRotate ? t('threedviewer', 'Auto-Rotate On') : t('threedviewer', 'Auto-Rotate Off') }}</span>
 							</button>
 							<button class="tool-btn"
 								:class="{ 'active': cameraType === 'orthographic' }"
 								@click="emit('toggle-projection')">
-								<span class="tool-icon">📐</span>
+								<ViewerIcon class="tool-icon" name="projection" :size="17" />
 								<span class="tool-label">{{ cameraType === 'perspective' ? t('threedviewer', 'Perspective') : t('threedviewer', 'Orthographic') }}</span>
 							</button>
 							<!-- Copy shareable view link: encodes current camera state
@@ -66,7 +68,7 @@
 								:disabled="!modelLoaded"
 								:title="t('threedviewer', 'Copy a link to this exact viewpoint')"
 								@click="emit('copy-view-link')">
-								<span class="tool-icon">🔗</span>
+								<ViewerIcon class="tool-icon" name="copyLink" :size="17" />
 								<span class="tool-label">{{ t('threedviewer', 'Copy View Link') }}</span>
 							</button>
 							<!-- Bookmarks -->
@@ -75,7 +77,7 @@
 								<button class="tool-btn"
 									:disabled="!modelLoaded"
 									@click="emit('add-bookmark')">
-									<span class="tool-icon">🔖</span>
+									<ViewerIcon class="tool-icon" name="saveView" :size="17" />
 									<span class="tool-label">{{ t('threedviewer', 'Save View') }}</span>
 								</button>
 								<div v-if="bookmarks.length > 0" class="bookmark-list">
@@ -100,9 +102,11 @@
 							:aria-expanded="sections.scene"
 							aria-controls="panel-section-scene"
 							@click="toggleSection('scene')">
-							<span class="section-icon">🎨</span>
 							<span class="section-title">{{ t('threedviewer', 'Scene') }}</span>
-							<span class="expand-icon">{{ sections.scene ? '▼' : '▶' }}</span>
+							<ViewerIcon class="expand-icon"
+								:class="{ collapsed: !sections.scene }"
+								name="chevron"
+								:size="15" />
 						</button>
 						<div v-show="sections.scene" id="panel-section-scene" class="section-content">
 							<label class="toggle-row" @click.prevent="emit('toggle-grid')">
@@ -139,29 +143,31 @@
 							:aria-expanded="sections.analyze"
 							aria-controls="panel-section-analyze"
 							@click="toggleSection('analyze')">
-							<span class="section-icon">📐</span>
 							<span class="section-title">{{ t('threedviewer', 'Analyze') }}</span>
-							<span class="expand-icon">{{ sections.analyze ? '▼' : '▶' }}</span>
+							<ViewerIcon class="expand-icon"
+								:class="{ collapsed: !sections.analyze }"
+								name="chevron"
+								:size="15" />
 						</button>
 						<div v-show="sections.analyze" id="panel-section-analyze" class="section-content">
 							<button class="tool-btn feature-btn"
 								:class="{ 'active': measurementMode }"
 								@click="emit('toggle-measurement')">
-								<span class="tool-icon">📏</span>
+								<ViewerIcon class="tool-icon" name="measurement" :size="17" />
 								<span class="tool-label">{{ t('threedviewer', 'Measurement') }}</span>
 								<span v-if="measurementMode" class="active-badge">{{ t('threedviewer', 'Active') }}</span>
 							</button>
 							<button class="tool-btn feature-btn"
 								:class="{ 'active': annotationMode }"
 								@click="emit('toggle-annotation')">
-								<span class="tool-icon">📝</span>
+								<ViewerIcon class="tool-icon" name="annotation" :size="17" />
 								<span class="tool-label">{{ t('threedviewer', 'Annotation') }}</span>
 								<span v-if="annotationMode" class="active-badge">{{ t('threedviewer', 'Active') }}</span>
 							</button>
 							<button class="tool-btn feature-btn"
 								:class="{ 'active': comparisonMode }"
 								@click="emit('toggle-comparison')">
-								<span class="tool-icon">⚖️</span>
+								<ViewerIcon class="tool-icon" name="comparison" :size="17" />
 								<span class="tool-label">{{ t('threedviewer', 'Comparison') }}</span>
 								<span v-if="comparisonMode" class="active-badge">{{ t('threedviewer', 'Active') }}</span>
 							</button>
@@ -170,7 +176,7 @@
 								:class="{ 'active': clippingActive }"
 								:disabled="!modelLoaded"
 								@click="emit('toggle-clipping')">
-								<span class="tool-icon">✂️</span>
+								<ViewerIcon class="tool-icon" name="crossSection" :size="17" />
 								<span class="tool-label">{{ t('threedviewer', 'Cross-Section') }}</span>
 								<span v-if="clippingActive" class="active-badge">{{ t('threedviewer', 'Active') }}</span>
 							</button>
@@ -261,7 +267,7 @@
 								class="tool-btn feature-btn"
 								:class="{ 'active': explodedViewActive }"
 								@click="emit('toggle-exploded-view')">
-								<span class="tool-icon">💥</span>
+								<ViewerIcon class="tool-icon" name="explode" :size="17" />
 								<span class="tool-label">{{ t('threedviewer', 'Exploded View') }}</span>
 								<span v-if="explodedViewActive" class="active-badge">{{ t('threedviewer', 'Active') }}</span>
 							</button>
@@ -280,7 +286,7 @@
 								:class="{ 'active': transformGizmoActive }"
 								:disabled="!modelLoaded"
 								@click="emit('toggle-transform-gizmo')">
-								<span class="tool-icon">🔀</span>
+								<ViewerIcon class="tool-icon" name="transform" :size="17" />
 								<span class="tool-label">{{ t('threedviewer', 'Transform') }}</span>
 								<span v-if="transformGizmoActive" class="active-badge">{{ t('threedviewer', 'Active') }}</span>
 							</button>
@@ -290,24 +296,24 @@
 										:class="{ 'active': transformGizmoMode === 'translate' }"
 										:title="t('threedviewer', 'Move')"
 										@click="emit('set-transform-mode', 'translate')">
-										↔
+										{{ t('threedviewer', 'Move') }}
 									</button>
 									<button class="axis-btn"
 										:class="{ 'active': transformGizmoMode === 'rotate' }"
 										:title="t('threedviewer', 'Rotate')"
 										@click="emit('set-transform-mode', 'rotate')">
-										🔄
+										{{ t('threedviewer', 'Rotate') }}
 									</button>
 									<button class="axis-btn"
 										:class="{ 'active': transformGizmoMode === 'scale' }"
 										:title="t('threedviewer', 'Scale')"
 										@click="emit('set-transform-mode', 'scale')">
-										⤢
+										{{ t('threedviewer', 'Scale') }}
 									</button>
 									<button class="axis-btn"
 										:title="t('threedviewer', 'Reset transform')"
 										@click="emit('reset-transform')">
-										↩
+										{{ t('threedviewer', 'Reset') }}
 									</button>
 								</div>
 							</div>
@@ -315,7 +321,7 @@
 							<button class="tool-btn"
 								:disabled="!modelLoaded"
 								@click="emit('toggle-stats')">
-								<span class="tool-icon">📊</span>
+								<ViewerIcon class="tool-icon" name="statistics" :size="17" />
 								<span class="tool-label">{{ t('threedviewer', 'Model Statistics') }}</span>
 							</button>
 						</div>
@@ -327,9 +333,11 @@
 							:aria-expanded="sections.animation"
 							aria-controls="panel-section-animation"
 							@click="toggleSection('animation')">
-							<span class="section-icon">▶️</span>
 							<span class="section-title">{{ t('threedviewer', 'Animation') }}</span>
-							<span class="expand-icon">{{ sections.animation ? '▼' : '▶' }}</span>
+							<ViewerIcon class="expand-icon"
+								:class="{ collapsed: !sections.animation }"
+								name="chevron"
+								:size="15" />
 						</button>
 						<div v-show="sections.animation" id="panel-section-animation" class="section-content">
 							<!-- Clip selector -->
@@ -349,7 +357,7 @@
 								<button class="tool-btn"
 									:class="{ 'active': isAnimationPlaying }"
 									@click="emit('toggle-animation-play')">
-									<span class="tool-icon">{{ isAnimationPlaying ? '⏸️' : '▶️' }}</span>
+									<ViewerIcon class="tool-icon" :name="isAnimationPlaying ? 'animationPause' : 'animationPlay'" :size="17" />
 									<span class="tool-label">{{ isAnimationPlaying ? t('threedviewer', 'Pause') : t('threedviewer', 'Play') }}</span>
 								</button>
 								<label class="toggle-row" @click.prevent="emit('toggle-animation-loop')">
@@ -387,13 +395,15 @@
 							:aria-expanded="sections.export"
 							aria-controls="panel-section-export"
 							@click="toggleSection('export')">
-							<span class="section-icon">📤</span>
 							<span class="section-title">{{ t('threedviewer', 'Export') }}</span>
-							<span class="expand-icon">{{ sections.export ? '▼' : '▶' }}</span>
+							<ViewerIcon class="expand-icon"
+								:class="{ collapsed: !sections.export }"
+								name="chevron"
+								:size="15" />
 						</button>
 						<div v-show="sections.export" id="panel-section-export" class="section-content">
 							<button class="tool-btn" @click="emit('take-screenshot')">
-								<span class="tool-icon">📷</span>
+								<ViewerIcon class="tool-icon" name="camera" :size="17" />
 								<span class="tool-label">{{ t('threedviewer', 'Screenshot') }}</span>
 							</button>
 							<div class="tool-group">
@@ -422,7 +432,7 @@
 							<button class="tool-btn"
 								:disabled="!modelLoaded"
 								@click="emit('send-to-slicer')">
-								<span class="tool-icon">🖨️</span>
+								<ViewerIcon class="tool-icon" name="sendToSlicer" :size="17" />
 								<span class="tool-label">{{ t('threedviewer', 'Send to Slicer') }}</span>
 							</button>
 						</div>
@@ -434,17 +444,19 @@
 							:aria-expanded="sections.settings"
 							aria-controls="panel-section-settings"
 							@click="toggleSection('settings')">
-							<span class="section-icon">⚙️</span>
 							<span class="section-title">{{ t('threedviewer', 'Settings') }}</span>
-							<span class="expand-icon">{{ sections.settings ? '▼' : '▶' }}</span>
+							<ViewerIcon class="expand-icon"
+								:class="{ collapsed: !sections.settings }"
+								name="chevron"
+								:size="15" />
 						</button>
 						<div v-show="sections.settings" id="panel-section-settings" class="section-content">
 							<button class="tool-btn" @click="cyclePerformanceMode">
-								<span class="tool-icon">⚡</span>
+								<ViewerIcon class="tool-icon" name="performance" :size="17" />
 								<span class="tool-label">{{ t('threedviewer', 'Performance') }}: {{ getPerformanceModeText() }}</span>
 							</button>
 							<button class="tool-btn" @click="cycleTheme">
-								<span class="tool-icon">{{ getThemeIcon() }}</span>
+								<ViewerIcon class="tool-icon" :name="getThemeIcon()" :size="17" />
 								<span class="tool-label">{{ t('threedviewer', 'Theme') }}: {{ getThemeText() }}</span>
 							</button>
 							<div class="tool-group palette-group">
@@ -504,16 +516,16 @@
 									</div>
 								</div>
 								<button class="tool-btn cache-clear-btn" @click="emit('clear-cache')">
-									<span class="tool-icon">🗑️</span>
+									<ViewerIcon class="tool-icon" name="delete" :size="17" />
 									<span class="tool-label">{{ t('threedviewer', 'Clear Cache') }}</span>
 								</button>
 							</div>
 							<button v-else class="tool-btn" @click="emit('clear-cache')">
-								<span class="tool-icon">🗑️</span>
+								<ViewerIcon class="tool-icon" name="delete" :size="17" />
 								<span class="tool-label">{{ t('threedviewer', 'Clear Cache') }}</span>
 							</button>
 							<button class="tool-btn" @click="emit('toggle-help')">
-								<span class="tool-icon">ⓘ</span>
+								<ViewerIcon class="tool-icon" name="help" :size="17" />
 								<span class="tool-label">{{ t('threedviewer', 'Help') }}</span>
 							</button>
 						</div>
@@ -531,11 +543,16 @@
 
 <script>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import ViewerIcon from './ViewerIcon.vue'
 // eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
 import { translate as t } from '@nextcloud/l10n'
 
 export default {
 	name: 'SlideOutToolPanel',
+
+	components: {
+		ViewerIcon,
+	},
 
 	props: {
 		// View props
@@ -759,10 +776,10 @@ export default {
 
 		const getThemeIcon = () => {
 			switch (props.themeMode) {
-			case 'light': return '☀️'
-			case 'dark': return '🌙'
+			case 'light': return 'themeLight'
+			case 'dark': return 'themeDark'
 			case 'auto':
-			default: return '🌓'
+			default: return 'themeAuto'
 			}
 		}
 
@@ -823,21 +840,27 @@ export default {
 	backdrop-filter: blur(4px);
 }
 
-/* Slide-Out Panel */
+/*
+ * The mockup floats this as a card inset from the viewer's edges rather than filling the
+ * right side to the corners. The top inset is measured from 50px rather than from 0: that
+ * is the Nextcloud header this panel has always started below, and a card at 16px would
+ * be drawn over it.
+ */
 .slide-out-panel {
 	position: fixed;
-	top: 50px;
-	inset-inline-end: 0;
-	bottom: 0;
-	width: 320px;
-	background: var(--tdv-color-surface);
-	color: var(--tdv-color-text);
-	box-shadow: -4px 0 20px rgb(0, 0, 0, 0.15);
+	top: 66px;
+	inset-inline-end: 16px;
+	bottom: 16px;
 	z-index: 1002;
 	display: flex;
 	flex-direction: column;
 	overflow: hidden;
-	border-left: 1px solid var(--tdv-color-border);
+	width: 320px;
+	border: 1px solid var(--tdv-color-border);
+	border-radius: var(--tdv-radius-dialog);
+	background: var(--tdv-color-surface);
+	box-shadow: var(--tdv-shadow-floating);
+	color: var(--tdv-color-text);
 }
 
 /* Panel Header */
@@ -860,12 +883,15 @@ export default {
 .close-btn {
 	background: transparent;
 	border: none;
-	color: var(--tdv-color-text);
-	font-size: 28px;
-	line-height: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 36px;
+	height: 36px;
+	padding: 0;
+	border-radius: 18px;
+	color: var(--tdv-color-text-secondary);
 	cursor: pointer;
-	padding: 4px 8px;
-	border-radius: 4px;
 	transition: background 0.2s ease;
 }
 
@@ -910,9 +936,18 @@ export default {
 }
 
 .section-header:hover { background: var(--tdv-color-hover-bg); }
-.section-icon { font-size: 18px; }
 .section-title { flex: 1; }
-.expand-icon { font-size: 12px; opacity: 0.6; }
+
+/* The chevron points down when open and right when collapsed, rotated rather than
+   swapped so the change reads as the same object moving. */
+.expand-icon {
+	color: var(--tdv-color-text-secondary);
+	transition: transform 0.15s ease;
+}
+
+.expand-icon.collapsed {
+	transform: rotate(-90deg);
+}
 
 .section-content { padding: 8px; }
 
@@ -947,7 +982,7 @@ export default {
 
 .tool-btn:last-child { margin-bottom: 0; }
 .tool-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.tool-icon { font-size: 18px; }
+.tool-icon { color: var(--tdv-color-text-secondary); }
 .tool-label { flex: 1; }
 
 .active-badge {
@@ -1481,7 +1516,8 @@ export default {
 	bottom: 0;
 	width: 100%;
 	max-height: 70vh;
-	border-radius: 16px 16px 0 0;
+	border: none;
+	border-radius: var(--tdv-radius-dialog) var(--tdv-radius-dialog) 0 0;
 }
 
 .slide-panel-enter-from.mobile,

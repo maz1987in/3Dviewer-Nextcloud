@@ -39,7 +39,8 @@ const sources = declaredSources()
 describe('icon paths', () => {
 	it('parses both files, so this guard cannot pass vacuously', () => {
 		expect(Object.keys(paths).length).toBeGreaterThan(5)
-		expect(Object.keys(sources)).toEqual(Object.keys(paths))
+		// Sorted: the generated file orders alphabetically, the source map does not.
+		expect(Object.keys(sources).sort()).toEqual(Object.keys(paths).sort())
 	})
 
 	it.each(Object.keys(paths))('%s is the package\'s current path', (name) => {

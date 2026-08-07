@@ -16,17 +16,48 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
-/** Icon name in this app → component file in the package. */
+/**
+ * Icon name in this app → component file in the package.
+ *
+ * Where the mockup drew an icon, the name here is the one whose path matches it exactly,
+ * looked up in the package rather than chosen by eye. Three of its drawings are not in
+ * this version of the package at all — the ruler, the scissors and the slicer cube — and
+ * those are the nearest equivalent, noted below.
+ */
 export const ICONS = {
 	animationPause: 'Pause',
 	animationPlay: 'Play',
+	autoRotate: 'Autorenew',
+	bookmark: 'BookmarkOutline',
 	camera: 'Camera',
+	chevron: 'MenuDown',
+	close: 'Close',
+	comparison: 'Compare',
 	controller: 'Gamepad',
+	// The mockup's scissors-on-a-line is not in this package version.
+	crossSection: 'ContentCut',
+	copyLink: 'LinkVariant',
+	delete: 'Delete',
+	explode: 'ArrowExpandAll',
+	exportModel: 'Download',
 	fitToView: 'Fullscreen',
 	help: 'HelpCircle',
 	palette: 'Palette',
+	performance: 'Flash',
+	projection: 'Eye',
+	// The mockup's ruler-with-ticks is not in this package version.
+	measurement: 'Ruler',
+	annotation: 'Pencil',
 	resetView: 'Refresh',
+	saveView: 'Pin',
+	// The mockup's cube-being-sent is not in this package version.
+	sendToSlicer: 'Printer3d',
+	statistics: 'ChartBar',
+	themeAuto: 'ThemeLightDark',
+	themeDark: 'WeatherNight',
+	themeLight: 'WhiteBalanceSunny',
 	tools: 'Tune',
+	transform: 'AxisArrow',
 	vr: 'Glasses',
 }
 

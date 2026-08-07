@@ -127,7 +127,7 @@ export default {
 
 	&:hover {
 		border-color: var(--tdv-color-primary);
-		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+		box-shadow: 0 2px 8px rgb(0, 0, 0, 0.1);
 		transform: translateY(-2px);
 	}
 
@@ -183,7 +183,7 @@ export default {
 
 	&:hover {
 		border-color: var(--tdv-color-primary);
-		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+		box-shadow: 0 2px 8px rgb(0, 0, 0, 0.1);
 		transform: translateY(-2px);
 	}
 }

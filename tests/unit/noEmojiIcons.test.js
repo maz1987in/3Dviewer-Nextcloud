@@ -36,7 +36,6 @@ const PENDING = [
 	'components/CircularController.vue',
 	'components/HelpPanel.vue',
 	'components/SlicerModal.vue',
-	'components/SlideOutToolPanel.vue',
 	'components/ThreeViewer.vue',
 	'components/ViewerToolbar.vue',
 	'views/ViewerComponent.vue',
