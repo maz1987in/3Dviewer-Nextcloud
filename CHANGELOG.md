@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **The viewer's top bar is redesigned**, following the mockup: a 56px dark header, the filename centred with its format under it, an FPS pill whose dot turns amber and then red as frames are dropped, and Tools as the one primary button. The controls are Material Design icons rather than emoji — emoji are font, not artwork, so the toolbar was a different set of pictures on every platform and a row of empty boxes on a desktop with no emoji font; they also ignore `currentColor`, so they could not show a disabled or active state, and a screen reader announced the character's Unicode name instead of the action.
+
 ### Added
 - **The Playwright suite now runs in CI**, and is required to merge. It has existed for a long time with nothing running it: `npm run test:e2e` and `npm run ci` both invoke it, no workflow did. Among what was never running is the accessibility guard for `src/css/forced-colors.css`, a sheet whose whole purpose is a failure mode nobody encounters by accident. Adding the workflow needs a matching change to the branch ruleset before the check is enforced on merges.
 - **A browser check that the design system's tokens resolve.** The unit guards read the sheet as text and can tell a token is written as a Nextcloud variable rather than a pasted literal. They cannot tell whether the chain produces a colour when a browser evaluates it — which is exactly how a help icon came to be tinted from a variable Nextcloud does not publish, rendering nothing while reading correctly in the file. An unresolved background computes transparent, so a computed style catches what the text cannot.

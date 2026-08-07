@@ -13,6 +13,7 @@
     "dev": "vite --mode development build",
     "watch": "vite --mode development build --watch",
     "copy-decoders": "node scripts/copy-decoders.mjs",
+    "icons:sync": "node scripts/sync-icon-paths.mjs",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
     "stylelint": "stylelint src/**/*.vue src/**/*.scss src/**/*.css",
