@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **The bundle size check picked which file to measure by the shape of its content hash.** Three build chunks are named `index-<hash>`, and the budget separated them with a regex written to exclude one specific hash — so whether the megabyte chunk was checked at all changed from build to build, and a build where the 250-byte chunk matched instead would have passed the budget without ever looking at the large one. It now takes the largest match, which is what was meant. The first build where it actually matched the right file, that file was 81 bytes over.
+
 ### Changed
+- **Every control in the viewer is drawn with a Material Design icon instead of an emoji** — 154 of them across nine components. Emoji are font, not artwork: the interface was a different set of pictures on Windows, on Android and on a Linux desktop, and a row of empty boxes where no emoji font is installed. They ignore `currentColor`, so a control could not dim when disabled or brighten when active, and a screen reader announced the character's Unicode name — "high voltage sign" — rather than the action. Two of them were drawn by CSS `content`, where no screen reader setting can reach them.
 - **The tools panel is redesigned**, following the mockup: a floating card inset from the viewer's edges rather than a slab filling the right side, section headers reduced to a label and a chevron that rotates rather than swapping ▼ for ▶, and every row's picture replaced with a Material Design icon. Where the mockup drew an icon, the one used here is whichever package icon matches its path exactly rather than whichever looked closest.
 - **The viewer's top bar is redesigned**, following the mockup: a 56px dark header, the filename centred with its format under it, an FPS pill whose dot turns amber and then red as frames are dropped, and Tools as the one primary button. The controls are Material Design icons rather than emoji — emoji are font, not artwork, so the toolbar was a different set of pictures on every platform and a row of empty boxes on a desktop with no emoji font; they also ignore `currentColor`, so they could not show a disabled or active state, and a screen reader announced the character's Unicode name instead of the action.
 

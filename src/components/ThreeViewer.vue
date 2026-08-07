@@ -54,7 +54,7 @@
 			:class="{ 'mobile': isMobile }">
 			<div class="export-progress-content">
 				<div class="export-icon">
-					📦
+					<ViewerIcon name="package" :size="32" />
 				</div>
 				<div class="export-stage">
 					{{ exportProgress.stage || t('threedviewer', 'Preparing export...') }}
@@ -162,10 +162,10 @@
 					<!-- Watertightness badge -->
 					<div class="stats-watertight-row">
 						<span v-if="modelStats.allWatertight === true" class="stats-badge stats-badge-ok">
-							✓ {{ t('threedviewer', 'Watertight — volume is reliable') }}
+							{{ t('threedviewer', 'Watertight — volume is reliable') }}
 						</span>
 						<span v-else-if="modelStats.allWatertight === false" class="stats-badge stats-badge-warn" :title="t('threedviewer', 'Open edges detected — computed volume treats the mesh as if closed and may not match the real enclosed volume.')">
-							⚠ {{ t('threedviewer', 'Not watertight — volume may be unreliable') }}
+							{{ t('threedviewer', 'Not watertight — volume may be unreliable') }}
 						</span>
 						<span v-else class="stats-badge stats-badge-unknown" :title="t('threedviewer', 'Watertightness check skipped for non-indexed or very large meshes.')">
 							? {{ t('threedviewer', 'Watertightness unknown') }}
@@ -222,8 +222,8 @@
 									{{ formatStatNumber(mesh.surfaceArea * statsAreaScale) }} {{ statsUnitConfig.suffix }}² ·
 									{{ formatStatNumber(mesh.volume * statsVolumeScale) }} {{ statsUnitConfig.suffix }}³
 								</span>
-								<span v-if="mesh.watertight === false" class="per-mesh-flag" :title="t('threedviewer', 'Open mesh — volume is approximate')">⚠</span>
-								<span v-else-if="mesh.watertight === true" class="per-mesh-flag per-mesh-flag-ok" :title="t('threedviewer', 'Watertight')">✓</span>
+								<span v-if="mesh.watertight === false" class="per-mesh-flag" :title="t('threedviewer', 'Open mesh — volume is approximate')"><ViewerIcon name="alert" :size="13" /></span>
+								<span v-else-if="mesh.watertight === true" class="per-mesh-flag per-mesh-flag-ok" :title="t('threedviewer', 'Watertight')"><ViewerIcon name="check" :size="13" /></span>
 							</li>
 						</ul>
 					</div>
@@ -266,7 +266,7 @@
 		<div v-if="hasError && errorState" class="error-display" :class="{ 'mobile': isMobile }">
 			<div class="error-content">
 				<div class="error-icon">
-					⚠️
+					<ViewerIcon name="alert" :size="32" />
 				</div>
 				<div class="error-message">
 					{{ errorState?.message || t('threedviewer', 'An error occurred') }}
@@ -303,15 +303,15 @@
 		<div v-if="isComparisonMode && hasComparisonModel" class="comparison-controls" :class="{ 'mobile': isMobile }">
 			<div class="comparison-buttons">
 				<button class="comparison-btn" :title="t('threedviewer', 'Toggle original model')" @click="toggleOriginalModel">
-					<span class="btn-icon">👁️</span>
+					<ViewerIcon class="btn-icon" name="visibility" :size="18" />
 					<span class="btn-text">{{ t('threedviewer', 'Original') }}</span>
 				</button>
 				<button class="comparison-btn" :title="t('threedviewer', 'Toggle comparison model')" @click="toggleComparisonModel">
-					<span class="btn-icon">👁️</span>
+					<ViewerIcon class="btn-icon" name="visibility" :size="18" />
 					<span class="btn-text">{{ t('threedviewer', 'Comparison') }}</span>
 				</button>
 				<button class="comparison-btn" :title="t('threedviewer', 'Fit both models to view')" @click="fitBothModelsToView">
-					<span class="btn-icon">📏</span>
+					<ViewerIcon class="btn-icon" name="measurement" :size="18" />
 					<span class="btn-text">{{ t('threedviewer', 'Fit Both') }}</span>
 				</button>
 				<button
@@ -319,7 +319,7 @@
 					class="comparison-btn"
 					:title="t('threedviewer', 'Show diff overlay')"
 					@click="showDiffOverlayPanel">
-					<span class="btn-icon">📊</span>
+					<ViewerIcon class="btn-icon" name="statistics" :size="18" />
 					<span class="btn-text">{{ t('threedviewer', 'Diff') }}</span>
 				</button>
 			</div>
@@ -450,7 +450,7 @@
 
 		<!-- Texture Loading Indicator (Bottom-Right) -->
 		<div v-if="loadingTextures && textureProgress.total > 0" class="texture-progress-indicator">
-			<span class="texture-icon">🖼️</span>
+			<ViewerIcon class="texture-icon" name="texture" :size="16" />
 			<span class="texture-status">
 				{{ t('threedviewer', 'Loading textures') }}... {{ textureProgress.loaded }}/{{ textureProgress.total }}
 			</span>
@@ -462,7 +462,7 @@
 		<!-- Performance Stats Overlay (Dev/Debug) -->
 		<div v-if="showPerformanceStats && performance && currentFPS > 0 && !isMobile" class="performance-stats">
 			<div class="stats-header">
-				<span class="stats-icon">📊</span>
+				<ViewerIcon class="stats-icon" name="statistics" :size="16" />
 				<span class="stats-title">Performance</span>
 				<button
 					class="stats-mode clickable"
@@ -522,15 +522,15 @@
 		<!-- Mobile gesture hints -->
 		<div v-if="isMobile && !isLoading && modelRoot" class="mobile-hints">
 			<div class="hint-item">
-				<span class="hint-icon">👆</span>
+				<ViewerIcon class="hint-icon" name="gestureTap" :size="18" />
 				<span class="hint-text">{{ t('threedviewer', 'Drag to rotate') }}</span>
 			</div>
 			<div class="hint-item">
-				<span class="hint-icon">🤏</span>
+				<ViewerIcon class="hint-icon" name="gesturePinch" :size="18" />
 				<span class="hint-text">{{ t('threedviewer', 'Pinch to zoom') }}</span>
 			</div>
 			<div class="hint-item">
-				<span class="hint-icon">👆👆</span>
+				<ViewerIcon class="hint-icon" name="gestureDoubleTap" :size="18" />
 				<span class="hint-text">{{ t('threedviewer', 'Double tap to reset') }}</span>
 			</div>
 		</div>
@@ -669,6 +669,7 @@
 
 <script>
 import { ref, shallowRef, markRaw, toRaw, onMounted, onBeforeUnmount, watch, computed, nextTick } from 'vue'
+import ViewerIcon from './ViewerIcon.vue'
 import * as THREE from 'three'
 import { NcProgressBar, NcButton } from '@nextcloud/vue'
 import { generateUrl, imagePath } from '@nextcloud/router'
@@ -709,6 +710,7 @@ import { initCache, clearExpired, clearAll, getCacheStats } from '../utils/depen
 export default {
 	name: 'ThreeViewer',
 	components: {
+		ViewerIcon,
 		NcProgressBar,
 		NcButton,
 		CircularController,
@@ -1167,7 +1169,7 @@ export default {
 				emit('push-toast', {
 					type: 'info',
 					title: t('threedviewer', 'Heavy model detected'),
-					message: t('threedviewer', 'Model has ~{faces} faces. Enable Performance mode (⚡) to improve FPS.', {
+					message: t('threedviewer', 'Model has ~{faces} faces. Enable Performance mode to improve FPS.', {
 						faces: faces.toLocaleString(),
 					}),
 					timeout: 7000,

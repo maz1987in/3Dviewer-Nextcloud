@@ -65,7 +65,7 @@
 			class="animation-control-button"
 			:title="isAnimationPlayingComputed ? t('threedviewer', 'Pause animation') : t('threedviewer', 'Play animation')"
 			@click.prevent="toggleAnimation">
-			{{ isAnimationPlayingComputed ? '⏸️' : '▶️' }}
+			<ViewerIcon :name="isAnimationPlayingComputed ? 'animationPause' : 'animationPlay'" :size="18" />
 		</NcButton>
 
 		<!-- Bottom-right action buttons -->
@@ -75,7 +75,7 @@
 				:aria-label="t('threedviewer', 'Screenshot')"
 				:title="t('threedviewer', 'Screenshot')"
 				@click.prevent="captureScreenshot">
-				📸
+				<ViewerIcon name="camera" :size="18" />
 			</button>
 			<button
 				class="viewer-action-btn"
@@ -85,7 +85,7 @@
 				aria-controls="viewer-stats-panel"
 				:title="t('threedviewer', 'Model info')"
 				@click.prevent="showStats = !showStats">
-				📊
+				<ViewerIcon name="statistics" :size="18" />
 			</button>
 		</div>
 
@@ -117,6 +117,7 @@
 
 <script>
 import { markRaw } from 'vue'
+import ViewerIcon from '../components/ViewerIcon.vue'
 import { NcProgressBar, NcButton } from '@nextcloud/vue'
 import { generateUrl } from '@nextcloud/router'
 import { buildFileUrl, getPublicShareContext, isPublicShare } from '../composables/usePublicShare.js'
@@ -134,6 +135,7 @@ import { logger } from '../utils/logger.js'
 export default {
 	name: 'ViewerComponent',
 	components: {
+		ViewerIcon,
 		NcProgressBar,
 		NcButton,
 	},

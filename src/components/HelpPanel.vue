@@ -24,14 +24,14 @@
 					<h3>{{ t('threedviewer', '3D Controller') }}</h3>
 					<div class="help-grid">
 						<div class="help-item">
-							<span class="help-icon">🎮</span>
+							<ViewerIcon class="help-icon" name="controller" :size="18" />
 							<div class="help-text">
 								<h4>{{ t('threedviewer', 'Toggle Controller') }}</h4>
 								<p>{{ t('threedviewer', 'Show or hide the 3D navigation controller from the top toolbar. The controller is draggable and can be positioned anywhere on screen.') }}</p>
 							</div>
 						</div>
 						<div class="help-item">
-							<span class="help-icon">🔄</span>
+							<ViewerIcon class="help-icon" name="resetView" :size="18" />
 							<div class="help-text">
 								<h4>{{ t('threedviewer', 'Rotation Mode') }}</h4>
 								<p>{{ t('threedviewer', 'Click or drag on the circular ring to rotate the model. Click farther from center for faster rotation.') }}</p>
@@ -73,28 +73,28 @@
 					<h3>{{ t('threedviewer', 'VIEW Controls') }}</h3>
 					<div class="help-grid">
 						<div class="help-item">
-							<span class="help-icon">🔄</span>
+							<ViewerIcon class="help-icon" name="resetView" :size="18" />
 							<div class="help-text">
 								<h4>{{ t('threedviewer', 'Reset View') }}</h4>
 								<p>{{ t('threedviewer', 'Reset camera to initial position and zoom level.') }}</p>
 							</div>
 						</div>
 						<div class="help-item">
-							<span class="help-icon">📏</span>
+							<ViewerIcon class="help-icon" name="measurement" :size="18" />
 							<div class="help-text">
 								<h4>{{ t('threedviewer', 'Fit to View') }}</h4>
 								<p>{{ t('threedviewer', 'Automatically adjust camera to fit the entire model on screen.') }}</p>
 							</div>
 						</div>
 						<div class="help-item">
-							<span class="help-icon">🔄</span>
+							<ViewerIcon class="help-icon" name="resetView" :size="18" />
 							<div class="help-text">
 								<h4>{{ t('threedviewer', 'Auto-Rotate') }}</h4>
 								<p>{{ t('threedviewer', 'Automatically rotate the model continuously. You can still zoom while rotating.') }}</p>
 							</div>
 						</div>
 						<div class="help-item">
-							<span class="help-icon">👁️</span>
+							<ViewerIcon class="help-icon" name="visibility" :size="18" />
 							<div class="help-text">
 								<h4>{{ t('threedviewer', 'Camera Projection') }}</h4>
 								<p>{{ t('threedviewer', 'Toggle between Perspective (realistic depth) and Orthographic (parallel lines) camera modes.') }}</p>
@@ -115,21 +115,21 @@
 							</div>
 						</div>
 						<div class="help-item">
-							<span class="help-icon">📐</span>
+							<ViewerIcon class="help-icon" name="projection" :size="18" />
 							<div class="help-text">
 								<h4>{{ t('threedviewer', 'Axes') }}</h4>
 								<p>{{ t('threedviewer', 'Show or hide coordinate axes (Red=X, Green=Y, Blue=Z).') }}</p>
 							</div>
 						</div>
 						<div class="help-item">
-							<span class="help-icon">🔲</span>
+							<ViewerIcon class="help-icon" name="wireframe" :size="18" />
 							<div class="help-text">
 								<h4>{{ t('threedviewer', 'Wireframe') }}</h4>
 								<p>{{ t('threedviewer', 'Toggle wireframe mode to see the model\'s edge structure.') }}</p>
 							</div>
 						</div>
 						<div class="help-item">
-							<span class="help-icon">🎨</span>
+							<ViewerIcon class="help-icon" name="palette" :size="18" />
 							<div class="help-text">
 								<h4>{{ t('threedviewer', 'Background Color') }}</h4>
 								<p>{{ t('threedviewer', 'Change the scene background color using the color picker.') }}</p>
@@ -143,35 +143,35 @@
 					<h3>{{ t('threedviewer', 'TOOLS') }}</h3>
 					<div class="help-grid">
 						<div class="help-item">
-							<span class="help-icon">📏</span>
+							<ViewerIcon class="help-icon" name="measurement" :size="18" />
 							<div class="help-text">
 								<h4>{{ t('threedviewer', 'Measurement') }}</h4>
 								<p>{{ t('threedviewer', 'Click on two points to measure distance. Switch units between mm, cm, m, inches, and feet.') }}</p>
 							</div>
 						</div>
 						<div class="help-item">
-							<span class="help-icon">📝</span>
+							<ViewerIcon class="help-icon" name="annotation" :size="18" />
 							<div class="help-text">
 								<h4>{{ t('threedviewer', 'Annotation') }}</h4>
 								<p>{{ t('threedviewer', 'Click on the model to add text notes. Edit or delete annotations as needed.') }}</p>
 							</div>
 						</div>
 						<div class="help-item">
-							<span class="help-icon">⚖️</span>
+							<ViewerIcon class="help-icon" name="comparison" :size="18" />
 							<div class="help-text">
 								<h4>{{ t('threedviewer', 'Comparison') }}</h4>
 								<p>{{ t('threedviewer', 'Compare two 3D models side-by-side. Select a second model to compare with the current one.') }}</p>
 							</div>
 						</div>
 						<div class="help-item">
-							<span class="help-icon">✂️</span>
+							<ViewerIcon class="help-icon" name="crossSection" :size="18" />
 							<div class="help-text">
 								<h4>{{ t('threedviewer', 'Cross-Section') }}</h4>
 								<p>{{ t('threedviewer', 'Slice through the model along X, Y, or Z axes. Adjust position with the slider and flip direction to view either side.') }}</p>
 							</div>
 						</div>
 						<div class="help-item">
-							<span class="help-icon">💥</span>
+							<ViewerIcon class="help-icon" name="explode" :size="18" />
 							<div class="help-text">
 								<h4>{{ t('threedviewer', 'Exploded View') }}</h4>
 								<p>{{ t('threedviewer', 'For multi-mesh models, spread parts outward from center. Adjust the explosion factor with the slider. Only available when the model has 2 or more meshes.') }}</p>
@@ -185,21 +185,21 @@
 					<h3>{{ t('threedviewer', 'SLICER & EXPORT') }}</h3>
 					<div class="help-grid">
 						<div class="help-item">
-							<span class="help-icon">🖨️</span>
+							<ViewerIcon class="help-icon" name="sendToSlicer" :size="18" />
 							<div class="help-text">
 								<h4>{{ t('threedviewer', 'Send to Slicer') }}</h4>
 								<p>{{ t('threedviewer', 'Export and send the model to a desktop slicer app (PrusaSlicer, Cura, BambuStudio, etc.). Choose STL, OBJ, or PLY format before sending. A temporary share link is created automatically.') }}</p>
 							</div>
 						</div>
 						<div class="help-item">
-							<span class="help-icon">📦</span>
+							<ViewerIcon class="help-icon" name="package" :size="18" />
 							<div class="help-text">
 								<h4>{{ t('threedviewer', 'Export Model') }}</h4>
 								<p>{{ t('threedviewer', 'Download the model as GLB (with textures), STL (for 3D printing), or OBJ (universal format). Large models show a triangle count warning before export.') }}</p>
 							</div>
 						</div>
 						<div class="help-item">
-							<span class="help-icon">📷</span>
+							<ViewerIcon class="help-icon" name="camera" :size="18" />
 							<div class="help-text">
 								<h4>{{ t('threedviewer', 'Screenshot') }}</h4>
 								<p>{{ t('threedviewer', 'Capture a PNG screenshot of the current view. Also available in the modal file preview.') }}</p>
@@ -213,42 +213,42 @@
 					<h3>{{ t('threedviewer', 'SETTINGS') }}</h3>
 					<div class="help-grid">
 						<div class="help-item">
-							<span class="help-icon">⚡</span>
+							<ViewerIcon class="help-icon" name="performance" :size="18" />
 							<div class="help-text">
 								<h4>{{ t('threedviewer', 'Performance') }}</h4>
 								<p>{{ t('threedviewer', 'Cycle through quality modes: Auto (detects your device), Low, Balanced, High, Ultra. Affects rendering quality and frame rate.') }}</p>
 							</div>
 						</div>
 						<div class="help-item">
-							<span class="help-icon">🌓</span>
+							<ViewerIcon class="help-icon" name="themeAuto" :size="18" />
 							<div class="help-text">
 								<h4>{{ t('threedviewer', 'Theme') }}</h4>
 								<p>{{ t('threedviewer', 'Choose theme: Auto (follows system), Light, or Dark mode.') }}</p>
 							</div>
 						</div>
 						<div class="help-item">
-							<span class="help-icon">💡</span>
+							<ViewerIcon class="help-icon" name="hint" :size="18" />
 							<div class="help-text">
 								<h4>{{ t('threedviewer', 'Lighting Presets') }}</h4>
 								<p>{{ t('threedviewer', 'Quick-switch between 5 lighting setups: Default, Studio, Outdoor, Dramatic, and Flat. Each adjusts ambient, directional, and point lights.') }}</p>
 							</div>
 						</div>
 						<div class="help-item">
-							<span class="help-icon">🔖</span>
+							<ViewerIcon class="help-icon" name="bookmark" :size="18" />
 							<div class="help-text">
 								<h4>{{ t('threedviewer', 'Bookmarks') }}</h4>
 								<p>{{ t('threedviewer', 'Save camera positions with display state (grid, axes, wireframe). Click a bookmark to restore the view. Bookmarks persist in your browser.') }}</p>
 							</div>
 						</div>
 						<div class="help-item">
-							<span class="help-icon">📊</span>
+							<ViewerIcon class="help-icon" name="statistics" :size="18" />
 							<div class="help-text">
 								<h4>{{ t('threedviewer', 'Model Statistics') }}</h4>
 								<p>{{ t('threedviewer', 'View detailed information: vertices, faces, materials, textures, and dimensions.') }}</p>
 							</div>
 						</div>
 						<div class="help-item">
-							<span class="help-icon">🗄️</span>
+							<ViewerIcon class="help-icon" name="database" :size="18" />
 							<div class="help-text">
 								<h4>{{ t('threedviewer', 'Dependency Cache') }}</h4>
 								<p>{{ t('threedviewer', 'Textures and materials are cached locally in your browser for faster reloads. Configure max size, expiration, or clear the cache in Personal Settings.') }}</p>
@@ -307,6 +307,7 @@
 
 <script>
 import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import ViewerIcon from './ViewerIcon.vue'
 // eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
 import { translate as t } from '@nextcloud/l10n'
 import { FORMATS_DISPLAY_LIST } from '../config/viewer-config.js'
@@ -314,6 +315,10 @@ import { useFocusTrap } from '../composables/useFocusTrap.js'
 
 export default {
 	name: 'HelpPanel',
+
+	components: {
+		ViewerIcon,
+	},
 
 	emits: ['close'],
 
@@ -569,9 +574,14 @@ export default {
 }
 
 .tips-list li::before {
-	content: '💡';
+	content: '';
 	position: absolute;
-	inset-inline-start: -24px;
+	inset-inline-start: -16px;
+	top: 8px;
+	width: 5px;
+	height: 5px;
+	border-radius: 50%;
+	background: var(--tdv-color-primary);
 }
 
 .tips-list li:last-child {
@@ -743,11 +753,14 @@ export default {
 	}
 
 	.tips-list li::before {
-		content: '💡';
+		content: '';
 		position: absolute;
 		left: 0;
-		top: 4px;
-		font-size: 10px;
+		top: 8px;
+		width: 5px;
+		height: 5px;
+		border-radius: 50%;
+		background: var(--tdv-color-primary);
 	}
 
 	.tips-list li:last-child {

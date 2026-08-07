@@ -54,7 +54,7 @@
 
 				<!-- Error State -->
 				<div v-if="errorMessage" class="error-state">
-					<span class="error-icon">⚠️</span>
+					<ViewerIcon class="error-icon" name="alert" :size="20" />
 					<p>{{ errorMessage }}</p>
 					<button class="retry-btn" @click="clearError">
 						{{ t('threedviewer', 'Dismiss') }}
@@ -89,7 +89,7 @@
 								:disabled="!modelObject"
 								:title="t('threedviewer', 'Open directly in {name}', { name: slicer.name })"
 								@click="handleOpenInSlicer(slicer.id)">
-								<span class="btn-icon">🚀</span>
+								<ViewerIcon class="btn-icon" name="openExternal" :size="18" />
 								{{ t('threedviewer', 'Open in {name}', { name: slicer.name }) }}
 							</button>
 						</div>
@@ -108,14 +108,14 @@
 						:aria-label="t('threedviewer', 'Copy link')"
 						:title="t('threedviewer', 'Copy link')"
 						@click="copyShareLink">
-						{{ copied ? '✓' : '📋' }}
+						<ViewerIcon :name="copied ? 'check' : 'copy'" :size="16" />
 					</button>
 				</div>
 
 				<!-- Info Footer -->
 				<div v-if="!exporting" class="modal-info">
 					<p class="info-text">
-						<span class="info-icon">💡</span>
+						<ViewerIcon class="info-icon" name="hint" :size="18" />
 						<strong>{{ t('threedviewer', 'Tip:') }}</strong> {{ t('threedviewer', 'The app creates a temporary Nextcloud share link that works with slicer applications. Link expires after 24 hours.') }}
 					</p>
 				</div>
@@ -126,6 +126,7 @@
 
 <script>
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import ViewerIcon from './ViewerIcon.vue'
 // eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
 import { translate as t } from '@nextcloud/l10n'
 import { generateUrl } from '@nextcloud/router'
@@ -136,6 +137,10 @@ import { logger } from '../utils/logger.js'
 
 export default {
 	name: 'SlicerModal',
+
+	components: {
+		ViewerIcon,
+	},
 
 	props: {
 		isOpen: {

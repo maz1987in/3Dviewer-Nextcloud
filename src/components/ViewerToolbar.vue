@@ -8,7 +8,7 @@
 				class="tb"
 				type="button"
 				@click="$emit('reset-view')">
-				<span class="tb-icon">🔄</span>
+				<ViewerIcon class="tb-icon" name="resetView" :size="18" />
 				<span class="tb-text">{{ t('threedviewer','Reset') }}</span>
 			</button>
 			<button :aria-label="t('threedviewer','Fit to view')"
@@ -16,7 +16,7 @@
 				type="button"
 				:title="t('threedviewer','Fit model to view')"
 				@click="$emit('fit-to-view')">
-				<span class="tb-icon">📏</span>
+				<ViewerIcon class="tb-icon" name="measurement" :size="18" />
 				<span class="tb-text">{{ t('threedviewer','Fit') }}</span>
 			</button>
 			<button :aria-pressed="autoRotate"
@@ -25,7 +25,7 @@
 				type="button"
 				:title="t('threedviewer','Toggle auto-rotate')"
 				@click="$emit('toggle-auto-rotate')">
-				<span class="tb-icon">🔄</span>
+				<ViewerIcon class="tb-icon" name="resetView" :size="18" />
 				<span class="tb-text">{{ autoRotate ? t('threedviewer','Auto-rotate on') : t('threedviewer','Auto-rotate off') }}</span>
 			</button>
 			<div v-if="!isMobile" class="view-presets">
@@ -56,7 +56,7 @@
 				type="button"
 				:title="t('threedviewer','Toggle axes')"
 				@click="$emit('toggle-axes')">
-				<span class="tb-icon">📐</span>
+				<ViewerIcon class="tb-icon" name="projection" :size="18" />
 				<span class="tb-text">{{ axes ? t('threedviewer','Axes on') : t('threedviewer','Axes off') }}</span>
 			</button>
 			<button :aria-pressed="faceLabels"
@@ -65,7 +65,7 @@
 				type="button"
 				:title="t('threedviewer','Toggle face labels')"
 				@click="$emit('toggle-face-labels')">
-				<span class="tb-icon">🏷️</span>
+				<ViewerIcon class="tb-icon" name="faceLabels" :size="18" />
 				<span class="tb-text">{{ faceLabels ? t('threedviewer','Labels on') : t('threedviewer','Labels off') }}</span>
 			</button>
 			<button :aria-pressed="wireframe"
@@ -74,7 +74,7 @@
 				type="button"
 				:title="t('threedviewer','Toggle wireframe')"
 				@click="$emit('toggle-wireframe')">
-				<span class="tb-icon">🔲</span>
+				<ViewerIcon class="tb-icon" name="wireframe" :size="18" />
 				<span class="tb-text">{{ wireframe ? t('threedviewer','Wireframe on') : t('threedviewer','Wireframe off') }}</span>
 			</button>
 			<!-- Advanced features -->
@@ -84,7 +84,7 @@
 				type="button"
 				:title="t('threedviewer','Measurement tools')"
 				@click="$emit('toggle-measurement')">
-				<span class="tb-icon">📏</span>
+				<ViewerIcon class="tb-icon" name="measurement" :size="18" />
 				<span class="tb-text">{{ t('threedviewer','Measure') }}</span>
 			</button>
 			<button :aria-pressed="annotationMode"
@@ -93,7 +93,7 @@
 				type="button"
 				:title="t('threedviewer','Add annotations')"
 				@click="$emit('toggle-annotation')">
-				<span class="tb-icon">📝</span>
+				<ViewerIcon class="tb-icon" name="annotation" :size="18" />
 				<span class="tb-text">{{ t('threedviewer','Annotate') }}</span>
 			</button>
 			<button :aria-pressed="comparisonMode"
@@ -102,7 +102,7 @@
 				type="button"
 				:title="t('threedviewer','Compare models')"
 				@click="$emit('toggle-comparison')">
-				<span class="tb-icon">⚖️</span>
+				<ViewerIcon class="tb-icon" name="comparison" :size="18" />
 				<span class="tb-text">{{ t('threedviewer','Compare') }}</span>
 			</button>
 			<button :aria-label="t('threedviewer','Send to Slicer')"
@@ -111,7 +111,7 @@
 				:title="t('threedviewer','Send model to 3D printing slicer')"
 				:disabled="!modelLoaded"
 				@click="$emit('send-to-slicer')">
-				<span class="tb-icon">🖨️</span>
+				<ViewerIcon class="tb-icon" name="sendToSlicer" :size="18" />
 				<span class="tb-text">{{ t('threedviewer','Send to Slicer') }}</span>
 			</button>
 			<!-- Animation controls -->
@@ -121,7 +121,7 @@
 				type="button"
 				:title="isAnimationPlaying ? t('threedviewer','Pause animation') : t('threedviewer','Play animation')"
 				@click="$emit('toggle-animation-play')">
-				<span class="tb-icon">{{ isAnimationPlaying ? '⏸️' : '▶️' }}</span>
+				<ViewerIcon class="tb-icon" :name="isAnimationPlaying ? 'animationPause' : 'animationPlay'" :size="18" />
 				<span class="tb-text">{{ isAnimationPlaying ? t('threedviewer','Pause') : t('threedviewer','Play') }}</span>
 			</button>
 			<button v-if="hasAnimations"
@@ -132,7 +132,7 @@
 				:title="t('threedviewer','Toggle animation loop')"
 				:class="{ 'active': isAnimationLooping }"
 				@click="$emit('toggle-animation-loop')">
-				<span class="tb-icon">🔁</span>
+				<ViewerIcon class="tb-icon" name="loop" :size="18" />
 				<span class="tb-text">{{ isAnimationLooping ? t('threedviewer','Loop on') : t('threedviewer','Loop off') }}</span>
 			</button>
 			<button :aria-label="t('threedviewer','Performance settings')"
@@ -140,11 +140,11 @@
 				type="button"
 				:title="t('threedviewer','Click to cycle performance mode')"
 				@click="cyclePerformanceMode">
-				<span class="tb-icon">⚡</span>
+				<ViewerIcon class="tb-icon" name="performance" :size="18" />
 				<span class="tb-text">{{ getPerformanceModeText() }}</span>
 			</button>
 			<label class="color-picker" :aria-label="t('threedviewer','Background color')">
-				<span class="tb-icon">🎨</span>
+				<ViewerIcon class="tb-icon" name="palette" :size="18" />
 				<input type="color" :value="background" @input="$emit('change-background', $event.target.value)">
 			</label>
 		</div>
@@ -152,8 +152,13 @@
 </template>
 
 <script>
+import ViewerIcon from './ViewerIcon.vue'
 export default {
 	name: 'ViewerToolbar',
+
+	components: {
+		ViewerIcon,
+	},
 	props: {
 		grid: { type: Boolean, default: true },
 		axes: { type: Boolean, default: true },

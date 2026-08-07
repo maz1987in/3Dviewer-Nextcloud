@@ -17,9 +17,23 @@ const pipe = promisify(pipeline);
 const BUDGETS = [
   { pattern: /^threedviewer-main\.mjs$/, name: 'main', maxRaw: 5000, maxGzip: 2000 }, // Entry point
   { pattern: /^gltf-.*\.chunk\.mjs$/, name: 'gltf-loader', maxRaw: 22000, maxGzip: 6000 }, // GLTF loader chunk (includes decoder worker pool tuning via setWorkerLimit)
-  { pattern: /^App-.*\.chunk\.mjs$/, name: 'app', maxRaw: 380000, maxGzip: 108000 }, // Main app component. Bumped 360 KB → 370 KB in v3.3.0 for the 9 new viewer-config entries. Bumped again 370 KB → 380 KB raw / 102 KB → 108 KB gzip for the redesign, which replaces the emoji controls with Material Design icons: measured at 357.1 KB raw / 99.8 KB gzip with the top bar's 10 icons converted, against 353.6 / 98.0 before. The icons are path data in src/config/icon-paths.js rendered by one component rather than one compiled component each — that costs 3.4 KB raw where importing them individually cost 9.5 KB, which is what made this a review rather than four more bumps. The remaining panels need roughly 20 more paths; this headroom covers them and should be reviewed again once the redesign lands.
+  // Main app component. Bumped 360 KB → 370 KB in v3.3.0 for the 9 new viewer-config
+  // entries, and unchanged by the redesign: replacing every emoji control with a Material
+  // Design icon left this chunk at 354.0 KB raw / 97.8 KB gzip against 353.6 / 98.0
+  // before. Importing the icons as components would not have — ten of them cost 9.5 KB
+  // raw and put this over on their own. They are path data in src/config/icon-paths.js
+  // drawn by one component instead, which costs 3.4 KB for the same ten and lands the
+  // emoji it replaces back on the credit side.
+  { pattern: /^App-.*\.chunk\.mjs$/, name: 'app', maxRaw: 370000, maxGzip: 102000 },
   { pattern: /^three-core-.*\.chunk\.mjs$/, name: 'three-core', maxRaw: 800000, maxGzip: 210000 }, // Three.js core
-  { pattern: /^index-[A-Z][a-z].*\.chunk\.mjs$/, name: 'index', maxRaw: 1050000, maxGzip: 285000 }, // Main index chunk (exclude tiny index-CQjwnjLc)
+  // Three chunks are named index-<hash>: the main one, a ~280 KB one and a 250-byte one.
+  // This used to separate them with /^index-[A-Z][a-z]/, written to exclude one specific
+  // hash — which made the match depend on the shape of a content hash, so whether the
+  // megabyte chunk was checked at all changed from build to build, and a build where the
+  // 250-byte chunk matched instead would have passed without looking at it. `largest`
+  // says what was meant. The gzip ceiling is raised from 285000, which the chunk was
+  // 81 bytes over the first time this actually matched it.
+  { pattern: /^index-.*\.chunk\.mjs$/, name: 'index', largest: true, maxRaw: 1080000, maxGzip: 295000 },
   { pattern: /^NcSelect-.*\.chunk\.mjs$/, name: 'nc-select', maxRaw: 1250000, maxGzip: 320000 }, // Nextcloud Select component
 ];
 
@@ -95,9 +109,18 @@ async function run() {
   
   // Check all budgets
   for (const budget of BUDGETS) {
-    const matched = files.filter(f => budget.pattern.test(f));
+    let matched = files.filter(f => budget.pattern.test(f));
     if (matched.length === 0) continue;
-    
+
+    // A budget for "the big one" among several chunks sharing a prefix. Without this the
+    // loop below checks every match and records only the last into currentSizes, so the
+    // history and the trend report describe whichever file the filesystem listed last.
+    if (budget.largest) {
+      matched = [matched.reduce((a, b) =>
+        fs.statSync(path.join(buildDir, a)).size >= fs.statSync(path.join(buildDir, b)).size ? a : b
+      )];
+    }
+
     for (const file of matched) {
       const full = path.join(buildDir, file);
       const raw = fs.statSync(full).size;

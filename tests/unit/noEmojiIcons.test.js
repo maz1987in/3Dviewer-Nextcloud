@@ -16,30 +16,16 @@
  *   Material Design icon inheriting the button's colour, which is what `--tdv-icon-size`
  *   is for.
  *
- * Conversion is one component at a time, so this carries the list of files still to do.
- * The second test is the one that keeps the list honest: a file that has been converted
- * has to come off it. Without that, the list only ever grows, and a baseline nobody can
- * shrink is a permanent exemption wearing a to-do list's clothes.
+ * This carried a list of components still to convert, plus a second test that failed if a
+ * converted file stayed on it — a baseline nobody can shrink is a permanent exemption
+ * wearing a to-do list's clothes. The list is empty now, so both are gone: every
+ * component is checked, and there is nowhere to put a new exemption.
  */
 
 const { readFileSync, readdirSync, statSync } = require('fs')
 const { join, relative } = require('path')
 
 const SRC = join(__dirname, '..', '..', 'src')
-
-/**
- * Components not yet converted to the icon set.
- *
- * Remove a file when its emoji are gone. Never add one.
- */
-const PENDING = [
-	'components/CircularController.vue',
-	'components/HelpPanel.vue',
-	'components/SlicerModal.vue',
-	'components/ThreeViewer.vue',
-	'components/ViewerToolbar.vue',
-	'views/ViewerComponent.vue',
-]
 
 /**
  * Pictographs and the dingbat ranges emoji are drawn from.
@@ -77,17 +63,10 @@ describe('emoji are not icons', () => {
 		expect(components.length).toBeGreaterThan(10)
 	})
 
-	it.each(components.filter((c) => !PENDING.includes(c.name)).map((c) => c.name))(
+	it.each(components.map((c) => c.name))(
 		'%s draws its controls with the icon set',
 		(name) => {
 			expect(emojiIn(components.find((c) => c.name === name).text)).toEqual([])
 		},
 	)
-
-	it.each(PENDING)('%s is still listed as pending for a reason', (name) => {
-		const component = components.find((c) => c.name === name)
-		expect(component).toBeDefined()
-		// Converted, but still exempted: the list has to shrink or it means nothing.
-		expect(emojiIn(component.text).length).toBeGreaterThan(0)
-	})
 })

@@ -69,7 +69,7 @@
 					:aria-label="t('threedviewer', 'Rotate mode')"
 					:title="t('threedviewer', 'Rotate mode')"
 					@click.stop="setRotateMode">
-					↻
+					<ViewerIcon name="rotateMode" :size="18" />
 				</button>
 				<button
 					class="rail-btn"
@@ -78,7 +78,7 @@
 					:aria-label="t('threedviewer', 'Pan mode')"
 					:title="t('threedviewer', 'Pan mode')"
 					@click.stop="setPanMode">
-					✥
+					<ViewerIcon name="panMode" :size="18" />
 				</button>
 
 				<div class="rail-divider" aria-hidden="true" />
@@ -129,6 +129,7 @@
 
 <script>
 import { ref, shallowRef, computed, onMounted, onBeforeUnmount, watch } from 'vue'
+import ViewerIcon from './ViewerIcon.vue'
 import * as THREE from 'three'
 // eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
 import { translate as t } from '@nextcloud/l10n'
@@ -139,6 +140,10 @@ import { VIEWER_CONFIG } from '../config/viewer-config.js'
 
 export default {
 	name: 'CircularController',
+
+	components: {
+		ViewerIcon,
+	},
 	props: {
 		mainCamera: {
 			type: Object,
