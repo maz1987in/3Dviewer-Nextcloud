@@ -849,7 +849,12 @@ export default {
 
 /* Theme-aware colors */
 .theme--dark .help-icon {
-	background: rgb(var(--color-primary-element-rgb), 0.2);
+	/* `--color-primary-element-rgb` is not a variable Nextcloud publishes — it appears
+	   nowhere among the 267 primary-variable references in @nextcloud/vue — and an
+	   unresolvable var() takes the whole declaration with it, so this icon has had no
+	   tint at all. color-mix asks for the same 20% of the primary without needing the
+	   colour pre-split into components. */
+	background: color-mix(in srgb, var(--tdv-color-primary) 20%, transparent);
 }
 
 .theme--dark .help-item:hover {

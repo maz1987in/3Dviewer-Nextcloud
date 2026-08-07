@@ -266,13 +266,15 @@ export default {
 	border-bottom: 1px solid var(--color-border, #e0e0e0);
 }
 
-// Dark mode support
+// Dark mode support. The viewer's theme is its own — Nextcloud can be in light mode
+// while this is in dark — so these surfaces are stated rather than inherited from the
+// instance's variables, which would hand back the light theme's white.
 .theme--dark .viewer-modal {
-	background: var(--color-main-background, #1e1e1e);
+	background: var(--tdv-canvas-dark);
 }
 
 .theme--dark .modal-toolbar {
 	background: rgb(30 30 30 / 95%);
-	border-bottom-color: var(--color-border, #404040);
+	border-bottom-color: rgb(255 255 255 / 20%);
 }
 </style>
