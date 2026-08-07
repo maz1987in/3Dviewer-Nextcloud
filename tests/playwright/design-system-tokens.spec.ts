@@ -1,0 +1,100 @@
+import { test, expect } from '@playwright/test'
+import { readFileSync } from 'node:fs'
+import { resolve, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+// Does the design system actually resolve in a browser?
+//
+// The unit guards read `src/css/design-system.css` as text. They can tell that a token
+// is written as `var(--color-primary-element, #0082c9)` and not as a pasted literal, and
+// that no component reaches past the token layer. What they cannot tell is whether the
+// chain a token is written as produces a colour when a browser evaluates it.
+//
+// That gap is not hypothetical. A help icon in this app was tinted from
+// `--color-primary-element-rgb`, a variable Nextcloud does not publish, and an
+// unresolvable var() takes its whole declaration with it — so the element had no tint at
+// all, for as long as the rule existed, while reading in the file as though it did. Text
+// cannot catch that. A computed style can: an unresolved background computes transparent.
+//
+// So this spec loads the real sheet into a bare page and asks the browser what each token
+// is worth, first with Nextcloud's variables absent — which is the fallback path, and the
+// only state a static fixture can honestly reproduce — and then with a primary colour set
+// on the root, which is what a themed instance looks like from the sheet's point of view.
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const DESIGN_SYSTEM_CSS = readFileSync(
+	resolve(__dirname, '../../src/css/design-system.css'),
+	'utf-8',
+)
+
+/** Token declarations in the sheet, as [name, value]. */
+const tokens = [...DESIGN_SYSTEM_CSS.matchAll(/(--tdv-[a-z0-9-]+)\s*:\s*([^;]+);/g)]
+	.map((m) => [m[1], m[2].trim()] as [string, string])
+
+/** The ones that hold a colour, which is what a computed background can be read back from. */
+const colourTokens = tokens
+	.filter(([name, value]) => /^#|^rgb|^color-mix|var\(--color-/.test(value) && !/font|size|weight|radius|shadow|target/.test(name))
+	.map(([name]) => name)
+
+function fixture(rootStyle = '') {
+	return `<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<title>Design system fixture</title>
+	<style>${DESIGN_SYSTEM_CSS}</style>
+	<style>
+		:root { ${rootStyle} }
+		.probe { width: 20px; height: 20px; }
+	</style>
+</head>
+<body>
+	${colourTokens.map((n) => `<div class="probe" id="probe${n}" style="background-color: var(${n})"></div>`).join('\n\t')}
+	<button class="tdv-btn tdv-btn--primary" id="primary">Tools</button>
+	<div class="tdv-hud" id="hud"><span class="tdv-hud-value">60 fps</span></div>
+</body>
+</html>`
+}
+
+const TRANSPARENT = 'rgba(0, 0, 0, 0)'
+
+test.describe('design system tokens in a browser', () => {
+	test('every colour token resolves to a colour with Nextcloud absent', async ({ page }) => {
+		await page.setContent(fixture())
+
+		// Guard the guard: a filter that selected nothing would pass every assertion below.
+		expect(colourTokens.length).toBeGreaterThan(10)
+
+		const unresolved: string[] = []
+		for (const name of colourTokens) {
+			const computed = await page.locator(`#probe${name}`).evaluate(
+				(el) => getComputedStyle(el).backgroundColor,
+			)
+			if (computed === TRANSPARENT || computed === '') {
+				unresolved.push(`${name} → ${computed || '(empty)'}`)
+			}
+		}
+		expect(unresolved).toEqual([])
+	})
+
+	test('the themed tokens follow the instance primary colour', async ({ page }) => {
+		await page.setContent(fixture('--color-primary-element: rgb(200, 0, 0); --color-primary-element-text: rgb(255, 255, 255);'))
+
+		const background = await page.locator('#primary').evaluate(
+			(el) => getComputedStyle(el).backgroundColor,
+		)
+		expect(background).toBe('rgb(200, 0, 0)')
+	})
+
+	test('the canvas chrome stays dark when the instance primary changes', async ({ page }) => {
+		await page.setContent(fixture('--color-primary-element: rgb(200, 0, 0); --color-main-background: rgb(255, 255, 255);'))
+
+		// The HUD sits on the rendered 3D scene; a themed light surface there would put
+		// the readouts on top of the model rather than on a panel behind them.
+		const background = await page.locator('#hud').evaluate(
+			(el) => getComputedStyle(el).backgroundColor,
+		)
+		const [r, g, b] = background.match(/\d+/g)!.map(Number)
+		expect(Math.max(r, g, b)).toBeLessThan(64)
+	})
+})

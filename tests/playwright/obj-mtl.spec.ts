@@ -69,6 +69,13 @@ function buildHtmlWrapper() {
     // NOTE: This code is injected by the test harness for diagnostics; it should not be needed in production.
     // Stub out minimal Nextcloud-like globals to avoid reference errors
     window.OC = window.OC || { config: { version: 'test' } }
+    // The Nextcloud vite config resolves every dynamic chunk through OC.filePath, so
+    // without it the bundle's first import throws and nothing mounts — which is what
+    // this spec was reporting as a mount failure. The static server serves the project
+    // root, and \`type\` is empty for chunks, so the file path is the URL.
+    window.OC.filePath = window.OC.filePath || function (_app, type, file) {
+      return '/' + (type ? type + '/' : '') + file
+    }
     window.OCA = window.OCA || {}
     window.OCP = window.OCP || {}
     window._oc_config = window._oc_config || { session_lifetime: 0 }
