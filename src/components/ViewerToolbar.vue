@@ -300,7 +300,7 @@ export default {
 	font-size: 11px;
 	line-height: 1;
 	padding: 6px 8px;
-	background: var(--color-primary-element, #0082c9);
+	background: var(--tdv-color-primary);
 	color: #fff;
 	border: none;
 	border-radius: 6px;
@@ -347,12 +347,12 @@ export default {
 }
 
 .tb:focus-visible {
-	outline: 2px solid var(--color-primary-text, #fff);
+	outline: 2px solid var(--tdv-color-on-primary);
 	outline-offset: 2px;
 }
 
 .tb:hover:not(:disabled) {
-	background: var(--color-primary-element-hover, #006aa3);
+	background: var(--tdv-color-primary-hover);
 	transform: translateY(-1px);
 }
 
@@ -368,7 +368,7 @@ export default {
 	gap: 4px;
 	cursor: pointer;
 	padding: 4px 6px;
-	background: var(--color-primary-element, #0082c9);
+	background: var(--tdv-color-primary);
 	border-radius: 4px;
 	min-height: 32px;
 }
@@ -400,7 +400,7 @@ export default {
 }
 
 .preset-select:focus {
-	outline: 2px solid var(--color-primary-text, #fff);
+	outline: 2px solid var(--tdv-color-on-primary);
 	outline-offset: 2px;
 }
 
@@ -494,8 +494,8 @@ export default {
 }
 
 .dark-theme .tb {
-	background: var(--color-primary, #64b5f6);
-	color: #000;
+	background: var(--tdv-color-primary);
+	color: var(--tdv-color-on-primary);
 }
 
 .dark-theme .tb[aria-pressed="true"] {
@@ -504,7 +504,7 @@ export default {
 }
 
 .dark-theme .color-picker {
-	background: var(--color-primary, #64b5f6);
+	background: var(--tdv-color-primary);
 }
 
 .dark-theme .preset-select {
@@ -522,7 +522,7 @@ export default {
 .tb:focus-visible,
 .color-picker:focus-visible,
 .preset-select:focus-visible {
-	outline: 2px solid var(--color-primary, #0d47a1);
+	outline: 2px solid var(--tdv-color-primary);
 	outline-offset: 2px;
 	box-shadow: 0 0 0 4px rgb(13 71 161 / 20%);
 }

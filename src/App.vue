@@ -1509,8 +1509,8 @@ export default {
 	top: -40px;
 	z-index: 10001;
 	padding: 8px 16px;
-	background: var(--color-primary-element, #0082c9);
-	color: var(--color-primary-element-text, #fff);
+	background: var(--tdv-color-primary);
+	color: var(--tdv-color-on-primary);
 	border-radius: 0 0 6px 6px;
 	font-weight: 600;
 	text-decoration: none;

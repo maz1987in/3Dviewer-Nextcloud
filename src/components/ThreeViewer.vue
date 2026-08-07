@@ -3963,7 +3963,7 @@ export default {
 	font-size: 24px;
 	font-weight: bold;
 	margin-top: 10px;
-	color: var(--color-primary-element);
+	color: var(--tdv-color-primary);
 }
 
 .loading-actions {
@@ -4035,7 +4035,7 @@ export default {
 	font-size: 28px;
 	font-weight: bold;
 	margin-bottom: 16px;
-	color: var(--color-primary-element, #0082c9);
+	color: var(--tdv-color-primary);
 }
 
 .export-progress-overlay.mobile .export-progress-content {
@@ -4106,7 +4106,7 @@ export default {
 	margin: 0;
 	font-size: 16px;
 	font-weight: 600;
-	color: var(--color-primary-element, #0082c9);
+	color: var(--tdv-color-primary);
 }
 
 .close-stats-btn {
@@ -4462,7 +4462,7 @@ export default {
 
 .progress-fill {
 	height: 100%;
-	background: var(--color-primary-element, #0082c9);
+	background: var(--tdv-color-primary);
 	transition: width 0.3s ease;
 	border-radius: 2px;
 }
@@ -4784,7 +4784,7 @@ export default {
 	font-size: 11px;
 	line-height: 1;
 	padding: 6px 8px;
-	background: var(--color-primary-element, #0082c9);
+	background: var(--tdv-color-primary);
 	color: #fff;
 	border: none;
 	border-radius: 6px;
@@ -4817,12 +4817,12 @@ export default {
 }
 
 .comparison-btn:hover {
-	background: var(--color-primary-element-hover, #006aa3);
+	background: var(--tdv-color-primary-hover);
 	transform: translateY(-1px);
 }
 
 .comparison-btn:focus-visible {
-	outline: 2px solid var(--color-primary-text, #fff);
+	outline: 2px solid var(--tdv-color-on-primary);
 	outline-offset: 2px;
 }
 
@@ -4901,17 +4901,17 @@ export default {
 }
 
 .dark-theme .comparison-btn {
-	background: var(--color-primary, #64b5f6);
-	color: #000;
+	background: var(--tdv-color-primary);
+	color: var(--tdv-color-on-primary);
 }
 
 .dark-theme .comparison-btn:hover {
-	background: var(--color-primary-element-hover, #006aa3);
+	background: var(--tdv-color-primary-hover);
 }
 
 /* Accessibility improvements for comparison controls */
 .comparison-btn:focus-visible {
-	outline: 2px solid var(--color-primary, #0d47a1);
+	outline: 2px solid var(--tdv-color-primary);
 	outline-offset: 2px;
 	box-shadow: 0 0 0 4px rgb(13 71 161 / 20%);
 }

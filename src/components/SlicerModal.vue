@@ -744,7 +744,7 @@ export default {
 	width: 48px;
 	height: 48px;
 	border: 4px solid var(--color-border, #e0e0e0);
-	border-top-color: var(--color-primary-element, #0082c9);
+	border-top-color: var(--tdv-color-primary);
 	border-radius: 50%;
 	animation: spin 0.8s linear infinite;
 	margin-bottom: 16px;
@@ -787,8 +787,8 @@ export default {
 
 .retry-btn {
 	padding: 8px 16px;
-	background: var(--color-primary-element, #0082c9);
-	color: var(--color-primary-element-text, #fff);
+	background: var(--tdv-color-primary);
+	color: var(--tdv-color-on-primary);
 	border: none;
 	border-radius: 6px;
 	cursor: pointer;
@@ -798,7 +798,7 @@ export default {
 }
 
 .retry-btn:hover {
-	background: var(--color-primary-element-hover, #006aa3);
+	background: var(--tdv-color-primary-hover);
 }
 
 /* Format Selector */
@@ -838,9 +838,9 @@ export default {
 }
 
 .format-btn.active {
-	background: var(--color-primary-element);
-	color: var(--color-primary-element-text);
-	border-color: var(--color-primary-element);
+	background: var(--tdv-color-primary);
+	color: var(--tdv-color-on-primary);
+	border-color: var(--tdv-color-primary);
 }
 
 /* Upload Progress */
@@ -861,7 +861,7 @@ export default {
 
 .progress-bar-fill {
 	height: 100%;
-	background: var(--color-primary-element);
+	background: var(--tdv-color-primary);
 	border-radius: 3px;
 	transition: width 0.2s ease;
 }
@@ -903,7 +903,7 @@ export default {
 
 .copy-btn:hover {
 	background: var(--color-background-hover);
-	border-color: var(--color-primary-element);
+	border-color: var(--tdv-color-primary);
 }
 
 /* Slicer Grid */
@@ -928,14 +928,14 @@ export default {
 }
 
 .slicer-card:hover {
-	border-color: var(--slicer-color, var(--color-primary-element, #0082c9));
+	border-color: var(--slicer-color, var(--tdv-color-primary));
 	box-shadow: 0 4px 12px rgb(0, 0, 0, 0.1);
 	transform: translateY(-2px);
 }
 
 .slicer-card.last-used {
-	border-color: var(--slicer-color, var(--color-primary-element, #0082c9));
-	background: var(--color-primary-element-light, rgb(0, 130, 201, 0.05));
+	border-color: var(--slicer-color, var(--tdv-color-primary));
+	background: var(--tdv-color-primary-light));
 }
 
 .slicer-icon {
@@ -994,7 +994,7 @@ export default {
 .last-used-badge {
 	display: inline-block;
 	padding: 2px 8px;
-	background: var(--slicer-color, var(--color-primary-element, #0082c9));
+	background: var(--slicer-color, var(--tdv-color-primary));
 	color: white;
 	font-size: 11px;
 	font-weight: 600;
@@ -1032,7 +1032,7 @@ export default {
 }
 
 .slicer-btn.primary {
-	background: var(--slicer-color, var(--color-primary-element, #0082c9));
+	background: var(--slicer-color, var(--tdv-color-primary));
 	color: white;
 }
 
@@ -1056,7 +1056,7 @@ export default {
 	padding: 16px;
 	background: var(--color-background-dark, #f0f0f0);
 	border-radius: 8px;
-	border-left: 4px solid var(--color-primary-element, #0082c9);
+	border-left: 4px solid var(--tdv-color-primary);
 }
 
 .info-text {

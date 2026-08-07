@@ -71,7 +71,7 @@
 }
 
 .steer-ring:focus-visible {
-	outline: 2px solid var(--color-primary-element, #0082c9);
+	outline: 2px solid var(--tdv-color-primary);
 	outline-offset: 2px;
 }
 
@@ -139,8 +139,8 @@
 	height: 10px;
 	border-radius: 50%;
 	pointer-events: none;
-	background: var(--color-primary-element, #0082c9);
-	box-shadow: 0 0 12px color-mix(in srgb, var(--color-primary-element, #0082c9) 75%, transparent);
+	background: var(--tdv-color-primary);
+	box-shadow: 0 0 12px color-mix(in srgb, var(--tdv-color-primary) 75%, transparent);
 	transition: opacity 0.12s ease-out;
 }
 
@@ -203,13 +203,13 @@
 }
 
 .rail-btn:focus-visible {
-	outline: 2px solid var(--color-primary-element, #0082c9);
+	outline: 2px solid var(--tdv-color-primary);
 	outline-offset: -2px;
 }
 
 .rail-btn.active {
-	background: var(--color-primary-element, #0082c9);
-	color: var(--color-primary-element-text, #fff);
+	background: var(--tdv-color-primary);
+	color: var(--tdv-color-on-primary);
 }
 
 /* Recentre stays in place and greys out outside pan mode, so nothing below it moves

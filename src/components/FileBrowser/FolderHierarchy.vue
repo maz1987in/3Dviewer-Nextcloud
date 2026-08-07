@@ -126,14 +126,14 @@ export default {
 	width: 100%;
 
 	&:hover {
-		border-color: var(--color-primary, #0082c9);
+		border-color: var(--tdv-color-primary);
 		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 		transform: translateY(-2px);
 	}
 
 	&.has-files {
 		// Folders with files get a different style
-		border-left: 4px solid var(--color-primary, #0082c9);
+		border-left: 4px solid var(--tdv-color-primary);
 	}
 }
 
@@ -182,7 +182,7 @@ export default {
 	gap: 12px;
 
 	&:hover {
-		border-color: var(--color-primary, #0082c9);
+		border-color: var(--tdv-color-primary);
 		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 		transform: translateY(-2px);
 	}
@@ -202,7 +202,7 @@ export default {
 		position: absolute;
 		bottom: 4px;
 		right: 4px;
-		background: var(--color-primary, #0082c9);
+		background: var(--tdv-color-primary);
 		color: white;
 		font-size: 10px;
 		font-weight: bold;

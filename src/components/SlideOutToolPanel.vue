@@ -936,13 +936,13 @@ export default {
 
 .tool-btn:hover {
 	background: var(--color-background-hover);
-	border-color: var(--color-primary-element);
+	border-color: var(--tdv-color-primary);
 }
 
 .tool-btn.active {
-	background: var(--color-primary-element);
-	border-color: var(--color-primary-element);
-	color: var(--color-primary-element-text);
+	background: var(--tdv-color-primary);
+	border-color: var(--tdv-color-primary);
+	color: var(--tdv-color-on-primary);
 }
 
 .tool-btn:last-child { margin-bottom: 0; }
@@ -952,8 +952,8 @@ export default {
 
 .active-badge {
 	padding: 2px 8px;
-	background: var(--color-primary-element);
-	color: var(--color-primary-element-text);
+	background: var(--tdv-color-primary);
+	color: var(--tdv-color-on-primary);
 	font-size: 11px;
 	font-weight: 600;
 	border-radius: 10px;
@@ -1000,7 +1000,7 @@ export default {
 }
 
 .toggle-switch.on {
-	background: var(--color-primary-element);
+	background: var(--tdv-color-primary);
 }
 
 .toggle-switch.on::after {
@@ -1028,7 +1028,7 @@ export default {
 
 .tool-group:hover {
 	background: var(--color-background-hover);
-	border-color: var(--color-primary-element);
+	border-color: var(--tdv-color-primary);
 }
 
 .tool-label-small {
@@ -1066,7 +1066,7 @@ export default {
 }
 
 .clip-dropdown:hover {
-	border-color: var(--color-primary-element);
+	border-color: var(--tdv-color-primary);
 }
 
 /* Animation Controls */
@@ -1111,7 +1111,7 @@ export default {
 .timeline-slider {
 	flex: 1;
 	height: 4px;
-	accent-color: var(--color-primary-element);
+	accent-color: var(--tdv-color-primary);
 	cursor: pointer;
 }
 
@@ -1150,14 +1150,14 @@ export default {
 .axis-btn:hover { background: var(--color-background-hover); }
 
 .axis-btn.active {
-	background: var(--color-primary-element);
-	color: var(--color-primary-element-text);
-	border-color: var(--color-primary-element);
+	background: var(--tdv-color-primary);
+	color: var(--tdv-color-on-primary);
+	border-color: var(--tdv-color-primary);
 }
 
 .clipping-slider {
 	width: 100%;
-	accent-color: var(--color-primary-element);
+	accent-color: var(--tdv-color-primary);
 	cursor: pointer;
 }
 
@@ -1232,9 +1232,9 @@ export default {
 .preset-btn:hover { background: var(--color-background-hover); }
 
 .preset-btn.active {
-	background: var(--color-primary-element);
-	color: var(--color-primary-element-text);
-	border-color: var(--color-primary-element);
+	background: var(--tdv-color-primary);
+	color: var(--tdv-color-on-primary);
+	border-color: var(--tdv-color-primary);
 }
 
 /* Bookmark list */
@@ -1299,13 +1299,13 @@ export default {
 
 .export-select:hover:not(:disabled) {
 	background: var(--color-background-hover);
-	border-color: var(--color-primary-element);
+	border-color: var(--tdv-color-primary);
 }
 
 .export-select:focus {
 	outline: none;
-	border-color: var(--color-primary-element);
-	box-shadow: 0 0 0 2px var(--color-primary-element-light);
+	border-color: var(--tdv-color-primary);
+	box-shadow: 0 0 0 2px var(--tdv-color-primary-light);
 }
 
 .export-select:disabled {
@@ -1346,8 +1346,8 @@ export default {
 }
 
 .reset-color-btn:hover {
-	background: var(--color-primary-element);
-	color: var(--color-primary-element-text);
+	background: var(--tdv-color-primary);
+	color: var(--tdv-color-on-primary);
 }
 
 /* Cache Management */

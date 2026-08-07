@@ -250,7 +250,7 @@ export default {
 		const wedgeStyle = computed(() => {
 			// The mask leaves the ring's hole clear so the cube stays readable.
 			const mask = 'radial-gradient(circle, transparent 46%, #000 58%, #000 96%, transparent 99%)'
-			const accent = 'var(--color-primary-element, #0082c9)'
+			const accent = 'var(--tdv-color-primary)'
 			const spread = 52
 			const from = wedgeFromAngle({ angle: steerAngle.value, spread })
 

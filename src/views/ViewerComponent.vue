@@ -1542,9 +1542,9 @@ export default {
 	margin-inline-start: auto;
 	padding: 6px 12px !important;
 	font-size: 12px !important;
-	background: var(--color-primary-element, #0082c9) !important;
+	background: var(--tdv-color-primary) !important;
 	color: #fff !important;
-	border-color: var(--color-primary-element, #0082c9) !important;
+	border-color: var(--tdv-color-primary) !important;
 }
 
 [dir="rtl"] .texture-warning-button {
@@ -1586,7 +1586,7 @@ export default {
 }
 
 .viewer-action-btn.active {
-	background: var(--color-primary-element, #0082c9);
+	background: var(--tdv-color-primary);
 }
 
 /* Stats panel — positioned above action buttons */

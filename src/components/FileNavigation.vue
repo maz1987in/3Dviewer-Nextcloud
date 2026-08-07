@@ -326,7 +326,7 @@ export default {
 /* stylelint-disable selector-pseudo-class-no-unknown */
 :deep(.active) {
 	> .app-navigation-entry {
-		background: var(--color-primary-light, lightgrey);
+		background: var(--tdv-color-primary-light);
 		font-weight: bold;
 	}
 }

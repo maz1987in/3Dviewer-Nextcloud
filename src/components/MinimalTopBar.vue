@@ -264,8 +264,8 @@ export default {
 }
 
 .icon-btn.active {
-	background: var(--color-primary-element, #0082c9) !important;
-	border-color: var(--color-primary-element, #0082c9) !important;
+	background: var(--tdv-color-primary) !important;
+	border-color: var(--tdv-color-primary) !important;
 }
 
 .btn-icon {
@@ -279,16 +279,16 @@ export default {
 
 /* Tools Button - Nextcloud blue accent */
 .tools-btn {
-	background: var(--color-primary-element, #0082c9) !important;
-	border-color: var(--color-primary-element, #0082c9) !important;
-	color: var(--color-primary-element-text, #fff) !important;
+	background: var(--tdv-color-primary) !important;
+	border-color: var(--tdv-color-primary) !important;
+	color: var(--tdv-color-on-primary) !important;
 	font-weight: 600;
 }
 
 .tools-btn:hover {
-	background: var(--color-primary-element-hover, #006aa3) !important;
-	border-color: var(--color-primary-element-hover, #006aa3) !important;
-	color: var(--color-primary-element-text, #fff) !important;
+	background: var(--tdv-color-primary-hover) !important;
+	border-color: var(--tdv-color-primary-hover) !important;
+	color: var(--tdv-color-on-primary) !important;
 }
 
 /* Topbar color picker */
@@ -320,8 +320,8 @@ export default {
 	top: -4px;
 	inset-inline-end: -4px;
 	padding: 2px 5px;
-	background: var(--color-primary-element, #0082c9);
-	color: var(--color-primary-element-text, #fff);
+	background: var(--tdv-color-primary);
+	color: var(--tdv-color-on-primary);
 	font-size: 10px;
 	font-weight: 700;
 	border-radius: 8px;

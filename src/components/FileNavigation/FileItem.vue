@@ -50,7 +50,7 @@ export default {
 <style scoped>
 :deep(.selected) {
 	> .app-navigation-entry {
-		background: var(--color-primary-light, lightgrey);
+		background: var(--tdv-color-primary-light);
 		font-weight: bold;
 	}
 }

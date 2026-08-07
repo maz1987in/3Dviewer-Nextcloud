@@ -1283,16 +1283,16 @@ export default {
 			}
 
 			&.active {
-				background: var(--color-primary-element, #0082c9);
+				background: var(--tdv-color-primary);
 				color: white;
 
 				&:hover {
-					background: var(--color-primary-element-hover, #006ba3);
+					background: var(--tdv-color-primary-hover);
 				}
 			}
 
 			&:focus {
-				outline: 2px solid var(--color-primary-element, #0082c9);
+				outline: 2px solid var(--tdv-color-primary);
 				outline-offset: 2px;
 			}
 		}
@@ -1374,7 +1374,7 @@ export default {
 }
 
 .file-filter-toolbar .filter-search-input:focus {
-	outline: 2px solid var(--color-primary-element, #0082c9);
+	outline: 2px solid var(--tdv-color-primary);
 	outline-offset: -1px;
 	border-color: transparent;
 }
@@ -1446,9 +1446,9 @@ export default {
 }
 
 .file-filter-toolbar .filter-format-chip.active {
-	background: var(--color-primary-element, #0082c9);
-	border-color: var(--color-primary-element, #0082c9);
-	color: var(--color-primary-element-text, #fff);
+	background: var(--tdv-color-primary);
+	border-color: var(--tdv-color-primary);
+	color: var(--tdv-color-on-primary);
 }
 
 .visually-hidden {
@@ -1491,14 +1491,14 @@ export default {
 	gap: 12px;
 
 	&:hover {
-		border-color: var(--color-primary, #0082c9);
+		border-color: var(--tdv-color-primary);
 		box-shadow: 0 2px 8px rgb(0, 0, 0, 0.1);
 		transform: translateY(-2px);
 	}
 
 	&.selected {
-		border-color: var(--color-primary, #0082c9);
-		background: var(--color-primary-light, #e6f3ff);
+		border-color: var(--tdv-color-primary);
+		background: var(--tdv-color-primary-light);
 	}
 }
 
@@ -1526,8 +1526,8 @@ export default {
 	}
 
 	&.selected {
-		background: var(--color-primary-light, #e6f3ff);
-		border-left: 3px solid var(--color-primary-element, #0082c9);
+		background: var(--tdv-color-primary-light);
+		border-left: 3px solid var(--tdv-color-primary);
 		padding-left: 17px;
 		border-bottom-color: var(--color-border, #e5e5e5);
 	}
@@ -1588,14 +1588,14 @@ export default {
 	gap: 12px;
 
 	&:hover {
-		border-color: var(--color-primary, #0082c9);
+		border-color: var(--tdv-color-primary);
 		box-shadow: 0 2px 8px rgb(0, 0, 0, 0.1);
 		transform: translateY(-2px);
 	}
 
 	&.selected {
-		border-color: var(--color-primary, #0082c9);
-		background: var(--color-primary-light, #e6f3ff);
+		border-color: var(--tdv-color-primary);
+		background: var(--tdv-color-primary-light);
 	}
 }
 
@@ -1624,7 +1624,7 @@ export default {
 		position: absolute;
 		bottom: 4px;
 		right: 4px;
-		background: var(--color-primary, #0082c9);
+		background: var(--tdv-color-primary);
 		color: white;
 		font-size: 10px;
 		font-weight: bold;
@@ -1722,18 +1722,18 @@ export default {
 	}
 
 	&.selected {
-		background: var(--color-primary-light, #e6f3ff);
-		border-left: 3px solid var(--color-primary-element, #0082c9);
+		background: var(--tdv-color-primary-light);
+		border-left: 3px solid var(--tdv-color-primary);
 		padding-left: 17px; // Adjust for border
 	}
 
 	&.focused {
-		outline: 2px solid var(--color-primary-element, #0082c9);
+		outline: 2px solid var(--tdv-color-primary);
 		outline-offset: -2px;
 	}
 
 	&:focus {
-		outline: 2px solid var(--color-primary-element, #0082c9);
+		outline: 2px solid var(--tdv-color-primary);
 		outline-offset: -2px;
 	}
 
@@ -1773,8 +1773,8 @@ export default {
 	}
 
 	&.selected {
-		background: var(--color-primary-light, #e6f3ff);
-		border-left: 3px solid var(--color-primary-element, #0082c9);
+		background: var(--tdv-color-primary-light);
+		border-left: 3px solid var(--tdv-color-primary);
 		padding-left: 17px;
 		border-bottom-color: var(--color-border, #e5e5e5);
 	}
@@ -1831,7 +1831,7 @@ export default {
 		position: absolute;
 		bottom: 2px;
 		right: 2px;
-		background: var(--color-primary, #0082c9);
+		background: var(--tdv-color-primary);
 		color: white;
 		font-size: 8px;
 		font-weight: bold;

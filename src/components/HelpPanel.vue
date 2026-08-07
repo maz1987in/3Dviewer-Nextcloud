@@ -435,7 +435,7 @@ export default {
 }
 
 .close-btn:focus-visible {
-	outline: 2px solid var(--color-primary-element);
+	outline: 2px solid var(--tdv-color-primary);
 	outline-offset: 2px;
 }
 
@@ -458,10 +458,10 @@ export default {
 .help-section h3 {
 	font-size: 18px;
 	font-weight: 600;
-	color: var(--color-primary-element);
+	color: var(--tdv-color-primary);
 	margin: 0 0 16px;
 	padding-bottom: 8px;
-	border-bottom: 2px solid var(--color-primary-element);
+	border-bottom: 2px solid var(--tdv-color-primary);
 }
 
 /* Help Grid */
@@ -493,7 +493,7 @@ export default {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	background: var(--color-primary-element-light);
+	background: var(--tdv-color-primary-light);
 	border-radius: 8px;
 }
 
@@ -878,11 +878,11 @@ export default {
 }
 
 .help-content::-webkit-scrollbar-thumb {
-	background: var(--color-primary-element);
+	background: var(--tdv-color-primary);
 	border-radius: 4px;
 }
 
 .help-content::-webkit-scrollbar-thumb:hover {
-	background: var(--color-primary-element-hover);
+	background: var(--tdv-color-primary-hover);
 }
 </style>

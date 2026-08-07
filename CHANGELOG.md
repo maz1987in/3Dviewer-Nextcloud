@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **The viewer asked Nextcloud for the wrong primary colour in twenty-five places.** Nextcloud publishes two: `--color-primary` is the colour the admin picked, and `--color-primary-element` is that colour corrected until it passes contrast against the page background. They are identical on a default install, which is why the wrong one was invisible here — but on an instance themed pale, a divider drawn in `--color-primary` disappears into the surface it is meant to divide, and the file browser drew its selected-row borders and highlights that way. Every element colour now goes through the design system's tokens, which resolve to the corrected family.
+- **The same variable carried three different fallbacks.** `--color-primary` was written with `#0082c9`, `#64b5f6` and `#0d47a1` as its default in different rules, so what an unthemed instance rendered depended on which rule an element landed on. Fallbacks now live once, in the token layer, where the default appearance is a decision that can be read rather than a value to be grepped for.
+
 ## [3.4.0] - 2026-07-28
 
 Public share links now render 3D models, and every format that carries external textures resolves them there. Also carries the security fixes listed below.
