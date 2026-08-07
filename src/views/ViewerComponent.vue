@@ -1492,7 +1492,7 @@ export default {
 	display: flex;
 	align-items: flex-start;
 	gap: 10px;
-	color: var(--color-main-text, #333);
+	color: var(--tdv-color-text);
 }
 
 [dir="rtl"] .texture-warning-content {
@@ -1502,7 +1502,7 @@ export default {
 .texture-warning-icon {
 	flex-shrink: 0;
 	margin-top: 2px;
-	color: var(--color-warning, #ffa500);
+	color: var(--tdv-color-warning);
 	opacity: 1;
 }
 
@@ -1513,7 +1513,7 @@ export default {
 
 .texture-warning-text {
 	flex: 1;
-	color: var(--color-background-dark, #222);
+	color: var(--tdv-color-surface-sunken);
 	text-align: start;
 }
 
@@ -1526,7 +1526,7 @@ export default {
 	margin-bottom: 3px;
 	font-size: 14px;
 	font-weight: 600;
-	color: var(--color-background-dark, #222);
+	color: var(--tdv-color-surface-sunken);
 }
 
 .texture-warning-text p {
@@ -1534,7 +1534,7 @@ export default {
 	font-size: 13px;
 	line-height: 1.4;
 	opacity: 1;
-	color: var(--color-background-dark, #333);
+	color: var(--tdv-color-surface-sunken);
 }
 
 .texture-warning-button {

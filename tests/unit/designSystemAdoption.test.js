@@ -9,12 +9,13 @@
  * is supposed to divide. The official component library uses the `-element` family for
  * every interactive element and never the raw one; so should this app.
  *
- * The second rule is about fallbacks. Repeating `var(--color-primary, #fff)` at each use
- * site means the default appearance is decided separately in every rule, and the copies
- * drift: this codebase carried #0082c9, #64b5f6 and #0d47a1 as the fallback for the same
- * variable, so what an unthemed instance rendered depended on which rule it landed on.
- * The fallback belongs in the token layer, once, where it can be read and changed as a
- * decision rather than found by grep.
+ * The second rule is about where colour comes from at all. Reaching for a Nextcloud
+ * variable directly means every use site also decides the fallback, and the copies drift:
+ * this codebase carried #0082c9, #64b5f6 and #0d47a1 as the default for one variable, and
+ * both #000 and #fff as the default for another, so what an unthemed instance rendered
+ * depended on which rule an element landed on. Nothing reconciles copies of a value that
+ * are never compared. Colour now enters through the token layer, once, where the mapping
+ * from Nextcloud's palette to this app's is a decision that can be read.
  */
 
 const { readFileSync, readdirSync, statSync } = require('fs')
@@ -48,8 +49,8 @@ const files = styleFilesUnder(SRC)
 /** `--color-primary`, `-light`, `-text`, `-hover` — everything but the `-element` family. */
 const RAW_PRIMARY = /--color-primary(?!-element)[a-z-]*/g
 
-/** Any primary variable handed its own fallback value. */
-const INLINE_FALLBACK = /var\(\s*--color-primary[a-z-]*\s*,[^)]*\)/g
+/** Any Nextcloud colour variable reached for outside the token layer. */
+const DIRECT_REFERENCE = /var\(\s*--color-[a-z-]+[^)]*\)/g
 
 describe('design system adoption', () => {
 	it('scans the components, so this guard cannot pass vacuously', () => {
@@ -65,10 +66,10 @@ describe('design system adoption', () => {
 	)
 
 	it.each(files.map((f) => f.name))(
-		'%s leaves the primary fallback to the token layer',
+		'%s takes its colours from the token layer',
 		(name) => {
 			const { text } = files.find((f) => f.name === name)
-			expect([...text.matchAll(INLINE_FALLBACK)].map((m) => m[0])).toEqual([])
+			expect([...text.matchAll(DIRECT_REFERENCE)].map((m) => m[0])).toEqual([])
 		},
 	)
 })

@@ -252,7 +252,7 @@ export default {
 	position: relative;
 	width: 100%;
 	height: 100vh;
-	background: var(--color-main-background, #fff);
+	background: var(--tdv-color-surface);
 	overflow: hidden;
 }
 
@@ -263,7 +263,7 @@ export default {
 	z-index: 1000;
 	background: rgb(255 255 255 / 95%);
 	backdrop-filter: blur(10px);
-	border-bottom: 1px solid var(--color-border, #e0e0e0);
+	border-bottom: 1px solid var(--tdv-color-border);
 }
 
 // Dark mode support. The viewer's theme is its own — Nextcloud can be in light mode

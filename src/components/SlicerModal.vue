@@ -652,7 +652,7 @@ export default {
 /* Modal Container */
 
 .slicer-modal {
-	background: var(--color-main-background, #fff);
+	background: var(--tdv-color-surface);
 	border-radius: 12px;
 	box-shadow: 0 8px 32px rgb(0, 0, 0, 0.3);
 	max-width: 800px;
@@ -681,20 +681,20 @@ export default {
 	align-items: center;
 	justify-content: space-between;
 	padding: 20px 24px;
-	border-bottom: 1px solid var(--color-border, #e0e0e0);
+	border-bottom: 1px solid var(--tdv-color-border);
 }
 
 .modal-title {
 	font-size: 22px;
 	font-weight: 600;
 	margin: 0;
-	color: var(--color-main-text, #000);
+	color: var(--tdv-color-text);
 }
 
 .close-btn {
 	background: transparent;
 	border: none;
-	color: var(--color-main-text, #000);
+	color: var(--tdv-color-text);
 	font-size: 32px;
 	line-height: 1;
 	cursor: pointer;
@@ -704,7 +704,7 @@ export default {
 }
 
 .close-btn:hover {
-	background: var(--color-background-hover, #f0f0f0);
+	background: var(--tdv-color-hover-bg);
 }
 
 .close-btn .icon {
@@ -720,7 +720,7 @@ export default {
 
 .modal-description {
 	margin-bottom: 20px;
-	color: var(--color-text-maxcontrast, #666);
+	color: var(--tdv-color-text-secondary);
 	font-size: 14px;
 	line-height: 1.5;
 }
@@ -738,7 +738,7 @@ export default {
 .spinner {
 	width: 48px;
 	height: 48px;
-	border: 4px solid var(--color-border, #e0e0e0);
+	border: 4px solid var(--tdv-color-border);
 	border-top-color: var(--tdv-color-primary);
 	border-radius: 50%;
 	animation: spin 0.8s linear infinite;
@@ -753,7 +753,7 @@ export default {
 
 .loading-state p {
 	margin: 0;
-	color: var(--color-main-text, #000);
+	color: var(--tdv-color-text);
 	font-size: 14px;
 }
 
@@ -775,7 +775,7 @@ export default {
 
 .error-state p {
 	margin: 0 0 16px;
-	color: var(--color-error, #dc3545);
+	color: var(--tdv-color-error);
 	font-size: 14px;
 	text-align: center;
 }
@@ -804,7 +804,7 @@ export default {
 .format-selector .tool-label-small {
 	display: block;
 	font-size: 12px;
-	color: var(--color-text-maxcontrast);
+	color: var(--tdv-color-text-secondary);
 	margin-bottom: 6px;
 	font-weight: 500;
 }
@@ -817,10 +817,10 @@ export default {
 .format-btn {
 	flex: 1;
 	padding: 6px 12px;
-	border: 1px solid var(--color-border);
+	border: 1px solid var(--tdv-color-border);
 	border-radius: 6px;
-	background: var(--color-main-background);
-	color: var(--color-main-text);
+	background: var(--tdv-color-surface);
+	color: var(--tdv-color-text);
 	cursor: pointer;
 	font-size: 13px;
 	font-weight: 600;
@@ -829,7 +829,7 @@ export default {
 }
 
 .format-btn:hover {
-	background: var(--color-background-hover);
+	background: var(--tdv-color-hover-bg);
 }
 
 .format-btn.active {
@@ -849,7 +849,7 @@ export default {
 .progress-bar-track {
 	flex: 1;
 	height: 6px;
-	background: var(--color-background-dark);
+	background: var(--tdv-color-surface-sunken);
 	border-radius: 3px;
 	overflow: hidden;
 }
@@ -864,7 +864,7 @@ export default {
 .progress-text {
 	font-size: 12px;
 	font-weight: 600;
-	color: var(--color-main-text);
+	color: var(--tdv-color-text);
 	min-width: 36px;
 	text-align: end;
 }
@@ -879,25 +879,25 @@ export default {
 .share-link-input {
 	flex: 1;
 	padding: 6px 10px;
-	border: 1px solid var(--color-border);
+	border: 1px solid var(--tdv-color-border);
 	border-radius: 6px;
-	background: var(--color-background-dark);
-	color: var(--color-main-text);
+	background: var(--tdv-color-surface-sunken);
+	color: var(--tdv-color-text);
 	font-size: 12px;
 }
 
 .copy-btn {
 	padding: 6px 10px;
-	border: 1px solid var(--color-border);
+	border: 1px solid var(--tdv-color-border);
 	border-radius: 6px;
-	background: var(--color-main-background);
+	background: var(--tdv-color-surface);
 	cursor: pointer;
 	font-size: 14px;
 	transition: all 0.15s ease;
 }
 
 .copy-btn:hover {
-	background: var(--color-background-hover);
+	background: var(--tdv-color-hover-bg);
 	border-color: var(--tdv-color-primary);
 }
 
@@ -916,8 +916,8 @@ export default {
 	gap: 16px;
 	align-items: center;
 	padding: 20px;
-	background: var(--color-background-hover, #f8f8f8);
-	border: 2px solid var(--color-border, #e0e0e0);
+	background: var(--tdv-color-hover-bg);
+	border: 2px solid var(--tdv-color-border);
 	border-radius: 10px;
 	transition: all 0.2s ease;
 }
@@ -939,7 +939,7 @@ export default {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	background: var(--color-main-background, #fff);
+	background: var(--tdv-color-surface);
 	border-radius: 12px;
 	box-shadow: 0 2px 8px rgb(0, 0, 0, 0.08);
 	padding: 8px;
@@ -980,7 +980,7 @@ export default {
 	font-size: 16px;
 	font-weight: 600;
 	margin: 0;
-	color: var(--color-main-text, #000);
+	color: var(--tdv-color-text);
 	display: flex;
 	align-items: center;
 	gap: 8px;
@@ -1000,7 +1000,7 @@ export default {
 .slicer-description {
 	margin: 0;
 	font-size: 13px;
-	color: var(--color-text-maxcontrast, #666);
+	color: var(--tdv-color-text-secondary);
 	line-height: 1.4;
 }
 
@@ -1049,7 +1049,7 @@ export default {
 /* Modal Info */
 .modal-info {
 	padding: 16px;
-	background: var(--color-background-dark, #f0f0f0);
+	background: var(--tdv-color-surface-sunken);
 	border-radius: 8px;
 	border-left: 4px solid var(--tdv-color-primary);
 }
@@ -1057,7 +1057,7 @@ export default {
 .info-text {
 	margin: 0;
 	font-size: 13px;
-	color: var(--color-text-maxcontrast, #666);
+	color: var(--tdv-color-text-secondary);
 	display: flex;
 	align-items: flex-start;
 	gap: 8px;

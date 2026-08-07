@@ -30,6 +30,17 @@
 	--tdv-color-surface: var(--color-main-background, #fff);
 	--tdv-color-surface-sunken: var(--color-background-dark, #f5f5f5);
 
+	/* Beyond the sheet. It names one border and one colour per status, and the app needs
+	   a stronger divider and the text colour that sits on a status surface. Each falls
+	   back to the nearest token the sheet does specify rather than to a new hex: a value
+	   invented here would be a design decision the sheet never made, and stating the
+	   relationship instead keeps the token resolvable without pretending to that. */
+	--tdv-color-border-strong: var(--color-border-dark, var(--tdv-color-border));
+	--tdv-color-surface-recessed: var(--color-background-darker, var(--tdv-color-surface-sunken));
+	--tdv-color-on-success: var(--color-success-text, var(--tdv-color-on-primary));
+	--tdv-color-on-warning: var(--color-warning-text, var(--tdv-color-on-primary));
+	--tdv-color-on-error: var(--color-error-text, var(--tdv-color-on-primary));
+
 	/* Status colours are for live values only — FPS, load failures — never decoration. */
 	--tdv-color-success: var(--color-success, #2d7b41);
 	--tdv-color-warning: var(--color-warning, #a37200);

@@ -376,8 +376,8 @@ export default {
 
 /* Panel Container */
 .help-panel {
-	background: var(--color-main-background);
-	color: var(--color-main-text);
+	background: var(--tdv-color-surface);
+	color: var(--tdv-color-text);
 	border-radius: 12px;
 	max-width: 900px;
 	width: 100%;
@@ -406,8 +406,8 @@ export default {
 	align-items: center;
 	justify-content: space-between;
 	padding: 20px 24px;
-	border-bottom: 1px solid var(--color-border);
-	background: var(--color-main-background);
+	border-bottom: 1px solid var(--tdv-color-border);
+	background: var(--tdv-color-surface);
 	border-radius: 12px 12px 0 0;
 }
 
@@ -415,13 +415,13 @@ export default {
 	margin: 0;
 	font-size: 22px;
 	font-weight: 600;
-	color: var(--color-main-text);
+	color: var(--tdv-color-text);
 }
 
 .close-btn {
 	background: transparent;
 	border: none;
-	color: var(--color-main-text);
+	color: var(--tdv-color-text);
 	font-size: 32px;
 	line-height: 1;
 	cursor: pointer;
@@ -431,7 +431,7 @@ export default {
 }
 
 .close-btn:hover {
-	background: var(--color-background-hover);
+	background: var(--tdv-color-hover-bg);
 }
 
 .close-btn:focus-visible {
@@ -475,7 +475,7 @@ export default {
 	display: flex;
 	gap: 12px;
 	padding: 16px;
-	background: var(--color-background-hover);
+	background: var(--tdv-color-hover-bg);
 	border-radius: 8px;
 	transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
@@ -505,14 +505,14 @@ export default {
 	margin: 0 0 6px;
 	font-size: 15px;
 	font-weight: 600;
-	color: var(--color-main-text);
+	color: var(--tdv-color-text);
 }
 
 .help-text p {
 	margin: 0;
 	font-size: 13px;
 	line-height: 1.5;
-	color: var(--color-text-maxcontrast);
+	color: var(--tdv-color-text-secondary);
 }
 
 /* Keyboard Shortcuts Table */
@@ -527,20 +527,20 @@ export default {
 	align-items: center;
 	gap: 16px;
 	padding: 12px 16px;
-	background: var(--color-background-hover);
+	background: var(--tdv-color-hover-bg);
 	border-radius: 8px;
 }
 
 .shortcut-row kbd {
 	display: inline-block;
 	padding: 6px 12px;
-	background: var(--color-background-dark);
-	border: 1px solid var(--color-border);
+	background: var(--tdv-color-surface-sunken);
+	border: 1px solid var(--tdv-color-border);
 	border-radius: 6px;
 	font-family: monospace;
 	font-size: 13px;
 	font-weight: 600;
-	color: var(--color-main-text);
+	color: var(--tdv-color-text);
 	min-width: 80px;
 	text-align: center;
 	box-shadow: 0 2px 4px rgb(0 0 0 / 10%);
@@ -549,7 +549,7 @@ export default {
 .shortcut-row span {
 	flex: 1;
 	font-size: 14px;
-	color: var(--color-main-text);
+	color: var(--tdv-color-text);
 }
 
 /* Tips List */
@@ -563,7 +563,7 @@ export default {
 	margin-bottom: 12px;
 	font-size: 14px;
 	line-height: 1.6;
-	color: var(--color-main-text);
+	color: var(--tdv-color-text);
 	position: relative;
 	padding-inline-start: 8px;
 }
@@ -604,8 +604,8 @@ export default {
 		border-radius: 0;
 		padding: 10px 12px;
 		position: relative;
-		background: var(--color-main-background);
-		border-bottom: 1px solid var(--color-border);
+		background: var(--tdv-color-surface);
+		border-bottom: 1px solid var(--tdv-color-border);
 		flex-shrink: 0;
 		min-height: 44px;
 		display: flex;
@@ -878,7 +878,7 @@ export default {
 }
 
 .help-content::-webkit-scrollbar-track {
-	background: var(--color-background-dark);
+	background: var(--tdv-color-surface-sunken);
 	border-radius: 4px;
 }
 

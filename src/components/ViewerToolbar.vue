@@ -343,7 +343,7 @@ export default {
 }
 
 .tb[aria-pressed="true"] {
-	background: var(--color-success, #2e7d32);
+	background: var(--tdv-color-success);
 }
 
 .tb:focus-visible {
@@ -359,7 +359,7 @@ export default {
 .tb:disabled {
 	opacity: 0.5;
 	cursor: not-allowed;
-	background: var(--color-background-dark, #ccc);
+	background: var(--tdv-color-surface-sunken);
 }
 
 .color-picker {
@@ -499,7 +499,7 @@ export default {
 }
 
 .theme--dark .tb[aria-pressed="true"] {
-	background: var(--color-success, #4caf50);
+	background: var(--tdv-color-success);
 	color: #fff;
 }
 

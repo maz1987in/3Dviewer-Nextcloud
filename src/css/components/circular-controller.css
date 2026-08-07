@@ -62,9 +62,9 @@
 	position: absolute;
 	inset: 0;
 	border-radius: 50%;
-	background: color-mix(in srgb, var(--color-main-background, #181818) 78%, transparent);
+	background: color-mix(in srgb, var(--tdv-color-surface) 78%, transparent);
 	backdrop-filter: blur(12px);
-	border: 1px solid var(--color-border, rgb(255 255 255 / 13%));
+	border: 1px solid var(--tdv-color-border));
 	box-shadow: 0 8px 26px rgb(0 0 0 / 42%);
 	cursor: grab;
 	touch-action: none;
@@ -94,8 +94,8 @@
 	position: absolute;
 	inset: 32px;
 	border-radius: 50%;
-	background: color-mix(in srgb, var(--color-main-background, #000) 38%, transparent);
-	border: 1px solid var(--color-border, rgb(255 255 255 / 8%));
+	background: color-mix(in srgb, var(--tdv-color-surface) 38%, transparent);
+	border: 1px solid var(--tdv-color-border));
 	pointer-events: none;
 }
 
@@ -106,7 +106,7 @@
 /* Four cardinal notches instead of twelve decorative ticks. */
 .notch {
 	position: absolute;
-	background: var(--color-border-dark, rgb(255 255 255 / 22%));
+	background: var(--tdv-color-border-strong));
 	pointer-events: none;
 }
 
@@ -177,9 +177,9 @@
 	gap: 3px;
 	padding: 5px 5px 7px;
 	border-radius: 17px;
-	background: color-mix(in srgb, var(--color-main-background, #181818) 86%, transparent);
+	background: color-mix(in srgb, var(--tdv-color-surface) 86%, transparent);
 	backdrop-filter: blur(12px);
-	border: 1px solid var(--color-border, rgb(255 255 255 / 13%));
+	border: 1px solid var(--tdv-color-border));
 	box-shadow: 0 8px 26px rgb(0 0 0 / 42%);
 }
 
@@ -189,7 +189,7 @@
 	border: 0;
 	border-radius: 10px;
 	background: transparent;
-	color: var(--color-main-text, #d8d8d8);
+	color: var(--tdv-color-text);
 	font: 400 16px/1 inherit;
 	cursor: pointer;
 	display: grid;
@@ -199,7 +199,7 @@
 }
 
 .rail-btn:hover:not(:disabled) {
-	background: var(--color-background-hover, rgb(255 255 255 / 11%));
+	background: var(--tdv-color-hover-bg));
 }
 
 .rail-btn:focus-visible {
@@ -215,7 +215,7 @@
 /* Recentre stays in place and greys out outside pan mode, so nothing below it moves
    when the mode changes. */
 .rail-btn:disabled {
-	color: var(--color-text-maxcontrast, rgb(255 255 255 / 28%));
+	color: var(--tdv-color-text-secondary));
 	cursor: not-allowed;
 }
 
@@ -227,7 +227,7 @@
 .rail-divider {
 	grid-column: 1 / -1;
 	height: 1px;
-	background: var(--color-border, rgb(255 255 255 / 10%));
+	background: var(--tdv-color-border));
 	margin: 1px 3px;
 }
 
@@ -245,7 +245,7 @@
 	width: 3px;
 	height: 3px;
 	border-radius: 50%;
-	background: var(--color-text-maxcontrast, rgb(255 255 255 / 45%));
+	background: var(--tdv-color-text-secondary));
 }
 
 /* ---- Live readout -------------------------------------------------------- */
@@ -253,7 +253,7 @@
 .readout {
 	font: 500 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
 	letter-spacing: 0.08em;
-	color: var(--color-text-maxcontrast, rgb(255 255 255 / 42%));
+	color: var(--tdv-color-text-secondary));
 	white-space: nowrap;
 	text-align: center;
 	pointer-events: none;

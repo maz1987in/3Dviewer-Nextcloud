@@ -154,8 +154,8 @@ export default {
 .toast-fade-enter-from, .toast-fade-leave-to { opacity:0; transform: translateY(-6px); }
 
 .toast {
-	background: var(--color-main-background,#2d2d2d);
-	color: var(--color-main-text,#fff);
+	background: var(--tdv-color-surface);
+	color: var(--tdv-color-text);
 	padding: 10px 12px;
 	border-radius: 6px;
 	box-shadow: 0 4px 14px rgb(0 0 0 / 35%);
@@ -165,10 +165,10 @@ export default {
 	position: relative;
 	overflow: hidden;
 }
-.toast.success { border-inline-start: 4px solid var(--color-success,#2e7d32); }
-.toast.error { border-inline-start: 4px solid var(--color-error,#d32f2f); }
+.toast.success { border-inline-start: 4px solid var(--tdv-color-success); }
+.toast.error { border-inline-start: 4px solid var(--tdv-color-error); }
 .toast.info { border-inline-start: 4px solid var(--tdv-color-primary); }
-.toast.warning { border-inline-start: 4px solid var(--color-warning,#ff9800); }
+.toast.warning { border-inline-start: 4px solid var(--tdv-color-warning); }
 .toast .title { display:block; font-weight:600; margin-bottom:2px; }
 .toast .close { position:absolute; top:4px; inset-inline-end:6px; background:transparent; border:none; color:currentcolor; font-size:16px; cursor:pointer; padding:0; }
 .toast .close:focus-visible { outline:2px solid var(--tdv-color-primary); outline-offset:2px; }
@@ -198,10 +198,10 @@ export default {
 }
 
 /* Different colors for different toast types */
-.toast.success .progress-bar::after { background: var(--color-success, #2e7d32); }
-.toast.error .progress-bar::after { background: var(--color-error, #d32f2f); }
+.toast.success .progress-bar::after { background: var(--tdv-color-success); }
+.toast.error .progress-bar::after { background: var(--tdv-color-error); }
 .toast.info .progress-bar::after { background: var(--tdv-color-primary); }
-.toast.warning .progress-bar::after { background: var(--color-warning, #ff9800); }
+.toast.warning .progress-bar::after { background: var(--tdv-color-warning); }
 
 /* Dark theme adjustments */
 .theme--dark .toast .progress-bar {
@@ -225,10 +225,10 @@ export default {
 	border-inline-end: 4px solid;
 }
 
-[dir="rtl"] .toast.success { border-inline-end: 4px solid var(--color-success,#2e7d32); }
-[dir="rtl"] .toast.error { border-inline-end: 4px solid var(--color-error,#d32f2f); }
+[dir="rtl"] .toast.success { border-inline-end: 4px solid var(--tdv-color-success); }
+[dir="rtl"] .toast.error { border-inline-end: 4px solid var(--tdv-color-error); }
 [dir="rtl"] .toast.info { border-inline-end: 4px solid var(--tdv-color-primary); }
-[dir="rtl"] .toast.warning { border-inline-end: 4px solid var(--color-warning,#ff9800); }
+[dir="rtl"] .toast.warning { border-inline-end: 4px solid var(--tdv-color-warning); }
 
 [dir="rtl"] .toast .close {
 	inset-inline: 6px auto;

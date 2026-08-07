@@ -830,14 +830,14 @@ export default {
 	inset-inline-end: 0;
 	bottom: 0;
 	width: 320px;
-	background: var(--color-main-background);
-	color: var(--color-main-text);
+	background: var(--tdv-color-surface);
+	color: var(--tdv-color-text);
 	box-shadow: -4px 0 20px rgb(0, 0, 0, 0.15);
 	z-index: 1002;
 	display: flex;
 	flex-direction: column;
 	overflow: hidden;
-	border-left: 1px solid var(--color-border);
+	border-left: 1px solid var(--tdv-color-border);
 }
 
 /* Panel Header */
@@ -846,21 +846,21 @@ export default {
 	align-items: center;
 	justify-content: space-between;
 	padding: 12px 20px;
-	background: var(--color-background-dark);
-	border-bottom: 1px solid var(--color-border);
+	background: var(--tdv-color-surface-sunken);
+	border-bottom: 1px solid var(--tdv-color-border);
 }
 
 .panel-title {
 	font-size: 18px;
 	font-weight: 600;
 	margin: 0;
-	color: var(--color-main-text);
+	color: var(--tdv-color-text);
 }
 
 .close-btn {
 	background: transparent;
 	border: none;
-	color: var(--color-main-text);
+	color: var(--tdv-color-text);
 	font-size: 28px;
 	line-height: 1;
 	cursor: pointer;
@@ -870,7 +870,7 @@ export default {
 }
 
 .close-btn:hover {
-	background: var(--color-background-hover);
+	background: var(--tdv-color-hover-bg);
 }
 
 /* Panel Content */
@@ -881,14 +881,14 @@ export default {
 }
 
 .panel-content::-webkit-scrollbar { width: 8px; }
-.panel-content::-webkit-scrollbar-track { background: var(--color-background-dark); }
-.panel-content::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 4px; }
-.panel-content::-webkit-scrollbar-thumb:hover { background: var(--color-border-dark); }
+.panel-content::-webkit-scrollbar-track { background: var(--tdv-color-surface-sunken); }
+.panel-content::-webkit-scrollbar-thumb { background: var(--tdv-color-border); border-radius: 4px; }
+.panel-content::-webkit-scrollbar-thumb:hover { background: var(--tdv-color-border-strong); }
 
 /* Panel Sections */
 .panel-section {
 	margin-bottom: 8px;
-	background: var(--color-background-hover);
+	background: var(--tdv-color-hover-bg);
 	border-radius: 8px;
 	overflow: hidden;
 }
@@ -901,7 +901,7 @@ export default {
 	padding: 12px 16px;
 	background: transparent;
 	border: none;
-	color: var(--color-main-text);
+	color: var(--tdv-color-text);
 	font-size: 14px;
 	font-weight: 600;
 	cursor: pointer;
@@ -909,7 +909,7 @@ export default {
 	text-align: start;
 }
 
-.section-header:hover { background: var(--color-background-hover); }
+.section-header:hover { background: var(--tdv-color-hover-bg); }
 .section-icon { font-size: 18px; }
 .section-title { flex: 1; }
 .expand-icon { font-size: 12px; opacity: 0.6; }
@@ -923,10 +923,10 @@ export default {
 	align-items: center;
 	gap: 12px;
 	padding: 12px 16px;
-	background: var(--color-main-background);
-	border: 1px solid var(--color-border);
+	background: var(--tdv-color-surface);
+	border: 1px solid var(--tdv-color-border);
 	border-radius: 6px;
-	color: var(--color-main-text);
+	color: var(--tdv-color-text);
 	font-size: 14px;
 	cursor: pointer;
 	transition: all 0.2s ease;
@@ -935,7 +935,7 @@ export default {
 }
 
 .tool-btn:hover {
-	background: var(--color-background-hover);
+	background: var(--tdv-color-hover-bg);
 	border-color: var(--tdv-color-primary);
 }
 
@@ -973,14 +973,14 @@ export default {
 }
 
 .toggle-row:hover {
-	background: var(--color-background-hover);
+	background: var(--tdv-color-hover-bg);
 }
 
 .toggle-switch {
 	position: relative;
 	width: 36px;
 	height: 20px;
-	background: var(--color-border);
+	background: var(--tdv-color-border);
 	border-radius: 10px;
 	flex-shrink: 0;
 	transition: background 0.2s ease;
@@ -993,7 +993,7 @@ export default {
 	inset-inline-start: 2px;
 	width: 16px;
 	height: 16px;
-	background: var(--color-main-background);
+	background: var(--tdv-color-surface);
 	border-radius: 50%;
 	transition: transform 0.2s ease;
 	box-shadow: 0 1px 3px rgb(0 0 0 / 20%);
@@ -1013,28 +1013,28 @@ export default {
 
 .toggle-text {
 	font-size: 14px;
-	color: var(--color-main-text);
+	color: var(--tdv-color-text);
 }
 
 /* Tool Groups */
 .tool-group {
 	padding: 12px 16px;
-	background: var(--color-main-background);
-	border: 1px solid var(--color-border);
+	background: var(--tdv-color-surface);
+	border: 1px solid var(--tdv-color-border);
 	border-radius: 6px;
 	margin-bottom: 6px;
 	transition: all 0.2s ease;
 }
 
 .tool-group:hover {
-	background: var(--color-background-hover);
+	background: var(--tdv-color-hover-bg);
 	border-color: var(--tdv-color-primary);
 }
 
 .tool-label-small {
 	display: block;
 	font-size: 12px;
-	color: var(--color-text-maxcontrast);
+	color: var(--tdv-color-text-secondary);
 	margin-bottom: 8px;
 	font-weight: 500;
 }
@@ -1049,17 +1049,17 @@ export default {
 
 .clip-label {
 	font-size: 12px;
-	color: var(--color-text-maxcontrast);
+	color: var(--tdv-color-text-secondary);
 	white-space: nowrap;
 }
 
 .clip-dropdown {
 	flex: 1;
 	padding: 4px 8px;
-	border: 1px solid var(--color-border);
+	border: 1px solid var(--tdv-color-border);
 	border-radius: 4px;
-	background: var(--color-main-background);
-	color: var(--color-main-text);
+	background: var(--tdv-color-surface);
+	color: var(--tdv-color-text);
 	font-size: 12px;
 	cursor: pointer;
 	min-width: 0;
@@ -1097,16 +1097,16 @@ export default {
 
 .step-btn {
 	background: transparent;
-	border: 1px solid var(--color-border);
+	border: 1px solid var(--tdv-color-border);
 	border-radius: 4px;
-	color: var(--color-main-text);
+	color: var(--tdv-color-text);
 	cursor: pointer;
 	padding: 2px 6px;
 	font-size: 12px;
 	line-height: 1;
 }
 
-.step-btn:hover { background: var(--color-background-hover); }
+.step-btn:hover { background: var(--tdv-color-hover-bg); }
 
 .timeline-slider {
 	flex: 1;
@@ -1117,7 +1117,7 @@ export default {
 
 .timeline-time {
 	font-size: 11px;
-	color: var(--color-text-maxcontrast);
+	color: var(--tdv-color-text-secondary);
 	text-align: center;
 	margin-top: 4px;
 }
@@ -1136,10 +1136,10 @@ export default {
 .axis-btn {
 	flex: 1;
 	padding: 4px 8px;
-	border: 1px solid var(--color-border);
+	border: 1px solid var(--tdv-color-border);
 	border-radius: 4px;
-	background: var(--color-main-background);
-	color: var(--color-main-text);
+	background: var(--tdv-color-surface);
+	color: var(--tdv-color-text);
 	cursor: pointer;
 	font-size: 12px;
 	font-weight: 600;
@@ -1147,7 +1147,7 @@ export default {
 	transition: all 0.15s ease;
 }
 
-.axis-btn:hover { background: var(--color-background-hover); }
+.axis-btn:hover { background: var(--tdv-color-hover-bg); }
 
 .axis-btn.active {
 	background: var(--tdv-color-primary);
@@ -1183,7 +1183,7 @@ export default {
 	font-size: 11px;
 	font-weight: 600;
 	text-align: center;
-	color: var(--color-text-maxcontrast);
+	color: var(--tdv-color-text-secondary);
 }
 
 .clipping-box-pair {
@@ -1195,7 +1195,7 @@ export default {
 
 .clipping-box-sublabel {
 	font-size: 10px;
-	color: var(--color-text-maxcontrast);
+	color: var(--tdv-color-text-secondary);
 	width: 10px;
 	text-align: center;
 	font-weight: 700;
@@ -1220,16 +1220,16 @@ export default {
 
 .preset-btn {
 	padding: 4px 10px;
-	border: 1px solid var(--color-border);
+	border: 1px solid var(--tdv-color-border);
 	border-radius: 4px;
-	background: var(--color-main-background);
-	color: var(--color-main-text);
+	background: var(--tdv-color-surface);
+	color: var(--tdv-color-text);
 	cursor: pointer;
 	font-size: 11px;
 	transition: all 0.15s ease;
 }
 
-.preset-btn:hover { background: var(--color-background-hover); }
+.preset-btn:hover { background: var(--tdv-color-hover-bg); }
 
 .preset-btn.active {
 	background: var(--tdv-color-primary);
@@ -1254,10 +1254,10 @@ export default {
 .bookmark-name {
 	flex: 1;
 	padding: 4px 8px;
-	border: 1px solid var(--color-border);
+	border: 1px solid var(--tdv-color-border);
 	border-radius: 4px;
-	background: var(--color-main-background);
-	color: var(--color-main-text);
+	background: var(--tdv-color-surface);
+	color: var(--tdv-color-text);
 	cursor: pointer;
 	font-size: 12px;
 	text-align: start;
@@ -1267,12 +1267,12 @@ export default {
 	transition: background 0.15s ease;
 }
 
-.bookmark-name:hover { background: var(--color-background-hover); }
+.bookmark-name:hover { background: var(--tdv-color-hover-bg); }
 
 .bookmark-delete {
 	background: transparent;
 	border: none;
-	color: var(--color-text-maxcontrast);
+	color: var(--tdv-color-text-secondary);
 	cursor: pointer;
 	font-size: 16px;
 	padding: 2px 6px;
@@ -1280,25 +1280,25 @@ export default {
 }
 
 .bookmark-delete:hover {
-	color: var(--color-error-text, #c00);
-	background: var(--color-error, #ffe7e7);
+	color: var(--tdv-color-on-error);
+	background: var(--tdv-color-error);
 }
 
 /* Export select */
 .export-select {
 	width: 100%;
 	padding: 8px 12px;
-	background: var(--color-background-dark);
-	border: 1px solid var(--color-border);
+	background: var(--tdv-color-surface-sunken);
+	border: 1px solid var(--tdv-color-border);
 	border-radius: 4px;
-	color: var(--color-main-text);
+	color: var(--tdv-color-text);
 	font-size: 13px;
 	cursor: pointer;
 	transition: all 0.2s ease;
 }
 
 .export-select:hover:not(:disabled) {
-	background: var(--color-background-hover);
+	background: var(--tdv-color-hover-bg);
 	border-color: var(--tdv-color-primary);
 }
 
@@ -1314,8 +1314,8 @@ export default {
 }
 
 .export-select option {
-	background: var(--color-main-background);
-	color: var(--color-main-text);
+	background: var(--tdv-color-surface);
+	color: var(--tdv-color-text);
 }
 
 /* Color Picker */
@@ -1328,7 +1328,7 @@ export default {
 .color-input {
 	flex: 1;
 	height: 36px;
-	border: 1px solid var(--color-border);
+	border: 1px solid var(--tdv-color-border);
 	border-radius: 4px;
 	cursor: pointer;
 	background: transparent;
@@ -1336,10 +1336,10 @@ export default {
 
 .reset-color-btn {
 	padding: 8px 12px;
-	background: var(--color-background-hover);
-	border: 1px solid var(--color-border);
+	background: var(--tdv-color-hover-bg);
+	border: 1px solid var(--tdv-color-border);
 	border-radius: 4px;
-	color: var(--color-main-text);
+	color: var(--tdv-color-text);
 	font-size: 12px;
 	cursor: pointer;
 	transition: all 0.2s ease;
@@ -1360,8 +1360,8 @@ export default {
 	flex-direction: column;
 	gap: 6px;
 	padding: 8px;
-	background: var(--color-background-dark);
-	border: 1px solid var(--color-border);
+	background: var(--tdv-color-surface-sunken);
+	border: 1px solid var(--tdv-color-border);
 	border-radius: 4px;
 }
 
@@ -1374,13 +1374,13 @@ export default {
 .palette-key {
 	flex: 1;
 	font-size: 12px;
-	color: var(--color-text-maxcontrast);
+	color: var(--tdv-color-text-secondary);
 }
 
 .palette-swatch {
 	width: 36px;
 	height: 24px;
-	border: 1px solid var(--color-border);
+	border: 1px solid var(--tdv-color-border);
 	border-radius: 4px;
 	background: transparent;
 	cursor: pointer;
@@ -1391,8 +1391,8 @@ export default {
 	width: 22px;
 	height: 22px;
 	border: none;
-	background: var(--color-background-hover);
-	color: var(--color-text-maxcontrast);
+	background: var(--tdv-color-hover-bg);
+	color: var(--tdv-color-text-secondary);
 	border-radius: 3px;
 	cursor: pointer;
 	font-size: 14px;
@@ -1401,7 +1401,7 @@ export default {
 }
 
 .palette-clear:hover {
-	background: var(--color-background-darker);
+	background: var(--tdv-color-surface-recessed);
 }
 
 .palette-reset {
@@ -1409,8 +1409,8 @@ export default {
 }
 
 .cache-info {
-	background: var(--color-background-dark);
-	border: 1px solid var(--color-border);
+	background: var(--tdv-color-surface-sunken);
+	border: 1px solid var(--tdv-color-border);
 	border-radius: 4px;
 	padding: 10px;
 	margin-bottom: 8px;
@@ -1425,24 +1425,24 @@ export default {
 }
 
 .cache-stat-row:not(:last-child) {
-	border-bottom: 1px solid var(--color-border);
+	border-bottom: 1px solid var(--tdv-color-border);
 	padding-bottom: 6px;
 	margin-bottom: 4px;
 }
 
 .cache-stat-label {
-	color: var(--color-text-maxcontrast);
+	color: var(--tdv-color-text-secondary);
 	font-weight: 500;
 }
 
 .cache-stat-value {
-	color: var(--color-main-text);
+	color: var(--tdv-color-text);
 	font-weight: 600;
 }
 
-.cache-stat-value.good { color: var(--color-success-text, #2e7d32); }
-.cache-stat-value.warning { color: var(--color-warning-text, #e65100); }
-.cache-stat-value.poor { color: var(--color-error-text, #c62828); }
+.cache-stat-value.good { color: var(--tdv-color-on-success); }
+.cache-stat-value.warning { color: var(--tdv-color-on-warning); }
+.cache-stat-value.poor { color: var(--tdv-color-on-error); }
 
 .cache-clear-btn {
 	width: 100%;
@@ -1452,14 +1452,14 @@ export default {
 /* Panel Footer */
 .panel-footer {
 	padding: 12px 20px;
-	background: var(--color-background-dark);
-	border-top: 1px solid var(--color-border);
+	background: var(--tdv-color-surface-sunken);
+	border-top: 1px solid var(--tdv-color-border);
 	text-align: center;
 }
 
 .keyboard-hint {
 	font-size: 12px;
-	color: var(--color-text-maxcontrast);
+	color: var(--tdv-color-text-secondary);
 	font-style: italic;
 }
 

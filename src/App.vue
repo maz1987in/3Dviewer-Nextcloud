@@ -1518,7 +1518,7 @@ export default {
 	&:focus,
 	&:focus-visible {
 		top: 0;
-		outline: 2px solid var(--color-main-background, #fff);
+		outline: 2px solid var(--tdv-color-surface);
 		outline-offset: 2px;
 	}
 }
