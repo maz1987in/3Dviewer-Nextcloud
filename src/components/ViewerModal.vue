@@ -5,7 +5,6 @@
 			:is-open="showSlicerModal"
 			:model-object="getModelObject()"
 			:model-name="getModelName()"
-			:is-dark-theme="false"
 			@close="showSlicerModal = false"
 			@success="onSlicerSuccess"
 			@error="onSlicerError" />

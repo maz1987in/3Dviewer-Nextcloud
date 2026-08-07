@@ -204,7 +204,7 @@ export default {
 .toast.warning .progress-bar::after { background: var(--color-warning, #ff9800); }
 
 /* Dark theme adjustments */
-.dark-theme .toast .progress-bar {
+.theme--dark .toast .progress-bar {
 	background: rgb(0 0 0 / 30%);
 }
 

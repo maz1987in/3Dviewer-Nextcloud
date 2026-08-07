@@ -4894,18 +4894,18 @@ export default {
 }
 
 /* Dark theme support for comparison controls */
-.dark-theme .comparison-controls {
+.theme--dark .comparison-controls {
 	background: rgb(30 30 30 / 80%);
 	border-color: rgb(255 255 255 / 20%);
 	box-shadow: 0 4px 12px rgb(0 0 0 / 30%);
 }
 
-.dark-theme .comparison-btn {
+.theme--dark .comparison-btn {
 	background: var(--tdv-color-primary);
 	color: var(--tdv-color-on-primary);
 }
 
-.dark-theme .comparison-btn:hover {
+.theme--dark .comparison-btn:hover {
 	background: var(--tdv-color-primary-hover);
 }
 

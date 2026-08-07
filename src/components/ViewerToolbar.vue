@@ -487,33 +487,33 @@ export default {
 }
 
 /* Dark theme support */
-.dark-theme .viewer-toolbar {
+.theme--dark .viewer-toolbar {
 	background: rgb(30 30 30 / 80%);
 	border-color: rgb(255 255 255 / 20%);
 	box-shadow: 0 4px 12px rgb(0 0 0 / 30%);
 }
 
-.dark-theme .tb {
+.theme--dark .tb {
 	background: var(--tdv-color-primary);
 	color: var(--tdv-color-on-primary);
 }
 
-.dark-theme .tb[aria-pressed="true"] {
+.theme--dark .tb[aria-pressed="true"] {
 	background: var(--color-success, #4caf50);
 	color: #fff;
 }
 
-.dark-theme .color-picker {
+.theme--dark .color-picker {
 	background: var(--tdv-color-primary);
 }
 
-.dark-theme .preset-select {
+.theme--dark .preset-select {
 	background: rgb(255 255 255 / 10%);
 	border-color: rgb(255 255 255 / 30%);
 	color: white;
 }
 
-.dark-theme .preset-select option {
+.theme--dark .preset-select option {
 	background: #2d2d2d;
 	color: white;
 }

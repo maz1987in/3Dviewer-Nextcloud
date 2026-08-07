@@ -62,7 +62,6 @@
 					:filename="currentFilename"
 					:passthrough-formats="slicerPassthroughFormats"
 					:export-format="slicerExportFormat"
-					:is-dark-theme="themeMode === 'dark'"
 					@close="showSlicerModal = false"
 					@success="onSlicerSuccess"
 					@error="onSlicerError" />

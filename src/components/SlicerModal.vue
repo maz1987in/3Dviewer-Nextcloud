@@ -6,7 +6,6 @@
 			aria-modal="true"
 			aria-labelledby="slicer-modal-title"
 			tabindex="-1"
-			:class="{ 'dark-theme': isDarkTheme }"
 			@click.stop>
 			<!-- Modal Header -->
 			<div class="modal-header">
@@ -167,10 +166,6 @@ export default {
 			type: String,
 			default: 'stl',
 			validator: (value) => ['stl', 'obj', 'ply'].includes(value),
-		},
-		isDarkTheme: {
-			type: Boolean,
-			default: false,
 		},
 	},
 
@@ -1075,67 +1070,67 @@ export default {
 }
 
 /* Dark Theme */
-.slicer-modal.dark-theme {
+.theme--dark .slicer-modal {
 	background: #2a2a2a;
 }
 
-.slicer-modal.dark-theme .modal-header {
+.theme--dark .slicer-modal .modal-header {
 	border-bottom-color: rgb(255, 255, 255, 0.1);
 }
 
-.slicer-modal.dark-theme .modal-title,
-.slicer-modal.dark-theme .close-btn {
+.theme--dark .slicer-modal .modal-title,
+.theme--dark .slicer-modal .close-btn {
 	color: #fff;
 }
 
-.slicer-modal.dark-theme .close-btn:hover {
+.theme--dark .slicer-modal .close-btn:hover {
 	background: rgb(255, 255, 255, 0.1);
 }
 
-.slicer-modal.dark-theme .modal-description {
+.theme--dark .slicer-modal .modal-description {
 	color: rgb(255, 255, 255, 0.7);
 }
 
-.slicer-modal.dark-theme .slicer-card {
+.theme--dark .slicer-modal .slicer-card {
 	background: #333;
 	border-color: rgb(255, 255, 255, 0.2);
 }
 
-.slicer-modal.dark-theme .slicer-card:hover {
+.theme--dark .slicer-modal .slicer-card:hover {
 	border-color: var(--slicer-color);
 }
 
-.slicer-modal.dark-theme .slicer-card.last-used {
+.theme--dark .slicer-modal .slicer-card.last-used {
 	background: rgb(66, 135, 245, 0.15);
 }
 
-.slicer-modal.dark-theme .slicer-icon {
+.theme--dark .slicer-modal .slicer-icon {
 	background: #1f1f1f;
 }
 
-.slicer-modal.dark-theme .slicer-name {
+.theme--dark .slicer-modal .slicer-name {
 	color: #fff;
 }
 
-.slicer-modal.dark-theme .slicer-description {
+.theme--dark .slicer-modal .slicer-description {
 	color: rgb(255, 255, 255, 0.6);
 }
 
-.slicer-modal.dark-theme .modal-info {
+.theme--dark .slicer-modal .modal-info {
 	background: rgb(255, 255, 255, 0.05);
 	border-left-color: #4287f5;
 }
 
-.slicer-modal.dark-theme .info-text {
+.theme--dark .slicer-modal .info-text {
 	color: rgb(255, 255, 255, 0.7);
 }
 
-.slicer-modal.dark-theme .spinner {
+.theme--dark .slicer-modal .spinner {
 	border-color: rgb(255, 255, 255, 0.2);
 	border-top-color: #4287f5;
 }
 
-.slicer-modal.dark-theme .loading-state p {
+.theme--dark .slicer-modal .loading-state p {
 	color: #fff;
 }
 
