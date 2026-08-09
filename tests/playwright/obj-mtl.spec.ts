@@ -72,6 +72,30 @@ function buildHtmlWrapper() {
     #header { height: 50px; background: #0082c9; }
     #content { position: relative; height: calc(100% - 50px); }
     #threedviewer { position: absolute; inset: 0; }
+
+    /*
+     * The button rules Nextcloud's server stylesheet applies to every page, trimmed to
+     * their button arms. Without them this fixture measures an app that has the page to
+     * itself, which no user ever sees — and the states are exactly where that difference
+     * shows: Nextcloud styles hover, focus and active at a specificity a plain class does
+     * not beat, so a control can look right at rest and be unreadable while in use.
+     */
+    button:not(.button-vue, [class^="vs__"]) {
+      width: auto;
+      min-height: var(--default-clickable-area, 34px);
+      padding: 8px 12px;
+      box-sizing: border-box;
+      background-color: var(--color-main-background, #fff);
+      color: var(--color-main-text, #222);
+    }
+    button:not(.button-vue, [class^="vs__"]):hover,
+    button:not(.button-vue, [class^="vs__"]):focus {
+      background-color: var(--color-primary-element-light-hover, #d8eaf5);
+    }
+    button:not(.button-vue, [class^="vs__"]):not(:disabled, .primary):not(.app-navigation-entry-button):active {
+      background-color: var(--color-main-background, #fff);
+      color: var(--color-main-text, #222);
+    }
   </style>
   </head><body>
   <!-- Simulated minimal Nextcloud layout -->
@@ -232,6 +256,21 @@ test.describe('Viewer smoke', () => {
   test('no top bar control is covered by a floating panel', async ({ page }) => {
     await page.goto(server.url)
     await page.waitForSelector('.minimal-top-bar', { timeout: 20000 })
+    /*
+     * The bar exists, and reports sensible coordinates, before anything is painted there:
+     * during mount the app's subtree is laid out but clipped, so every control hit-tests
+     * as the page body. Waiting for the canvas is not enough — wait until the first
+     * control is actually the thing at its own centre, which is the precondition this
+     * assertion needs and a failure worth reporting on its own if it never arrives.
+     */
+    await page.waitForFunction(() => {
+      const control = document.querySelector('.minimal-top-bar button')
+      if (!control) return false
+      const r = control.getBoundingClientRect()
+      if (!r.width || !r.height) return false
+      const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)
+      return !!hit && control.contains(hit)
+    }, { timeout: 20000 })
 
     const covered = await page.evaluate(() => {
       const bar = document.querySelector('.minimal-top-bar')
@@ -243,7 +282,9 @@ test.describe('Viewer smoke', () => {
         const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)
         if (hit && (hit === control || control.contains(hit))) return []
         const name = control.getAttribute('aria-label') || control.className
-        return [`${name} -> ${hit ? hit.className || hit.tagName : 'nothing'}`]
+        const where = `${Math.round(rect.x)},${Math.round(rect.y)} ${Math.round(rect.width)}x${Math.round(rect.height)}`
+        const hitName = hit ? (typeof hit.className === 'string' && hit.className) || hit.tagName : 'nothing'
+        return [`${name} at ${where} -> ${hitName}`]
       })
     })
     expect(covered).toEqual([])
@@ -252,6 +293,7 @@ test.describe('Viewer smoke', () => {
   test('the tools panel opens clear of the bar that opens it', async ({ page }) => {
     await page.goto(server.url)
     await page.waitForSelector('.minimal-top-bar', { timeout: 20000 })
+    await page.waitForSelector('canvas', { timeout: 20000 })
     await page.click('[aria-label="Toggle tools panel"]')
     await page.waitForSelector('.slide-out-panel', { timeout: 5000 })
 

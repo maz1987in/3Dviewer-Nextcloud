@@ -296,7 +296,30 @@ export default {
 	border: none;
 	border-radius: 16px;
 	background: var(--tdv-hud-chip-bg);
+
+	/* Stated, not inherited: Nextcloud sets a colour on every button, and anything in
+	   here without its own would take the light theme's text on this near-black pill. */
+	color: var(--tdv-hud-text);
 	cursor: pointer;
+}
+
+/*
+ * Nextcloud paints every button's hover, focus and pressed states, and its selectors
+ * outrank a bare class. Without these the pill turns pale blue under its own pale text
+ * the moment it is clicked — and `:focus` has to be named alongside `:focus-visible`,
+ * because a mouse click leaves a button focused but not focus-visible, which is the
+ * state Nextcloud's rule was winning.
+ */
+.fps-badge:hover,
+.fps-badge:focus,
+.fps-badge:focus-visible {
+	background: var(--tdv-hud-hover-bg);
+	color: var(--tdv-hud-text);
+}
+
+.fps-badge:active {
+	background: var(--tdv-hud-hover-bg) !important;
+	color: var(--tdv-hud-text) !important;
 }
 
 .fps-dot {

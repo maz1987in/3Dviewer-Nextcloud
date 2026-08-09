@@ -176,7 +176,32 @@
 	color: var(--tdv-color-on-primary);
 }
 
+/*
+ * Held down. Nextcloud repaints a pressed button to the page background and the page
+ * text colour through a selector scoring (0,4,1) — four classes' worth of `:not()` plus
+ * `:active` — which no reasonable stack of class names beats. Nextcloud reaches for
+ * `!important` in its own focus rule for the same reason, and the alternative here is a
+ * specificity ladder whose next rung is decided by whoever edits the server stylesheet.
+ * Scoped to the two properties it actually contests.
+ */
+.tdv-btn.tdv-btn:active {
+	background: var(--tdv-color-primary-hover) !important;
+	color: var(--tdv-color-on-primary) !important;
+}
+
+.tdv-btn.tdv-btn--icon:active,
+.tdv-btn.tdv-btn--tertiary:active {
+	background: var(--tdv-color-hover-bg) !important;
+	color: var(--tdv-color-text) !important;
+}
+
+.tdv-btn.tdv-btn--on-canvas:active {
+	background: var(--tdv-hud-hover-bg) !important;
+	color: #fff !important;
+}
+
 .tdv-btn.tdv-btn--primary:hover,
+.tdv-btn.tdv-btn--primary:focus,
 .tdv-btn.tdv-btn--primary:focus-visible {
 	background: var(--tdv-color-primary-hover);
 }
@@ -187,11 +212,13 @@
 }
 
 .tdv-btn.tdv-btn--secondary:hover,
+.tdv-btn.tdv-btn--secondary:focus,
 .tdv-btn.tdv-btn--secondary:focus-visible {
 	background: var(--tdv-color-primary-light);
 }
 
 .tdv-btn.tdv-btn--tertiary:hover,
+.tdv-btn.tdv-btn--tertiary:focus,
 .tdv-btn.tdv-btn--tertiary:focus-visible {
 	background: var(--tdv-color-hover-bg);
 }
@@ -208,6 +235,7 @@
 }
 
 .tdv-btn.tdv-btn--icon:hover,
+.tdv-btn.tdv-btn--icon:focus,
 .tdv-btn.tdv-btn--icon:focus-visible {
 	background: var(--tdv-color-hover-bg);
 }
@@ -229,6 +257,7 @@
 }
 
 .tdv-btn.tdv-btn--on-canvas:hover,
+.tdv-btn.tdv-btn--on-canvas:focus,
 .tdv-btn.tdv-btn--on-canvas:focus-visible {
 	background: var(--tdv-hud-hover-bg);
 }

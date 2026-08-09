@@ -66,6 +66,22 @@ const NEXTCLOUD_BUTTON_CSS = `
 		min-height: var(--default-clickable-area);
 		box-sizing: border-box;
 	}
+
+	/*
+	 * And the stateful half, trimmed to the button arms of two very long selector lists.
+	 * These are the ones that matter: the first scores (0,2,1) and the second (0,4,1), so
+	 * a design system whose own states sit at (0,3,0) loses hover, focus and click on
+	 * every button in the app — which is what a themed instance showed, the primary
+	 * button turning pale with white text the moment it was pressed.
+	 */
+	button:not(.button-vue, [class^="vs__"]):hover,
+	button:not(.button-vue, [class^="vs__"]):focus {
+		background-color: var(--color-primary-element-light-hover);
+	}
+	button:not(.button-vue, [class^="vs__"]):not(:disabled, .primary):not(.app-navigation-entry-button):active {
+		background-color: var(--color-main-background);
+		color: var(--color-main-text);
+	}
 `
 
 function fixture(rootStyle = '') {
@@ -92,6 +108,7 @@ function fixture(rootStyle = '') {
 <body>
 	${colourTokens.map((n) => `<div class="probe" id="probe${n}" style="background-color: var(${n})"></div>`).join('\n\t')}
 	<button class="tdv-btn tdv-btn--primary" id="primary">Tools</button>
+	<div class="cluster"><button class="tdv-btn tdv-btn--icon tdv-btn--on-canvas" id="canvasBtn"><svg class="viewer-icon" width="20" height="20" viewBox="0 0 24 24"><path d="M0 0h24v24H0z"/></svg></button></div>
 	<div class="cluster"><button class="tdv-btn tdv-btn--icon" id="iconBtn"><svg class="viewer-icon" width="20" height="20" viewBox="0 0 24 24"><path d="M0 0h24v24H0z"/></svg></button></div>
 	<div class="tdv-hud" id="hud"><span class="tdv-hud-value">60 fps</span></div>
 </body>
@@ -108,6 +125,20 @@ function luminance(colour: string): number {
 		return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4
 	}
 	return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
+}
+
+/**
+ * Flatten a possibly-translucent colour onto an opaque backdrop.
+ *
+ * The canvas chrome's hover state is white at 12%, which is a perfectly readable surface
+ * over near-black and an unreadable one measured as if it were opaque. Measuring the
+ * declared colour rather than the rendered one is its own way of being wrong.
+ */
+function over(colour: string, backdrop: string): string {
+	const c = colour.match(/[\d.]+/g)!.map(Number)
+	const b = backdrop.match(/[\d.]+/g)!.map(Number)
+	const a = c.length > 3 ? c[3] : 1
+	return `rgb(${[0, 1, 2].map((i) => Math.round(c[i] * a + b[i] * (1 - a))).join(', ')})`
 }
 
 /** WCAG contrast ratio between two opaque colours. */
@@ -199,6 +230,51 @@ test.describe('design system tokens in a browser', () => {
 		// And it follows the instance's density rather than a hardcoded 44.
 		expect(size.h).toBe(34)
 	})
+
+	/*
+	 * A button keeps its own colours while it is being used.
+	 *
+	 * Nextcloud paints every button's hover, focus and active states, and its selectors
+	 * outrank a plain class — so the app's primary button went pale-on-white the moment
+	 * it was clicked, and the controls on the dark canvas chrome lit up in a light theme
+	 * colour against near-black. Every one of those states looks correct at rest, which
+	 * is the only state a screenshot or a default-state assertion ever sees.
+	 */
+	for (const [label, id, backdrop] of [
+		['primary', '#primary', 'rgb(255, 255, 255)'],
+		['on-canvas', '#canvasBtn', 'rgb(23, 23, 23)'],
+	] as const) {
+		test(`the ${label} button keeps its colours through hover, focus and click`, async ({ page }) => {
+			await page.setContent(fixture('--default-clickable-area: 34px; --default-grid-baseline: 4px; --color-primary-element: rgb(0, 130, 201); --color-primary-element-light-hover: rgb(216, 234, 245); --color-main-background: rgb(255, 255, 255); --color-main-text: rgb(34, 34, 34);'))
+
+			const cdp = await page.context().newCDPSession(page)
+			await cdp.send('DOM.enable')
+			await cdp.send('CSS.enable')
+			const { root } = await cdp.send('DOM.getDocument', { depth: -1 })
+			const { nodeId } = await cdp.send('DOM.querySelector', { nodeId: root.nodeId, selector: id })
+
+			const failures: string[] = []
+			/*
+			 * `focus` alone is the state a button is left in after a mouse click: browsers
+			 * withhold `focus-visible` for pointer input. Bundling the two hides the whole
+			 * defect, because a rule written for `:focus-visible` then covers for one that
+			 * should have said `:focus` — which is exactly what it was doing here.
+			 */
+			for (const state of [[], ['hover'], ['focus'], ['focus', 'focus-visible'], ['active']]) {
+				await cdp.send('CSS.forcePseudoState', { nodeId, forcedPseudoClasses: state })
+				const { fg, bg } = await page.locator(id).evaluate((el) => {
+					const cs = getComputedStyle(el)
+					return { fg: cs.color, bg: cs.backgroundColor }
+				})
+				// 3:1, the WCAG minimum for a user interface component.
+				const ratio = contrast(over(fg, over(bg, backdrop)), over(bg, backdrop))
+				if (ratio < 3) {
+					failures.push(`${state.join(',') || 'rest'}: ${fg} on ${bg} = ${ratio.toFixed(2)}:1`)
+				}
+			}
+			expect(failures).toEqual([])
+		})
+	}
 
 	test('the canvas chrome stays dark when the instance primary changes', async ({ page }) => {
 		await page.setContent(fixture('--color-primary-element: rgb(200, 0, 0); --color-main-background: rgb(255, 255, 255);'))
