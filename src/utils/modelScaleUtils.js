@@ -7,6 +7,74 @@ import * as THREE from 'three'
 import { logError } from './error-handler.js'
 
 /**
+ * True if an object is viewer furniture — a gizmo, a picker, a helper, or one of the
+ * markers the measurement and annotation tools draw — rather than part of the loaded
+ * model.
+ *
+ * Everything that sizes itself against "the model" has to ask this first. TransformControls
+ * keeps an invisible picker plane in the scene, sized so a drag can never run off it: on a
+ * real instance it measures 107,700 units across, beside a model of 0.4. A bounding box
+ * taken over every mesh in the scene is therefore a bounding box of the picker, and a
+ * marker at a fraction of a percent of it is still hundreds of units wide.
+ *
+ * This lived in three places and not in a fourth. The annotation composable carried it with
+ * a comment naming the picker plane by size; the comparison composable carried a character-
+ * for-character copy; `shouldExcludeMesh` below carried a name-list version that did not
+ * know about gizmos at all. The measurement composable, which had the same scan inlined
+ * three times, checked only for its own marker names — so the bug the other two had already
+ * been fixed for was still live there, and drew a green wall across the viewport.
+ *
+ * @param {THREE.Object3D} obj - the object to test
+ * @return {boolean} true if the object is not part of the model
+ */
+export function isHelperMesh(obj) {
+	if (!obj) return false
+
+	const name = obj.name || ''
+	if (name.startsWith('annotation') || name.startsWith('measurement')) return true
+
+	const type = obj.type || ''
+	if (type.startsWith('TransformControls')) return true
+	if (type === 'AxesHelper' || type === 'GridHelper' || type === 'Box3Helper') return true
+
+	// The picker plane's own type is checked above, but a gizmo's parts are ordinary
+	// meshes — what marks them is the gizmo they hang from.
+	for (let p = obj.parent; p; p = p.parent) {
+		if ((p.type || '').startsWith('TransformControls')) return true
+	}
+	return false
+}
+
+/**
+ * The largest dimension of the loaded model, in Three.js units.
+ *
+ * The single source for every marker size in the viewer. It returns the fallback when the
+ * scene holds no model yet — measuring nothing gives zero, and a marker sized from zero is
+ * invisible rather than merely wrong.
+ *
+ * @param {THREE.Scene} scene - the scene to measure
+ * @param {number} fallback - what to report when there is no model in it
+ * @return {number} the model's largest dimension
+ */
+export function getModelMaxDimension(scene, fallback) {
+	if (!scene) return fallback
+
+	const box = new THREE.Box3()
+	let found = false
+	scene.traverse((child) => {
+		if (!child.isMesh || isHelperMesh(child)) return
+		found = true
+		box.union(new THREE.Box3().setFromObject(child))
+	})
+	if (!found) return fallback
+
+	const size = new THREE.Vector3()
+	box.getSize(size)
+	const maxDimension = Math.max(size.x, size.y, size.z)
+	return maxDimension > 0 ? maxDimension : fallback
+}
+
+/**
  * Calculate visual scale based on model bounding box
  * Used for sizing annotations, measurements, and other visual elements
  *
@@ -39,7 +107,7 @@ export function calculateModelScale(scene, options = {}) {
 		// Find all meshes in the scene (excluding specified elements)
 		const meshes = []
 		scene.traverse((child) => {
-			if (child.isMesh && !shouldExcludeMesh(child, excludeNames)) {
+			if (child.isMesh && !isHelperMesh(child) && !shouldExcludeMesh(child, excludeNames)) {
 				meshes.push(child)
 			}
 		})

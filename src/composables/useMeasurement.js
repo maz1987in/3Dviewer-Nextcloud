@@ -7,6 +7,7 @@ import {
 	calculateModelScale,
 	createTextTexture,
 	createTextMesh,
+	getModelMaxDimension,
 	raycastIntersection,
 } from '../utils/modelScaleUtils.js'
 
@@ -310,31 +311,9 @@ export function useMeasurement() {
 	const createPointIndicator = (point) => {
 		if (!measurementGroup.value) return
 
-		// Calculate point size - use a percentage of the *actual* model size with a minimum visible size
-		// Prefer the real bounding box over the reverse-calculated value from visualScale,
-		// because visualScale is clamped and can greatly overestimate size for tiny models.
-		let modelMaxDim = visualScale.value / 0.005 // Fallback from visualScale
-
-		if (sceneRef.value) {
-			const box = new THREE.Box3()
-			const meshes = []
-			sceneRef.value.traverse((child) => {
-				if (child.isMesh && !child.name?.startsWith('measurement') && !child.name?.startsWith('annotation')) {
-					meshes.push(child)
-					const meshBox = new THREE.Box3().setFromObject(child)
-					box.union(meshBox)
-				}
-			})
-
-			if (meshes.length > 0) {
-				const size = new THREE.Vector3()
-				box.getSize(size)
-				const actualMaxDim = Math.max(size.x, size.y, size.z)
-				if (actualMaxDim > 0) {
-					modelMaxDim = actualMaxDim
-				}
-			}
-		}
+		// The real bounding box rather than the reverse-calculated value from visualScale,
+		// which is clamped and greatly overestimates the size of a small model.
+		const modelMaxDim = getModelMaxDimension(sceneRef.value, visualScale.value / 0.005)
 
 		// Use a small percentage of the model size for the measurement point radius,
 		// driven by configuration (default ~1.5% of model size, clamped between ~1% and ~3%)
@@ -407,31 +386,7 @@ export function useMeasurement() {
 		// Note: linewidth doesn't work in WebGL, so we create a cylinder instead.
 		const direction = new THREE.Vector3().subVectors(measurement.point2, measurement.point1)
 		const distance = direction.length()
-		// Calculate line radius - use a percentage of the *actual* model size with a minimum visible size
-		// Prefer the real bounding box over the reverse-calculated value from visualScale, because
-		// visualScale is clamped and can greatly overestimate size for tiny models.
-		let modelMaxDim = visualScale.value / 0.005 // Fallback from visualScale
-
-		if (sceneRef.value) {
-			const box = new THREE.Box3()
-			const meshes = []
-			sceneRef.value.traverse((child) => {
-				if (child.isMesh && !child.name?.startsWith('measurement') && !child.name?.startsWith('annotation')) {
-					meshes.push(child)
-					const meshBox = new THREE.Box3().setFromObject(child)
-					box.union(meshBox)
-				}
-			})
-
-			if (meshes.length > 0) {
-				const size = new THREE.Vector3()
-				box.getSize(size)
-				const actualMaxDim = Math.max(size.x, size.y, size.z)
-				if (actualMaxDim > 0) {
-					modelMaxDim = actualMaxDim
-				}
-			}
-		}
+		const modelMaxDim = getModelMaxDimension(sceneRef.value, visualScale.value / 0.005)
 
 		// Target radius based on configuration (default ~0.8% of model size),
 		// clamped to stay within a reasonable visible range
@@ -469,31 +424,7 @@ export function useMeasurement() {
 			// Use formatted value if available, otherwise show raw distance with units
 			const displayText = measurement.formatted || `${measurement.distance.toFixed(3)} units`
 
-			// Calculate text size - use a percentage of actual model size with a minimum visible size
-			// Prefer the real bounding box size over the reverse-calculated value from visualScale,
-			// because visualScale is clamped (min 0.3) which can greatly overestimate size for tiny models.
-			let modelMaxDim = visualScale.value / 0.005 // Fallback: reverse calculate from visualScale
-
-			if (sceneRef.value) {
-				const box = new THREE.Box3()
-				const meshes = []
-				sceneRef.value.traverse((child) => {
-					if (child.isMesh && !child.name?.startsWith('measurement') && !child.name?.startsWith('annotation')) {
-						meshes.push(child)
-						const meshBox = new THREE.Box3().setFromObject(child)
-						box.union(meshBox)
-					}
-				})
-
-				if (meshes.length > 0) {
-					const size = new THREE.Vector3()
-					box.getSize(size)
-					const actualMaxDim = Math.max(size.x, size.y, size.z)
-					if (actualMaxDim > 0) {
-						modelMaxDim = actualMaxDim
-					}
-				}
-			}
+			const modelMaxDim = getModelMaxDimension(sceneRef.value, visualScale.value / 0.005)
 
 			// For very small models, use a smaller minimum text scale so labels don't cover everything
 			const minTextScale = modelMaxDim < 1 ? modelMaxDim * 0.1 : Math.min(modelMaxDim * 0.02, 2)

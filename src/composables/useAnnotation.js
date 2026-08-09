@@ -13,6 +13,7 @@ import {
 	calculateModelScale,
 	createTextTexture,
 	createTextMesh,
+	isHelperMesh,
 	raycastIntersection,
 } from '../utils/modelScaleUtils.js'
 
@@ -20,34 +21,6 @@ import {
 const ANNOTATION_SIZING = (VIEWER_CONFIG.visualSizing && VIEWER_CONFIG.visualSizing.annotation) || {
 	pointSizePercent: 1.5,
 	labelWidthPercent: 20,
-}
-
-/**
- * True if a mesh is a viewer helper (gizmo, picker, measurement, annotation
- * marker) rather than part of the loaded model. Used to keep helpers out of
- * the model bounding-box calculation that drives marker sizing — without this
- * filter, the TransformControlsPlane (a 100,000-unit invisible picker plane)
- * inflates `modelMaxDim` and pushes annotation labels hundreds of units away.
- *
- * @param {THREE.Object3D} obj - Mesh to test
- * @return {boolean}
- */
-function isHelperMesh(obj) {
-	if (!obj) return false
-	// Filter by name pattern
-	const name = obj.name || ''
-	if (name.startsWith('annotation') || name.startsWith('measurement')) return true
-	// Filter Three.js built-in helpers and TransformControls
-	const type = obj.type || ''
-	if (type.startsWith('TransformControls')) return true
-	if (type === 'AxesHelper' || type === 'GridHelper' || type === 'Box3Helper') return true
-	// Walk ancestors to catch the picker plane (whose ancestor is TransformControls)
-	let p = obj.parent
-	while (p) {
-		if ((p.type || '').startsWith('TransformControls')) return true
-		p = p.parent
-	}
-	return false
 }
 
 export function useAnnotation() {
