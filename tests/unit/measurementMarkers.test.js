@@ -21,6 +21,32 @@
 const THREE = require('three')
 const { useMeasurement } = require('../../src/composables/useMeasurement.js')
 
+/*
+ * jsdom has no 2D canvas, so `getContext('2d')` returns null and every label silently
+ * becomes nothing — the label code is wrapped in a try/catch that returns null, so a suite
+ * without this stub reports a pass for a viewer that draws no labels at all. The stub is
+ * the smallest thing the label path actually calls.
+ */
+beforeAll(() => {
+	window.HTMLCanvasElement.prototype.getContext = function getContext() {
+		return {
+			canvas: this,
+			// Roughly a monospace advance, which is all the layout needs to be plausible.
+			measureText: (text) => ({ width: String(text).length * 20 }),
+			fillRect: () => {},
+			clearRect: () => {},
+			fillText: () => {},
+			beginPath: () => {},
+			rect: () => {},
+			fill: () => {},
+			set fillStyle(v) {},
+			set font(v) {},
+			set textAlign(v) {},
+			set textBaseline(v) {},
+		}
+	}
+})
+
 /**
  * A scene holding one model of a known size — and the rest of what a viewer puts in a
  * scene.
@@ -76,9 +102,12 @@ function markers(scene) {
 		o.geometry.computeBoundingSphere()
 		const scale = new THREE.Vector3()
 		o.matrixWorld.decompose(new THREE.Vector3(), new THREE.Quaternion(), scale)
+		o.geometry.computeBoundingBox()
+		const box = o.geometry.boundingBox
 		found.push({
 			name: o.name,
 			radius: o.geometry.boundingSphere.radius * Math.max(scale.x, scale.y, scale.z),
+			height: (box.max.y - box.min.y) * scale.y,
 		})
 	})
 	return found
@@ -122,4 +151,80 @@ describe.each([
 			expect(oversized).toEqual([])
 		},
 	)
+
+	/*
+	 * The other end of the same question. A marker too large is a wall; a label too small
+	 * is a smudge, and the reading is the entire point of taking a measurement.
+	 *
+	 * It came out at 1% of the model's height — 0.02 units on a 2-unit model — because the
+	 * height was the product of three separate clamps that each reduced it a little and
+	 * none of which was about legibility.
+	 */
+	it('makes the reading large enough to read', () => {
+		const label = measure().find((m) => m.name.startsWith('measurementText'))
+		expect(label).toBeDefined()
+		expect(label.height).toBeGreaterThanOrEqual(size * 0.02)
+		expect(label.height).toBeLessThanOrEqual(size * 0.15)
+	})
+})
+
+/*
+ * A measured point lands on the model.
+ *
+ * Clicks are resolved by raycasting against "every visible mesh in the scene", which
+ * includes TransformControls' picker — a mesh whose material is invisible but whose object
+ * is not, sized so a drag can never run off it. A picker between the camera and the model
+ * is the nearest hit, so the point is placed on an invisible plane in front of the object
+ * rather than on the object, and the marker floats.
+ *
+ * The same question as the marker sizing above — which meshes are the model — asked at a
+ * third call site that did not get the shared answer.
+ */
+describe('where a measured point lands', () => {
+	/** A click at the centre of a 100x100 canvas. */
+	const centreClick = {
+		clientX: 50,
+		clientY: 50,
+		target: { getBoundingClientRect: () => ({ left: 0, top: 0, width: 100, height: 100 }) },
+	}
+
+	it.each([
+		['useMeasurement', () => require('../../src/composables/useMeasurement.js').useMeasurement(), 'points'],
+		['useAnnotation', () => require('../../src/composables/useAnnotation.js').useAnnotation(), 'annotations'],
+	])('%s picks the model, not the gizmo picker in front of it', (_name, make, collection) => {
+		const scene = new THREE.Scene()
+		const model = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial())
+		model.name = 'model'
+		scene.add(model)
+
+		// The picker, between the camera and the model — where it sits whenever the gizmo
+		// is nearer the viewer than the surface being measured.
+		const gizmo = new THREE.Object3D()
+		gizmo.type = 'TransformControls'
+		const picker = new THREE.Mesh(
+			new THREE.PlaneGeometry(100000, 100000),
+			new THREE.MeshBasicMaterial({ visible: false }),
+		)
+		picker.type = 'TransformControlsPlane'
+		picker.position.set(0, 0, 3)
+		gizmo.add(picker)
+		scene.add(gizmo)
+		scene.updateMatrixWorld(true)
+
+		const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100)
+		camera.position.set(0, 0, 6)
+		camera.lookAt(0, 0, 0)
+		camera.updateMatrixWorld(true)
+
+		const tool = make()
+		tool.init(scene)
+		tool.toggleMeasurement ? tool.toggleMeasurement() : tool.toggleAnnotation()
+		tool.handleClick(centreClick, camera)
+
+		const picked = tool[collection].value
+		expect(picked.length).toBe(1)
+		const point = picked[0].point ?? picked[0]
+		// The model's front face is at z = 0.5; the picker at z = 3.
+		expect(point.z).toBeCloseTo(0.5, 2)
+	})
 })

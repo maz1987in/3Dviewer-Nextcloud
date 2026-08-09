@@ -331,14 +331,14 @@ export const VISUAL_SIZING_SETTINGS = {
 		pointSizePercent: 1.5,
 		// Approximate radius of measurement lines (tube thickness), 0.8% of model size
 		lineThicknessPercent: 0.8,
-		// Approximate width of the measurement label plane, 20% of model size
-		labelWidthPercent: 20,
+		// Height of the label, as a percentage of model size. Width follows the text.
+		labelHeightPercent: 4,
 	},
 	annotation: {
 		// Approximate radius of annotation points, 1.5% of model size
 		pointSizePercent: 1.5,
-		// Approximate width of the annotation label plane, 20% of model size
-		labelWidthPercent: 20,
+		// Height of the label, as a percentage of model size. Width follows the text.
+		labelHeightPercent: 4,
 	},
 }
 

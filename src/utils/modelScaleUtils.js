@@ -367,6 +367,8 @@ export function createTextMesh(text, position, options = {}) {
 		}
 		textMesh.name = name
 		textMesh.renderOrder = renderOrder
+		// What updateTextMesh needs to rebuild the plane when the text changes length.
+		textMesh.userData.labelHeight = finalHeight
 
 		// Mark as billboard - will be updated to face camera in animation loop
 		textMesh.userData.isBillboard = true
@@ -437,6 +439,58 @@ function getCachedIntersectableObjects(scene, filterMesh, cacheKey) {
 	})
 
 	return intersectableObjects
+}
+
+/**
+ * Replace a label's text.
+ *
+ * The label keeps the height it was built with and takes its width from the new text, so a
+ * reading that changes from "0.98 mm" to "0.039 in" is redrawn rather than squeezed into
+ * the shape of the old one.
+ *
+ * This exists because both callers had grown their own version, and both drew straight
+ * into the existing canvas at its existing width — which meant a longer string was clipped
+ * by the canvas it was drawn into, and a shorter one left the plane too wide. Each also
+ * repeated the label's colours inline, so the two update paths had drifted from the two
+ * creation paths and from each other.
+ *
+ * @param {THREE.Mesh} mesh - the label mesh to update
+ * @param {string} text - the new text
+ * @param {object} options - colour and font overrides, as for createTextTexture
+ * @return {boolean} true if the label was updated
+ */
+export function updateTextMesh(mesh, text, options = {}) {
+	if (!mesh || !mesh.material) return false
+
+	try {
+		const texture = createTextTexture(text, {
+			width: mesh.userData?.originalCanvasWidth ?? 512,
+			height: mesh.userData?.originalCanvasHeight ?? 128,
+			fontSize: mesh.userData?.originalFontSize ?? 48,
+			...options,
+		})
+		if (!texture) return false
+
+		const previous = mesh.material.map
+		mesh.material.map = texture
+		mesh.material.needsUpdate = true
+		if (previous && previous !== texture) previous.dispose()
+
+		const height = mesh.userData?.labelHeight
+		if (height) {
+			const aspect = texture.image.width / texture.image.height
+			mesh.geometry.dispose()
+			mesh.geometry = new THREE.PlaneGeometry(
+				Math.max(height * aspect, 0.01),
+				Math.max(height, 0.0025),
+			)
+		}
+		return true
+
+	} catch (error) {
+		logError('modelScaleUtils', 'Failed to update text mesh', error)
+		return false
+	}
 }
 
 /**
