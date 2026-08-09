@@ -53,12 +53,33 @@ function startStaticServer(): Promise<{url: string, close: () => Promise<void>}>
 
 function buildHtmlWrapper() {
   const mainScript = '/js/threedviewer-main.mjs'
-  return `<!doctype html><html><head><meta charset="utf-8"><title>Viewer Test</title></head><body>
+  return `<!doctype html><html><head><meta charset="utf-8"><title>Viewer Test</title>
+  <!-- templates/index.php adds this with Util::addStyle. The module loader injects the
+       CSS of the chunks it imports but not the entry's, so without this link the design
+       system's token layer never arrives and every measurement below is of an unstyled
+       page that still mounts and still passes. -->
+  <link rel="stylesheet" href="/css/threedviewer-main.css">
+  <style>
+    /*
+     * Nextcloud's page header, and a viewer that fills what is left. Both matter to what
+     * this file measures: the viewer's floating panels are positioned in viewport
+     * coordinates and have to clear this header, so a fixture without it cannot see a
+     * panel drawn across the top bar — which is a defect this suite had already been
+     * passing over. #header is also the element the viewer itself measures when placing
+     * its overlays.
+     */
+    html, body { margin: 0; height: 100%; }
+    #header { height: 50px; background: #0082c9; }
+    #content { position: relative; height: calc(100% - 50px); }
+    #threedviewer { position: absolute; inset: 0; }
+  </style>
+  </head><body>
   <!-- Simulated minimal Nextcloud layout -->
   <div id="body-user">
+    <div id="header"></div>
     <div id="content">
       <div id="app-content">
-        <div id="threedviewer" style="width:600px;height:400px;"></div>
+        <div id="threedviewer"></div>
       </div>
     </div>
   </div>
@@ -193,5 +214,51 @@ test.describe('Viewer smoke', () => {
   // Ensure a canvas eventually appears (viewer component mounted)
   const canvas = page.locator('canvas')
   await expect(canvas.first()).toBeVisible({ timeout: 5000 })
+  })
+
+  /*
+   * Nothing in the top bar may be covered by another element.
+   *
+   * The tools panel floats over the viewer and is positioned in viewport coordinates, so
+   * it has to clear both Nextcloud's header and the viewer's own bar. Clearing only the
+   * first put the card over the right end of the bar — across the help button and the
+   * Tools button itself, so the control that opens the panel sat underneath the panel and
+   * the only way to close it was the Escape key.
+   *
+   * Nothing failed. Both elements rendered exactly as their own styles asked, at the
+   * position their own styles asked for; the defect is entirely in the relationship
+   * between them, which is the kind a test of either one alone cannot see.
+   */
+  test('no top bar control is covered by a floating panel', async ({ page }) => {
+    await page.goto(server.url)
+    await page.waitForSelector('.minimal-top-bar', { timeout: 20000 })
+
+    const covered = await page.evaluate(() => {
+      const bar = document.querySelector('.minimal-top-bar')
+      if (!bar) return ['no top bar']
+      const controls = [...bar.querySelectorAll('button, label')]
+      return controls.flatMap((control) => {
+        const rect = control.getBoundingClientRect()
+        if (rect.width === 0 || rect.height === 0) return []
+        const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)
+        if (hit && (hit === control || control.contains(hit))) return []
+        const name = control.getAttribute('aria-label') || control.className
+        return [`${name} -> ${hit ? hit.className || hit.tagName : 'nothing'}`]
+      })
+    })
+    expect(covered).toEqual([])
+  })
+
+  test('the tools panel opens clear of the bar that opens it', async ({ page }) => {
+    await page.goto(server.url)
+    await page.waitForSelector('.minimal-top-bar', { timeout: 20000 })
+    await page.click('[aria-label="Toggle tools panel"]')
+    await page.waitForSelector('.slide-out-panel', { timeout: 5000 })
+
+    const [bar, panel] = await Promise.all([
+      page.locator('.minimal-top-bar').boundingBox(),
+      page.locator('.slide-out-panel').boundingBox(),
+    ])
+    expect(panel!.y).toBeGreaterThanOrEqual(bar!.y + bar!.height)
   })
 })

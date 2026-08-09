@@ -842,13 +842,15 @@ export default {
 
 /*
  * The mockup floats this as a card inset from the viewer's edges rather than filling the
- * right side to the corners. The top inset is measured from 50px rather than from 0: that
- * is the Nextcloud header this panel has always started below, and a card at 16px would
- * be drawn over it.
+ * right side to the corners.
  */
 .slide-out-panel {
 	position: fixed;
-	top: 66px;
+
+	/* Below Nextcloud's header *and* the viewer's own bar. Clearing only the first left
+	   the card sitting over the right end of the bar — including the Tools button that
+	   opens it, so the button that toggled the panel was underneath the panel. */
+	top: calc(var(--tdv-nc-header-height) + var(--tdv-topbar-height) + 16px);
 	inset-inline-end: 16px;
 	bottom: 16px;
 	z-index: 1002;

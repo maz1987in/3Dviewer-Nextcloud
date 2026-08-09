@@ -74,6 +74,15 @@
 
 	/* -------- Geometry -------- */
 
+	/* The viewer's own header. Published here because the floating panels have to clear
+	   it, and a second copy of the number in each of them drifts the first time the bar
+	   changes height. */
+	--tdv-topbar-height: 56px;
+
+	/* Nextcloud's page header, which the viewer is mounted below. Not ours to set — this
+	   records the value the panels are positioned against. */
+	--tdv-nc-header-height: 50px;
+
 	/* 44px is both the design system's hit target and Nextcloud's clickable area. */
 	--tdv-hit-target: var(--default-clickable-area, 44px);
 	--tdv-radius-pill: 22px;

@@ -142,7 +142,14 @@ export default {
 <style scoped>
 .toast-container {
 	position: fixed;
-	top: 60px;
+
+	/*
+	 * Below Nextcloud's header and the viewer's own bar, not 10px into the second one.
+	 * Toasts appear at the top right, which is where the bar keeps Help and the Tools
+	 * button — so a "Model loaded" notice arriving on page load landed on top of the
+	 * primary action and swallowed clicks meant for it until the toast timed out.
+	 */
+	top: calc(var(--tdv-nc-header-height) + var(--tdv-topbar-height) + 8px);
 	inset-inline-end: 12px;
 	z-index: 10000;
 	max-width: 320px;

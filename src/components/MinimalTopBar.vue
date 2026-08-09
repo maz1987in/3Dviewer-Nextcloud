@@ -208,7 +208,7 @@ export default {
 	align-items: center;
 	justify-content: space-between;
 	gap: 8px;
-	height: 56px;
+	height: var(--tdv-topbar-height);
 	background: var(--tdv-canvas-dark);
 
 	/*
