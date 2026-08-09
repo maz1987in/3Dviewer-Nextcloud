@@ -82,6 +82,11 @@
 	--tdv-hud-border: rgb(255, 255, 255, 0.15);
 	--tdv-hud-sunken-bg: rgb(255, 255, 255, 0.07);
 
+	/* For chrome text with no surface under it — the controller's readout sits straight on
+	   the render. Its contrast is against the scene, so it is the scene's opposite, which
+	   is what this whole family already is. */
+	--tdv-hud-on-scene: #1c1c1c;
+
 	/* Lighter than the panel statuses on purpose: those are tuned for contrast on a light
 	   surface and disappear against the HUD's near-black background. Fixed rather than
 	   themed, for the same reason as the rest of the canvas chrome. */
@@ -229,6 +234,7 @@ body.theme--light {
 	--tdv-hud-hover-bg: rgb(255, 255, 255, 0.12);
 	--tdv-hud-border: rgb(255, 255, 255, 0.15);
 	--tdv-hud-sunken-bg: rgb(255, 255, 255, 0.07);
+	--tdv-hud-on-scene: #1c1c1c;
 	--tdv-hud-success: #5ad471;
 	--tdv-hud-warning: #ffc95c;
 	--tdv-hud-error: #ff8a80;
@@ -246,6 +252,7 @@ body.theme--dark {
 	--tdv-hud-hover-bg: rgb(0, 0, 0, 0.06);
 	--tdv-hud-border: rgb(0, 0, 0, 0.12);
 	--tdv-hud-sunken-bg: rgb(0, 0, 0, 0.05);
+	--tdv-hud-on-scene: #ededed;
 
 	/* The status colours tuned for a light surface, and a shade darker than the panels'
 	   own: this surface is translucent, so a dark model behind it takes the composited

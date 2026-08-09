@@ -682,6 +682,12 @@ export default {
 	max-height: 90vh;
 	border-radius: var(--tdv-radius-dialog);
 	background: var(--tdv-color-surface);
+
+	/* Set here as well as on the individual lines: a surface that states its background and
+	   not its foreground leaves anything without a colour of its own inheriting the page's,
+	   which on a light instance is near-black — and this dialog's background is near-black
+	   on the dark theme. */
+	color: var(--tdv-color-text);
 	box-shadow: var(--tdv-shadow-dialog);
 	animation: slideUp 0.3s ease;
 }
@@ -1036,21 +1042,26 @@ export default {
 	transition: background 0.2s ease;
 }
 
+/*
+ * The instance's primary, not the slicer's own colour.
+ *
+ * This label used to be `--slicer-color`: PrusaSlicer orange on white measures 2.96:1 and
+ * Cura green 2.94:1, and on the dark theme BambuStudio's purple on the card came out at
+ * 1.78:1. A brand colour is picked to be recognisable, not to be legible as text on two
+ * different surfaces, and there is no shade of it that is both. It stays where it is
+ * decorative — the round icon tile and the "last used" badge, where it sits behind text
+ * rather than being the text.
+ */
 .slicer-btn.primary {
-	border: 2px solid var(--slicer-color, var(--tdv-color-primary));
+	border: 2px solid var(--tdv-color-primary);
 	background: transparent;
-	color: var(--slicer-color, var(--tdv-color-primary));
+	color: var(--tdv-color-primary);
 }
 
-/*
- * Filled on hover rather than tinted. The tint the sheet uses is mixed from the primary,
- * and this button's colour is the slicer's own — a 10% wash of an arbitrary brand colour
- * is not reliably distinguishable from the row behind it.
- */
 .slicer-btn.primary:hover:not(:disabled),
 .slicer-btn.primary:focus-visible {
-	background: var(--slicer-color, var(--tdv-color-primary));
-	color: #fff;
+	background: var(--tdv-color-primary);
+	color: var(--tdv-color-on-primary);
 }
 
 .slicer-btn.primary:hover:not(:disabled) {
@@ -1087,70 +1098,15 @@ export default {
 	flex-shrink: 0;
 }
 
-/* Dark Theme */
-.theme--dark .slicer-modal {
-	background: #2a2a2a;
-}
-
-.theme--dark .slicer-modal .modal-header {
-	border-bottom-color: rgb(255, 255, 255, 0.1);
-}
-
-.theme--dark .slicer-modal .modal-title,
-.theme--dark .slicer-modal .close-btn {
-	color: #fff;
-}
-
-.theme--dark .slicer-modal .close-btn:hover {
-	background: rgb(255, 255, 255, 0.1);
-}
-
-.theme--dark .slicer-modal .modal-description {
-	color: rgb(255, 255, 255, 0.7);
-}
-
-.theme--dark .slicer-modal .slicer-card {
-	background: #333;
-	border-color: rgb(255, 255, 255, 0.2);
-}
-
-.theme--dark .slicer-modal .slicer-card:hover {
-	border-color: var(--slicer-color);
-}
-
-.theme--dark .slicer-modal .slicer-card.last-used {
-	background: rgb(66, 135, 245, 0.15);
-}
-
-.theme--dark .slicer-modal .slicer-icon {
-	background: #1f1f1f;
-}
-
-.theme--dark .slicer-modal .slicer-name {
-	color: #fff;
-}
-
-.theme--dark .slicer-modal .slicer-description {
-	color: rgb(255, 255, 255, 0.6);
-}
-
-.theme--dark .slicer-modal .modal-info {
-	background: rgb(255, 255, 255, 0.05);
-	border-left-color: #4287f5;
-}
-
-.theme--dark .slicer-modal .info-text {
-	color: rgb(255, 255, 255, 0.7);
-}
-
-.theme--dark .slicer-modal .spinner {
-	border-color: rgb(255, 255, 255, 0.2);
-	border-top-color: #4287f5;
-}
-
-.theme--dark .slicer-modal .loading-state p {
-	color: #fff;
-}
+/*
+ * There was a hand-written dark block here — twenty-four rules restating this dialog in
+ * near-blacks, from when the design tokens did not flip with the theme. They do now, and
+ * the two disagreed: it painted the card `#2a2a2a` where the token says `#1e1e1e`, and it
+ * covered the surfaces it remembered and not the ones added since, so a body line kept
+ * `#222` on a `#2a2a2a` card — 1.03:1, which is not text. Deleted rather than corrected:
+ * every rule in it was a second opinion about a colour this file already reads from a
+ * token.
+ */
 
 /* Responsive */
 @media (max-width: 768px) {

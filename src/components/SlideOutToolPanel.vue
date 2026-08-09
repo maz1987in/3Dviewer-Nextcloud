@@ -1344,7 +1344,6 @@ export default {
 	background: var(--tdv-color-error);
 }
 
-/* Export select */
 /*
  * A tool row that ends in a control rather than being one: same metrics as `.tool-btn`, so
  * the export row lines up with the buttons above and below it instead of being a

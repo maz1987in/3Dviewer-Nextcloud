@@ -318,10 +318,17 @@ test.describe('Viewer smoke', () => {
    * once a palette is in effect.
    */
   for (const theme of ['auto', 'light', 'dark'] as const) {
-  for (const [label, open, selector] of [
-    ['statistics', 'Model Statistics', '.model-stats-overlay'],
-    ['measurements', 'Measurement', '.measurement-overlay'],
-    ['annotations', 'Annotation', '.annotation-overlay'],
+  for (const [label, open, selector, floats, painted] of [
+    ['statistics', 'Model Statistics', '.model-stats-overlay', true, null],
+    ['measurements', 'Measurement', '.measurement-overlay', true, null],
+    ['annotations', 'Annotation', '.annotation-overlay', true, null],
+    // Always on screen, so nothing to open. Its own root is transparent — the ring is the
+    // surface, and the readout beside it is the text.
+    ['controller', null, '.circular-controller', true, '.steer-ring'],
+    // Not an overlay on the render but a dialog over the whole app, so it takes the theme
+    // rather than the inverse of it — and it is here because it is the surface where a
+    // half-converted palette last hid: a dark card that kept `#222` body text.
+    ['slicer', 'Send to Slicer', '.slicer-modal', false, null],
   ] as const) {
   test(`every word in the ${label} panel is legible on the ${theme} palette`, async ({ page }) => {
     await page.goto(server.url)
@@ -329,7 +336,11 @@ test.describe('Viewer smoke', () => {
     await page.waitForSelector('canvas', { timeout: 20000 })
     await page.click('[aria-label="Toggle tools panel"]')
     await page.waitForSelector('.slide-out-panel', { timeout: 5000 })
-    await page.getByText(open, { exact: true }).first().click()
+    if (!floats) {
+      // Its row lives in a collapsed section.
+      await page.getByText('Export', { exact: true }).first().click()
+    }
+    if (open) await page.getByText(open, { exact: true }).first().click()
     await page.waitForSelector(selector, { timeout: 5000 })
     if (theme !== 'auto') {
       // Both signals the app writes: the attribute that says a theme was chosen, and the
@@ -339,15 +350,32 @@ test.describe('Viewer smoke', () => {
       // After the panel is open, not before: the app restores its stored preference during
       // startup, and on Auto that clears the attribute — a stamp applied earlier is wiped
       // by the app's own initialisation and the check silently measures the base palette.
-      await page.evaluate((t) => {
+      const stamp = async () => await page.evaluate((t) => {
         document.documentElement.setAttribute('data-tdv-theme', t)
         document.body.classList.remove('theme--light', 'theme--dark')
         document.body.classList.add(`theme--${t}`)
       }, theme)
+      // Twice, with a beat between: the app restores its stored preference during startup,
+      // and on Auto that clears both signals. A single stamp is a race — when it lost, the
+      // check measured the base palette under the name of another one and passed.
+      await stamp()
+      await page.waitForTimeout(400)
+      await stamp()
     }
 
     const unreadable = await page.evaluate((panelSelector) => {
-      const parse = (c: string) => (c.match(/[\d.]+/g) || []).map(Number)
+      /*
+       * `rgb(r, g, b)` and `rgba(...)` carry 0-255 channels; a `color-mix()` result comes
+       * back from Chromium as `color(srgb 1 1 1 / 0.86)`, whose channels are 0-1. Reading
+       * the numbers out and using them as they come makes an 86% white surface measure as
+       * near-black, and every label on it "illegible" against a colour it is nowhere near.
+       * The controller's ring and rail are the only color-mix surfaces in the app, which is
+       * why this went unnoticed until they were checked.
+       */
+      const parse = (c: string) => {
+        const n = (c.match(/[\d.]+/g) || []).map(Number)
+        return c.startsWith('color(') ? [n[0] * 255, n[1] * 255, n[2] * 255, ...n.slice(3)] : n
+      }
       const over = (c: number[], b: number[]) => {
         const a = c.length > 3 ? c[3] : 1
         return [0, 1, 2].map((i) => c[i] * a + b[i] * (1 - a))
@@ -389,6 +417,20 @@ test.describe('Viewer smoke', () => {
         if (!own) continue
         const r = el.getBoundingClientRect()
         if (!r.width || !r.height) continue
+        /*
+         * Text with no painted surface anywhere between it and the panel's root is drawn
+         * straight on the render — the controller's readout is the only one. What is behind
+         * it is a WebGL frame, which reports no background colour, so measuring it here
+         * would compare it against this fixture's white page rather than the themed scene
+         * and call it illegible on the dark theme, where it is white on near-black. Its
+         * contrast is checked against the scene's own colour in `themeOverride.test.js`.
+         */
+        let surfaced = false
+        for (let e: Element | null = el; e && e !== panel.parentElement; e = e.parentElement) {
+          const c = parse(getComputedStyle(e).backgroundColor)
+          if (c.length >= 3 && (c.length > 3 ? c[3] : 1) > 0) { surfaced = true; break }
+        }
+        if (!surfaced) continue
         const bg = backdrop(el)
         const fg = over(parse(getComputedStyle(el).color), bg)
         const c = ratio(fg, bg)
@@ -404,17 +446,21 @@ test.describe('Viewer smoke', () => {
      * the same check three times and report three passes — the panels would be legible, in
      * one theme, and the other two names in the report would be fiction.
      *
-     * These three all float on the render, so each is drawn in the chrome palette, which is
-     * the inverse of the theme: dark panels on the light theme, light panels on the dark
-     * one. A panel that matched its theme would have no edge against the scene behind it.
+     * The ones that float on the render are drawn in the chrome palette, which is the
+     * inverse of the theme: dark panels on the light theme, light panels on the dark one. A
+     * panel that matched its theme would have no edge against the scene behind it. The
+     * dialog is not on the render and follows the theme like the rest of the UI.
      */
     if (theme !== 'auto') {
-      const painted = await page.evaluate((panelSelector) => {
-        const c = (getComputedStyle(document.querySelector(panelSelector)!).backgroundColor
-          .match(/[\d.]+/g) || []).map(Number)
+      const surface = await page.evaluate((panelSelector) => {
+        const declared = getComputedStyle(document.querySelector(panelSelector)!).backgroundColor
+        const n = (declared.match(/[\d.]+/g) || []).map(Number)
+        // `color(srgb 0.97 0.97 0.97 / 0.78)` carries 0-1 channels, `rgb()` carries 0-255.
+        // Read as-is, every color-mix surface in the app measures as near-black.
+        const c = declared.startsWith('color(') ? n.map((v) => v * 255) : n
         return (0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]) > 128 ? 'light' : 'dark'
-      }, selector)
-      expect(painted).toBe(theme === 'light' ? 'dark' : 'light')
+      }, painted ?? selector)
+      expect(surface).toBe(floats ? (theme === 'light' ? 'dark' : 'light') : theme)
     }
   })
   }

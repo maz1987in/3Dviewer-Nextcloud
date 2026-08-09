@@ -1,3 +1,13 @@
+/*
+ * The controller is canvas chrome.
+ *
+ * It floats on the render, so it takes the chrome palette — the inverse of the theme —
+ * rather than the panel palette it used to read. On the light theme the panel palette made
+ * it a 78%-white ring on a white scene, which is a control you have to already know is
+ * there; the readout under it was a panel grey drawn straight on the canvas, at 2.3:1 on
+ * the dark theme.
+ */
+
 /**
  * Circular 3D Controller — "Split console" layout.
  *
@@ -62,9 +72,9 @@
 	position: absolute;
 	inset: 0;
 	border-radius: 50%;
-	background: color-mix(in srgb, var(--tdv-color-surface) 78%, transparent);
+	background: color-mix(in srgb, var(--tdv-canvas-dark) 78%, transparent);
 	backdrop-filter: blur(12px);
-	border: 1px solid var(--tdv-color-border);
+	border: 1px solid var(--tdv-hud-border);
 	box-shadow: 0 8px 26px rgb(0 0 0 / 42%);
 	cursor: grab;
 	touch-action: none;
@@ -94,8 +104,8 @@
 	position: absolute;
 	inset: 32px;
 	border-radius: 50%;
-	background: color-mix(in srgb, var(--tdv-color-surface) 38%, transparent);
-	border: 1px solid var(--tdv-color-border);
+	background: color-mix(in srgb, var(--tdv-canvas-dark) 38%, transparent);
+	border: 1px solid var(--tdv-hud-border);
 	pointer-events: none;
 }
 
@@ -106,7 +116,7 @@
 /* Four cardinal notches instead of twelve decorative ticks. */
 .notch {
 	position: absolute;
-	background: var(--tdv-color-border-strong);
+	background: var(--tdv-hud-border);
 	pointer-events: none;
 }
 
@@ -177,9 +187,9 @@
 	gap: 3px;
 	padding: 5px 5px 7px;
 	border-radius: 17px;
-	background: color-mix(in srgb, var(--tdv-color-surface) 86%, transparent);
+	background: color-mix(in srgb, var(--tdv-canvas-dark) 86%, transparent);
 	backdrop-filter: blur(12px);
-	border: 1px solid var(--tdv-color-border);
+	border: 1px solid var(--tdv-hud-border);
 	box-shadow: 0 8px 26px rgb(0 0 0 / 42%);
 }
 
@@ -189,7 +199,7 @@
 	border: 0;
 	border-radius: 10px;
 	background: transparent;
-	color: var(--tdv-color-text);
+	color: var(--tdv-hud-text);
 	font: 400 16px/1 inherit;
 	cursor: pointer;
 	display: grid;
@@ -199,7 +209,7 @@
 }
 
 .rail-btn:hover:not(:disabled) {
-	background: var(--tdv-color-hover-bg);
+	background: var(--tdv-hud-hover-bg);
 }
 
 .rail-btn:focus-visible {
@@ -215,7 +225,7 @@
 /* Recentre stays in place and greys out outside pan mode, so nothing below it moves
    when the mode changes. */
 .rail-btn:disabled {
-	color: var(--tdv-color-text-secondary);
+	color: var(--tdv-hud-text-secondary);
 	cursor: not-allowed;
 }
 
@@ -227,7 +237,7 @@
 .rail-divider {
 	grid-column: 1 / -1;
 	height: 1px;
-	background: var(--tdv-color-border);
+	background: var(--tdv-hud-border);
 	margin: 1px 3px;
 }
 
@@ -245,7 +255,7 @@
 	width: 3px;
 	height: 3px;
 	border-radius: 50%;
-	background: var(--tdv-color-text-secondary);
+	background: var(--tdv-hud-text-secondary);
 }
 
 /* ---- Live readout -------------------------------------------------------- */
@@ -253,7 +263,7 @@
 .readout {
 	font: 500 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
 	letter-spacing: 0.08em;
-	color: var(--tdv-color-text-secondary);
+	color: var(--tdv-hud-on-scene);
 	white-space: nowrap;
 	text-align: center;
 	pointer-events: none;

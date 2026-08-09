@@ -29,6 +29,7 @@ const { readFileSync } = require('fs')
 const { join } = require('path')
 
 const CSS = readFileSync(join(__dirname, '..', '..', 'src', 'css', 'design-system.css'), 'utf8')
+const { THEME_SETTINGS } = require('../../src/config/viewer-config.js')
 
 /**
  * The custom properties one selector's block declares.
@@ -174,6 +175,21 @@ describe('the canvas chrome', () => {
 	it('is the inverse of the scene it floats on', () => {
 		const surface = (palette) => luminance(parseColour(palette.get('--tdv-hud-bg')))
 		expect(surface(chrome.dark)).toBeLessThan(surface(chrome.light))
+	})
+
+	/*
+	 * Not every piece of chrome has a surface. The controller's readout is drawn straight on
+	 * the render with nothing behind it, so its colour is decided by the scene rather than by
+	 * a panel — and the scene is the theme. It was a panel token, which on the dark theme put
+	 * `#aaa` on a white canvas at 2.3:1.
+	 */
+	it.each([
+		['light', 'dark', THEME_SETTINGS.light.background],
+		['dark', 'light', THEME_SETTINGS.dark.background],
+	])('is legible drawn straight on the %s theme\'s scene', (_theme, palette, background) => {
+		const text = parseColour(chrome[palette].get('--tdv-hud-on-scene'))
+		expect(text).not.toBeNull()
+		expect(contrast(text, parseColour(background))).toBeGreaterThanOrEqual(4.5)
 	})
 
 	it('is darker than the panels when the viewer is light, and lighter when it is dark', () => {
