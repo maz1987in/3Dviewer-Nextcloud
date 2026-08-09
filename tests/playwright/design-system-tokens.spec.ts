@@ -182,16 +182,43 @@ test.describe('design system tokens in a browser', () => {
 	 * this is what makes the pair a decision rather than a duplicate. It is also the
 	 * mistake a panel makes when it stops being a dark overlay and keeps its light text.
 	 */
-	test('each status colour is readable on the surface it belongs to', async ({ page }) => {
-		await page.setContent(fixture())
+	/*
+	 * Read off a running Nextcloud 34. These are the values that matter: Nextcloud's
+	 * `--color-warning` is a pale *background* tint and the readable colour is
+	 * `--color-warning-text`, which is the opposite of what the fallbacks in this design
+	 * system imply. A contrast check run without them tests the fallbacks and nothing
+	 * else — which is how a badge shipped as pale amber text on a pale amber background.
+	 */
+	const NEXTCLOUD_STATUS = [
+		'--color-success: #D8F3DA', '--color-success-text: #2C5D30',
+		'--color-warning: #FFEEC5', '--color-warning-text: #664700',
+		'--color-error: #FFE7E7', '--color-error-text: #A82C2C',
+		'--color-main-background: #ffffff', '--color-main-text: #222222',
+		'--color-text-maxcontrast: #6b6b6b',
+	].join('; ')
+
+	// Playwright has no describe.each; a plain loop does the same job.
+	for (const [label, rootStyle] of [
+		['with Nextcloud absent, on the sheet\'s own fallbacks', ''],
+		['on a real Nextcloud palette', NEXTCLOUD_STATUS],
+	]) {
+	test(`each status colour is readable on the surface it belongs to, ${label}`, async ({ page }) => {
+		await page.setContent(fixture(rootStyle))
 
 		const pairs = [
+			// Each status colour against the surface it is drawn on: the panel, or the
+			// status tint of its own kind, which is what a badge uses.
 			{ text: '--tdv-color-success', on: '--tdv-color-surface' },
 			{ text: '--tdv-color-warning', on: '--tdv-color-surface' },
 			{ text: '--tdv-color-error', on: '--tdv-color-surface' },
+			{ text: '--tdv-color-success', on: '--tdv-color-success-surface' },
+			{ text: '--tdv-color-warning', on: '--tdv-color-warning-surface' },
+			{ text: '--tdv-color-error', on: '--tdv-color-error-surface' },
 			{ text: '--tdv-color-text', on: '--tdv-color-surface' },
 			{ text: '--tdv-color-text-secondary', on: '--tdv-color-surface' },
 			{ text: '--tdv-hud-success', on: '--tdv-canvas-dark' },
+			{ text: '--tdv-hud-warning', on: '--tdv-canvas-dark' },
+			{ text: '--tdv-hud-error', on: '--tdv-canvas-dark' },
 			{ text: '--tdv-hud-text', on: '--tdv-canvas-dark' },
 			{ text: '--tdv-hud-text-secondary', on: '--tdv-canvas-dark' },
 		]
@@ -211,6 +238,7 @@ test.describe('design system tokens in a browser', () => {
 		}
 		expect(failures).toEqual([])
 	})
+	}
 
 	/*
 	 * An icon button is square. It is the design system's only fixed-size control and the

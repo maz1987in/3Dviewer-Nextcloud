@@ -290,6 +290,69 @@ test.describe('Viewer smoke', () => {
     expect(covered).toEqual([])
   })
 
+  /*
+   * Every word in the statistics panel has to be legible against what is behind it.
+   *
+   * The panel was a dark overlay and is now a light one, and three rules kept their old
+   * colours through the change: the watertight badge, "No textures" and "+ N more" were
+   * left as pale-on-pale or white-on-white. A section whose text is invisible looks
+   * exactly like a section that rendered nothing, which is how it was reported — as a
+   * blank gap, not as unreadable text.
+   *
+   * Checking the declared colours is what missed it the first time: each rule was fine in
+   * isolation and wrong against the surface it ended up on. This asks the browser what
+   * was actually painted.
+   */
+  test('every word in the statistics panel is legible', async ({ page }) => {
+    await page.goto(server.url)
+    await page.waitForSelector('.minimal-top-bar', { timeout: 20000 })
+    await page.waitForSelector('canvas', { timeout: 20000 })
+    await page.click('[aria-label="Toggle tools panel"]')
+    await page.waitForSelector('.slide-out-panel', { timeout: 5000 })
+    await page.getByText('Model Statistics', { exact: false }).first().click()
+    await page.waitForSelector('.model-stats-overlay', { timeout: 5000 })
+
+    const unreadable = await page.evaluate(() => {
+      const parse = (c: string) => (c.match(/[\d.]+/g) || []).map(Number)
+      const over = (c: number[], b: number[]) => {
+        const a = c.length > 3 ? c[3] : 1
+        return [0, 1, 2].map((i) => c[i] * a + b[i] * (1 - a))
+      }
+      const lum = ([r, g, b]: number[]) => {
+        const ch = (v: number) => { const s = v / 255; return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4 }
+        return 0.2126 * ch(r) + 0.7152 * ch(g) + 0.0722 * ch(b)
+      }
+      const ratio = (x: number[], y: number[]) => {
+        const [hi, lo] = [lum(x), lum(y)].sort((a, b) => b - a)
+        return (hi + 0.05) / (lo + 0.05)
+      }
+      /** The painted background behind an element: its own, or the nearest opaque ancestor's. */
+      const backdrop = (el: Element): number[] => {
+        for (let e: Element | null = el; e; e = e.parentElement) {
+          const c = parse(getComputedStyle(e).backgroundColor)
+          if (c.length === 3 || (c[3] ?? 1) > 0.95) return c.slice(0, 3)
+        }
+        return [255, 255, 255]
+      }
+
+      const panel = document.querySelector('.model-stats-overlay')!
+      const bad: string[] = []
+      for (const el of panel.querySelectorAll('*')) {
+        const own = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent!.trim())
+        if (!own) continue
+        const r = el.getBoundingClientRect()
+        if (!r.width || !r.height) continue
+        const bg = backdrop(el)
+        const fg = over(parse(getComputedStyle(el).color), bg)
+        const c = ratio(fg, bg)
+        // 3:1, and these are readouts rather than body copy.
+        if (c < 3) bad.push(`"${el.textContent!.trim().slice(0, 30)}" ${c.toFixed(2)}:1 (${getComputedStyle(el).color} on rgb(${bg.join(', ')}))`)
+      }
+      return bad
+    })
+    expect(unreadable).toEqual([])
+  })
+
   test('the tools panel opens clear of the bar that opens it', async ({ page }) => {
     await page.goto(server.url)
     await page.waitForSelector('.minimal-top-bar', { timeout: 20000 })

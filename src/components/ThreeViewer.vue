@@ -4159,14 +4159,24 @@ export default {
 	font-size: 13px;
 }
 
+/*
+ * The label and value of every readout in the statistics panel. White since the panel was
+ * a dark overlay, and white-on-white since it stopped being one — which is why sections
+ * of it were reported as blank rather than as unreadable.
+ */
 .stat-row span:first-child {
-	color: rgb(255 255 255 / 70%);
+	color: var(--tdv-color-text-secondary);
 }
 
+/*
+ * The value half of a readout in the statistics panel. White since the panel was a dark
+ * overlay, and white-on-white since it stopped being one — which is why whole sections
+ * were reported as blank rather than as unreadable.
+ */
 .stat-row .stat-value {
-	font-weight: 600;
-	color: #fff;
-	font-family: 'Courier New', monospace;
+	font-family: var(--tdv-font-mono);
+	font-weight: var(--tdv-font-weight-medium);
+	color: var(--tdv-color-text);
 }
 
 .material-list {
@@ -4176,6 +4186,7 @@ export default {
 }
 
 .material-item {
+	gap: 12px;
 	display: flex;
 	justify-content: space-between;
 	padding: 8px 12px;
@@ -4185,24 +4196,35 @@ export default {
 }
 
 .material-name {
+	/* The name is the part worth reading, so it takes the space and truncates; the type
+	   keeps its own width rather than being pushed into the name. */
+	overflow: hidden;
+	flex: 1;
 	color: var(--tdv-color-text);
 	font-weight: 500;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .material-type {
+	flex-shrink: 0;
 	color: var(--tdv-color-text-secondary);
 	font-size: 11px;
 }
 
+/*
+ * "No textures", "+ 3 more". White-on-white since this panel stopped being a dark
+ * overlay, which reads as a section that rendered nothing rather than as text.
+ */
 .no-items {
-	color: rgb(255 255 255 / 50%);
+	color: var(--tdv-color-text-secondary);
 	font-style: italic;
 	font-size: 12px;
 	padding: 8px 0;
 }
 
 .more-items {
-	color: rgb(255 255 255 / 60%);
+	color: var(--tdv-color-text-secondary);
 	font-size: 12px;
 	padding: 8px 12px;
 	text-align: center;
@@ -4250,12 +4272,12 @@ export default {
 }
 
 .stats-badge-ok {
-	background: color-mix(in srgb, var(--tdv-color-success) 14%, transparent);
+	background: var(--tdv-color-success-surface);
 	color: var(--tdv-color-success);
 }
 
 .stats-badge-warn {
-	background: color-mix(in srgb, var(--tdv-color-warning) 16%, transparent);
+	background: var(--tdv-color-warning-surface);
 	color: var(--tdv-color-warning);
 }
 
@@ -4551,16 +4573,16 @@ export default {
  * filled chips — a chip per row turns a six-row readout into six coloured blocks, and
  * the point of the colour is the one row that is not fine.
  */
-.stat-value.good {
+.stat-item .stat-value.good {
 	color: var(--tdv-hud-success);
 }
 
-.stat-value.warning {
-	color: #ffc95c;
+.stat-item .stat-value.warning {
+	color: var(--tdv-hud-warning);
 }
 
-.stat-value.poor {
-	color: #ff8a80;
+.stat-item .stat-value.poor {
+	color: var(--tdv-hud-error);
 }
 
 .comparison-controls {

@@ -37,14 +37,28 @@
 	   relationship instead keeps the token resolvable without pretending to that. */
 	--tdv-color-border-strong: var(--color-border-dark, var(--tdv-color-border));
 	--tdv-color-surface-recessed: var(--color-background-darker, var(--tdv-color-surface-sunken));
-	--tdv-color-on-success: var(--color-success-text, var(--tdv-color-on-primary));
-	--tdv-color-on-warning: var(--color-warning-text, var(--tdv-color-on-primary));
-	--tdv-color-on-error: var(--color-error-text, var(--tdv-color-on-primary));
 
-	/* Status colours are for live values only — FPS, load failures — never decoration. */
-	--tdv-color-success: var(--color-success, #2d7b41);
-	--tdv-color-warning: var(--color-warning, #a37200);
-	--tdv-color-error: var(--color-error, #db0606);
+	/*
+	 * Status colours are for live values only — FPS, load failures — never decoration,
+	 * and they come in pairs.
+	 *
+	 * Nextcloud names them the opposite way round from how they read. `--color-warning`
+	 * is a pale *background* tint (#FFEEC5 on a Nextcloud 34) and `--color-warning-text`
+	 * is the readable foreground (#664700). Mapping the plain name to the plain variable
+	 * looks obviously right and gives you a token whose meaning flips depending on
+	 * whether Nextcloud is on the page: a legible amber where it is absent, a near-white
+	 * where it is not. The badge that shipped that way was pale amber text on a pale
+	 * amber background.
+	 *
+	 * So the unsuffixed token is always the foreground, and `-surface` is always what it
+	 * is drawn on.
+	 */
+	--tdv-color-success: var(--color-success-text, #2d7b41);
+	--tdv-color-success-surface: var(--color-success, #e3f4e6);
+	--tdv-color-warning: var(--color-warning-text, #a37200);
+	--tdv-color-warning-surface: var(--color-warning, #fdf0d5);
+	--tdv-color-error: var(--color-error-text, #b32424);
+	--tdv-color-error-surface: var(--color-error, #fde8e8);
 
 	/* -------- Canvas chrome: deliberately not themed, see the header note -------- */
 	--tdv-canvas-dark: #171717;
@@ -54,9 +68,12 @@
 	--tdv-hud-chip-bg: rgb(255, 255, 255, 0.15);
 	--tdv-hud-hover-bg: rgb(255, 255, 255, 0.12);
 
-	/* Lighter than --tdv-color-success on purpose: that value is tuned for contrast on a
-	   light surface, and fails against the HUD's near-black background. */
+	/* Lighter than the panel statuses on purpose: those are tuned for contrast on a light
+	   surface and disappear against the HUD's near-black background. Fixed rather than
+	   themed, for the same reason as the rest of the canvas chrome. */
 	--tdv-hud-success: #5ad471;
+	--tdv-hud-warning: #ffc95c;
+	--tdv-hud-error: #ff8a80;
 
 	/* -------- Typography -------- */
 	--tdv-font: var(--font-face, -apple-system, blinkmacsystemfont, "Segoe UI", roboto, oxygen-sans, cantarell, ubuntu, "Helvetica Neue", arial, sans-serif);

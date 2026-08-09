@@ -1323,7 +1323,7 @@ export default {
 }
 
 .bookmark-delete:hover {
-	color: var(--tdv-color-on-error);
+	color: var(--tdv-color-error);
 	background: var(--tdv-color-error);
 }
 
@@ -1483,9 +1483,9 @@ export default {
 	font-weight: 600;
 }
 
-.cache-stat-value.good { color: var(--tdv-color-on-success); }
-.cache-stat-value.warning { color: var(--tdv-color-on-warning); }
-.cache-stat-value.poor { color: var(--tdv-color-on-error); }
+.cache-stat-value.good { color: var(--tdv-color-success); }
+.cache-stat-value.warning { color: var(--tdv-color-warning); }
+.cache-stat-value.poor { color: var(--tdv-color-error); }
 
 .cache-clear-btn {
 	width: 100%;

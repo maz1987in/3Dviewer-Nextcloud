@@ -330,8 +330,8 @@ export default {
 }
 
 .fps-dot--good { background: var(--tdv-hud-success); }
-.fps-dot--degraded { background: var(--tdv-color-warning); }
-.fps-dot--poor { background: var(--tdv-color-error); }
+.fps-dot--degraded { background: var(--tdv-hud-warning); }
+.fps-dot--poor { background: var(--tdv-hud-error); }
 
 .fps-value {
 	font-family: var(--tdv-font-mono);
