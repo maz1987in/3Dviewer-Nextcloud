@@ -71,16 +71,19 @@
 		</div>
 
 		<!-- Model Statistics Panel -->
-		<div v-if="showModelStats && modelStats" class="model-stats-overlay" :class="{ 'mobile': isMobile }">
-			<div class="stats-panel-header">
+		<div v-if="showModelStats && modelStats" class="tdv-panel tdv-panel--floating model-stats-overlay" :class="{ 'mobile': isMobile }">
+			<div class="tdv-panel-header stats-panel-header">
 				<div class="stats-title-group">
 					<span v-if="modelStats.format" class="format-icon-text">
 						{{ modelStats.format.toUpperCase() }}
 					</span>
 					<h3>{{ t('threedviewer', 'Model Statistics') }}</h3>
 				</div>
-				<button class="close-stats-btn" @click="toggleModelStats">
-					×
+				<button class="tdv-btn tdv-btn--icon close-stats-btn"
+					:aria-label="t('threedviewer', 'Close')"
+					:title="t('threedviewer', 'Close')"
+					@click="toggleModelStats">
+					<ViewerIcon name="close" :size="16" />
 				</button>
 			</div>
 
@@ -90,15 +93,15 @@
 					<h4>{{ t('threedviewer', 'Geometry') }}</h4>
 					<div class="stat-row">
 						<span>{{ t('threedviewer', 'Vertices') }}:</span>
-						<span class="stat-value">{{ modelStats.vertices.toLocaleString() }}</span>
+						<span class="tdv-value stat-value">{{ modelStats.vertices.toLocaleString() }}</span>
 					</div>
 					<div class="stat-row">
 						<span>{{ t('threedviewer', 'Faces') }}:</span>
-						<span class="stat-value">{{ modelStats.faces.toLocaleString() }}</span>
+						<span class="tdv-value stat-value">{{ modelStats.faces.toLocaleString() }}</span>
 					</div>
 					<div class="stat-row">
 						<span>{{ t('threedviewer', 'Meshes') }}:</span>
-						<span class="stat-value">{{ modelStats.meshes }}</span>
+						<span class="tdv-value stat-value">{{ modelStats.meshes }}</span>
 					</div>
 				</div>
 
@@ -124,7 +127,7 @@
 					<h4>{{ t('threedviewer', 'Textures') }} ({{ modelStats.textureCount }})</h4>
 					<div v-if="modelStats.textureCount > 0" class="stat-row">
 						<span>{{ t('threedviewer', 'Memory') }}:</span>
-						<span class="stat-value">
+						<span class="tdv-value stat-value">
 							<template v-if="modelStats.textureMissingCount === modelStats.textureCount">
 								{{ t('threedviewer', 'missing') }}
 							</template>
@@ -182,27 +185,27 @@
 					</div>
 					<div class="stat-row">
 						<span>{{ t('threedviewer', 'Width (X)') }}:</span>
-						<span class="stat-value">{{ formatStatNumber(modelStats.boundingBox.x * statsLengthScale) }} {{ statsUnitConfig.suffix }}</span>
+						<span class="tdv-value stat-value">{{ formatStatNumber(modelStats.boundingBox.x * statsLengthScale) }} {{ statsUnitConfig.suffix }}</span>
 					</div>
 					<div class="stat-row">
 						<span>{{ t('threedviewer', 'Height (Y)') }}:</span>
-						<span class="stat-value">{{ formatStatNumber(modelStats.boundingBox.y * statsLengthScale) }} {{ statsUnitConfig.suffix }}</span>
+						<span class="tdv-value stat-value">{{ formatStatNumber(modelStats.boundingBox.y * statsLengthScale) }} {{ statsUnitConfig.suffix }}</span>
 					</div>
 					<div class="stat-row">
 						<span>{{ t('threedviewer', 'Depth (Z)') }}:</span>
-						<span class="stat-value">{{ formatStatNumber(modelStats.boundingBox.z * statsLengthScale) }} {{ statsUnitConfig.suffix }}</span>
+						<span class="tdv-value stat-value">{{ formatStatNumber(modelStats.boundingBox.z * statsLengthScale) }} {{ statsUnitConfig.suffix }}</span>
 					</div>
 					<div class="stat-row">
 						<span>{{ t('threedviewer', 'Surface Area') }}:</span>
-						<span class="stat-value">{{ formatStatNumber(activeSurfaceArea * statsAreaScale) }} {{ statsUnitConfig.suffix }}²</span>
+						<span class="tdv-value stat-value">{{ formatStatNumber(activeSurfaceArea * statsAreaScale) }} {{ statsUnitConfig.suffix }}²</span>
 					</div>
 					<div class="stat-row">
 						<span>{{ t('threedviewer', 'Mesh Volume') }}:</span>
-						<span class="stat-value">{{ formatStatNumber(activeVolume * statsVolumeScale) }} {{ statsUnitConfig.suffix }}³</span>
+						<span class="tdv-value stat-value">{{ formatStatNumber(activeVolume * statsVolumeScale) }} {{ statsUnitConfig.suffix }}³</span>
 					</div>
 					<div v-if="!activeMeshStats" class="stat-row">
 						<span>{{ t('threedviewer', 'Bounding Box Vol.') }}:</span>
-						<span class="stat-value">{{ formatStatNumber(modelStats.volume * statsVolumeScale) }} {{ statsUnitConfig.suffix }}³</span>
+						<span class="tdv-value stat-value">{{ formatStatNumber(modelStats.volume * statsVolumeScale) }} {{ statsUnitConfig.suffix }}³</span>
 					</div>
 					<!-- Per-mesh breakdown (only when >1 mesh) -->
 					<div v-if="modelStats.perMesh && modelStats.perMesh.length > 1" class="per-mesh-panel">
@@ -252,11 +255,11 @@
 					<h4>{{ t('threedviewer', 'File') }}</h4>
 					<div class="stat-row">
 						<span>{{ t('threedviewer', 'Size') }}:</span>
-						<span class="stat-value">{{ modelStats.fileSizeMB.toFixed(2) }} MB</span>
+						<span class="tdv-value stat-value">{{ modelStats.fileSizeMB.toFixed(2) }} MB</span>
 					</div>
 					<div class="stat-row">
 						<span>{{ t('threedviewer', 'Format') }}:</span>
-						<span class="stat-value">{{ modelStats.format.toUpperCase() }}</span>
+						<span class="tdv-value stat-value">{{ modelStats.format.toUpperCase() }}</span>
 					</div>
 				</div>
 			</div>
@@ -460,60 +463,58 @@
 		</div>
 
 		<!-- Performance Stats Overlay (Dev/Debug) -->
-		<div v-if="showPerformanceStats && performance && currentFPS > 0 && !isMobile" class="performance-stats">
+		<div v-if="showPerformanceStats && performance && currentFPS > 0 && !isMobile" class="tdv-hud performance-stats">
 			<div class="stats-header">
-				<ViewerIcon class="stats-icon" name="statistics" :size="16" />
-				<span class="stats-title">Performance</span>
+				<span class="stats-title">{{ t('threedviewer', 'Performance') }}</span>
 				<button
-					class="stats-mode clickable"
-					:class="'mode-' + currentPerformanceMode"
+					class="tdv-hud-chip stats-mode clickable"
 					:title="t('threedviewer', 'Click to cycle performance mode')"
 					@click="cyclePerformanceModeFromStats">
 					{{ currentPerformanceMode }}
 				</button>
 			</div>
 			<div class="stats-grid">
-				<div class="stat-item">
-					<span class="stat-label">FPS:</span>
-					<span class="stat-value" :class="{ 'good': currentFPS >= 60, 'warning': currentFPS >= 30 && currentFPS < 60, 'poor': currentFPS < 30 }">
+				<div class="tdv-hud-row stat-item">
+					<span class="tdv-hud-label">FPS:</span>
+					<span class="tdv-hud-value stat-value" :class="{ 'good': currentFPS >= 60, 'warning': currentFPS >= 30 && currentFPS < 60, 'poor': currentFPS < 30 }">
 						{{ currentFPS }}
 					</span>
 				</div>
-				<div class="stat-item">
-					<span class="stat-label">Frame:</span>
-					<span class="stat-value">{{ currentFrameTime?.toFixed(1) }}ms</span>
+				<div class="tdv-hud-row stat-item">
+					<span class="tdv-hud-label">Frame:</span>
+					<span class="tdv-hud-value stat-value">{{ currentFrameTime?.toFixed(1) }}ms</span>
 				</div>
-				<div class="stat-item">
-					<span class="stat-label">Memory:</span>
-					<span class="stat-value">{{ currentMemoryUsage?.toFixed(1) }}MB</span>
+				<div class="tdv-hud-row stat-item">
+					<span class="tdv-hud-label">Memory:</span>
+					<span class="tdv-hud-value stat-value">{{ currentMemoryUsage?.toFixed(1) }}MB</span>
 				</div>
-				<div class="stat-item">
-					<span class="stat-label">Quality:</span>
-					<span class="stat-value">{{ currentPixelRatio?.toFixed(2) }}x</span>
+				<div class="tdv-hud-row stat-item">
+					<span class="tdv-hud-label">Quality:</span>
+					<span class="tdv-hud-value stat-value">{{ currentPixelRatio?.toFixed(2) }}x</span>
 				</div>
-				<div class="stat-item">
-					<span class="stat-label">Draws:</span>
-					<span class="stat-value">{{ currentDrawCalls }}</span>
+				<div class="tdv-hud-row stat-item">
+					<span class="tdv-hud-label">Draws:</span>
+					<span class="tdv-hud-value stat-value">{{ currentDrawCalls }}</span>
 				</div>
-				<div class="stat-item">
-					<span class="stat-label">Triangles:</span>
-					<span class="stat-value">{{ (currentTriangles / 1000).toFixed(1) }}K</span>
+				<div class="tdv-hud-row stat-item">
+					<span class="tdv-hud-label">Triangles:</span>
+					<span class="tdv-hud-value stat-value">{{ (currentTriangles / 1000).toFixed(1) }}K</span>
 				</div>
-				<div v-if="cacheStats.enabled" class="stat-item cache-stats">
-					<span class="stat-label">Cache:</span>
-					<span class="stat-value">{{ cacheStats.sizeMB.toFixed(1) }}MB</span>
+				<div v-if="cacheStats.enabled" class="tdv-hud-row stat-item cache-stats">
+					<span class="tdv-hud-label">Cache:</span>
+					<span class="tdv-hud-value stat-value">{{ cacheStats.sizeMB.toFixed(1) }}MB</span>
 				</div>
-				<div v-if="cacheStats.enabled && cacheStats.hits + cacheStats.misses > 0" class="stat-item cache-stats">
-					<span class="stat-label">Hits:</span>
+				<div v-if="cacheStats.enabled && cacheStats.hits + cacheStats.misses > 0" class="tdv-hud-row stat-item cache-stats">
+					<span class="tdv-hud-label">Hits:</span>
 					<span class="stat-value good">{{ cacheStats.hits }}</span>
 				</div>
-				<div v-if="cacheStats.enabled && cacheStats.hits + cacheStats.misses > 0" class="stat-item cache-stats">
-					<span class="stat-label">Misses:</span>
+				<div v-if="cacheStats.enabled && cacheStats.hits + cacheStats.misses > 0" class="tdv-hud-row stat-item cache-stats">
+					<span class="tdv-hud-label">Misses:</span>
 					<span class="stat-value poor">{{ cacheStats.misses }}</span>
 				</div>
-				<div v-if="cacheStats.enabled && cacheStats.hits + cacheStats.misses > 0" class="stat-item cache-stats">
-					<span class="stat-label">Hit Rate:</span>
-					<span class="stat-value" :class="{ 'good': cacheStats.hitRate >= 70, 'warning': cacheStats.hitRate >= 50 && cacheStats.hitRate < 70, 'poor': cacheStats.hitRate < 50 }">
+				<div v-if="cacheStats.enabled && cacheStats.hits + cacheStats.misses > 0" class="tdv-hud-row stat-item cache-stats">
+					<span class="tdv-hud-label">Hit Rate:</span>
+					<span class="tdv-hud-value stat-value" :class="{ 'good': cacheStats.hitRate >= 70, 'warning': cacheStats.hitRate >= 50 && cacheStats.hitRate < 70, 'poor': cacheStats.hitRate < 50 }">
 						{{ cacheStats.hitRate.toFixed(1) }}%
 					</span>
 				</div>
@@ -4058,30 +4059,27 @@ export default {
 }
 
 /* Model Statistics Panel */
+
+/*
+ * The sheet draws this as a light panel, not a dark overlay. It reads numbers, not the
+ * scene — the dark treatment is reserved for the HUD, which has to stay legible over a
+ * rendered model. Surface, border, radius and shadow come from .tdv-panel; what is left
+ * is where it sits.
+ */
 .model-stats-overlay {
 	position: absolute;
 	top: 80px;
 	inset-inline-start: 20px;
-	width: 320px;
-	max-height: 600px;
-	background: rgb(0 0 0 / 90%);
-	border: 1px solid rgb(255 255 255 / 20%);
-	border-radius: 8px;
-	color: white;
 	z-index: 300;
-	overflow: hidden;
 	display: flex;
 	flex-direction: column;
-	box-shadow: 0 8px 32px rgb(0 0 0 / 40%);
+	width: 320px;
+	max-height: 600px;
 }
 
 .stats-panel-header {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	padding: 8px 20px;
-	background: rgb(0 0 0 / 50%);
-	border-bottom: 1px solid rgb(255 255 255 / 20%);
+	flex-shrink: 0;
+	padding: 12px 10px 12px 18px;
 }
 
 .stats-title-group {
@@ -4095,8 +4093,12 @@ export default {
 	font-weight: 700;
 	line-height: 1;
 	padding: 4px 8px;
-	background: rgb(255, 255, 255, 0.2);
-	border-radius: 4px;
+
+	/* Outlined rather than filled, per the sheet: a white-alpha fill was invisible once
+	   this panel stopped being a dark overlay. */
+	border: 1px solid var(--tdv-color-primary);
+	border-radius: 8px;
+	color: var(--tdv-color-primary);
 	letter-spacing: 0.5px;
 	display: flex;
 	align-items: center;
@@ -4106,25 +4108,19 @@ export default {
 
 .stats-panel-header h3 {
 	margin: 0;
-	font-size: 16px;
-	font-weight: 600;
-	color: var(--tdv-color-primary);
+	font-size: var(--tdv-font-size-section);
+	font-weight: var(--tdv-font-weight-bold);
+	color: var(--tdv-color-text);
 }
 
 .close-stats-btn {
-	background: transparent;
-	border: none;
-	color: white;
-	font-size: 28px;
-	line-height: 1;
-	cursor: pointer;
-	padding: 4px 8px;
+	color: var(--tdv-color-text-secondary);
 	border-radius: 4px;
 	transition: background 0.2s ease;
 }
 
 .close-stats-btn:hover {
-	background: rgb(255 255 255 / 10%);
+	background: var(--tdv-color-hover-bg);
 }
 
 .stats-panel-content {
@@ -4136,7 +4132,7 @@ export default {
 .stats-section {
 	margin-bottom: 20px;
 	padding-bottom: 16px;
-	border-bottom: 1px solid rgb(255 255 255 / 10%);
+	border-bottom: 1px solid var(--tdv-color-border);
 }
 
 .stats-section:last-child {
@@ -4148,7 +4144,7 @@ export default {
 	margin: 0 0 12px;
 	font-size: 14px;
 	font-weight: 600;
-	color: rgb(255 255 255 / 90%);
+	color: var(--tdv-color-text);
 }
 
 .stat-row {
@@ -4179,18 +4175,18 @@ export default {
 	display: flex;
 	justify-content: space-between;
 	padding: 8px 12px;
-	background: rgb(255 255 255 / 5%);
+	background: var(--tdv-color-surface-sunken);
 	border-radius: 4px;
 	font-size: 12px;
 }
 
 .material-name {
-	color: #fff;
+	color: var(--tdv-color-text);
 	font-weight: 500;
 }
 
 .material-type {
-	color: rgb(255 255 255 / 60%);
+	color: var(--tdv-color-text-secondary);
 	font-size: 11px;
 }
 
@@ -4223,9 +4219,9 @@ export default {
 }
 
 .stats-unit-select {
-	background: rgb(255 255 255 / 10%);
-	color: #fff;
-	border: 1px solid rgb(255 255 255 / 20%);
+	background: var(--tdv-color-surface);
+	color: var(--tdv-color-text);
+	border: 1px solid var(--tdv-color-border);
 	border-radius: 4px;
 	padding: 4px 6px;
 	font-size: 12px;
@@ -4233,7 +4229,7 @@ export default {
 }
 
 .stats-unit-select:focus {
-	outline: 1px solid rgb(255 255 255 / 40%);
+	outline: 2px solid var(--tdv-color-primary);
 }
 
 .stats-watertight-row {
@@ -4250,18 +4246,18 @@ export default {
 }
 
 .stats-badge-ok {
-	background: rgb(76 175 80 / 18%);
-	color: #8fe2a3;
+	background: color-mix(in srgb, var(--tdv-color-success) 14%, transparent);
+	color: var(--tdv-color-success);
 }
 
 .stats-badge-warn {
-	background: rgb(255 152 0 / 22%);
-	color: #ffb74d;
+	background: color-mix(in srgb, var(--tdv-color-warning) 16%, transparent);
+	color: var(--tdv-color-warning);
 }
 
 .stats-badge-unknown {
-	background: rgb(255 255 255 / 8%);
-	color: rgb(255 255 255 / 70%);
+	background: var(--tdv-color-surface-sunken);
+	color: var(--tdv-color-text-secondary);
 }
 
 .stats-selected-row {
@@ -4276,7 +4272,7 @@ export default {
 }
 
 .stats-selected-label {
-	color: rgb(255 255 255 / 85%);
+	color: var(--tdv-color-text);
 }
 
 .stats-link-btn {
@@ -4296,12 +4292,12 @@ export default {
 .per-mesh-panel {
 	margin-top: 12px;
 	padding-top: 10px;
-	border-top: 1px dashed rgb(255 255 255 / 15%);
+	border-top: 1px dashed var(--tdv-color-border);
 }
 
 .per-mesh-header {
 	font-size: 12px;
-	color: rgb(255 255 255 / 70%);
+	color: var(--tdv-color-text-secondary);
 	margin-bottom: 6px;
 }
 
@@ -4322,7 +4318,7 @@ export default {
 	column-gap: 8px;
 	align-items: center;
 	padding: 6px 8px;
-	background: rgb(255 255 255 / 4%);
+	background: var(--tdv-color-surface-sunken);
 	border-radius: 4px;
 	font-size: 12px;
 	cursor: pointer;
@@ -4330,7 +4326,7 @@ export default {
 }
 
 .per-mesh-item:hover {
-	background: rgb(255 255 255 / 10%);
+	background: var(--tdv-color-hover-bg);
 }
 
 .per-mesh-item.is-selected {
@@ -4339,7 +4335,7 @@ export default {
 }
 
 .per-mesh-name {
-	color: #fff;
+	color: var(--tdv-color-text);
 	font-weight: 500;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -4347,7 +4343,7 @@ export default {
 }
 
 .per-mesh-meta {
-	color: rgb(255 255 255 / 70%);
+	color: var(--tdv-color-text-secondary);
 	font-family: 'Courier New', monospace;
 	font-size: 11px;
 	text-align: right;
@@ -4373,9 +4369,9 @@ export default {
 	flex: 1 1 auto;
 	min-width: 120px;
 	padding: 6px 10px;
-	background: rgb(255 255 255 / 8%);
-	color: #fff;
-	border: 1px solid rgb(255 255 255 / 20%);
+	background: var(--tdv-color-surface);
+	color: var(--tdv-color-text);
+	border: 1px solid var(--tdv-color-border);
 	border-radius: 4px;
 	font-size: 12px;
 	cursor: pointer;
@@ -4383,8 +4379,8 @@ export default {
 }
 
 .stats-action-btn:hover {
-	background: rgb(255 255 255 / 15%);
-	border-color: rgb(255 255 255 / 35%);
+	background: var(--tdv-color-hover-bg);
+	border-color: var(--tdv-color-border-strong);
 }
 
 .stats-action-btn.is-active {
@@ -4451,7 +4447,7 @@ export default {
 .texture-status {
 	flex: 1;
 	font-size: 11px;
-	color: rgb(255 255 255 / 90%);
+	color: var(--tdv-color-text);
 }
 
 .mini-progress-bar {
@@ -4476,58 +4472,48 @@ export default {
 }
 
 /* Performance Stats Overlay */
+
+/*
+ * Surface, radius, blur and text colour come from .tdv-hud; what is left here is where
+ * the panel sits and how wide it is. The !important flags are gone with them: they were
+ * on every declaration, so any of these values could only ever be overridden by another
+ * !important, and none of them was defending against anything.
+ */
 .performance-stats {
-	position: absolute !important;
-	bottom: 10px !important;
-	inset-inline-start: 10px !important;
-	background: rgb(0 0 0 / 85%) !important;
-	color: #fff !important;
-	padding: 12px !important;
-	border-radius: 8px !important;
-	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-	font-size: 12px !important;
-	z-index: 900 !important;
-	min-width: 180px !important;
-	border: 1px solid rgb(255 255 255 / 20%) !important;
-	box-shadow: 0 4px 12px rgb(0 0 0 / 30%) !important;
-	display: block !important;
-	backdrop-filter: blur(10px) !important;
+	position: absolute;
+	bottom: 24px;
+	inset-inline-start: 24px;
+	z-index: 900;
+	width: 220px;
+	gap: 6px;
 }
 
 .stats-header {
 	display: flex;
 	align-items: center;
 	gap: 8px;
-	margin-bottom: 10px;
-	padding-bottom: 8px;
-	border-bottom: 1px solid rgb(255 255 255 / 20%);
-}
-
-.stats-icon {
-	font-size: 16px;
 }
 
 .stats-title {
-	font-weight: bold;
-	font-size: 13px;
 	flex: 1;
+	font-size: var(--tdv-font-size-secondary);
+	font-weight: var(--tdv-font-weight-bold);
 }
 
+/*
+ * One neutral chip, per the sheet, rather than a colour per mode. Five colours for five
+ * modes said nothing the word inside the chip did not already say, and spent the HUD's
+ * only accent on which mode is selected instead of on the readout that is in trouble.
+ */
 .stats-mode {
-	font-size: 10px;
-	padding: 4px 6px;
-	border-radius: 4px;
-	font-weight: bold;
-	text-transform: uppercase;
-	height: 24px;
 	display: inline-flex;
 	align-items: center;
+	text-transform: uppercase;
 }
 
 .stats-mode.clickable {
-	cursor: pointer;
 	border: none;
-	background: inherit;
+	cursor: pointer;
 	transition: opacity 0.2s, transform 0.1s;
 }
 
@@ -4540,42 +4526,14 @@ export default {
 	transform: scale(0.95);
 }
 
-.stats-mode.mode-low {
-	background: rgb(255 193 7 / 30%);
-	color: #ffc107;
-}
-
-.stats-mode.mode-balanced {
-	background: rgb(76 175 80 / 30%);
-	color: #4caf50;
-}
-
-.stats-mode.mode-high {
-	background: rgb(33 150 243 / 30%);
-	color: #2196f3;
-}
-
-.stats-mode.mode-ultra {
-	background: rgb(156 39 176 / 30%);
-	color: #9c27b0;
-}
-
-.stats-mode.mode-auto {
-	background: rgb(158 158 158 / 30%);
-	color: #9e9e9e;
-}
-
 .stats-grid {
-	display: grid;
-	grid-template-columns: 1fr;
+	display: flex;
+	flex-direction: column;
 	gap: 6px;
 }
 
 .stat-item {
-	display: flex;
-	justify-content: space-between;
 	align-items: center;
-	padding: 2px 0;
 }
 
 .stat-item.cache-stats {
@@ -4584,40 +4542,21 @@ export default {
 	margin-top: 4px;
 }
 
-.stat-label {
-	color: rgb(255 255 255 / 70%);
-	font-size: 11px;
-}
-
-.stat-value {
-	font-weight: bold;
-	font-size: 12px;
-	color: #fff;
-}
-
-.stat-value.good,
-.stat-value.warning,
-.stat-value.poor {
-	padding: 2px 6px !important;
-	border-radius: 4px !important;
-	line-height: normal !important;
-	min-height: auto !important;
-	margin: 0 !important;
-}
-
+/*
+ * A live value in one of three states. The sheet colours these as text rather than as
+ * filled chips — a chip per row turns a six-row readout into six coloured blocks, and
+ * the point of the colour is the one row that is not fine.
+ */
 .stat-value.good {
-	background: rgb(76 175 80 / 20%);
-	color: #81c784;
+	color: var(--tdv-hud-success);
 }
 
 .stat-value.warning {
-	background: rgb(255 178 0 / 86%) !important;
-	color: #000 !important;
+	color: #ffc95c;
 }
 
 .stat-value.poor {
-	background: rgb(244 67 54 / 20%);
-	color: #e57373;
+	color: #ff8a80;
 }
 
 .comparison-controls {

@@ -35,8 +35,13 @@ function buildFixture(body: string) {
 		body { margin: 16px; font-family: sans-serif; background: #1a1a1a; color: #eee; }
 		.row { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
 		.stats-badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; }
-		.stats-badge-ok { background: rgb(76 175 80 / 18%); color: #8fe2a3; }
-		.stats-badge-warn { background: rgb(255 152 0 / 22%); color: #ffb74d; }
+		/* Placeholder fills. This spec asserts only that the forced-colors sheet adds a
+		   border, and forced-colors replaces background and color outright, so copying
+		   the components' real values here would be a copy that drifts for no benefit —
+		   these badges have already changed once, when the stats panel stopped being a
+		   dark overlay. */
+		.stats-badge-ok { background: rgb(0 128 0 / 18%); color: #060; }
+		.stats-badge-warn { background: rgb(255 152 0 / 22%); color: #663d00; }
 		.stats-badge-unknown { background: rgb(255 255 255 / 8%); color: rgb(255 255 255 / 70%); }
 		.fps-badge { padding: 2px 5px; background: #0082c9; color: #fff; border-radius: 6px; font-size: 10px; }
 		.active-badge { padding: 2px 8px; background: #0082c9; color: #fff; border-radius: 10px; font-size: 11px; font-weight: 600; }

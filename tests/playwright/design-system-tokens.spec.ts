@@ -58,6 +58,22 @@ function fixture(rootStyle = '') {
 
 const TRANSPARENT = 'rgba(0, 0, 0, 0)'
 
+/** WCAG relative luminance of an `rgb(r, g, b)` string. */
+function luminance(colour: string): number {
+	const [r, g, b] = colour.match(/[\d.]+/g)!.slice(0, 3).map(Number)
+	const channel = (v: number) => {
+		const s = v / 255
+		return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4
+	}
+	return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
+}
+
+/** WCAG contrast ratio between two opaque colours. */
+function contrast(a: string, b: string): number {
+	const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x)
+	return (hi + 0.05) / (lo + 0.05)
+}
+
 test.describe('design system tokens in a browser', () => {
 	test('every colour token resolves to a colour with Nextcloud absent', async ({ page }) => {
 		await page.setContent(fixture())
@@ -84,6 +100,43 @@ test.describe('design system tokens in a browser', () => {
 			(el) => getComputedStyle(el).backgroundColor,
 		)
 		expect(background).toBe('rgb(200, 0, 0)')
+	})
+
+	/*
+	 * The design system carries two greens on purpose: --tdv-color-success is dark enough
+	 * to read on a white panel, and --tdv-hud-success is light enough to read on the near
+	 * black HUD. Each fails on the other's surface, and both look plausible in a diff —
+	 * this is what makes the pair a decision rather than a duplicate. It is also the
+	 * mistake a panel makes when it stops being a dark overlay and keeps its light text.
+	 */
+	test('each status colour is readable on the surface it belongs to', async ({ page }) => {
+		await page.setContent(fixture())
+
+		const pairs = [
+			{ text: '--tdv-color-success', on: '--tdv-color-surface' },
+			{ text: '--tdv-color-warning', on: '--tdv-color-surface' },
+			{ text: '--tdv-color-error', on: '--tdv-color-surface' },
+			{ text: '--tdv-color-text', on: '--tdv-color-surface' },
+			{ text: '--tdv-color-text-secondary', on: '--tdv-color-surface' },
+			{ text: '--tdv-hud-success', on: '--tdv-canvas-dark' },
+			{ text: '--tdv-hud-text', on: '--tdv-canvas-dark' },
+			{ text: '--tdv-hud-text-secondary', on: '--tdv-canvas-dark' },
+		]
+
+		const failures: string[] = []
+		for (const { text, on } of pairs) {
+			const [fg, bg] = await Promise.all([
+				page.locator(`#probe${text}`).evaluate((el) => getComputedStyle(el).backgroundColor),
+				page.locator(`#probe${on}`).evaluate((el) => getComputedStyle(el).backgroundColor),
+			])
+			const ratio = contrast(fg, bg)
+			// 3:1, the WCAG minimum for large text and for a non-text indicator. These are
+			// readouts and badges, not body copy.
+			if (ratio < 3) {
+				failures.push(`${text} on ${on}: ${ratio.toFixed(2)}:1`)
+			}
+		}
+		expect(failures).toEqual([])
 	})
 
 	test('the canvas chrome stays dark when the instance primary changes', async ({ page }) => {
