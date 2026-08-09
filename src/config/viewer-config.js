@@ -74,12 +74,28 @@ export const CAMERA_SETTINGS = {
 /**
  * Grid settings
  */
+/**
+ * The ground grid, per theme.
+ *
+ * A neutral that reads as a rule under the model rather than as part of it. This was
+ * `#00ff00` on both themes — a value picked to be unmissable while the grid was being
+ * built, declared separately in six places that then drifted apart, including a settings
+ * swatch showing `#888888` for a grid that was rendering green.
+ *
+ * Declared once here and read by everything else, so a change to it is a change to the
+ * grid rather than to one of the six.
+ */
+export const GRID_COLORS = {
+	light: '#c8c8c8',
+	dark: '#3c3c3c',
+}
+
 export const GRID_SETTINGS = {
 	defaultSize: 10,
 	defaultDivisions: 10,
-	color: 0x00ff00,
-	colorCenterLine: 0x00ff00,
-	colorGrid: 0x00ff00,
+	color: GRID_COLORS.light,
+	colorCenterLine: GRID_COLORS.light,
+	colorGrid: GRID_COLORS.light,
 	opacity: 1.0,
 	transparent: false,
 	visible: true,
@@ -203,14 +219,14 @@ export const THEME_SETTINGS = {
 	mode: 'auto', // 'auto', 'light', 'dark'
 	light: {
 		background: '#ffffff',
-		gridColor: '#00ff00',
+		gridColor: GRID_COLORS.light,
 		axesColor: '#ff0000',
 		toolbarBg: '#f0f0f0',
 		toolbarText: '#333333',
 	},
 	dark: {
 		background: '#1a1a1a',
-		gridColor: '#00ff00',
+		gridColor: GRID_COLORS.dark,
 		axesColor: '#ff0000',
 		toolbarBg: '#2a2a2a',
 		toolbarText: '#ffffff',

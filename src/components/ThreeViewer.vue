@@ -1073,7 +1073,7 @@ export default {
 				const gridSize = VIEWER_CONFIG.grid?.defaultSize || 10
 				const gridDivisions = VIEWER_CONFIG.grid?.defaultDivisions || 10
 				const palette = themeComposable.getEffectivePalette?.()
-				const gridColor = palette?.gridColor || VIEWER_CONFIG.grid?.colorGrid || 0x00ff00
+				const gridColor = palette?.gridColor || VIEWER_CONFIG.grid.colorGrid
 
 				grid.value = markRaw(new THREE.GridHelper(gridSize, gridDivisions, gridColor, gridColor))
 				grid.value.material.opacity = VIEWER_CONFIG.grid?.opacity || 1.0
@@ -1109,7 +1109,7 @@ export default {
 				const gridSize = VIEWER_CONFIG.grid?.defaultSize || 10
 				const gridDivisions = VIEWER_CONFIG.grid?.defaultDivisions || 10
 				const palette = themeComposable.getEffectivePalette?.()
-				const gridColor = palette?.gridColor || VIEWER_CONFIG.grid?.colorGrid || 0x00ff00
+				const gridColor = palette?.gridColor || VIEWER_CONFIG.grid.colorGrid
 				grid.value = markRaw(new THREE.GridHelper(gridSize, gridDivisions, gridColor, gridColor))
 				grid.value.material.opacity = VIEWER_CONFIG.grid?.opacity || 1.0
 				grid.value.material.transparent = VIEWER_CONFIG.grid?.transparent || false
@@ -1780,12 +1780,16 @@ export default {
 				// Calculate grid position (always at y=0)
 				const gridY = 0
 
-				// Update grid
+				// Update grid. Rebuilt at the model's scale, so the colour has to be given
+				// again — from the palette, the same as when it was first built. A literal
+				// here is what made the grid green whatever the theme said: the setting
+				// applied, and then the first model to load painted over it.
 				scene.value.remove(grid.value)
-				grid.value = new THREE.GridHelper(gridSize, divisions)
-				grid.value.material.color.setHex(0x00ff00)
-				grid.value.material.opacity = 1.0
-				grid.value.material.transparent = false
+				const palette = themeComposable.getEffectivePalette?.()
+				const gridColor = palette?.gridColor || VIEWER_CONFIG.grid.colorGrid
+				grid.value = new THREE.GridHelper(gridSize, divisions, gridColor, gridColor)
+				grid.value.material.opacity = VIEWER_CONFIG.grid.opacity
+				grid.value.material.transparent = VIEWER_CONFIG.grid.transparent
 
 				// Position grid at the origin
 				grid.value.position.set(0, gridY, 0)

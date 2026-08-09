@@ -544,6 +544,7 @@
 <script>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import ViewerIcon from './ViewerIcon.vue'
+import { VIEWER_CONFIG } from '../config/viewer-config.js'
 // eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
 import { translate as t } from '@nextcloud/l10n'
 
@@ -784,15 +785,20 @@ export default {
 		}
 
 		// Palette helpers ----------------------------------------------------
-		// Fall-through defaults when the user hasn't overridden a key yet —
-		// these mirror the `light` theme in VIEWER_CONFIG.THEME_SETTINGS and
-		// exist purely so the color input shows a sensible initial swatch.
-		const PALETTE_DEFAULTS = {
-			background: '#ffffff',
-			gridColor: '#888888',
-		}
+		/*
+		 * What the swatch shows when the user has not overridden a key: the value the
+		 * scene is actually using. This used to be a defaults map of its own, which said
+		 * the grid was #888888 while the scene drew it in #00ff00 — a control describing
+		 * the colour of something, showing a colour that thing had never been.
+		 */
+		const themeDefaults = computed(() => {
+			const resolved = props.themeMode === 'auto'
+				? (window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+				: props.themeMode
+			return VIEWER_CONFIG.theme[resolved] || VIEWER_CONFIG.theme.light
+		})
 		const paletteValueFor = (key) => {
-			return (props.customPalette && props.customPalette[key]) || PALETTE_DEFAULTS[key]
+			return (props.customPalette && props.customPalette[key]) || themeDefaults.value[key]
 		}
 		const onPaletteInput = (key, hex) => {
 			emit('set-palette-color', { key, hex })
