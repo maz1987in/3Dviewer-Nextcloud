@@ -772,9 +772,6 @@ export default {
 		showFaceLabels: { type: Boolean, default: false },
 		wireframe: { type: Boolean, default: false },
 		background: { type: String, default: null },
-		measurementMode: { type: Boolean, default: false },
-		annotationMode: { type: Boolean, default: false },
-		comparisonMode: { type: Boolean, default: false },
 		performanceMode: { type: String, default: 'auto' },
 		themeMode: { type: String, default: 'auto' },
 		showController: { type: Boolean, default: true },
@@ -799,7 +796,10 @@ export default {
 		// can tell.
 		toolsPanelOpen: { type: Boolean, default: false },
 	},
-	emits: ['model-loaded', 'error', 'view-reset', 'fit-to-view', 'toggle-auto-rotate', 'toggle-projection', 'change-preset', 'toggle-grid', 'axes-toggle', 'wireframe-toggle', 'background-change', 'toggle-measurement', 'toggle-annotation', 'toggle-comparison', 'toggle-performance', 'cycle-performance-mode', 'dismiss', 'push-toast', 'loading-state-changed', 'fps-updated'],
+	// Declared and never sent is as misleading as sent and never declared: nine of these
+	// named toolbar actions the viewer stopped emitting long ago, and among them sat the
+	// three mode toggles it did send and nothing received.
+	emits: ['model-loaded', 'error', 'measurement-active', 'annotation-active', 'comparison-active', 'cycle-performance-mode', 'push-toast', 'loading-state-changed', 'fps-updated', 'animations-initialized'],
 	setup(props, { emit }) {
 		// Refs
 		const container = ref(null)
@@ -2229,16 +2229,8 @@ export default {
 			measurement.deleteMeasurement(measurementId)
 		}
 
-		/*
-		 * The panels' own close buttons.
-		 *
-		 * They emit rather than calling the composable's toggle: the mode is mirrored in
-		 * `App.vue`, which is what drives the tools panel's row state, so turning the mode
-		 * off here without telling it leaves the row reading "Active" over a panel that is
-		 * gone.
-		 */
-		const closeMeasurementPanel = () => emit('toggle-measurement')
-		const closeAnnotationPanel = () => emit('toggle-annotation')
+		const closeMeasurementPanel = () => toggleMeasurementMode()
+		const closeAnnotationPanel = () => toggleAnnotationMode()
 
 		const toggleAnnotationMode = () => {
 		// If turning annotation ON, turn measurement OFF
@@ -2248,8 +2240,23 @@ export default {
 				}
 			}
 			annotation.toggleAnnotation()
-			emit('toggle-annotation')
 		}
+
+		/*
+		 * Tell the parent what these modes are, rather than telling it to toggle them.
+		 *
+		 * The modes live in the composables here; `App.vue` keeps a copy because the tools
+		 * panel's rows are drawn from it. Every path that changed a mode had to remember to
+		 * announce it — the tools panel, each panel's close button, the transform gizmo,
+		 * which turns both off when it claims the pointer, and comparison mode, which turns
+		 * itself back off if the file picker is cancelled. What they announced was a request
+		 * to toggle, which is a different thing from what had happened: a parent that acted
+		 * on it flipped its copy a second time, and one that did not listen at all left the
+		 * copy behind. Both happened. One watcher per mode says what is true.
+		 */
+		watch(() => measurement.isActive.value, (active) => emit('measurement-active', active))
+		watch(() => annotation.isActive.value, (active) => emit('annotation-active', active))
+		watch(() => comparison.comparisonMode.value, (active) => emit('comparison-active', active))
 
 		const toggleTransformGizmo = () => {
 			// Turn off measurement/annotation when enabling gizmo
@@ -2670,7 +2677,6 @@ export default {
 				if (!comparison.isComparisonMode.value) {
 					// Entering comparison mode - open native file picker
 					comparison.toggleComparisonMode()
-					emit('toggle-comparison')
 
 					try {
 						const filePath = await comparison.openFilePicker()
@@ -2680,7 +2686,6 @@ export default {
 							logger.info('ThreeViewer', 'File picker cancelled by user')
 							// Exit comparison mode
 							comparison.toggleComparisonMode()
-							emit('toggle-comparison')
 							return
 						}
 
@@ -2799,13 +2804,11 @@ export default {
 						renderPaused.value = false
 						// Exit comparison mode if picker was cancelled
 						comparison.toggleComparisonMode()
-						emit('toggle-comparison')
 					}
 				} else {
 					// Exiting comparison mode - clear comparison
 					comparison.clearComparison()
 					comparison.toggleComparisonMode()
-					emit('toggle-comparison')
 				}
 			} catch (error) {
 				logger.error('ThreeViewer', 'Failed to toggle comparison mode', error)
@@ -2820,7 +2823,6 @@ export default {
 				// Reset comparison mode state
 				if (comparison.isComparisonMode.value) {
 					comparison.toggleComparisonMode()
-					emit('toggle-comparison')
 				}
 			}
 		}

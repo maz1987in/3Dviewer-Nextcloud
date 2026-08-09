@@ -131,6 +131,9 @@
 					:custom-palette="customPalette"
 					:transform-gizmo-active="transformGizmoActive"
 					:transform-gizmo-mode="transformGizmoMode"
+					:measurement-mode="measurementMode"
+					:annotation-mode="annotationMode"
+					:comparison-mode="comparisonMode"
 					@reset-view="onReset"
 					@fit-to-view="onFitToView"
 					@toggle-auto-rotate="onToggleAutoRotate"
@@ -203,10 +206,10 @@
 					:enable-shadows="enableShadows"
 					:enable-antialiasing="enableAntialiasing"
 					:enable-thumbnails="enableThumbnails"
-					:measurement-mode="measurementMode"
-					:annotation-mode="annotationMode"
-					:comparison-mode="comparisonMode"
 					:performance-mode="performanceMode"
+					@measurement-active="measurementMode = $event"
+					@annotation-active="annotationMode = $event"
+					@comparison-active="comparisonMode = $event"
 					@model-loaded="onModelLoaded"
 					@loading-state-changed="onLoadingStateChanged"
 					@fps-updated="onFpsUpdated"
@@ -704,24 +707,23 @@ export default {
 		},
 
 		// Advanced features event handlers
+		/*
+		 * These three ask the viewer to switch a mode; they do not decide what the mode
+		 * then is. The viewer owns that — it turns the others off as it goes, and turns
+		 * them off again from its own panels and from the transform gizmo — and it says so
+		 * through `measurement-active` and its two siblings. Setting the flags here as well
+		 * meant guessing at an outcome that had already happened, and guessing wrong
+		 * whenever the viewer disagreed.
+		 */
 		onToggleMeasurement() {
-			this.measurementMode = !this.measurementMode
-			this.annotationMode = false
-			this.comparisonMode = false
 			this.$refs.viewer?.toggleMeasurementMode?.()
 		},
 
 		onToggleAnnotation() {
-			this.annotationMode = !this.annotationMode
-			this.measurementMode = false
-			this.comparisonMode = false
 			this.$refs.viewer?.toggleAnnotationMode?.()
 		},
 
 		onToggleComparison() {
-			this.comparisonMode = !this.comparisonMode
-			this.measurementMode = false
-			this.annotationMode = false
 			this.transformGizmoActive = false
 			this.$refs.viewer?.toggleComparisonMode?.()
 		},
