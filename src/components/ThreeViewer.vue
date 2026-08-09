@@ -71,7 +71,7 @@
 		</div>
 
 		<!-- Model Statistics Panel -->
-		<div v-if="showModelStats && modelStats" class="tdv-panel tdv-panel--floating model-stats-overlay" :class="{ 'mobile': isMobile }">
+		<div v-if="showModelStats && modelStats" class="tdv-panel tdv-panel--floating tdv-panel--hud model-stats-overlay" :class="{ 'mobile': isMobile }">
 			<div class="tdv-panel-header stats-panel-header">
 				<div class="stats-title-group">
 					<span v-if="modelStats.format" class="format-icon-text">
@@ -4065,10 +4065,14 @@ export default {
 /* Model Statistics Panel */
 
 /*
- * The sheet draws this as a light panel, not a dark overlay. It reads numbers, not the
- * scene — the dark treatment is reserved for the HUD, which has to stay legible over a
- * rendered model. Surface, border, radius and shadow come from .tdv-panel; what is left
- * is where it sits.
+ * Canvas chrome, drawn like the rest of it. Surface, blur and text colour come from
+ * .tdv-panel--hud, structure and shadow from .tdv-panel; what is left here is where it
+ * sits.
+ *
+ * This was a light panel for a while, on the reasoning that it reads numbers rather than
+ * the scene. What that missed is that it reads them *over* the scene, alongside the
+ * performance HUD — so the app drew a light card and a dark card on the same rendered
+ * model, and which of the two the eye took as chrome depended on the model.
  */
 .model-stats-overlay {
 	position: absolute;
@@ -4098,11 +4102,12 @@ export default {
 	line-height: 1;
 	padding: 4px 8px;
 
-	/* Outlined rather than filled, per the sheet: a white-alpha fill was invisible once
-	   this panel stopped being a dark overlay. */
-	border: 1px solid var(--tdv-color-primary);
+	/* Outlined rather than filled, per the sheet. Drawn in the HUD's own foreground rather
+	   than the instance's primary, which is chosen for contrast against Nextcloud's page
+	   background and can be a near-black on this surface. */
+	border: 1px solid var(--tdv-hud-border);
 	border-radius: 8px;
-	color: var(--tdv-color-primary);
+	color: var(--tdv-hud-text);
 	letter-spacing: 0.5px;
 	display: flex;
 	align-items: center;
@@ -4114,17 +4119,30 @@ export default {
 	margin: 0;
 	font-size: var(--tdv-font-size-section);
 	font-weight: var(--tdv-font-weight-bold);
-	color: var(--tdv-color-text);
+	color: var(--tdv-hud-text);
 }
 
-.close-stats-btn {
-	color: var(--tdv-color-text-secondary);
+/*
+ * Doubled for the same reason .tdv-btn is: Nextcloud's `button:not(...)` rule scores
+ * (0,1,1) and would otherwise decide this button's colour, and its hover and pressed
+ * states, out from under the panel.
+ */
+.close-stats-btn.close-stats-btn {
+	color: var(--tdv-hud-text-secondary);
 	border-radius: 4px;
 	transition: background 0.2s ease;
 }
 
-.close-stats-btn:hover {
-	background: var(--tdv-color-hover-bg);
+.close-stats-btn.close-stats-btn:hover,
+.close-stats-btn.close-stats-btn:focus,
+.close-stats-btn.close-stats-btn:focus-visible {
+	background: var(--tdv-hud-hover-bg);
+	color: var(--tdv-hud-text);
+}
+
+.close-stats-btn.close-stats-btn:active {
+	background: var(--tdv-hud-hover-bg) !important;
+	color: var(--tdv-hud-text) !important;
 }
 
 .stats-panel-content {
@@ -4136,7 +4154,7 @@ export default {
 .stats-section {
 	margin-bottom: 20px;
 	padding-bottom: 16px;
-	border-bottom: 1px solid var(--tdv-color-border);
+	border-bottom: 1px solid var(--tdv-hud-border);
 }
 
 .stats-section:last-child {
@@ -4148,7 +4166,7 @@ export default {
 	margin: 0 0 12px;
 	font-size: 14px;
 	font-weight: 600;
-	color: var(--tdv-color-text);
+	color: var(--tdv-hud-text);
 }
 
 .stat-row {
@@ -4159,24 +4177,16 @@ export default {
 	font-size: 13px;
 }
 
-/*
- * The label and value of every readout in the statistics panel. White since the panel was
- * a dark overlay, and white-on-white since it stopped being one — which is why sections
- * of it were reported as blank rather than as unreadable.
- */
+/* The label half of a readout, and the value half. Both follow the panel's surface — they
+   have already been white on white once, when the surface changed and they did not. */
 .stat-row span:first-child {
-	color: var(--tdv-color-text-secondary);
+	color: var(--tdv-hud-text-secondary);
 }
 
-/*
- * The value half of a readout in the statistics panel. White since the panel was a dark
- * overlay, and white-on-white since it stopped being one — which is why whole sections
- * were reported as blank rather than as unreadable.
- */
 .stat-row .stat-value {
 	font-family: var(--tdv-font-mono);
 	font-weight: var(--tdv-font-weight-medium);
-	color: var(--tdv-color-text);
+	color: var(--tdv-hud-text);
 }
 
 .material-list {
@@ -4190,7 +4200,7 @@ export default {
 	display: flex;
 	justify-content: space-between;
 	padding: 8px 12px;
-	background: var(--tdv-color-surface-sunken);
+	background: var(--tdv-hud-sunken-bg);
 	border-radius: 4px;
 	font-size: 12px;
 }
@@ -4200,7 +4210,7 @@ export default {
 	   keeps its own width rather than being pushed into the name. */
 	overflow: hidden;
 	flex: 1;
-	color: var(--tdv-color-text);
+	color: var(--tdv-hud-text);
 	font-weight: 500;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -4208,23 +4218,21 @@ export default {
 
 .material-type {
 	flex-shrink: 0;
-	color: var(--tdv-color-text-secondary);
+	color: var(--tdv-hud-text-secondary);
 	font-size: 11px;
 }
 
-/*
- * "No textures", "+ 3 more". White-on-white since this panel stopped being a dark
- * overlay, which reads as a section that rendered nothing rather than as text.
- */
+/* "No textures", "+ 3 more". Text that has been the same colour as its own background
+   once already, which reads as a section that rendered nothing rather than as text. */
 .no-items {
-	color: var(--tdv-color-text-secondary);
+	color: var(--tdv-hud-text-secondary);
 	font-style: italic;
 	font-size: 12px;
 	padding: 8px 0;
 }
 
 .more-items {
-	color: var(--tdv-color-text-secondary);
+	color: var(--tdv-hud-text-secondary);
 	font-size: 12px;
 	padding: 8px 12px;
 	text-align: center;
@@ -4244,46 +4252,61 @@ export default {
 	margin: 0;
 }
 
-.stats-unit-select {
-	background: var(--tdv-color-surface);
-	color: var(--tdv-color-text);
-	border: 1px solid var(--tdv-color-border);
+/* Doubled: Nextcloud styles every select on the page through a rule that outscores a
+   single class, so the panel would lose this control's colours to the page's. */
+.stats-unit-select.stats-unit-select {
+	background: var(--tdv-hud-sunken-bg);
+	color: var(--tdv-hud-text);
+	border: 1px solid var(--tdv-hud-border);
 	border-radius: 4px;
 	padding: 4px 6px;
 	font-size: 12px;
 	cursor: pointer;
 }
 
-.stats-unit-select:focus {
-	outline: 2px solid var(--tdv-color-primary);
+/* The list itself is drawn by the platform, on the platform's surface — so its options
+   have to be legible there rather than on this panel. */
+.stats-unit-select.stats-unit-select option {
+	background: var(--tdv-color-surface);
+	color: var(--tdv-color-text);
+}
+
+.stats-unit-select.stats-unit-select:focus {
+	outline: 2px solid var(--tdv-hud-text);
 }
 
 .stats-watertight-row {
 	margin-bottom: 10px;
 }
 
+/*
+ * One chip, three foregrounds — the same treatment the HUD gives a live value, for the
+ * same reason: the state is in the word, and a filled panel-status chip on this surface is
+ * a bright block that draws the eye to whichever badge happens to be showing rather than
+ * to the one that says something is wrong.
+ */
 .stats-badge {
 	display: inline-block;
 	padding: 4px 8px;
 	border-radius: 4px;
+	background: var(--tdv-hud-chip-bg);
 	font-size: 12px;
 	font-weight: 500;
 	cursor: default;
 }
 
 .stats-badge-ok {
-	background: var(--tdv-color-success-surface);
-	color: var(--tdv-color-success);
+	color: var(--tdv-hud-success);
 }
 
 .stats-badge-warn {
-	background: var(--tdv-color-warning-surface);
-	color: var(--tdv-color-warning);
+	color: var(--tdv-hud-warning);
 }
 
+/* Neutral rather than dim: the chip is already the lightest surface in the panel, and the
+   secondary text colour on it measures 3.06:1 — over the line, with nothing to spare. */
 .stats-badge-unknown {
-	background: var(--tdv-color-surface-sunken);
-	color: var(--tdv-color-text-secondary);
+	color: var(--tdv-hud-text);
 }
 
 .stats-selected-row {
@@ -4298,10 +4321,12 @@ export default {
 }
 
 .stats-selected-label {
-	color: var(--tdv-color-text);
+	color: var(--tdv-hud-text);
 }
 
-.stats-link-btn {
+/* Doubled, like every other bare button on this surface: Nextcloud's own button rule sets
+   a background and a text colour and outscores a single class. */
+.stats-link-btn.stats-link-btn {
 	background: transparent;
 	border: none;
 	color: #90caf9;
@@ -4311,19 +4336,30 @@ export default {
 	text-decoration: underline;
 }
 
-.stats-link-btn:hover {
+.stats-link-btn.stats-link-btn:hover,
+.stats-link-btn.stats-link-btn:focus,
+.stats-link-btn.stats-link-btn:focus-visible {
+	background: transparent;
 	color: #bbdefb;
+}
+
+/* Nextcloud's pressed rule carries enough `:not()`s to outscore the doubled class, and a
+   click leaves a button focused but not focus-visible — so without this the button keeps
+   the page's pressed colours for as long as it holds focus. */
+.stats-link-btn.stats-link-btn:active {
+	background: transparent !important;
+	color: #bbdefb !important;
 }
 
 .per-mesh-panel {
 	margin-top: 12px;
 	padding-top: 10px;
-	border-top: 1px dashed var(--tdv-color-border);
+	border-top: 1px dashed var(--tdv-hud-border);
 }
 
 .per-mesh-header {
 	font-size: 12px;
-	color: var(--tdv-color-text-secondary);
+	color: var(--tdv-hud-text-secondary);
 	margin-bottom: 6px;
 }
 
@@ -4344,7 +4380,7 @@ export default {
 	column-gap: 8px;
 	align-items: center;
 	padding: 6px 8px;
-	background: var(--tdv-color-surface-sunken);
+	background: var(--tdv-hud-sunken-bg);
 	border-radius: 4px;
 	font-size: 12px;
 	cursor: pointer;
@@ -4352,7 +4388,7 @@ export default {
 }
 
 .per-mesh-item:hover {
-	background: var(--tdv-color-hover-bg);
+	background: var(--tdv-hud-hover-bg);
 }
 
 .per-mesh-item.is-selected {
@@ -4361,7 +4397,7 @@ export default {
 }
 
 .per-mesh-name {
-	color: var(--tdv-color-text);
+	color: var(--tdv-hud-text);
 	font-weight: 500;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -4369,19 +4405,19 @@ export default {
 }
 
 .per-mesh-meta {
-	color: var(--tdv-color-text-secondary);
-	font-family: 'Courier New', monospace;
+	color: var(--tdv-hud-text-secondary);
+	font-family: var(--tdv-font-mono);
 	font-size: 11px;
 	text-align: right;
 }
 
 .per-mesh-flag {
 	font-size: 12px;
-	color: #ffb74d;
+	color: var(--tdv-hud-warning);
 }
 
 .per-mesh-flag-ok {
-	color: #8fe2a3;
+	color: var(--tdv-hud-success);
 }
 
 .stats-actions {
@@ -4391,26 +4427,38 @@ export default {
 	flex-wrap: wrap;
 }
 
-.stats-action-btn {
+/* Doubled, as everywhere else on this surface: a single class loses this button's
+   background and text colour to Nextcloud's own button rule. */
+.stats-action-btn.stats-action-btn {
 	flex: 1 1 auto;
 	min-width: 120px;
 	padding: 6px 10px;
-	background: var(--tdv-color-surface);
-	color: var(--tdv-color-text);
-	border: 1px solid var(--tdv-color-border);
+	background: var(--tdv-hud-sunken-bg);
+	color: var(--tdv-hud-text);
+	border: 1px solid var(--tdv-hud-border);
 	border-radius: 4px;
 	font-size: 12px;
 	cursor: pointer;
 	transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
-.stats-action-btn:hover {
-	background: var(--tdv-color-hover-bg);
-	border-color: var(--tdv-color-border-strong);
+.stats-action-btn.stats-action-btn:hover,
+.stats-action-btn.stats-action-btn:focus,
+.stats-action-btn.stats-action-btn:focus-visible {
+	background: var(--tdv-hud-hover-bg);
+	color: var(--tdv-hud-text);
 }
 
-.stats-action-btn.is-active {
-	background: rgb(33 150 243 / 35%);
+.stats-action-btn.stats-action-btn:active {
+	background: var(--tdv-hud-hover-bg) !important;
+	color: var(--tdv-hud-text) !important;
+}
+
+/* Pick-a-mesh is a mode, not a press — it stays on until a mesh is clicked, so it has to
+   outrank the pressed state above rather than sit beside it. */
+.stats-action-btn.stats-action-btn.is-active,
+.stats-action-btn.stats-action-btn.is-active:active {
+	background: rgb(33 150 243 / 35%) !important;
 	border-color: rgb(33 150 243 / 70%);
 }
 
@@ -4563,7 +4611,7 @@ export default {
 }
 
 .stat-item.cache-stats {
-	border-top: 1px solid rgb(255 255 255 / 20%);
+	border-top: 1px solid var(--tdv-hud-border);
 	padding-top: 6px;
 	margin-top: 4px;
 }

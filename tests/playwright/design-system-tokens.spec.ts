@@ -47,6 +47,12 @@ const colourTokens = tokens
  * instance while measuring perfectly square in any fixture that leaves this stylesheet
  * out. Three earlier attempts at this fixture did exactly that, each reproducing a little
  * more of the real page and still passing.
+ *
+ * A fourth attempt left out the rest-state colours below, keeping only the geometry and
+ * the states — so a control that Nextcloud repainted the moment it appeared measured
+ * correct at rest here and was a pale blue pill on the instance. A stand-in that is more
+ * permissive than the thing it stands in for reports a pass it has not earned, and does it
+ * silently.
  */
 const NEXTCLOUD_BUTTON_CSS = `
 	select, button:not(.button-vue, [class^="vs__"]), input, textarea,
@@ -58,6 +64,9 @@ const NEXTCLOUD_BUTTON_CSS = `
 	input[type="submit"], input[type="button"], input[type="reset"],
 	button:not(.button-vue, [class^="vs__"]), .button, .pager li a {
 		padding: 7px 14px;
+		background-color: var(--color-main-background);
+		color: var(--color-main-text);
+		border: 1px solid var(--color-border-dark);
 	}
 	select, button:not(.button-vue, [class^="vs__"]), .button,
 	input[type="button"], input[type="submit"], input[type="reset"] {
@@ -65,6 +74,12 @@ const NEXTCLOUD_BUTTON_CSS = `
 		width: auto;
 		min-height: var(--default-clickable-area);
 		box-sizing: border-box;
+
+		/* The declaration the mode chip lost. Every button on a Nextcloud page starts out
+		   painted in the instance's pale primary tint, not in the page background. */
+		color: var(--color-primary-element-light-text);
+		background-color: var(--color-primary-element-light);
+		border: none;
 	}
 
 	/*
@@ -111,6 +126,7 @@ function fixture(rootStyle = '') {
 	<div class="cluster"><button class="tdv-btn tdv-btn--icon tdv-btn--on-canvas" id="canvasBtn"><svg class="viewer-icon" width="20" height="20" viewBox="0 0 24 24"><path d="M0 0h24v24H0z"/></svg></button></div>
 	<div class="cluster"><button class="tdv-btn tdv-btn--icon" id="iconBtn"><svg class="viewer-icon" width="20" height="20" viewBox="0 0 24 24"><path d="M0 0h24v24H0z"/></svg></button></div>
 	<div class="tdv-hud" id="hud"><span class="tdv-hud-value">60 fps</span></div>
+	<div class="tdv-hud"><span class="tdv-hud-chip" id="chipSpan">AUTO</span><button class="tdv-hud-chip" id="chipButton">AUTO</button></div>
 </body>
 </html>`
 }
@@ -303,6 +319,46 @@ test.describe('design system tokens in a browser', () => {
 			expect(failures).toEqual([])
 		})
 	}
+
+	/*
+	 * A chip on the HUD looks the same whether or not it happens to be a button.
+	 *
+	 * The performance HUD's mode chip is a button, and every other chip in the app is a
+	 * span. The primitive says translucent white on the dark surface; on a real instance
+	 * the mode chip rendered as a pale blue pill with near-black text, because Nextcloud's
+	 * `button:not(...)` rule outscores the single class and was deciding both. Nothing in
+	 * the app's own stylesheet mentions that colour, so reading the CSS suggests the chip
+	 * is fine — the disagreement only exists once the page it ships on is present.
+	 *
+	 * Compared against the span rather than against a colour: the two are meant to be the
+	 * same thing, and that is the property worth holding.
+	 */
+	test('a chip on the HUD looks the same whether or not it is a button', async ({ page }) => {
+		await page.setContent(fixture('--default-clickable-area: 34px; --color-primary-element: rgb(0, 130, 201); --color-primary-element-light-hover: rgb(216, 234, 245); --color-main-background: rgb(255, 255, 255); --color-main-text: rgb(34, 34, 34);'))
+
+		const paint = (id: string) => page.locator(id).evaluate((el) => {
+			const cs = getComputedStyle(el)
+			return { background: cs.backgroundColor, color: cs.color }
+		})
+		const expected = await paint('#chipSpan')
+
+		const cdp = await page.context().newCDPSession(page)
+		await cdp.send('DOM.enable')
+		await cdp.send('CSS.enable')
+		const { root } = await cdp.send('DOM.getDocument', { depth: -1 })
+		const { nodeId } = await cdp.send('DOM.querySelector', { nodeId: root.nodeId, selector: '#chipButton' })
+
+		const differs: string[] = []
+		// `focus` without `focus-visible` is where a mouse click leaves the chip.
+		for (const state of [[], ['hover'], ['focus'], ['focus', 'focus-visible'], ['active']]) {
+			await cdp.send('CSS.forcePseudoState', { nodeId, forcedPseudoClasses: state })
+			const actual = await paint('#chipButton')
+			if (actual.background !== expected.background || actual.color !== expected.color) {
+				differs.push(`${state.join(',') || 'rest'}: ${actual.color} on ${actual.background}`)
+			}
+		}
+		expect(differs).toEqual([])
+	})
 
 	test('the canvas chrome stays dark when the instance primary changes', async ({ page }) => {
 		await page.setContent(fixture('--color-primary-element: rgb(200, 0, 0); --color-main-background: rgb(255, 255, 255);'))

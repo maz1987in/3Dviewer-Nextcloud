@@ -66,7 +66,14 @@
 	--tdv-hud-text: #f5f5f5;
 	--tdv-hud-text-secondary: #aaa;
 	--tdv-hud-chip-bg: rgb(255, 255, 255, 0.15);
+	--tdv-hud-chip-text: #ccc;
 	--tdv-hud-hover-bg: rgb(255, 255, 255, 0.12);
+
+	/* A divider and an inset row on the dark surface. White at low alpha rather than a
+	   fixed grey, so both stay right wherever the HUD is translucent enough for the scene
+	   to show through. */
+	--tdv-hud-border: rgb(255, 255, 255, 0.15);
+	--tdv-hud-sunken-bg: rgb(255, 255, 255, 0.07);
 
 	/* Lighter than the panel statuses on purpose: those are tuned for contrast on a light
 	   surface and disappear against the HUD's near-black background. Fixed rather than
@@ -293,6 +300,24 @@
 	box-shadow: var(--tdv-shadow-floating);
 }
 
+/*
+ * A panel drawn on the canvas rather than beside it: the panel's structure — a header rule
+ * above a scrolling body — over the HUD's surface.
+ *
+ * It exists so there is one dark in the app rather than two. The statistics panel and the
+ * performance HUD are on screen together, a few hundred pixels apart, and both float over
+ * the rendered model; when each carried its own background they drifted into a light card
+ * and a dark card side by side. Anything using this takes its text and divider colours
+ * from the HUD tokens too — `--tdv-color-text` on this surface is white on white in
+ * Nextcloud's light theme.
+ */
+.tdv-panel--hud {
+	background: var(--tdv-hud-bg);
+	backdrop-filter: blur(8px);
+	border-color: var(--tdv-hud-border);
+	color: var(--tdv-hud-text);
+}
+
 .tdv-panel-header {
 	display: flex;
 	align-items: center;
@@ -363,13 +388,36 @@
 	font-weight: var(--tdv-font-weight-medium);
 }
 
-.tdv-hud-chip {
+/*
+ * Doubled, like .tdv-btn, and for the same reason — a chip is sometimes a button. The
+ * performance HUD's mode chip is one, and Nextcloud's `button:not(...)` rule paints every
+ * button on the page in the instance's pale primary tint at rest and repaints it on hover,
+ * focus and click. At (0,1,0) this primitive lost all four states, so the one chip in the
+ * app that happens to be a button rendered as a pale blue pill with near-black text on the
+ * near-black HUD, while every span chip beside it was correct.
+ */
+.tdv-hud-chip.tdv-hud-chip {
 	padding: 2px 8px;
 	font-size: 11px;
 	font-weight: var(--tdv-font-weight-bold);
+	border: none;
 	border-radius: 10px;
 	background: var(--tdv-hud-chip-bg);
-	color: #ccc;
+	color: var(--tdv-hud-chip-text);
+}
+
+.tdv-hud-chip.tdv-hud-chip:hover,
+.tdv-hud-chip.tdv-hud-chip:focus,
+.tdv-hud-chip.tdv-hud-chip:focus-visible {
+	background: var(--tdv-hud-chip-bg);
+	color: var(--tdv-hud-chip-text);
+}
+
+/* Nextcloud's pressed rule carries enough `:not()`s to outscore the doubled class, and a
+   mouse click leaves a button focused without making it focus-visible. */
+.tdv-hud-chip.tdv-hud-chip:active {
+	background: var(--tdv-hud-chip-bg) !important;
+	color: var(--tdv-hud-chip-text) !important;
 }
 
 /* ============================== Dialog ============================== */

@@ -85,8 +85,11 @@ function buildHtmlWrapper() {
       min-height: var(--default-clickable-area, 34px);
       padding: 8px 12px;
       box-sizing: border-box;
-      background-color: var(--color-main-background, #fff);
-      color: var(--color-main-text, #222);
+      /* The instance's pale primary tint, which is what Nextcloud actually paints a button
+         at rest — not the page background this fixture named for a while. */
+      background-color: var(--color-primary-element-light, #e5eff5);
+      color: var(--color-primary-element-light-text, #00293f);
+      border: none;
     }
     button:not(.button-vue, [class^="vs__"]):hover,
     button:not(.button-vue, [class^="vs__"]):focus {
@@ -326,13 +329,26 @@ test.describe('Viewer smoke', () => {
         const [hi, lo] = [lum(x), lum(y)].sort((a, b) => b - a)
         return (hi + 0.05) / (lo + 0.05)
       }
-      /** The painted background behind an element: its own, or the nearest opaque ancestor's. */
+      /*
+       * The painted background behind an element: every translucent layer from the element
+       * outwards, composited down onto the first opaque one.
+       *
+       * Taking the nearest opaque ancestor and ignoring what floats above it is close
+       * enough while every layer is opaque, and reports the wrong colour entirely the
+       * moment one is not — a panel drawn at 85% over a dark canvas would be measured as
+       * the page behind it, and its light text called illegible against a background it is
+       * nowhere near.
+       */
       const backdrop = (el: Element): number[] => {
+        const layers: number[][] = []
         for (let e: Element | null = el; e; e = e.parentElement) {
           const c = parse(getComputedStyle(e).backgroundColor)
-          if (c.length === 3 || (c[3] ?? 1) > 0.95) return c.slice(0, 3)
+          const a = c.length > 3 ? c[3] : 1
+          if (c.length < 3 || a === 0) continue
+          layers.push(c)
+          if (a > 0.95) break
         }
-        return [255, 255, 255]
+        return layers.reduceRight((under, layer) => over(layer, under), [255, 255, 255])
       }
 
       const panel = document.querySelector('.model-stats-overlay')!
@@ -351,6 +367,44 @@ test.describe('Viewer smoke', () => {
       return bad
     })
     expect(unreadable).toEqual([])
+  })
+
+  /*
+   * The statistics panel is canvas chrome, so it is drawn like the rest of the canvas
+   * chrome.
+   *
+   * It sits over the rendered model, next to the performance HUD, and for a while the two
+   * were opposite colours: a light card and a dark card, a few hundred pixels apart, both
+   * floating on the same scene. Neither is wrong read on its own, which is why the
+   * disagreement survived — a light panel is right for content beside the viewer and wrong
+   * for content on top of it, and only the pair on screen at once shows which this is.
+   *
+   * Compared against a live `.tdv-hud`, not against a colour written here: the point is
+   * that the two surfaces cannot drift apart, not that either of them is any particular
+   * shade today.
+   */
+  test('the statistics panel is drawn on the same surface as the performance HUD', async ({ page }) => {
+    await page.goto(server.url)
+    await page.waitForSelector('.minimal-top-bar', { timeout: 20000 })
+    await page.waitForSelector('canvas', { timeout: 20000 })
+    await page.click('[aria-label="Toggle tools panel"]')
+    await page.waitForSelector('.slide-out-panel', { timeout: 5000 })
+    await page.getByText('Model Statistics', { exact: false }).first().click()
+    await page.waitForSelector('.model-stats-overlay', { timeout: 5000 })
+
+    const { panel, hud } = await page.evaluate(() => {
+      const probe = document.createElement('div')
+      probe.className = 'tdv-hud'
+      document.body.appendChild(probe)
+      const read = (el: Element) => {
+        const s = getComputedStyle(el)
+        return { background: s.backgroundColor, color: s.color }
+      }
+      const result = { hud: read(probe), panel: read(document.querySelector('.model-stats-overlay')!) }
+      probe.remove()
+      return result
+    })
+    expect(panel).toEqual(hud)
   })
 
   test('the tools panel opens clear of the bar that opens it', async ({ page }) => {
