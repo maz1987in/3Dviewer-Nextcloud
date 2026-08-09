@@ -90,6 +90,35 @@ export const GRID_COLORS = {
 	dark: '#3c3c3c',
 }
 
+/**
+ * The measurement and annotation markers the viewer draws into the scene.
+ *
+ * The design system's canvas-chrome accents, in the form a WebGL material and a 2D canvas
+ * can use — the HUD's own greens and ambers, not the CSS tokens, which nothing in the
+ * scene can read. They are deliberately fixed rather than themed, for the same reason the
+ * HUD is: a marker has to stay legible against the model, and the model is not the
+ * instance's colour scheme.
+ *
+ * Before this table there was no table. The measurement line was `#00ff00`, its two end
+ * markers `#ffff00`, the annotation dot and its label `#ff0000` — a different saturated
+ * primary at each of the nine places that drew something, so a single measurement was two
+ * colours and a single annotation clashed with it. See `GRID_COLORS` above, which is the
+ * same story with six copies of one value.
+ *
+ * The two modes differ on purpose: a measurement and an annotation on the same model have
+ * to be tellable apart at a glance, which a shared accent would prevent.
+ */
+export const MARKER_COLORS = {
+	measurement: '#5ad471',
+	annotation: '#ffc95c',
+
+	/* Labels are drawn on the HUD's surface, so they read as the same chrome as the
+	   panel listing them. Opaque here rather than the HUD's 85%: a label sits on the model
+	   rather than on the page, and there is nothing behind it worth showing through. */
+	labelSurface: '#181818',
+	font: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+}
+
 export const GRID_SETTINGS = {
 	defaultSize: 10,
 	defaultDivisions: 10,

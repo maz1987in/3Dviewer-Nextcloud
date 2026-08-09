@@ -2,7 +2,7 @@ import { ref, shallowRef, computed, readonly, toRaw } from 'vue'
 import * as THREE from 'three'
 import { logger } from '../utils/logger.js'
 import { logError } from '../utils/error-handler.js'
-import { VIEWER_CONFIG } from '../config/viewer-config.js'
+import { VIEWER_CONFIG, MARKER_COLORS } from '../config/viewer-config.js'
 import {
 	calculateModelScale,
 	createTextTexture,
@@ -208,7 +208,7 @@ export function useMeasurement() {
 
 						// Draw text with original font size
 						context.fillStyle = '#ffffff'
-						context.font = `bold ${originalFontSize}px Arial`
+						context.font = `bold ${originalFontSize}px ${MARKER_COLORS.font}`
 						context.textAlign = 'center'
 						context.textBaseline = 'middle'
 						context.fillText(displayText, canvas.width / 2, canvas.height / 2)
@@ -229,10 +229,10 @@ export function useMeasurement() {
 						texture = createTextTexture(displayText, {
 							width: originalCanvasWidth,
 							height: originalCanvasHeight,
-							textColor: '#ffffff',
-							bgColor: 'rgba(0, 0, 0, 0.9)',
+							textColor: MARKER_COLORS.measurement,
+							bgColor: MARKER_COLORS.labelSurface,
 							fontSize: originalFontSize,
-							fontFamily: 'Arial',
+							fontFamily: MARKER_COLORS.font,
 						})
 
 						if (texture) {
@@ -326,7 +326,7 @@ export function useMeasurement() {
 		// Create sphere directly to bypass the 0.02 cap in createMarkerSphere
 		const geometry = new THREE.SphereGeometry(pointRadius, 16, 16)
 		const material = new THREE.MeshBasicMaterial({
-			color: 0xffff00, // Bright yellow for measurements
+			color: MARKER_COLORS.measurement,
 			transparent: true,
 			opacity: 0.9,
 			depthTest: false, // Always render on top
@@ -398,7 +398,7 @@ export function useMeasurement() {
 
 		const cylinderGeometry = new THREE.CylinderGeometry(lineRadius, lineRadius, distance, 8)
 		const cylinderMaterial = new THREE.MeshBasicMaterial({
-			color: 0x00ff00,
+			color: MARKER_COLORS.measurement,
 			transparent: true,
 			opacity: 0.8,
 			depthTest: false,
@@ -457,8 +457,8 @@ export function useMeasurement() {
 				widthMultiplier, // Larger multiplier for better visibility
 				heightMultiplier, // Larger multiplier for better visibility
 				yOffset, // Offset above the line, adjusted for large models
-				textColor: '#ffffff', // White text for better contrast
-				bgColor: 'rgba(0, 0, 0, 0.9)', // Darker background for better readability
+				textColor: MARKER_COLORS.measurement,
+				bgColor: MARKER_COLORS.labelSurface,
 				fontSize,
 				canvasWidth,
 				canvasHeight,

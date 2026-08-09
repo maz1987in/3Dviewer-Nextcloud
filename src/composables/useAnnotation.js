@@ -8,7 +8,7 @@ import * as THREE from 'three'
 import { generateUrl } from '@nextcloud/router'
 import { logger } from '../utils/logger.js'
 import { logError } from '../utils/error-handler.js'
-import { VIEWER_CONFIG } from '../config/viewer-config.js'
+import { VIEWER_CONFIG, MARKER_COLORS } from '../config/viewer-config.js'
 import {
 	calculateModelScale,
 	createTextTexture,
@@ -172,7 +172,7 @@ export function useAnnotation() {
 
 		const geometry = new THREE.SphereGeometry(pointRadius, 16, 16)
 		const material = new THREE.MeshBasicMaterial({
-			color: 0xff0000, // Red for annotations
+			color: MARKER_COLORS.annotation,
 			transparent: true,
 			opacity: 0.9,
 			depthTest: false,
@@ -252,8 +252,8 @@ export function useAnnotation() {
 				widthMultiplier,
 				heightMultiplier,
 				yOffset,
-				textColor: '#ff0000',
-				bgColor: 'rgba(0, 0, 0, 0.8)',
+				textColor: MARKER_COLORS.annotation,
+				bgColor: MARKER_COLORS.labelSurface,
 				fontSize,
 				canvasWidth,
 				canvasHeight,
@@ -308,12 +308,12 @@ export function useAnnotation() {
 					context.clearRect(0, 0, canvas.width, canvas.height)
 
 					// Draw background
-					context.fillStyle = 'rgba(0, 0, 0, 0.8)'
+					context.fillStyle = MARKER_COLORS.labelSurface
 					context.fillRect(0, 0, canvas.width, canvas.height)
 
 					// Draw text with original font size
-					context.fillStyle = '#ff0000'
-					context.font = `bold ${originalFontSize}px Arial`
+					context.fillStyle = MARKER_COLORS.annotation
+					context.font = `bold ${originalFontSize}px ${MARKER_COLORS.font}`
 					context.textAlign = 'center'
 					context.textBaseline = 'middle'
 					context.fillText(newText, canvas.width / 2, canvas.height / 2)
@@ -326,10 +326,10 @@ export function useAnnotation() {
 					texture = createTextTexture(newText, {
 						width: originalCanvasWidth,
 						height: originalCanvasHeight,
-						textColor: '#ff0000',
-						bgColor: 'rgba(0, 0, 0, 0.8)',
+						textColor: MARKER_COLORS.annotation,
+						bgColor: MARKER_COLORS.labelSurface,
 						fontSize: originalFontSize,
-						fontFamily: 'Arial',
+						fontFamily: MARKER_COLORS.font,
 					})
 
 					if (texture) {

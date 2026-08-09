@@ -5,6 +5,7 @@
 
 import * as THREE from 'three'
 import { logError } from './error-handler.js'
+import { MARKER_COLORS } from '../config/viewer-config.js'
 
 /**
  * True if an object is viewer furniture — a gizmo, a picker, a helper, or one of the
@@ -167,41 +168,63 @@ function shouldExcludeMesh(mesh, excludeNames) {
  * @param {object} options - Configuration options
  * @param {number} options.width - Canvas width (default: 512)
  * @param {number} options.height - Canvas height (default: 128)
- * @param {string} options.textColor - Text color (default: '#ffffff')
- * @param {string} options.bgColor - Background color (default: 'rgba(0, 0, 0, 0.8)')
+ * @param {string} options.textColor - Text colour (default: the shared measurement accent)
+ * @param {string} options.bgColor - Background colour (default: the shared label surface)
  * @param {number} options.fontSize - Font size in pixels (default: 48)
- * @param {string} options.fontFamily - Font family (default: 'Arial')
+ * @param {string} options.fontFamily - Font family (default: the shared marker font)
  * @return {THREE.CanvasTexture} Canvas texture for use in materials
  */
 export function createTextTexture(text, options = {}) {
 	const {
 		width = 512,
 		height = 128,
-		textColor = '#ffffff',
-		bgColor = 'rgba(0, 0, 0, 0.8)',
+		textColor = MARKER_COLORS.measurement,
+		bgColor = MARKER_COLORS.labelSurface,
 		fontSize = 48,
-		fontFamily = 'Arial',
+		fontFamily = MARKER_COLORS.font,
 	} = options
 
 	try {
-		// Create canvas
 		const canvas = document.createElement('canvas')
 		const context = canvas.getContext('2d')
-		canvas.width = width
+		const font = `bold ${fontSize}px ${fontFamily}`
+
+		/*
+		 * The pill is sized to the text rather than the text placed inside a fixed pill.
+		 *
+		 * Every label used a 512x128 canvas whatever it said, so "0.98 mm" was eight small
+		 * characters in the middle of a wide black bar — and because the mesh is only a few
+		 * pixels tall on screen, almost all of those pixels went to the bar. Measuring first
+		 * spends them on the text instead.
+		 *
+		 * The caller's `width` becomes a floor, not the width: a label may not be narrower
+		 * than the space the caller reserved for it, which keeps short labels from
+		 * collapsing to a sliver.
+		 */
+		context.font = font
+		const padding = fontSize * 0.6
+		const measured = context.measureText(text).width + padding * 2
+		canvas.width = Math.max(Math.ceil(measured), Math.ceil(width / 4))
 		canvas.height = height
 
-		// Draw background
+		// Setting canvas.width resets the context, so the font is applied again below.
+		const radius = Math.min(canvas.height / 2, fontSize * 0.5)
 		context.fillStyle = bgColor
-		context.fillRect(0, 0, width, height)
+		context.beginPath()
+		if (typeof context.roundRect === 'function') {
+			context.roundRect(0, 0, canvas.width, canvas.height, radius)
+		} else {
+			// jsdom's canvas, and browsers older than the label design.
+			context.rect(0, 0, canvas.width, canvas.height)
+		}
+		context.fill()
 
-		// Draw text
 		context.fillStyle = textColor
-		context.font = `bold ${fontSize}px ${fontFamily}`
+		context.font = font
 		context.textAlign = 'center'
 		context.textBaseline = 'middle'
-		context.fillText(text, width / 2, height / 2)
+		context.fillText(text, canvas.width / 2, canvas.height / 2)
 
-		// Create texture
 		const texture = new THREE.CanvasTexture(canvas)
 		texture.needsUpdate = true
 
@@ -220,7 +243,7 @@ export function createTextTexture(text, options = {}) {
  * @param {THREE.Vector3} position - Position for the marker
  * @param {object} options - Configuration options
  * @param {number} options.scale - Visual scale factor (default: 1)
- * @param {number} options.color - Sphere color as hex (default: 0xffff00 yellow)
+ * @param {string} options.color - Sphere colour (default: the shared measurement accent)
  * @param {number} options.sizeMultiplier - Size multiplier (default: 2)
  * @param {number} options.opacity - Material opacity (default: 0.9)
  * @param {number} options.renderOrder - Render order (default: 999)
@@ -230,7 +253,7 @@ export function createTextTexture(text, options = {}) {
 export function createMarkerSphere(position, options = {}) {
 	const {
 		scale = 1,
-		color = 0xffff00,
+		color = MARKER_COLORS.measurement,
 		sizeMultiplier = 2,
 		opacity = 0.9,
 		renderOrder = 999,
@@ -272,8 +295,8 @@ export function createMarkerSphere(position, options = {}) {
  * @param {number} options.widthMultiplier - Width multiplier (default: 30)
  * @param {number} options.heightMultiplier - Height multiplier (default: 7.5)
  * @param {number} options.yOffset - Y-axis offset multiplier (default: 0)
- * @param {string} options.textColor - Text color (default: '#ffffff')
- * @param {string} options.bgColor - Background color (default: 'rgba(0, 0, 0, 0.8)')
+ * @param {string} options.textColor - Text colour (default: the shared measurement accent)
+ * @param {string} options.bgColor - Background colour (default: the shared label surface)
  * @param {number} options.fontSize - Font size in pixels (default: 48)
  * @param {number} options.canvasWidth - Canvas width (default: 512)
  * @param {number} options.canvasHeight - Canvas height (default: 128)
@@ -287,8 +310,8 @@ export function createTextMesh(text, position, options = {}) {
 		widthMultiplier = 30,
 		heightMultiplier = 7.5,
 		yOffset = 0,
-		textColor = '#ffffff',
-		bgColor = 'rgba(0, 0, 0, 0.8)',
+		textColor = MARKER_COLORS.measurement,
+		bgColor = MARKER_COLORS.labelSurface,
 		fontSize = 48,
 		canvasWidth = 512,
 		canvasHeight = 128,
@@ -308,14 +331,17 @@ export function createTextMesh(text, position, options = {}) {
 
 		if (!texture) return null
 
-		// Calculate dimensions proportionally to model size
-		// For all models, use the calculated dimensions directly for proportional sizing
-		const calculatedWidth = scale * widthMultiplier
-		const calculatedHeight = scale * heightMultiplier
-
-		// Use calculated dimensions directly (no caps) for proportional sizing
-		const textWidth = calculatedWidth
-		const textHeight = calculatedHeight
+		/*
+		 * Height comes from the caller; width follows the texture.
+		 *
+		 * The plane used to take both from the caller's multipliers while the canvas kept
+		 * its own 4:1 shape, so any label whose text did not happen to fill that ratio was
+		 * rendered stretched or squashed. Deriving one from the other means a label is
+		 * whatever width its own text needs and never distorted.
+		 */
+		const textHeight = scale * heightMultiplier
+		const aspect = texture.image.width / texture.image.height
+		const textWidth = Math.max(textHeight * aspect, scale * widthMultiplier * 0.25)
 
 		// Ensure minimum sizes for visibility (only for extremely small scales to prevent invisible text)
 		const finalWidth = Math.max(textWidth, 0.01)
