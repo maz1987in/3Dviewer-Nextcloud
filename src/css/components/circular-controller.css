@@ -64,7 +64,7 @@
 	border-radius: 50%;
 	background: color-mix(in srgb, var(--tdv-color-surface) 78%, transparent);
 	backdrop-filter: blur(12px);
-	border: 1px solid var(--tdv-color-border));
+	border: 1px solid var(--tdv-color-border);
 	box-shadow: 0 8px 26px rgb(0 0 0 / 42%);
 	cursor: grab;
 	touch-action: none;
@@ -95,7 +95,7 @@
 	inset: 32px;
 	border-radius: 50%;
 	background: color-mix(in srgb, var(--tdv-color-surface) 38%, transparent);
-	border: 1px solid var(--tdv-color-border));
+	border: 1px solid var(--tdv-color-border);
 	pointer-events: none;
 }
 
@@ -106,7 +106,7 @@
 /* Four cardinal notches instead of twelve decorative ticks. */
 .notch {
 	position: absolute;
-	background: var(--tdv-color-border-strong));
+	background: var(--tdv-color-border-strong);
 	pointer-events: none;
 }
 
@@ -179,7 +179,7 @@
 	border-radius: 17px;
 	background: color-mix(in srgb, var(--tdv-color-surface) 86%, transparent);
 	backdrop-filter: blur(12px);
-	border: 1px solid var(--tdv-color-border));
+	border: 1px solid var(--tdv-color-border);
 	box-shadow: 0 8px 26px rgb(0 0 0 / 42%);
 }
 
@@ -199,7 +199,7 @@
 }
 
 .rail-btn:hover:not(:disabled) {
-	background: var(--tdv-color-hover-bg));
+	background: var(--tdv-color-hover-bg);
 }
 
 .rail-btn:focus-visible {
@@ -215,7 +215,7 @@
 /* Recentre stays in place and greys out outside pan mode, so nothing below it moves
    when the mode changes. */
 .rail-btn:disabled {
-	color: var(--tdv-color-text-secondary));
+	color: var(--tdv-color-text-secondary);
 	cursor: not-allowed;
 }
 
@@ -227,7 +227,7 @@
 .rail-divider {
 	grid-column: 1 / -1;
 	height: 1px;
-	background: var(--tdv-color-border));
+	background: var(--tdv-color-border);
 	margin: 1px 3px;
 }
 
@@ -245,7 +245,7 @@
 	width: 3px;
 	height: 3px;
 	border-radius: 50%;
-	background: var(--tdv-color-text-secondary));
+	background: var(--tdv-color-text-secondary);
 }
 
 /* ---- Live readout -------------------------------------------------------- */
@@ -253,7 +253,7 @@
 .readout {
 	font: 500 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
 	letter-spacing: 0.08em;
-	color: var(--tdv-color-text-secondary));
+	color: var(--tdv-color-text-secondary);
 	white-space: nowrap;
 	text-align: center;
 	pointer-events: none;

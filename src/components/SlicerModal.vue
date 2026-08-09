@@ -12,10 +12,11 @@
 				<h2 id="slicer-modal-title" class="modal-title">
 					{{ t('threedviewer', 'Send to Slicer') }}
 				</h2>
-				<button class="close-btn"
+				<button class="tdv-btn tdv-btn--icon close-btn"
 					:aria-label="t('threedviewer', 'Close')"
+					:title="t('threedviewer', 'Close')"
 					@click="closeModal">
-					<span class="icon">×</span>
+					<ViewerIcon name="close" :size="18" />
 				</button>
 			</div>
 
@@ -65,7 +66,7 @@
 				<div v-if="!exporting" class="slicer-grid">
 					<div v-for="slicer in slicers"
 						:key="slicer.id"
-						class="slicer-card"
+						class="tdv-dialog-row slicer-card"
 						:class="{ 'last-used': slicer.id === lastUsedSlicer }"
 						:style="{ '--slicer-color': slicer.color }">
 						<div class="slicer-icon">
@@ -634,13 +635,16 @@ export default {
 .slicer-modal-backdrop {
 	position: fixed;
 	inset: 0;
-	background: rgb(0, 0, 0, 0.6);
-	backdrop-filter: blur(4px);
 	z-index: 10000;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	padding: 20px;
+
+	/* The sheet dims to 35%, not 60%: the dialog is a step in a task, and the model
+	   behind it is the thing the task is about. */
+	background: rgb(0 0 0 / 35%);
+	backdrop-filter: blur(4px);
 	animation: fadeIn 0.2s ease;
 }
 
@@ -657,14 +661,14 @@ export default {
 /* Modal Container */
 
 .slicer-modal {
-	background: var(--tdv-color-surface);
-	border-radius: 12px;
-	box-shadow: 0 8px 32px rgb(0, 0, 0, 0.3);
-	max-width: 800px;
-	width: 100%;
-	max-height: 90vh;
 	display: flex;
 	flex-direction: column;
+	width: 100%;
+	max-width: 560px;
+	max-height: 90vh;
+	border-radius: var(--tdv-radius-dialog);
+	background: var(--tdv-color-surface);
+	box-shadow: var(--tdv-shadow-dialog);
 	animation: slideUp 0.3s ease;
 }
 
@@ -685,26 +689,18 @@ export default {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 20px 24px;
-	border-bottom: 1px solid var(--tdv-color-border);
+	padding: 20px 16px 16px 24px;
 }
 
 .modal-title {
-	font-size: 22px;
-	font-weight: 600;
 	margin: 0;
+	font-size: var(--tdv-font-size-heading);
+	font-weight: var(--tdv-font-weight-bold);
 	color: var(--tdv-color-text);
 }
 
 .close-btn {
-	background: transparent;
-	border: none;
-	color: var(--tdv-color-text);
-	font-size: 32px;
-	line-height: 1;
-	cursor: pointer;
-	padding: 4px 8px;
-	border-radius: 6px;
+	color: var(--tdv-color-text-secondary);
 	transition: background 0.2s ease;
 }
 
@@ -720,7 +716,7 @@ export default {
 .modal-content {
 	flex: 1;
 	overflow: auto;
-	padding: 24px;
+	padding: 0 24px 20px;
 }
 
 .modal-description {
@@ -815,22 +811,23 @@ export default {
 }
 
 .format-buttons {
-	display: flex;
-	gap: 6px;
+	display: inline-flex;
+	overflow: hidden;
+	border: 2px solid var(--tdv-color-primary);
+	border-radius: 20px;
 }
 
 .format-btn {
-	flex: 1;
-	padding: 6px 12px;
-	border: 1px solid var(--tdv-color-border);
-	border-radius: 6px;
-	background: var(--tdv-color-surface);
-	color: var(--tdv-color-text);
+	height: 36px;
+	padding: 0 20px;
+	border: none;
+	background: transparent;
+	font-family: inherit;
+	font-size: var(--tdv-font-size-secondary);
+	font-weight: var(--tdv-font-weight-medium);
+	color: var(--tdv-color-primary);
 	cursor: pointer;
-	font-size: 13px;
-	font-weight: 600;
-	text-align: center;
-	transition: all 0.15s ease;
+	transition: background 0.15s ease;
 }
 
 .format-btn:hover {
@@ -840,7 +837,6 @@ export default {
 .format-btn.active {
 	background: var(--tdv-color-primary);
 	color: var(--tdv-color-on-primary);
-	border-color: var(--tdv-color-primary);
 }
 
 /* Upload Progress */
@@ -918,36 +914,29 @@ export default {
 .slicer-card {
 	display: grid;
 	grid-template-columns: auto 1fr auto;
-	gap: 16px;
+	gap: 14px;
 	align-items: center;
-	padding: 20px;
-	background: var(--tdv-color-hover-bg);
-	border: 2px solid var(--tdv-color-border);
-	border-radius: 10px;
-	transition: all 0.2s ease;
+	transition: border-color 0.2s ease;
 }
 
 .slicer-card:hover {
 	border-color: var(--slicer-color, var(--tdv-color-primary));
-	box-shadow: 0 4px 12px rgb(0, 0, 0, 0.1);
-	transform: translateY(-2px);
 }
 
 .slicer-card.last-used {
 	border-color: var(--slicer-color, var(--tdv-color-primary));
-	background: var(--tdv-color-primary-light));
+	background: var(--tdv-color-primary-light);
 }
 
 .slicer-icon {
-	width: 64px;
-	height: 64px;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	background: var(--tdv-color-surface);
-	border-radius: 12px;
-	box-shadow: 0 2px 8px rgb(0, 0, 0, 0.08);
-	padding: 8px;
+	width: 38px;
+	height: 38px;
+	padding: 4px;
+	border-radius: 10px;
+	background: var(--tdv-color-surface-sunken);
 }
 
 .slicer-icon img {
@@ -982,13 +971,13 @@ export default {
 }
 
 .slicer-name {
-	font-size: 16px;
-	font-weight: 600;
-	margin: 0;
-	color: var(--tdv-color-text);
 	display: flex;
-	align-items: center;
 	gap: 8px;
+	align-items: center;
+	margin: 0;
+	font-size: var(--tdv-font-size-body);
+	font-weight: var(--tdv-font-weight-medium);
+	color: var(--tdv-color-text);
 }
 
 .last-used-badge {
@@ -1016,24 +1005,35 @@ export default {
 }
 
 .slicer-btn {
-	padding: 12px 20px;
-	border: none;
-	border-radius: 6px;
-	font-size: 14px;
-	font-weight: 600;
-	cursor: pointer;
-	transition: all 0.2s ease;
 	display: flex;
+	gap: 8px;
 	align-items: center;
 	justify-content: center;
-	gap: 8px;
+	height: 34px;
+	padding: 0 16px;
+	border-radius: 17px;
+	font-size: var(--tdv-font-size-secondary);
+	font-weight: var(--tdv-font-weight-medium);
 	white-space: nowrap;
-	width: 100%;
+	cursor: pointer;
+	transition: background 0.2s ease;
 }
 
 .slicer-btn.primary {
+	border: 2px solid var(--slicer-color, var(--tdv-color-primary));
+	background: transparent;
+	color: var(--slicer-color, var(--tdv-color-primary));
+}
+
+/*
+ * Filled on hover rather than tinted. The tint the sheet uses is mixed from the primary,
+ * and this button's colour is the slicer's own — a 10% wash of an arbitrary brand colour
+ * is not reliably distinguishable from the row behind it.
+ */
+.slicer-btn.primary:hover:not(:disabled),
+.slicer-btn.primary:focus-visible {
 	background: var(--slicer-color, var(--tdv-color-primary));
-	color: white;
+	color: #fff;
 }
 
 .slicer-btn.primary:hover:not(:disabled) {
