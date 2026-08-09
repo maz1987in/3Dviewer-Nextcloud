@@ -27,13 +27,20 @@
 				</p>
 
 				<!-- Export Format Selector -->
+				<!--
+					One row, per the sheet. The label was a `<label>` with no `for`, stacked
+					above the control: it named nothing, so the segmented buttons were three
+					unrelated toggles as far as a screen reader was concerned. A labelled group
+					with a pressed state says what the sighted layout already says.
+				-->
 				<div v-if="!exporting && !isPassthrough" class="format-selector">
-					<label class="tool-label-small">{{ t('threedviewer', 'Export format') }}</label>
-					<div class="format-buttons">
+					<span id="slicer-format-label" class="format-label">{{ t('threedviewer', 'Format') }}</span>
+					<div class="format-buttons" role="group" aria-labelledby="slicer-format-label">
 						<button v-for="fmt in ['stl', 'obj', 'ply']"
 							:key="fmt"
 							class="format-btn"
 							:class="{ active: selectedFormat === fmt }"
+							:aria-pressed="selectedFormat === fmt"
 							@click="selectedFormat = fmt">
 							{{ fmt.toUpperCase() }}
 						</button>
@@ -86,12 +93,19 @@
 							</p>
 						</div>
 						<div class="slicer-actions">
+							<!--
+								"Open", not "Open in PrusaSlicer": the row names the slicer two
+								inches to the left, and four buttons whose width is set by the
+								length of a brand name make a ragged column of the one thing every
+								row has in common. The accessible name keeps the slicer, since
+								nothing places it next to the button for a screen reader.
+							-->
 							<button class="slicer-btn primary"
 								:disabled="!modelObject"
+								:aria-label="t('threedviewer', 'Open in {name}', { name: slicer.name })"
 								:title="t('threedviewer', 'Open directly in {name}', { name: slicer.name })"
 								@click="handleOpenInSlicer(slicer.id)">
-								<ViewerIcon class="btn-icon" name="openExternal" :size="18" />
-								{{ t('threedviewer', 'Open in {name}', { name: slicer.name }) }}
+								{{ t('threedviewer', 'Open') }}
 							</button>
 						</div>
 					</div>
@@ -799,15 +813,16 @@ export default {
 
 /* Format Selector */
 .format-selector {
+	display: flex;
+	gap: 10px;
+	align-items: center;
 	margin-bottom: 16px;
 }
 
-.format-selector .tool-label-small {
-	display: block;
-	font-size: 12px;
+.format-label {
+	font-size: var(--tdv-font-size-secondary);
+	font-weight: var(--tdv-font-weight-medium);
 	color: var(--tdv-color-text-secondary);
-	margin-bottom: 6px;
-	font-weight: 500;
 }
 
 .format-buttons {
@@ -830,8 +845,10 @@ export default {
 	transition: background 0.15s ease;
 }
 
-.format-btn:hover {
-	background: var(--tdv-color-hover-bg);
+.format-btn:hover,
+.format-btn:focus,
+.format-btn:focus-visible {
+	background: var(--tdv-color-primary-light);
 }
 
 .format-btn.active {
@@ -1045,10 +1062,6 @@ export default {
 .slicer-btn:disabled {
 	opacity: 0.5;
 	cursor: not-allowed;
-}
-
-.btn-icon {
-	font-size: 16px;
 }
 
 /* Modal Info */

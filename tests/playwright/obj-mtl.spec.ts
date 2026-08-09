@@ -294,28 +294,34 @@ test.describe('Viewer smoke', () => {
   })
 
   /*
-   * Every word in the statistics panel has to be legible against what is behind it.
+   * Every word in a floating panel has to be legible against what is behind it.
    *
-   * The panel was a dark overlay and is now a light one, and three rules kept their old
-   * colours through the change: the watertight badge, "No textures" and "+ N more" were
-   * left as pale-on-pale or white-on-white. A section whose text is invisible looks
-   * exactly like a section that rendered nothing, which is how it was reported — as a
-   * blank gap, not as unreadable text.
+   * The statistics panel was a dark overlay and became a light one, and three rules kept
+   * their old colours through the change: the watertight badge, "No textures" and "+ N
+   * more" were left as pale-on-pale or white-on-white. A section whose text is invisible
+   * looks exactly like a section that rendered nothing, which is how it was reported — as
+   * a blank gap, not as unreadable text.
    *
    * Checking the declared colours is what missed it the first time: each rule was fine in
    * isolation and wrong against the surface it ended up on. This asks the browser what
-   * was actually painted.
+   * was actually painted, for every panel that floats on the canvas rather than only the
+   * one that was reported.
    */
-  test('every word in the statistics panel is legible', async ({ page }) => {
+  for (const [label, open, selector] of [
+    ['statistics', 'Model Statistics', '.model-stats-overlay'],
+    ['measurements', 'Measurement', '.measurement-overlay'],
+    ['annotations', 'Annotation', '.annotation-overlay'],
+  ] as const) {
+  test(`every word in the ${label} panel is legible`, async ({ page }) => {
     await page.goto(server.url)
     await page.waitForSelector('.minimal-top-bar', { timeout: 20000 })
     await page.waitForSelector('canvas', { timeout: 20000 })
     await page.click('[aria-label="Toggle tools panel"]')
     await page.waitForSelector('.slide-out-panel', { timeout: 5000 })
-    await page.getByText('Model Statistics', { exact: false }).first().click()
-    await page.waitForSelector('.model-stats-overlay', { timeout: 5000 })
+    await page.getByText(open, { exact: true }).first().click()
+    await page.waitForSelector(selector, { timeout: 5000 })
 
-    const unreadable = await page.evaluate(() => {
+    const unreadable = await page.evaluate((panelSelector) => {
       const parse = (c: string) => (c.match(/[\d.]+/g) || []).map(Number)
       const over = (c: number[], b: number[]) => {
         const a = c.length > 3 ? c[3] : 1
@@ -351,7 +357,7 @@ test.describe('Viewer smoke', () => {
         return layers.reduceRight((under, layer) => over(layer, under), [255, 255, 255])
       }
 
-      const panel = document.querySelector('.model-stats-overlay')!
+      const panel = document.querySelector(panelSelector)!
       const bad: string[] = []
       for (const el of panel.querySelectorAll('*')) {
         const own = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent!.trim())
@@ -365,9 +371,57 @@ test.describe('Viewer smoke', () => {
         if (c < 3) bad.push(`"${el.textContent!.trim().slice(0, 30)}" ${c.toFixed(2)}:1 (${getComputedStyle(el).color} on rgb(${bg.join(', ')}))`)
       }
       return bad
-    })
+    }, selector)
     expect(unreadable).toEqual([])
   })
+  }
+
+  /*
+   * A panel opened from the tools panel is not hidden behind it.
+   *
+   * Measurement and annotation modes are switched on from a row in the tools panel, and
+   * their panels floated at the same edge the tools panel occupies — at a lower z-index,
+   * so turning measurement on put its readout underneath the card that turned it on. The
+   * only sign anything had happened was the row's "Active" badge.
+   *
+   * Hit-testing rather than comparing rectangles: a panel can also be covered by something
+   * that is not the tools panel, and the question is only ever whether the user can see
+   * and click what they just opened.
+   */
+  for (const [label, open, selector] of [
+    ['measurements', 'Measurement', '.measurement-overlay'],
+    ['annotations', 'Annotation', '.annotation-overlay'],
+  ] as const) {
+    test(`the ${label} panel is not covered by the tools panel that opens it`, async ({ page }) => {
+      await page.goto(server.url)
+      await page.waitForSelector('.minimal-top-bar', { timeout: 20000 })
+      await page.waitForSelector('canvas', { timeout: 20000 })
+      await page.click('[aria-label="Toggle tools panel"]')
+      await page.waitForSelector('.slide-out-panel', { timeout: 5000 })
+      await page.getByText(open, { exact: true }).first().click()
+      await page.waitForSelector(selector, { timeout: 5000 })
+
+      const covered = await page.evaluate((panelSelector) => {
+        const panel = document.querySelector(panelSelector)!
+        const r = panel.getBoundingClientRect()
+        // The four corners inset past the radius, and the middle.
+        const probes: [string, number, number][] = [
+          ['top-left', r.x + 12, r.y + 12],
+          ['top-right', r.right - 12, r.y + 12],
+          ['bottom-left', r.x + 12, r.bottom - 12],
+          ['bottom-right', r.right - 12, r.bottom - 12],
+          ['centre', r.x + r.width / 2, r.y + r.height / 2],
+        ]
+        return probes.flatMap(([where, x, y]) => {
+          const hit = document.elementFromPoint(x, y)
+          if (hit && (hit === panel || panel.contains(hit))) return []
+          const name = hit ? (typeof hit.className === 'string' && hit.className) || hit.tagName : 'nothing'
+          return [`${where} -> ${name}`]
+        })
+      }, selector)
+      expect(covered).toEqual([])
+    })
+  }
 
   /*
    * The statistics panel is canvas chrome, so it is drawn like the rest of the canvas

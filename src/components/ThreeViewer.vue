@@ -536,13 +536,31 @@
 			</div>
 		</div>
 
-		<!-- Measurement overlay -->
-		<div v-if="measurementActive && measurements.length > 0" class="measurement-overlay" :class="{ 'mobile': isMobile }">
-			<div class="measurement-header">
+		<!--
+			Measurement overlay.
+
+			Shown for as long as the mode is on, not only once there is something to list:
+			taking a measurement needs two clicks on the model, and the panel is where the
+			instruction for that lives. Rendering it only when `measurements.length > 0`
+			meant switching the mode on produced no visible change at all.
+		-->
+		<div v-if="measurementActive"
+			class="tdv-panel tdv-panel--floating tdv-panel--hud canvas-panel measurement-overlay"
+			:class="{ 'mobile': isMobile, 'is-offset': toolsPanelOpen }">
+			<div class="tdv-panel-header canvas-panel-header">
 				<h3>{{ t('threedviewer', 'Measurements') }}</h3>
-				<div class="measurement-controls">
+				<button class="tdv-btn tdv-btn--icon canvas-panel-close"
+					:aria-label="t('threedviewer', 'Close measurements')"
+					:title="t('threedviewer', 'Close')"
+					@click="closeMeasurementPanel">
+					<ViewerIcon name="close" :size="16" />
+				</button>
+			</div>
+			<div class="canvas-panel-content">
+				<div class="canvas-panel-actions">
 					<select v-model="currentUnitModel"
-						class="unit-selector"
+						class="canvas-panel-select"
+						:aria-label="t('threedviewer', 'Display unit')"
 						@change="handleUnitChange">
 						<option v-for="unit in availableUnits"
 							:key="unit.value"
@@ -551,32 +569,36 @@
 						</option>
 					</select>
 					<button type="button"
-						class="clear-measurements-btn"
-						:class="{ 'mobile': isMobile }"
+						class="canvas-panel-danger"
+						:disabled="measurements.length === 0"
 						@click="measurement.clearAllMeasurements">
-						{{ t('threedviewer', 'Clear All') }}
+						{{ t('threedviewer', 'Clear all') }}
 					</button>
 				</div>
-			</div>
-			<div class="measurement-list">
-				<div v-for="(m, index) in measurements" :key="m.id" class="measurement-item">
-					<div class="measurement-info">
-						<span class="measurement-label">{{ t('threedviewer', 'Measurement') }} {{ index + 1 }}</span>
-						<button type="button"
-							class="delete-measurement-btn"
-							:class="{ 'mobile': isMobile }"
-							@click="deleteMeasurement(m.id)">
-							{{ t('threedviewer', 'Delete') }}
-						</button>
-					</div>
-					<div class="measurement-details">
-						<span class="measurement-distance">{{ m.formatted || (m.distance.toFixed(2) + ' units') }}</span>
-						<div class="measurement-point">
-							<span class="point-label">{{ t('threedviewer', 'Point 1') }}:</span>
+				<p class="canvas-panel-hint">
+					{{ t('threedviewer', 'Click two points on the model to measure.') }}
+				</p>
+				<div class="measurement-list">
+					<div v-for="(m, index) in measurements" :key="m.id" class="canvas-panel-card measurement-item">
+						<div class="canvas-panel-card-header">
+							<span class="canvas-panel-card-title">{{ t('threedviewer', 'Measurement') }} {{ index + 1 }}</span>
+							<button type="button"
+								class="tdv-btn tdv-btn--icon canvas-panel-delete"
+								:aria-label="t('threedviewer', 'Delete measurement {number}', { number: index + 1 })"
+								:title="t('threedviewer', 'Delete')"
+								@click="deleteMeasurement(m.id)">
+								<ViewerIcon name="delete" :size="16" />
+							</button>
+						</div>
+						<div class="measurement-distance">
+							{{ m.formatted || (m.distance.toFixed(2) + ' units') }}
+						</div>
+						<div class="canvas-panel-row">
+							<span>{{ t('threedviewer', 'Point 1') }}</span>
 							<span class="point-coords">({{ m.point1.x.toFixed(2) }}, {{ m.point1.y.toFixed(2) }}, {{ m.point1.z.toFixed(2) }})</span>
 						</div>
-						<div class="measurement-point">
-							<span class="point-label">{{ t('threedviewer', 'Point 2') }}:</span>
+						<div class="canvas-panel-row">
+							<span>{{ t('threedviewer', 'Point 2') }}</span>
 							<span class="point-coords">({{ m.point2.x.toFixed(2) }}, {{ m.point2.y.toFixed(2) }}, {{ m.point2.z.toFixed(2) }})</span>
 						</div>
 					</div>
@@ -585,8 +607,10 @@
 		</div>
 
 		<!-- Annotation overlay -->
-		<div v-if="annotationActive" class="annotation-overlay" :class="{ 'mobile': isMobile }">
-			<div class="annotation-header">
+		<div v-if="annotationActive"
+			class="tdv-panel tdv-panel--floating tdv-panel--hud canvas-panel annotation-overlay"
+			:class="{ 'mobile': isMobile, 'is-offset': toolsPanelOpen }">
+			<div class="tdv-panel-header canvas-panel-header">
 				<h3>
 					{{ t('threedviewer', 'Annotations') }}
 					<span
@@ -597,53 +621,62 @@
 						{{ annotationSyncLabel }}
 					</span>
 				</h3>
-				<div class="annotation-header-actions">
-					<button type="button"
-						class="annotation-header-btn"
-						:title="t('threedviewer', 'Import annotations from JSON')"
-						@click="triggerAnnotationImport">
-						{{ t('threedviewer', 'Import') }}
-					</button>
-					<button type="button"
-						class="annotation-header-btn"
-						:disabled="annotations.length === 0"
-						:title="t('threedviewer', 'Export annotations as JSON')"
-						@click="exportAnnotationsJSON">
-						{{ t('threedviewer', 'Export') }}
-					</button>
-					<button type="button"
-						class="clear-annotations-btn"
-						:class="{ 'mobile': isMobile }"
-						:disabled="annotations.length === 0"
-						@click="clearAllAnnotations">
-						{{ t('threedviewer', 'Clear All') }}
-					</button>
-				</div>
+				<button class="tdv-btn tdv-btn--icon canvas-panel-close"
+					:aria-label="t('threedviewer', 'Close annotations')"
+					:title="t('threedviewer', 'Close')"
+					@click="closeAnnotationPanel">
+					<ViewerIcon name="close" :size="16" />
+				</button>
 			</div>
 			<input ref="annotationImportInput"
 				type="file"
 				accept=".json,application/json"
 				style="display: none;"
 				@change="onAnnotationImportFile">
-			<div class="annotation-list">
-				<div v-for="(annotation, index) in annotations" :key="annotation.id" class="annotation-item">
-					<div class="annotation-info">
-						<span class="annotation-label">{{ t('threedviewer', 'Annotation') }} {{ index + 1 }}</span>
-						<button type="button"
-							class="delete-annotation-btn"
-							:class="{ 'mobile': isMobile }"
-							@click="deleteAnnotation(annotation.id)">
-							{{ t('threedviewer', 'Delete') }}
-						</button>
-					</div>
-					<div class="annotation-details">
+			<div class="canvas-panel-content">
+				<div class="canvas-panel-actions">
+					<button type="button"
+						class="canvas-panel-outline"
+						:title="t('threedviewer', 'Import annotations from JSON')"
+						@click="triggerAnnotationImport">
+						{{ t('threedviewer', 'Import') }}
+					</button>
+					<button type="button"
+						class="canvas-panel-outline"
+						:disabled="annotations.length === 0"
+						:title="t('threedviewer', 'Export annotations as JSON')"
+						@click="exportAnnotationsJSON">
+						{{ t('threedviewer', 'Export') }}
+					</button>
+					<button type="button"
+						class="canvas-panel-danger"
+						:disabled="annotations.length === 0"
+						@click="clearAllAnnotations">
+						{{ t('threedviewer', 'Clear all') }}
+					</button>
+				</div>
+				<p class="canvas-panel-hint">
+					{{ t('threedviewer', 'Click the model to place a note at that point.') }}
+				</p>
+				<div class="annotation-list">
+					<div v-for="(annotation, index) in annotations" :key="annotation.id" class="canvas-panel-card annotation-item">
+						<div class="canvas-panel-card-header">
+							<span class="canvas-panel-card-title">{{ t('threedviewer', 'Annotation') }} {{ index + 1 }}</span>
+							<button type="button"
+								class="tdv-btn tdv-btn--icon canvas-panel-delete"
+								:aria-label="t('threedviewer', 'Delete annotation {number}', { number: index + 1 })"
+								:title="t('threedviewer', 'Delete')"
+								@click="deleteAnnotation(annotation.id)">
+								<ViewerIcon name="delete" :size="16" />
+							</button>
+						</div>
 						<input
 							v-model="annotation.text"
 							class="annotation-text-input"
 							:placeholder="t('threedviewer', 'Enter annotation text...')"
 							@blur="updateAnnotationText(annotation.id, annotation.text)">
-						<div class="annotation-point">
-							<span class="point-label">{{ t('threedviewer', 'Position') }}:</span>
+						<div class="canvas-panel-row">
+							<span>{{ t('threedviewer', 'Position') }}</span>
 							<span class="point-coords">({{ annotation.point.x.toFixed(2) }}, {{ annotation.point.y.toFixed(2) }}, {{ annotation.point.z.toFixed(2) }})</span>
 						</div>
 					</div>
@@ -746,6 +779,11 @@ export default {
 		gcodeSingleColor: { type: String, default: '#ff5722' },
 		// Thumbnail generation
 		enableThumbnails: { type: Boolean, default: true },
+		// The tools panel owns the right edge at 320px while it is open. The panels it
+		// opens move clear of it rather than under it — they are lower in the stacking
+		// order, so a panel drawn at the same edge is simply not there as far as the user
+		// can tell.
+		toolsPanelOpen: { type: Boolean, default: false },
 	},
 	emits: ['model-loaded', 'error', 'view-reset', 'fit-to-view', 'toggle-auto-rotate', 'toggle-projection', 'change-preset', 'toggle-grid', 'axes-toggle', 'wireframe-toggle', 'background-change', 'toggle-measurement', 'toggle-annotation', 'toggle-comparison', 'toggle-performance', 'cycle-performance-mode', 'dismiss', 'push-toast', 'loading-state-changed', 'fps-updated'],
 	setup(props, { emit }) {
@@ -1969,70 +2007,6 @@ export default {
 				height,
 				pixelRatio: renderer.value.getPixelRatio(),
 			})
-
-			// Re-adjust overlay positioning on window resize
-			adjustOverlayPositioning()
-		}
-
-		/**
-		 * Dynamically adjust overlay positioning to avoid toolbar overlap
-		 */
-		const adjustOverlayPositioning = () => {
-		// Wait for DOM to be ready and add a small delay to ensure toolbar is fully rendered
-			nextTick(() => {
-				setTimeout(() => {
-					const toolbar = document.querySelector('.minimal-top-bar')
-					const nextcloudHeader = document.querySelector('#header')
-
-					let totalHeaderHeight = 0
-
-					// Check for Nextcloud header height
-					if (nextcloudHeader) {
-						const headerRect = nextcloudHeader.getBoundingClientRect()
-						totalHeaderHeight += headerRect.height
-					}
-
-					// Check for minimal top bar height
-					if (toolbar) {
-						const toolbarRect = toolbar.getBoundingClientRect()
-						totalHeaderHeight += toolbarRect.height + 10 // Add some padding
-					}
-
-					// Calculate safe spacing: total header height + padding (more conservative)
-					const safeTopSpacing = Math.max(180, totalHeaderHeight + 50)
-
-					// Update CSS custom property
-					document.documentElement.style.setProperty('--overlay-top-spacing', `${safeTopSpacing}px`)
-
-					// For mobile, use a slightly smaller spacing but ensure minimum
-					const mobileSpacing = Math.max(140, safeTopSpacing - 30)
-					document.documentElement.style.setProperty('--overlay-mobile-top-spacing', `${mobileSpacing}px`)
-
-					logger.info('ThreeViewer', 'Adjusted overlay positioning', {
-						totalHeaderHeight,
-						safeTopSpacing,
-						mobileSpacing,
-						hasMinimalTopBar: !!toolbar,
-						hasNextcloudHeader: !!nextcloudHeader,
-						windowHeight: window.innerHeight,
-						windowWidth: window.innerWidth,
-					})
-
-					// Force a style recalculation by directly setting styles on overlays
-					const measurementOverlay = document.querySelector('.measurement-overlay')
-					const annotationOverlay = document.querySelector('.annotation-overlay')
-
-					if (measurementOverlay) {
-						measurementOverlay.style.top = `${safeTopSpacing}px`
-						logger.info('ThreeViewer', 'Forced measurement overlay positioning', { top: safeTopSpacing })
-					}
-
-					if (annotationOverlay) {
-						annotationOverlay.style.top = `${safeTopSpacing}px`
-						logger.info('ThreeViewer', 'Forced annotation overlay positioning', { top: safeTopSpacing })
-					}
-				}, 200) // Increased delay to ensure DOM is fully rendered
-			})
 		}
 
 		const onCanvasClick = (event) => {
@@ -2240,6 +2214,17 @@ export default {
 		const deleteMeasurement = (measurementId) => {
 			measurement.deleteMeasurement(measurementId)
 		}
+
+		/*
+		 * The panels' own close buttons.
+		 *
+		 * They emit rather than calling the composable's toggle: the mode is mirrored in
+		 * `App.vue`, which is what drives the tools panel's row state, so turning the mode
+		 * off here without telling it leaves the row reading "Active" over a panel that is
+		 * gone.
+		 */
+		const closeMeasurementPanel = () => emit('toggle-measurement')
+		const closeAnnotationPanel = () => emit('toggle-annotation')
 
 		const toggleAnnotationMode = () => {
 		// If turning annotation ON, turn measurement OFF
@@ -3367,23 +3352,6 @@ export default {
 			}
 		})
 
-		// Watch for measurement/annotation mode changes to adjust positioning
-		watch(() => measurement.isActive.value, (active) => {
-			if (active) {
-				nextTick(() => {
-					setTimeout(() => adjustOverlayPositioning(), VIEWER_CONFIG.uiTiming.overlayInitialDelay)
-				})
-			}
-		})
-
-		watch(() => annotation.isActive.value, (active) => {
-			if (active) {
-				nextTick(() => {
-					setTimeout(() => adjustOverlayPositioning(), VIEWER_CONFIG.uiTiming.overlayInitialDelay)
-				})
-			}
-		})
-
 		// Debounced auto-save for annotation persistence.
 		// We watch the lightweight summary (count + ids/text) instead of the
 		// raw annotations array because Vue would otherwise re-fire on every
@@ -3577,9 +3545,6 @@ export default {
 					})
 				}
 				await init()
-
-				// Adjust overlay positioning to avoid toolbar overlap
-				adjustOverlayPositioning()
 			} catch (error) {
 				console.error('ThreeViewer: Initialization failed', error)
 				logger.error('ThreeViewer', 'Initialization failed', error)
@@ -3716,6 +3681,7 @@ export default {
 
 			// Measurement
 			measurement,
+			closeMeasurementPanel,
 			measurementActive: measurement.isActive,
 			measurementPoints: measurement.points,
 			measurementCount: measurement.measurementCount,
@@ -3723,6 +3689,7 @@ export default {
 
 			// Annotation
 			annotation,
+			closeAnnotationPanel,
 			annotationActive: annotation.isActive,
 			annotations: annotation.annotations,
 			annotationCount: annotation.annotationCount,
@@ -3884,35 +3851,6 @@ export default {
 </script>
 
 <style scoped>
-/* CSS Variables for consistent spacing */
-:root {
-	--overlay-top-spacing: 150px; /* Further increased to ensure no overlap */
-	--overlay-side-spacing: 20px;
-	--overlay-mobile-top-spacing: 120px; /* Further increased for mobile */
-	--overlay-mobile-side-spacing: 10px;
-}
-
-/* Force overlay positioning to prevent overlap */
-.measurement-overlay,
-.annotation-overlay {
-	/* Ensure panels are positioned below any header/toolbar */
-	top: 80px !important;
-
-	/* Ensure panels don't extend beyond viewport */
-	max-width: 280px !important;
-
-	/* Ensure proper z-index */
-	z-index: 250 !important;
-}
-
-@media (width <= 768px) {
-	.measurement-overlay,
-	.annotation-overlay {
-		top: 140px !important;
-		max-width: calc(100vw - 40px) !important;
-	}
-}
-
 .three-viewer {
 	position: relative;
 	width: 100%;
@@ -4997,383 +4935,303 @@ export default {
 	}
 }
 
-/* Measurement overlay styles */
-.measurement-overlay {
+/*
+ * Measurements and annotations: one panel, drawn twice.
+ *
+ * Both were black boxes outlined in a saturated primary — `#0f0` for measurements, `#f00`
+ * for annotations, headings to match, set in Arial. That is the palette you reach for to
+ * make an overlay findable while you are building it, and the same decision as the
+ * fluorescent green the ground grid carried for years. Neither panel had been touched
+ * since; nothing failed, because each rendered exactly as its own styles asked.
+ *
+ * They share this block rather than each carrying a copy. The two are the same object —
+ * a titled card over the canvas, a row of actions, an instruction, a list of entries with
+ * a delete — and the pair that came before differed in every measurement of padding,
+ * radius and colour, none of it deliberately.
+ *
+ * Surface and text come from .tdv-panel--hud, the same tokens as the performance HUD and
+ * the statistics panel; what is here is the layout.
+ */
+.canvas-panel {
 	position: absolute;
-	top: var(--overlay-top-spacing);
-	inset-inline-end: var(--overlay-side-spacing);
-	background: rgb(0 0 0 / 80%);
-	border: 1px solid #0f0;
-	border-radius: 8px;
-	padding: 15px;
-	max-width: 300px;
-	max-height: 400px;
-	overflow-y: auto;
-	z-index: 200;
-	color: white;
-	font-family: Arial, sans-serif;
 
-	/* Ensure panel stays within bounds */
-	min-width: 250px;
-	width: auto;
+	/* Clear of the viewer's own bar, and of Nextcloud's above it. */
+	top: calc(var(--tdv-topbar-height) + 16px);
+	inset-inline-end: 16px;
+	z-index: 250;
+	display: flex;
+	flex-direction: column;
+	width: 320px;
+	max-height: calc(100% - var(--tdv-topbar-height) - 32px);
 }
 
-.measurement-header {
-	display: flex;
-	flex-wrap: wrap;
-	justify-content: space-between;
-	align-items: center;
+/*
+ * The tools panel is 320px at the same edge and sits above these in the stacking order,
+ * so a panel it opens has to step aside or it is simply not there. The measurement panel
+ * spent its whole life underneath it: switching the mode on produced no visible change
+ * beyond the row's own "Active" badge.
+ */
+.canvas-panel.is-offset {
+	inset-inline-end: 352px;
+}
+
+.canvas-panel-header h3 {
+	display: inline-flex;
 	gap: 8px;
-	margin-bottom: 10px;
-	padding-bottom: 10px;
-	border-bottom: 1px solid #0f0;
-}
-
-.measurement-header h3 {
+	align-items: center;
 	margin: 0;
-	font-size: 16px;
-	color: #0f0;
+	font-size: var(--tdv-font-size-section);
+	font-weight: var(--tdv-font-weight-bold);
+	color: var(--tdv-hud-text);
 }
 
-.measurement-controls {
+/* Doubled, like every button on this surface: Nextcloud's own button rule sets a
+   background and a text colour through a selector a single class does not beat. */
+.canvas-panel-close.canvas-panel-close,
+.canvas-panel-delete.canvas-panel-delete {
+	color: var(--tdv-hud-text-secondary);
+	border-radius: 4px;
+	transition: background 0.2s ease;
+}
+
+.canvas-panel-close.canvas-panel-close:hover,
+.canvas-panel-close.canvas-panel-close:focus,
+.canvas-panel-close.canvas-panel-close:focus-visible {
+	background: var(--tdv-hud-hover-bg);
+	color: var(--tdv-hud-text);
+}
+
+.canvas-panel-close.canvas-panel-close:active {
+	background: var(--tdv-hud-hover-bg) !important;
+	color: var(--tdv-hud-text) !important;
+}
+
+.canvas-panel-content {
 	display: flex;
-	gap: 10px;
+	flex: 1;
+	flex-direction: column;
+	gap: 12px;
+	overflow-y: auto;
+	padding: 14px 18px 16px;
+}
+
+.canvas-panel-actions {
+	display: flex;
+	gap: 8px;
 	align-items: center;
 }
 
-.unit-selector {
-	background: #2a2a2a;
-	color: #0f0;
-	border: 1px solid #0f0;
-	padding: 5px 10px;
-	border-radius: 4px;
-	font-size: 12px;
+.canvas-panel-select.canvas-panel-select {
+	flex: 1;
+	min-width: 0;
+	height: 34px;
+	padding: 0 10px;
+	background: var(--tdv-hud-sunken-bg);
+	color: var(--tdv-hud-text);
+	border: 1px solid var(--tdv-hud-border);
+	border-radius: 8px;
+	font-size: var(--tdv-font-size-secondary);
 	cursor: pointer;
 }
 
-.unit-selector:hover {
-	background: #3a3a3a;
+/* The list is drawn by the platform, on the platform's surface, so its options have to be
+   legible there rather than on this panel. */
+.canvas-panel-select.canvas-panel-select option {
+	background: var(--tdv-color-surface);
+	color: var(--tdv-color-text);
 }
 
-.clear-measurements-btn {
-	background: #f44;
-	color: white;
+.canvas-panel-outline.canvas-panel-outline {
+	height: 34px;
+	padding: 0 14px;
+	background: transparent;
+	border: 2px solid var(--tdv-hud-text-secondary);
+	border-radius: 17px;
+	color: var(--tdv-hud-text);
+	font-size: var(--tdv-font-size-secondary);
+	font-weight: var(--tdv-font-weight-medium);
+	font-family: inherit;
+	cursor: pointer;
+}
+
+.canvas-panel-outline.canvas-panel-outline:hover:not(:disabled),
+.canvas-panel-outline.canvas-panel-outline:focus:not(:disabled),
+.canvas-panel-outline.canvas-panel-outline:focus-visible:not(:disabled) {
+	background: var(--tdv-hud-hover-bg);
+	color: var(--tdv-hud-text);
+}
+
+.canvas-panel-outline.canvas-panel-outline:active:not(:disabled) {
+	background: var(--tdv-hud-hover-bg) !important;
+	color: var(--tdv-hud-text) !important;
+}
+
+/*
+ * Destructive, so it is the only coloured thing in the panel — and text rather than a
+ * filled block, per the sheet. "Clear all" that shouts louder than the readings it would
+ * delete is the wrong way round.
+ */
+.canvas-panel-danger.canvas-panel-danger {
+	height: 34px;
+	margin-inline-start: auto;
+	padding: 0 14px;
+	background: transparent;
 	border: none;
-	padding: 5px 10px;
-	border-radius: 4px;
+	border-radius: 17px;
+	color: var(--tdv-hud-error);
+	font-size: var(--tdv-font-size-secondary);
+	font-weight: var(--tdv-font-weight-medium);
+	font-family: inherit;
 	cursor: pointer;
-	font-size: 12px;
 }
 
-.clear-measurements-btn:hover {
-	background: #f66;
+.canvas-panel-danger.canvas-panel-danger:hover:not(:disabled),
+.canvas-panel-danger.canvas-panel-danger:focus:not(:disabled),
+.canvas-panel-danger.canvas-panel-danger:focus-visible:not(:disabled) {
+	background: var(--tdv-hud-hover-bg);
+	color: var(--tdv-hud-error);
 }
 
-.measurement-list {
+.canvas-panel-danger.canvas-panel-danger:active:not(:disabled) {
+	background: var(--tdv-hud-hover-bg) !important;
+	color: var(--tdv-hud-error) !important;
+}
+
+.canvas-panel-outline:disabled,
+.canvas-panel-danger:disabled {
+	opacity: 0.4;
+	cursor: not-allowed;
+}
+
+/* What to do to get an entry into the list. Both modes need two or one click on the model
+   itself, which is not discoverable from a panel that only ever shows results. */
+.canvas-panel-hint {
+	margin: 0;
+	color: var(--tdv-hud-text-secondary);
+	font-size: var(--tdv-font-size-secondary);
+}
+
+.canvas-panel-card {
 	display: flex;
 	flex-direction: column;
-	gap: 10px;
+	gap: 6px;
+	padding: 12px 14px;
+	border: 1px solid var(--tdv-hud-border);
+	border-radius: 12px;
 }
 
-.measurement-item {
-	background: rgb(0 255 0 / 10%);
-	border: 1px solid rgb(0 255 0 / 30%);
-	border-radius: 4px;
-	padding: 10px;
+.canvas-panel-card-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
 }
 
-.measurement-info {
+.canvas-panel-card-title {
+	color: var(--tdv-hud-text-secondary);
+	font-size: var(--tdv-font-size-secondary);
+	font-weight: var(--tdv-font-weight-bold);
+}
+
+.canvas-panel-delete.canvas-panel-delete:hover,
+.canvas-panel-delete.canvas-panel-delete:focus,
+.canvas-panel-delete.canvas-panel-delete:focus-visible {
+	background: var(--tdv-hud-hover-bg);
+	color: var(--tdv-hud-error);
+}
+
+.canvas-panel-delete.canvas-panel-delete:active {
+	background: var(--tdv-hud-hover-bg) !important;
+	color: var(--tdv-hud-error) !important;
+}
+
+.canvas-panel-row {
 	display: flex;
 	justify-content: space-between;
-	align-items: center;
-	margin-bottom: 8px;
-}
-
-.measurement-label {
-	font-weight: bold;
-	font-size: 14px;
-	color: #0f0;
-}
-
-.delete-measurement-btn {
-	background: #f44;
-	color: white;
-	border: none;
-	padding: 3px 8px;
-	border-radius: 3px;
-	cursor: pointer;
-	font-size: 11px;
-}
-
-.delete-measurement-btn:hover {
-	background: #f66;
-}
-
-.measurement-distance {
-	font-size: 16px;
-	font-weight: bold;
-	color: #fff;
-}
-
-.measurement-details {
-	display: flex;
-	flex-direction: column;
-	gap: 4px;
-}
-
-.measurement-point {
-	display: flex;
-	flex-direction: column;
-	gap: 2px;
-}
-
-.point-label {
-	font-size: 12px;
-	color: #ccc;
+	gap: 8px;
+	color: var(--tdv-hud-text-secondary);
+	font-size: var(--tdv-font-size-secondary);
 }
 
 .point-coords {
-	font-size: 11px;
-	color: #aaa;
-	font-family: monospace;
+	color: var(--tdv-hud-text);
+	font-family: var(--tdv-font-mono);
+	font-size: var(--tdv-font-size-label);
 }
 
-@media (width <= 768px) {
-	.measurement-overlay {
-		top: var(--overlay-mobile-top-spacing);
-		inset-inline: var(--overlay-mobile-side-spacing);
-		max-width: none;
-		max-height: 300px;
-	}
-
-	.measurement-header {
-		flex-direction: column;
-		gap: 10px;
-		align-items: stretch;
-	}
-
-	.clear-measurements-btn {
-		width: 100%;
-		padding: 8px;
-	}
-}
-
-/* Annotation overlay styles */
-.annotation-overlay {
-	position: absolute;
-	top: var(--overlay-top-spacing);
-	inset-inline-start: var(--overlay-side-spacing);
-	background: rgb(0 0 0 / 80%);
-	border: 1px solid #f00;
-	border-radius: 8px;
-	padding: 15px;
-	max-width: 300px;
-	max-height: 400px;
-	overflow-y: auto;
-	z-index: 200;
-	color: white;
-	font-family: Arial, sans-serif;
-}
-
-.annotation-header {
-	display: flex;
-	flex-direction: column;
-	gap: 8px;
-	margin-bottom: 10px;
-	padding-bottom: 10px;
-	border-bottom: 1px solid #f00;
-}
-
-.annotation-header h3 {
-	margin: 0;
-	font-size: 16px;
-	color: #f00;
-	display: inline-flex;
-	align-items: center;
-	gap: 8px;
-}
-
-.annotation-sync-pill {
-	display: inline-flex;
-	align-items: center;
-	font-size: 10px;
-	font-weight: 500;
-	padding: 2px 8px;
-	border-radius: 10px;
-	background: rgb(255 255 255 / 12%);
-	color: #fff;
-	letter-spacing: 0.3px;
-	text-transform: uppercase;
-	white-space: nowrap;
-}
-
-.annotation-sync-pill.sync-loading,
-.annotation-sync-pill.sync-saving {
-	background: rgb(255 255 255 / 18%);
-	color: #ffe48a;
-}
-
-.annotation-sync-pill.sync-saved {
-	background: rgb(80 180 100 / 25%);
-	color: #b2f0c0;
-}
-
-.annotation-sync-pill.sync-error {
-	background: rgb(220 80 80 / 25%);
-	color: #ffb2b2;
-}
-
-.annotation-header-actions {
-	display: flex;
-	gap: 6px;
-	align-items: center;
-	flex-wrap: wrap;
-}
-
-.annotation-header-actions > * {
-	flex: 1;
-	min-width: 0;
-	white-space: nowrap;
-}
-
-.annotation-header-btn {
-	background: rgb(255 255 255 / 10%);
-	color: white;
-	border: 1px solid rgb(255 255 255 / 30%);
-	padding: 5px 10px;
-	border-radius: 4px;
-	cursor: pointer;
-	font-size: 12px;
-}
-
-.annotation-header-btn:hover:not(:disabled) {
-	background: rgb(255 255 255 / 20%);
-}
-
-.annotation-header-btn:disabled {
-	opacity: 0.4;
-	cursor: not-allowed;
-}
-
-.clear-annotations-btn {
-	background: #f44;
-	color: white;
-	border: none;
-	padding: 5px 10px;
-	border-radius: 4px;
-	cursor: pointer;
-	font-size: 12px;
-}
-
-.clear-annotations-btn:hover:not(:disabled) {
-	background: #f66;
-}
-
-.clear-annotations-btn:disabled {
-	opacity: 0.4;
-	cursor: not-allowed;
-}
-
+.measurement-list,
 .annotation-list {
 	display: flex;
 	flex-direction: column;
 	gap: 10px;
 }
 
-.annotation-item {
-	background: rgb(255 0 0 / 10%);
-	border: 1px solid rgb(255 0 0 / 30%);
-	border-radius: 4px;
-	padding: 10px;
-}
-
-.annotation-info {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	margin-bottom: 8px;
-}
-
-.annotation-label {
-	font-weight: bold;
-	font-size: 14px;
-	color: #f00;
-}
-
-.delete-annotation-btn {
-	background: #f44;
-	color: white;
-	border: none;
-	padding: 3px 8px;
-	border-radius: 3px;
-	cursor: pointer;
-	font-size: 11px;
-}
-
-.delete-annotation-btn:hover {
-	background: #f66;
-}
-
-.annotation-details {
-	display: flex;
-	flex-direction: column;
-	gap: 6px;
+/* The reading is what the panel is for, so it is the largest thing in the card. */
+.measurement-distance {
+	color: var(--tdv-hud-text);
+	font-family: var(--tdv-font-mono);
+	font-size: 20px;
+	font-weight: var(--tdv-font-weight-bold);
 }
 
 .annotation-text-input {
-	background: rgb(255 255 255 / 10%);
-	border: 1px solid rgb(255 0 0 / 50%);
-	border-radius: 3px;
-	padding: 5px 8px;
-	color: white;
-	font-size: 12px;
 	width: 100%;
+	height: 36px;
+	box-sizing: border-box;
+	padding: 0 12px;
+	background: var(--tdv-hud-sunken-bg);
+	border: 2px solid var(--tdv-hud-border);
+	border-radius: 8px;
+	color: var(--tdv-hud-text);
+	font-family: inherit;
+	font-size: var(--tdv-font-size-body);
 }
 
 .annotation-text-input::placeholder {
-	color: #ccc;
+	color: var(--tdv-hud-text-secondary);
 }
 
 .annotation-text-input:focus {
 	outline: none;
-	border-color: #f00;
-	background: rgb(255 255 255 / 15%);
+	border-color: var(--tdv-hud-text);
 }
 
-.annotation-point {
-	display: flex;
-	flex-direction: column;
-	gap: 2px;
-}
-
-.point-label {
-	font-size: 12px;
-	color: #ccc;
-}
-
-.point-coords {
+.annotation-sync-pill {
+	display: inline-flex;
+	align-items: center;
+	padding: 2px 9px;
+	background: var(--tdv-hud-chip-bg);
+	border-radius: 10px;
+	color: var(--tdv-hud-text);
 	font-size: 11px;
-	color: #aaa;
-	font-family: monospace;
+	font-weight: var(--tdv-font-weight-bold);
+	white-space: nowrap;
+}
+
+.annotation-sync-pill.sync-loading,
+.annotation-sync-pill.sync-saving {
+	color: var(--tdv-hud-warning);
+}
+
+.annotation-sync-pill.sync-saved {
+	color: var(--tdv-hud-success);
+}
+
+.annotation-sync-pill.sync-error {
+	color: var(--tdv-hud-error);
 }
 
 @media (width <= 768px) {
-	.annotation-overlay {
-		top: var(--overlay-mobile-top-spacing);
-		inset-inline: var(--overlay-mobile-side-spacing);
-		max-width: none;
+	/* Nothing to step aside from: the tools panel is a bottom sheet at this width. */
+	.canvas-panel,
+	.canvas-panel.is-offset {
+		top: calc(var(--tdv-topbar-height) + 10px);
+		inset-inline: 10px;
+		width: auto;
 		max-height: 300px;
 	}
 
-	.annotation-header {
-	flex-direction: column;
-		gap: 10px;
-		align-items: stretch;
-}
-
-	.clear-annotations-btn {
-	width: 100%;
-		padding: 8px;
+	.canvas-panel-content {
+		padding: 12px 14px 14px;
 	}
 }
 
@@ -5392,10 +5250,5 @@ export default {
 
 [dir="rtl"] .performance-stats {
 	inset-inline: auto 10px;
-}
-
-[dir="rtl"] .measurement-overlay,
-[dir="rtl"] .annotation-overlay {
-	/* Top-center aligned, no change needed */
 }
 </style>

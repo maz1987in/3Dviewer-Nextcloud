@@ -96,6 +96,8 @@
 				<!-- Slide-Out Tool Panel -->
 				<SlideOutToolPanel
 					ref="toolsPanel"
+					@panel-opened="toolsPanelOpen = true"
+					@panel-closed="toolsPanelOpen = false"
 					:auto-rotate="autoRotate"
 					:camera-type="cameraType"
 					:grid="grid"
@@ -179,6 +181,7 @@
 					v-if="prefsLoaded"
 					key="three-viewer"
 					ref="viewer"
+					:tools-panel-open="toolsPanelOpen"
 					:file-id="currentFileId"
 					:filename="currentFilename"
 					:dir="currentDir"
@@ -307,6 +310,9 @@ export default {
 			modelLoaded: false,
 			hasMultipleSourceFiles: false,
 			// Advanced features
+			// Whether the tools panel is showing. It owns the right edge at 320px, so the
+			// panels opened from it move clear of it rather than under it.
+			toolsPanelOpen: false,
 			measurementMode: false,
 			annotationMode: false,
 			comparisonMode: false,

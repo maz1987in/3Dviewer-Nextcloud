@@ -899,7 +899,6 @@ export const INTERACTION_SETTINGS = {
 export const UI_TIMING = {
 	fpsEmitThrottle: 500, // ms between FPS updates
 	overlayPositionDelay: 200, // ms delay for overlay positioning
-	overlayInitialDelay: 100, // ms initial delay for overlay positioning
 	debounceDelay: 100, // ms for debounced actions
 	gestureHintDuration: 3000, // ms to show gesture hints
 	errorDisplayDuration: 5000, // ms to display errors

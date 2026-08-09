@@ -406,11 +406,20 @@
 								<ViewerIcon class="tool-icon" name="camera" :size="17" />
 								<span class="tool-label">{{ t('threedviewer', 'Screenshot') }}</span>
 							</button>
-							<div class="tool-group">
-								<label class="tool-label-small">{{ t('threedviewer', 'Export Model') }}</label>
+							<!--
+								A row like the ones above it, not a labelled block. The label was a
+								bare `<label>` with no `for`, so it named nothing — the control it
+								sat over was announced as an unlabelled combo box, and the stack of
+								the two took twice the height of every neighbouring row while
+								saying the same thing.
+							-->
+							<div class="tool-row">
+								<ViewerIcon class="tool-icon" name="exportModel" :size="17" />
+								<span class="tool-label">{{ t('threedviewer', 'Export Model') }}</span>
 								<select ref="exportSelect"
 									:disabled="!modelLoaded"
 									class="export-select"
+									:aria-label="t('threedviewer', 'Export model format')"
 									@change="handleExportChange($event.target.value)">
 									<option value="">
 										{{ t('threedviewer', 'Select format...') }}
@@ -542,7 +551,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import ViewerIcon from './ViewerIcon.vue'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
 // eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
@@ -687,18 +696,26 @@ export default {
 			settings: false,
 		})
 
+		/*
+		 * One announcement of the panel's state, from the state itself.
+		 *
+		 * Each call site used to emit its own, and the one that restores the panel from
+		 * localStorage on mount had none — so anything positioning itself around an open
+		 * panel was told the panel was closed on every load where the user had left it
+		 * open, which is the load where it matters. A watcher cannot be forgotten at a new
+		 * call site the way a paired emit can.
+		 */
+		watch(isOpen, (open) => {
+			emit(open ? 'panel-opened' : 'panel-closed')
+			try { localStorage.setItem('3dviewer-panel-open', String(open)) } catch { /* ignore */ }
+		})
+
 		const togglePanel = () => {
 			isOpen.value = !isOpen.value
-			emit(isOpen.value ? 'panel-opened' : 'panel-closed')
-			try { localStorage.setItem('3dviewer-panel-open', isOpen.value) } catch { /* ignore */ }
 		}
 
 		const closePanel = () => {
-			if (isOpen.value) {
-				isOpen.value = false
-				emit('panel-closed')
-				try { localStorage.setItem('3dviewer-panel-open', 'false') } catch { /* ignore */ }
-			}
+			isOpen.value = false
 		}
 
 		const toggleSection = (sectionName) => {
@@ -1328,12 +1345,32 @@ export default {
 }
 
 /* Export select */
-.export-select {
+/*
+ * A tool row that ends in a control rather than being one: same metrics as `.tool-btn`, so
+ * the export row lines up with the buttons above and below it instead of being a
+ * double-height block in the middle of them.
+ */
+.tool-row {
+	display: flex;
+	align-items: center;
+	gap: 12px;
 	width: 100%;
-	padding: 8px 12px;
+	padding: 12px 16px;
+	margin-bottom: 6px;
+	background: var(--tdv-color-surface);
+	border: 1px solid var(--tdv-color-border);
+	border-radius: 6px;
+	color: var(--tdv-color-text);
+	font-size: 14px;
+}
+
+.export-select {
+	margin-inline-start: auto;
+	max-width: 55%;
+	padding: 4px 8px;
 	background: var(--tdv-color-surface-sunken);
 	border: 1px solid var(--tdv-color-border);
-	border-radius: 4px;
+	border-radius: 8px;
 	color: var(--tdv-color-text);
 	font-size: 13px;
 	cursor: pointer;
