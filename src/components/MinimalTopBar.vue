@@ -116,6 +116,7 @@ import { computed } from 'vue'
 // eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
 import { translate as t } from '@nextcloud/l10n'
 import ViewerIcon from './ViewerIcon.vue'
+import { getFormatLabel } from '../utils/fileHelpers.js'
 
 /** Below this the frame budget is missed often enough to be felt as stutter. */
 const FPS_DEGRADED = 45
@@ -173,13 +174,12 @@ export default {
 		 *
 		 * Read off the name rather than taken as a prop: the parent has the filename and
 		 * nothing else, and a prop nothing passes renders nothing while looking wired up.
+		 *
+		 * The helper handles the empty name, which matters more than it looks: `App.vue`
+		 * declares `filename` with a `null` default, and a prop default only fills in for
+		 * `undefined`, so this receives `null` every time the app opens without a model.
 		 */
-		const modelFormat = computed(() => {
-			const dot = props.modelName.lastIndexOf('.')
-			if (dot <= 0 || dot === props.modelName.length - 1) return ''
-			const extension = props.modelName.slice(dot + 1)
-			return /^[a-z0-9]{1,5}$/i.test(extension) ? extension.toUpperCase() : ''
-		})
+		const modelFormat = computed(() => getFormatLabel(props.modelName))
 
 		/** Which of the three status colours the dot takes. */
 		const fpsHealth = computed(() => {
@@ -214,11 +214,10 @@ export default {
 	/*
 	 * The mockup pads this bar 12px on both sides. The start side keeps a wider inset
 	 * because Nextcloud draws its own navigation toggle over the top-left of the app
-	 * content, and the previous bar reserved 45px for it — arriving in a squashed release
-	 * commit with no explanation, so the reason is inferred rather than recorded. Removing
-	 * it would put Reset under a button belonging to something else, on exactly the narrow
-	 * viewports where the toggle appears, so it stays until the dev-container check can
-	 * say whether it is needed.
+	 * content, inside this bar's own box. The previous bar reserved 45px for it with no
+	 * recorded reason; loading the app on a Nextcloud 34 confirmed the toggle is there,
+	 * centred around 33px in, so 45px is what keeps Reset from sitting underneath a
+	 * button belonging to something else.
 	 */
 	padding: 0 12px 0 45px;
 }

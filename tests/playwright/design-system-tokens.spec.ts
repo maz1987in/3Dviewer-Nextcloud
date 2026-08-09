@@ -36,21 +36,63 @@ const colourTokens = tokens
 	.filter(([name, value]) => /^#|^rgb|^color-mix|var\(--color-/.test(value) && !/font|size|weight|radius|shadow|target/.test(name))
 	.map(([name]) => name)
 
+/*
+ * The rules Nextcloud's server stylesheet applies to every button on the page, read off
+ * a running Nextcloud 34 with the DevTools protocol rather than transcribed from memory.
+ *
+ * The selector is the whole point: `button:not(.button-vue, [class^="vs__"])` scores
+ * (0,1,1), which beats a bare `.tdv-btn` at (0,1,0). So Nextcloud, not the design system,
+ * decides `width` and `padding` for every button in this app — and it sets `width: auto`.
+ * An icon button is sized entirely by those two properties, so it renders 44x34 on a real
+ * instance while measuring perfectly square in any fixture that leaves this stylesheet
+ * out. Three earlier attempts at this fixture did exactly that, each reproducing a little
+ * more of the real page and still passing.
+ */
+const NEXTCLOUD_BUTTON_CSS = `
+	select, button:not(.button-vue, [class^="vs__"]), input, textarea,
+	div[contenteditable="true"], div[contenteditable="false"] {
+		width: 130px;
+		min-height: var(--default-clickable-area);
+		box-sizing: border-box;
+	}
+	input[type="submit"], input[type="button"], input[type="reset"],
+	button:not(.button-vue, [class^="vs__"]), .button, .pager li a {
+		padding: 7px 14px;
+	}
+	select, button:not(.button-vue, [class^="vs__"]), .button,
+	input[type="button"], input[type="submit"], input[type="reset"] {
+		padding: calc((var(--default-clickable-area) - 1lh) / 2) calc(3 * var(--default-grid-baseline));
+		width: auto;
+		min-height: var(--default-clickable-area);
+		box-sizing: border-box;
+	}
+`
+
 function fixture(rootStyle = '') {
 	return `<!DOCTYPE html>
 <html lang="en">
 <head>
 	<meta charset="utf-8" />
 	<title>Design system fixture</title>
+	<style>${NEXTCLOUD_BUTTON_CSS}</style>
 	<style>${DESIGN_SYSTEM_CSS}</style>
 	<style>
 		:root { ${rootStyle} }
 		.probe { width: 20px; height: 20px; }
+
+		/* The bar the icon buttons actually sit in, and the icon's own no-shrink rule.
+		   Both matter: a flex item's automatic minimum size is its content, so an icon
+		   that cannot shrink turns stray padding into extra width instead of a clipped
+		   glyph — which is how a button ends up wider than it is tall. */
+		* { box-sizing: border-box; }
+		.cluster { display: flex; align-items: center; }
+		.viewer-icon { display: block; flex-shrink: 0; }
 	</style>
 </head>
 <body>
 	${colourTokens.map((n) => `<div class="probe" id="probe${n}" style="background-color: var(${n})"></div>`).join('\n\t')}
 	<button class="tdv-btn tdv-btn--primary" id="primary">Tools</button>
+	<div class="cluster"><button class="tdv-btn tdv-btn--icon" id="iconBtn"><svg class="viewer-icon" width="20" height="20" viewBox="0 0 24 24"><path d="M0 0h24v24H0z"/></svg></button></div>
 	<div class="tdv-hud" id="hud"><span class="tdv-hud-value">60 fps</span></div>
 </body>
 </html>`
@@ -137,6 +179,25 @@ test.describe('design system tokens in a browser', () => {
 			}
 		}
 		expect(failures).toEqual([])
+	})
+
+	/*
+	 * An icon button is square. It is the design system's only fixed-size control and the
+	 * whole reason --tdv-hit-target exists, and Nextcloud's global button padding —
+	 * twelve pixels each side, at a specificity the primitive did not beat — pushed it
+	 * wider than tall on every real page while measuring perfectly square in every
+	 * fixture that left that stylesheet out.
+	 */
+	test('an icon button stays square under Nextcloud\'s own button styles', async ({ page }) => {
+		await page.setContent(fixture('--default-clickable-area: 34px; --default-grid-baseline: 4px;'))
+
+		const size = await page.locator('#iconBtn').evaluate((el) => {
+			const r = el.getBoundingClientRect()
+			return { w: Math.round(r.width), h: Math.round(r.height) }
+		})
+		expect(size.w).toBe(size.h)
+		// And it follows the instance's density rather than a hardcoded 44.
+		expect(size.h).toBe(34)
 	})
 
 	test('the canvas chrome stays dark when the instance primary changes', async ({ page }) => {

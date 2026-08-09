@@ -83,7 +83,12 @@
 	   records the value the panels are positioned against. */
 	--tdv-nc-header-height: 50px;
 
-	/* 44px is both the design system's hit target and Nextcloud's clickable area. */
+	/*
+	 * The sheet asks for 44px. Nextcloud publishes its own clickable area and lets the
+	 * instance set it — a Nextcloud 34 measured here reports 34px — so this follows the
+	 * instance for the same reason the palette does: the density is the user's choice,
+	 * and 44 is what they get when nothing says otherwise.
+	 */
 	--tdv-hit-target: var(--default-clickable-area, 44px);
 	--tdv-radius-pill: 22px;
 	--tdv-radius-panel: 12px;
@@ -137,7 +142,18 @@
 
 /* ============================== Buttons ============================== */
 
-.tdv-btn {
+/*
+ * Doubled class, deliberately. Nextcloud's server stylesheet styles every button on the
+ * page through `button:not(.button-vue, [class^="vs__"])`, which scores (0,1,1) and beats
+ * a single class — and among the things it sets are `width: auto` and its own padding.
+ * A button primitive that loses those two properties is not a primitive; the icon button
+ * in particular is sized by nothing else, and rendered 44x34 on a real instance while
+ * measuring square in every fixture that did not include Nextcloud's own CSS.
+ *
+ * Repeating the class takes this to (0,2,0) without touching the markup or resorting to
+ * !important, which would only move the argument somewhere harder to see.
+ */
+.tdv-btn.tdv-btn {
 	display: inline-flex;
 	gap: 8px;
 	align-items: center;
@@ -155,65 +171,65 @@
 }
 
 /* One primary per surface — the sheet reserves the accent for the main action. */
-.tdv-btn--primary {
+.tdv-btn.tdv-btn--primary {
 	background: var(--tdv-color-primary);
 	color: var(--tdv-color-on-primary);
 }
 
-.tdv-btn--primary:hover,
-.tdv-btn--primary:focus-visible {
+.tdv-btn.tdv-btn--primary:hover,
+.tdv-btn.tdv-btn--primary:focus-visible {
 	background: var(--tdv-color-primary-hover);
 }
 
-.tdv-btn--secondary {
+.tdv-btn.tdv-btn--secondary {
 	border: 2px solid var(--tdv-color-primary);
 	color: var(--tdv-color-primary);
 }
 
-.tdv-btn--secondary:hover,
-.tdv-btn--secondary:focus-visible {
+.tdv-btn.tdv-btn--secondary:hover,
+.tdv-btn.tdv-btn--secondary:focus-visible {
 	background: var(--tdv-color-primary-light);
 }
 
-.tdv-btn--tertiary:hover,
-.tdv-btn--tertiary:focus-visible {
+.tdv-btn.tdv-btn--tertiary:hover,
+.tdv-btn.tdv-btn--tertiary:focus-visible {
 	background: var(--tdv-color-hover-bg);
 }
 
-.tdv-btn--destructive {
+.tdv-btn.tdv-btn--destructive {
 	background: var(--tdv-color-error);
 	color: #fff;
 }
 
-.tdv-btn--icon {
+.tdv-btn.tdv-btn--icon {
 	width: var(--tdv-hit-target);
 	height: var(--tdv-hit-target);
 	padding: 0;
 }
 
-.tdv-btn--icon:hover,
-.tdv-btn--icon:focus-visible {
+.tdv-btn.tdv-btn--icon:hover,
+.tdv-btn.tdv-btn--icon:focus-visible {
 	background: var(--tdv-color-hover-bg);
 }
 
 /* Toggled-on icon button: primary-light background, primary glyph. */
-.tdv-btn--active {
+.tdv-btn.tdv-btn--active {
 	background: var(--tdv-color-primary-light);
 	color: var(--tdv-color-primary);
 }
 
-.tdv-btn--icon svg {
+.tdv-btn.tdv-btn--icon svg {
 	width: var(--tdv-icon-size);
 	height: var(--tdv-icon-size);
 }
 
 /* Icon buttons on the dark canvas chrome cannot use the themed hover. */
-.tdv-btn--on-canvas {
+.tdv-btn.tdv-btn--on-canvas {
 	color: #ddd;
 }
 
-.tdv-btn--on-canvas:hover,
-.tdv-btn--on-canvas:focus-visible {
+.tdv-btn.tdv-btn--on-canvas:hover,
+.tdv-btn.tdv-btn--on-canvas:focus-visible {
 	background: var(--tdv-hud-hover-bg);
 }
 
