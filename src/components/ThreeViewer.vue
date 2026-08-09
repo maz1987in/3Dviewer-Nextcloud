@@ -670,11 +670,21 @@
 								<ViewerIcon name="delete" :size="16" />
 							</button>
 						</div>
+						<!--
+							`:value` and an event, not `v-model`.
+
+							`annotations` is exposed by the composable through `readonly()`, so
+							`v-model` wrote to a readonly proxy: a warning in a development build,
+							silence in a production one, and either way Vue re-rendered the field
+							back to its stored value. The note could not be typed into — and the
+							blur handler then forwarded that same unchanged value to the composable,
+							so both directions were broken and neither could be seen from the other.
+						-->
 						<input
-							v-model="annotation.text"
+							:value="annotation.text"
 							class="annotation-text-input"
 							:placeholder="t('threedviewer', 'Enter annotation text...')"
-							@blur="updateAnnotationText(annotation.id, annotation.text)">
+							@change="updateAnnotationText(annotation.id, $event.target.value)">
 						<div class="canvas-panel-row">
 							<span>{{ t('threedviewer', 'Position') }}</span>
 							<span class="point-coords">({{ annotation.point.x.toFixed(2) }}, {{ annotation.point.y.toFixed(2) }}, {{ annotation.point.z.toFixed(2) }})</span>
