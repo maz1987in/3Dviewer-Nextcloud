@@ -1,20 +1,23 @@
 /**
- * Choosing a theme in the viewer themes the viewer.
+ * Choosing a theme in the viewer themes the viewer — and the overlays go the other way.
  *
- * The control offers Auto, Light and Dark, and until now it set the scene's background and
- * grid and nothing else: the panels take their colours from Nextcloud's variables, so on a
- * dark instance the Tools panel stayed dark with the viewer set to Light, and the reported
- * symptom was "I changed the theme and the component is still dark". It was — the control
- * had never claimed it.
+ * Two palettes move independently, because they are drawn on different things.
  *
- * Auto still means "match the page", so its tokens stay pointed at Nextcloud's variables and
- * a themed instance keeps its own colours. An explicit Light or Dark is a decision about the
- * viewer specifically, and has to override those variables rather than read them: on a dark
- * Nextcloud, `--color-main-background` is dark, so a "light" palette built from it is dark.
- * That is the same trap `darkThemeSurfaces` was written for, one layer further down.
+ * The panels are UI: the tools panel, the dialogs, the rows. On Auto they take Nextcloud's
+ * colours, so a themed instance keeps its own; on an explicit Light or Dark they override
+ * those variables rather than read them, because a "light" palette assembled from a dark
+ * instance's `--color-main-background` comes out dark. That is the trap `darkThemeSurfaces`
+ * guards one layer up.
  *
- * Two properties are checked here, and they are the two that broke last time a surface
- * changed theme:
+ * The canvas chrome — the viewer's header, the performance HUD, the statistics and
+ * measurement and annotation panels — is drawn on the rendered scene, and the scene is the
+ * theme. Matching it makes a light HUD on a white render and a dark HUD on a dark one, which
+ * is a panel you cannot find; so the chrome is the inverse of the resolved theme, whichever
+ * way that resolves. It keys off the resolved theme rather than the chosen one for exactly
+ * that reason: on Auto there is no chosen theme, and the scene still has a colour.
+ *
+ * Two properties are checked, and they are the two that broke last time a surface changed
+ * theme:
  *
  *   - a palette flips whole. Half a panel keeping its old colours is how the statistics
  *     panel ended up with white text on white; every colour the base defines is redefined.
@@ -41,11 +44,24 @@ function block(selector) {
 }
 
 const base = block(':root')
-const light = block('[data-tdv-theme="light"]')
-const dark = block('[data-tdv-theme="dark"]')
+
+/** The panels, on an explicit choice. */
+const panels = {
+	light: block('[data-tdv-theme="light"]'),
+	dark: block('[data-tdv-theme="dark"]'),
+}
+
+/** The canvas chrome, keyed on the theme the scene resolved to and inverted against it. */
+const chrome = {
+	light: block('body.theme--dark'),
+	dark: block('body.theme--light'),
+}
 
 /** Nextcloud variables whose value is the page's own theme, and so flips with it. */
 const FOLLOWS_THE_PAGE = /var\(--color-(?:main-background|main-text|border|background-|text-)/
+
+/** A token drawn on the rendered scene rather than on the page. */
+const isChrome = (token) => token.startsWith('--tdv-hud') || token.startsWith('--tdv-canvas')
 
 /**
  * A colour token resolved to something a contrast check can read.
@@ -113,22 +129,16 @@ function contrast(a, b) {
 	return (hi + 0.05) / (lo + 0.05)
 }
 
-/** The palettes an explicit choice installs, and what each surface is. */
-const PALETTES = [
-	['light', light],
-	['dark', dark],
-]
-
-describe('an explicit theme choice', () => {
-	it('installs a palette for each of the two choices', () => {
+describe('the panel palette', () => {
+	it('has a block for each of the two choices', () => {
 		expect(base.size).toBeGreaterThan(20)
-		expect(light.size).toBeGreaterThan(10)
-		expect(dark.size).toBeGreaterThan(10)
+		expect(panels.light.size).toBeGreaterThan(10)
+		expect(panels.dark.size).toBeGreaterThan(10)
 	})
 
-	it.each(PALETTES)('%s redefines every colour the base defines, so it cannot flip halfway', (_name, palette) => {
+	it.each(Object.entries(panels))('%s redefines every panel colour the base defines', (_name, palette) => {
 		const missing = [...base.keys()]
-			.filter((token) => /color|hud|canvas/.test(token))
+			.filter((token) => /color/.test(token) && !isChrome(token))
 			// The accent stays the instance's own in every palette: it is picked to work on
 			// either surface, and it is the one thing an admin sets deliberately.
 			.filter((token) => !/primary|on-primary/.test(token))
@@ -136,20 +146,52 @@ describe('an explicit theme choice', () => {
 		expect(missing).toEqual([])
 	})
 
-	it.each(PALETTES)('%s sets its own surfaces rather than reading the page it overrides', (_name, palette) => {
+	it.each(Object.entries(panels))('%s sets its own surfaces rather than reading the page it overrides', (_name, palette) => {
 		const borrowed = [...palette.entries()]
 			.filter(([token]) => !/primary/.test(token))
 			.filter(([, value]) => FOLLOWS_THE_PAGE.test(value))
 			.map(([token, value]) => `${token}: ${value}`)
 		expect(borrowed).toEqual([])
 	})
+})
 
-	// Every pairing of text and the surface it is drawn on, in each palette. The HUD is
-	// translucent, so it is measured against both extremes of what can be behind it.
-	const PAIRS = [
+describe('the canvas chrome', () => {
+	it('has a block for each way the theme can resolve', () => {
+		expect(chrome.light.size).toBeGreaterThan(8)
+		expect(chrome.dark.size).toBeGreaterThan(8)
+	})
+
+	it.each(Object.entries(chrome))('%s redefines every chrome colour the base defines', (_name, palette) => {
+		const missing = [...base.keys()].filter(isChrome).filter((token) => !palette.has(token))
+		expect(missing).toEqual([])
+	})
+
+	/*
+	 * The point of the whole arrangement. These overlays float on the render, and the render
+	 * is whatever the theme says — so a chrome that matches the theme is a panel with no edge
+	 * against the thing behind it, which is what a light HUD on a white scene looked like.
+	 */
+	it('is the inverse of the scene it floats on', () => {
+		const surface = (palette) => luminance(parseColour(palette.get('--tdv-hud-bg')))
+		expect(surface(chrome.dark)).toBeLessThan(surface(chrome.light))
+	})
+
+	it('is darker than the panels when the viewer is light, and lighter when it is dark', () => {
+		const lum = (palette, token) => luminance(parseColour(palette.get(token)))
+		expect(lum(chrome.dark, '--tdv-hud-bg')).toBeLessThan(lum(panels.light, '--tdv-color-surface'))
+		expect(lum(chrome.light, '--tdv-hud-bg')).toBeGreaterThan(lum(panels.dark, '--tdv-color-surface'))
+	})
+})
+
+describe('every palette', () => {
+	// Every pairing of text and the surface it is drawn on. The HUD is translucent, so it is
+	// measured against both extremes of what can be behind it.
+	const PANEL_PAIRS = [
 		['--tdv-color-text', '--tdv-color-surface'],
 		['--tdv-color-text-secondary', '--tdv-color-surface'],
 		['--tdv-color-text', '--tdv-color-surface-sunken'],
+	]
+	const CHROME_PAIRS = [
 		['--tdv-hud-text', '--tdv-hud-bg'],
 		['--tdv-hud-text-secondary', '--tdv-hud-bg'],
 		['--tdv-hud-chip-text', '--tdv-hud-bg'],
@@ -158,13 +200,15 @@ describe('an explicit theme choice', () => {
 		['--tdv-hud-error', '--tdv-hud-bg'],
 	]
 
-	const cases = PALETTES.flatMap(([name, palette]) =>
-		PAIRS.flatMap(([fg, bg]) =>
-			[['a black scene', [0, 0, 0, 1]], ['a white scene', [255, 255, 255, 1]]].map(
-				([scene, behind]) => [`${name}: ${fg} on ${bg} over ${scene}`, palette, fg, bg, behind],
-			),
-		),
-	)
+	const cases = [
+		...Object.entries(panels).flatMap(([name, palette]) =>
+			PANEL_PAIRS.map(([fg, bg]) => [`panels ${name}`, palette, fg, bg])),
+		...Object.entries(chrome).flatMap(([name, palette]) =>
+			CHROME_PAIRS.map(([fg, bg]) => [`chrome ${name}`, palette, fg, bg])),
+	].flatMap(([label, palette, fg, bg]) =>
+		[['a black scene', [0, 0, 0, 1]], ['a white scene', [255, 255, 255, 1]]].map(
+			([scene, behind]) => [`${label}: ${fg} on ${bg} over ${scene}`, palette, fg, bg, behind],
+		))
 
 	it.each(cases)('%s is legible', (_label, palette, fg, bg, behind) => {
 		const text = parseColour(palette.get(fg) ?? base.get(fg))

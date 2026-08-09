@@ -173,25 +173,6 @@
 	--tdv-color-error-surface: #fde8e8;
 	--tdv-color-on-error: #fff;
 
-	/* Overlays: light enough to read as the same surface as the panels, opaque enough that
-	   a busy render behind them does not show through into the text. */
-	--tdv-canvas-dark: #f7f7f7;
-	--tdv-hud-bg: rgb(252, 252, 252, 0.92);
-	--tdv-hud-text: #222;
-	--tdv-hud-text-secondary: #595959;
-	--tdv-hud-chip-bg: rgb(0, 0, 0, 0.08);
-	--tdv-hud-chip-text: #333;
-	--tdv-hud-hover-bg: rgb(0, 0, 0, 0.06);
-	--tdv-hud-border: rgb(0, 0, 0, 0.12);
-	--tdv-hud-sunken-bg: rgb(0, 0, 0, 0.05);
-
-	/* The status colours tuned for a light surface, not the HUD's own: the pale greens and
-	   ambers that read well on near-black are close to invisible here. A shade darker than
-	   the panel's own, because this surface is translucent and a dark model behind it takes
-	   the composited background down with it — the panel green measured 4.26 there. */
-	--tdv-hud-success: #1f6b34;
-	--tdv-hud-warning: #7a5600;
-	--tdv-hud-error: #b32424;
 }
 
 [data-tdv-theme="dark"] {
@@ -217,8 +198,28 @@
 	   than white — white on it measures 2.2:1. */
 	--tdv-color-on-error: #1e1e1e;
 
-	/* The canvas chrome, already dark in the base palette and stated again so the two
-	   cannot drift apart when one of them is edited. */
+}
+
+/* ===================== Canvas chrome: against the scene ===================== */
+
+/*
+ * The viewer's header, the performance HUD, and the panels that float on the render.
+ *
+ * These are drawn on the scene, and the scene is the theme: light on Light, dark on Dark.
+ * So they take the opposite of it. Matching it gives a near-white HUD on a white render and
+ * a near-black one on a dark render — a panel with no edge against what is behind it, which
+ * is what a light HUD on the light theme looked like.
+ *
+ * Keyed on the resolved theme rather than the chosen one. On Auto nothing is chosen and the
+ * scene still has a colour, taken from the instance; the class `useTheme` writes says which
+ * it resolved to, and that is the question this palette answers.
+ *
+ * On `body` rather than `:root` because custom properties inherit from the nearest ancestor
+ * that sets them, and the panel palette above sets its own on the document element. `body`
+ * is nearer to everything the viewer draws, so these win without needing to outrank it.
+ */
+
+body.theme--light {
 	--tdv-canvas-dark: #171717;
 	--tdv-hud-bg: rgb(24, 24, 24, 0.85);
 	--tdv-hud-text: #f5f5f5;
@@ -231,6 +232,27 @@
 	--tdv-hud-success: #5ad471;
 	--tdv-hud-warning: #ffc95c;
 	--tdv-hud-error: #ff8a80;
+}
+
+body.theme--dark {
+	/* Opaque enough that a bright render behind it does not show through into the text: the
+	   dark chrome can afford 85% against a lit model, this cannot. */
+	--tdv-canvas-dark: #f7f7f7;
+	--tdv-hud-bg: rgb(252, 252, 252, 0.92);
+	--tdv-hud-text: #222;
+	--tdv-hud-text-secondary: #595959;
+	--tdv-hud-chip-bg: rgb(0, 0, 0, 0.08);
+	--tdv-hud-chip-text: #333;
+	--tdv-hud-hover-bg: rgb(0, 0, 0, 0.06);
+	--tdv-hud-border: rgb(0, 0, 0, 0.12);
+	--tdv-hud-sunken-bg: rgb(0, 0, 0, 0.05);
+
+	/* The status colours tuned for a light surface, and a shade darker than the panels'
+	   own: this surface is translucent, so a dark model behind it takes the composited
+	   background down with it — the panel green measured 4.26 there. */
+	--tdv-hud-success: #1f6b34;
+	--tdv-hud-warning: #7a5600;
+	--tdv-hud-error: #b32424;
 }
 
 /* ============================ Typography ============================ */

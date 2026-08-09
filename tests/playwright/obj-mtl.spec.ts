@@ -332,10 +332,18 @@ test.describe('Viewer smoke', () => {
     await page.getByText(open, { exact: true }).first().click()
     await page.waitForSelector(selector, { timeout: 5000 })
     if (theme !== 'auto') {
+      // Both signals the app writes: the attribute that says a theme was chosen, and the
+      // class that says what it resolved to. The panels key off the first, the canvas
+      // chrome off the second.
+      //
       // After the panel is open, not before: the app restores its stored preference during
-      // startup, and on Auto that clears this attribute — a stamp applied earlier is wiped
+      // startup, and on Auto that clears the attribute — a stamp applied earlier is wiped
       // by the app's own initialisation and the check silently measures the base palette.
-      await page.evaluate((t) => document.documentElement.setAttribute('data-tdv-theme', t), theme)
+      await page.evaluate((t) => {
+        document.documentElement.setAttribute('data-tdv-theme', t)
+        document.body.classList.remove('theme--light', 'theme--dark')
+        document.body.classList.add(`theme--${t}`)
+      }, theme)
     }
 
     const unreadable = await page.evaluate((panelSelector) => {
@@ -393,8 +401,12 @@ test.describe('Viewer smoke', () => {
 
     /*
      * And the palette actually took. Without this, a stamp that changed nothing would run
-     * the same dark check three times and report three passes — the panels would be
-     * legible, in one theme, and the other two names in the report would be fiction.
+     * the same check three times and report three passes — the panels would be legible, in
+     * one theme, and the other two names in the report would be fiction.
+     *
+     * These three all float on the render, so each is drawn in the chrome palette, which is
+     * the inverse of the theme: dark panels on the light theme, light panels on the dark
+     * one. A panel that matched its theme would have no edge against the scene behind it.
      */
     if (theme !== 'auto') {
       const painted = await page.evaluate((panelSelector) => {
@@ -402,7 +414,7 @@ test.describe('Viewer smoke', () => {
           .match(/[\d.]+/g) || []).map(Number)
         return (0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]) > 128 ? 'light' : 'dark'
       }, selector)
-      expect(painted).toBe(theme)
+      expect(painted).toBe(theme === 'light' ? 'dark' : 'light')
     }
   })
   }

@@ -65,9 +65,17 @@ describe('the dark theme signal', () => {
 	 * both classes, which no element does. That reads as a working rule and behaves as a
 	 * deleted one, the same failure this whole guard exists for, so it is checked here
 	 * rather than left to be discovered the same way.
+	 *
+	 * `body.theme--dark` is the exception and the only one: the body is the element the
+	 * class is put on, so that compound selects exactly the element that carries it. The
+	 * design system uses it to set the canvas chrome's tokens on the nearest ancestor of
+	 * everything the viewer draws.
 	 */
 	it.each(files.map((f) => f.name))('%s keeps the theme class out of a compound selector', (name) => {
 		const { text } = files.find((f) => f.name === name)
-		expect([...text.matchAll(/[\w\])]\.theme--(?:dark|light)\b/g)].map((m) => m[0])).toEqual([])
+		const compounds = [...text.matchAll(/([\w\])]+)\.theme--(?:dark|light)\b/g)]
+			.filter((m) => m[1] !== 'body')
+			.map((m) => m[0])
+		expect(compounds).toEqual([])
 	})
 })
