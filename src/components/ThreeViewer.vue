@@ -671,20 +671,24 @@
 							</button>
 						</div>
 						<!--
-							`:value` and an event, not `v-model`.
+							`:value` and an event, not `v-model`: `annotations` is exposed by the
+							composable through `readonly()`, and a `v-model` writes into a proxy
+							that ignores it — a warning in a development build, silence in a
+							production one, and a field that reverts either way.
 
-							`annotations` is exposed by the composable through `readonly()`, so
-							`v-model` wrote to a readonly proxy: a warning in a development build,
-							silence in a production one, and either way Vue re-rendered the field
-							back to its stored value. The note could not be typed into — and the
-							blur handler then forwarded that same unchanged value to the composable,
-							so both directions were broken and neither could be seen from the other.
+							The event is `input`, not `change`. `:value` leaves the DOM holding
+							text the component does not know about, and Vue writes `el.value` back
+							to the bound string whenever it patches this subtree. Committing on
+							`change` leaves that window open for as long as the field has focus,
+							and the panel does re-render mid-note: typing "Left bracket" a key at
+							a time left the field reading "Annotation 1t". Committing per
+							keystroke keeps the two in step, so a patch rewrites the same string.
 						-->
 						<input
 							:value="annotation.text"
 							class="annotation-text-input"
 							:placeholder="t('threedviewer', 'Enter annotation text...')"
-							@change="updateAnnotationText(annotation.id, $event.target.value)">
+							@input="updateAnnotationText(annotation.id, $event.target.value)">
 						<div class="canvas-panel-row">
 							<span>{{ t('threedviewer', 'Position') }}</span>
 							<span class="point-coords">({{ annotation.point.x.toFixed(2) }}, {{ annotation.point.y.toFixed(2) }}, {{ annotation.point.z.toFixed(2) }})</span>
