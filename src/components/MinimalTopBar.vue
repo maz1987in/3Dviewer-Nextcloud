@@ -259,7 +259,7 @@ export default {
 	overflow: hidden;
 	font-size: var(--tdv-font-size-body);
 	font-weight: var(--tdv-font-weight-medium);
-	color: #fff;
+	color: var(--tdv-hud-text);
 	text-overflow: ellipsis;
 	white-space: nowrap;
 
@@ -278,7 +278,7 @@ export default {
    light surface and disappears here. */
 .tdv-btn--on-canvas.is-active {
 	background: var(--tdv-hud-chip-bg);
-	color: #fff;
+	color: var(--tdv-hud-text);
 }
 
 .tools-btn {
@@ -337,7 +337,7 @@ export default {
 	font-family: var(--tdv-font-mono);
 	font-size: var(--tdv-font-size-secondary);
 	font-weight: var(--tdv-font-weight-medium);
-	color: #eee;
+	color: var(--tdv-hud-text);
 }
 
 /* Topbar color picker */
@@ -348,7 +348,10 @@ export default {
 	width: 40px;
 	height: 36px;
 	border-radius: 8px;
-	background: #fff;
+
+	/* The well behind a colour input, which is a swatch of the user's own colour: it needs
+	   a neutral behind it in either theme, not the chrome's own surface. */
+	background: var(--tdv-color-on-primary);
 }
 
 .topbar-color-picker input[type="color"] {

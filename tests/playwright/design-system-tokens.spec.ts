@@ -27,8 +27,20 @@ const DESIGN_SYSTEM_CSS = readFileSync(
 	'utf-8',
 )
 
-/** Token declarations in the sheet, as [name, value]. */
-const tokens = [...DESIGN_SYSTEM_CSS.matchAll(/(--tdv-[a-z0-9-]+)\s*:\s*([^;]+);/g)]
+/*
+ * Token declarations in the sheet, as [name, value] — the base palette only.
+ *
+ * The viewer's own Light and Dark restate most of these names further down the file, and a
+ * probe per declaration rather than per token puts three elements on the page carrying the
+ * same id. What is under test here is what a token resolves to with no theme chosen, which
+ * is the base block; the overrides are checked in `themeOverride.test.js`, where being able
+ * to compare the three palettes against each other is the point.
+ */
+const BASE_BLOCK = DESIGN_SYSTEM_CSS.slice(
+	DESIGN_SYSTEM_CSS.indexOf(':root {'),
+	DESIGN_SYSTEM_CSS.indexOf('\n}'),
+)
+const tokens = [...BASE_BLOCK.matchAll(/(--tdv-[a-z0-9-]+)\s*:\s*([^;]+);/g)]
 	.map((m) => [m[1], m[2].trim()] as [string, string])
 
 /** The ones that hold a colour, which is what a computed background can be read back from. */

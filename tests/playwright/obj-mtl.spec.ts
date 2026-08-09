@@ -307,12 +307,23 @@ test.describe('Viewer smoke', () => {
    * was actually painted, for every panel that floats on the canvas rather than only the
    * one that was reported.
    */
+  /*
+   * Each panel is checked in every palette the viewer can be in. The viewer's own theme
+   * control now moves these surfaces as well as the scene, and a light palette is where a
+   * colour left behind as a literal shows up — white-on-white is invisible in exactly the
+   * theme it was written for and reviewed in.
+   *
+   * The palette is stamped rather than clicked through the control: what the control does
+   * is settled in `themeSignal.test.js`, and what is at issue here is what gets painted
+   * once a palette is in effect.
+   */
+  for (const theme of ['auto', 'light', 'dark'] as const) {
   for (const [label, open, selector] of [
     ['statistics', 'Model Statistics', '.model-stats-overlay'],
     ['measurements', 'Measurement', '.measurement-overlay'],
     ['annotations', 'Annotation', '.annotation-overlay'],
   ] as const) {
-  test(`every word in the ${label} panel is legible`, async ({ page }) => {
+  test(`every word in the ${label} panel is legible on the ${theme} palette`, async ({ page }) => {
     await page.goto(server.url)
     await page.waitForSelector('.minimal-top-bar', { timeout: 20000 })
     await page.waitForSelector('canvas', { timeout: 20000 })
@@ -320,6 +331,12 @@ test.describe('Viewer smoke', () => {
     await page.waitForSelector('.slide-out-panel', { timeout: 5000 })
     await page.getByText(open, { exact: true }).first().click()
     await page.waitForSelector(selector, { timeout: 5000 })
+    if (theme !== 'auto') {
+      // After the panel is open, not before: the app restores its stored preference during
+      // startup, and on Auto that clears this attribute — a stamp applied earlier is wiped
+      // by the app's own initialisation and the check silently measures the base palette.
+      await page.evaluate((t) => document.documentElement.setAttribute('data-tdv-theme', t), theme)
+    }
 
     const unreadable = await page.evaluate((panelSelector) => {
       const parse = (c: string) => (c.match(/[\d.]+/g) || []).map(Number)
@@ -373,7 +390,22 @@ test.describe('Viewer smoke', () => {
       return bad
     }, selector)
     expect(unreadable).toEqual([])
+
+    /*
+     * And the palette actually took. Without this, a stamp that changed nothing would run
+     * the same dark check three times and report three passes — the panels would be
+     * legible, in one theme, and the other two names in the report would be fiction.
+     */
+    if (theme !== 'auto') {
+      const painted = await page.evaluate((panelSelector) => {
+        const c = (getComputedStyle(document.querySelector(panelSelector)!).backgroundColor
+          .match(/[\d.]+/g) || []).map(Number)
+        return (0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]) > 128 ? 'light' : 'dark'
+      }, selector)
+      expect(painted).toBe(theme)
+    }
   })
+  }
   }
 
   /*

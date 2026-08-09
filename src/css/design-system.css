@@ -11,10 +11,12 @@
  *
  * The one deliberate exception is the canvas chrome. "Canvas dark #171717" is scoped by
  * the sheet to the viewer header and HUD, and the HUD variant is described as reserved
- * for overlays sitting on the 3D canvas. Those must stay dark against the rendered scene
- * whatever the UI theme is doing, so they are fixed rather than themed — a light-theme
- * HUD would be unreadable over a dark model, which is the situation the fixed value
- * exists to prevent.
+ * for overlays sitting on the 3D canvas. Those are fixed here rather than themed, so that
+ * an instance the viewer is only following does not decide the readability of an overlay
+ * that sits on a rendered model.
+ *
+ * They are not fixed against the viewer's own theme control, which is further down: that
+ * is a decision about the viewer specifically, and it moves the whole viewer, HUD and all.
  */
 
 :root {
@@ -59,6 +61,11 @@
 	--tdv-color-warning-surface: var(--color-warning, #fdf0d5);
 	--tdv-color-error: var(--color-error-text, #b32424);
 	--tdv-color-error-surface: var(--color-error, #fde8e8);
+
+	/* What a destructive button's label is drawn in — it sits on the error colour itself,
+	   not on the pale surface beside it, so it is the one status colour that needs a
+	   partner rather than a background. */
+	--tdv-color-on-error: #fff;
 
 	/* -------- Canvas chrome: deliberately not themed, see the header note -------- */
 	--tdv-canvas-dark: #171717;
@@ -123,6 +130,107 @@
 	--tdv-shadow-panel: 0 4px 16px rgb(0, 0, 0, 0.08);
 	--tdv-shadow-floating: 0 8px 32px rgb(0, 0, 0, 0.16);
 	--tdv-shadow-dialog: 0 8px 40px rgb(0, 0, 0, 0.12);
+}
+
+/* ======================= An explicit theme choice ======================= */
+
+/*
+ * The viewer's own Light and Dark, from the Theme control in the tools panel.
+ *
+ * Auto is the block above: the tokens point at Nextcloud's variables, so the viewer is
+ * whatever the instance is and a themed instance keeps its own colours. Choosing Light or
+ * Dark is a decision about the viewer specifically, and the two blocks below therefore
+ * state their colours outright instead of reading the page — on a dark Nextcloud,
+ * `--color-main-background` is dark, so a "light" palette assembled from it would come out
+ * dark. That is the trap `darkThemeSurfaces` guards one layer up, and the reason the
+ * fallbacks in the base block are no protection here: they only apply where Nextcloud is
+ * absent, and it never is.
+ *
+ * The accent is the exception in both. Primary is picked to work on either surface and is
+ * the one colour an admin sets deliberately, so it stays the instance's own.
+ *
+ * The canvas chrome flips with them. It is fixed dark in the base block because it sits on
+ * the rendered scene and has to stay readable over a dark model; when the viewer is
+ * explicitly light, the whole viewer is light, HUD included. What does not flip is the
+ * chrome drawn *into* the scene — the measurement and annotation labels are textures on
+ * meshes, and their contrast is against the model, not against the UI.
+ */
+
+[data-tdv-theme="light"] {
+	--tdv-color-text: #222;
+	--tdv-color-text-secondary: #595959;
+	--tdv-color-border: #e6e6e6;
+	--tdv-color-border-strong: #d0d0d0;
+	--tdv-color-hover-bg: #ededed;
+	--tdv-color-surface: #fff;
+	--tdv-color-surface-sunken: #f5f5f5;
+	--tdv-color-surface-recessed: #ebebeb;
+	--tdv-color-success: #2d7b41;
+	--tdv-color-success-surface: #e3f4e6;
+	--tdv-color-warning: #7a5600;
+	--tdv-color-warning-surface: #fdf0d5;
+	--tdv-color-error: #b32424;
+	--tdv-color-error-surface: #fde8e8;
+	--tdv-color-on-error: #fff;
+
+	/* Overlays: light enough to read as the same surface as the panels, opaque enough that
+	   a busy render behind them does not show through into the text. */
+	--tdv-canvas-dark: #f7f7f7;
+	--tdv-hud-bg: rgb(252, 252, 252, 0.92);
+	--tdv-hud-text: #222;
+	--tdv-hud-text-secondary: #595959;
+	--tdv-hud-chip-bg: rgb(0, 0, 0, 0.08);
+	--tdv-hud-chip-text: #333;
+	--tdv-hud-hover-bg: rgb(0, 0, 0, 0.06);
+	--tdv-hud-border: rgb(0, 0, 0, 0.12);
+	--tdv-hud-sunken-bg: rgb(0, 0, 0, 0.05);
+
+	/* The status colours tuned for a light surface, not the HUD's own: the pale greens and
+	   ambers that read well on near-black are close to invisible here. A shade darker than
+	   the panel's own, because this surface is translucent and a dark model behind it takes
+	   the composited background down with it — the panel green measured 4.26 there. */
+	--tdv-hud-success: #1f6b34;
+	--tdv-hud-warning: #7a5600;
+	--tdv-hud-error: #b32424;
+}
+
+[data-tdv-theme="dark"] {
+	--tdv-color-text: #f5f5f5;
+	--tdv-color-text-secondary: #aaa;
+	--tdv-color-border: rgb(255, 255, 255, 0.15);
+	--tdv-color-border-strong: rgb(255, 255, 255, 0.28);
+	--tdv-color-hover-bg: rgb(255, 255, 255, 0.12);
+	--tdv-color-surface: #1e1e1e;
+	--tdv-color-surface-sunken: #171717;
+	--tdv-color-surface-recessed: #121212;
+
+	/* Lighter than their light-theme counterparts for the same reason the HUD's are: a
+	   colour tuned for contrast on white disappears against near-black. */
+	--tdv-color-success: #5ad471;
+	--tdv-color-success-surface: rgb(90, 212, 113, 0.16);
+	--tdv-color-warning: #ffc95c;
+	--tdv-color-warning-surface: rgb(255, 201, 92, 0.16);
+	--tdv-color-error: #ff8a80;
+	--tdv-color-error-surface: rgb(255, 138, 128, 0.16);
+
+	/* The dark palette's error is a pale red, so its label is the surface colour rather
+	   than white — white on it measures 2.2:1. */
+	--tdv-color-on-error: #1e1e1e;
+
+	/* The canvas chrome, already dark in the base palette and stated again so the two
+	   cannot drift apart when one of them is edited. */
+	--tdv-canvas-dark: #171717;
+	--tdv-hud-bg: rgb(24, 24, 24, 0.85);
+	--tdv-hud-text: #f5f5f5;
+	--tdv-hud-text-secondary: #aaa;
+	--tdv-hud-chip-bg: rgb(255, 255, 255, 0.15);
+	--tdv-hud-chip-text: #ccc;
+	--tdv-hud-hover-bg: rgb(255, 255, 255, 0.12);
+	--tdv-hud-border: rgb(255, 255, 255, 0.15);
+	--tdv-hud-sunken-bg: rgb(255, 255, 255, 0.07);
+	--tdv-hud-success: #5ad471;
+	--tdv-hud-warning: #ffc95c;
+	--tdv-hud-error: #ff8a80;
 }
 
 /* ============================ Typography ============================ */
@@ -221,7 +329,7 @@
 
 .tdv-btn.tdv-btn--on-canvas:active {
 	background: var(--tdv-hud-hover-bg) !important;
-	color: #fff !important;
+	color: var(--tdv-hud-text) !important;
 }
 
 .tdv-btn.tdv-btn--primary:hover,
@@ -249,7 +357,7 @@
 
 .tdv-btn.tdv-btn--destructive {
 	background: var(--tdv-color-error);
-	color: #fff;
+	color: var(--tdv-color-on-error);
 }
 
 .tdv-btn.tdv-btn--icon {
@@ -275,9 +383,9 @@
 	height: var(--tdv-icon-size);
 }
 
-/* Icon buttons on the dark canvas chrome cannot use the themed hover. */
+/* Icon buttons on the canvas chrome cannot use the themed hover. */
 .tdv-btn.tdv-btn--on-canvas {
-	color: #ddd;
+	color: var(--tdv-hud-text);
 }
 
 .tdv-btn.tdv-btn--on-canvas:hover,
@@ -483,7 +591,11 @@
 	width: 18px;
 	height: 18px;
 	border-radius: 50%;
-	background: #fff;
+
+	/* The knob rides a track that is the accent when on and a border grey when off, so it
+	   takes the colour written to sit on the accent rather than the theme's surface — on
+	   the dark palette that surface is near-black, and the knob would vanish into it. */
+	background: var(--tdv-color-on-primary);
 	box-shadow: 0 1px 3px rgb(0, 0, 0, 0.3);
 	content: "";
 }
