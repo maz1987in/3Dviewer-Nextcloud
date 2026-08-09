@@ -104,10 +104,13 @@ function markers(scene) {
 		o.matrixWorld.decompose(new THREE.Vector3(), new THREE.Quaternion(), scale)
 		o.geometry.computeBoundingBox()
 		const box = o.geometry.boundingBox
+		const image = o.material?.map?.image
 		found.push({
 			name: o.name,
 			radius: o.geometry.boundingSphere.radius * Math.max(scale.x, scale.y, scale.z),
 			height: (box.max.y - box.min.y) * scale.y,
+			planeAspect: (box.max.x - box.min.x) / (box.max.y - box.min.y),
+			textureAspect: image ? image.width / image.height : null,
 		})
 	})
 	return found
@@ -165,6 +168,21 @@ describe.each([
 		expect(label).toBeDefined()
 		expect(label.height).toBeGreaterThanOrEqual(size * 0.02)
 		expect(label.height).toBeLessThanOrEqual(size * 0.15)
+	})
+
+	/*
+	 * And not stretched. The label is a plane wearing a picture of some text, so the two
+	 * have to be the same shape — a plane wider than its texture stretches every letterform
+	 * horizontally, which is legible enough to read and obviously wrong to look at.
+	 *
+	 * The previous version of the height assertion above passed while this was broken by a
+	 * factor of three and a half: it measured the dimension the change was about and not
+	 * the one the change affected.
+	 */
+	it('does not stretch the reading', () => {
+		const label = measure().find((m) => m.name.startsWith('measurementText'))
+		expect(label.textureAspect).not.toBeNull()
+		expect(label.planeAspect).toBeCloseTo(label.textureAspect, 2)
 	})
 })
 

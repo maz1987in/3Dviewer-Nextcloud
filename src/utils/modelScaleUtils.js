@@ -292,13 +292,13 @@ export function createMarkerSphere(position, options = {}) {
  * @param {THREE.Vector3} position - Position for the label
  * @param {object} options - Configuration options
  * @param {number} options.scale - Visual scale factor (default: 1)
- * @param {number} options.widthMultiplier - Width multiplier (default: 30)
  * @param {number} options.heightMultiplier - Height multiplier (default: 7.5)
  * @param {number} options.yOffset - Y-axis offset multiplier (default: 0)
  * @param {string} options.textColor - Text colour (default: the shared measurement accent)
  * @param {string} options.bgColor - Background colour (default: the shared label surface)
  * @param {number} options.fontSize - Font size in pixels (default: 48)
- * @param {number} options.canvasWidth - Canvas width (default: 512)
+ * @param {number} options.canvasWidth - Minimum canvas width (default: 512; the label
+ *   is sized to its own text, and this is only a floor)
  * @param {number} options.canvasHeight - Canvas height (default: 128)
  * @param {number} options.renderOrder - Render order (default: 997)
  * @param {string} options.name - Mesh name (default: 'textLabel')
@@ -307,7 +307,6 @@ export function createMarkerSphere(position, options = {}) {
 export function createTextMesh(text, position, options = {}) {
 	const {
 		scale = 1,
-		widthMultiplier = 30,
 		heightMultiplier = 7.5,
 		yOffset = 0,
 		textColor = MARKER_COLORS.measurement,
@@ -340,12 +339,19 @@ export function createTextMesh(text, position, options = {}) {
 		 * whatever width its own text needs and never distorted.
 		 */
 		const textHeight = scale * heightMultiplier
-		const aspect = texture.image.width / texture.image.height
-		const textWidth = Math.max(textHeight * aspect, scale * widthMultiplier * 0.25)
+		const textWidth = textHeight * (texture.image.width / texture.image.height)
 
-		// Ensure minimum sizes for visibility (only for extremely small scales to prevent invisible text)
-		const finalWidth = Math.max(textWidth, 0.01)
-		const finalHeight = Math.max(textHeight, 0.0025)
+		/*
+		 * A floor on visibility, applied to both sides at once.
+		 *
+		 * Clamping width and height independently is what a minimum size usually looks like,
+		 * and on a small model it reached the width floor long before the height one — so
+		 * the smallest labels were the most stretched, by a factor of two and a half. Growing
+		 * the whole label until it clears both floors keeps its shape.
+		 */
+		const growth = Math.max(1, 0.01 / textWidth, 0.0025 / textHeight)
+		const finalWidth = textWidth * growth
+		const finalHeight = textHeight * growth
 
 		// Create plane geometry
 		const geometry = new THREE.PlaneGeometry(finalWidth, finalHeight)
