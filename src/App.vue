@@ -1489,6 +1489,52 @@ export default {
 	margin-top: 0 !important;
 }
 
+/*
+ * Nextcloud's navigation toggle, while the viewer is what the app content holds.
+ *
+ * Asked of the DOM with `:has()` rather than tracked in a class this component sets: the
+ * toggle belongs to the navigation, which is a sibling of the app content, so the nearest
+ * element that can carry the answer is NcContent's own root — and a class bound onto that
+ * from here is applied at mount and never updated again, so it says "viewer" while the
+ * file browser is on screen. `:has(#viewer-wrapper)` asks the same question of the element
+ * that actually answers it, and the browser keeps it current.
+ *
+ * The toggle is drawn over the top-left of the app content, which is inside the viewer's
+ * top bar — the bar reserves 45px of start padding for it rather than put Reset underneath
+ * it. Reserving the space is only half of hosting it: the bar paints the canvas chrome
+ * behind the button, and the button is coloured for Nextcloud's own light surface.
+ *
+ * Left alone it arrives as `--color-main-text` on near-black. At rest it hides that by
+ * painting an opaque `--color-main-background` square behind itself — a white box punched
+ * into the bar — and on hover that square drops to 8% of the primary, leaving #222 on
+ * #171717 at 1.07:1. Which is exactly what a disabled control looks like, and is how it
+ * was read.
+ *
+ * `!important` rather than stacked classes: what is being overridden is
+ * `.button-vue--tertiary[data-v-…]:not(.button-vue--legacy34):hover:not(:disabled)` and a
+ * focus ring that is itself `!important`. There is one class here to name, so nothing
+ * built out of it reaches (0,5,0) — and a stack counted against today's vendor selector
+ * would stop winning, silently, the next time that selector gains a `:not()`.
+ */
+.content:has(#viewer-wrapper) {
+	:deep(.app-navigation-toggle) {
+		background-color: transparent !important;
+		color: var(--tdv-hud-text) !important;
+	}
+
+	:deep(.app-navigation-toggle:hover) {
+		background-color: var(--tdv-hud-hover-bg) !important;
+	}
+
+	// The vendor's ring is `--color-main-text` inside a `--color-main-background` halo.
+	// Both are the page's colours, and neither is visible on the chrome.
+	:deep(.app-navigation-toggle:focus-visible) {
+		background-color: var(--tdv-hud-hover-bg) !important;
+		outline: 2px solid var(--tdv-hud-text) !important;
+		box-shadow: none !important;
+	}
+}
+
 #viewer-wrapper {
 	// Establishes the containing block for the viewer's absolutely-positioned
 	// overlays — the top bar, panels and toasts. Without it they resolve against a

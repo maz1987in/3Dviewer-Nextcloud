@@ -74,6 +74,38 @@ function buildHtmlWrapper() {
     #threedviewer { position: absolute; inset: 0; }
 
     /*
+     * NcContent's own root, which Nextcloud's server stylesheet lays out and this fixture
+     * did not. Without it the element is a bare div: the navigation takes its 300px, the
+     * app content beside it is left 0px wide, and the whole viewer — bar, canvas, panels —
+     * renders into a zero-width column. Every geometry this file measured was of that.
+     */
+    #content-vue { display: flex; width: 100%; height: 100%; }
+
+    /*
+     * The colours Nextcloud's theming app serves on every page. The app's own tokens name
+     * these with fallbacks, so their absence is invisible in what this app draws — but the
+     * Nextcloud components bundled into it read them without one, and a component styled
+     * in a variable that does not exist paints nothing at all here while painting an
+     * opaque surface on the instance.
+     */
+    :root {
+      --color-main-background: #ffffff;
+      --color-main-text: #222222;
+      --color-background-hover: #f5f5f5;
+      --color-primary-element: #0082c9;
+
+      /* And the metrics, read off a Nextcloud 34. The navigation toggle is placed by two
+         of these, so without them it lands somewhere the instance never puts it. */
+      --header-height: 50px;
+      --default-clickable-area: 34px;
+      --default-grid-baseline: 4px;
+      --border-radius: 4px;
+      --border-radius-element: 8px;
+      --default-font-size: 15px;
+      --font-weight-element: 500;
+    }
+
+    /*
      * The button rules Nextcloud's server stylesheet applies to every page, trimmed to
      * their button arms. Without them this fixture measures an app that has the page to
      * itself, which no user ever sees — and the states are exactly where that difference
@@ -358,10 +390,16 @@ test.describe('Viewer smoke', () => {
       // After the panel is open, not before: the app restores its stored preference during
       // startup, and on Auto that clears the attribute — a stamp applied earlier is wiped
       // by the app's own initialisation and the check silently measures the base palette.
+      //
+      // `toggle(name, force)` rather than remove-then-add: re-adding a class the element
+      // already has still takes it away for an instant, and the controller transitions its
+      // colours over 140ms, so the second stamp restarted every one of them and the
+      // measurement below read the palette it was leaving. Written this way the repeat is
+      // genuinely a no-op.
       const stamp = async () => await page.evaluate((t) => {
         document.documentElement.setAttribute('data-tdv-theme', t)
-        document.body.classList.remove('theme--light', 'theme--dark')
-        document.body.classList.add(`theme--${t}`)
+        document.body.classList.toggle('theme--light', t === 'light')
+        document.body.classList.toggle('theme--dark', t === 'dark')
       }, theme)
       // Twice, with a beat between: the app restores its stored preference during startup,
       // and on Auto that clears both signals. A single stamp is a race — when it lost, the
@@ -369,6 +407,18 @@ test.describe('Viewer smoke', () => {
       await stamp()
       await page.waitForTimeout(400)
       await stamp()
+
+      /*
+       * And then let the palette arrive. Controls that transition their colours are part
+       * way between the two palettes for as long as that runs, and a colour part way
+       * between near-white and near-black lands on the surface it is being measured
+       * against: the controller's rail read 1.03:1 here, against a background that had
+       * already changed. Waiting on the transitions themselves rather than on a number of
+       * milliseconds, which is the same guess that made this measurable in the first place.
+       */
+      await page.waitForFunction(() => document.getAnimations()
+        .filter((a) => a instanceof CSSTransition)
+        .every((a) => a.playState === 'finished'), null, { timeout: 5000 })
     }
 
     const unreadable = await page.evaluate((panelSelector) => {
@@ -599,6 +649,106 @@ test.describe('Viewer smoke', () => {
       return result
     })
     expect(panel).toEqual(hud)
+  })
+
+  /*
+   * The one control on the top bar that this app does not own.
+   *
+   * Nextcloud draws its navigation toggle over the top-left of the app content, which is
+   * inside the bar's own box — the bar reserves 45px of start padding for it rather than
+   * put Reset underneath it. But reserving the space is only half of hosting the button:
+   * the bar also paints the canvas chrome behind it, and the toggle is coloured for
+   * Nextcloud's own light surface, in `--color-main-text`.
+   *
+   * So it arrives as a near-black icon on a near-black bar. At rest it hides that by
+   * painting an opaque `--color-main-background` square behind itself — a white box punched
+   * into the bar — and on hover that square drops to 8% of the primary, leaving #222 on
+   * #171717 at 1.07:1. Which reads exactly as a disabled control, because a greyed-out
+   * icon is the one thing that looks like.
+   *
+   * Both states are checked. Fixing only the hover leaves the white box, and fixing only
+   * the box makes the hover worse.
+   */
+  test('the navigation toggle is legible on the bar it is drawn on', async ({ page }) => {
+    await page.goto(server.url)
+    await page.waitForSelector('.minimal-top-bar', { timeout: 20000 })
+    await page.waitForSelector('.app-navigation-toggle', { timeout: 20000 })
+
+    const read = () => page.evaluate(() => {
+      const parse = (c: string) => {
+        const n = (c.match(/[\d.]+/g) || []).map(Number)
+        return c.startsWith('color(') ? [n[0] * 255, n[1] * 255, n[2] * 255, ...n.slice(3)] : n
+      }
+      const over = (c: number[], b: number[]) => {
+        const a = c.length > 3 ? c[3] : 1
+        return [0, 1, 2].map((i) => c[i] * a + b[i] * (1 - a))
+      }
+      const lum = ([r, g, b]: number[]) => {
+        const ch = (v: number) => { const s = v / 255; return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4 }
+        return 0.2126 * ch(r) + 0.7152 * ch(g) + 0.0722 * ch(b)
+      }
+      const ratio = (x: number[], y: number[]) => {
+        const [hi, lo] = [lum(x), lum(y)].sort((a, b) => b - a)
+        return (hi + 0.05) / (lo + 0.05)
+      }
+
+      const toggle = document.querySelector('.app-navigation-toggle')!
+      const bar = document.querySelector('.minimal-top-bar')!
+      const barBg = parse(getComputedStyle(bar).backgroundColor)
+      const surface = over(parse(getComputedStyle(toggle).backgroundColor), barBg)
+      const icon = over(parse(getComputedStyle(toggle).color), surface)
+
+      const t = toggle.getBoundingClientRect()
+      const b = bar.getBoundingClientRect()
+      return {
+        // Whether the premise holds: a toggle somewhere else needs none of this.
+        onTheBar: t.left >= b.left && t.right <= b.right && t.top >= b.top && t.bottom <= b.bottom,
+        contrast: ratio(icon, surface),
+        // How far its own surface departs from the bar's, per channel.
+        boxed: Math.max(...[0, 1, 2].map((i) => Math.abs(surface[i] - barBg[i]))),
+      }
+    })
+
+    const rest = await read()
+    expect(rest.onTheBar).toBe(true)
+    // A control that draws its own surface across a bar is a hole in the bar.
+    expect(rest.boxed).toBeLessThanOrEqual(24)
+    // 3:1, the threshold for a graphic that carries meaning without text beside it.
+    expect(rest.contrast).toBeGreaterThanOrEqual(3)
+
+    await page.hover('.app-navigation-toggle')
+    const hovered = await read()
+    expect(hovered.contrast).toBeGreaterThanOrEqual(3)
+  })
+
+  /*
+   * And only while the viewer is what the app content holds.
+   *
+   * The same toggle, in the same place, is over the file browser on the other branch — a
+   * light list, where the chrome's own near-white would be invisible. The colours above
+   * are right for one of the two things this app shows and wrong for the other, so the
+   * rule that applies them is conditional, and this is the condition.
+   */
+  test('the navigation toggle keeps Nextcloud\'s own colours over the file browser', async ({ page }) => {
+    await page.goto(server.url)
+    await page.waitForSelector('.minimal-top-bar', { timeout: 20000 })
+    await page.getByRole('link', { name: 'By Folders' }).click()
+    await page.waitForSelector('.minimal-top-bar', { state: 'detached', timeout: 10000 })
+
+    /*
+     * Polled rather than read once: the vendor button transitions `color` over 100ms, so
+     * the value straight after the switch is a point on that curve — 231 on one run and
+     * 245 on the next, neither of them either of the two colours in question.
+     */
+    await expect.poll(() => page.evaluate(() => {
+      const probe = document.createElement('span')
+      document.body.appendChild(probe)
+      probe.style.color = 'var(--color-main-text)'
+      const pageText = getComputedStyle(probe).color
+      probe.remove()
+      const toggle = getComputedStyle(document.querySelector('.app-navigation-toggle')!).color
+      return toggle === pageText ? 'the page\'s own text colour' : `${toggle}, and the page's is ${pageText}`
+    })).toBe('the page\'s own text colour')
   })
 
   test('the tools panel opens clear of the bar that opens it', async ({ page }) => {
