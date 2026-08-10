@@ -115,7 +115,7 @@
 					:aria-label="t('threedviewer', 'Recentre view')"
 					:title="t('threedviewer', 'Recentre — keeps your zoom and angle')"
 					@click.stop="resetPanning">
-					⌖
+					<ViewerIcon name="recenter" :size="18" />
 				</button>
 			</div>
 		</div>

@@ -31,7 +31,7 @@
 							</div>
 						</div>
 						<div class="help-item">
-							<ViewerIcon class="help-icon" name="resetView" :size="18" />
+							<ViewerIcon class="help-icon" name="rotateMode" :size="18" />
 							<div class="help-text">
 								<h4>{{ t('threedviewer', 'Rotation Mode') }}</h4>
 								<p>{{ t('threedviewer', 'Click or drag on the circular ring to rotate the model. Click farther from center for faster rotation.') }}</p>
@@ -45,21 +45,21 @@
 							</div>
 						</div>
 						<div class="help-item">
-							<span class="help-icon">±</span>
+							<ViewerIcon class="help-icon" name="zoomIn" :size="18" />
 							<div class="help-text">
 								<h4>{{ t('threedviewer', 'Zoom Controls') }}</h4>
 								<p>{{ t('threedviewer', 'Use the + and - buttons on the controller to zoom in or out. Hold to zoom continuously.') }}</p>
 							</div>
 						</div>
 						<div class="help-item">
-							<span class="help-icon">⌂</span>
+							<ViewerIcon class="help-icon" name="recenter" :size="18" />
 							<div class="help-text">
 								<h4>{{ t('threedviewer', 'Reset Position') }}</h4>
 								<p>{{ t('threedviewer', 'In panning mode, click the reset button to return the camera to the centered position.') }}</p>
 							</div>
 						</div>
 						<div class="help-item">
-							<ViewerIcon class="help-icon" name="panMode" :size="18" />
+							<ViewerIcon class="help-icon" name="dragHandle" :size="18" />
 							<div class="help-text">
 								<h4>{{ t('threedviewer', 'Drag to Move') }}</h4>
 								<p>{{ t('threedviewer', 'Drag the controller by its edge to reposition it anywhere on the screen. Position is saved automatically.') }}</p>
@@ -80,21 +80,21 @@
 							</div>
 						</div>
 						<div class="help-item">
-							<ViewerIcon class="help-icon" name="measurement" :size="18" />
+							<ViewerIcon class="help-icon" name="fitToView" :size="18" />
 							<div class="help-text">
 								<h4>{{ t('threedviewer', 'Fit to View') }}</h4>
 								<p>{{ t('threedviewer', 'Automatically adjust camera to fit the entire model on screen.') }}</p>
 							</div>
 						</div>
 						<div class="help-item">
-							<ViewerIcon class="help-icon" name="resetView" :size="18" />
+							<ViewerIcon class="help-icon" name="autoRotate" :size="18" />
 							<div class="help-text">
 								<h4>{{ t('threedviewer', 'Auto-Rotate') }}</h4>
 								<p>{{ t('threedviewer', 'Automatically rotate the model continuously. You can still zoom while rotating.') }}</p>
 							</div>
 						</div>
 						<div class="help-item">
-							<ViewerIcon class="help-icon" name="visibility" :size="18" />
+							<ViewerIcon class="help-icon" name="projection" :size="18" />
 							<div class="help-text">
 								<h4>{{ t('threedviewer', 'Camera Projection') }}</h4>
 								<p>{{ t('threedviewer', 'Toggle between Perspective (realistic depth) and Orthographic (parallel lines) camera modes.') }}</p>
@@ -108,14 +108,14 @@
 					<h3>{{ t('threedviewer', 'DISPLAY Options') }}</h3>
 					<div class="help-grid">
 						<div class="help-item">
-							<span class="help-icon">⊞</span>
+							<ViewerIcon class="help-icon" name="grid" :size="18" />
 							<div class="help-text">
 								<h4>{{ t('threedviewer', 'Grid') }}</h4>
 								<p>{{ t('threedviewer', 'Show or hide the ground grid. Helps visualize model orientation and scale.') }}</p>
 							</div>
 						</div>
 						<div class="help-item">
-							<ViewerIcon class="help-icon" name="projection" :size="18" />
+							<ViewerIcon class="help-icon" name="axes" :size="18" />
 							<div class="help-text">
 								<h4>{{ t('threedviewer', 'Axes') }}</h4>
 								<p>{{ t('threedviewer', 'Show or hide coordinate axes (Red=X, Green=Y, Blue=Z).') }}</p>
@@ -192,7 +192,7 @@
 							</div>
 						</div>
 						<div class="help-item">
-							<ViewerIcon class="help-icon" name="package" :size="18" />
+							<ViewerIcon class="help-icon" name="exportModel" :size="18" />
 							<div class="help-text">
 								<h4>{{ t('threedviewer', 'Export Model') }}</h4>
 								<p>{{ t('threedviewer', 'Download the model as GLB (with textures), STL (for 3D printing), or OBJ (universal format). Large models show a triangle count warning before export.') }}</p>
@@ -512,7 +512,6 @@ export default {
 }
 
 .help-icon {
-	font-size: 28px;
 	flex-shrink: 0;
 	width: 40px;
 	height: 40px;
@@ -704,7 +703,6 @@ export default {
 	}
 
 	.help-icon {
-		font-size: 18px;
 		width: 28px;
 		height: 28px;
 		flex-shrink: 0;
@@ -825,7 +823,6 @@ export default {
 	}
 
 	.help-icon {
-		font-size: 16px;
 		width: 24px;
 		height: 24px;
 	}
