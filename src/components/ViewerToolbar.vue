@@ -301,7 +301,7 @@ export default {
 	align-items: center;
 }
 
-.tb {
+.tb.tb {
 	font-size: 11px;
 	line-height: 1;
 	padding: 6px 8px;
@@ -322,7 +322,7 @@ export default {
 	overflow: hidden;
 }
 
-.tb::before {
+.tb.tb::before {
 	content: '';
 	position: absolute;
 	top: 0;
@@ -333,7 +333,7 @@ export default {
 	transition: left 0.5s;
 }
 
-.tb:hover::before {
+.tb.tb:hover::before {
 	inset-inline-start: 100%;
 }
 
@@ -347,21 +347,21 @@ export default {
 	white-space: nowrap;
 }
 
-.tb[aria-pressed="true"] {
+.tb.tb[aria-pressed="true"] {
 	background: var(--tdv-color-success);
 }
 
-.tb:focus-visible {
+.tb.tb:focus-visible {
 	outline: 2px solid var(--tdv-color-on-primary);
 	outline-offset: 2px;
 }
 
-.tb:hover:not(:disabled) {
+.tb.tb:hover:not(:disabled) {
 	background: var(--tdv-color-primary-hover);
 	transform: translateY(-1px);
 }
 
-.tb:disabled {
+.tb.tb:disabled {
 	opacity: 0.5;
 	cursor: not-allowed;
 	background: var(--tdv-color-surface-sunken);
@@ -534,7 +534,7 @@ export default {
 
 /* High contrast mode */
 @media (prefers-contrast: high) {
-	.tb {
+	.tb.tb {
 		border: 2px solid currentcolor;
 	}
 
@@ -545,11 +545,11 @@ export default {
 
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
-	.tb::before {
+	.tb.tb::before {
 		display: none;
 	}
 
-	.tb:hover {
+	.tb.tb:hover {
 		transform: none;
 	}
 

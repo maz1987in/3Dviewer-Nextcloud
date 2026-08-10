@@ -1567,7 +1567,7 @@ export default {
 	z-index: 1000;
 }
 
-.viewer-action-btn {
+.viewer-action-btn.viewer-action-btn {
 	width: 40px;
 	height: 40px;
 	border: none;
@@ -1583,11 +1583,11 @@ export default {
 	transition: background 0.15s;
 }
 
-.viewer-action-btn:hover {
+.viewer-action-btn.viewer-action-btn:hover {
 	background: rgb(0, 0, 0, 0.75);
 }
 
-.viewer-action-btn.active {
+.viewer-action-btn.viewer-action-btn.active {
 	background: var(--tdv-color-primary);
 }
 

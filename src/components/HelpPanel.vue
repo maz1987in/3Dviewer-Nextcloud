@@ -444,7 +444,7 @@ export default {
 	color: var(--tdv-color-text);
 }
 
-.close-btn {
+.close-btn.close-btn {
 	background: transparent;
 	border: none;
 	color: var(--tdv-color-text);
@@ -456,11 +456,11 @@ export default {
 	transition: background 0.2s ease;
 }
 
-.close-btn:hover {
+.close-btn.close-btn:hover {
 	background: var(--tdv-color-hover-bg);
 }
 
-.close-btn:focus-visible {
+.close-btn.close-btn:focus-visible {
 	outline: 2px solid var(--tdv-color-primary);
 	outline-offset: 2px;
 }
@@ -656,7 +656,7 @@ export default {
 		font-weight: 600;
 	}
 
-	.close-btn {
+	.close-btn.close-btn {
 		font-size: 22px;
 		padding: 6px;
 		min-width: 32px;
@@ -800,7 +800,7 @@ export default {
 		font-size: 14px;
 	}
 
-	.close-btn {
+	.close-btn.close-btn {
 		font-size: 18px;
 		min-width: 28px;
 		min-height: 28px;

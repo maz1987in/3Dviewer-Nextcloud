@@ -4749,7 +4749,7 @@ export default {
 	max-width: none;
 }
 
-.comparison-btn {
+.comparison-btn.comparison-btn {
 	font-size: 11px;
 	line-height: 1;
 	padding: 6px 8px;
@@ -4770,7 +4770,7 @@ export default {
 	overflow: hidden;
 }
 
-.comparison-btn::before {
+.comparison-btn.comparison-btn::before {
 	content: '';
 	position: absolute;
 	top: 0;
@@ -4781,16 +4781,16 @@ export default {
 	transition: left 0.5s;
 }
 
-.comparison-btn:hover::before {
+.comparison-btn.comparison-btn:hover::before {
 	inset-inline-start: 100%;
 }
 
-.comparison-btn:hover {
+.comparison-btn.comparison-btn:hover {
 	background: var(--tdv-color-primary-hover);
 	transform: translateY(-1px);
 }
 
-.comparison-btn:focus-visible {
+.comparison-btn.comparison-btn:focus-visible {
 	outline: 2px solid var(--tdv-color-on-primary);
 	outline-offset: 2px;
 }
@@ -4879,7 +4879,7 @@ export default {
 }
 
 /* Accessibility improvements for comparison controls */
-.comparison-btn:focus-visible {
+.comparison-btn.comparison-btn:focus-visible {
 	outline: 2px solid var(--tdv-color-primary);
 	outline-offset: 2px;
 	box-shadow: 0 0 0 4px rgb(13 71 161 / 20%);
@@ -4887,7 +4887,7 @@ export default {
 
 /* High contrast mode for comparison controls */
 @media (prefers-contrast: high) {
-	.comparison-btn {
+	.comparison-btn.comparison-btn {
 		border: 2px solid currentcolor;
 	}
 
@@ -4898,11 +4898,11 @@ export default {
 
 /* Reduced motion for comparison controls */
 @media (prefers-reduced-motion: reduce) {
-	.comparison-btn::before {
+	.comparison-btn.comparison-btn::before {
 		display: none;
 	}
 
-	.comparison-btn:hover {
+	.comparison-btn.comparison-btn:hover {
 		transform: none;
 	}
 

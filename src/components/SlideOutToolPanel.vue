@@ -929,7 +929,7 @@ export default {
 	color: var(--tdv-color-text);
 }
 
-.close-btn {
+.close-btn.close-btn {
 	background: transparent;
 	border: none;
 	display: flex;
@@ -944,7 +944,7 @@ export default {
 	transition: background 0.2s ease;
 }
 
-.close-btn:hover {
+.close-btn.close-btn:hover {
 	background: var(--tdv-color-hover-bg);
 }
 
@@ -974,7 +974,7 @@ export default {
 	padding-top: 6px;
 }
 
-.section-header {
+.section-header.section-header {
 	width: 100%;
 	display: flex;
 	align-items: center;
@@ -987,6 +987,25 @@ export default {
 	font-weight: var(--tdv-font-weight-bold);
 	cursor: pointer;
 	text-align: start;
+}
+
+/*
+ * Claimed, not left to Nextcloud. A section header is a `<button>`, and Nextcloud paints
+ * every button's hover in the instance's pale primary tint — which under this panel's
+ * secondary-grey label measured 1.9:1 on the dark theme, a header that turns into a pale
+ * blue pill with grey writing on it the moment the pointer crosses it. Its rest state was
+ * already ours; only the states were not.
+ */
+.section-header.section-header:hover,
+.section-header.section-header:focus,
+.section-header.section-header:focus-visible {
+	background: var(--tdv-color-hover-bg);
+	color: var(--tdv-color-text);
+}
+
+.section-header.section-header:active {
+	background: var(--tdv-color-hover-bg) !important;
+	color: var(--tdv-color-text) !important;
 }
 
 .section-title { flex: 1; }
@@ -1207,7 +1226,7 @@ export default {
 	gap: 4px;
 }
 
-.step-btn {
+.step-btn.step-btn {
 	background: transparent;
 	border: 1px solid var(--tdv-color-border);
 	border-radius: 4px;
@@ -1218,7 +1237,7 @@ export default {
 	line-height: 1;
 }
 
-.step-btn:hover { background: var(--tdv-color-hover-bg); }
+.step-btn.step-btn:hover { background: var(--tdv-color-hover-bg); }
 
 .timeline-slider {
 	flex: 1;
@@ -1245,7 +1264,7 @@ export default {
 	margin-bottom: 8px;
 }
 
-.axis-btn {
+.axis-btn.axis-btn {
 	flex: 1;
 	padding: 4px 8px;
 	border: 1px solid var(--tdv-color-border);
@@ -1259,9 +1278,9 @@ export default {
 	transition: all 0.15s ease;
 }
 
-.axis-btn:hover { background: var(--tdv-color-hover-bg); }
+.axis-btn.axis-btn:hover { background: var(--tdv-color-hover-bg); }
 
-.axis-btn.active {
+.axis-btn.axis-btn.active {
 	background: var(--tdv-color-primary);
 	color: var(--tdv-color-on-primary);
 	border-color: var(--tdv-color-primary);
@@ -1366,7 +1385,7 @@ export default {
 	gap: 4px;
 }
 
-.bookmark-name {
+.bookmark-name.bookmark-name {
 	flex: 1;
 	padding: 4px 8px;
 	border: 1px solid var(--tdv-color-border);
@@ -1382,9 +1401,9 @@ export default {
 	transition: background 0.15s ease;
 }
 
-.bookmark-name:hover { background: var(--tdv-color-hover-bg); }
+.bookmark-name.bookmark-name:hover { background: var(--tdv-color-hover-bg); }
 
-.bookmark-delete {
+.bookmark-delete.bookmark-delete {
 	background: transparent;
 	border: none;
 	color: var(--tdv-color-text-secondary);
@@ -1394,7 +1413,7 @@ export default {
 	border-radius: 4px;
 }
 
-.bookmark-delete:hover {
+.bookmark-delete.bookmark-delete:hover {
 	color: var(--tdv-color-error);
 	background: var(--tdv-color-error);
 }
@@ -1521,7 +1540,7 @@ export default {
 	padding: 0;
 }
 
-.palette-clear {
+.palette-clear.palette-clear {
 	width: 22px;
 	height: 22px;
 	border: none;
@@ -1534,7 +1553,7 @@ export default {
 	padding: 0;
 }
 
-.palette-clear:hover {
+.palette-clear.palette-clear:hover {
 	background: var(--tdv-color-surface-recessed);
 }
 

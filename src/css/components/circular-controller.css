@@ -193,7 +193,7 @@
 	box-shadow: 0 8px 26px rgb(0 0 0 / 42%);
 }
 
-.rail-btn {
+.rail-btn.rail-btn {
 	width: 32px;
 	height: 32px;
 	border: 0;
@@ -208,23 +208,23 @@
 	transition: background 0.14s ease-out, color 0.14s ease-out;
 }
 
-.rail-btn:hover:not(:disabled) {
+.rail-btn.rail-btn:hover:not(:disabled) {
 	background: var(--tdv-hud-hover-bg);
 }
 
-.rail-btn:focus-visible {
+.rail-btn.rail-btn:focus-visible {
 	outline: 2px solid var(--tdv-color-primary);
 	outline-offset: -2px;
 }
 
-.rail-btn.active {
+.rail-btn.rail-btn.active {
 	background: var(--tdv-color-primary);
 	color: var(--tdv-color-on-primary);
 }
 
 /* Recentre stays in place and greys out outside pan mode, so nothing below it moves
    when the mode changes. */
-.rail-btn:disabled {
+.rail-btn.rail-btn:disabled {
 	color: var(--tdv-hud-text-secondary);
 	cursor: not-allowed;
 }
@@ -302,7 +302,7 @@
 	.circular-controller,
 	.steer-wedge,
 	.steer-dot,
-	.rail-btn {
+	.rail-btn.rail-btn {
 		transition: none;
 	}
 }
@@ -313,7 +313,7 @@
 		border: 1px solid CanvasText;
 	}
 
-	.rail-btn.active {
+	.rail-btn.rail-btn.active {
 		background: Highlight;
 		color: HighlightText;
 		forced-color-adjust: none;

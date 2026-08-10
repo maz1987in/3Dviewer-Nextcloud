@@ -719,16 +719,16 @@ export default {
 	color: var(--tdv-color-text);
 }
 
-.close-btn {
+.close-btn.close-btn {
 	color: var(--tdv-color-text-secondary);
 	transition: background 0.2s ease;
 }
 
-.close-btn:hover {
+.close-btn.close-btn:hover {
 	background: var(--tdv-color-hover-bg);
 }
 
-.close-btn .icon {
+.close-btn.close-btn .icon {
 	display: block;
 }
 
@@ -801,7 +801,7 @@ export default {
 	text-align: center;
 }
 
-.retry-btn {
+.retry-btn.retry-btn {
 	padding: 8px 16px;
 	background: var(--tdv-color-primary);
 	color: var(--tdv-color-on-primary);
@@ -813,7 +813,7 @@ export default {
 	transition: background 0.2s ease;
 }
 
-.retry-btn:hover {
+.retry-btn.retry-btn:hover {
 	background: var(--tdv-color-primary-hover);
 }
 
@@ -941,7 +941,7 @@ export default {
 	font-size: 12px;
 }
 
-.copy-btn {
+.copy-btn.copy-btn {
 	padding: 6px 10px;
 	border: 1px solid var(--tdv-color-border);
 	border-radius: 6px;
@@ -951,7 +951,7 @@ export default {
 	transition: all 0.15s ease;
 }
 
-.copy-btn:hover {
+.copy-btn.copy-btn:hover {
 	background: var(--tdv-color-hover-bg);
 	border-color: var(--tdv-color-primary);
 }
@@ -1058,7 +1058,7 @@ export default {
 	min-width: 150px;
 }
 
-.slicer-btn {
+.slicer-btn.slicer-btn {
 	display: flex;
 	gap: 8px;
 	align-items: center;
@@ -1083,25 +1083,25 @@ export default {
  * decorative — the round icon tile and the "last used" badge, where it sits behind text
  * rather than being the text.
  */
-.slicer-btn.primary {
+.slicer-btn.slicer-btn.primary {
 	border: 2px solid var(--tdv-color-primary);
 	background: transparent;
 	color: var(--tdv-color-primary-text);
 }
 
 .slicer-btn.primary:hover:not(:disabled),
-.slicer-btn.primary:focus-visible {
+.slicer-btn.slicer-btn.primary:focus-visible {
 	background: var(--tdv-color-primary);
 	color: var(--tdv-color-on-primary);
 }
 
-.slicer-btn.primary:hover:not(:disabled) {
+.slicer-btn.slicer-btn.primary:hover:not(:disabled) {
 	filter: brightness(1.1);
 	transform: translateY(-1px);
 	box-shadow: 0 2px 8px rgb(0, 0, 0, 0.15);
 }
 
-.slicer-btn:disabled {
+.slicer-btn.slicer-btn:disabled {
 	opacity: 0.5;
 	cursor: not-allowed;
 }
@@ -1180,13 +1180,13 @@ export default {
 	.slicer-modal-backdrop,
 	.slicer-modal,
 	.slicer-card,
-	.slicer-btn {
+	.slicer-btn.slicer-btn {
 		animation: none;
 		transition: none;
 	}
 
 	.slicer-card:hover,
-	.slicer-btn:hover {
+	.slicer-btn.slicer-btn:hover {
 		transform: none;
 	}
 }

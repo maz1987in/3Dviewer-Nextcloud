@@ -281,12 +281,12 @@ export default {
 	color: var(--tdv-hud-text);
 }
 
-.tools-btn {
+.tools-btn.tools-btn {
 	margin-inline-start: 4px;
 	padding: 0 18px;
 }
 
-.fps-badge {
+.fps-badge.fps-badge {
 	display: flex;
 	gap: 6px;
 	align-items: center;
@@ -312,12 +312,12 @@ export default {
  */
 .fps-badge:hover,
 .fps-badge:focus,
-.fps-badge:focus-visible {
+.fps-badge.fps-badge:focus-visible {
 	background: var(--tdv-hud-hover-bg);
 	color: var(--tdv-hud-text);
 }
 
-.fps-badge:active {
+.fps-badge.fps-badge:active {
 	background: var(--tdv-hud-hover-bg) !important;
 	color: var(--tdv-hud-text) !important;
 }
@@ -398,7 +398,7 @@ export default {
 		padding: 0 4px 0 45px;
 	}
 
-	.fps-badge {
+	.fps-badge.fps-badge {
 		padding: 0 8px;
 	}
 }
@@ -406,14 +406,14 @@ export default {
 /* Accessibility */
 @media (prefers-reduced-motion: reduce) {
 	.tdv-btn,
-	.fps-badge {
+	.fps-badge.fps-badge {
 		transition: none;
 	}
 }
 
 @media (prefers-contrast: high) {
 	.tdv-btn,
-	.fps-badge {
+	.fps-badge.fps-badge {
 		border: 2px solid #fff;
 	}
 }
