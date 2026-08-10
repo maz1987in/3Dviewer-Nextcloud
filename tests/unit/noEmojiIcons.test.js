@@ -95,7 +95,23 @@ describe('an arrow in a label', () => {
 	 */
 	const rendered = (text) => {
 		const template = /<template>([\s\S]*)<\/template>/.exec(text)?.[1] ?? ''
-		const withoutComments = template.replace(/<!--[\s\S]*?-->/g, '')
+
+		/*
+		 * Until it stops changing, rather than once: cutting one comment out can splice what
+		 * surrounded it into another. `<<!-- -->!-- x -->` reduces to `<!-- x -->` in a
+		 * single pass and to nothing here.
+		 *
+		 * CodeQL reports the single pass as incomplete multi-character sanitization, and it
+		 * is right that the code does not do what its name says — though what is read here
+		 * is this repository's own components rather than anything a user sends, so nothing
+		 * was exposed by it.
+		 */
+		let withoutComments = template
+		for (let previous = null; previous !== withoutComments;) {
+			previous = withoutComments
+			withoutComments = withoutComments.replace(/<!--[\s\S]*?-->/g, '')
+		}
+
 		const betweenTags = withoutComments.replace(/<[^>]*>/g, '\n')
 		const visibleAttributes = [...withoutComments
 			.matchAll(/\b(?:title|aria-label|placeholder)="([^"]*)"/g)].map((m) => m[1])
