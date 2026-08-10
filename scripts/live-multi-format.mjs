@@ -25,6 +25,26 @@ const PASS = 'admin'
 const FIXTURES = [
 	{ ext: 'off', file: 'tests/fixtures/tetrahedron.off', mime: 'model/off' },
 	{ ext: 'bim', file: 'tests/fixtures/quad.bim', mime: 'application/dotbim+json' },
+	// The loaders that come from three.js itself, which is the set a three.js upgrade can
+	// break. Each is a different module: a version that drops or renames something one of
+	// them uses fails here and nowhere else — the unit suite never constructs a loader and
+	// the browser suite loads one OBJ.
+	{ ext: 'obj', file: 'tests/fixtures/no-mtl.obj', mime: 'model/obj' },
+	{ ext: 'gltf', file: 'tests/fixtures/triangle.gltf', mime: 'model/gltf+json' },
+	/*
+	 * Draco is the one whose decoder lives outside the bundle: the loader ships in a chunk
+	 * and the wasm is served from `/apps/threedviewer/draco/`, so the two can fall out of
+	 * step in a way nothing else here can — which is exactly what a three.js upgrade risks.
+	 *
+	 * What is asked of it is that the decoder arrives, not that the file decodes. The
+	 * fixture declares `KHR_draco_mesh_compression` over a buffer of four zero bytes: there
+	 * is no Draco payload in it, so no decoder of any version can produce geometry from it.
+	 * It exists to prove the app takes the Draco path, and asking it for a loaded model
+	 * gets a failure that says nothing about the loader.
+	 */
+	{ ext: 'gltf-draco', file: 'tests/fixtures/triangle-draco.gltf', mime: 'model/gltf+json', expect: 'decoder' },
+	{ ext: 'ply', file: 'tests/fixtures/triangle.ply', mime: 'application/octet-stream' },
+	{ ext: 'stl', file: 'tests/fixtures/triangle.stl', mime: 'model/stl' },
 ]
 
 const WASM_PROBES = [
@@ -83,6 +103,12 @@ async function testFormat(page, fixture) {
 	const id = await fileId(remoteName)
 	log(`[${fixture.ext}] uploaded "${remoteName}" as fileId=${id}`)
 
+	// What the page fetched while loading, so a fixture can be judged on the decoder it
+	// pulled in rather than on geometry it was never able to produce.
+	const fetched = []
+	const record = (response) => fetched.push(`${response.status()} ${new URL(response.url()).pathname}`)
+	page.on('response', record)
+
 	// Reset test hooks on the page before each navigation.
 	await page.goto(`${BASE}/apps/threedviewer/f/${id}`, { waitUntil: 'domcontentloaded' })
 
@@ -107,6 +133,17 @@ async function testFormat(page, fixture) {
 		const canvasCount = await page.evaluate(() => document.querySelectorAll('canvas').length)
 		error = `timeout (canvas count: ${canvasCount})`
 	}
+
+	if (fixture.expect === 'decoder') {
+		// Give the decoder a moment to be requested; the model's own failure arrives first.
+		await page.waitForTimeout(1500)
+		page.off('response', record)
+		const decoder = fetched.filter((r) => r.includes('/draco/'))
+		return decoder.some((r) => r.startsWith('200'))
+			? { fixture: fixture.ext, result: 'ok', error: null, sceneInfo: decoder.join(', ') }
+			: { fixture: fixture.ext, result: 'error', error: `decoder not served (${decoder.join(', ') || 'never requested'})`, sceneInfo: null }
+	}
+	page.off('response', record)
 
 	// Also grab mesh count from the scene if load succeeded.
 	let sceneInfo = null
