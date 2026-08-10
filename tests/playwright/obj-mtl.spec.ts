@@ -85,6 +85,14 @@ function buildHtmlWrapper() {
       min-height: var(--default-clickable-area, 34px);
       padding: 8px 12px;
       box-sizing: border-box;
+      /* Both from core/css/inputs.css, and both were missing here. They are what turns a
+         segmented control into three rounded chips floating inside their own track: every
+         button on a Nextcloud page carries a radius and a 3px margin on three sides. A
+         fixture without them renders the control the way the design mockup does and the
+         way the instance never will. */
+      border-radius: var(--border-radius, 8px);
+      margin: 3px;
+      margin-inline-start: 0;
       /* The instance's pale primary tint, which is what Nextcloud actually paints a button
          at rest — not the page background this fixture named for a while. */
       background-color: var(--color-primary-element-light, #e5eff5);
@@ -465,6 +473,48 @@ test.describe('Viewer smoke', () => {
   })
   }
   }
+
+  /*
+   * The format control is one control, not three buttons that happen to be adjacent.
+   *
+   * Nextcloud gives every button on the page a border radius and a 3px margin on three
+   * sides, so the selected segment renders as a rounded chip floating inside the track with
+   * a 5px gap above and below it — while the design mockup, which has no Nextcloud on the
+   * page, shows it flush. Nothing about the rule looks wrong in this app's stylesheet,
+   * because the declarations that break it are not in this app's stylesheet.
+   */
+  test('the format control\'s selected segment fills its slot', async ({ page }) => {
+    await page.goto(server.url)
+    await page.waitForSelector('.minimal-top-bar', { timeout: 20000 })
+    await page.click('[aria-label="Toggle tools panel"]')
+    await page.waitForSelector('.slide-out-panel', { timeout: 5000 })
+    await page.getByText('Export', { exact: true }).first().click()
+    await page.getByText('Send to Slicer', { exact: true }).first().click()
+    await page.waitForSelector('.format-buttons', { timeout: 5000 })
+
+    const fit = await page.evaluate(() => {
+      const track = document.querySelector('.format-buttons')!
+      const active = document.querySelector('.format-btn.active')!
+      const t = track.getBoundingClientRect()
+      const a = active.getBoundingClientRect()
+      const border = parseFloat(getComputedStyle(track).borderTopWidth)
+      return {
+        top: a.top - t.top - border,
+        bottom: t.bottom - a.bottom - border,
+        start: a.left - t.left - border,
+        margin: getComputedStyle(active).margin,
+        radius: getComputedStyle(active).borderRadius,
+      }
+    })
+
+    // Flush against the track's inner edge on the three sides it touches.
+    expect(Math.abs(fit.top)).toBeLessThanOrEqual(0.5)
+    expect(Math.abs(fit.bottom)).toBeLessThanOrEqual(0.5)
+    expect(Math.abs(fit.start)).toBeLessThanOrEqual(0.5)
+    // And square, so the track's own rounding is what shapes the ends.
+    expect(fit.margin).toBe('0px')
+    expect(fit.radius).toBe('0px')
+  })
 
   /*
    * A panel opened from the tools panel is not hidden behind it.

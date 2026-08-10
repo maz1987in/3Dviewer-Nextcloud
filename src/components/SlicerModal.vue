@@ -838,10 +838,25 @@ export default {
 	border-radius: 20px;
 }
 
-.format-btn {
+/*
+ * Doubled class, for the same reason the design system's button primitive is.
+ *
+ * Nextcloud's server stylesheet reaches every button on the page through
+ * `button:not(.button-vue, [class^="vs__"])`, which scores (0,1,1) and beats a single
+ * class. Two of the things it sets are a border radius and `margin: 3px` on three sides,
+ * and inside a segmented control those turn one control into three rounded chips floating
+ * in their own track — a 5px gap above and below the selected segment where the mockup has
+ * none. Its hover rule wins the same way, so the states are doubled too.
+ *
+ * The track's `overflow: hidden` and its radius are what shape the ends, so the segments
+ * themselves are square.
+ */
+.format-btn.format-btn {
 	height: 36px;
+	margin: 0;
 	padding: 0 20px;
 	border: none;
+	border-radius: 0;
 	background: transparent;
 	font-family: inherit;
 	font-size: var(--tdv-font-size-secondary);
@@ -851,15 +866,31 @@ export default {
 	transition: background 0.15s ease;
 }
 
-.format-btn:hover,
-.format-btn:focus,
-.format-btn:focus-visible {
+.format-btn.format-btn:hover,
+.format-btn.format-btn:focus,
+.format-btn.format-btn:focus-visible {
 	background: var(--tdv-color-primary-light);
 }
 
-.format-btn.active {
+.format-btn.format-btn.active {
 	background: var(--tdv-color-primary);
 	color: var(--tdv-color-on-primary);
+}
+
+/*
+ * `!important`, and only here. Nextcloud's pressed state is
+ * `button:not(…):not(:disabled, .primary):not(.app-navigation-entry-button):active`, which
+ * scores (0,4,1) — no reasonable stacking of this class outranks it, and without this the
+ * segment you are clicking flashes to the page background under its own label.
+ */
+.format-btn.format-btn:active {
+	background: var(--tdv-color-primary-light) !important;
+	color: var(--tdv-color-primary) !important;
+}
+
+.format-btn.format-btn.active:active {
+	background: var(--tdv-color-primary) !important;
+	color: var(--tdv-color-on-primary) !important;
 }
 
 /* Upload Progress */
