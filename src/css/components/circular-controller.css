@@ -229,7 +229,14 @@
 	cursor: not-allowed;
 }
 
-.rail-wide {
+/*
+ * Doubled like the base it modifies. `.rail-btn.rail-btn` carries two classes so it can
+ * outrank Nextcloud's rules for every button on the page, which also puts it above a plain
+ * `.rail-wide` — so the wide items kept the base's 32px box, and an explicit width cancels
+ * a grid item's stretch, leaving the drag handle and the recentre button at the start of
+ * the two-column area instead of centred across it.
+ */
+.rail-btn.rail-btn.rail-wide {
 	grid-column: 1 / -1;
 	width: 100%;
 }
@@ -241,7 +248,9 @@
 	margin: 1px 3px;
 }
 
-.drag-handle {
+/* Same reason: the base sets `cursor: pointer`, and this is the one control on the rail
+   that moves the thing rather than acting on it. */
+.rail-btn.rail-btn.drag-handle {
 	cursor: move;
 }
 

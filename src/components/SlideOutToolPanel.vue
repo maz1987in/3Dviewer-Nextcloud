@@ -1597,8 +1597,8 @@ export default {
 .cache-stat-value.warning { color: var(--tdv-color-warning); }
 .cache-stat-value.poor { color: var(--tdv-color-error); }
 
+/* `width` is the base's own `100%`, restated where it could never have applied. */
 .cache-clear-btn {
-	width: 100%;
 	margin-top: 8px;
 }
 

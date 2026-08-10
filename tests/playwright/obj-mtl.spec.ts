@@ -751,6 +751,53 @@ test.describe('Viewer smoke', () => {
     })).toBe('the page\'s own text colour')
   })
 
+  /*
+   * The controller's rail is one column of controls, and the wide ones are centred on it.
+   *
+   * It is a two-column grid: rotate beside pan, zoom in beside zoom out, and three items
+   * that span both — the drag handle at the top, the two dividers, and recentre at the
+   * bottom. The spanning ones kept the base button's fixed 32px width, and an explicit
+   * width cancels a grid item's stretch, so they sat at the start of the pair rather than
+   * across it: a rail whose dividers were centred and whose top and bottom controls were
+   * seventeen pixels to the left of everything between them.
+   *
+   * Measured against the buttons themselves rather than against a figure written here, so
+   * the rail can be any width and this still says the same thing.
+   */
+  test('every control on the controller rail is centred on the column it spans', async ({ page }) => {
+    await page.goto(server.url)
+    await page.waitForSelector('.minimal-top-bar', { timeout: 20000 })
+    await page.waitForSelector('.rail', { timeout: 20000 })
+
+    const rail = await page.evaluate(() => {
+      const el = document.querySelector('.rail')!
+      const r = el.getBoundingClientRect()
+      return [...el.children].map((child) => {
+        const b = child.getBoundingClientRect()
+        return {
+          name: child.className,
+          spans: getComputedStyle(child).gridColumnStart === '1'
+            && getComputedStyle(child).gridColumnEnd === '-1',
+          offset: b.left + b.width / 2 - (r.left + r.width / 2),
+        }
+      })
+    })
+
+    // The premise: a rail with nothing spanning it has no question to answer.
+    expect(rail.filter((c) => c.spans).length).toBeGreaterThanOrEqual(3)
+    // And the paired controls, which are what "centred" is being judged against.
+    expect(rail.filter((c) => !c.spans).length).toBeGreaterThanOrEqual(4)
+
+    const offCentre = rail.filter((c) => c.spans && Math.abs(c.offset) > 0.5)
+      .map((c) => `${c.name} is ${c.offset.toFixed(1)}px off centre`)
+    expect(offCentre).toEqual([])
+
+    // The pairs sit either side of it, so "centred" is the middle of the row rather than
+    // the middle of an empty rail.
+    const pairs = rail.filter((c) => !c.spans).map((c) => c.offset)
+    expect(Math.abs(Math.min(...pairs) + Math.max(...pairs))).toBeLessThanOrEqual(0.5)
+  })
+
   test('the tools panel opens clear of the bar that opens it', async ({ page }) => {
     await page.goto(server.url)
     await page.waitForSelector('.minimal-top-bar', { timeout: 20000 })
