@@ -38,7 +38,7 @@
 							</div>
 						</div>
 						<div class="help-item">
-							<span class="help-icon">↔</span>
+							<ViewerIcon class="help-icon" name="panMode" :size="18" />
 							<div class="help-text">
 								<h4>{{ t('threedviewer', 'Panning Mode') }}</h4>
 								<p>{{ t('threedviewer', 'Click the panning mode button to switch from rotation to panning. Click or drag to move the camera horizontally or vertically.') }}</p>
@@ -59,7 +59,7 @@
 							</div>
 						</div>
 						<div class="help-item">
-							<span class="help-icon">↔</span>
+							<ViewerIcon class="help-icon" name="panMode" :size="18" />
 							<div class="help-text">
 								<h4>{{ t('threedviewer', 'Drag to Move') }}</h4>
 								<p>{{ t('threedviewer', 'Drag the controller by its edge to reposition it anywhere on the screen. Position is saved automatically.') }}</p>

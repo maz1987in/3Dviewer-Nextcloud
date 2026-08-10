@@ -38,6 +38,7 @@ export const ICONS = {
 	faceLabels: 'LabelOutline',
 	grid: 'Grid',
 	hint: 'LightbulbOutline',
+	flipDirection: 'SwapVertical',
 	loop: 'Repeat',
 	openExternal: 'OpenInNew',
 	panMode: 'ArrowAll',

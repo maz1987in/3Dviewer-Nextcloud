@@ -70,3 +70,40 @@ describe('emoji are not icons', () => {
 		},
 	)
 })
+
+/**
+ * An arrow is in the ranges this file deliberately leaves alone, because an arrow in a
+ * keyboard-shortcut list is text about a key rather than a picture standing in for a word.
+ *
+ * In a label it is the picture, and it carries every one of the problems above: "Open in 3D
+ * Viewer ↗" ended in whatever U+2197 looks like in the user's font, at whatever colour and
+ * weight that font gives it — beside a Material Design icon set drawn at 20px in
+ * `currentColor` — and a screen reader read it out as "north east arrow".
+ *
+ * Only what a template renders is checked. `→` is the clearest thing to write in a comment
+ * describing a pipeline, and there are a dozen of those.
+ */
+describe('an arrow in a label', () => {
+	const ARROWS = /[\u{2190}-\u{21FF}\u{2794}-\u{27BF}]/gu
+
+	/**
+	 * The text a template renders: what sits between its tags, plus the attributes that
+	 * become visible words.
+	 *
+	 * @param {string} text - the component's source
+	 * @return {string} the rendered text, concatenated
+	 */
+	const rendered = (text) => {
+		const template = /<template>([\s\S]*)<\/template>/.exec(text)?.[1] ?? ''
+		const withoutComments = template.replace(/<!--[\s\S]*?-->/g, '')
+		const betweenTags = withoutComments.replace(/<[^>]*>/g, '\n')
+		const visibleAttributes = [...withoutComments
+			.matchAll(/\b(?:title|aria-label|placeholder)="([^"]*)"/g)].map((m) => m[1])
+		return [betweenTags, ...visibleAttributes].join('\n')
+	}
+
+	it.each(components.map((c) => c.name))('is drawn from the icon set in %s', (name) => {
+		const found = rendered(components.find((c) => c.name === name).text).match(ARROWS) ?? []
+		expect([...new Set(found)]).toEqual([])
+	})
+})

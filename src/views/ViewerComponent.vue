@@ -41,10 +41,14 @@
 				</div>
 				<NcButton
 					v-if="!isPublic"
-					type="primary"
+					variant="primary"
 					class="texture-warning-button"
+					:title="t('threedviewer', 'Open this model in the 3D Viewer app, in a new tab')"
 					@click.prevent="openInFullViewer">
-					{{ t('threedviewer', 'Open in 3D Viewer') }} ↗
+					<span class="open-in-app-label">
+						{{ t('threedviewer', 'Open in 3D Viewer') }}
+						<ViewerIcon name="openExternal" :size="16" />
+					</span>
 				</NcButton>
 			</div>
 		</div>
@@ -52,16 +56,20 @@
 		<!-- Open in full viewer button -->
 		<NcButton
 			v-if="hasLoaded && !showTextureWarning && !isPublic"
-			type="primary"
+			variant="secondary"
 			class="open-in-app-button"
+			:title="t('threedviewer', 'Open this model in the 3D Viewer app, in a new tab')"
 			@click.prevent="openInFullViewer">
-			{{ t('threedviewer', 'Open in 3D Viewer') }} ↗
+			<span class="open-in-app-label">
+				{{ t('threedviewer', 'Open in 3D Viewer') }}
+				<ViewerIcon name="openExternal" :size="20" />
+			</span>
 		</NcButton>
 
 		<!-- Animation controls (simple play/pause button) -->
 		<NcButton
 			v-if="hasLoaded && hasAnimationsComputed"
-			type="secondary"
+			variant="secondary"
 			class="animation-control-button"
 			:title="isAnimationPlayingComputed ? t('threedviewer', 'Pause animation') : t('threedviewer', 'Play animation')"
 			@click.prevent="toggleAnimation">
@@ -1438,17 +1446,54 @@ export default {
 	margin: 8px 0;
 }
 
-/* Open in full viewer button */
-.open-in-app-button {
-	position: absolute !important;
+/*
+ * Open in full viewer: an outlined pill, per the mockup.
+ *
+ * It floats on the preview, where a filled button competes with the model for the eye and a
+ * plain one disappears into it. The outline gives it an edge against anything behind it
+ * while leaving the render the brightest thing on screen.
+ *
+ * The class is doubled because NcButton states its own background, border and radius at a
+ * specificity a single class ties with, and a tie is decided by which stylesheet the
+ * bundler happened to emit last.
+ */
+.open-in-app-button.open-in-app-button {
+	position: absolute;
 	top: 60px;
 	inset-inline-end: 16px;
 	z-index: 1000;
-	box-shadow: 0 2px 8px rgb(0 0 0 / 30%);
+	height: var(--tdv-hit-target);
+	padding: 0 20px;
+	border: 2px solid var(--tdv-color-primary);
+	border-radius: var(--tdv-radius-pill);
+	background: var(--tdv-color-surface);
+	color: var(--tdv-color-primary-text);
+	font-weight: var(--tdv-font-weight-bold);
+	box-shadow: 0 2px 8px rgb(0 0 0 / 22%);
 }
 
-.open-in-app-button:hover {
-	box-shadow: 0 4px 12px rgb(0 0 0 / 40%);
+/* NcButton wraps its default slot in one text span, so the label and the icon are laid out
+   by an element of this component's own rather than by the button's flex row — which also
+   keeps the rule off a class belonging to somebody else's component. */
+.open-in-app-label {
+	display: flex;
+	gap: 10px;
+	align-items: center;
+}
+
+/*
+ * `!important`: NcButton's hover is `.button-vue--secondary[data-v-…]:hover:not(:disabled)`,
+ * which scores (0,4,0) — the same as a doubled class inside this component's scope, and a
+ * tie there is settled by emission order rather than by intent.
+ *
+ * It sets a colour as well as a background, and both have to be answered. Leaving the
+ * colour to it turned the label from the accent to `--color-primary-element-light-text`
+ * under the pointer: legible, and a different button.
+ */
+.open-in-app-button.open-in-app-button:hover {
+	background: var(--tdv-color-primary-light) !important;
+	color: var(--tdv-color-primary-text) !important;
+	box-shadow: 0 4px 12px rgb(0 0 0 / 30%);
 }
 
 /* Animation control button */
@@ -1539,14 +1584,20 @@ export default {
 	color: var(--tdv-color-surface-sunken);
 }
 
-.texture-warning-button {
+/*
+ * The primary colours it used to force by hand are what `variant="primary"` paints, now
+ * that the variant is passed under the name the component reads. What is left is the fit
+ * inside the banner.
+ */
+.texture-warning-button.texture-warning-button {
 	flex-shrink: 0;
 	margin-inline-start: auto;
-	padding: 6px 12px !important;
-	font-size: 12px !important;
-	background: var(--tdv-color-primary) !important;
-	color: #fff !important;
-	border-color: var(--tdv-color-primary) !important;
+	padding: 6px 12px;
+	font-size: 12px;
+}
+
+.texture-warning-button .open-in-app-label {
+	gap: 6px;
 }
 
 [dir="rtl"] .texture-warning-button {

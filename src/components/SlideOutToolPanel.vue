@@ -214,7 +214,7 @@
 											:class="{ 'active': clippingFlipped }"
 											:title="t('threedviewer', 'Flip direction')"
 											@click="emit('toggle-clipping-flip')">
-											↕
+											<ViewerIcon name="flipDirection" :size="16" />
 										</button>
 									</div>
 									<input type="range"
@@ -506,7 +506,7 @@
 								<button v-if="hasAnyPaletteOverride"
 									class="tool-btn palette-reset"
 									@click="emit('reset-palette')">
-									<span class="tool-icon">↺</span>
+									<ViewerIcon class="tool-icon" name="resetView" :size="18" />
 									<span class="tool-label">{{ t('threedviewer', 'Reset all palette colors') }}</span>
 								</button>
 							</div>

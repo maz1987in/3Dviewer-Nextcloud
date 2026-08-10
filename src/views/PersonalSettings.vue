@@ -142,7 +142,7 @@
 							</span>
 						</div>
 						<NcButton
-							type="secondary"
+							variant="secondary"
 							:disabled="reindexing"
 							@click="reindexFiles">
 							<template #icon>
@@ -175,7 +175,7 @@
 							</span>
 						</div>
 						<NcButton
-							type="secondary"
+							variant="secondary"
 							:disabled="clearingCache"
 							@click="clearCache">
 							<template #icon>
@@ -193,7 +193,7 @@
 							<span v-if="field.description" class="setting-description">{{ field.description }}</span>
 						</div>
 						<NcButton
-							type="secondary"
+							variant="secondary"
 							:disabled="clearingThumbnails"
 							@click="clearThumbnails">
 							<template #icon>
@@ -209,7 +209,7 @@
 			<!-- Actions -->
 			<div class="settings-actions">
 				<NcButton
-					type="primary"
+					variant="primary"
 					:disabled="saving"
 					@click="saveSettings">
 					<template #icon>
@@ -220,7 +220,7 @@
 				</NcButton>
 
 				<NcButton
-					type="tertiary"
+					variant="tertiary"
 					:disabled="saving"
 					@click="resetSettings">
 					<template #icon>

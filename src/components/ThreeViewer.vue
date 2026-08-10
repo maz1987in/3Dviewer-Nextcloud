@@ -33,14 +33,14 @@
 				<div class="loading-actions" :class="{ 'mobile': isMobile }">
 					<NcButton
 						v-if="progress.stage !== 'error'"
-						type="error"
+						variant="error"
 						:disabled="aborting"
 						@click="cancelLoad">
 						{{ aborting ? t('threedviewer','Canceling…') : t('threedviewer','Cancel loading') }}
 					</NcButton>
 					<NcButton
 						v-if="progress.stage === 'error'"
-						type="primary"
+						variant="primary"
 						@click="retryLoad">
 						{{ t('threedviewer','Retry') }}
 					</NcButton>
@@ -289,12 +289,12 @@
 				</div>
 				<div class="error-actions">
 					<NcButton v-if="canRetry"
-						type="primary"
+						variant="primary"
 						@click="retryLoad">
 						{{ t('threedviewer','Retry') }}
 					</NcButton>
 					<NcButton
-						type="secondary"
+						variant="secondary"
 						@click="clearError">
 						{{ t('threedviewer','Dismiss') }}
 					</NcButton>
