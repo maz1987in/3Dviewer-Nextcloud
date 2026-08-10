@@ -43,10 +43,12 @@
 							<button class="tool-btn" @click="emit('reset-view')">
 								<ViewerIcon class="tool-icon" name="resetView" :size="17" />
 								<span class="tool-label">{{ t('threedviewer', 'Reset View') }}</span>
+								<span class="tool-hint">{{ shortcutKey('reset-view') }}</span>
 							</button>
 							<button class="tool-btn" @click="emit('fit-to-view')">
 								<ViewerIcon class="tool-icon" name="fitToView" :size="17" />
 								<span class="tool-label">{{ t('threedviewer', 'Fit to View') }}</span>
+								<span class="tool-hint">{{ shortcutKey('fit-to-view') }}</span>
 							</button>
 							<button class="tool-btn"
 								:class="{ 'active': autoRotate }"
@@ -156,6 +158,7 @@
 								<ViewerIcon class="tool-icon" name="measurement" :size="17" />
 								<span class="tool-label">{{ t('threedviewer', 'Measurement') }}</span>
 								<span v-if="measurementMode" class="active-badge">{{ t('threedviewer', 'Active') }}</span>
+								<span class="tool-hint">{{ shortcutKey('toggle-measurement') }}</span>
 							</button>
 							<button class="tool-btn feature-btn"
 								:class="{ 'active': annotationMode }"
@@ -323,6 +326,7 @@
 								@click="emit('toggle-stats')">
 								<ViewerIcon class="tool-icon" name="statistics" :size="17" />
 								<span class="tool-label">{{ t('threedviewer', 'Model Statistics') }}</span>
+								<span class="tool-hint">{{ shortcutKey('toggle-stats') }}</span>
 							</button>
 						</div>
 					</section>
@@ -405,6 +409,7 @@
 							<button class="tool-btn" @click="emit('take-screenshot')">
 								<ViewerIcon class="tool-icon" name="camera" :size="17" />
 								<span class="tool-label">{{ t('threedviewer', 'Screenshot') }}</span>
+								<span class="tool-hint">{{ shortcutKey('take-screenshot') }}</span>
 							</button>
 							<!--
 								A row like the ones above it, not a labelled block. The label was a
@@ -536,6 +541,7 @@
 							<button class="tool-btn" @click="emit('toggle-help')">
 								<ViewerIcon class="tool-icon" name="help" :size="17" />
 								<span class="tool-label">{{ t('threedviewer', 'Help') }}</span>
+								<span class="tool-hint">{{ shortcutKey('toggle-help') }}</span>
 							</button>
 						</div>
 					</section>
@@ -553,6 +559,7 @@
 <script>
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import ViewerIcon from './ViewerIcon.vue'
+import { shortcutFor, shortcutKey } from '../utils/toolShortcuts.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
 // eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
 import { translate as t } from '@nextcloud/l10n'
@@ -727,8 +734,23 @@ export default {
 			if (event.key === 't' || event.key === 'T') {
 				if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA' || event.target.tagName === 'SELECT') return
 				togglePanel()
+				return
 			}
-			if (event.key === 'Escape' && isOpen.value) closePanel()
+			if (event.key === 'Escape' && isOpen.value) {
+				closePanel()
+				return
+			}
+
+			/*
+			 * The rest come from the table the row hints are printed from, so a key beside a
+			 * row and the key that does the thing cannot become different keys. It resolves
+			 * to null for anything typed into a field or held with a modifier.
+			 */
+			const shortcut = shortcutFor(event)
+			if (shortcut) {
+				event.preventDefault()
+				emit(shortcut)
+			}
 		}
 
 		onMounted(() => {
@@ -827,6 +849,8 @@ export default {
 
 		return {
 			t,
+			// The rows print their hints from the shared table, so the template needs it.
+			shortcutKey,
 			isOpen,
 			sections,
 			exportSelect,
@@ -936,12 +960,18 @@ export default {
 .panel-content::-webkit-scrollbar-thumb { background: var(--tdv-color-border); border-radius: 4px; }
 .panel-content::-webkit-scrollbar-thumb:hover { background: var(--tdv-color-border-strong); }
 
-/* Panel Sections */
-.panel-section {
-	margin-bottom: 8px;
-	background: var(--tdv-color-hover-bg);
-	border-radius: 8px;
-	overflow: hidden;
+/*
+ * Panel sections, per "Viewer Options.dc.html" 2a/2b.
+ *
+ * The sheet separates sections with a hairline and nothing else. They were cards — each
+ * section a filled, rounded box, each row inside it another one — which reads as three
+ * levels of container for what is a list of actions, and puts a border between every row
+ * and its neighbour on a panel 320px wide.
+ */
+.panel-section + .panel-section {
+	border-top: 1px solid var(--tdv-color-border);
+	margin-top: 6px;
+	padding-top: 6px;
 }
 
 .section-header {
@@ -949,18 +979,16 @@ export default {
 	display: flex;
 	align-items: center;
 	gap: 10px;
-	padding: 12px 16px;
+	padding: 10px 10px 4px;
 	background: transparent;
 	border: none;
-	color: var(--tdv-color-text);
-	font-size: 14px;
-	font-weight: 600;
+	color: var(--tdv-color-text-secondary);
+	font-size: 13px;
+	font-weight: var(--tdv-font-weight-bold);
 	cursor: pointer;
-	transition: background 0.2s ease;
 	text-align: start;
 }
 
-.section-header:hover { background: var(--tdv-color-hover-bg); }
 .section-title { flex: 1; }
 
 /* The chevron points down when open and right when collapsed, rotated rather than
@@ -974,38 +1002,67 @@ export default {
 	transform: rotate(-90deg);
 }
 
-.section-content { padding: 8px; }
+.section-content { padding: 0; }
 
-/* Tool Buttons */
-.tool-btn {
+/*
+ * A row, not a card. Doubled class for the reason the design system's button primitive is:
+ * Nextcloud's server stylesheet reaches every button on the page at (0,1,1) and brings its
+ * own padding, margin, border and radius with it.
+ */
+.tool-btn.tool-btn {
 	width: 100%;
 	display: flex;
 	align-items: center;
-	gap: 12px;
-	padding: 12px 16px;
-	background: var(--tdv-color-surface);
-	border: 1px solid var(--tdv-color-border);
-	border-radius: 6px;
+	gap: 10px;
+	margin: 0;
+	padding: 8px 10px;
+	background: transparent;
+	border: none;
+	border-radius: var(--tdv-radius-row);
 	color: var(--tdv-color-text);
 	font-size: 14px;
+
+	/* Nextcloud's own button rule sets `font-weight: bold`; the sheet's rows are regular,
+	   and a list where every line is bold has no emphasis left for the one that matters. */
+	font-weight: 400;
+	font-family: inherit;
 	cursor: pointer;
-	transition: all 0.2s ease;
-	margin-bottom: 6px;
+	transition: background 0.15s ease-out;
 	text-align: start;
 }
 
-.tool-btn:hover {
+.tool-btn.tool-btn:hover:not(:disabled) {
 	background: var(--tdv-color-hover-bg);
-	border-color: var(--tdv-color-primary);
 }
 
-.tool-btn.active {
-	background: var(--tdv-color-primary);
-	border-color: var(--tdv-color-primary);
-	color: var(--tdv-color-on-primary);
+/*
+ * The sheet marks an active row by colouring it rather than filling it: accent text on the
+ * accent's own tint. A filled row at this width reads as a selected list item in a menu,
+ * which is not what a mode being on means — and the tint is the accent at 15% on the dark
+ * palette rather than Nextcloud's pale light tint, which is a light chip on a dark panel.
+ */
+.tool-btn.tool-btn.active {
+	background: var(--tdv-color-primary-light);
+	color: var(--tdv-color-primary-text);
+	font-weight: var(--tdv-font-weight-medium);
 }
 
-.tool-btn:last-child { margin-bottom: 0; }
+.tool-btn.tool-btn.active .tool-icon {
+	color: var(--tdv-color-primary-text);
+}
+
+/* The key that does what the row does, on the trailing edge. Rendered from the shortcut
+   table, so a row without one prints nothing rather than an empty box. */
+.tool-hint {
+	margin-inline-start: auto;
+	font-family: var(--tdv-font-mono);
+	font-size: 11px;
+	color: var(--tdv-color-text-secondary);
+}
+
+.tool-btn.tool-btn.active .tool-hint {
+	color: inherit;
+}
 .tool-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .tool-icon { color: var(--tdv-color-text-secondary); }
 .tool-label { flex: 1; }
@@ -1077,26 +1134,21 @@ export default {
 }
 
 /* Tool Groups */
-.tool-group {
-	padding: 12px 16px;
-	background: var(--tdv-color-surface);
-	border: 1px solid var(--tdv-color-border);
-	border-radius: 6px;
-	margin-bottom: 6px;
-	transition: all 0.2s ease;
-}
 
-.tool-group:hover {
-	background: var(--tdv-color-hover-bg);
-	border-color: var(--tdv-color-primary);
+/* A labelled group of rows — "Bookmarks", "Lighting". The sheet gives it a quiet caption
+   and no container of its own: the rows below it are already rows. */
+.tool-group {
+	padding: 0;
+	background: transparent;
+	border: none;
 }
 
 .tool-label-small {
 	display: block;
+	padding: 8px 10px 2px;
 	font-size: 12px;
+	font-weight: 400;
 	color: var(--tdv-color-text-secondary);
-	margin-bottom: 8px;
-	font-weight: 500;
 }
 
 /* Clip selector */
@@ -1278,20 +1330,23 @@ export default {
 	gap: 4px;
 }
 
-.preset-btn {
-	padding: 4px 10px;
-	border: 1px solid var(--tdv-color-border);
-	border-radius: 4px;
-	background: var(--tdv-color-surface);
-	color: var(--tdv-color-text);
+/* Chips, per the sheet: pill-shaped, outlined until chosen, filled when chosen. */
+.preset-btn.preset-btn {
+	margin: 0;
+	padding: 5px 12px;
+	border: 1px solid var(--tdv-color-border-strong);
+	border-radius: 14px;
+	background: transparent;
+	color: var(--tdv-color-text-secondary);
 	cursor: pointer;
-	font-size: 11px;
-	transition: all 0.15s ease;
+	font-size: 12px;
+	font-weight: var(--tdv-font-weight-medium);
+	transition: background 0.15s ease-out;
 }
 
-.preset-btn:hover { background: var(--tdv-color-hover-bg); }
+.preset-btn.preset-btn:hover { background: var(--tdv-color-hover-bg); }
 
-.preset-btn.active {
+.preset-btn.preset-btn.active {
 	background: var(--tdv-color-primary);
 	color: var(--tdv-color-on-primary);
 	border-color: var(--tdv-color-primary);

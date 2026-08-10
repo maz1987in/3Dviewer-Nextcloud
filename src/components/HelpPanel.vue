@@ -269,6 +269,15 @@
 							<kbd>Escape</kbd>
 							<span>{{ t('threedviewer', 'Close open panels and dialogs') }}</span>
 						</div>
+						<!--
+							From the same table the tools panel prints its row hints from, so this
+							list cannot fall behind the shortcuts that exist — which it had, listing
+							two of them while the panel offered none.
+						-->
+						<div v-for="shortcut in toolShortcuts" :key="shortcut.key" class="shortcut-row">
+							<kbd>{{ shortcut.key.toUpperCase() }}</kbd>
+							<span>{{ shortcutLabels[shortcut.event] }}</span>
+						</div>
 						<div class="shortcut-row">
 							<kbd>{{ t('threedviewer', 'Mouse Drag') }}</kbd>
 							<span>{{ t('threedviewer', 'Rotate camera around model') }}</span>
@@ -312,6 +321,7 @@ import ViewerIcon from './ViewerIcon.vue'
 import { translate as t } from '@nextcloud/l10n'
 import { FORMATS_DISPLAY_LIST } from '../config/viewer-config.js'
 import { useFocusTrap } from '../composables/useFocusTrap.js'
+import { TOOL_SHORTCUTS } from '../utils/toolShortcuts.js'
 
 export default {
 	name: 'HelpPanel',
@@ -357,6 +367,17 @@ export default {
 			panelRef,
 			close,
 			supportedFormats: FORMATS_DISPLAY_LIST,
+			toolShortcuts: TOOL_SHORTCUTS,
+			// What each shortcut does, in this panel's words. Keyed by the event so a key
+			// that moves in the table moves here with it.
+			shortcutLabels: {
+				'reset-view': t('threedviewer', 'Reset the view'),
+				'fit-to-view': t('threedviewer', 'Fit the model to the view'),
+				'toggle-measurement': t('threedviewer', 'Toggle measurement mode'),
+				'toggle-stats': t('threedviewer', 'Toggle model statistics'),
+				'take-screenshot': t('threedviewer', 'Take a screenshot'),
+				'toggle-help': t('threedviewer', 'Open this help'),
+			},
 		}
 	},
 }
