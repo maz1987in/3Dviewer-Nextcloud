@@ -78,8 +78,22 @@ function buildHtmlWrapper() {
      * did not. Without it the element is a bare div: the navigation takes its 300px, the
      * app content beside it is left 0px wide, and the whole viewer — bar, canvas, panels —
      * renders into a zero-width column. Every geometry this file measured was of that.
+     *
+     * The frosted panel matters as much as the box. A backdrop-filter makes an element the
+     * containing block for every fixed-position descendant, so inside a Nextcloud app a
+     * fixed overlay is fixed to this, not to the viewport — which is not a thing a fixture
+     * can leave out and still be measuring modals.
      */
-    #content-vue { display: flex; width: 100%; height: 100%; }
+    #content-vue {
+      display: flex;
+      box-sizing: border-box;
+      width: calc(100% - 16px);
+      height: calc(100% - 8px);
+      margin: 0 8px 8px;
+      border-radius: 16px;
+      background-color: rgba(255, 255, 255, 0.8);
+      backdrop-filter: blur(25px);
+    }
 
     /*
      * The colours Nextcloud's theming app serves on every page. The app's own tokens name
@@ -797,6 +811,56 @@ test.describe('Viewer smoke', () => {
     const pairs = rail.filter((c) => !c.spans).map((c) => c.offset)
     expect(Math.abs(Math.min(...pairs) + Math.max(...pairs))).toBeLessThanOrEqual(0.5)
   })
+
+  /*
+   * A modal covers the page, not the part of it this app was given.
+   *
+   * `position: fixed` is fixed to the viewport only while no ancestor has taken over as its
+   * containing block, and Nextcloud gives `#content-vue` a `backdrop-filter` — which does
+   * exactly that, along with `transform`, `filter`, `perspective` and `will-change`. So a
+   * backdrop written `position: fixed; inset: 0` inside the app came out at the app
+   * content's own box: dimming the render and leaving the navigation and the page header
+   * lit, with the dialog centred on what was left rather than on the screen. It reads as a
+   * z-index problem and no z-index reaches it.
+   *
+   * Checked against the viewport, which is the thing being claimed.
+   */
+  for (const [label, open, backdrop] of [
+    ['help panel', 'Help', '.help-panel-backdrop'],
+    ['slicer dialog', 'Send to Slicer', '.slicer-modal-backdrop'],
+  ] as const) {
+    test(`the ${label} covers the page it is drawn over`, async ({ page }) => {
+      await page.goto(server.url)
+      await page.waitForSelector('.minimal-top-bar', { timeout: 20000 })
+      await page.waitForSelector('canvas', { timeout: 20000 })
+      if (open === 'Help') {
+        await page.click('[aria-label="Help"]')
+      } else {
+        await page.click('[aria-label="Toggle tools panel"]')
+        await page.waitForSelector('.slide-out-panel', { timeout: 5000 })
+        await page.getByText('Export', { exact: true }).first().click()
+        await page.getByText(open, { exact: true }).first().click()
+      }
+      await page.waitForSelector(backdrop, { timeout: 5000 })
+
+      const covered = await page.evaluate((selector) => {
+        const r = document.querySelector(selector)!.getBoundingClientRect()
+        return {
+          gaps: [
+            r.left > 0.5 && `${r.left.toFixed(0)}px uncovered at the start`,
+            r.top > 0.5 && `${r.top.toFixed(0)}px uncovered at the top`,
+            r.right < window.innerWidth - 0.5 && `${(window.innerWidth - r.right).toFixed(0)}px uncovered at the end`,
+            r.bottom < window.innerHeight - 0.5 && `${(window.innerHeight - r.bottom).toFixed(0)}px uncovered at the bottom`,
+          ].filter(Boolean),
+          // And the dialog is centred on the page rather than on whatever it covers.
+          offCentre: Math.abs(r.left + r.width / 2 - window.innerWidth / 2),
+        }
+      }, backdrop)
+
+      expect(covered.gaps).toEqual([])
+      expect(covered.offCentre).toBeLessThanOrEqual(0.5)
+    })
+  }
 
   test('the tools panel opens clear of the bar that opens it', async ({ page }) => {
     await page.goto(server.url)

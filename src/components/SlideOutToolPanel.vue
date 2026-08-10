@@ -1,559 +1,568 @@
 <template>
-	<div class="slide-out-panel-wrapper">
-		<!-- Backdrop (mobile only) -->
-		<div v-if="isOpen && isMobile"
-			class="panel-backdrop"
-			@click="closePanel" />
+	<!--
+		Teleported for the same reason as the modals: `#content-vue` carries a
+		backdrop-filter, so a fixed overlay inside it is fixed to the app content rather
+		than to the page. These offsets are written to clear Nextcloud's header and the
+		viewer's bar, and inside that box the header was counted twice — the panel opened
+		66px below the bar where the rule asks for 16.
+	-->
+	<Teleport to="body">
+		<div class="slide-out-panel-wrapper">
+			<!-- Backdrop (mobile only) -->
+			<div v-if="isOpen && isMobile"
+				class="panel-backdrop"
+				@click="closePanel" />
 
-		<!-- Slide-Out Panel -->
-		<transition name="slide-panel">
-			<div v-if="isOpen"
-				class="slide-out-panel"
-				:class="{ 'mobile': isMobile }"
-				role="complementary"
-				:aria-label="t('threedviewer', 'Tools panel')">
-				<!-- Panel Header -->
-				<div class="panel-header">
-					<h2 class="panel-title">
-						{{ t('threedviewer', 'Tools') }}
-					</h2>
-					<button class="close-btn"
-						:aria-label="t('threedviewer', 'Close panel')"
-						:title="t('threedviewer', 'Close (T or Esc)')"
-						@click="closePanel">
-						<ViewerIcon name="close" :size="16" />
-					</button>
-				</div>
-
-				<!-- Panel Content -->
-				<div class="panel-content">
-					<!-- VIEW Section -->
-					<section class="panel-section">
-						<button class="section-header"
-							:aria-expanded="sections.view"
-							aria-controls="panel-section-view"
-							@click="toggleSection('view')">
-							<span class="section-title">{{ t('threedviewer', 'View') }}</span>
-							<ViewerIcon class="expand-icon"
-								:class="{ collapsed: !sections.view }"
-								name="chevron"
-								:size="15" />
+			<!-- Slide-Out Panel -->
+			<transition name="slide-panel">
+				<div v-if="isOpen"
+					class="slide-out-panel"
+					:class="{ 'mobile': isMobile }"
+					role="complementary"
+					:aria-label="t('threedviewer', 'Tools panel')">
+					<!-- Panel Header -->
+					<div class="panel-header">
+						<h2 class="panel-title">
+							{{ t('threedviewer', 'Tools') }}
+						</h2>
+						<button class="close-btn"
+							:aria-label="t('threedviewer', 'Close panel')"
+							:title="t('threedviewer', 'Close (T or Esc)')"
+							@click="closePanel">
+							<ViewerIcon name="close" :size="16" />
 						</button>
-						<div v-show="sections.view" id="panel-section-view" class="section-content">
-							<button class="tool-btn" @click="emit('reset-view')">
-								<ViewerIcon class="tool-icon" name="resetView" :size="17" />
-								<span class="tool-label">{{ t('threedviewer', 'Reset View') }}</span>
-								<span class="tool-hint">{{ shortcutKey('reset-view') }}</span>
+					</div>
+
+					<!-- Panel Content -->
+					<div class="panel-content">
+						<!-- VIEW Section -->
+						<section class="panel-section">
+							<button class="section-header"
+								:aria-expanded="sections.view"
+								aria-controls="panel-section-view"
+								@click="toggleSection('view')">
+								<span class="section-title">{{ t('threedviewer', 'View') }}</span>
+								<ViewerIcon class="expand-icon"
+									:class="{ collapsed: !sections.view }"
+									name="chevron"
+									:size="15" />
 							</button>
-							<button class="tool-btn" @click="emit('fit-to-view')">
-								<ViewerIcon class="tool-icon" name="fitToView" :size="17" />
-								<span class="tool-label">{{ t('threedviewer', 'Fit to View') }}</span>
-								<span class="tool-hint">{{ shortcutKey('fit-to-view') }}</span>
-							</button>
-							<button class="tool-btn"
-								:class="{ 'active': autoRotate }"
-								@click="emit('toggle-auto-rotate')">
-								<ViewerIcon class="tool-icon" name="autoRotate" :size="17" />
-								<span class="tool-label">{{ autoRotate ? t('threedviewer', 'Auto-Rotate On') : t('threedviewer', 'Auto-Rotate Off') }}</span>
-							</button>
-							<button class="tool-btn"
-								:class="{ 'active': cameraType === 'orthographic' }"
-								@click="emit('toggle-projection')">
-								<ViewerIcon class="tool-icon" name="projection" :size="17" />
-								<span class="tool-label">{{ cameraType === 'perspective' ? t('threedviewer', 'Perspective') : t('threedviewer', 'Orthographic') }}</span>
-							</button>
-							<!-- Copy shareable view link: encodes current camera state
-							     (position, target, zoom) into the URL as a `cam=...`
-							     parameter so others can open the same exact viewpoint.
-							     Feedback is surfaced via a toast, not inline. -->
-							<button class="tool-btn"
-								:disabled="!modelLoaded"
-								:title="t('threedviewer', 'Copy a link to this exact viewpoint')"
-								@click="emit('copy-view-link')">
-								<ViewerIcon class="tool-icon" name="copyLink" :size="17" />
-								<span class="tool-label">{{ t('threedviewer', 'Copy View Link') }}</span>
-							</button>
-							<!-- Bookmarks -->
-							<div class="tool-group">
-								<label class="tool-label-small">{{ t('threedviewer', 'Bookmarks') }}</label>
+							<div v-show="sections.view" id="panel-section-view" class="section-content">
+								<button class="tool-btn" @click="emit('reset-view')">
+									<ViewerIcon class="tool-icon" name="resetView" :size="17" />
+									<span class="tool-label">{{ t('threedviewer', 'Reset View') }}</span>
+									<span class="tool-hint">{{ shortcutKey('reset-view') }}</span>
+								</button>
+								<button class="tool-btn" @click="emit('fit-to-view')">
+									<ViewerIcon class="tool-icon" name="fitToView" :size="17" />
+									<span class="tool-label">{{ t('threedviewer', 'Fit to View') }}</span>
+									<span class="tool-hint">{{ shortcutKey('fit-to-view') }}</span>
+								</button>
+								<button class="tool-btn"
+									:class="{ 'active': autoRotate }"
+									@click="emit('toggle-auto-rotate')">
+									<ViewerIcon class="tool-icon" name="autoRotate" :size="17" />
+									<span class="tool-label">{{ autoRotate ? t('threedviewer', 'Auto-Rotate On') : t('threedviewer', 'Auto-Rotate Off') }}</span>
+								</button>
+								<button class="tool-btn"
+									:class="{ 'active': cameraType === 'orthographic' }"
+									@click="emit('toggle-projection')">
+									<ViewerIcon class="tool-icon" name="projection" :size="17" />
+									<span class="tool-label">{{ cameraType === 'perspective' ? t('threedviewer', 'Perspective') : t('threedviewer', 'Orthographic') }}</span>
+								</button>
+								<!-- Copy shareable view link: encodes current camera state
+								     (position, target, zoom) into the URL as a `cam=...`
+								     parameter so others can open the same exact viewpoint.
+								     Feedback is surfaced via a toast, not inline. -->
 								<button class="tool-btn"
 									:disabled="!modelLoaded"
-									@click="emit('add-bookmark')">
-									<ViewerIcon class="tool-icon" name="saveView" :size="17" />
-									<span class="tool-label">{{ t('threedviewer', 'Save View') }}</span>
+									:title="t('threedviewer', 'Copy a link to this exact viewpoint')"
+									@click="emit('copy-view-link')">
+									<ViewerIcon class="tool-icon" name="copyLink" :size="17" />
+									<span class="tool-label">{{ t('threedviewer', 'Copy View Link') }}</span>
 								</button>
-								<div v-if="bookmarks.length > 0" class="bookmark-list">
-									<div v-for="(bm, i) in bookmarks" :key="i" class="bookmark-item">
-										<button class="bookmark-name" @click="emit('load-bookmark', i)">
-											{{ bm.name }}
+								<!-- Bookmarks -->
+								<div class="tool-group">
+									<label class="tool-label-small">{{ t('threedviewer', 'Bookmarks') }}</label>
+									<button class="tool-btn"
+										:disabled="!modelLoaded"
+										@click="emit('add-bookmark')">
+										<ViewerIcon class="tool-icon" name="saveView" :size="17" />
+										<span class="tool-label">{{ t('threedviewer', 'Save View') }}</span>
+									</button>
+									<div v-if="bookmarks.length > 0" class="bookmark-list">
+										<div v-for="(bm, i) in bookmarks" :key="i" class="bookmark-item">
+											<button class="bookmark-name" @click="emit('load-bookmark', i)">
+												{{ bm.name }}
+											</button>
+											<button class="bookmark-delete"
+												:title="t('threedviewer', 'Remove')"
+												@click="emit('remove-bookmark', i)">
+												×
+											</button>
+										</div>
+									</div>
+								</div>
+							</div>
+						</section>
+
+						<!-- SCENE Section (was Display) -->
+						<section class="panel-section">
+							<button class="section-header"
+								:aria-expanded="sections.scene"
+								aria-controls="panel-section-scene"
+								@click="toggleSection('scene')">
+								<span class="section-title">{{ t('threedviewer', 'Scene') }}</span>
+								<ViewerIcon class="expand-icon"
+									:class="{ collapsed: !sections.scene }"
+									name="chevron"
+									:size="15" />
+							</button>
+							<div v-show="sections.scene" id="panel-section-scene" class="section-content">
+								<label class="toggle-row" @click.prevent="emit('toggle-grid')">
+									<span class="toggle-switch" :class="{ on: grid }" />
+									<span class="toggle-text">{{ t('threedviewer', 'Grid') }}</span>
+								</label>
+								<label class="toggle-row" @click.prevent="emit('toggle-axes')">
+									<span class="toggle-switch" :class="{ on: axes }" />
+									<span class="toggle-text">{{ t('threedviewer', 'Axes') }}</span>
+								</label>
+								<label class="toggle-row" @click.prevent="emit('toggle-wireframe')">
+									<span class="toggle-switch" :class="{ on: wireframe }" />
+									<span class="toggle-text">{{ t('threedviewer', 'Wireframe') }}</span>
+								</label>
+								<!-- Lighting Presets -->
+								<div v-if="lightingPresets.length > 0" class="tool-group">
+									<label class="tool-label-small">{{ t('threedviewer', 'Lighting') }}</label>
+									<div class="preset-buttons">
+										<button v-for="preset in lightingPresets"
+											:key="preset.name"
+											class="preset-btn"
+											:class="{ 'active': lightingPreset === preset.name }"
+											@click="emit('apply-lighting-preset', preset.name)">
+											{{ preset.label }}
 										</button>
-										<button class="bookmark-delete"
-											:title="t('threedviewer', 'Remove')"
-											@click="emit('remove-bookmark', i)">
+									</div>
+								</div>
+							</div>
+						</section>
+
+						<!-- ANALYZE Section (was Tools) -->
+						<section class="panel-section">
+							<button class="section-header"
+								:aria-expanded="sections.analyze"
+								aria-controls="panel-section-analyze"
+								@click="toggleSection('analyze')">
+								<span class="section-title">{{ t('threedviewer', 'Analyze') }}</span>
+								<ViewerIcon class="expand-icon"
+									:class="{ collapsed: !sections.analyze }"
+									name="chevron"
+									:size="15" />
+							</button>
+							<div v-show="sections.analyze" id="panel-section-analyze" class="section-content">
+								<button class="tool-btn feature-btn"
+									:class="{ 'active': measurementMode }"
+									@click="emit('toggle-measurement')">
+									<ViewerIcon class="tool-icon" name="measurement" :size="17" />
+									<span class="tool-label">{{ t('threedviewer', 'Measurement') }}</span>
+									<span v-if="measurementMode" class="active-badge">{{ t('threedviewer', 'Active') }}</span>
+									<span class="tool-hint">{{ shortcutKey('toggle-measurement') }}</span>
+								</button>
+								<button class="tool-btn feature-btn"
+									:class="{ 'active': annotationMode }"
+									@click="emit('toggle-annotation')">
+									<ViewerIcon class="tool-icon" name="annotation" :size="17" />
+									<span class="tool-label">{{ t('threedviewer', 'Annotation') }}</span>
+									<span v-if="annotationMode" class="active-badge">{{ t('threedviewer', 'Active') }}</span>
+								</button>
+								<button class="tool-btn feature-btn"
+									:class="{ 'active': comparisonMode }"
+									@click="emit('toggle-comparison')">
+									<ViewerIcon class="tool-icon" name="comparison" :size="17" />
+									<span class="tool-label">{{ t('threedviewer', 'Comparison') }}</span>
+									<span v-if="comparisonMode" class="active-badge">{{ t('threedviewer', 'Active') }}</span>
+								</button>
+								<!-- Clipping Plane / Cross-Section -->
+								<button class="tool-btn feature-btn"
+									:class="{ 'active': clippingActive }"
+									:disabled="!modelLoaded"
+									@click="emit('toggle-clipping')">
+									<ViewerIcon class="tool-icon" name="crossSection" :size="17" />
+									<span class="tool-label">{{ t('threedviewer', 'Cross-Section') }}</span>
+									<span v-if="clippingActive" class="active-badge">{{ t('threedviewer', 'Active') }}</span>
+								</button>
+								<div v-if="clippingActive" class="clipping-controls">
+									<!-- Mode switch: single plane vs 6-plane box -->
+									<div class="axis-buttons clipping-mode-switch">
+										<button class="axis-btn"
+											:class="{ 'active': clippingMode === 'plane' }"
+											:title="t('threedviewer', 'Single cross-section plane')"
+											@click="emit('set-clipping-mode', 'plane')">
+											{{ t('threedviewer', 'Plane') }}
+										</button>
+										<button class="axis-btn"
+											:class="{ 'active': clippingMode === 'box' }"
+											:title="t('threedviewer', '6-plane clipping box')"
+											@click="emit('set-clipping-mode', 'box')">
+											{{ t('threedviewer', 'Box') }}
+										</button>
+									</div>
+
+									<!-- Plane mode: single axis + position slider -->
+									<template v-if="clippingMode === 'plane'">
+										<div class="axis-buttons">
+											<button v-for="a in ['x','y','z']"
+												:key="a"
+												class="axis-btn"
+												:class="{ 'active': clippingAxis === a }"
+												@click="emit('set-clipping-axis', a)">
+												{{ a.toUpperCase() }}
+											</button>
+											<button class="axis-btn"
+												:class="{ 'active': clippingFlipped }"
+												:title="t('threedviewer', 'Flip direction')"
+												@click="emit('toggle-clipping-flip')">
+												<ViewerIcon name="flipDirection" :size="16" />
+											</button>
+										</div>
+										<input type="range"
+											class="clipping-slider"
+											min="-1"
+											max="1"
+											step="0.01"
+											:value="clippingPosition"
+											@input="emit('set-clipping-position', parseFloat($event.target.value))">
+									</template>
+
+									<!-- Box mode: three axis rows, each with a −/+ pair of sliders
+									     representing the offset inward from the min/max face. -->
+									<template v-else>
+										<div class="clipping-box-grid">
+											<div v-for="axis in ['x', 'y', 'z']" :key="axis" class="clipping-box-row">
+												<div class="clipping-box-label">
+													{{ axis.toUpperCase() }}
+												</div>
+												<div class="clipping-box-pair">
+													<span class="clipping-box-sublabel">−</span>
+													<input type="range"
+														class="clipping-slider clipping-slider-box"
+														min="0"
+														max="1"
+														step="0.01"
+														:value="clippingBoxOffsets[axis + 'Min']"
+														:aria-label="t('threedviewer', '{axis} min face offset', { axis: axis.toUpperCase() })"
+														@input="emit('set-clipping-box-offset', { face: axis + 'Min', value: parseFloat($event.target.value) })">
+												</div>
+												<div class="clipping-box-pair">
+													<span class="clipping-box-sublabel">+</span>
+													<input type="range"
+														class="clipping-slider clipping-slider-box"
+														min="0"
+														max="1"
+														step="0.01"
+														:value="clippingBoxOffsets[axis + 'Max']"
+														:aria-label="t('threedviewer', '{axis} max face offset', { axis: axis.toUpperCase() })"
+														@input="emit('set-clipping-box-offset', { face: axis + 'Max', value: parseFloat($event.target.value) })">
+												</div>
+											</div>
+										</div>
+										<button class="axis-btn clipping-box-reset"
+											:title="t('threedviewer', 'Reset all 6 box faces')"
+											@click="emit('reset-clipping-box')">
+											{{ t('threedviewer', 'Reset box') }}
+										</button>
+									</template>
+								</div>
+								<!-- Exploded View -->
+								<button v-if="explodedViewAvailable"
+									class="tool-btn feature-btn"
+									:class="{ 'active': explodedViewActive }"
+									@click="emit('toggle-exploded-view')">
+									<ViewerIcon class="tool-icon" name="explode" :size="17" />
+									<span class="tool-label">{{ t('threedviewer', 'Exploded View') }}</span>
+									<span v-if="explodedViewActive" class="active-badge">{{ t('threedviewer', 'Active') }}</span>
+								</button>
+								<div v-if="explodedViewActive" class="tool-group">
+									<label class="tool-label-small">{{ t('threedviewer', 'Explosion') }}</label>
+									<input type="range"
+										class="clipping-slider"
+										min="0"
+										max="1"
+										step="0.01"
+										:value="explodedViewFactor"
+										@input="emit('set-exploded-factor', parseFloat($event.target.value))">
+								</div>
+								<!-- Transform Gizmo -->
+								<button class="tool-btn feature-btn"
+									:class="{ 'active': transformGizmoActive }"
+									:disabled="!modelLoaded"
+									@click="emit('toggle-transform-gizmo')">
+									<ViewerIcon class="tool-icon" name="transform" :size="17" />
+									<span class="tool-label">{{ t('threedviewer', 'Transform') }}</span>
+									<span v-if="transformGizmoActive" class="active-badge">{{ t('threedviewer', 'Active') }}</span>
+								</button>
+								<div v-if="transformGizmoActive" class="clipping-controls">
+									<div class="axis-buttons">
+										<button class="axis-btn"
+											:class="{ 'active': transformGizmoMode === 'translate' }"
+											:title="t('threedviewer', 'Move')"
+											@click="emit('set-transform-mode', 'translate')">
+											{{ t('threedviewer', 'Move') }}
+										</button>
+										<button class="axis-btn"
+											:class="{ 'active': transformGizmoMode === 'rotate' }"
+											:title="t('threedviewer', 'Rotate')"
+											@click="emit('set-transform-mode', 'rotate')">
+											{{ t('threedviewer', 'Rotate') }}
+										</button>
+										<button class="axis-btn"
+											:class="{ 'active': transformGizmoMode === 'scale' }"
+											:title="t('threedviewer', 'Scale')"
+											@click="emit('set-transform-mode', 'scale')">
+											{{ t('threedviewer', 'Scale') }}
+										</button>
+										<button class="axis-btn"
+											:title="t('threedviewer', 'Reset transform')"
+											@click="emit('reset-transform')">
+											{{ t('threedviewer', 'Reset') }}
+										</button>
+									</div>
+								</div>
+								<!-- Model Statistics -->
+								<button class="tool-btn"
+									:disabled="!modelLoaded"
+									@click="emit('toggle-stats')">
+									<ViewerIcon class="tool-icon" name="statistics" :size="17" />
+									<span class="tool-label">{{ t('threedviewer', 'Model Statistics') }}</span>
+									<span class="tool-hint">{{ shortcutKey('toggle-stats') }}</span>
+								</button>
+							</div>
+						</section>
+
+						<!-- ANIMATION Section (conditional) -->
+						<section v-if="hasAnimations" class="panel-section">
+							<button class="section-header"
+								:aria-expanded="sections.animation"
+								aria-controls="panel-section-animation"
+								@click="toggleSection('animation')">
+								<span class="section-title">{{ t('threedviewer', 'Animation') }}</span>
+								<ViewerIcon class="expand-icon"
+									:class="{ collapsed: !sections.animation }"
+									name="chevron"
+									:size="15" />
+							</button>
+							<div v-show="sections.animation" id="panel-section-animation" class="section-content">
+								<!-- Clip selector -->
+								<div v-if="animationClipNames.length > 1" class="clip-selector">
+									<label class="clip-label">{{ t('threedviewer', 'Clip') }}</label>
+									<select class="clip-dropdown"
+										:value="animationActiveClipIndex"
+										@change="emit('animation-select-clip', parseInt($event.target.value))">
+										<option v-for="(name, idx) in animationClipNames"
+											:key="idx"
+											:value="idx">
+											{{ name }}
+										</option>
+									</select>
+								</div>
+								<div class="animation-controls">
+									<button class="tool-btn"
+										:class="{ 'active': isAnimationPlaying }"
+										@click="emit('toggle-animation-play')">
+										<ViewerIcon class="tool-icon" :name="isAnimationPlaying ? 'animationPause' : 'animationPlay'" :size="17" />
+										<span class="tool-label">{{ isAnimationPlaying ? t('threedviewer', 'Pause') : t('threedviewer', 'Play') }}</span>
+									</button>
+									<label class="toggle-row" @click.prevent="emit('toggle-animation-loop')">
+										<span class="toggle-switch" :class="{ on: isAnimationLooping }" />
+										<span class="toggle-text">{{ t('threedviewer', 'Loop') }}</span>
+									</label>
+								</div>
+								<!-- Timeline scrubber -->
+								<div v-if="animationDuration > 0" class="timeline-scrubber">
+									<div class="timeline-row">
+										<button class="step-btn" :title="t('threedviewer', 'Step back')" @click="emit('animation-step-backward')">
+											⏮
+										</button>
+										<input type="range"
+											class="timeline-slider"
+											:min="0"
+											:max="animationDuration"
+											:step="animationDuration / 100"
+											:value="animationCurrentTime"
+											@input="emit('animation-seek', parseFloat($event.target.value))">
+										<button class="step-btn" :title="t('threedviewer', 'Step forward')" @click="emit('animation-step-forward')">
+											⏭
+										</button>
+									</div>
+									<div class="timeline-time">
+										{{ animationCurrentTime.toFixed(2) }}s / {{ animationDuration.toFixed(2) }}s
+									</div>
+								</div>
+							</div>
+						</section>
+
+						<!-- EXPORT Section (extracted from Settings) -->
+						<section class="panel-section">
+							<button class="section-header"
+								:aria-expanded="sections.export"
+								aria-controls="panel-section-export"
+								@click="toggleSection('export')">
+								<span class="section-title">{{ t('threedviewer', 'Export') }}</span>
+								<ViewerIcon class="expand-icon"
+									:class="{ collapsed: !sections.export }"
+									name="chevron"
+									:size="15" />
+							</button>
+							<div v-show="sections.export" id="panel-section-export" class="section-content">
+								<button class="tool-btn" @click="emit('take-screenshot')">
+									<ViewerIcon class="tool-icon" name="camera" :size="17" />
+									<span class="tool-label">{{ t('threedviewer', 'Screenshot') }}</span>
+									<span class="tool-hint">{{ shortcutKey('take-screenshot') }}</span>
+								</button>
+								<!--
+									A row like the ones above it, not a labelled block. The label was a
+									bare `<label>` with no `for`, so it named nothing — the control it
+									sat over was announced as an unlabelled combo box, and the stack of
+									the two took twice the height of every neighbouring row while
+									saying the same thing.
+								-->
+								<div class="tool-row">
+									<ViewerIcon class="tool-icon" name="exportModel" :size="17" />
+									<span class="tool-label">{{ t('threedviewer', 'Export Model') }}</span>
+									<select ref="exportSelect"
+										:disabled="!modelLoaded"
+										class="export-select"
+										:aria-label="t('threedviewer', 'Export model format')"
+										@change="handleExportChange($event.target.value)">
+										<option value="">
+											{{ t('threedviewer', 'Select format...') }}
+										</option>
+										<option value="glb">
+											{{ t('threedviewer', 'GLB (Recommended)') }}
+										</option>
+										<option value="stl">
+											{{ t('threedviewer', 'STL (3D Printing)') }}
+										</option>
+										<option value="obj">
+											{{ t('threedviewer', 'OBJ (Universal)') }}
+										</option>
+										<option v-if="hasMultipleSourceFiles" value="zip">
+											{{ t('threedviewer', 'ZIP (All Files)') }}
+										</option>
+									</select>
+								</div>
+								<button class="tool-btn"
+									:disabled="!modelLoaded"
+									@click="emit('send-to-slicer')">
+									<ViewerIcon class="tool-icon" name="sendToSlicer" :size="17" />
+									<span class="tool-label">{{ t('threedviewer', 'Send to Slicer') }}</span>
+								</button>
+							</div>
+						</section>
+
+						<!-- SETTINGS Section (slimmed) -->
+						<section class="panel-section">
+							<button class="section-header"
+								:aria-expanded="sections.settings"
+								aria-controls="panel-section-settings"
+								@click="toggleSection('settings')">
+								<span class="section-title">{{ t('threedviewer', 'Settings') }}</span>
+								<ViewerIcon class="expand-icon"
+									:class="{ collapsed: !sections.settings }"
+									name="chevron"
+									:size="15" />
+							</button>
+							<div v-show="sections.settings" id="panel-section-settings" class="section-content">
+								<button class="tool-btn" @click="cyclePerformanceMode">
+									<ViewerIcon class="tool-icon" name="performance" :size="17" />
+									<span class="tool-label">{{ t('threedviewer', 'Performance') }}: {{ getPerformanceModeText() }}</span>
+								</button>
+								<button class="tool-btn" @click="cycleTheme">
+									<ViewerIcon class="tool-icon" :name="getThemeIcon()" :size="17" />
+									<span class="tool-label">{{ t('threedviewer', 'Theme') }}: {{ getThemeText() }}</span>
+								</button>
+								<div class="tool-group palette-group">
+									<label class="tool-label-small">{{ t('threedviewer', 'Custom palette') }}</label>
+									<div class="palette-row">
+										<span class="palette-key">{{ t('threedviewer', 'Background') }}</span>
+										<input type="color"
+											class="palette-swatch"
+											:value="paletteValueFor('background')"
+											:aria-label="t('threedviewer', 'Background color')"
+											@input="onPaletteInput('background', $event.target.value)">
+										<button v-if="customPalette.background"
+											class="palette-clear"
+											:title="t('threedviewer', 'Reset to theme default')"
+											@click="emit('set-palette-color', { key: 'background', hex: null })">
 											×
 										</button>
 									</div>
-								</div>
-							</div>
-						</div>
-					</section>
-
-					<!-- SCENE Section (was Display) -->
-					<section class="panel-section">
-						<button class="section-header"
-							:aria-expanded="sections.scene"
-							aria-controls="panel-section-scene"
-							@click="toggleSection('scene')">
-							<span class="section-title">{{ t('threedviewer', 'Scene') }}</span>
-							<ViewerIcon class="expand-icon"
-								:class="{ collapsed: !sections.scene }"
-								name="chevron"
-								:size="15" />
-						</button>
-						<div v-show="sections.scene" id="panel-section-scene" class="section-content">
-							<label class="toggle-row" @click.prevent="emit('toggle-grid')">
-								<span class="toggle-switch" :class="{ on: grid }" />
-								<span class="toggle-text">{{ t('threedviewer', 'Grid') }}</span>
-							</label>
-							<label class="toggle-row" @click.prevent="emit('toggle-axes')">
-								<span class="toggle-switch" :class="{ on: axes }" />
-								<span class="toggle-text">{{ t('threedviewer', 'Axes') }}</span>
-							</label>
-							<label class="toggle-row" @click.prevent="emit('toggle-wireframe')">
-								<span class="toggle-switch" :class="{ on: wireframe }" />
-								<span class="toggle-text">{{ t('threedviewer', 'Wireframe') }}</span>
-							</label>
-							<!-- Lighting Presets -->
-							<div v-if="lightingPresets.length > 0" class="tool-group">
-								<label class="tool-label-small">{{ t('threedviewer', 'Lighting') }}</label>
-								<div class="preset-buttons">
-									<button v-for="preset in lightingPresets"
-										:key="preset.name"
-										class="preset-btn"
-										:class="{ 'active': lightingPreset === preset.name }"
-										@click="emit('apply-lighting-preset', preset.name)">
-										{{ preset.label }}
-									</button>
-								</div>
-							</div>
-						</div>
-					</section>
-
-					<!-- ANALYZE Section (was Tools) -->
-					<section class="panel-section">
-						<button class="section-header"
-							:aria-expanded="sections.analyze"
-							aria-controls="panel-section-analyze"
-							@click="toggleSection('analyze')">
-							<span class="section-title">{{ t('threedviewer', 'Analyze') }}</span>
-							<ViewerIcon class="expand-icon"
-								:class="{ collapsed: !sections.analyze }"
-								name="chevron"
-								:size="15" />
-						</button>
-						<div v-show="sections.analyze" id="panel-section-analyze" class="section-content">
-							<button class="tool-btn feature-btn"
-								:class="{ 'active': measurementMode }"
-								@click="emit('toggle-measurement')">
-								<ViewerIcon class="tool-icon" name="measurement" :size="17" />
-								<span class="tool-label">{{ t('threedviewer', 'Measurement') }}</span>
-								<span v-if="measurementMode" class="active-badge">{{ t('threedviewer', 'Active') }}</span>
-								<span class="tool-hint">{{ shortcutKey('toggle-measurement') }}</span>
-							</button>
-							<button class="tool-btn feature-btn"
-								:class="{ 'active': annotationMode }"
-								@click="emit('toggle-annotation')">
-								<ViewerIcon class="tool-icon" name="annotation" :size="17" />
-								<span class="tool-label">{{ t('threedviewer', 'Annotation') }}</span>
-								<span v-if="annotationMode" class="active-badge">{{ t('threedviewer', 'Active') }}</span>
-							</button>
-							<button class="tool-btn feature-btn"
-								:class="{ 'active': comparisonMode }"
-								@click="emit('toggle-comparison')">
-								<ViewerIcon class="tool-icon" name="comparison" :size="17" />
-								<span class="tool-label">{{ t('threedviewer', 'Comparison') }}</span>
-								<span v-if="comparisonMode" class="active-badge">{{ t('threedviewer', 'Active') }}</span>
-							</button>
-							<!-- Clipping Plane / Cross-Section -->
-							<button class="tool-btn feature-btn"
-								:class="{ 'active': clippingActive }"
-								:disabled="!modelLoaded"
-								@click="emit('toggle-clipping')">
-								<ViewerIcon class="tool-icon" name="crossSection" :size="17" />
-								<span class="tool-label">{{ t('threedviewer', 'Cross-Section') }}</span>
-								<span v-if="clippingActive" class="active-badge">{{ t('threedviewer', 'Active') }}</span>
-							</button>
-							<div v-if="clippingActive" class="clipping-controls">
-								<!-- Mode switch: single plane vs 6-plane box -->
-								<div class="axis-buttons clipping-mode-switch">
-									<button class="axis-btn"
-										:class="{ 'active': clippingMode === 'plane' }"
-										:title="t('threedviewer', 'Single cross-section plane')"
-										@click="emit('set-clipping-mode', 'plane')">
-										{{ t('threedviewer', 'Plane') }}
-									</button>
-									<button class="axis-btn"
-										:class="{ 'active': clippingMode === 'box' }"
-										:title="t('threedviewer', '6-plane clipping box')"
-										@click="emit('set-clipping-mode', 'box')">
-										{{ t('threedviewer', 'Box') }}
-									</button>
-								</div>
-
-								<!-- Plane mode: single axis + position slider -->
-								<template v-if="clippingMode === 'plane'">
-									<div class="axis-buttons">
-										<button v-for="a in ['x','y','z']"
-											:key="a"
-											class="axis-btn"
-											:class="{ 'active': clippingAxis === a }"
-											@click="emit('set-clipping-axis', a)">
-											{{ a.toUpperCase() }}
-										</button>
-										<button class="axis-btn"
-											:class="{ 'active': clippingFlipped }"
-											:title="t('threedviewer', 'Flip direction')"
-											@click="emit('toggle-clipping-flip')">
-											<ViewerIcon name="flipDirection" :size="16" />
+									<div class="palette-row">
+										<span class="palette-key">{{ t('threedviewer', 'Grid') }}</span>
+										<input type="color"
+											class="palette-swatch"
+											:value="paletteValueFor('gridColor')"
+											:aria-label="t('threedviewer', 'Grid color')"
+											@input="onPaletteInput('gridColor', $event.target.value)">
+										<button v-if="customPalette.gridColor"
+											class="palette-clear"
+											:title="t('threedviewer', 'Reset to theme default')"
+											@click="emit('set-palette-color', { key: 'gridColor', hex: null })">
+											×
 										</button>
 									</div>
-									<input type="range"
-										class="clipping-slider"
-										min="-1"
-										max="1"
-										step="0.01"
-										:value="clippingPosition"
-										@input="emit('set-clipping-position', parseFloat($event.target.value))">
-								</template>
-
-								<!-- Box mode: three axis rows, each with a −/+ pair of sliders
-								     representing the offset inward from the min/max face. -->
-								<template v-else>
-									<div class="clipping-box-grid">
-										<div v-for="axis in ['x', 'y', 'z']" :key="axis" class="clipping-box-row">
-											<div class="clipping-box-label">
-												{{ axis.toUpperCase() }}
-											</div>
-											<div class="clipping-box-pair">
-												<span class="clipping-box-sublabel">−</span>
-												<input type="range"
-													class="clipping-slider clipping-slider-box"
-													min="0"
-													max="1"
-													step="0.01"
-													:value="clippingBoxOffsets[axis + 'Min']"
-													:aria-label="t('threedviewer', '{axis} min face offset', { axis: axis.toUpperCase() })"
-													@input="emit('set-clipping-box-offset', { face: axis + 'Min', value: parseFloat($event.target.value) })">
-											</div>
-											<div class="clipping-box-pair">
-												<span class="clipping-box-sublabel">+</span>
-												<input type="range"
-													class="clipping-slider clipping-slider-box"
-													min="0"
-													max="1"
-													step="0.01"
-													:value="clippingBoxOffsets[axis + 'Max']"
-													:aria-label="t('threedviewer', '{axis} max face offset', { axis: axis.toUpperCase() })"
-													@input="emit('set-clipping-box-offset', { face: axis + 'Max', value: parseFloat($event.target.value) })">
-											</div>
+									<button v-if="hasAnyPaletteOverride"
+										class="tool-btn palette-reset"
+										@click="emit('reset-palette')">
+										<ViewerIcon class="tool-icon" name="resetView" :size="18" />
+										<span class="tool-label">{{ t('threedviewer', 'Reset all palette colors') }}</span>
+									</button>
+								</div>
+								<!-- Cache Management -->
+								<div v-if="cacheStats.enabled" class="tool-group cache-group">
+									<label class="tool-label-small">{{ t('threedviewer', 'Dependency Cache') }}</label>
+									<div class="cache-info">
+										<div class="cache-stat-row">
+											<span class="cache-stat-label">{{ t('threedviewer', 'Size') }}:</span>
+											<span class="cache-stat-value">{{ cacheStats.sizeMB.toFixed(1) }} MB</span>
+										</div>
+										<div class="cache-stat-row">
+											<span class="cache-stat-label">{{ t('threedviewer', 'Files') }}:</span>
+											<span class="cache-stat-value">{{ cacheStats.count }}</span>
+										</div>
+										<div v-if="cacheStats.hits + cacheStats.misses > 0" class="cache-stat-row">
+											<span class="cache-stat-label">{{ t('threedviewer', 'Hit Rate') }}:</span>
+											<span class="cache-stat-value" :class="{ 'good': cacheStats.hitRate >= 70, 'warning': cacheStats.hitRate >= 50 && cacheStats.hitRate < 70, 'poor': cacheStats.hitRate < 50 }">
+												{{ cacheStats.hitRate.toFixed(1) }}%
+											</span>
 										</div>
 									</div>
-									<button class="axis-btn clipping-box-reset"
-										:title="t('threedviewer', 'Reset all 6 box faces')"
-										@click="emit('reset-clipping-box')">
-										{{ t('threedviewer', 'Reset box') }}
-									</button>
-								</template>
-							</div>
-							<!-- Exploded View -->
-							<button v-if="explodedViewAvailable"
-								class="tool-btn feature-btn"
-								:class="{ 'active': explodedViewActive }"
-								@click="emit('toggle-exploded-view')">
-								<ViewerIcon class="tool-icon" name="explode" :size="17" />
-								<span class="tool-label">{{ t('threedviewer', 'Exploded View') }}</span>
-								<span v-if="explodedViewActive" class="active-badge">{{ t('threedviewer', 'Active') }}</span>
-							</button>
-							<div v-if="explodedViewActive" class="tool-group">
-								<label class="tool-label-small">{{ t('threedviewer', 'Explosion') }}</label>
-								<input type="range"
-									class="clipping-slider"
-									min="0"
-									max="1"
-									step="0.01"
-									:value="explodedViewFactor"
-									@input="emit('set-exploded-factor', parseFloat($event.target.value))">
-							</div>
-							<!-- Transform Gizmo -->
-							<button class="tool-btn feature-btn"
-								:class="{ 'active': transformGizmoActive }"
-								:disabled="!modelLoaded"
-								@click="emit('toggle-transform-gizmo')">
-								<ViewerIcon class="tool-icon" name="transform" :size="17" />
-								<span class="tool-label">{{ t('threedviewer', 'Transform') }}</span>
-								<span v-if="transformGizmoActive" class="active-badge">{{ t('threedviewer', 'Active') }}</span>
-							</button>
-							<div v-if="transformGizmoActive" class="clipping-controls">
-								<div class="axis-buttons">
-									<button class="axis-btn"
-										:class="{ 'active': transformGizmoMode === 'translate' }"
-										:title="t('threedviewer', 'Move')"
-										@click="emit('set-transform-mode', 'translate')">
-										{{ t('threedviewer', 'Move') }}
-									</button>
-									<button class="axis-btn"
-										:class="{ 'active': transformGizmoMode === 'rotate' }"
-										:title="t('threedviewer', 'Rotate')"
-										@click="emit('set-transform-mode', 'rotate')">
-										{{ t('threedviewer', 'Rotate') }}
-									</button>
-									<button class="axis-btn"
-										:class="{ 'active': transformGizmoMode === 'scale' }"
-										:title="t('threedviewer', 'Scale')"
-										@click="emit('set-transform-mode', 'scale')">
-										{{ t('threedviewer', 'Scale') }}
-									</button>
-									<button class="axis-btn"
-										:title="t('threedviewer', 'Reset transform')"
-										@click="emit('reset-transform')">
-										{{ t('threedviewer', 'Reset') }}
+									<button class="tool-btn cache-clear-btn" @click="emit('clear-cache')">
+										<ViewerIcon class="tool-icon" name="delete" :size="17" />
+										<span class="tool-label">{{ t('threedviewer', 'Clear Cache') }}</span>
 									</button>
 								</div>
-							</div>
-							<!-- Model Statistics -->
-							<button class="tool-btn"
-								:disabled="!modelLoaded"
-								@click="emit('toggle-stats')">
-								<ViewerIcon class="tool-icon" name="statistics" :size="17" />
-								<span class="tool-label">{{ t('threedviewer', 'Model Statistics') }}</span>
-								<span class="tool-hint">{{ shortcutKey('toggle-stats') }}</span>
-							</button>
-						</div>
-					</section>
-
-					<!-- ANIMATION Section (conditional) -->
-					<section v-if="hasAnimations" class="panel-section">
-						<button class="section-header"
-							:aria-expanded="sections.animation"
-							aria-controls="panel-section-animation"
-							@click="toggleSection('animation')">
-							<span class="section-title">{{ t('threedviewer', 'Animation') }}</span>
-							<ViewerIcon class="expand-icon"
-								:class="{ collapsed: !sections.animation }"
-								name="chevron"
-								:size="15" />
-						</button>
-						<div v-show="sections.animation" id="panel-section-animation" class="section-content">
-							<!-- Clip selector -->
-							<div v-if="animationClipNames.length > 1" class="clip-selector">
-								<label class="clip-label">{{ t('threedviewer', 'Clip') }}</label>
-								<select class="clip-dropdown"
-									:value="animationActiveClipIndex"
-									@change="emit('animation-select-clip', parseInt($event.target.value))">
-									<option v-for="(name, idx) in animationClipNames"
-										:key="idx"
-										:value="idx">
-										{{ name }}
-									</option>
-								</select>
-							</div>
-							<div class="animation-controls">
-								<button class="tool-btn"
-									:class="{ 'active': isAnimationPlaying }"
-									@click="emit('toggle-animation-play')">
-									<ViewerIcon class="tool-icon" :name="isAnimationPlaying ? 'animationPause' : 'animationPlay'" :size="17" />
-									<span class="tool-label">{{ isAnimationPlaying ? t('threedviewer', 'Pause') : t('threedviewer', 'Play') }}</span>
-								</button>
-								<label class="toggle-row" @click.prevent="emit('toggle-animation-loop')">
-									<span class="toggle-switch" :class="{ on: isAnimationLooping }" />
-									<span class="toggle-text">{{ t('threedviewer', 'Loop') }}</span>
-								</label>
-							</div>
-							<!-- Timeline scrubber -->
-							<div v-if="animationDuration > 0" class="timeline-scrubber">
-								<div class="timeline-row">
-									<button class="step-btn" :title="t('threedviewer', 'Step back')" @click="emit('animation-step-backward')">
-										⏮
-									</button>
-									<input type="range"
-										class="timeline-slider"
-										:min="0"
-										:max="animationDuration"
-										:step="animationDuration / 100"
-										:value="animationCurrentTime"
-										@input="emit('animation-seek', parseFloat($event.target.value))">
-									<button class="step-btn" :title="t('threedviewer', 'Step forward')" @click="emit('animation-step-forward')">
-										⏭
-									</button>
-								</div>
-								<div class="timeline-time">
-									{{ animationCurrentTime.toFixed(2) }}s / {{ animationDuration.toFixed(2) }}s
-								</div>
-							</div>
-						</div>
-					</section>
-
-					<!-- EXPORT Section (extracted from Settings) -->
-					<section class="panel-section">
-						<button class="section-header"
-							:aria-expanded="sections.export"
-							aria-controls="panel-section-export"
-							@click="toggleSection('export')">
-							<span class="section-title">{{ t('threedviewer', 'Export') }}</span>
-							<ViewerIcon class="expand-icon"
-								:class="{ collapsed: !sections.export }"
-								name="chevron"
-								:size="15" />
-						</button>
-						<div v-show="sections.export" id="panel-section-export" class="section-content">
-							<button class="tool-btn" @click="emit('take-screenshot')">
-								<ViewerIcon class="tool-icon" name="camera" :size="17" />
-								<span class="tool-label">{{ t('threedviewer', 'Screenshot') }}</span>
-								<span class="tool-hint">{{ shortcutKey('take-screenshot') }}</span>
-							</button>
-							<!--
-								A row like the ones above it, not a labelled block. The label was a
-								bare `<label>` with no `for`, so it named nothing — the control it
-								sat over was announced as an unlabelled combo box, and the stack of
-								the two took twice the height of every neighbouring row while
-								saying the same thing.
-							-->
-							<div class="tool-row">
-								<ViewerIcon class="tool-icon" name="exportModel" :size="17" />
-								<span class="tool-label">{{ t('threedviewer', 'Export Model') }}</span>
-								<select ref="exportSelect"
-									:disabled="!modelLoaded"
-									class="export-select"
-									:aria-label="t('threedviewer', 'Export model format')"
-									@change="handleExportChange($event.target.value)">
-									<option value="">
-										{{ t('threedviewer', 'Select format...') }}
-									</option>
-									<option value="glb">
-										{{ t('threedviewer', 'GLB (Recommended)') }}
-									</option>
-									<option value="stl">
-										{{ t('threedviewer', 'STL (3D Printing)') }}
-									</option>
-									<option value="obj">
-										{{ t('threedviewer', 'OBJ (Universal)') }}
-									</option>
-									<option v-if="hasMultipleSourceFiles" value="zip">
-										{{ t('threedviewer', 'ZIP (All Files)') }}
-									</option>
-								</select>
-							</div>
-							<button class="tool-btn"
-								:disabled="!modelLoaded"
-								@click="emit('send-to-slicer')">
-								<ViewerIcon class="tool-icon" name="sendToSlicer" :size="17" />
-								<span class="tool-label">{{ t('threedviewer', 'Send to Slicer') }}</span>
-							</button>
-						</div>
-					</section>
-
-					<!-- SETTINGS Section (slimmed) -->
-					<section class="panel-section">
-						<button class="section-header"
-							:aria-expanded="sections.settings"
-							aria-controls="panel-section-settings"
-							@click="toggleSection('settings')">
-							<span class="section-title">{{ t('threedviewer', 'Settings') }}</span>
-							<ViewerIcon class="expand-icon"
-								:class="{ collapsed: !sections.settings }"
-								name="chevron"
-								:size="15" />
-						</button>
-						<div v-show="sections.settings" id="panel-section-settings" class="section-content">
-							<button class="tool-btn" @click="cyclePerformanceMode">
-								<ViewerIcon class="tool-icon" name="performance" :size="17" />
-								<span class="tool-label">{{ t('threedviewer', 'Performance') }}: {{ getPerformanceModeText() }}</span>
-							</button>
-							<button class="tool-btn" @click="cycleTheme">
-								<ViewerIcon class="tool-icon" :name="getThemeIcon()" :size="17" />
-								<span class="tool-label">{{ t('threedviewer', 'Theme') }}: {{ getThemeText() }}</span>
-							</button>
-							<div class="tool-group palette-group">
-								<label class="tool-label-small">{{ t('threedviewer', 'Custom palette') }}</label>
-								<div class="palette-row">
-									<span class="palette-key">{{ t('threedviewer', 'Background') }}</span>
-									<input type="color"
-										class="palette-swatch"
-										:value="paletteValueFor('background')"
-										:aria-label="t('threedviewer', 'Background color')"
-										@input="onPaletteInput('background', $event.target.value)">
-									<button v-if="customPalette.background"
-										class="palette-clear"
-										:title="t('threedviewer', 'Reset to theme default')"
-										@click="emit('set-palette-color', { key: 'background', hex: null })">
-										×
-									</button>
-								</div>
-								<div class="palette-row">
-									<span class="palette-key">{{ t('threedviewer', 'Grid') }}</span>
-									<input type="color"
-										class="palette-swatch"
-										:value="paletteValueFor('gridColor')"
-										:aria-label="t('threedviewer', 'Grid color')"
-										@input="onPaletteInput('gridColor', $event.target.value)">
-									<button v-if="customPalette.gridColor"
-										class="palette-clear"
-										:title="t('threedviewer', 'Reset to theme default')"
-										@click="emit('set-palette-color', { key: 'gridColor', hex: null })">
-										×
-									</button>
-								</div>
-								<button v-if="hasAnyPaletteOverride"
-									class="tool-btn palette-reset"
-									@click="emit('reset-palette')">
-									<ViewerIcon class="tool-icon" name="resetView" :size="18" />
-									<span class="tool-label">{{ t('threedviewer', 'Reset all palette colors') }}</span>
-								</button>
-							</div>
-							<!-- Cache Management -->
-							<div v-if="cacheStats.enabled" class="tool-group cache-group">
-								<label class="tool-label-small">{{ t('threedviewer', 'Dependency Cache') }}</label>
-								<div class="cache-info">
-									<div class="cache-stat-row">
-										<span class="cache-stat-label">{{ t('threedviewer', 'Size') }}:</span>
-										<span class="cache-stat-value">{{ cacheStats.sizeMB.toFixed(1) }} MB</span>
-									</div>
-									<div class="cache-stat-row">
-										<span class="cache-stat-label">{{ t('threedviewer', 'Files') }}:</span>
-										<span class="cache-stat-value">{{ cacheStats.count }}</span>
-									</div>
-									<div v-if="cacheStats.hits + cacheStats.misses > 0" class="cache-stat-row">
-										<span class="cache-stat-label">{{ t('threedviewer', 'Hit Rate') }}:</span>
-										<span class="cache-stat-value" :class="{ 'good': cacheStats.hitRate >= 70, 'warning': cacheStats.hitRate >= 50 && cacheStats.hitRate < 70, 'poor': cacheStats.hitRate < 50 }">
-											{{ cacheStats.hitRate.toFixed(1) }}%
-										</span>
-									</div>
-								</div>
-								<button class="tool-btn cache-clear-btn" @click="emit('clear-cache')">
+								<button v-else class="tool-btn" @click="emit('clear-cache')">
 									<ViewerIcon class="tool-icon" name="delete" :size="17" />
 									<span class="tool-label">{{ t('threedviewer', 'Clear Cache') }}</span>
 								</button>
+								<button class="tool-btn" @click="emit('toggle-help')">
+									<ViewerIcon class="tool-icon" name="help" :size="17" />
+									<span class="tool-label">{{ t('threedviewer', 'Help') }}</span>
+									<span class="tool-hint">{{ shortcutKey('toggle-help') }}</span>
+								</button>
 							</div>
-							<button v-else class="tool-btn" @click="emit('clear-cache')">
-								<ViewerIcon class="tool-icon" name="delete" :size="17" />
-								<span class="tool-label">{{ t('threedviewer', 'Clear Cache') }}</span>
-							</button>
-							<button class="tool-btn" @click="emit('toggle-help')">
-								<ViewerIcon class="tool-icon" name="help" :size="17" />
-								<span class="tool-label">{{ t('threedviewer', 'Help') }}</span>
-								<span class="tool-hint">{{ shortcutKey('toggle-help') }}</span>
-							</button>
-						</div>
-					</section>
-				</div>
+						</section>
+					</div>
 
-				<!-- Panel Footer -->
-				<div class="panel-footer">
-					<span class="keyboard-hint">{{ t('threedviewer', 'Press T to toggle') }}</span>
+					<!-- Panel Footer -->
+					<div class="panel-footer">
+						<span class="keyboard-hint">{{ t('threedviewer', 'Press T to toggle') }}</span>
+					</div>
 				</div>
-			</div>
-		</transition>
-	</div>
+			</transition>
+		</div>
+	</Teleport>
 </template>
 
 <script>

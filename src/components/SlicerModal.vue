@@ -1,142 +1,151 @@
 <template>
-	<div v-if="isOpen" class="slicer-modal-backdrop" @click="handleBackdropClick">
-		<div ref="modalRef"
-			class="slicer-modal"
-			role="dialog"
-			aria-modal="true"
-			aria-labelledby="slicer-modal-title"
-			tabindex="-1"
-			@click.stop>
-			<!-- Modal Header -->
-			<div class="modal-header">
-				<h2 id="slicer-modal-title" class="modal-title">
-					{{ t('threedviewer', 'Send to Slicer') }}
-				</h2>
-				<button class="tdv-btn tdv-btn--icon close-btn"
-					:aria-label="t('threedviewer', 'Close')"
-					:title="t('threedviewer', 'Close')"
-					@click="closeModal">
-					<ViewerIcon name="close" :size="18" />
-				</button>
-			</div>
-
-			<!-- Modal Content -->
-			<div class="modal-content">
-				<p class="modal-description">
-					{{ t('threedviewer', 'Send your model to a slicer. Formats you mark as passthrough are sent as-is; everything else is converted to STL.') }}
-				</p>
-
-				<!-- Export Format Selector -->
-				<!--
-					One row, per the sheet. The label was a `<label>` with no `for`, stacked
-					above the control: it named nothing, so the segmented buttons were three
-					unrelated toggles as far as a screen reader was concerned. A labelled group
-					with a pressed state says what the sighted layout already says.
-				-->
-				<div v-if="!exporting && !isPassthrough" class="format-selector">
-					<span id="slicer-format-label" class="format-label">{{ t('threedviewer', 'Format') }}</span>
-					<div class="format-buttons" role="group" aria-labelledby="slicer-format-label">
-						<button v-for="fmt in ['stl', 'obj', 'ply']"
-							:key="fmt"
-							class="format-btn"
-							:class="{ active: selectedFormat === fmt }"
-							:aria-pressed="selectedFormat === fmt"
-							@click="selectedFormat = fmt">
-							{{ fmt.toUpperCase() }}
-						</button>
-					</div>
-				</div>
-
-				<!-- Loading State -->
-				<div v-if="exporting" class="loading-state">
-					<div class="spinner" />
-					<p>{{ exportMessage }}</p>
-					<!-- Upload progress bar -->
-					<div v-if="uploadProgress > 0" class="upload-progress">
-						<div class="progress-bar-track">
-							<div class="progress-bar-fill" :style="{ width: uploadProgress + '%' }" />
-						</div>
-						<span class="progress-text">{{ uploadProgress }}%</span>
-					</div>
-				</div>
-
-				<!-- Error State -->
-				<div v-if="errorMessage" class="error-state">
-					<ViewerIcon class="error-icon" name="alert" :size="20" />
-					<p>{{ errorMessage }}</p>
-					<button class="retry-btn" @click="clearError">
-						{{ t('threedviewer', 'Dismiss') }}
+	<!--
+		Teleported: Nextcloud gives `#content-vue` a backdrop-filter, which makes it the
+		containing block for every fixed-position descendant — so a backdrop written
+		`position: fixed; inset: 0` inside the app covered the app content and left the
+		navigation and the page header lit, with the dialog centred on what was left. No
+		z-index reaches that; the element has to be outside the box to be fixed to the page.
+	-->
+	<Teleport to="body">
+		<div v-if="isOpen" class="slicer-modal-backdrop" @click="handleBackdropClick">
+			<div ref="modalRef"
+				class="slicer-modal"
+				role="dialog"
+				aria-modal="true"
+				aria-labelledby="slicer-modal-title"
+				tabindex="-1"
+				@click.stop>
+				<!-- Modal Header -->
+				<div class="modal-header">
+					<h2 id="slicer-modal-title" class="modal-title">
+						{{ t('threedviewer', 'Send to Slicer') }}
+					</h2>
+					<button class="tdv-btn tdv-btn--icon close-btn"
+						:aria-label="t('threedviewer', 'Close')"
+						:title="t('threedviewer', 'Close')"
+						@click="closeModal">
+						<ViewerIcon name="close" :size="18" />
 					</button>
 				</div>
 
-				<!-- Slicer Grid -->
-				<div v-if="!exporting" class="slicer-grid">
-					<div v-for="slicer in slicers"
-						:key="slicer.id"
-						class="tdv-dialog-row slicer-card"
-						:class="{ 'last-used': slicer.id === lastUsedSlicer }"
-						:style="{ '--slicer-color': slicer.color }">
-						<div class="slicer-icon">
-							<img :src="slicer.icon"
-								:alt="slicer.name"
-								@error="handleImageError">
-						</div>
-						<div class="slicer-info">
-							<h3 class="slicer-name">
-								{{ slicer.name }}
-								<span v-if="slicer.id === lastUsedSlicer" class="last-used-badge">
-									{{ t('threedviewer', 'Last used') }}
-								</span>
-							</h3>
-							<p class="slicer-description">
-								{{ slicer.description }}
-							</p>
-						</div>
-						<div class="slicer-actions">
-							<!--
-								"Open", not "Open in PrusaSlicer": the row names the slicer two
-								inches to the left, and four buttons whose width is set by the
-								length of a brand name make a ragged column of the one thing every
-								row has in common. The accessible name keeps the slicer, since
-								nothing places it next to the button for a screen reader.
-							-->
-							<button class="slicer-btn primary"
-								:disabled="!modelObject"
-								:aria-label="t('threedviewer', 'Open in {name}', { name: slicer.name })"
-								:title="t('threedviewer', 'Open directly in {name}', { name: slicer.name })"
-								@click="handleOpenInSlicer(slicer.id)">
-								{{ t('threedviewer', 'Open') }}
+				<!-- Modal Content -->
+				<div class="modal-content">
+					<p class="modal-description">
+						{{ t('threedviewer', 'Send your model to a slicer. Formats you mark as passthrough are sent as-is; everything else is converted to STL.') }}
+					</p>
+
+					<!-- Export Format Selector -->
+					<!--
+						One row, per the sheet. The label was a `<label>` with no `for`, stacked
+						above the control: it named nothing, so the segmented buttons were three
+						unrelated toggles as far as a screen reader was concerned. A labelled group
+						with a pressed state says what the sighted layout already says.
+					-->
+					<div v-if="!exporting && !isPassthrough" class="format-selector">
+						<span id="slicer-format-label" class="format-label">{{ t('threedviewer', 'Format') }}</span>
+						<div class="format-buttons" role="group" aria-labelledby="slicer-format-label">
+							<button v-for="fmt in ['stl', 'obj', 'ply']"
+								:key="fmt"
+								class="format-btn"
+								:class="{ active: selectedFormat === fmt }"
+								:aria-pressed="selectedFormat === fmt"
+								@click="selectedFormat = fmt">
+								{{ fmt.toUpperCase() }}
 							</button>
 						</div>
 					</div>
-				</div>
 
-				<!-- Share link copy -->
-				<div v-if="lastShareUrl" class="share-link-row">
-					<input type="text"
-						:value="lastShareUrl"
-						readonly
-						:aria-label="t('threedviewer', 'Share link')"
-						class="share-link-input"
-						@focus="$event.target.select()">
-					<button class="copy-btn"
-						:aria-label="t('threedviewer', 'Copy link')"
-						:title="t('threedviewer', 'Copy link')"
-						@click="copyShareLink">
-						<ViewerIcon :name="copied ? 'check' : 'copy'" :size="16" />
-					</button>
-				</div>
+					<!-- Loading State -->
+					<div v-if="exporting" class="loading-state">
+						<div class="spinner" />
+						<p>{{ exportMessage }}</p>
+						<!-- Upload progress bar -->
+						<div v-if="uploadProgress > 0" class="upload-progress">
+							<div class="progress-bar-track">
+								<div class="progress-bar-fill" :style="{ width: uploadProgress + '%' }" />
+							</div>
+							<span class="progress-text">{{ uploadProgress }}%</span>
+						</div>
+					</div>
 
-				<!-- Info Footer -->
-				<div v-if="!exporting" class="modal-info">
-					<p class="info-text">
-						<ViewerIcon class="info-icon" name="hint" :size="18" />
-						<strong>{{ t('threedviewer', 'Tip:') }}</strong> {{ t('threedviewer', 'The app creates a temporary Nextcloud share link that works with slicer applications. Link expires after 24 hours.') }}
-					</p>
+					<!-- Error State -->
+					<div v-if="errorMessage" class="error-state">
+						<ViewerIcon class="error-icon" name="alert" :size="20" />
+						<p>{{ errorMessage }}</p>
+						<button class="retry-btn" @click="clearError">
+							{{ t('threedviewer', 'Dismiss') }}
+						</button>
+					</div>
+
+					<!-- Slicer Grid -->
+					<div v-if="!exporting" class="slicer-grid">
+						<div v-for="slicer in slicers"
+							:key="slicer.id"
+							class="tdv-dialog-row slicer-card"
+							:class="{ 'last-used': slicer.id === lastUsedSlicer }"
+							:style="{ '--slicer-color': slicer.color }">
+							<div class="slicer-icon">
+								<img :src="slicer.icon"
+									:alt="slicer.name"
+									@error="handleImageError">
+							</div>
+							<div class="slicer-info">
+								<h3 class="slicer-name">
+									{{ slicer.name }}
+									<span v-if="slicer.id === lastUsedSlicer" class="last-used-badge">
+										{{ t('threedviewer', 'Last used') }}
+									</span>
+								</h3>
+								<p class="slicer-description">
+									{{ slicer.description }}
+								</p>
+							</div>
+							<div class="slicer-actions">
+								<!--
+									"Open", not "Open in PrusaSlicer": the row names the slicer two
+									inches to the left, and four buttons whose width is set by the
+									length of a brand name make a ragged column of the one thing every
+									row has in common. The accessible name keeps the slicer, since
+									nothing places it next to the button for a screen reader.
+								-->
+								<button class="slicer-btn primary"
+									:disabled="!modelObject"
+									:aria-label="t('threedviewer', 'Open in {name}', { name: slicer.name })"
+									:title="t('threedviewer', 'Open directly in {name}', { name: slicer.name })"
+									@click="handleOpenInSlicer(slicer.id)">
+									{{ t('threedviewer', 'Open') }}
+								</button>
+							</div>
+						</div>
+					</div>
+
+					<!-- Share link copy -->
+					<div v-if="lastShareUrl" class="share-link-row">
+						<input type="text"
+							:value="lastShareUrl"
+							readonly
+							:aria-label="t('threedviewer', 'Share link')"
+							class="share-link-input"
+							@focus="$event.target.select()">
+						<button class="copy-btn"
+							:aria-label="t('threedviewer', 'Copy link')"
+							:title="t('threedviewer', 'Copy link')"
+							@click="copyShareLink">
+							<ViewerIcon :name="copied ? 'check' : 'copy'" :size="16" />
+						</button>
+					</div>
+
+					<!-- Info Footer -->
+					<div v-if="!exporting" class="modal-info">
+						<p class="info-text">
+							<ViewerIcon class="info-icon" name="hint" :size="18" />
+							<strong>{{ t('threedviewer', 'Tip:') }}</strong> {{ t('threedviewer', 'The app creates a temporary Nextcloud share link that works with slicer applications. Link expires after 24 hours.') }}
+						</p>
+					</div>
 				</div>
 			</div>
 		</div>
-	</div>
+	</Teleport>
 </template>
 
 <script>

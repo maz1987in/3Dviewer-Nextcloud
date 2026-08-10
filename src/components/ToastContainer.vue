@@ -1,29 +1,38 @@
 <template>
-	<div class="toast-container" role="status" aria-live="polite">
-		<transition-group name="toast-fade" tag="div">
-			<div
-				v-for="toast in toasts"
-				:key="toast.id"
-				class="toast"
-				:class="toast.type"
-				:aria-label="toast.title"
-				@click="$emit('dismiss', toast.id)"
-				@mouseenter="pauseAutoHide(toast.id)"
-				@mouseleave="resumeAutoHide(toast.id)">
-				<strong class="title">{{ toast.title }}</strong>
-				<div class="msg">
-					{{ toast.message }}
+	<!--
+		Teleported for the same reason as the modals: `#content-vue` carries a
+		backdrop-filter, so a fixed overlay inside it is fixed to the app content rather
+		than to the page. These offsets are written to clear Nextcloud's header and the
+		viewer's bar, and inside that box the header was counted twice — the panel opened
+		66px below the bar where the rule asks for 16.
+	-->
+	<Teleport to="body">
+		<div class="toast-container" role="status" aria-live="polite">
+			<transition-group name="toast-fade" tag="div">
+				<div
+					v-for="toast in toasts"
+					:key="toast.id"
+					class="toast"
+					:class="toast.type"
+					:aria-label="toast.title"
+					@click="$emit('dismiss', toast.id)"
+					@mouseenter="pauseAutoHide(toast.id)"
+					@mouseleave="resumeAutoHide(toast.id)">
+					<strong class="title">{{ toast.title }}</strong>
+					<div class="msg">
+						{{ toast.message }}
+					</div>
+					<div v-if="toast.timeout > 0" class="progress-bar" :style="{ '--progress': (progressValues[toast.id] || 0) + '%' }" />
+					<button type="button"
+						class="close"
+						:aria-label="t('threedviewer','Dismiss')"
+						@click.stop="$emit('dismiss', toast.id)">
+						×
+					</button>
 				</div>
-				<div v-if="toast.timeout > 0" class="progress-bar" :style="{ '--progress': (progressValues[toast.id] || 0) + '%' }" />
-				<button type="button"
-					class="close"
-					:aria-label="t('threedviewer','Dismiss')"
-					@click.stop="$emit('dismiss', toast.id)">
-					×
-				</button>
-			</div>
-		</transition-group>
-	</div>
+			</transition-group>
+		</div>
+	</Teleport>
 </template>
 
 <script>
