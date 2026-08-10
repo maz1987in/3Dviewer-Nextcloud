@@ -3924,7 +3924,7 @@ export default {
 	font-size: 24px;
 	font-weight: bold;
 	margin-top: 10px;
-	color: var(--tdv-color-primary);
+	color: var(--tdv-color-primary-text);
 }
 
 .loading-actions {
@@ -3996,7 +3996,7 @@ export default {
 	font-size: 28px;
 	font-weight: bold;
 	margin-bottom: 16px;
-	color: var(--tdv-color-primary);
+	color: var(--tdv-color-primary-text);
 }
 
 .export-progress-overlay.mobile .export-progress-content {

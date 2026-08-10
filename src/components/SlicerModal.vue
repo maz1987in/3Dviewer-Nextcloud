@@ -861,7 +861,7 @@ export default {
 	font-family: inherit;
 	font-size: var(--tdv-font-size-secondary);
 	font-weight: var(--tdv-font-weight-medium);
-	color: var(--tdv-color-primary);
+	color: var(--tdv-color-primary-text);
 	cursor: pointer;
 	transition: background 0.15s ease;
 }
@@ -885,7 +885,7 @@ export default {
  */
 .format-btn.format-btn:active {
 	background: var(--tdv-color-primary-light) !important;
-	color: var(--tdv-color-primary) !important;
+	color: var(--tdv-color-primary-text) !important;
 }
 
 .format-btn.format-btn.active:active {
@@ -1086,7 +1086,7 @@ export default {
 .slicer-btn.primary {
 	border: 2px solid var(--tdv-color-primary);
 	background: transparent;
-	color: var(--tdv-color-primary);
+	color: var(--tdv-color-primary-text);
 }
 
 .slicer-btn.primary:hover:not(:disabled),

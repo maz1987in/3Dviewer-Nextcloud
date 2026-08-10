@@ -25,6 +25,12 @@
 	--tdv-color-primary-hover: var(--color-primary-element-hover, #006aa3);
 	--tdv-color-primary-light: var(--color-primary-element-light, #e5f1f8);
 	--tdv-color-on-primary: var(--color-primary-element-text, #fff);
+
+	/* The accent as a label, which is not the same colour as the accent as a fill. A button
+	   filled with the primary carries white and reads; the same primary used as text on a
+	   dark card does not. The two are separated here so the dark palette can lighten one
+	   without taking the other with it. On a light surface they are the same value. */
+	--tdv-color-primary-text: var(--color-primary-element, #0082c9);
 	--tdv-color-text: var(--color-main-text, #222);
 	--tdv-color-text-secondary: var(--color-text-maxcontrast, #666);
 	--tdv-color-border: var(--color-border, #e6e6e6);
@@ -163,6 +169,8 @@
 
 [data-tdv-theme="light"] {
 	--tdv-color-text: #222;
+	--tdv-color-primary-text: var(--color-primary-element, #0082c9);
+	--tdv-color-primary-light: var(--color-primary-element-light, #e5f1f8);
 	--tdv-color-text-secondary: #595959;
 	--tdv-color-border: #e6e6e6;
 	--tdv-color-border-strong: #d0d0d0;
@@ -180,15 +188,27 @@
 
 }
 
+/*
+ * Values from "Viewer Options.dc.html", panel 2b — the tools panel in the dark theme. The
+ * light theme above is the same sheet's 2a, which is where the base fallbacks came from.
+ */
 [data-tdv-theme="dark"] {
-	--tdv-color-text: #f5f5f5;
+	--tdv-color-text: #e8e8e8;
 	--tdv-color-text-secondary: #aaa;
-	--tdv-color-border: rgb(255, 255, 255, 0.15);
-	--tdv-color-border-strong: rgb(255, 255, 255, 0.28);
-	--tdv-color-hover-bg: rgb(255, 255, 255, 0.12);
-	--tdv-color-surface: #1e1e1e;
-	--tdv-color-surface-sunken: #171717;
-	--tdv-color-surface-recessed: #121212;
+	--tdv-color-border: #383838;
+	--tdv-color-border-strong: #4a4a4a;
+	--tdv-color-hover-bg: rgb(255, 255, 255, 0.08);
+	--tdv-color-surface: #232323;
+	--tdv-color-surface-sunken: #1c1c1c;
+	--tdv-color-surface-recessed: #161616;
+
+	/* The sheet lightens the accent where it is a label and keeps `#0082C9` where it is a
+	   fill, so a selected row reads as accent text without the filled controls beside it
+	   losing the contrast their white labels depend on. The tint behind such a row is the
+	   accent at 15% rather than Nextcloud's pale `--color-primary-element-light`, which is
+	   a light chip wherever it lands on this surface. */
+	--tdv-color-primary-text: #66b8e8;
+	--tdv-color-primary-light: rgb(0, 130, 201, 0.15);
 
 	/* Lighter than their light-theme counterparts for the same reason the HUD's are: a
 	   colour tuned for contrast on white disappears against near-black. */
@@ -369,7 +389,7 @@ body.theme--dark {
 
 .tdv-btn.tdv-btn--secondary {
 	border: 2px solid var(--tdv-color-primary);
-	color: var(--tdv-color-primary);
+	color: var(--tdv-color-primary-text);
 }
 
 .tdv-btn.tdv-btn--secondary:hover,
@@ -404,7 +424,7 @@ body.theme--dark {
 /* Toggled-on icon button: primary-light background, primary glyph. */
 .tdv-btn.tdv-btn--active {
 	background: var(--tdv-color-primary-light);
-	color: var(--tdv-color-primary);
+	color: var(--tdv-color-primary-text);
 }
 
 .tdv-btn.tdv-btn--icon svg {
@@ -650,7 +670,7 @@ body.theme--dark {
 	cursor: pointer;
 	border: none;
 	background: transparent;
-	color: var(--tdv-color-primary);
+	color: var(--tdv-color-primary-text);
 }
 
 .tdv-segmented button[aria-pressed="true"] {

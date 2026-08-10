@@ -463,7 +463,7 @@ export default {
 .help-section h3 {
 	font-size: 18px;
 	font-weight: 600;
-	color: var(--tdv-color-primary);
+	color: var(--tdv-color-primary-text);
 	margin: 0 0 16px;
 	padding-bottom: 8px;
 	border-bottom: 2px solid var(--tdv-color-primary);

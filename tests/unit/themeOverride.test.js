@@ -147,6 +147,29 @@ describe('the panel palette', () => {
 		expect(missing).toEqual([])
 	})
 
+	/*
+	 * The accent as text is a different colour from the accent as a fill.
+	 *
+	 * A button filled with the instance's primary carries white on it and reads well; the
+	 * same primary used as a *label* on a dark card does not — this instance's `#00679e`
+	 * measures 2.73:1 on the dialog's dark surface, and the format selector's unselected
+	 * segments were exactly that. Lightening the accent itself would fix the label and break
+	 * every fill under it, so the design sheet keeps `#0082C9` for fills and lightens only
+	 * the accent used as text, which is what these two tokens are.
+	 *
+	 * 3:1 here, where everything else on this page is held to 4.5. The accent on the light
+	 * theme is the instance's own — Nextcloud's default `#0082C9` is 4.17:1 on white — and
+	 * an admin's brand colour on the theme it was picked for is not ours to overrule. What
+	 * this catches is the case that is ours: an accent carried onto a surface it was never
+	 * chosen against.
+	 */
+	it.each(Object.entries(panels))('%s has an accent legible as text on its own surface', (_name, palette) => {
+		const accent = parseColour(palette.get('--tdv-color-primary-text') ?? base.get('--tdv-color-primary-text'))
+		const surface = parseColour(palette.get('--tdv-color-surface'))
+		expect(accent).not.toBeNull()
+		expect(contrast(accent, surface)).toBeGreaterThanOrEqual(3)
+	})
+
 	it.each(Object.entries(panels))('%s sets its own surfaces rather than reading the page it overrides', (_name, palette) => {
 		const borrowed = [...palette.entries()]
 			.filter(([token]) => !/primary/.test(token))
