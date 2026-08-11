@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ESLint moved to flat config, for `@nextcloud/eslint-config` v9. New rule families are off and newly-promoted rules are warnings, each carrying its count in the config.
 
 ### Fixed
+- The antialiasing setting did nothing — the renderer hardcoded it on. It now follows the setting, applied at mount.
 - The help dialog dimmed the viewer and left the rest of the page lit. The four fixed overlays are teleported to the body, past the containing block Nextcloud's `backdrop-filter` creates.
 - The help panel drew different icons from the controls it describes; eight rows disagreed.
 - The controller rail's full-width controls sat seventeen pixels left of centre.
