@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.5.0] - 2026-08-11
+
+The viewer is redrawn on a themeable design system: the Theme control now moves the whole viewer rather than only the scene, every control is a Material Design icon instead of an emoji, and the top bar, tools panel, slicer dialog, performance HUD and the measurement and annotation surfaces follow the design sheet. Also carries three.js r185, the move to ESLint flat config, and the security fixes listed below.
+
 ### Added
 - Keyboard shortcuts for six tool rows: `R` reset view, `F` fit to view, `M` measurement, `S` statistics, `P` screenshot, `?` help.
 - The Playwright suite now runs in CI.
