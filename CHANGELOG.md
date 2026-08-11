@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- **Cleared three advisories from the production dependency graph**, lockfile only, taking `npm audit --omit=dev` from one moderate and two high to zero. `dompurify` 3.4.12 → 3.4.13 fixes an XSS where removing an `IN_PLACE` hook leaves a detached subtree executable ([GHSA-55q2-fjhq-7xh7](https://github.com/advisories/GHSA-55q2-fjhq-7xh7)) — it had no patched release when 3.4.0 shipped, which is why that release could only record it. `nanoid` 3.3.16 → 3.3.18 fixes a custom generator looping forever on a zero size ([GHSA-2v37-7h3g-55p8](https://github.com/advisories/GHSA-2v37-7h3g-55p8)). `brace-expansion` under `webdav` goes 5.0.8 → 5.0.9 for a DoS that bypasses the CVE-2026-14257 mitigation ([GHSA-rgw5-rvv9-x895](https://github.com/advisories/GHSA-rgw5-rvv9-x895)) — 5.0.8 is the version 3.4.0 pinned `overrides.webdav.minimatch` to reach, so the pin holds and only the resolved version moves. The dev tree drops from 12 advisories to 8 in the same pass. The residual 3.4.0 recorded is unchanged: Vite resolves `webdav` to a prebuilt bundle with minimatch and brace-expansion already inlined, so no lockfile change reaches the copy in the shipped chunk.
+
 ## [3.4.0] - 2026-07-28
 
 Public share links now render 3D models, and every format that carries external textures resolves them there. Also carries the security fixes listed below.
