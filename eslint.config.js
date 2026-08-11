@@ -170,6 +170,7 @@ export default [
 
 			// ---- Newly raised to error by eslint-plugin-vue 10, kept as warnings ----
 			'vue/attribute-hyphenation': 'warn', // 105
+			'vue/attributes-order': 'warn', // 36
 			'vue/comma-spacing': 'warn', // 68
 			'vue/custom-event-name-casing': 'warn', // 105
 			'vue/new-line-between-multi-line-property': 'warn', // 235
