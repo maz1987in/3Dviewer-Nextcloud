@@ -1042,7 +1042,9 @@ export default {
 
 				// Create renderer
 				renderer.value = markRaw(new THREE.WebGLRenderer({
-					antialias: true,
+					// Only settable when the context is created, so this follows the
+					// setting at mount; changing it takes effect on the next load.
+					antialias: props.enableAntialiasing,
 					alpha: true,
 					powerPreference: 'high-performance',
 					preserveDrawingBuffer: true, // Required for screenshots
