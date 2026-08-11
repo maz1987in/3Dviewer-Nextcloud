@@ -1,319 +1,343 @@
 <template>
-	<div class="help-panel-backdrop" @click="close">
-		<div ref="panelRef"
-			class="help-panel"
-			role="dialog"
-			aria-modal="true"
-			aria-labelledby="help-title"
-			tabindex="-1"
-			@click.stop>
-			<!-- Header -->
-			<div class="help-header">
-				<h2 id="help-title">
-					{{ t('threedviewer', '3D Viewer Help') }}
-				</h2>
-				<button class="close-btn" :aria-label="t('threedviewer', 'Close help')" @click="close">
-					×
-				</button>
-			</div>
+	<!--
+		Teleported: Nextcloud gives `#content-vue` a backdrop-filter, which makes it the
+		containing block for every fixed-position descendant — so a backdrop written
+		`position: fixed; inset: 0` inside the app covered the app content and left the
+		navigation and the page header lit, with the dialog centred on what was left. No
+		z-index reaches that; the element has to be outside the box to be fixed to the page.
+	-->
+	<Teleport to="body">
+		<div class="help-panel-backdrop" @click="close">
+			<div ref="panelRef"
+				class="help-panel"
+				role="dialog"
+				aria-modal="true"
+				aria-labelledby="help-title"
+				tabindex="-1"
+				@click.stop>
+				<!-- Header -->
+				<div class="help-header">
+					<h2 id="help-title">
+						{{ t('threedviewer', '3D Viewer Help') }}
+					</h2>
+					<button class="close-btn" :aria-label="t('threedviewer', 'Close help')" @click="close">
+						×
+					</button>
+				</div>
 
-			<!-- Content -->
-			<div class="help-content">
-				<!-- 3D CONTROLLER Section -->
-				<section class="help-section">
-					<h3>{{ t('threedviewer', '3D Controller') }}</h3>
-					<div class="help-grid">
-						<div class="help-item">
-							<span class="help-icon">🎮</span>
-							<div class="help-text">
-								<h4>{{ t('threedviewer', 'Toggle Controller') }}</h4>
-								<p>{{ t('threedviewer', 'Show or hide the 3D navigation controller from the top toolbar. The controller is draggable and can be positioned anywhere on screen.') }}</p>
+				<!-- Content -->
+				<div class="help-content">
+					<!-- 3D CONTROLLER Section -->
+					<section class="help-section">
+						<h3>{{ t('threedviewer', '3D Controller') }}</h3>
+						<div class="help-grid">
+							<div class="help-item">
+								<ViewerIcon class="help-icon" name="controller" :size="18" />
+								<div class="help-text">
+									<h4>{{ t('threedviewer', 'Toggle Controller') }}</h4>
+									<p>{{ t('threedviewer', 'Show or hide the 3D navigation controller from the top toolbar. The controller is draggable and can be positioned anywhere on screen.') }}</p>
+								</div>
+							</div>
+							<div class="help-item">
+								<ViewerIcon class="help-icon" name="rotateMode" :size="18" />
+								<div class="help-text">
+									<h4>{{ t('threedviewer', 'Rotation Mode') }}</h4>
+									<p>{{ t('threedviewer', 'Click or drag on the circular ring to rotate the model. Click farther from center for faster rotation.') }}</p>
+								</div>
+							</div>
+							<div class="help-item">
+								<ViewerIcon class="help-icon" name="panMode" :size="18" />
+								<div class="help-text">
+									<h4>{{ t('threedviewer', 'Panning Mode') }}</h4>
+									<p>{{ t('threedviewer', 'Click the panning mode button to switch from rotation to panning. Click or drag to move the camera horizontally or vertically.') }}</p>
+								</div>
+							</div>
+							<div class="help-item">
+								<ViewerIcon class="help-icon" name="zoomIn" :size="18" />
+								<div class="help-text">
+									<h4>{{ t('threedviewer', 'Zoom Controls') }}</h4>
+									<p>{{ t('threedviewer', 'Use the + and - buttons on the controller to zoom in or out. Hold to zoom continuously.') }}</p>
+								</div>
+							</div>
+							<div class="help-item">
+								<ViewerIcon class="help-icon" name="recenter" :size="18" />
+								<div class="help-text">
+									<h4>{{ t('threedviewer', 'Reset Position') }}</h4>
+									<p>{{ t('threedviewer', 'In panning mode, click the reset button to return the camera to the centered position.') }}</p>
+								</div>
+							</div>
+							<div class="help-item">
+								<ViewerIcon class="help-icon" name="dragHandle" :size="18" />
+								<div class="help-text">
+									<h4>{{ t('threedviewer', 'Drag to Move') }}</h4>
+									<p>{{ t('threedviewer', 'Drag the controller by its edge to reposition it anywhere on the screen. Position is saved automatically.') }}</p>
+								</div>
 							</div>
 						</div>
-						<div class="help-item">
-							<span class="help-icon">🔄</span>
-							<div class="help-text">
-								<h4>{{ t('threedviewer', 'Rotation Mode') }}</h4>
-								<p>{{ t('threedviewer', 'Click or drag on the circular ring to rotate the model. Click farther from center for faster rotation.') }}</p>
-							</div>
-						</div>
-						<div class="help-item">
-							<span class="help-icon">↔</span>
-							<div class="help-text">
-								<h4>{{ t('threedviewer', 'Panning Mode') }}</h4>
-								<p>{{ t('threedviewer', 'Click the panning mode button to switch from rotation to panning. Click or drag to move the camera horizontally or vertically.') }}</p>
-							</div>
-						</div>
-						<div class="help-item">
-							<span class="help-icon">±</span>
-							<div class="help-text">
-								<h4>{{ t('threedviewer', 'Zoom Controls') }}</h4>
-								<p>{{ t('threedviewer', 'Use the + and - buttons on the controller to zoom in or out. Hold to zoom continuously.') }}</p>
-							</div>
-						</div>
-						<div class="help-item">
-							<span class="help-icon">⌂</span>
-							<div class="help-text">
-								<h4>{{ t('threedviewer', 'Reset Position') }}</h4>
-								<p>{{ t('threedviewer', 'In panning mode, click the reset button to return the camera to the centered position.') }}</p>
-							</div>
-						</div>
-						<div class="help-item">
-							<span class="help-icon">↔</span>
-							<div class="help-text">
-								<h4>{{ t('threedviewer', 'Drag to Move') }}</h4>
-								<p>{{ t('threedviewer', 'Drag the controller by its edge to reposition it anywhere on the screen. Position is saved automatically.') }}</p>
-							</div>
-						</div>
-					</div>
-				</section>
+					</section>
 
-				<!-- VIEW Section -->
-				<section class="help-section">
-					<h3>{{ t('threedviewer', 'VIEW Controls') }}</h3>
-					<div class="help-grid">
-						<div class="help-item">
-							<span class="help-icon">🔄</span>
-							<div class="help-text">
-								<h4>{{ t('threedviewer', 'Reset View') }}</h4>
-								<p>{{ t('threedviewer', 'Reset camera to initial position and zoom level.') }}</p>
+					<!-- VIEW Section -->
+					<section class="help-section">
+						<h3>{{ t('threedviewer', 'VIEW Controls') }}</h3>
+						<div class="help-grid">
+							<div class="help-item">
+								<ViewerIcon class="help-icon" name="resetView" :size="18" />
+								<div class="help-text">
+									<h4>{{ t('threedviewer', 'Reset View') }}</h4>
+									<p>{{ t('threedviewer', 'Reset camera to initial position and zoom level.') }}</p>
+								</div>
+							</div>
+							<div class="help-item">
+								<ViewerIcon class="help-icon" name="fitToView" :size="18" />
+								<div class="help-text">
+									<h4>{{ t('threedviewer', 'Fit to View') }}</h4>
+									<p>{{ t('threedviewer', 'Automatically adjust camera to fit the entire model on screen.') }}</p>
+								</div>
+							</div>
+							<div class="help-item">
+								<ViewerIcon class="help-icon" name="autoRotate" :size="18" />
+								<div class="help-text">
+									<h4>{{ t('threedviewer', 'Auto-Rotate') }}</h4>
+									<p>{{ t('threedviewer', 'Automatically rotate the model continuously. You can still zoom while rotating.') }}</p>
+								</div>
+							</div>
+							<div class="help-item">
+								<ViewerIcon class="help-icon" name="projection" :size="18" />
+								<div class="help-text">
+									<h4>{{ t('threedviewer', 'Camera Projection') }}</h4>
+									<p>{{ t('threedviewer', 'Toggle between Perspective (realistic depth) and Orthographic (parallel lines) camera modes.') }}</p>
+								</div>
 							</div>
 						</div>
-						<div class="help-item">
-							<span class="help-icon">📏</span>
-							<div class="help-text">
-								<h4>{{ t('threedviewer', 'Fit to View') }}</h4>
-								<p>{{ t('threedviewer', 'Automatically adjust camera to fit the entire model on screen.') }}</p>
-							</div>
-						</div>
-						<div class="help-item">
-							<span class="help-icon">🔄</span>
-							<div class="help-text">
-								<h4>{{ t('threedviewer', 'Auto-Rotate') }}</h4>
-								<p>{{ t('threedviewer', 'Automatically rotate the model continuously. You can still zoom while rotating.') }}</p>
-							</div>
-						</div>
-						<div class="help-item">
-							<span class="help-icon">👁️</span>
-							<div class="help-text">
-								<h4>{{ t('threedviewer', 'Camera Projection') }}</h4>
-								<p>{{ t('threedviewer', 'Toggle between Perspective (realistic depth) and Orthographic (parallel lines) camera modes.') }}</p>
-							</div>
-						</div>
-					</div>
-				</section>
+					</section>
 
-				<!-- DISPLAY Section -->
-				<section class="help-section">
-					<h3>{{ t('threedviewer', 'DISPLAY Options') }}</h3>
-					<div class="help-grid">
-						<div class="help-item">
-							<span class="help-icon">⊞</span>
-							<div class="help-text">
-								<h4>{{ t('threedviewer', 'Grid') }}</h4>
-								<p>{{ t('threedviewer', 'Show or hide the ground grid. Helps visualize model orientation and scale.') }}</p>
+					<!-- DISPLAY Section -->
+					<section class="help-section">
+						<h3>{{ t('threedviewer', 'DISPLAY Options') }}</h3>
+						<div class="help-grid">
+							<div class="help-item">
+								<ViewerIcon class="help-icon" name="grid" :size="18" />
+								<div class="help-text">
+									<h4>{{ t('threedviewer', 'Grid') }}</h4>
+									<p>{{ t('threedviewer', 'Show or hide the ground grid. Helps visualize model orientation and scale.') }}</p>
+								</div>
+							</div>
+							<div class="help-item">
+								<ViewerIcon class="help-icon" name="axes" :size="18" />
+								<div class="help-text">
+									<h4>{{ t('threedviewer', 'Axes') }}</h4>
+									<p>{{ t('threedviewer', 'Show or hide coordinate axes (Red=X, Green=Y, Blue=Z).') }}</p>
+								</div>
+							</div>
+							<div class="help-item">
+								<ViewerIcon class="help-icon" name="wireframe" :size="18" />
+								<div class="help-text">
+									<h4>{{ t('threedviewer', 'Wireframe') }}</h4>
+									<p>{{ t('threedviewer', 'Toggle wireframe mode to see the model\'s edge structure.') }}</p>
+								</div>
+							</div>
+							<div class="help-item">
+								<ViewerIcon class="help-icon" name="palette" :size="18" />
+								<div class="help-text">
+									<h4>{{ t('threedviewer', 'Background Color') }}</h4>
+									<p>{{ t('threedviewer', 'Change the scene background color using the color picker.') }}</p>
+								</div>
 							</div>
 						</div>
-						<div class="help-item">
-							<span class="help-icon">📐</span>
-							<div class="help-text">
-								<h4>{{ t('threedviewer', 'Axes') }}</h4>
-								<p>{{ t('threedviewer', 'Show or hide coordinate axes (Red=X, Green=Y, Blue=Z).') }}</p>
-							</div>
-						</div>
-						<div class="help-item">
-							<span class="help-icon">🔲</span>
-							<div class="help-text">
-								<h4>{{ t('threedviewer', 'Wireframe') }}</h4>
-								<p>{{ t('threedviewer', 'Toggle wireframe mode to see the model\'s edge structure.') }}</p>
-							</div>
-						</div>
-						<div class="help-item">
-							<span class="help-icon">🎨</span>
-							<div class="help-text">
-								<h4>{{ t('threedviewer', 'Background Color') }}</h4>
-								<p>{{ t('threedviewer', 'Change the scene background color using the color picker.') }}</p>
-							</div>
-						</div>
-					</div>
-				</section>
+					</section>
 
-				<!-- TOOLS Section -->
-				<section class="help-section">
-					<h3>{{ t('threedviewer', 'TOOLS') }}</h3>
-					<div class="help-grid">
-						<div class="help-item">
-							<span class="help-icon">📏</span>
-							<div class="help-text">
-								<h4>{{ t('threedviewer', 'Measurement') }}</h4>
-								<p>{{ t('threedviewer', 'Click on two points to measure distance. Switch units between mm, cm, m, inches, and feet.') }}</p>
+					<!-- TOOLS Section -->
+					<section class="help-section">
+						<h3>{{ t('threedviewer', 'TOOLS') }}</h3>
+						<div class="help-grid">
+							<div class="help-item">
+								<ViewerIcon class="help-icon" name="measurement" :size="18" />
+								<div class="help-text">
+									<h4>{{ t('threedviewer', 'Measurement') }}</h4>
+									<p>{{ t('threedviewer', 'Click on two points to measure distance. Switch units between mm, cm, m, inches, and feet.') }}</p>
+								</div>
+							</div>
+							<div class="help-item">
+								<ViewerIcon class="help-icon" name="annotation" :size="18" />
+								<div class="help-text">
+									<h4>{{ t('threedviewer', 'Annotation') }}</h4>
+									<p>{{ t('threedviewer', 'Click on the model to add text notes. Edit or delete annotations as needed.') }}</p>
+								</div>
+							</div>
+							<div class="help-item">
+								<ViewerIcon class="help-icon" name="comparison" :size="18" />
+								<div class="help-text">
+									<h4>{{ t('threedviewer', 'Comparison') }}</h4>
+									<p>{{ t('threedviewer', 'Compare two 3D models side-by-side. Select a second model to compare with the current one.') }}</p>
+								</div>
+							</div>
+							<div class="help-item">
+								<ViewerIcon class="help-icon" name="crossSection" :size="18" />
+								<div class="help-text">
+									<h4>{{ t('threedviewer', 'Cross-Section') }}</h4>
+									<p>{{ t('threedviewer', 'Slice through the model along X, Y, or Z axes. Adjust position with the slider and flip direction to view either side.') }}</p>
+								</div>
+							</div>
+							<div class="help-item">
+								<ViewerIcon class="help-icon" name="explode" :size="18" />
+								<div class="help-text">
+									<h4>{{ t('threedviewer', 'Exploded View') }}</h4>
+									<p>{{ t('threedviewer', 'For multi-mesh models, spread parts outward from center. Adjust the explosion factor with the slider. Only available when the model has 2 or more meshes.') }}</p>
+								</div>
 							</div>
 						</div>
-						<div class="help-item">
-							<span class="help-icon">📝</span>
-							<div class="help-text">
-								<h4>{{ t('threedviewer', 'Annotation') }}</h4>
-								<p>{{ t('threedviewer', 'Click on the model to add text notes. Edit or delete annotations as needed.') }}</p>
-							</div>
-						</div>
-						<div class="help-item">
-							<span class="help-icon">⚖️</span>
-							<div class="help-text">
-								<h4>{{ t('threedviewer', 'Comparison') }}</h4>
-								<p>{{ t('threedviewer', 'Compare two 3D models side-by-side. Select a second model to compare with the current one.') }}</p>
-							</div>
-						</div>
-						<div class="help-item">
-							<span class="help-icon">✂️</span>
-							<div class="help-text">
-								<h4>{{ t('threedviewer', 'Cross-Section') }}</h4>
-								<p>{{ t('threedviewer', 'Slice through the model along X, Y, or Z axes. Adjust position with the slider and flip direction to view either side.') }}</p>
-							</div>
-						</div>
-						<div class="help-item">
-							<span class="help-icon">💥</span>
-							<div class="help-text">
-								<h4>{{ t('threedviewer', 'Exploded View') }}</h4>
-								<p>{{ t('threedviewer', 'For multi-mesh models, spread parts outward from center. Adjust the explosion factor with the slider. Only available when the model has 2 or more meshes.') }}</p>
-							</div>
-						</div>
-					</div>
-				</section>
+					</section>
 
-				<!-- SLICER & EXPORT Section -->
-				<section class="help-section">
-					<h3>{{ t('threedviewer', 'SLICER & EXPORT') }}</h3>
-					<div class="help-grid">
-						<div class="help-item">
-							<span class="help-icon">🖨️</span>
-							<div class="help-text">
-								<h4>{{ t('threedviewer', 'Send to Slicer') }}</h4>
-								<p>{{ t('threedviewer', 'Export and send the model to a desktop slicer app (PrusaSlicer, Cura, BambuStudio, etc.). Choose STL, OBJ, or PLY format before sending. A temporary share link is created automatically.') }}</p>
+					<!-- SLICER & EXPORT Section -->
+					<section class="help-section">
+						<h3>{{ t('threedviewer', 'SLICER & EXPORT') }}</h3>
+						<div class="help-grid">
+							<div class="help-item">
+								<ViewerIcon class="help-icon" name="sendToSlicer" :size="18" />
+								<div class="help-text">
+									<h4>{{ t('threedviewer', 'Send to Slicer') }}</h4>
+									<p>{{ t('threedviewer', 'Export and send the model to a desktop slicer app (PrusaSlicer, Cura, BambuStudio, etc.). Choose STL, OBJ, or PLY format before sending. A temporary share link is created automatically.') }}</p>
+								</div>
+							</div>
+							<div class="help-item">
+								<ViewerIcon class="help-icon" name="exportModel" :size="18" />
+								<div class="help-text">
+									<h4>{{ t('threedviewer', 'Export Model') }}</h4>
+									<p>{{ t('threedviewer', 'Download the model as GLB (with textures), STL (for 3D printing), or OBJ (universal format). Large models show a triangle count warning before export.') }}</p>
+								</div>
+							</div>
+							<div class="help-item">
+								<ViewerIcon class="help-icon" name="camera" :size="18" />
+								<div class="help-text">
+									<h4>{{ t('threedviewer', 'Screenshot') }}</h4>
+									<p>{{ t('threedviewer', 'Capture a PNG screenshot of the current view. Also available in the modal file preview.') }}</p>
+								</div>
 							</div>
 						</div>
-						<div class="help-item">
-							<span class="help-icon">📦</span>
-							<div class="help-text">
-								<h4>{{ t('threedviewer', 'Export Model') }}</h4>
-								<p>{{ t('threedviewer', 'Download the model as GLB (with textures), STL (for 3D printing), or OBJ (universal format). Large models show a triangle count warning before export.') }}</p>
-							</div>
-						</div>
-						<div class="help-item">
-							<span class="help-icon">📷</span>
-							<div class="help-text">
-								<h4>{{ t('threedviewer', 'Screenshot') }}</h4>
-								<p>{{ t('threedviewer', 'Capture a PNG screenshot of the current view. Also available in the modal file preview.') }}</p>
-							</div>
-						</div>
-					</div>
-				</section>
+					</section>
 
-				<!-- SETTINGS Section -->
-				<section class="help-section">
-					<h3>{{ t('threedviewer', 'SETTINGS') }}</h3>
-					<div class="help-grid">
-						<div class="help-item">
-							<span class="help-icon">⚡</span>
-							<div class="help-text">
-								<h4>{{ t('threedviewer', 'Performance') }}</h4>
-								<p>{{ t('threedviewer', 'Cycle through quality modes: Auto (detects your device), Low, Balanced, High, Ultra. Affects rendering quality and frame rate.') }}</p>
+					<!-- SETTINGS Section -->
+					<section class="help-section">
+						<h3>{{ t('threedviewer', 'SETTINGS') }}</h3>
+						<div class="help-grid">
+							<div class="help-item">
+								<ViewerIcon class="help-icon" name="performance" :size="18" />
+								<div class="help-text">
+									<h4>{{ t('threedviewer', 'Performance') }}</h4>
+									<p>{{ t('threedviewer', 'Cycle through quality modes: Auto (detects your device), Low, Balanced, High, Ultra. Affects rendering quality and frame rate.') }}</p>
+								</div>
+							</div>
+							<div class="help-item">
+								<ViewerIcon class="help-icon" name="themeAuto" :size="18" />
+								<div class="help-text">
+									<h4>{{ t('threedviewer', 'Theme') }}</h4>
+									<p>{{ t('threedviewer', 'Choose theme: Auto (follows system), Light, or Dark mode.') }}</p>
+								</div>
+							</div>
+							<div class="help-item">
+								<ViewerIcon class="help-icon" name="hint" :size="18" />
+								<div class="help-text">
+									<h4>{{ t('threedviewer', 'Lighting Presets') }}</h4>
+									<p>{{ t('threedviewer', 'Quick-switch between 5 lighting setups: Default, Studio, Outdoor, Dramatic, and Flat. Each adjusts ambient, directional, and point lights.') }}</p>
+								</div>
+							</div>
+							<div class="help-item">
+								<ViewerIcon class="help-icon" name="bookmark" :size="18" />
+								<div class="help-text">
+									<h4>{{ t('threedviewer', 'Bookmarks') }}</h4>
+									<p>{{ t('threedviewer', 'Save camera positions with display state (grid, axes, wireframe). Click a bookmark to restore the view. Bookmarks persist in your browser.') }}</p>
+								</div>
+							</div>
+							<div class="help-item">
+								<ViewerIcon class="help-icon" name="statistics" :size="18" />
+								<div class="help-text">
+									<h4>{{ t('threedviewer', 'Model Statistics') }}</h4>
+									<p>{{ t('threedviewer', 'View detailed information: vertices, faces, materials, textures, and dimensions.') }}</p>
+								</div>
+							</div>
+							<div class="help-item">
+								<ViewerIcon class="help-icon" name="database" :size="18" />
+								<div class="help-text">
+									<h4>{{ t('threedviewer', 'Dependency Cache') }}</h4>
+									<p>{{ t('threedviewer', 'Textures and materials are cached locally in your browser for faster reloads. Configure max size, expiration, or clear the cache in Personal Settings.') }}</p>
+								</div>
 							</div>
 						</div>
-						<div class="help-item">
-							<span class="help-icon">🌓</span>
-							<div class="help-text">
-								<h4>{{ t('threedviewer', 'Theme') }}</h4>
-								<p>{{ t('threedviewer', 'Choose theme: Auto (follows system), Light, or Dark mode.') }}</p>
-							</div>
-						</div>
-						<div class="help-item">
-							<span class="help-icon">💡</span>
-							<div class="help-text">
-								<h4>{{ t('threedviewer', 'Lighting Presets') }}</h4>
-								<p>{{ t('threedviewer', 'Quick-switch between 5 lighting setups: Default, Studio, Outdoor, Dramatic, and Flat. Each adjusts ambient, directional, and point lights.') }}</p>
-							</div>
-						</div>
-						<div class="help-item">
-							<span class="help-icon">🔖</span>
-							<div class="help-text">
-								<h4>{{ t('threedviewer', 'Bookmarks') }}</h4>
-								<p>{{ t('threedviewer', 'Save camera positions with display state (grid, axes, wireframe). Click a bookmark to restore the view. Bookmarks persist in your browser.') }}</p>
-							</div>
-						</div>
-						<div class="help-item">
-							<span class="help-icon">📊</span>
-							<div class="help-text">
-								<h4>{{ t('threedviewer', 'Model Statistics') }}</h4>
-								<p>{{ t('threedviewer', 'View detailed information: vertices, faces, materials, textures, and dimensions.') }}</p>
-							</div>
-						</div>
-						<div class="help-item">
-							<span class="help-icon">🗄️</span>
-							<div class="help-text">
-								<h4>{{ t('threedviewer', 'Dependency Cache') }}</h4>
-								<p>{{ t('threedviewer', 'Textures and materials are cached locally in your browser for faster reloads. Configure max size, expiration, or clear the cache in Personal Settings.') }}</p>
-							</div>
-						</div>
-					</div>
-				</section>
+					</section>
 
-				<!-- KEYBOARD SHORTCUTS Section -->
-				<section class="help-section">
-					<h3>{{ t('threedviewer', 'Keyboard Shortcuts') }}</h3>
-					<div class="shortcuts-table">
-						<div class="shortcut-row">
-							<kbd>T</kbd>
-							<span>{{ t('threedviewer', 'Toggle tools panel') }}</span>
+					<!-- KEYBOARD SHORTCUTS Section -->
+					<section class="help-section">
+						<h3>{{ t('threedviewer', 'Keyboard Shortcuts') }}</h3>
+						<div class="shortcuts-table">
+							<div class="shortcut-row">
+								<kbd>T</kbd>
+								<span>{{ t('threedviewer', 'Toggle tools panel') }}</span>
+							</div>
+							<div class="shortcut-row">
+								<kbd>Escape</kbd>
+								<span>{{ t('threedviewer', 'Close open panels and dialogs') }}</span>
+							</div>
+							<!--
+								From the same table the tools panel prints its row hints from, so this
+								list cannot fall behind the shortcuts that exist — which it had, listing
+								two of them while the panel offered none.
+							-->
+							<div v-for="shortcut in toolShortcuts" :key="shortcut.key" class="shortcut-row">
+								<kbd>{{ shortcut.key.toUpperCase() }}</kbd>
+								<span>{{ shortcutLabels[shortcut.event] }}</span>
+							</div>
+							<div class="shortcut-row">
+								<kbd>{{ t('threedviewer', 'Mouse Drag') }}</kbd>
+								<span>{{ t('threedviewer', 'Rotate camera around model') }}</span>
+							</div>
+							<div class="shortcut-row">
+								<kbd>{{ t('threedviewer', 'Mouse Wheel') }}</kbd>
+								<span>{{ t('threedviewer', 'Zoom in/out') }}</span>
+							</div>
+							<div class="shortcut-row">
+								<kbd>{{ t('threedviewer', 'Right-Click Drag') }}</kbd>
+								<span>{{ t('threedviewer', 'Pan camera') }}</span>
+							</div>
+							<div class="shortcut-row">
+								<kbd>{{ t('threedviewer', 'Double-Click') }}</kbd>
+								<span>{{ t('threedviewer', 'Focus on clicked point') }}</span>
+							</div>
 						</div>
-						<div class="shortcut-row">
-							<kbd>Escape</kbd>
-							<span>{{ t('threedviewer', 'Close open panels and dialogs') }}</span>
-						</div>
-						<div class="shortcut-row">
-							<kbd>{{ t('threedviewer', 'Mouse Drag') }}</kbd>
-							<span>{{ t('threedviewer', 'Rotate camera around model') }}</span>
-						</div>
-						<div class="shortcut-row">
-							<kbd>{{ t('threedviewer', 'Mouse Wheel') }}</kbd>
-							<span>{{ t('threedviewer', 'Zoom in/out') }}</span>
-						</div>
-						<div class="shortcut-row">
-							<kbd>{{ t('threedviewer', 'Right-Click Drag') }}</kbd>
-							<span>{{ t('threedviewer', 'Pan camera') }}</span>
-						</div>
-						<div class="shortcut-row">
-							<kbd>{{ t('threedviewer', 'Double-Click') }}</kbd>
-							<span>{{ t('threedviewer', 'Focus on clicked point') }}</span>
-						</div>
-					</div>
-				</section>
+					</section>
 
-				<!-- TIPS Section -->
-				<section class="help-section">
-					<h3>{{ t('threedviewer', 'Tips & Tricks') }}</h3>
-					<ul class="tips-list">
-						<li>{{ t('threedviewer', 'Models load instantly! Textures appear progressively in the background.') }}</li>
-						<li>{{ t('threedviewer', 'Textures in subdirectories (like "Texture/" folder) are automatically found.') }}</li>
-						<li>{{ t('threedviewer', 'Dependencies (MTL files, textures) are cached locally for faster reloads. Configure in Personal Settings.') }}</li>
-						<li>{{ t('threedviewer', 'Auto mode detects your device capabilities for optimal performance.') }}</li>
-						<li>{{ t('threedviewer', 'All formats supported: {formats}', { formats: supportedFormats }) }}</li>
-						<li>{{ t('threedviewer', 'Send to Slicer creates a temporary 24-hour share link — the file is auto-cleaned after use.') }}</li>
-					</ul>
-				</section>
+					<!-- TIPS Section -->
+					<section class="help-section">
+						<h3>{{ t('threedviewer', 'Tips & Tricks') }}</h3>
+						<ul class="tips-list">
+							<li>{{ t('threedviewer', 'Models load instantly! Textures appear progressively in the background.') }}</li>
+							<li>{{ t('threedviewer', 'Textures in subdirectories (like "Texture/" folder) are automatically found.') }}</li>
+							<li>{{ t('threedviewer', 'Dependencies (MTL files, textures) are cached locally for faster reloads. Configure in Personal Settings.') }}</li>
+							<li>{{ t('threedviewer', 'Auto mode detects your device capabilities for optimal performance.') }}</li>
+							<li>{{ t('threedviewer', 'All formats supported: {formats}', { formats: supportedFormats }) }}</li>
+							<li>{{ t('threedviewer', 'Send to Slicer creates a temporary 24-hour share link — the file is auto-cleaned after use.') }}</li>
+						</ul>
+					</section>
+				</div>
 			</div>
 		</div>
-	</div>
+	</Teleport>
 </template>
 
 <script>
 import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import ViewerIcon from './ViewerIcon.vue'
 // eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
 import { translate as t } from '@nextcloud/l10n'
 import { FORMATS_DISPLAY_LIST } from '../config/viewer-config.js'
 import { useFocusTrap } from '../composables/useFocusTrap.js'
+import { TOOL_SHORTCUTS } from '../utils/toolShortcuts.js'
 
 export default {
 	name: 'HelpPanel',
+
+	components: {
+		ViewerIcon,
+	},
 
 	emits: ['close'],
 
@@ -352,6 +376,17 @@ export default {
 			panelRef,
 			close,
 			supportedFormats: FORMATS_DISPLAY_LIST,
+			toolShortcuts: TOOL_SHORTCUTS,
+			// What each shortcut does, in this panel's words. Keyed by the event so a key
+			// that moves in the table moves here with it.
+			shortcutLabels: {
+				'reset-view': t('threedviewer', 'Reset the view'),
+				'fit-to-view': t('threedviewer', 'Fit the model to the view'),
+				'toggle-measurement': t('threedviewer', 'Toggle measurement mode'),
+				'toggle-stats': t('threedviewer', 'Toggle model statistics'),
+				'take-screenshot': t('threedviewer', 'Take a screenshot'),
+				'toggle-help': t('threedviewer', 'Open this help'),
+			},
 		}
 	},
 }
@@ -376,8 +411,8 @@ export default {
 
 /* Panel Container */
 .help-panel {
-	background: var(--color-main-background);
-	color: var(--color-main-text);
+	background: var(--tdv-color-surface);
+	color: var(--tdv-color-text);
 	border-radius: 12px;
 	max-width: 900px;
 	width: 100%;
@@ -406,8 +441,8 @@ export default {
 	align-items: center;
 	justify-content: space-between;
 	padding: 20px 24px;
-	border-bottom: 1px solid var(--color-border);
-	background: var(--color-main-background);
+	border-bottom: 1px solid var(--tdv-color-border);
+	background: var(--tdv-color-surface);
 	border-radius: 12px 12px 0 0;
 }
 
@@ -415,13 +450,13 @@ export default {
 	margin: 0;
 	font-size: 22px;
 	font-weight: 600;
-	color: var(--color-main-text);
+	color: var(--tdv-color-text);
 }
 
-.close-btn {
+.close-btn.close-btn {
 	background: transparent;
 	border: none;
-	color: var(--color-main-text);
+	color: var(--tdv-color-text);
 	font-size: 32px;
 	line-height: 1;
 	cursor: pointer;
@@ -430,12 +465,12 @@ export default {
 	transition: background 0.2s ease;
 }
 
-.close-btn:hover {
-	background: var(--color-background-hover);
+.close-btn.close-btn:hover {
+	background: var(--tdv-color-hover-bg);
 }
 
-.close-btn:focus-visible {
-	outline: 2px solid var(--color-primary-element);
+.close-btn.close-btn:focus-visible {
+	outline: 2px solid var(--tdv-color-primary);
 	outline-offset: 2px;
 }
 
@@ -458,10 +493,10 @@ export default {
 .help-section h3 {
 	font-size: 18px;
 	font-weight: 600;
-	color: var(--color-primary-element);
+	color: var(--tdv-color-primary-text);
 	margin: 0 0 16px;
 	padding-bottom: 8px;
-	border-bottom: 2px solid var(--color-primary-element);
+	border-bottom: 2px solid var(--tdv-color-primary);
 }
 
 /* Help Grid */
@@ -475,7 +510,7 @@ export default {
 	display: flex;
 	gap: 12px;
 	padding: 16px;
-	background: var(--color-background-hover);
+	background: var(--tdv-color-hover-bg);
 	border-radius: 8px;
 	transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
@@ -486,14 +521,13 @@ export default {
 }
 
 .help-icon {
-	font-size: 28px;
 	flex-shrink: 0;
 	width: 40px;
 	height: 40px;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	background: var(--color-primary-element-light);
+	background: var(--tdv-color-primary-light);
 	border-radius: 8px;
 }
 
@@ -505,14 +539,14 @@ export default {
 	margin: 0 0 6px;
 	font-size: 15px;
 	font-weight: 600;
-	color: var(--color-main-text);
+	color: var(--tdv-color-text);
 }
 
 .help-text p {
 	margin: 0;
 	font-size: 13px;
 	line-height: 1.5;
-	color: var(--color-text-maxcontrast);
+	color: var(--tdv-color-text-secondary);
 }
 
 /* Keyboard Shortcuts Table */
@@ -527,20 +561,20 @@ export default {
 	align-items: center;
 	gap: 16px;
 	padding: 12px 16px;
-	background: var(--color-background-hover);
+	background: var(--tdv-color-hover-bg);
 	border-radius: 8px;
 }
 
 .shortcut-row kbd {
 	display: inline-block;
 	padding: 6px 12px;
-	background: var(--color-background-dark);
-	border: 1px solid var(--color-border);
+	background: var(--tdv-color-surface-sunken);
+	border: 1px solid var(--tdv-color-border);
 	border-radius: 6px;
 	font-family: monospace;
 	font-size: 13px;
 	font-weight: 600;
-	color: var(--color-main-text);
+	color: var(--tdv-color-text);
 	min-width: 80px;
 	text-align: center;
 	box-shadow: 0 2px 4px rgb(0 0 0 / 10%);
@@ -549,7 +583,7 @@ export default {
 .shortcut-row span {
 	flex: 1;
 	font-size: 14px;
-	color: var(--color-main-text);
+	color: var(--tdv-color-text);
 }
 
 /* Tips List */
@@ -563,15 +597,20 @@ export default {
 	margin-bottom: 12px;
 	font-size: 14px;
 	line-height: 1.6;
-	color: var(--color-main-text);
+	color: var(--tdv-color-text);
 	position: relative;
 	padding-inline-start: 8px;
 }
 
 .tips-list li::before {
-	content: '💡';
+	content: '';
 	position: absolute;
-	inset-inline-start: -24px;
+	inset-inline-start: -16px;
+	top: 8px;
+	width: 5px;
+	height: 5px;
+	border-radius: 50%;
+	background: var(--tdv-color-primary);
 }
 
 .tips-list li:last-child {
@@ -604,8 +643,8 @@ export default {
 		border-radius: 0;
 		padding: 10px 12px;
 		position: relative;
-		background: var(--color-main-background);
-		border-bottom: 1px solid var(--color-border);
+		background: var(--tdv-color-surface);
+		border-bottom: 1px solid var(--tdv-color-border);
 		flex-shrink: 0;
 		min-height: 44px;
 		display: flex;
@@ -625,7 +664,7 @@ export default {
 		font-weight: 600;
 	}
 
-	.close-btn {
+	.close-btn.close-btn {
 		font-size: 22px;
 		padding: 6px;
 		min-width: 32px;
@@ -673,7 +712,6 @@ export default {
 	}
 
 	.help-icon {
-		font-size: 18px;
 		width: 28px;
 		height: 28px;
 		flex-shrink: 0;
@@ -743,11 +781,14 @@ export default {
 	}
 
 	.tips-list li::before {
-		content: '💡';
+		content: '';
 		position: absolute;
 		left: 0;
-		top: 4px;
-		font-size: 10px;
+		top: 8px;
+		width: 5px;
+		height: 5px;
+		border-radius: 50%;
+		background: var(--tdv-color-primary);
 	}
 
 	.tips-list li:last-child {
@@ -766,7 +807,7 @@ export default {
 		font-size: 14px;
 	}
 
-	.close-btn {
+	.close-btn.close-btn {
 		font-size: 18px;
 		min-width: 28px;
 		min-height: 28px;
@@ -791,7 +832,6 @@ export default {
 	}
 
 	.help-icon {
-		font-size: 16px;
 		width: 24px;
 		height: 24px;
 	}
@@ -849,7 +889,12 @@ export default {
 
 /* Theme-aware colors */
 .theme--dark .help-icon {
-	background: rgb(var(--color-primary-element-rgb), 0.2);
+	/* `--color-primary-element-rgb` is not a variable Nextcloud publishes — it appears
+	   nowhere among the 267 primary-variable references in @nextcloud/vue — and an
+	   unresolvable var() takes the whole declaration with it, so this icon has had no
+	   tint at all. color-mix asks for the same 20% of the primary without needing the
+	   colour pre-split into components. */
+	background: color-mix(in srgb, var(--tdv-color-primary) 20%, transparent);
 }
 
 .theme--dark .help-item:hover {
@@ -873,16 +918,16 @@ export default {
 }
 
 .help-content::-webkit-scrollbar-track {
-	background: var(--color-background-dark);
+	background: var(--tdv-color-surface-sunken);
 	border-radius: 4px;
 }
 
 .help-content::-webkit-scrollbar-thumb {
-	background: var(--color-primary-element);
+	background: var(--tdv-color-primary);
 	border-radius: 4px;
 }
 
 .help-content::-webkit-scrollbar-thumb:hover {
-	background: var(--color-primary-element-hover);
+	background: var(--tdv-color-primary-hover);
 }
 </style>

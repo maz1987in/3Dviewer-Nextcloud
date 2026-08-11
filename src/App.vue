@@ -62,7 +62,6 @@
 					:filename="currentFilename"
 					:passthrough-formats="slicerPassthroughFormats"
 					:export-format="slicerExportFormat"
-					:is-dark-theme="themeMode === 'dark'"
 					@close="showSlicerModal = false"
 					@success="onSlicerSuccess"
 					@error="onSlicerError" />
@@ -97,6 +96,8 @@
 				<!-- Slide-Out Tool Panel -->
 				<SlideOutToolPanel
 					ref="toolsPanel"
+					@panel-opened="toolsPanelOpen = true"
+					@panel-closed="toolsPanelOpen = false"
 					:auto-rotate="autoRotate"
 					:camera-type="cameraType"
 					:grid="grid"
@@ -130,6 +131,9 @@
 					:custom-palette="customPalette"
 					:transform-gizmo-active="transformGizmoActive"
 					:transform-gizmo-mode="transformGizmoMode"
+					:measurement-mode="measurementMode"
+					:annotation-mode="annotationMode"
+					:comparison-mode="comparisonMode"
 					@reset-view="onReset"
 					@fit-to-view="onFitToView"
 					@toggle-auto-rotate="onToggleAutoRotate"
@@ -180,6 +184,7 @@
 					v-if="prefsLoaded"
 					key="three-viewer"
 					ref="viewer"
+					:tools-panel-open="toolsPanelOpen"
 					:file-id="currentFileId"
 					:filename="currentFilename"
 					:dir="currentDir"
@@ -201,10 +206,10 @@
 					:enable-shadows="enableShadows"
 					:enable-antialiasing="enableAntialiasing"
 					:enable-thumbnails="enableThumbnails"
-					:measurement-mode="measurementMode"
-					:annotation-mode="annotationMode"
-					:comparison-mode="comparisonMode"
 					:performance-mode="performanceMode"
+					@measurement-active="measurementMode = $event"
+					@annotation-active="annotationMode = $event"
+					@comparison-active="comparisonMode = $event"
 					@model-loaded="onModelLoaded"
 					@loading-state-changed="onLoadingStateChanged"
 					@fps-updated="onFpsUpdated"
@@ -308,6 +313,9 @@ export default {
 			modelLoaded: false,
 			hasMultipleSourceFiles: false,
 			// Advanced features
+			// Whether the tools panel is showing. It owns the right edge at 320px, so the
+			// panels opened from it move clear of it rather than under it.
+			toolsPanelOpen: false,
 			measurementMode: false,
 			annotationMode: false,
 			comparisonMode: false,
@@ -699,24 +707,23 @@ export default {
 		},
 
 		// Advanced features event handlers
+		/*
+		 * These three ask the viewer to switch a mode; they do not decide what the mode
+		 * then is. The viewer owns that — it turns the others off as it goes, and turns
+		 * them off again from its own panels and from the transform gizmo — and it says so
+		 * through `measurement-active` and its two siblings. Setting the flags here as well
+		 * meant guessing at an outcome that had already happened, and guessing wrong
+		 * whenever the viewer disagreed.
+		 */
 		onToggleMeasurement() {
-			this.measurementMode = !this.measurementMode
-			this.annotationMode = false
-			this.comparisonMode = false
 			this.$refs.viewer?.toggleMeasurementMode?.()
 		},
 
 		onToggleAnnotation() {
-			this.annotationMode = !this.annotationMode
-			this.measurementMode = false
-			this.comparisonMode = false
 			this.$refs.viewer?.toggleAnnotationMode?.()
 		},
 
 		onToggleComparison() {
-			this.comparisonMode = !this.comparisonMode
-			this.measurementMode = false
-			this.annotationMode = false
 			this.transformGizmoActive = false
 			this.$refs.viewer?.toggleComparisonMode?.()
 		},
@@ -1482,6 +1489,52 @@ export default {
 	margin-top: 0 !important;
 }
 
+/*
+ * Nextcloud's navigation toggle, while the viewer is what the app content holds.
+ *
+ * Asked of the DOM with `:has()` rather than tracked in a class this component sets: the
+ * toggle belongs to the navigation, which is a sibling of the app content, so the nearest
+ * element that can carry the answer is NcContent's own root — and a class bound onto that
+ * from here is applied at mount and never updated again, so it says "viewer" while the
+ * file browser is on screen. `:has(#viewer-wrapper)` asks the same question of the element
+ * that actually answers it, and the browser keeps it current.
+ *
+ * The toggle is drawn over the top-left of the app content, which is inside the viewer's
+ * top bar — the bar reserves 45px of start padding for it rather than put Reset underneath
+ * it. Reserving the space is only half of hosting it: the bar paints the canvas chrome
+ * behind the button, and the button is coloured for Nextcloud's own light surface.
+ *
+ * Left alone it arrives as `--color-main-text` on near-black. At rest it hides that by
+ * painting an opaque `--color-main-background` square behind itself — a white box punched
+ * into the bar — and on hover that square drops to 8% of the primary, leaving #222 on
+ * #171717 at 1.07:1. Which is exactly what a disabled control looks like, and is how it
+ * was read.
+ *
+ * `!important` rather than stacked classes: what is being overridden is
+ * `.button-vue--tertiary[data-v-…]:not(.button-vue--legacy34):hover:not(:disabled)` and a
+ * focus ring that is itself `!important`. There is one class here to name, so nothing
+ * built out of it reaches (0,5,0) — and a stack counted against today's vendor selector
+ * would stop winning, silently, the next time that selector gains a `:not()`.
+ */
+.content:has(#viewer-wrapper) {
+	:deep(.app-navigation-toggle) {
+		background-color: transparent !important;
+		color: var(--tdv-hud-text) !important;
+	}
+
+	:deep(.app-navigation-toggle:hover) {
+		background-color: var(--tdv-hud-hover-bg) !important;
+	}
+
+	// The vendor's ring is `--color-main-text` inside a `--color-main-background` halo.
+	// Both are the page's colours, and neither is visible on the chrome.
+	:deep(.app-navigation-toggle:focus-visible) {
+		background-color: var(--tdv-hud-hover-bg) !important;
+		outline: 2px solid var(--tdv-hud-text) !important;
+		box-shadow: none !important;
+	}
+}
+
 #viewer-wrapper {
 	// Establishes the containing block for the viewer's absolutely-positioned
 	// overlays — the top bar, panels and toasts. Without it they resolve against a
@@ -1509,8 +1562,8 @@ export default {
 	top: -40px;
 	z-index: 10001;
 	padding: 8px 16px;
-	background: var(--color-primary-element, #0082c9);
-	color: var(--color-primary-element-text, #fff);
+	background: var(--tdv-color-primary);
+	color: var(--tdv-color-on-primary);
 	border-radius: 0 0 6px 6px;
 	font-weight: 600;
 	text-decoration: none;
@@ -1519,7 +1572,7 @@ export default {
 	&:focus,
 	&:focus-visible {
 		top: 0;
-		outline: 2px solid var(--color-main-background, #fff);
+		outline: 2px solid var(--tdv-color-surface);
 		outline-offset: 2px;
 	}
 }

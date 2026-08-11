@@ -1,29 +1,38 @@
 <template>
-	<div class="toast-container" role="status" aria-live="polite">
-		<transition-group name="toast-fade" tag="div">
-			<div
-				v-for="toast in toasts"
-				:key="toast.id"
-				class="toast"
-				:class="toast.type"
-				:aria-label="toast.title"
-				@click="$emit('dismiss', toast.id)"
-				@mouseenter="pauseAutoHide(toast.id)"
-				@mouseleave="resumeAutoHide(toast.id)">
-				<strong class="title">{{ toast.title }}</strong>
-				<div class="msg">
-					{{ toast.message }}
+	<!--
+		Teleported for the same reason as the modals: `#content-vue` carries a
+		backdrop-filter, so a fixed overlay inside it is fixed to the app content rather
+		than to the page. These offsets are written to clear Nextcloud's header and the
+		viewer's bar, and inside that box the header was counted twice — the panel opened
+		66px below the bar where the rule asks for 16.
+	-->
+	<Teleport to="body">
+		<div class="toast-container" role="status" aria-live="polite">
+			<transition-group name="toast-fade" tag="div">
+				<div
+					v-for="toast in toasts"
+					:key="toast.id"
+					class="toast"
+					:class="toast.type"
+					:aria-label="toast.title"
+					@click="$emit('dismiss', toast.id)"
+					@mouseenter="pauseAutoHide(toast.id)"
+					@mouseleave="resumeAutoHide(toast.id)">
+					<strong class="title">{{ toast.title }}</strong>
+					<div class="msg">
+						{{ toast.message }}
+					</div>
+					<div v-if="toast.timeout > 0" class="progress-bar" :style="{ '--progress': (progressValues[toast.id] || 0) + '%' }" />
+					<button type="button"
+						class="close"
+						:aria-label="t('threedviewer','Dismiss')"
+						@click.stop="$emit('dismiss', toast.id)">
+						×
+					</button>
 				</div>
-				<div v-if="toast.timeout > 0" class="progress-bar" :style="{ '--progress': (progressValues[toast.id] || 0) + '%' }" />
-				<button type="button"
-					class="close"
-					:aria-label="t('threedviewer','Dismiss')"
-					@click.stop="$emit('dismiss', toast.id)">
-					×
-				</button>
-			</div>
-		</transition-group>
-	</div>
+			</transition-group>
+		</div>
+	</Teleport>
 </template>
 
 <script>
@@ -142,7 +151,14 @@ export default {
 <style scoped>
 .toast-container {
 	position: fixed;
-	top: 60px;
+
+	/*
+	 * Below Nextcloud's header and the viewer's own bar, not 10px into the second one.
+	 * Toasts appear at the top right, which is where the bar keeps Help and the Tools
+	 * button — so a "Model loaded" notice arriving on page load landed on top of the
+	 * primary action and swallowed clicks meant for it until the toast timed out.
+	 */
+	top: calc(var(--tdv-nc-header-height) + var(--tdv-topbar-height) + 8px);
 	inset-inline-end: 12px;
 	z-index: 10000;
 	max-width: 320px;
@@ -154,8 +170,8 @@ export default {
 .toast-fade-enter-from, .toast-fade-leave-to { opacity:0; transform: translateY(-6px); }
 
 .toast {
-	background: var(--color-main-background,#2d2d2d);
-	color: var(--color-main-text,#fff);
+	background: var(--tdv-color-surface);
+	color: var(--tdv-color-text);
 	padding: 10px 12px;
 	border-radius: 6px;
 	box-shadow: 0 4px 14px rgb(0 0 0 / 35%);
@@ -165,13 +181,13 @@ export default {
 	position: relative;
 	overflow: hidden;
 }
-.toast.success { border-inline-start: 4px solid var(--color-success,#2e7d32); }
-.toast.error { border-inline-start: 4px solid var(--color-error,#d32f2f); }
-.toast.info { border-inline-start: 4px solid var(--color-primary-element,#0082c9); }
-.toast.warning { border-inline-start: 4px solid var(--color-warning,#ff9800); }
+.toast.success { border-inline-start: 4px solid var(--tdv-color-success); }
+.toast.error { border-inline-start: 4px solid var(--tdv-color-error); }
+.toast.info { border-inline-start: 4px solid var(--tdv-color-primary); }
+.toast.warning { border-inline-start: 4px solid var(--tdv-color-warning); }
 .toast .title { display:block; font-weight:600; margin-bottom:2px; }
 .toast .close { position:absolute; top:4px; inset-inline-end:6px; background:transparent; border:none; color:currentcolor; font-size:16px; cursor:pointer; padding:0; }
-.toast .close:focus-visible { outline:2px solid var(--color-primary-element,#0082c9); outline-offset:2px; }
+.toast .close:focus-visible { outline:2px solid var(--tdv-color-primary); outline-offset:2px; }
 
 /* Progress bar for auto-hide */
 .toast .progress-bar {
@@ -198,13 +214,13 @@ export default {
 }
 
 /* Different colors for different toast types */
-.toast.success .progress-bar::after { background: var(--color-success, #2e7d32); }
-.toast.error .progress-bar::after { background: var(--color-error, #d32f2f); }
-.toast.info .progress-bar::after { background: var(--color-primary-element, #1976d2); }
-.toast.warning .progress-bar::after { background: var(--color-warning, #ff9800); }
+.toast.success .progress-bar::after { background: var(--tdv-color-success); }
+.toast.error .progress-bar::after { background: var(--tdv-color-error); }
+.toast.info .progress-bar::after { background: var(--tdv-color-primary); }
+.toast.warning .progress-bar::after { background: var(--tdv-color-warning); }
 
 /* Dark theme adjustments */
-.dark-theme .toast .progress-bar {
+.theme--dark .toast .progress-bar {
 	background: rgb(0 0 0 / 30%);
 }
 
@@ -225,10 +241,10 @@ export default {
 	border-inline-end: 4px solid;
 }
 
-[dir="rtl"] .toast.success { border-inline-end: 4px solid var(--color-success,#2e7d32); }
-[dir="rtl"] .toast.error { border-inline-end: 4px solid var(--color-error,#d32f2f); }
-[dir="rtl"] .toast.info { border-inline-end: 4px solid var(--color-primary-element,#0082c9); }
-[dir="rtl"] .toast.warning { border-inline-end: 4px solid var(--color-warning,#ff9800); }
+[dir="rtl"] .toast.success { border-inline-end: 4px solid var(--tdv-color-success); }
+[dir="rtl"] .toast.error { border-inline-end: 4px solid var(--tdv-color-error); }
+[dir="rtl"] .toast.info { border-inline-end: 4px solid var(--tdv-color-primary); }
+[dir="rtl"] .toast.warning { border-inline-end: 4px solid var(--tdv-color-warning); }
 
 [dir="rtl"] .toast .close {
 	inset-inline: 6px auto;

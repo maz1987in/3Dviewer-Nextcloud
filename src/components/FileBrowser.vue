@@ -1223,14 +1223,14 @@ export default {
 	height: 100%;
 	display: flex;
 	flex-direction: column;
-	background: var(--color-main-background, #fff);
+	background: var(--tdv-color-surface);
 	margin: 0;
 	padding: 0;
 }
 
 .file-browser-header {
 	padding: 12px;
-	border-bottom: 1px solid var(--color-border, #ddd);
+	border-bottom: 1px solid var(--tdv-color-border);
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
@@ -1240,7 +1240,7 @@ export default {
 		margin: 0;
 		font-size: 24px;
 		font-weight: 600;
-		color: var(--color-main-text, #333);
+		color: var(--tdv-color-text);
 		height: 44px;
 		display: flex;
 		align-items: center;
@@ -1248,14 +1248,14 @@ export default {
 	}
 
 	.file-count {
-		color: var(--color-text-maxcontrast, #666);
+		color: var(--tdv-color-text-secondary);
 		font-size: 14px;
 	}
 
 .view-toggle {
 	display: flex !important;
 	gap: 4px;
-	background: var(--color-background-dark, #f5f5f5);
+	background: var(--tdv-color-surface-sunken);
 	border-radius: 6px;
 	padding: 2px;
 	flex-shrink: 0;
@@ -1271,28 +1271,28 @@ export default {
 			padding: 6px 8px;
 			cursor: pointer;
 			border-radius: 4px;
-			color: var(--color-text-maxcontrast, #666);
+			color: var(--tdv-color-text-secondary);
 			display: flex;
 			align-items: center;
 			justify-content: center;
 			transition: all 0.2s ease;
 
 			&:hover {
-				background: var(--color-background-hover, #e5e5e5);
-				color: var(--color-main-text, #333);
+				background: var(--tdv-color-hover-bg);
+				color: var(--tdv-color-text);
 			}
 
 			&.active {
-				background: var(--color-primary-element, #0082c9);
+				background: var(--tdv-color-primary);
 				color: white;
 
 				&:hover {
-					background: var(--color-primary-element-hover, #006ba3);
+					background: var(--tdv-color-primary-hover);
 				}
 			}
 
 			&:focus {
-				outline: 2px solid var(--color-primary-element, #0082c9);
+				outline: 2px solid var(--tdv-color-primary);
 				outline-offset: 2px;
 			}
 		}
@@ -1300,8 +1300,8 @@ export default {
 }
 
 .breadcrumbs-wrapper {
-	border-bottom: 1px solid var(--color-border, #ddd);
-	background: var(--color-background-dark, #f5f5f5);
+	border-bottom: 1px solid var(--tdv-color-border);
+	background: var(--tdv-color-surface-sunken);
 }
 
 .breadcrumbs-content {
@@ -1315,8 +1315,8 @@ export default {
 .view-toggle-header {
 	padding: 12px 20px;
 	padding-left: 40px;
-	border-bottom: 1px solid var(--color-border, #ddd);
-	background: var(--color-background-dark, #f5f5f5);
+	border-bottom: 1px solid var(--tdv-color-border);
+	background: var(--tdv-color-surface-sunken);
 	display: flex;
 	justify-content: flex-end;
 }
@@ -1328,7 +1328,7 @@ export default {
 	align-items: center;
 	justify-content: center;
 	gap: 16px;
-	color: var(--color-text-maxcontrast, #666);
+	color: var(--tdv-color-text-secondary);
 
 	h2 {
 		margin: 0;
@@ -1341,11 +1341,11 @@ export default {
 
 .file-filter-toolbar {
 	padding: 8px 16px 12px;
-	border-bottom: 1px solid var(--color-border, #e0e0e0);
+	border-bottom: 1px solid var(--tdv-color-border);
 	display: flex;
 	flex-direction: column;
 	gap: 8px;
-	background: var(--color-main-background, #fff);
+	background: var(--tdv-color-surface);
 }
 
 .file-filter-toolbar .filter-row {
@@ -1366,15 +1366,15 @@ export default {
 .file-filter-toolbar .filter-search-input {
 	width: 100%;
 	padding: 6px 28px 6px 10px;
-	border: 1px solid var(--color-border-dark, #c0c0c0);
+	border: 1px solid var(--tdv-color-border-strong);
 	border-radius: 6px;
-	background: var(--color-main-background, #fff);
-	color: var(--color-main-text, #222);
+	background: var(--tdv-color-surface);
+	color: var(--tdv-color-text);
 	font-size: 13px;
 }
 
 .file-filter-toolbar .filter-search-input:focus {
-	outline: 2px solid var(--color-primary-element, #0082c9);
+	outline: 2px solid var(--tdv-color-primary);
 	outline-offset: -1px;
 	border-color: transparent;
 }
@@ -1386,7 +1386,7 @@ export default {
 	height: 20px;
 	border: none;
 	background: transparent;
-	color: var(--color-text-maxcontrast, #888);
+	color: var(--tdv-color-text-secondary);
 	font-size: 18px;
 	line-height: 1;
 	cursor: pointer;
@@ -1394,33 +1394,33 @@ export default {
 }
 
 .file-filter-toolbar .filter-clear-btn:hover {
-	background: var(--color-background-hover, #ececec);
-	color: var(--color-main-text, #222);
+	background: var(--tdv-color-hover-bg);
+	color: var(--tdv-color-text);
 }
 
 .file-filter-toolbar .filter-size-select {
 	padding: 6px 10px;
-	border: 1px solid var(--color-border-dark, #c0c0c0);
+	border: 1px solid var(--tdv-color-border-strong);
 	border-radius: 6px;
-	background: var(--color-main-background, #fff);
-	color: var(--color-main-text, #222);
+	background: var(--tdv-color-surface);
+	color: var(--tdv-color-text);
 	font-size: 13px;
 	cursor: pointer;
 }
 
 .file-filter-toolbar .filter-clear-all-btn {
 	padding: 6px 12px;
-	border: 1px solid var(--color-border-dark, #c0c0c0);
+	border: 1px solid var(--tdv-color-border-strong);
 	border-radius: 6px;
-	background: var(--color-background-hover, #f5f5f5);
-	color: var(--color-main-text, #222);
+	background: var(--tdv-color-hover-bg);
+	color: var(--tdv-color-text);
 	font-size: 12px;
 	cursor: pointer;
 	white-space: nowrap;
 }
 
 .file-filter-toolbar .filter-clear-all-btn:hover {
-	background: var(--color-background-darker, #e8e8e8);
+	background: var(--tdv-color-surface-recessed);
 }
 
 .file-filter-toolbar .filter-format-row {
@@ -1431,10 +1431,10 @@ export default {
 
 .file-filter-toolbar .filter-format-chip {
 	padding: 3px 10px;
-	border: 1px solid var(--color-border-dark, #c0c0c0);
+	border: 1px solid var(--tdv-color-border-strong);
 	border-radius: 12px;
 	background: transparent;
-	color: var(--color-main-text, #222);
+	color: var(--tdv-color-text);
 	font-size: 11px;
 	font-weight: 500;
 	cursor: pointer;
@@ -1442,13 +1442,13 @@ export default {
 }
 
 .file-filter-toolbar .filter-format-chip:hover {
-	background: var(--color-background-hover, #f0f0f0);
+	background: var(--tdv-color-hover-bg);
 }
 
 .file-filter-toolbar .filter-format-chip.active {
-	background: var(--color-primary-element, #0082c9);
-	border-color: var(--color-primary-element, #0082c9);
-	color: var(--color-primary-element-text, #fff);
+	background: var(--tdv-color-primary);
+	border-color: var(--tdv-color-primary);
+	color: var(--tdv-color-on-primary);
 }
 
 .visually-hidden {
@@ -1479,8 +1479,8 @@ export default {
 }
 
 .folder-card {
-	background: var(--color-main-background, #fff);
-	border: 2px solid var(--color-border, #ddd);
+	background: var(--tdv-color-surface);
+	border: 2px solid var(--tdv-color-border);
 	border-radius: 8px;
 	padding: 16px;
 	cursor: pointer;
@@ -1491,14 +1491,14 @@ export default {
 	gap: 12px;
 
 	&:hover {
-		border-color: var(--color-primary, #0082c9);
+		border-color: var(--tdv-color-primary);
 		box-shadow: 0 2px 8px rgb(0, 0, 0, 0.1);
 		transform: translateY(-2px);
 	}
 
 	&.selected {
-		border-color: var(--color-primary, #0082c9);
-		background: var(--color-primary-light, #e6f3ff);
+		border-color: var(--tdv-color-primary);
+		background: var(--tdv-color-primary-light);
 	}
 }
 
@@ -1509,27 +1509,27 @@ export default {
 	justify-content: flex-start;
 	padding: 12px 20px;
 	border: none;
-	border-bottom: 1px solid var(--color-border, #e5e5e5);
+	border-bottom: 1px solid var(--tdv-color-border);
 	border-radius: 0;
 	box-shadow: none;
 	gap: 12px;
-	background: var(--color-main-background, #fff);
+	background: var(--tdv-color-surface);
 	cursor: pointer;
 	transition: all 0.15s ease;
 
 	&:hover {
-		background: var(--color-background-hover, #f5f5f5);
+		background: var(--tdv-color-hover-bg);
 		border-color: transparent;
-		border-bottom-color: var(--color-border, #e5e5e5);
+		border-bottom-color: var(--tdv-color-border);
 		transform: none;
 		box-shadow: none;
 	}
 
 	&.selected {
-		background: var(--color-primary-light, #e6f3ff);
-		border-left: 3px solid var(--color-primary-element, #0082c9);
+		background: var(--tdv-color-primary-light);
+		border-left: 3px solid var(--tdv-color-primary);
 		padding-left: 17px;
-		border-bottom-color: var(--color-border, #e5e5e5);
+		border-bottom-color: var(--tdv-color-border);
 	}
 
 	.folder-thumbnail {
@@ -1539,7 +1539,7 @@ export default {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		background: var(--color-background-dark, #f5f5f5);
+		background: var(--tdv-color-surface-sunken);
 		border-radius: 4px;
 		position: relative;
 	}
@@ -1557,7 +1557,7 @@ export default {
 	.folder-name {
 		font-weight: 500;
 		font-size: 14px;
-		color: var(--color-main-text, #333);
+		color: var(--tdv-color-text);
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
@@ -1567,7 +1567,7 @@ export default {
 
 	.folder-meta {
 		font-size: 12px;
-		color: var(--color-text-maxcontrast, #666);
+		color: var(--tdv-color-text-secondary);
 		line-height: 1.3;
 		text-align: left;
 		justify-content: flex-start;
@@ -1576,8 +1576,8 @@ export default {
 }
 
 .file-card {
-	background: var(--color-main-background, #fff);
-	border: 2px solid var(--color-border, #ddd);
+	background: var(--tdv-color-surface);
+	border: 2px solid var(--tdv-color-border);
 	border-radius: 8px;
 	padding: 16px;
 	cursor: pointer;
@@ -1588,14 +1588,14 @@ export default {
 	gap: 12px;
 
 	&:hover {
-		border-color: var(--color-primary, #0082c9);
+		border-color: var(--tdv-color-primary);
 		box-shadow: 0 2px 8px rgb(0, 0, 0, 0.1);
 		transform: translateY(-2px);
 	}
 
 	&.selected {
-		border-color: var(--color-primary, #0082c9);
-		background: var(--color-primary-light, #e6f3ff);
+		border-color: var(--tdv-color-primary);
+		background: var(--tdv-color-primary-light);
 	}
 }
 
@@ -1606,7 +1606,7 @@ export default {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	background: var(--color-background-dark, #f5f5f5);
+	background: var(--tdv-color-surface-sunken);
 	border-radius: 4px;
 }
 
@@ -1617,14 +1617,14 @@ export default {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	background: var(--color-background-dark, #f5f5f5);
+	background: var(--tdv-color-surface-sunken);
 	border-radius: 4px;
 
 	.file-extension {
 		position: absolute;
 		bottom: 4px;
 		right: 4px;
-		background: var(--color-primary, #0082c9);
+		background: var(--tdv-color-primary);
 		color: white;
 		font-size: 10px;
 		font-weight: bold;
@@ -1642,7 +1642,7 @@ export default {
 .folder-name {
 	font-weight: 500;
 	font-size: 14px;
-	color: var(--color-main-text, #333);
+	color: var(--tdv-color-text);
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -1652,7 +1652,7 @@ export default {
 .file-name {
 	font-weight: 500;
 	font-size: 14px;
-	color: var(--color-main-text, #333);
+	color: var(--tdv-color-text);
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -1663,7 +1663,7 @@ export default {
 /* Path subtitle shown on global search result cards. */
 .file-search-path {
 	font-size: 11px;
-	color: var(--color-text-maxcontrast, #888);
+	color: var(--tdv-color-text-secondary);
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -1677,7 +1677,7 @@ export default {
 	justify-content: center;
 	gap: 8px;
 	font-size: 12px;
-	color: var(--color-text-maxcontrast, #666);
+	color: var(--tdv-color-text-secondary);
 }
 
 .file-meta {
@@ -1685,7 +1685,7 @@ export default {
 	justify-content: center;
 	gap: 8px;
 	font-size: 12px;
-	color: var(--color-text-maxcontrast, #666);
+	color: var(--tdv-color-text-secondary);
 	line-height: 1.3;
 
 	.file-date {
@@ -1712,28 +1712,28 @@ export default {
 	align-items: center;
 	gap: 12px;
 	padding: 12px 20px;
-	border-bottom: 1px solid var(--color-border, #e5e5e5);
+	border-bottom: 1px solid var(--tdv-color-border);
 	cursor: pointer;
 	transition: all 0.15s ease;
-	background: var(--color-main-background, #fff);
+	background: var(--tdv-color-surface);
 
 	&:hover {
-		background: var(--color-background-hover, #f5f5f5);
+		background: var(--tdv-color-hover-bg);
 	}
 
 	&.selected {
-		background: var(--color-primary-light, #e6f3ff);
-		border-left: 3px solid var(--color-primary-element, #0082c9);
+		background: var(--tdv-color-primary-light);
+		border-left: 3px solid var(--tdv-color-primary);
 		padding-left: 17px; // Adjust for border
 	}
 
 	&.focused {
-		outline: 2px solid var(--color-primary-element, #0082c9);
+		outline: 2px solid var(--tdv-color-primary);
 		outline-offset: -2px;
 	}
 
 	&:focus {
-		outline: 2px solid var(--color-primary-element, #0082c9);
+		outline: 2px solid var(--tdv-color-primary);
 		outline-offset: -2px;
 	}
 
@@ -1758,25 +1758,25 @@ export default {
 	justify-content: flex-start;
 	padding: 12px 20px;
 	border: none;
-	border-bottom: 1px solid var(--color-border, #e5e5e5);
+	border-bottom: 1px solid var(--tdv-color-border);
 	border-radius: 0;
 	box-shadow: none;
 	gap: 16px;
 	width: 100%;
 
 	&:hover {
-		background: var(--color-background-hover, #f5f5f5);
+		background: var(--tdv-color-hover-bg);
 		border-color: transparent;
-		border-bottom-color: var(--color-border, #e5e5e5);
+		border-bottom-color: var(--tdv-color-border);
 		transform: none;
 		box-shadow: none;
 	}
 
 	&.selected {
-		background: var(--color-primary-light, #e6f3ff);
-		border-left: 3px solid var(--color-primary-element, #0082c9);
+		background: var(--tdv-color-primary-light);
+		border-left: 3px solid var(--tdv-color-primary);
 		padding-left: 17px;
-		border-bottom-color: var(--color-border, #e5e5e5);
+		border-bottom-color: var(--tdv-color-border);
 	}
 
 	.folder-thumbnail {
@@ -1797,7 +1797,7 @@ export default {
 	.folder-name {
 		font-weight: 500;
 		font-size: 14px;
-		color: var(--color-main-text, #333);
+		color: var(--tdv-color-text);
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
@@ -1806,7 +1806,7 @@ export default {
 
 	.folder-meta {
 		font-size: 12px;
-		color: var(--color-text-maxcontrast, #666);
+		color: var(--tdv-color-text-secondary);
 		justify-content: flex-start;
 	}
 }
@@ -1824,14 +1824,14 @@ export default {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	background: var(--color-background-dark, #f5f5f5);
+	background: var(--tdv-color-surface-sunken);
 	border-radius: 4px;
 
 	.file-extension-small {
 		position: absolute;
 		bottom: 2px;
 		right: 2px;
-		background: var(--color-primary, #0082c9);
+		background: var(--tdv-color-primary);
 		color: white;
 		font-size: 8px;
 		font-weight: bold;
@@ -1851,7 +1851,7 @@ export default {
 .file-list-name {
 	font-weight: 500;
 	font-size: 14px;
-	color: var(--color-main-text, #333);
+	color: var(--tdv-color-text);
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -1861,7 +1861,7 @@ export default {
 	display: flex;
 	gap: 12px;
 	font-size: 12px;
-	color: var(--color-text-maxcontrast, #666);
+	color: var(--tdv-color-text-secondary);
 
 	.file-size {
 		font-weight: 500;

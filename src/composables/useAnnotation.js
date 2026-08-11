@@ -8,46 +8,19 @@ import * as THREE from 'three'
 import { generateUrl } from '@nextcloud/router'
 import { logger } from '../utils/logger.js'
 import { logError } from '../utils/error-handler.js'
-import { VIEWER_CONFIG } from '../config/viewer-config.js'
+import { VIEWER_CONFIG, MARKER_COLORS } from '../config/viewer-config.js'
 import {
 	calculateModelScale,
-	createTextTexture,
 	createTextMesh,
+	isHelperMesh,
 	raycastIntersection,
+	updateTextMesh,
 } from '../utils/modelScaleUtils.js'
 
 // Visual sizing configuration for annotations (percentages of model size)
 const ANNOTATION_SIZING = (VIEWER_CONFIG.visualSizing && VIEWER_CONFIG.visualSizing.annotation) || {
 	pointSizePercent: 1.5,
 	labelWidthPercent: 20,
-}
-
-/**
- * True if a mesh is a viewer helper (gizmo, picker, measurement, annotation
- * marker) rather than part of the loaded model. Used to keep helpers out of
- * the model bounding-box calculation that drives marker sizing — without this
- * filter, the TransformControlsPlane (a 100,000-unit invisible picker plane)
- * inflates `modelMaxDim` and pushes annotation labels hundreds of units away.
- *
- * @param {THREE.Object3D} obj - Mesh to test
- * @return {boolean}
- */
-function isHelperMesh(obj) {
-	if (!obj) return false
-	// Filter by name pattern
-	const name = obj.name || ''
-	if (name.startsWith('annotation') || name.startsWith('measurement')) return true
-	// Filter Three.js built-in helpers and TransformControls
-	const type = obj.type || ''
-	if (type.startsWith('TransformControls')) return true
-	if (type === 'AxesHelper' || type === 'GridHelper' || type === 'Box3Helper') return true
-	// Walk ancestors to catch the picker plane (whose ancestor is TransformControls)
-	let p = obj.parent
-	while (p) {
-		if ((p.type || '').startsWith('TransformControls')) return true
-		p = p.parent
-	}
-	return false
 }
 
 export function useAnnotation() {
@@ -124,8 +97,11 @@ export function useAnnotation() {
 
 		try {
 			// Use shared raycasting utility with custom filter
+			// The model, and nothing else — see the same filter in useMeasurement. Naming
+			// this tool's own two markers left the gizmo picker in, and a note clicked onto
+			// the model was placed on the picker instead.
 			const point = raycastIntersection(event, camera, sceneRef.value, {
-				filterMesh: (mesh) => mesh.isMesh && mesh.name !== 'annotationPoint' && mesh.name !== 'annotationText',
+				filterMesh: (mesh) => mesh.isMesh && mesh.visible && !isHelperMesh(mesh),
 				recursive: false,
 			})
 
@@ -199,7 +175,7 @@ export function useAnnotation() {
 
 		const geometry = new THREE.SphereGeometry(pointRadius, 16, 16)
 		const material = new THREE.MeshBasicMaterial({
-			color: 0xff0000, // Red for annotations
+			color: MARKER_COLORS.annotation,
 			transparent: true,
 			opacity: 0.9,
 			depthTest: false,
@@ -240,49 +216,26 @@ export function useAnnotation() {
 			const calculatedModelMaxDim = modelScale.value / 0.005
 			const modelMaxDim = actualMaxDim > 0 ? actualMaxDim : calculatedModelMaxDim
 
-			// Calculate text scale proportionally to actual model size
-			// For very small models, use smaller minimum to avoid oversized labels
-			const minTextScale = modelMaxDim < 1 ? modelMaxDim * 0.1 : Math.min(modelMaxDim * 0.02, 2)
-			const baseTextScale = Math.max(minTextScale, modelMaxDim * 0.02) // At least 2% of model
-			const textScale = Math.min(baseTextScale, modelMaxDim * 0.1) // Cap at 10% of model size
+			// Height as a percentage of the model, matching the measurement labels; width
+			// follows the text. What was here derived a scale from three clamps and then a
+			// width and height from that scale, so the label's size depended on four
+			// interacting numbers and none of them was its height.
+			const basePercent = typeof ANNOTATION_SIZING.labelHeightPercent === 'number' ? ANNOTATION_SIZING.labelHeightPercent : 4
+			const labelHeight = modelMaxDim * (basePercent / 100)
+			const yOffset = 0.15
 
-			// Determine if this is a large model based on actual model size
-			// Use modelMaxDim > 100 as threshold for large models (similar to measurements)
-			const isLargeModel = modelMaxDim > 100
-
-			// Determine font size and canvas dimensions based on model size
-			// Scale font size proportionally: 48px for small, up to 96px for very large
-			const fontSize = isLargeModel ? 96 : 48
-			const canvasWidth = isLargeModel ? 1024 : 512
-			const canvasHeight = isLargeModel ? 256 : 128
-
-			// Position label above the point (positive yOffset moves label upward)
-			const yOffset = isLargeModel ? 0.25 : 0.15 // Smaller offset for tiny models so text stays near the point
-
-			// Compute width/height multipliers so the final plane size is a configurable
-			// percentage of the model size. By default we target ~20% of the model width
-			// and ~5% of the model height (ratio 1:0.25).
-			const baseLabelWidthPercent = 20
-			const configuredLabelWidthPercent = typeof ANNOTATION_SIZING.labelWidthPercent === 'number'
-				? ANNOTATION_SIZING.labelWidthPercent
-				: baseLabelWidthPercent
-			const widthFraction = configuredLabelWidthPercent / 100
-			const desiredWidth = modelMaxDim * widthFraction
-			const desiredHeight = desiredWidth * 0.25 // Maintain ~5% height when width is 20%
-			// Avoid division by zero: textScale is clamped above so it's never 0
-			const widthMultiplier = desiredWidth / textScale
-			const heightMultiplier = desiredHeight / textScale
+			// Texture resolution, which is about crispness rather than size.
+			const fontSize = 48
+			const canvasHeight = 128
 
 			// Use shared text mesh utility
 			const textMesh = createTextMesh(annotation.text, annotation.point, {
-				scale: textScale, // Use calculated textScale instead of modelScale
-				widthMultiplier,
-				heightMultiplier,
+				scale: labelHeight,
+				heightMultiplier: 1,
 				yOffset,
-				textColor: '#ff0000',
-				bgColor: 'rgba(0, 0, 0, 0.8)',
+				textColor: MARKER_COLORS.annotation,
+				bgColor: MARKER_COLORS.labelSurface,
 				fontSize,
-				canvasWidth,
 				canvasHeight,
 				renderOrder: 1000, // Highest render order to ensure text is always on top
 				name: 'annotationText',
@@ -291,9 +244,8 @@ export function useAnnotation() {
 			if (textMesh) {
 				// Store original dimensions in userData for consistent updates
 				textMesh.userData.originalFontSize = fontSize
-				textMesh.userData.originalCanvasWidth = canvasWidth
 				textMesh.userData.originalCanvasHeight = canvasHeight
-				textMesh.userData.originalTextScale = textScale
+				textMesh.userData.originalTextScale = labelHeight
 				textMesh.userData.originalYOffset = yOffset
 
 				annotationGroup.value.add(textMesh)
@@ -317,57 +269,13 @@ export function useAnnotation() {
 			const textMesh = annotation.textMesh
 
 			if (textMesh) {
-				// Get original dimensions from userData, fallback to defaults
-				const originalFontSize = textMesh.userData?.originalFontSize || 48
-				const originalCanvasWidth = textMesh.userData?.originalCanvasWidth || 512
-				const originalCanvasHeight = textMesh.userData?.originalCanvasHeight || 128
-
-				// Update existing texture canvas if it's a CanvasTexture, otherwise create new texture
-				const existingTexture = textMesh.material.map
-				let texture = null
-
-				if (existingTexture && existingTexture.isCanvasTexture && existingTexture.image) {
-					// Update existing canvas texture
-					const canvas = existingTexture.image
-					const context = canvas.getContext('2d')
-
-					// Clear canvas completely first (important to prevent ghosting)
-					context.clearRect(0, 0, canvas.width, canvas.height)
-
-					// Draw background
-					context.fillStyle = 'rgba(0, 0, 0, 0.8)'
-					context.fillRect(0, 0, canvas.width, canvas.height)
-
-					// Draw text with original font size
-					context.fillStyle = '#ff0000'
-					context.font = `bold ${originalFontSize}px Arial`
-					context.textAlign = 'center'
-					context.textBaseline = 'middle'
-					context.fillText(newText, canvas.width / 2, canvas.height / 2)
-
-					// Mark texture for update
-					existingTexture.needsUpdate = true
-					texture = existingTexture
-				} else {
-					// Create new texture with original dimensions
-					texture = createTextTexture(newText, {
-						width: originalCanvasWidth,
-						height: originalCanvasHeight,
-						textColor: '#ff0000',
-						bgColor: 'rgba(0, 0, 0, 0.8)',
-						fontSize: originalFontSize,
-						fontFamily: 'Arial',
-					})
-
-					if (texture) {
-						// Dispose old texture to prevent memory leaks
-						if (existingTexture) {
-							existingTexture.dispose()
-						}
-						textMesh.material.map = texture
-						texture.needsUpdate = true
-					}
-				}
+				// One updater, shared with the measurement labels: it re-measures the text,
+				// so a note that grows longer is redrawn rather than clipped by the canvas
+				// it was first drawn into.
+				updateTextMesh(textMesh, newText, {
+					textColor: MARKER_COLORS.annotation,
+					bgColor: MARKER_COLORS.labelSurface,
+				})
 
 				// Update position with current yOffset (in case model scale changed)
 				if (textMesh.userData?.originalTextScale && textMesh.userData?.originalYOffset) {
@@ -381,11 +289,6 @@ export function useAnnotation() {
 
 				// Ensure renderOrder is highest to keep text on top
 				textMesh.renderOrder = 1000
-
-				// Always mark material for update
-				if (texture) {
-					textMesh.material.needsUpdate = true
-				}
 			}
 		}
 	}

@@ -1,3 +1,13 @@
+/*
+ * The controller is canvas chrome.
+ *
+ * It floats on the render, so it takes the chrome palette — the inverse of the theme —
+ * rather than the panel palette it used to read. On the light theme the panel palette made
+ * it a 78%-white ring on a white scene, which is a control you have to already know is
+ * there; the readout under it was a panel grey drawn straight on the canvas, at 2.3:1 on
+ * the dark theme.
+ */
+
 /**
  * Circular 3D Controller — "Split console" layout.
  *
@@ -62,16 +72,16 @@
 	position: absolute;
 	inset: 0;
 	border-radius: 50%;
-	background: color-mix(in srgb, var(--color-main-background, #181818) 78%, transparent);
+	background: color-mix(in srgb, var(--tdv-canvas-dark) 78%, transparent);
 	backdrop-filter: blur(12px);
-	border: 1px solid var(--color-border, rgb(255 255 255 / 13%));
+	border: 1px solid var(--tdv-hud-border);
 	box-shadow: 0 8px 26px rgb(0 0 0 / 42%);
 	cursor: grab;
 	touch-action: none;
 }
 
 .steer-ring:focus-visible {
-	outline: 2px solid var(--color-primary-element, #0082c9);
+	outline: 2px solid var(--tdv-color-primary);
 	outline-offset: 2px;
 }
 
@@ -94,8 +104,8 @@
 	position: absolute;
 	inset: 32px;
 	border-radius: 50%;
-	background: color-mix(in srgb, var(--color-main-background, #000) 38%, transparent);
-	border: 1px solid var(--color-border, rgb(255 255 255 / 8%));
+	background: color-mix(in srgb, var(--tdv-canvas-dark) 38%, transparent);
+	border: 1px solid var(--tdv-hud-border);
 	pointer-events: none;
 }
 
@@ -106,7 +116,7 @@
 /* Four cardinal notches instead of twelve decorative ticks. */
 .notch {
 	position: absolute;
-	background: var(--color-border-dark, rgb(255 255 255 / 22%));
+	background: var(--tdv-hud-border);
 	pointer-events: none;
 }
 
@@ -139,8 +149,8 @@
 	height: 10px;
 	border-radius: 50%;
 	pointer-events: none;
-	background: var(--color-primary-element, #0082c9);
-	box-shadow: 0 0 12px color-mix(in srgb, var(--color-primary-element, #0082c9) 75%, transparent);
+	background: var(--tdv-color-primary);
+	box-shadow: 0 0 12px color-mix(in srgb, var(--tdv-color-primary) 75%, transparent);
 	transition: opacity 0.12s ease-out;
 }
 
@@ -177,19 +187,19 @@
 	gap: 3px;
 	padding: 5px 5px 7px;
 	border-radius: 17px;
-	background: color-mix(in srgb, var(--color-main-background, #181818) 86%, transparent);
+	background: color-mix(in srgb, var(--tdv-canvas-dark) 86%, transparent);
 	backdrop-filter: blur(12px);
-	border: 1px solid var(--color-border, rgb(255 255 255 / 13%));
+	border: 1px solid var(--tdv-hud-border);
 	box-shadow: 0 8px 26px rgb(0 0 0 / 42%);
 }
 
-.rail-btn {
+.rail-btn.rail-btn {
 	width: 32px;
 	height: 32px;
 	border: 0;
 	border-radius: 10px;
 	background: transparent;
-	color: var(--color-main-text, #d8d8d8);
+	color: var(--tdv-hud-text);
 	font: 400 16px/1 inherit;
 	cursor: pointer;
 	display: grid;
@@ -198,28 +208,35 @@
 	transition: background 0.14s ease-out, color 0.14s ease-out;
 }
 
-.rail-btn:hover:not(:disabled) {
-	background: var(--color-background-hover, rgb(255 255 255 / 11%));
+.rail-btn.rail-btn:hover:not(:disabled) {
+	background: var(--tdv-hud-hover-bg);
 }
 
-.rail-btn:focus-visible {
-	outline: 2px solid var(--color-primary-element, #0082c9);
+.rail-btn.rail-btn:focus-visible {
+	outline: 2px solid var(--tdv-color-primary);
 	outline-offset: -2px;
 }
 
-.rail-btn.active {
-	background: var(--color-primary-element, #0082c9);
-	color: var(--color-primary-element-text, #fff);
+.rail-btn.rail-btn.active {
+	background: var(--tdv-color-primary);
+	color: var(--tdv-color-on-primary);
 }
 
 /* Recentre stays in place and greys out outside pan mode, so nothing below it moves
    when the mode changes. */
-.rail-btn:disabled {
-	color: var(--color-text-maxcontrast, rgb(255 255 255 / 28%));
+.rail-btn.rail-btn:disabled {
+	color: var(--tdv-hud-text-secondary);
 	cursor: not-allowed;
 }
 
-.rail-wide {
+/*
+ * Doubled like the base it modifies. `.rail-btn.rail-btn` carries two classes so it can
+ * outrank Nextcloud's rules for every button on the page, which also puts it above a plain
+ * `.rail-wide` — so the wide items kept the base's 32px box, and an explicit width cancels
+ * a grid item's stretch, leaving the drag handle and the recentre button at the start of
+ * the two-column area instead of centred across it.
+ */
+.rail-btn.rail-btn.rail-wide {
 	grid-column: 1 / -1;
 	width: 100%;
 }
@@ -227,11 +244,13 @@
 .rail-divider {
 	grid-column: 1 / -1;
 	height: 1px;
-	background: var(--color-border, rgb(255 255 255 / 10%));
+	background: var(--tdv-hud-border);
 	margin: 1px 3px;
 }
 
-.drag-handle {
+/* Same reason: the base sets `cursor: pointer`, and this is the one control on the rail
+   that moves the thing rather than acting on it. */
+.rail-btn.rail-btn.drag-handle {
 	cursor: move;
 }
 
@@ -245,7 +264,7 @@
 	width: 3px;
 	height: 3px;
 	border-radius: 50%;
-	background: var(--color-text-maxcontrast, rgb(255 255 255 / 45%));
+	background: var(--tdv-hud-text-secondary);
 }
 
 /* ---- Live readout -------------------------------------------------------- */
@@ -253,7 +272,7 @@
 .readout {
 	font: 500 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
 	letter-spacing: 0.08em;
-	color: var(--color-text-maxcontrast, rgb(255 255 255 / 42%));
+	color: var(--tdv-hud-on-scene);
 	white-space: nowrap;
 	text-align: center;
 	pointer-events: none;
@@ -292,7 +311,7 @@
 	.circular-controller,
 	.steer-wedge,
 	.steer-dot,
-	.rail-btn {
+	.rail-btn.rail-btn {
 		transition: none;
 	}
 }
@@ -303,7 +322,7 @@
 		border: 1px solid CanvasText;
 	}
 
-	.rail-btn.active {
+	.rail-btn.rail-btn.active {
 		background: Highlight;
 		color: HighlightText;
 		forced-color-adjust: none;

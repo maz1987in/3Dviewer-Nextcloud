@@ -319,14 +319,14 @@ export default {
 }
 
 .app-navigation-divider {
-	border-bottom: 1px solid var(--color-border);
+	border-bottom: 1px solid var(--tdv-color-border);
 	margin: 8px 0;
 }
 
 /* stylelint-disable selector-pseudo-class-no-unknown */
 :deep(.active) {
 	> .app-navigation-entry {
-		background: var(--color-primary-light, lightgrey);
+		background: var(--tdv-color-primary-light);
 		font-weight: bold;
 	}
 }

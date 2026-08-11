@@ -5,6 +5,75 @@
 
 import * as THREE from 'three'
 import { logError } from './error-handler.js'
+import { MARKER_COLORS } from '../config/viewer-config.js'
+
+/**
+ * True if an object is viewer furniture — a gizmo, a picker, a helper, or one of the
+ * markers the measurement and annotation tools draw — rather than part of the loaded
+ * model.
+ *
+ * Everything that sizes itself against "the model" has to ask this first. TransformControls
+ * keeps an invisible picker plane in the scene, sized so a drag can never run off it: on a
+ * real instance it measures 107,700 units across, beside a model of 0.4. A bounding box
+ * taken over every mesh in the scene is therefore a bounding box of the picker, and a
+ * marker at a fraction of a percent of it is still hundreds of units wide.
+ *
+ * This lived in three places and not in a fourth. The annotation composable carried it with
+ * a comment naming the picker plane by size; the comparison composable carried a character-
+ * for-character copy; `shouldExcludeMesh` below carried a name-list version that did not
+ * know about gizmos at all. The measurement composable, which had the same scan inlined
+ * three times, checked only for its own marker names — so the bug the other two had already
+ * been fixed for was still live there, and drew a green wall across the viewport.
+ *
+ * @param {THREE.Object3D} obj - the object to test
+ * @return {boolean} true if the object is not part of the model
+ */
+export function isHelperMesh(obj) {
+	if (!obj) return false
+
+	const name = obj.name || ''
+	if (name.startsWith('annotation') || name.startsWith('measurement')) return true
+
+	const type = obj.type || ''
+	if (type.startsWith('TransformControls')) return true
+	if (type === 'AxesHelper' || type === 'GridHelper' || type === 'Box3Helper') return true
+
+	// The picker plane's own type is checked above, but a gizmo's parts are ordinary
+	// meshes — what marks them is the gizmo they hang from.
+	for (let p = obj.parent; p; p = p.parent) {
+		if ((p.type || '').startsWith('TransformControls')) return true
+	}
+	return false
+}
+
+/**
+ * The largest dimension of the loaded model, in Three.js units.
+ *
+ * The single source for every marker size in the viewer. It returns the fallback when the
+ * scene holds no model yet — measuring nothing gives zero, and a marker sized from zero is
+ * invisible rather than merely wrong.
+ *
+ * @param {THREE.Scene} scene - the scene to measure
+ * @param {number} fallback - what to report when there is no model in it
+ * @return {number} the model's largest dimension
+ */
+export function getModelMaxDimension(scene, fallback) {
+	if (!scene) return fallback
+
+	const box = new THREE.Box3()
+	let found = false
+	scene.traverse((child) => {
+		if (!child.isMesh || isHelperMesh(child)) return
+		found = true
+		box.union(new THREE.Box3().setFromObject(child))
+	})
+	if (!found) return fallback
+
+	const size = new THREE.Vector3()
+	box.getSize(size)
+	const maxDimension = Math.max(size.x, size.y, size.z)
+	return maxDimension > 0 ? maxDimension : fallback
+}
 
 /**
  * Calculate visual scale based on model bounding box
@@ -39,7 +108,7 @@ export function calculateModelScale(scene, options = {}) {
 		// Find all meshes in the scene (excluding specified elements)
 		const meshes = []
 		scene.traverse((child) => {
-			if (child.isMesh && !shouldExcludeMesh(child, excludeNames)) {
+			if (child.isMesh && !isHelperMesh(child) && !shouldExcludeMesh(child, excludeNames)) {
 				meshes.push(child)
 			}
 		})
@@ -99,41 +168,63 @@ function shouldExcludeMesh(mesh, excludeNames) {
  * @param {object} options - Configuration options
  * @param {number} options.width - Canvas width (default: 512)
  * @param {number} options.height - Canvas height (default: 128)
- * @param {string} options.textColor - Text color (default: '#ffffff')
- * @param {string} options.bgColor - Background color (default: 'rgba(0, 0, 0, 0.8)')
+ * @param {string} options.textColor - Text colour (default: the shared measurement accent)
+ * @param {string} options.bgColor - Background colour (default: the shared label surface)
  * @param {number} options.fontSize - Font size in pixels (default: 48)
- * @param {string} options.fontFamily - Font family (default: 'Arial')
+ * @param {string} options.fontFamily - Font family (default: the shared marker font)
  * @return {THREE.CanvasTexture} Canvas texture for use in materials
  */
 export function createTextTexture(text, options = {}) {
 	const {
 		width = 512,
 		height = 128,
-		textColor = '#ffffff',
-		bgColor = 'rgba(0, 0, 0, 0.8)',
+		textColor = MARKER_COLORS.measurement,
+		bgColor = MARKER_COLORS.labelSurface,
 		fontSize = 48,
-		fontFamily = 'Arial',
+		fontFamily = MARKER_COLORS.font,
 	} = options
 
 	try {
-		// Create canvas
 		const canvas = document.createElement('canvas')
 		const context = canvas.getContext('2d')
-		canvas.width = width
+		const font = `bold ${fontSize}px ${fontFamily}`
+
+		/*
+		 * The pill is sized to the text rather than the text placed inside a fixed pill.
+		 *
+		 * Every label used a 512x128 canvas whatever it said, so "0.98 mm" was eight small
+		 * characters in the middle of a wide black bar — and because the mesh is only a few
+		 * pixels tall on screen, almost all of those pixels went to the bar. Measuring first
+		 * spends them on the text instead.
+		 *
+		 * The caller's `width` becomes a floor, not the width: a label may not be narrower
+		 * than the space the caller reserved for it, which keeps short labels from
+		 * collapsing to a sliver.
+		 */
+		context.font = font
+		const padding = fontSize * 0.6
+		const measured = context.measureText(text).width + padding * 2
+		canvas.width = Math.max(Math.ceil(measured), Math.ceil(width / 4))
 		canvas.height = height
 
-		// Draw background
+		// Setting canvas.width resets the context, so the font is applied again below.
+		const radius = Math.min(canvas.height / 2, fontSize * 0.5)
 		context.fillStyle = bgColor
-		context.fillRect(0, 0, width, height)
+		context.beginPath()
+		if (typeof context.roundRect === 'function') {
+			context.roundRect(0, 0, canvas.width, canvas.height, radius)
+		} else {
+			// jsdom's canvas, and browsers older than the label design.
+			context.rect(0, 0, canvas.width, canvas.height)
+		}
+		context.fill()
 
-		// Draw text
 		context.fillStyle = textColor
-		context.font = `bold ${fontSize}px ${fontFamily}`
+		context.font = font
 		context.textAlign = 'center'
 		context.textBaseline = 'middle'
-		context.fillText(text, width / 2, height / 2)
+		context.fillText(text, canvas.width / 2, canvas.height / 2)
 
-		// Create texture
 		const texture = new THREE.CanvasTexture(canvas)
 		texture.needsUpdate = true
 
@@ -152,7 +243,7 @@ export function createTextTexture(text, options = {}) {
  * @param {THREE.Vector3} position - Position for the marker
  * @param {object} options - Configuration options
  * @param {number} options.scale - Visual scale factor (default: 1)
- * @param {number} options.color - Sphere color as hex (default: 0xffff00 yellow)
+ * @param {string} options.color - Sphere colour (default: the shared measurement accent)
  * @param {number} options.sizeMultiplier - Size multiplier (default: 2)
  * @param {number} options.opacity - Material opacity (default: 0.9)
  * @param {number} options.renderOrder - Render order (default: 999)
@@ -162,7 +253,7 @@ export function createTextTexture(text, options = {}) {
 export function createMarkerSphere(position, options = {}) {
 	const {
 		scale = 1,
-		color = 0xffff00,
+		color = MARKER_COLORS.measurement,
 		sizeMultiplier = 2,
 		opacity = 0.9,
 		renderOrder = 999,
@@ -201,13 +292,13 @@ export function createMarkerSphere(position, options = {}) {
  * @param {THREE.Vector3} position - Position for the label
  * @param {object} options - Configuration options
  * @param {number} options.scale - Visual scale factor (default: 1)
- * @param {number} options.widthMultiplier - Width multiplier (default: 30)
  * @param {number} options.heightMultiplier - Height multiplier (default: 7.5)
  * @param {number} options.yOffset - Y-axis offset multiplier (default: 0)
- * @param {string} options.textColor - Text color (default: '#ffffff')
- * @param {string} options.bgColor - Background color (default: 'rgba(0, 0, 0, 0.8)')
+ * @param {string} options.textColor - Text colour (default: the shared measurement accent)
+ * @param {string} options.bgColor - Background colour (default: the shared label surface)
  * @param {number} options.fontSize - Font size in pixels (default: 48)
- * @param {number} options.canvasWidth - Canvas width (default: 512)
+ * @param {number} options.canvasWidth - Minimum canvas width (default: 512; the label
+ *   is sized to its own text, and this is only a floor)
  * @param {number} options.canvasHeight - Canvas height (default: 128)
  * @param {number} options.renderOrder - Render order (default: 997)
  * @param {string} options.name - Mesh name (default: 'textLabel')
@@ -216,11 +307,10 @@ export function createMarkerSphere(position, options = {}) {
 export function createTextMesh(text, position, options = {}) {
 	const {
 		scale = 1,
-		widthMultiplier = 30,
 		heightMultiplier = 7.5,
 		yOffset = 0,
-		textColor = '#ffffff',
-		bgColor = 'rgba(0, 0, 0, 0.8)',
+		textColor = MARKER_COLORS.measurement,
+		bgColor = MARKER_COLORS.labelSurface,
 		fontSize = 48,
 		canvasWidth = 512,
 		canvasHeight = 128,
@@ -240,18 +330,28 @@ export function createTextMesh(text, position, options = {}) {
 
 		if (!texture) return null
 
-		// Calculate dimensions proportionally to model size
-		// For all models, use the calculated dimensions directly for proportional sizing
-		const calculatedWidth = scale * widthMultiplier
-		const calculatedHeight = scale * heightMultiplier
+		/*
+		 * Height comes from the caller; width follows the texture.
+		 *
+		 * The plane used to take both from the caller's multipliers while the canvas kept
+		 * its own 4:1 shape, so any label whose text did not happen to fill that ratio was
+		 * rendered stretched or squashed. Deriving one from the other means a label is
+		 * whatever width its own text needs and never distorted.
+		 */
+		const textHeight = scale * heightMultiplier
+		const textWidth = textHeight * (texture.image.width / texture.image.height)
 
-		// Use calculated dimensions directly (no caps) for proportional sizing
-		const textWidth = calculatedWidth
-		const textHeight = calculatedHeight
-
-		// Ensure minimum sizes for visibility (only for extremely small scales to prevent invisible text)
-		const finalWidth = Math.max(textWidth, 0.01)
-		const finalHeight = Math.max(textHeight, 0.0025)
+		/*
+		 * A floor on visibility, applied to both sides at once.
+		 *
+		 * Clamping width and height independently is what a minimum size usually looks like,
+		 * and on a small model it reached the width floor long before the height one — so
+		 * the smallest labels were the most stretched, by a factor of two and a half. Growing
+		 * the whole label until it clears both floors keeps its shape.
+		 */
+		const growth = Math.max(1, 0.01 / textWidth, 0.0025 / textHeight)
+		const finalWidth = textWidth * growth
+		const finalHeight = textHeight * growth
 
 		// Create plane geometry
 		const geometry = new THREE.PlaneGeometry(finalWidth, finalHeight)
@@ -273,6 +373,8 @@ export function createTextMesh(text, position, options = {}) {
 		}
 		textMesh.name = name
 		textMesh.renderOrder = renderOrder
+		// What updateTextMesh needs to rebuild the plane when the text changes length.
+		textMesh.userData.labelHeight = finalHeight
 
 		// Mark as billboard - will be updated to face camera in animation loop
 		textMesh.userData.isBillboard = true
@@ -343,6 +445,58 @@ function getCachedIntersectableObjects(scene, filterMesh, cacheKey) {
 	})
 
 	return intersectableObjects
+}
+
+/**
+ * Replace a label's text.
+ *
+ * The label keeps the height it was built with and takes its width from the new text, so a
+ * reading that changes from "0.98 mm" to "0.039 in" is redrawn rather than squeezed into
+ * the shape of the old one.
+ *
+ * This exists because both callers had grown their own version, and both drew straight
+ * into the existing canvas at its existing width — which meant a longer string was clipped
+ * by the canvas it was drawn into, and a shorter one left the plane too wide. Each also
+ * repeated the label's colours inline, so the two update paths had drifted from the two
+ * creation paths and from each other.
+ *
+ * @param {THREE.Mesh} mesh - the label mesh to update
+ * @param {string} text - the new text
+ * @param {object} options - colour and font overrides, as for createTextTexture
+ * @return {boolean} true if the label was updated
+ */
+export function updateTextMesh(mesh, text, options = {}) {
+	if (!mesh || !mesh.material) return false
+
+	try {
+		const texture = createTextTexture(text, {
+			width: mesh.userData?.originalCanvasWidth ?? 512,
+			height: mesh.userData?.originalCanvasHeight ?? 128,
+			fontSize: mesh.userData?.originalFontSize ?? 48,
+			...options,
+		})
+		if (!texture) return false
+
+		const previous = mesh.material.map
+		mesh.material.map = texture
+		mesh.material.needsUpdate = true
+		if (previous && previous !== texture) previous.dispose()
+
+		const height = mesh.userData?.labelHeight
+		if (height) {
+			const aspect = texture.image.width / texture.image.height
+			mesh.geometry.dispose()
+			mesh.geometry = new THREE.PlaneGeometry(
+				Math.max(height * aspect, 0.01),
+				Math.max(height, 0.0025),
+			)
+		}
+		return true
+
+	} catch (error) {
+		logError('modelScaleUtils', 'Failed to update text mesh', error)
+		return false
+	}
 }
 
 /**

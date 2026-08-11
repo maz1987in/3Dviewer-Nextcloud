@@ -13,6 +13,7 @@
     "dev": "vite --mode development build",
     "watch": "vite --mode development build --watch",
     "copy-decoders": "node scripts/copy-decoders.mjs",
+    "icons:sync": "node scripts/sync-icon-paths.mjs",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
     "stylelint": "stylelint src/**/*.vue src/**/*.scss src/**/*.css",
@@ -50,7 +51,7 @@
     "@nextcloud/router": "^3.1.0",
     "@nextcloud/vue": "^9.7.0",
     "occt-import-js": "^0.0.23",
-    "three": "^0.184.0",
+    "three": "^0.185.1",
     "vue": "^3.5.33",
     "vue-material-design-icons": "^5.3.1",
     "web-ifc": "^0.0.77"

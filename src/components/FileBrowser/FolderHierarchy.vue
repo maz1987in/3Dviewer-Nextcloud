@@ -112,8 +112,8 @@ export default {
 }
 
 .folder-card {
-	background: var(--color-main-background, #fff);
-	border: 2px solid var(--color-border, #ddd);
+	background: var(--tdv-color-surface);
+	border: 2px solid var(--tdv-color-border);
 	border-radius: 8px;
 	padding: 16px;
 	cursor: pointer;
@@ -126,14 +126,14 @@ export default {
 	width: 100%;
 
 	&:hover {
-		border-color: var(--color-primary, #0082c9);
-		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+		border-color: var(--tdv-color-primary);
+		box-shadow: 0 2px 8px rgb(0, 0, 0, 0.1);
 		transform: translateY(-2px);
 	}
 
 	&.has-files {
 		// Folders with files get a different style
-		border-left: 4px solid var(--color-primary, #0082c9);
+		border-left: 4px solid var(--tdv-color-primary);
 	}
 }
 
@@ -143,7 +143,7 @@ export default {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	background: var(--color-background-dark, #f5f5f5);
+	background: var(--tdv-color-surface-sunken);
 	border-radius: 4px;
 }
 
@@ -155,7 +155,7 @@ export default {
 .folder-name {
 	font-weight: 500;
 	font-size: 14px;
-	color: var(--color-main-text, #333);
+	color: var(--tdv-color-text);
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -164,14 +164,14 @@ export default {
 
 .folder-meta {
 	font-size: 12px;
-	color: var(--color-text-maxcontrast, #666);
+	color: var(--tdv-color-text-secondary);
 	display: flex;
 	justify-content: center;
 }
 
 .file-card {
-	background: var(--color-main-background, #fff);
-	border: 2px solid var(--color-border, #ddd);
+	background: var(--tdv-color-surface);
+	border: 2px solid var(--tdv-color-border);
 	border-radius: 8px;
 	padding: 16px;
 	cursor: pointer;
@@ -182,8 +182,8 @@ export default {
 	gap: 12px;
 
 	&:hover {
-		border-color: var(--color-primary, #0082c9);
-		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+		border-color: var(--tdv-color-primary);
+		box-shadow: 0 2px 8px rgb(0, 0, 0, 0.1);
 		transform: translateY(-2px);
 	}
 }
@@ -195,14 +195,14 @@ export default {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	background: var(--color-background-dark, #f5f5f5);
+	background: var(--tdv-color-surface-sunken);
 	border-radius: 4px;
 
 	.file-extension {
 		position: absolute;
 		bottom: 4px;
 		right: 4px;
-		background: var(--color-primary, #0082c9);
+		background: var(--tdv-color-primary);
 		color: white;
 		font-size: 10px;
 		font-weight: bold;
@@ -219,7 +219,7 @@ export default {
 .file-name {
 	font-weight: 500;
 	font-size: 14px;
-	color: var(--color-main-text, #333);
+	color: var(--tdv-color-text);
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;

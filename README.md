@@ -1,6 +1,6 @@
 # 3D Viewer for Nextcloud
 
-[![Version](https://img.shields.io/badge/version-3.2.0-blue)](https://github.com/maz1987in/3Dviewer-Nextcloud/releases)
+[![Version](https://img.shields.io/badge/version-3.4.0-blue)](https://github.com/maz1987in/3Dviewer-Nextcloud/releases)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-orange)](LICENSE)
 [![Nextcloud](https://img.shields.io/badge/Nextcloud-31--34-0082c9)](https://nextcloud.com)
 [![Update nextcloud/ocp](https://github.com/maz1987in/3Dviewer-Nextcloud/actions/workflows/update-nextcloud-ocp-matrix.yml/badge.svg)](https://github.com/maz1987in/3Dviewer-Nextcloud/actions/workflows/update-nextcloud-ocp-matrix.yml)
@@ -13,33 +13,38 @@ A comprehensive 3D model viewer application for Nextcloud that supports multiple
 <table>
   <tr>
     <td align="center">
-      <img src="img/screenshots/01-main-viewer.png" alt="Main Viewer Interface" width="400"/><br/>
-      <b>Main Viewer Interface</b><br/>
-      Interactive 3D model viewing with intuitive controls
+      <img src="img/screenshots/01-main-viewer.png" alt="The viewer with a model open: the draggable 3D controller at the top left and the performance readout at the bottom left" width="400"/><br/>
+      <b>Main Viewer</b><br/>
+      Orbit, pan and zoom from the ring controller, with a live frame-rate readout
     </td>
     <td align="center">
-      <img src="img/screenshots/02-files-integration.png" alt="Files Integration" width="400"/><br/>
-      <b>Nextcloud Files Integration</b><br/>
-      Seamlessly integrated with the Files app
+      <img src="img/screenshots/02-files-integration.png" alt="A model previewed inside the Nextcloud Files viewer, with an Open in 3D Viewer button" width="400"/><br/>
+      <b>Files Integration</b><br/>
+      Models preview in place in the Files app, one click from the full viewer
     </td>
   </tr>
   <tr>
     <td align="center">
-      <img src="img/screenshots/03-toolbar-features.png" alt="Toolbar Features" width="400"/><br/>
-      <b>Rich Toolbar Features</b><br/>
-      Grid, axes, wireframe, background controls and more
+      <img src="img/screenshots/03-tools-panel.png" alt="The tools panel open beside the model, showing the View, Scene and Analyze sections" width="400"/><br/>
+      <b>Tools Panel</b><br/>
+      Every tool in one panel, grouped and collapsible, with its keyboard shortcut
     </td>
     <td align="center">
-      <img src="img/screenshots/04-multi-file-support.png" alt="Multi-File Support" width="400"/><br/>
-      <b>Multi-File Support</b><br/>
-      OBJ+MTL+textures, GLTF+bins+images
+      <img src="img/screenshots/04-dark-theme.png" alt="The same model on the dark theme, with light controller and performance panels floating over the dark scene" width="400"/><br/>
+      <b>Light and Dark</b><br/>
+      Auto follows the instance; choosing a theme moves the whole viewer, and the panels floating on the render take the opposite shade so they keep an edge against it
     </td>
   </tr>
   <tr>
-    <td align="center" colspan="2">
-      <img src="img/screenshots/05-dark-theme.png" alt="Dark Theme" width="400"/><br/>
-      <b>Dark Theme Support</b><br/>
-      Automatically adapts to Nextcloud theme
+    <td align="center">
+      <img src="img/screenshots/05-help-and-shortcuts.png" alt="The help dialog listing the controller, view and display controls, each with the icon its control uses" width="400"/><br/>
+      <b>Help and Shortcuts</b><br/>
+      Every control explained, each row drawn with the icon that control uses
+    </td>
+    <td align="center">
+      <img src="img/screenshots/06-send-to-slicer.png" alt="The Send to Slicer dialog with an STL/OBJ/PLY format selector and a list of slicer applications" width="400"/><br/>
+      <b>Send to Slicer</b><br/>
+      Hand a model to PrusaSlicer, Cura, BambuStudio and others over a temporary share link
     </td>
   </tr>
 </table>

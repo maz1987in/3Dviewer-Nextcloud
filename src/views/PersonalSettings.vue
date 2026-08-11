@@ -142,7 +142,7 @@
 							</span>
 						</div>
 						<NcButton
-							type="secondary"
+							variant="secondary"
 							:disabled="reindexing"
 							@click="reindexFiles">
 							<template #icon>
@@ -175,7 +175,7 @@
 							</span>
 						</div>
 						<NcButton
-							type="secondary"
+							variant="secondary"
 							:disabled="clearingCache"
 							@click="clearCache">
 							<template #icon>
@@ -193,7 +193,7 @@
 							<span v-if="field.description" class="setting-description">{{ field.description }}</span>
 						</div>
 						<NcButton
-							type="secondary"
+							variant="secondary"
 							:disabled="clearingThumbnails"
 							@click="clearThumbnails">
 							<template #icon>
@@ -209,7 +209,7 @@
 			<!-- Actions -->
 			<div class="settings-actions">
 				<NcButton
-					type="primary"
+					variant="primary"
 					:disabled="saving"
 					@click="saveSettings">
 					<template #icon>
@@ -220,7 +220,7 @@
 				</NcButton>
 
 				<NcButton
-					type="tertiary"
+					variant="tertiary"
 					:disabled="saving"
 					@click="resetSettings">
 					<template #icon>
@@ -870,8 +870,8 @@ export default {
 	gap: 20px;
 	margin-bottom: 10px;
 	padding: 20px;
-	background: var(--color-main-background);
-	border: 1px solid var(--color-border);
+	background: var(--tdv-color-surface);
+	border: 1px solid var(--tdv-color-border);
 	border-radius: var(--border-radius-large);
 }
 
@@ -888,20 +888,20 @@ export default {
 	margin-bottom: 8px;
 	font-size: 24px;
 	font-weight: bold;
-	color: var(--color-main-text);
+	color: var(--tdv-color-text);
 }
 
 .header-content p {
 	margin: 0;
-	color: var(--color-text-maxcontrast);
+	color: var(--tdv-color-text-secondary);
 	font-size: 16px;
 }
 
 .settings-group {
-	border: 1px solid var(--color-border);
+	border: 1px solid var(--tdv-color-border);
 	border-radius: var(--border-radius-large);
 	padding: 20px;
-	background-color: var(--color-main-background);
+	background-color: var(--tdv-color-surface);
 }
 
 .settings-group h3 {
@@ -909,11 +909,11 @@ export default {
 	margin-bottom: 8px;
 	font-size: 18px;
 	font-weight: 600;
-	color: var(--color-main-text);
+	color: var(--tdv-color-text);
 }
 
 .section-description {
-	color: var(--color-text-maxcontrast);
+	color: var(--tdv-color-text-secondary);
 	margin-bottom: 20px;
 	font-size: 14px;
 	line-height: 1.5;
@@ -922,7 +922,7 @@ export default {
 .setting-field {
 	margin-bottom: 20px;
 	padding-bottom: 20px;
-	border-bottom: 1px solid var(--color-border);
+	border-bottom: 1px solid var(--tdv-color-border);
 }
 
 .setting-field:last-child {
@@ -957,11 +957,11 @@ export default {
 
 .setting-label label {
 	font-weight: 600;
-	color: var(--color-main-text);
+	color: var(--tdv-color-text);
 }
 
 .setting-description {
-	color: var(--color-text-maxcontrast);
+	color: var(--tdv-color-text-secondary);
 	font-size: 13px;
 }
 
@@ -986,9 +986,9 @@ input[type="color"] {
 	height: 34px;
 	width: 60px;
 	padding: 2px;
-	border: 1px solid var(--color-border);
+	border: 1px solid var(--tdv-color-border);
 	border-radius: var(--border-radius);
-	background: var(--color-main-background);
+	background: var(--tdv-color-surface);
 }
 
 .settings-actions {
@@ -996,10 +996,10 @@ input[type="color"] {
 	gap: 12px;
 	margin-top: 24px;
 	padding-top: 20px;
-	border-top: 1px solid var(--color-border);
+	border-top: 1px solid var(--tdv-color-border);
 	position: sticky;
 	bottom: 0;
-	background: var(--color-main-background);
+	background: var(--tdv-color-surface);
 	z-index: 100;
 	padding-bottom: 20px; /* Add padding at bottom since it's sticky */
 }
@@ -1021,11 +1021,11 @@ input[type="color"] {
 
 .cache-info-text {
 	font-weight: 600;
-	color: var(--color-text-maxcontrast);
+	color: var(--tdv-color-text-secondary);
 }
 
 .occ-hint code {
-	background: var(--color-background-dark);
+	background: var(--tdv-color-surface-sunken);
 	padding: 2px 4px;
 	border-radius: 4px;
 	font-family: monospace;
@@ -1042,7 +1042,7 @@ input[type="color"] {
 
 .index-progress-text {
 	font-size: 12px;
-	color: var(--color-text-maxcontrast);
+	color: var(--tdv-color-text-secondary);
 	white-space: nowrap;
 }
 </style>

@@ -69,7 +69,7 @@
 					:aria-label="t('threedviewer', 'Rotate mode')"
 					:title="t('threedviewer', 'Rotate mode')"
 					@click.stop="setRotateMode">
-					↻
+					<ViewerIcon name="rotateMode" :size="18" />
 				</button>
 				<button
 					class="rail-btn"
@@ -78,7 +78,7 @@
 					:aria-label="t('threedviewer', 'Pan mode')"
 					:title="t('threedviewer', 'Pan mode')"
 					@click.stop="setPanMode">
-					✥
+					<ViewerIcon name="panMode" :size="18" />
 				</button>
 
 				<div class="rail-divider" aria-hidden="true" />
@@ -115,7 +115,7 @@
 					:aria-label="t('threedviewer', 'Recentre view')"
 					:title="t('threedviewer', 'Recentre — keeps your zoom and angle')"
 					@click.stop="resetPanning">
-					⌖
+					<ViewerIcon name="recenter" :size="18" />
 				</button>
 			</div>
 		</div>
@@ -129,6 +129,7 @@
 
 <script>
 import { ref, shallowRef, computed, onMounted, onBeforeUnmount, watch } from 'vue'
+import ViewerIcon from './ViewerIcon.vue'
 import * as THREE from 'three'
 // eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
 import { translate as t } from '@nextcloud/l10n'
@@ -139,6 +140,10 @@ import { VIEWER_CONFIG } from '../config/viewer-config.js'
 
 export default {
 	name: 'CircularController',
+
+	components: {
+		ViewerIcon,
+	},
 	props: {
 		mainCamera: {
 			type: Object,
@@ -250,7 +255,7 @@ export default {
 		const wedgeStyle = computed(() => {
 			// The mask leaves the ring's hole clear so the cube stays readable.
 			const mask = 'radial-gradient(circle, transparent 46%, #000 58%, #000 96%, transparent 99%)'
-			const accent = 'var(--color-primary-element, #0082c9)'
+			const accent = 'var(--tdv-color-primary)'
 			const spread = 52
 			const from = wedgeFromAngle({ angle: steerAngle.value, spread })
 

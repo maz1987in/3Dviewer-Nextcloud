@@ -8,7 +8,7 @@
 				class="tb"
 				type="button"
 				@click="$emit('reset-view')">
-				<span class="tb-icon">🔄</span>
+				<ViewerIcon class="tb-icon" name="resetView" :size="18" />
 				<span class="tb-text">{{ t('threedviewer','Reset') }}</span>
 			</button>
 			<button :aria-label="t('threedviewer','Fit to view')"
@@ -16,7 +16,7 @@
 				type="button"
 				:title="t('threedviewer','Fit model to view')"
 				@click="$emit('fit-to-view')">
-				<span class="tb-icon">📏</span>
+				<ViewerIcon class="tb-icon" name="measurement" :size="18" />
 				<span class="tb-text">{{ t('threedviewer','Fit') }}</span>
 			</button>
 			<button :aria-pressed="autoRotate"
@@ -25,7 +25,7 @@
 				type="button"
 				:title="t('threedviewer','Toggle auto-rotate')"
 				@click="$emit('toggle-auto-rotate')">
-				<span class="tb-icon">🔄</span>
+				<ViewerIcon class="tb-icon" name="resetView" :size="18" />
 				<span class="tb-text">{{ autoRotate ? t('threedviewer','Auto-rotate on') : t('threedviewer','Auto-rotate off') }}</span>
 			</button>
 			<div v-if="!isMobile" class="view-presets">
@@ -56,7 +56,7 @@
 				type="button"
 				:title="t('threedviewer','Toggle axes')"
 				@click="$emit('toggle-axes')">
-				<span class="tb-icon">📐</span>
+				<ViewerIcon class="tb-icon" name="projection" :size="18" />
 				<span class="tb-text">{{ axes ? t('threedviewer','Axes on') : t('threedviewer','Axes off') }}</span>
 			</button>
 			<button :aria-pressed="faceLabels"
@@ -65,7 +65,7 @@
 				type="button"
 				:title="t('threedviewer','Toggle face labels')"
 				@click="$emit('toggle-face-labels')">
-				<span class="tb-icon">🏷️</span>
+				<ViewerIcon class="tb-icon" name="faceLabels" :size="18" />
 				<span class="tb-text">{{ faceLabels ? t('threedviewer','Labels on') : t('threedviewer','Labels off') }}</span>
 			</button>
 			<button :aria-pressed="wireframe"
@@ -74,7 +74,7 @@
 				type="button"
 				:title="t('threedviewer','Toggle wireframe')"
 				@click="$emit('toggle-wireframe')">
-				<span class="tb-icon">🔲</span>
+				<ViewerIcon class="tb-icon" name="wireframe" :size="18" />
 				<span class="tb-text">{{ wireframe ? t('threedviewer','Wireframe on') : t('threedviewer','Wireframe off') }}</span>
 			</button>
 			<!-- Advanced features -->
@@ -84,7 +84,7 @@
 				type="button"
 				:title="t('threedviewer','Measurement tools')"
 				@click="$emit('toggle-measurement')">
-				<span class="tb-icon">📏</span>
+				<ViewerIcon class="tb-icon" name="measurement" :size="18" />
 				<span class="tb-text">{{ t('threedviewer','Measure') }}</span>
 			</button>
 			<button :aria-pressed="annotationMode"
@@ -93,7 +93,7 @@
 				type="button"
 				:title="t('threedviewer','Add annotations')"
 				@click="$emit('toggle-annotation')">
-				<span class="tb-icon">📝</span>
+				<ViewerIcon class="tb-icon" name="annotation" :size="18" />
 				<span class="tb-text">{{ t('threedviewer','Annotate') }}</span>
 			</button>
 			<button :aria-pressed="comparisonMode"
@@ -102,7 +102,7 @@
 				type="button"
 				:title="t('threedviewer','Compare models')"
 				@click="$emit('toggle-comparison')">
-				<span class="tb-icon">⚖️</span>
+				<ViewerIcon class="tb-icon" name="comparison" :size="18" />
 				<span class="tb-text">{{ t('threedviewer','Compare') }}</span>
 			</button>
 			<button :aria-label="t('threedviewer','Send to Slicer')"
@@ -111,7 +111,7 @@
 				:title="t('threedviewer','Send model to 3D printing slicer')"
 				:disabled="!modelLoaded"
 				@click="$emit('send-to-slicer')">
-				<span class="tb-icon">🖨️</span>
+				<ViewerIcon class="tb-icon" name="sendToSlicer" :size="18" />
 				<span class="tb-text">{{ t('threedviewer','Send to Slicer') }}</span>
 			</button>
 			<!-- Animation controls -->
@@ -121,7 +121,7 @@
 				type="button"
 				:title="isAnimationPlaying ? t('threedviewer','Pause animation') : t('threedviewer','Play animation')"
 				@click="$emit('toggle-animation-play')">
-				<span class="tb-icon">{{ isAnimationPlaying ? '⏸️' : '▶️' }}</span>
+				<ViewerIcon class="tb-icon" :name="isAnimationPlaying ? 'animationPause' : 'animationPlay'" :size="18" />
 				<span class="tb-text">{{ isAnimationPlaying ? t('threedviewer','Pause') : t('threedviewer','Play') }}</span>
 			</button>
 			<button v-if="hasAnimations"
@@ -132,7 +132,7 @@
 				:title="t('threedviewer','Toggle animation loop')"
 				:class="{ 'active': isAnimationLooping }"
 				@click="$emit('toggle-animation-loop')">
-				<span class="tb-icon">🔁</span>
+				<ViewerIcon class="tb-icon" name="loop" :size="18" />
 				<span class="tb-text">{{ isAnimationLooping ? t('threedviewer','Loop on') : t('threedviewer','Loop off') }}</span>
 			</button>
 			<button :aria-label="t('threedviewer','Performance settings')"
@@ -140,11 +140,11 @@
 				type="button"
 				:title="t('threedviewer','Click to cycle performance mode')"
 				@click="cyclePerformanceMode">
-				<span class="tb-icon">⚡</span>
+				<ViewerIcon class="tb-icon" name="performance" :size="18" />
 				<span class="tb-text">{{ getPerformanceModeText() }}</span>
 			</button>
 			<label class="color-picker" :aria-label="t('threedviewer','Background color')">
-				<span class="tb-icon">🎨</span>
+				<ViewerIcon class="tb-icon" name="palette" :size="18" />
 				<input type="color" :value="background" @input="$emit('change-background', $event.target.value)">
 			</label>
 		</div>
@@ -152,8 +152,13 @@
 </template>
 
 <script>
+import ViewerIcon from './ViewerIcon.vue'
 export default {
 	name: 'ViewerToolbar',
+
+	components: {
+		ViewerIcon,
+	},
 	props: {
 		grid: { type: Boolean, default: true },
 		axes: { type: Boolean, default: true },
@@ -296,11 +301,11 @@ export default {
 	align-items: center;
 }
 
-.tb {
+.tb.tb {
 	font-size: 11px;
 	line-height: 1;
 	padding: 6px 8px;
-	background: var(--color-primary-element, #0082c9);
+	background: var(--tdv-color-primary);
 	color: #fff;
 	border: none;
 	border-radius: 6px;
@@ -317,7 +322,7 @@ export default {
 	overflow: hidden;
 }
 
-.tb::before {
+.tb.tb::before {
 	content: '';
 	position: absolute;
 	top: 0;
@@ -328,7 +333,7 @@ export default {
 	transition: left 0.5s;
 }
 
-.tb:hover::before {
+.tb.tb:hover::before {
 	inset-inline-start: 100%;
 }
 
@@ -342,24 +347,24 @@ export default {
 	white-space: nowrap;
 }
 
-.tb[aria-pressed="true"] {
-	background: var(--color-success, #2e7d32);
+.tb.tb[aria-pressed="true"] {
+	background: var(--tdv-color-success);
 }
 
-.tb:focus-visible {
-	outline: 2px solid var(--color-primary-text, #fff);
+.tb.tb:focus-visible {
+	outline: 2px solid var(--tdv-color-on-primary);
 	outline-offset: 2px;
 }
 
-.tb:hover:not(:disabled) {
-	background: var(--color-primary-element-hover, #006aa3);
+.tb.tb:hover:not(:disabled) {
+	background: var(--tdv-color-primary-hover);
 	transform: translateY(-1px);
 }
 
-.tb:disabled {
+.tb.tb:disabled {
 	opacity: 0.5;
 	cursor: not-allowed;
-	background: var(--color-background-dark, #ccc);
+	background: var(--tdv-color-surface-sunken);
 }
 
 .color-picker {
@@ -368,7 +373,7 @@ export default {
 	gap: 4px;
 	cursor: pointer;
 	padding: 4px 6px;
-	background: var(--color-primary-element, #0082c9);
+	background: var(--tdv-color-primary);
 	border-radius: 4px;
 	min-height: 32px;
 }
@@ -400,7 +405,7 @@ export default {
 }
 
 .preset-select:focus {
-	outline: 2px solid var(--color-primary-text, #fff);
+	outline: 2px solid var(--tdv-color-on-primary);
 	outline-offset: 2px;
 }
 
@@ -487,33 +492,33 @@ export default {
 }
 
 /* Dark theme support */
-.dark-theme .viewer-toolbar {
+.theme--dark .viewer-toolbar {
 	background: rgb(30 30 30 / 80%);
 	border-color: rgb(255 255 255 / 20%);
 	box-shadow: 0 4px 12px rgb(0 0 0 / 30%);
 }
 
-.dark-theme .tb {
-	background: var(--color-primary, #64b5f6);
-	color: #000;
+.theme--dark .tb {
+	background: var(--tdv-color-primary);
+	color: var(--tdv-color-on-primary);
 }
 
-.dark-theme .tb[aria-pressed="true"] {
-	background: var(--color-success, #4caf50);
+.theme--dark .tb[aria-pressed="true"] {
+	background: var(--tdv-color-success);
 	color: #fff;
 }
 
-.dark-theme .color-picker {
-	background: var(--color-primary, #64b5f6);
+.theme--dark .color-picker {
+	background: var(--tdv-color-primary);
 }
 
-.dark-theme .preset-select {
+.theme--dark .preset-select {
 	background: rgb(255 255 255 / 10%);
 	border-color: rgb(255 255 255 / 30%);
 	color: white;
 }
 
-.dark-theme .preset-select option {
+.theme--dark .preset-select option {
 	background: #2d2d2d;
 	color: white;
 }
@@ -522,14 +527,14 @@ export default {
 .tb:focus-visible,
 .color-picker:focus-visible,
 .preset-select:focus-visible {
-	outline: 2px solid var(--color-primary, #0d47a1);
+	outline: 2px solid var(--tdv-color-primary);
 	outline-offset: 2px;
 	box-shadow: 0 0 0 4px rgb(13 71 161 / 20%);
 }
 
 /* High contrast mode */
 @media (prefers-contrast: high) {
-	.tb {
+	.tb.tb {
 		border: 2px solid currentcolor;
 	}
 
@@ -540,11 +545,11 @@ export default {
 
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
-	.tb::before {
+	.tb.tb::before {
 		display: none;
 	}
 
-	.tb:hover {
+	.tb.tb:hover {
 		transform: none;
 	}
 

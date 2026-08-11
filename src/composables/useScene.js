@@ -291,10 +291,13 @@ export function useScene() {
 			scene.value.remove(grid.value)
 
 			// Create new grid
-			grid.value = new THREE.GridHelper(gridSize, divisions)
-			grid.value.material.color.setHex(0x00ff00)
-			grid.value.material.opacity = 1.0
-			grid.value.material.transparent = false
+			// Rebuilt at the model's scale, so it has to be given the colour again — the
+			// config's, not a literal: setting one here is what made the palette control
+			// look broken, since resizing the grid silently repainted it.
+			const gridColor = VIEWER_CONFIG.grid.colorGrid
+			grid.value = new THREE.GridHelper(gridSize, divisions, gridColor, gridColor)
+			grid.value.material.opacity = VIEWER_CONFIG.grid.opacity
+			grid.value.material.transparent = VIEWER_CONFIG.grid.transparent
 			grid.value.position.y = groundLevel + gridOffset
 
 			scene.value.add(grid.value)

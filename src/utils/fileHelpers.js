@@ -69,6 +69,21 @@ export function getFileExtension(filename) {
 }
 
 /**
+ * A file's format as a short label, or '' when there is nothing sensible to show.
+ *
+ * Length-capped on purpose: this is a badge, not a parser. A trailing segment longer
+ * than a real format's extension is more likely part of a dotted filename —
+ * `scene.backup.2026-07-28` — and drawing that as a format states something false.
+ *
+ * @param {string|null|undefined} filename - Filename or path, or nothing yet
+ * @return {string} Upper-case extension, or ''
+ */
+export function getFormatLabel(filename) {
+	const extension = getFileExtension(filename)
+	return /^[a-z0-9]{1,5}$/.test(extension) ? extension.toUpperCase() : ''
+}
+
+/**
  * Get filename without extension
  * @param {string} filename - Filename or path
  * @param {boolean} includeDirectory - Whether to include directory path (default: false)

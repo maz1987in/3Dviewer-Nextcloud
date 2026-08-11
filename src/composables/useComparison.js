@@ -11,6 +11,7 @@ import { getFilePickerBuilder } from '@nextcloud/dialogs'
 import { loadModelByExtension } from '../loaders/registry.js'
 import { logger } from '../utils/logger.js'
 import { disposeObject } from '../utils/three-utils.js'
+import { isHelperMesh } from '../utils/modelScaleUtils.js'
 import { getFileIdByPath, loadModelWithDependencies } from '../loaders/multiFileHelpers.js'
 
 export function useComparison() {
@@ -1230,21 +1231,6 @@ export function useComparison() {
 	 * @param {THREE.Object3D} obj - Candidate object to test
 	 * @return {boolean} True if obj should be excluded from stats
 	 */
-	const isHelperMesh = (obj) => {
-		if (!obj) return false
-		const name = obj.name || ''
-		if (name.startsWith('annotation') || name.startsWith('measurement')) return true
-		const type = obj.type || ''
-		if (type.startsWith('TransformControls')) return true
-		if (type === 'AxesHelper' || type === 'GridHelper' || type === 'Box3Helper') return true
-		let p = obj.parent
-		while (p) {
-			if ((p.type || '').startsWith('TransformControls')) return true
-			p = p.parent
-		}
-		return false
-	}
-
 	/**
 	 * Walk a model tree and collect raw geometry counts + a Box3 for the
 	 * non-helper meshes only.

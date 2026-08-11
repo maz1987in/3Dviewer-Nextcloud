@@ -38,14 +38,51 @@ export function useTheme() {
 	const isRTL = computed(() => direction.value === 'rtl')
 
 	/**
-	 * Detect system theme preference
+	 * What theme the page around the viewer is in.
+	 *
+	 * Nextcloud's own background, not `prefers-color-scheme`: the two disagree whenever a
+	 * user picks a Nextcloud theme that is not their system's, and the viewer is mounted
+	 * inside Nextcloud, not inside the operating system. Reading the system preference put
+	 * a light viewer inside a dark instance, which is the state this was reported from.
+	 * Falls back to the system preference where the variable is absent — a public share
+	 * page rendered without the theming app, and every test that does not stub it.
+	 *
 	 * @return {string} 'light' or 'dark'
 	 */
 	const detectSystemTheme = () => {
+		const background = getComputedStyle(document.documentElement)
+			.getPropertyValue('--color-main-background')
+			.trim()
+		const rgb = parseColorChannels(background)
+		if (rgb) {
+			// Rec. 601 luma, which is enough to tell a dark surface from a light one.
+			return (0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]) < 128 ? 'dark' : 'light'
+		}
+
 		if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
 			return 'dark'
 		}
 		return 'light'
+	}
+
+	/**
+	 * The channels of a `#rgb`, `#rrggbb` or `rgb(...)` colour.
+	 *
+	 * @param {string} value - the colour as the page reports it
+	 * @return {?number[]} [r, g, b] or null if it is not one of those
+	 */
+	const parseColorChannels = (value) => {
+		const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(value)
+		if (hex) {
+			const digits = hex[1].length === 3 ? [...hex[1]].map((d) => d + d) : hex[1].match(/../g)
+			return digits.map((d) => parseInt(d, 16))
+		}
+		const rgb = /^rgba?\(([^)]+)\)$/.exec(value)
+		if (rgb) {
+			const parts = rgb[1].split(/[,\s/]+/).filter(Boolean).map(Number)
+			if (parts.length >= 3 && parts.slice(0, 3).every((n) => !isNaN(n))) return parts.slice(0, 3)
+		}
+		return null
 	}
 
 	/**
@@ -101,6 +138,23 @@ export function useTheme() {
 		// Add theme class to body for CSS selectors
 		document.body.classList.remove('theme--light', 'theme--dark')
 		document.body.classList.add(`theme--${theme}`)
+
+		/*
+		 * And, separately, whether this theme was chosen or inherited.
+		 *
+		 * Auto means "match the page", so the panels keep reading Nextcloud's variables and
+		 * a themed instance keeps its own colours. Light and Dark are decisions about the
+		 * viewer, and have to override those variables rather than read them — on a dark
+		 * instance `--color-main-background` is dark, so a light palette assembled from it
+		 * comes out dark. The resolved theme alone cannot express that difference: "auto on
+		 * a dark page" and "dark, chosen" resolve to the same word and must style
+		 * differently.
+		 */
+		if (currentTheme.value === 'auto') {
+			document.documentElement.removeAttribute('data-tdv-theme')
+		} else {
+			document.documentElement.setAttribute('data-tdv-theme', currentTheme.value)
+		}
 
 		logger.info('useTheme', 'Theme colors applied', { theme, colors: merged })
 	}
@@ -212,6 +266,13 @@ export function useTheme() {
 
 		currentTheme.value = mode
 
+		// Re-read the page rather than trusting what it was at startup: a user can change
+		// their Nextcloud theme in another tab, and the value cached at init would outlive
+		// it until a reload.
+		if (mode === 'auto') {
+			systemTheme.value = detectSystemTheme()
+		}
+
 		// Apply the resolved theme
 		const themeToApply = mode === 'auto' ? systemTheme.value : mode
 		applyThemeColors(themeToApply)
@@ -250,22 +311,27 @@ export function useTheme() {
 		// Detect system theme
 		systemTheme.value = detectSystemTheme()
 
-		// Load saved theme preference or default to 'auto'
-		let savedTheme = 'auto'
+		/*
+		 * The user's own last choice, then the shipped default.
+		 *
+		 * These were the other way round, with `THEME_SETTINGS.mode` described as the
+		 * backend setting. It is not — it is the literal `'auto'` compiled into the config,
+		 * and it is always a valid mode, so the branch that read the stored preference could
+		 * never run. Every choice made in the viewer was written to localStorage and then
+		 * ignored on the next load. Nothing showed it until the choice started moving the
+		 * panels as well as the scene.
+		 */
+		let savedTheme = ['auto', 'light', 'dark'].includes(THEME_SETTINGS.mode)
+			? THEME_SETTINGS.mode
+			: 'auto'
 
-		// Check VIEWER_CONFIG first (backend settings)
-		if (THEME_SETTINGS.mode && ['auto', 'light', 'dark'].includes(THEME_SETTINGS.mode)) {
-			savedTheme = THEME_SETTINGS.mode
-		} else {
-			// Fallback to localStorage
-			try {
-				const stored = localStorage.getItem('threedviewer:theme')
-				if (stored && ['auto', 'light', 'dark'].includes(stored)) {
-					savedTheme = stored
-				}
-			} catch (error) {
-				logger.warn('useTheme', 'Failed to load theme preference', error)
+		try {
+			const stored = localStorage.getItem('threedviewer:theme')
+			if (stored && ['auto', 'light', 'dark'].includes(stored)) {
+				savedTheme = stored
 			}
+		} catch (error) {
+			logger.warn('useTheme', 'Failed to load theme preference', error)
 		}
 
 		// Load saved direction or detect from locale

@@ -1,0 +1,697 @@
+/*
+ * 3D Viewer design system.
+ *
+ * Implements "Design System.dc.html". That sheet states its own premise — built on the
+ * Nextcloud design language, with full light/dark theme support — so its palette is read
+ * here as a statement of intent rather than as literal values to paste. "Primary #0082C9"
+ * means "the instance's primary colour", which on a themed Nextcloud is not #0082C9 at
+ * all. Every themed token below is therefore a Nextcloud variable with the design
+ * system's own value as the fallback: themed instances follow the admin, and anywhere the
+ * variable is missing still lands exactly on the specified colour.
+ *
+ * The one deliberate exception is the canvas chrome. "Canvas dark #171717" is scoped by
+ * the sheet to the viewer header and HUD, and the HUD variant is described as reserved
+ * for overlays sitting on the 3D canvas. Those are fixed here rather than themed, so that
+ * an instance the viewer is only following does not decide the readability of an overlay
+ * that sits on a rendered model.
+ *
+ * They are not fixed against the viewer's own theme control, which is further down: that
+ * is a decision about the viewer specifically, and it moves the whole viewer, HUD and all.
+ */
+
+:root {
+	/* -------- Themed palette -------- */
+	--tdv-color-primary: var(--color-primary-element, #0082c9);
+	--tdv-color-primary-hover: var(--color-primary-element-hover, #006aa3);
+	--tdv-color-primary-light: var(--color-primary-element-light, #e5f1f8);
+	--tdv-color-on-primary: var(--color-primary-element-text, #fff);
+
+	/* The accent as a label, which is not the same colour as the accent as a fill. A button
+	   filled with the primary carries white and reads; the same primary used as text on a
+	   dark card does not. The two are separated here so the dark palette can lighten one
+	   without taking the other with it. On a light surface they are the same value. */
+	--tdv-color-primary-text: var(--color-primary-element, #0082c9);
+	--tdv-color-text: var(--color-main-text, #222);
+	--tdv-color-text-secondary: var(--color-text-maxcontrast, #666);
+	--tdv-color-border: var(--color-border, #e6e6e6);
+	--tdv-color-hover-bg: var(--color-background-hover, #ededed);
+	--tdv-color-surface: var(--color-main-background, #fff);
+	--tdv-color-surface-sunken: var(--color-background-dark, #f5f5f5);
+
+	/* Beyond the sheet. It names one border and one colour per status, and the app needs
+	   a stronger divider and the text colour that sits on a status surface. Each falls
+	   back to the nearest token the sheet does specify rather than to a new hex: a value
+	   invented here would be a design decision the sheet never made, and stating the
+	   relationship instead keeps the token resolvable without pretending to that. */
+	--tdv-color-border-strong: var(--color-border-dark, var(--tdv-color-border));
+	--tdv-color-surface-recessed: var(--color-background-darker, var(--tdv-color-surface-sunken));
+
+	/*
+	 * Status colours are for live values only — FPS, load failures — never decoration,
+	 * and they come in pairs.
+	 *
+	 * Nextcloud names them the opposite way round from how they read. `--color-warning`
+	 * is a pale *background* tint (#FFEEC5 on a Nextcloud 34) and `--color-warning-text`
+	 * is the readable foreground (#664700). Mapping the plain name to the plain variable
+	 * looks obviously right and gives you a token whose meaning flips depending on
+	 * whether Nextcloud is on the page: a legible amber where it is absent, a near-white
+	 * where it is not. The badge that shipped that way was pale amber text on a pale
+	 * amber background.
+	 *
+	 * So the unsuffixed token is always the foreground, and `-surface` is always what it
+	 * is drawn on.
+	 */
+	--tdv-color-success: var(--color-success-text, #2d7b41);
+	--tdv-color-success-surface: var(--color-success, #e3f4e6);
+	--tdv-color-warning: var(--color-warning-text, #a37200);
+	--tdv-color-warning-surface: var(--color-warning, #fdf0d5);
+	--tdv-color-error: var(--color-error-text, #b32424);
+	--tdv-color-error-surface: var(--color-error, #fde8e8);
+
+	/* What a destructive button's label is drawn in — it sits on the error colour itself,
+	   not on the pale surface beside it, so it is the one status colour that needs a
+	   partner rather than a background. */
+	--tdv-color-on-error: #fff;
+
+	/* -------- Canvas chrome: deliberately not themed, see the header note -------- */
+	--tdv-canvas-dark: #171717;
+	--tdv-hud-bg: rgb(24, 24, 24, 0.85);
+	--tdv-hud-text: #f5f5f5;
+	--tdv-hud-text-secondary: #aaa;
+	--tdv-hud-chip-bg: rgb(255, 255, 255, 0.15);
+	--tdv-hud-chip-text: #ccc;
+	--tdv-hud-hover-bg: rgb(255, 255, 255, 0.12);
+
+	/* A divider and an inset row on the dark surface. White at low alpha rather than a
+	   fixed grey, so both stay right wherever the HUD is translucent enough for the scene
+	   to show through. */
+	--tdv-hud-border: rgb(255, 255, 255, 0.15);
+	--tdv-hud-sunken-bg: rgb(255, 255, 255, 0.07);
+
+	/* For chrome text with no surface under it — the controller's readout sits straight on
+	   the render. Its contrast is against the scene, so it is the scene's opposite, which
+	   is what this whole family already is. */
+	--tdv-hud-on-scene: #1c1c1c;
+
+	/* Lighter than the panel statuses on purpose: those are tuned for contrast on a light
+	   surface and disappear against the HUD's near-black background. Fixed rather than
+	   themed, for the same reason as the rest of the canvas chrome. */
+	--tdv-hud-success: #5ad471;
+	--tdv-hud-warning: #ffc95c;
+	--tdv-hud-error: #ff8a80;
+
+	/* -------- Typography -------- */
+	--tdv-font: var(--font-face, -apple-system, blinkmacsystemfont, "Segoe UI", roboto, oxygen-sans, cantarell, ubuntu, "Helvetica Neue", arial, sans-serif);
+
+	/* Numeric readouts only. Values update every frame; a proportional font makes them
+	   jitter as digits change width. */
+	--tdv-font-mono: menlo, consolas, "Liberation Mono", monospace;
+	--tdv-font-size-heading: 20px;
+	--tdv-font-size-section: 16px;
+	--tdv-font-size-body: 15px;
+	--tdv-font-size-secondary: 13px;
+	--tdv-font-size-label: 12px;
+	--tdv-font-weight-bold: 700;
+	--tdv-font-weight-medium: 600;
+
+	/* -------- Geometry -------- */
+
+	/* The viewer's own header. Published here because the floating panels have to clear
+	   it, and a second copy of the number in each of them drifts the first time the bar
+	   changes height. */
+	--tdv-topbar-height: 56px;
+
+	/* Nextcloud's page header, which the viewer is mounted below. Not ours to set — this
+	   records the value the panels are positioned against. */
+	--tdv-nc-header-height: 50px;
+
+	/*
+	 * The sheet asks for 44px. Nextcloud publishes its own clickable area and lets the
+	 * instance set it — a Nextcloud 34 measured here reports 34px — so this follows the
+	 * instance for the same reason the palette does: the density is the user's choice,
+	 * and 44 is what they get when nothing says otherwise.
+	 */
+	--tdv-hit-target: var(--default-clickable-area, 44px);
+	--tdv-radius-pill: 22px;
+	--tdv-radius-panel: 12px;
+	--tdv-radius-dialog: 16px;
+	--tdv-radius-row: 8px;
+	--tdv-icon-size: 20px;
+	--tdv-icon-size-row: 18px;
+	--tdv-shadow-panel: 0 4px 16px rgb(0, 0, 0, 0.08);
+	--tdv-shadow-floating: 0 8px 32px rgb(0, 0, 0, 0.16);
+	--tdv-shadow-dialog: 0 8px 40px rgb(0, 0, 0, 0.12);
+}
+
+/* ======================= An explicit theme choice ======================= */
+
+/*
+ * The viewer's own Light and Dark, from the Theme control in the tools panel.
+ *
+ * Auto is the block above: the tokens point at Nextcloud's variables, so the viewer is
+ * whatever the instance is and a themed instance keeps its own colours. Choosing Light or
+ * Dark is a decision about the viewer specifically, and the two blocks below therefore
+ * state their colours outright instead of reading the page — on a dark Nextcloud,
+ * `--color-main-background` is dark, so a "light" palette assembled from it would come out
+ * dark. That is the trap `darkThemeSurfaces` guards one layer up, and the reason the
+ * fallbacks in the base block are no protection here: they only apply where Nextcloud is
+ * absent, and it never is.
+ *
+ * The accent is the exception in both. Primary is picked to work on either surface and is
+ * the one colour an admin sets deliberately, so it stays the instance's own.
+ *
+ * The canvas chrome flips with them. It is fixed dark in the base block because it sits on
+ * the rendered scene and has to stay readable over a dark model; when the viewer is
+ * explicitly light, the whole viewer is light, HUD included. What does not flip is the
+ * chrome drawn *into* the scene — the measurement and annotation labels are textures on
+ * meshes, and their contrast is against the model, not against the UI.
+ */
+
+[data-tdv-theme="light"] {
+	--tdv-color-text: #222;
+	--tdv-color-primary-text: var(--color-primary-element, #0082c9);
+	--tdv-color-primary-light: var(--color-primary-element-light, #e5f1f8);
+	--tdv-color-text-secondary: #595959;
+	--tdv-color-border: #e6e6e6;
+	--tdv-color-border-strong: #d0d0d0;
+	--tdv-color-hover-bg: #ededed;
+	--tdv-color-surface: #fff;
+	--tdv-color-surface-sunken: #f5f5f5;
+	--tdv-color-surface-recessed: #ebebeb;
+	--tdv-color-success: #2d7b41;
+	--tdv-color-success-surface: #e3f4e6;
+	--tdv-color-warning: #7a5600;
+	--tdv-color-warning-surface: #fdf0d5;
+	--tdv-color-error: #b32424;
+	--tdv-color-error-surface: #fde8e8;
+	--tdv-color-on-error: #fff;
+
+}
+
+/*
+ * Values from "Viewer Options.dc.html", panel 2b — the tools panel in the dark theme. The
+ * light theme above is the same sheet's 2a, which is where the base fallbacks came from.
+ */
+[data-tdv-theme="dark"] {
+	--tdv-color-text: #e8e8e8;
+	--tdv-color-text-secondary: #aaa;
+	--tdv-color-border: #383838;
+	--tdv-color-border-strong: #4a4a4a;
+	--tdv-color-hover-bg: rgb(255, 255, 255, 0.08);
+	--tdv-color-surface: #232323;
+	--tdv-color-surface-sunken: #1c1c1c;
+	--tdv-color-surface-recessed: #161616;
+
+	/* The sheet lightens the accent where it is a label and keeps `#0082C9` where it is a
+	   fill, so a selected row reads as accent text without the filled controls beside it
+	   losing the contrast their white labels depend on. The tint behind such a row is the
+	   accent at 15% rather than Nextcloud's pale `--color-primary-element-light`, which is
+	   a light chip wherever it lands on this surface. */
+	--tdv-color-primary-text: #66b8e8;
+	--tdv-color-primary-light: rgb(0, 130, 201, 0.15);
+
+	/* Lighter than their light-theme counterparts for the same reason the HUD's are: a
+	   colour tuned for contrast on white disappears against near-black. */
+	--tdv-color-success: #5ad471;
+	--tdv-color-success-surface: rgb(90, 212, 113, 0.16);
+	--tdv-color-warning: #ffc95c;
+	--tdv-color-warning-surface: rgb(255, 201, 92, 0.16);
+	--tdv-color-error: #ff8a80;
+	--tdv-color-error-surface: rgb(255, 138, 128, 0.16);
+
+	/* The dark palette's error is a pale red, so its label is the surface colour rather
+	   than white — white on it measures 2.2:1. */
+	--tdv-color-on-error: #1e1e1e;
+
+}
+
+/* ===================== Canvas chrome: against the scene ===================== */
+
+/*
+ * The viewer's header, the performance HUD, and the panels that float on the render.
+ *
+ * These are drawn on the scene, and the scene is the theme: light on Light, dark on Dark.
+ * So they take the opposite of it. Matching it gives a near-white HUD on a white render and
+ * a near-black one on a dark render — a panel with no edge against what is behind it, which
+ * is what a light HUD on the light theme looked like.
+ *
+ * Keyed on the resolved theme rather than the chosen one. On Auto nothing is chosen and the
+ * scene still has a colour, taken from the instance; the class `useTheme` writes says which
+ * it resolved to, and that is the question this palette answers.
+ *
+ * On `body` rather than `:root` because custom properties inherit from the nearest ancestor
+ * that sets them, and the panel palette above sets its own on the document element. `body`
+ * is nearer to everything the viewer draws, so these win without needing to outrank it.
+ */
+
+body.theme--light {
+	--tdv-canvas-dark: #171717;
+	--tdv-hud-bg: rgb(24, 24, 24, 0.85);
+	--tdv-hud-text: #f5f5f5;
+	--tdv-hud-text-secondary: #aaa;
+	--tdv-hud-chip-bg: rgb(255, 255, 255, 0.15);
+	--tdv-hud-chip-text: #ccc;
+	--tdv-hud-hover-bg: rgb(255, 255, 255, 0.12);
+	--tdv-hud-border: rgb(255, 255, 255, 0.15);
+	--tdv-hud-sunken-bg: rgb(255, 255, 255, 0.07);
+	--tdv-hud-on-scene: #1c1c1c;
+	--tdv-hud-success: #5ad471;
+	--tdv-hud-warning: #ffc95c;
+	--tdv-hud-error: #ff8a80;
+}
+
+body.theme--dark {
+	/* Opaque enough that a bright render behind it does not show through into the text: the
+	   dark chrome can afford 85% against a lit model, this cannot. */
+	--tdv-canvas-dark: #f7f7f7;
+	--tdv-hud-bg: rgb(252, 252, 252, 0.92);
+	--tdv-hud-text: #222;
+	--tdv-hud-text-secondary: #595959;
+	--tdv-hud-chip-bg: rgb(0, 0, 0, 0.08);
+	--tdv-hud-chip-text: #333;
+	--tdv-hud-hover-bg: rgb(0, 0, 0, 0.06);
+	--tdv-hud-border: rgb(0, 0, 0, 0.12);
+	--tdv-hud-sunken-bg: rgb(0, 0, 0, 0.05);
+	--tdv-hud-on-scene: #ededed;
+
+	/* The status colours tuned for a light surface, and a shade darker than the panels'
+	   own: this surface is translucent, so a dark model behind it takes the composited
+	   background down with it — the panel green measured 4.26 there. */
+	--tdv-hud-success: #1f6b34;
+	--tdv-hud-warning: #7a5600;
+	--tdv-hud-error: #b32424;
+}
+
+/* ============================ Typography ============================ */
+
+.tdv-heading {
+	font-size: var(--tdv-font-size-heading);
+	font-weight: var(--tdv-font-weight-bold);
+	color: var(--tdv-color-text);
+}
+
+.tdv-section-title {
+	font-size: var(--tdv-font-size-section);
+	font-weight: var(--tdv-font-weight-bold);
+	color: var(--tdv-color-text);
+}
+
+/* Section headings inside a panel: subtle, small, bold. No emoji, per the sheet. */
+.tdv-section-label {
+	padding: 10px 12px 4px;
+	font-size: var(--tdv-font-size-label);
+	font-weight: var(--tdv-font-weight-bold);
+	letter-spacing: 0.02em;
+	color: var(--tdv-color-text-secondary);
+}
+
+.tdv-body {
+	font-size: var(--tdv-font-size-body);
+	color: var(--tdv-color-text);
+}
+
+.tdv-secondary {
+	font-size: var(--tdv-font-size-secondary);
+	color: var(--tdv-color-text-secondary);
+}
+
+.tdv-value {
+	font-family: var(--tdv-font-mono);
+	font-size: var(--tdv-font-size-secondary);
+	font-weight: var(--tdv-font-weight-medium);
+}
+
+/* ============================== Buttons ============================== */
+
+/*
+ * Doubled class, deliberately. Nextcloud's server stylesheet styles every button on the
+ * page through `button:not(.button-vue, [class^="vs__"])`, which scores (0,1,1) and beats
+ * a single class — and among the things it sets are `width: auto` and its own padding.
+ * A button primitive that loses those two properties is not a primitive; the icon button
+ * in particular is sized by nothing else, and rendered 44x34 on a real instance while
+ * measuring square in every fixture that did not include Nextcloud's own CSS.
+ *
+ * Repeating the class takes this to (0,2,0) without touching the markup or resorting to
+ * !important, which would only move the argument somewhere harder to see.
+ */
+.tdv-btn.tdv-btn {
+	display: inline-flex;
+	gap: 8px;
+	align-items: center;
+	justify-content: center;
+	height: var(--tdv-hit-target);
+	padding: 0 20px;
+	font-family: inherit;
+	font-size: var(--tdv-font-size-body);
+	font-weight: var(--tdv-font-weight-medium);
+	cursor: pointer;
+	border: none;
+	border-radius: var(--tdv-radius-pill);
+	background: transparent;
+	color: var(--tdv-color-text);
+}
+
+/* One primary per surface — the sheet reserves the accent for the main action. */
+.tdv-btn.tdv-btn--primary {
+	background: var(--tdv-color-primary);
+	color: var(--tdv-color-on-primary);
+}
+
+/*
+ * Held down. Nextcloud repaints a pressed button to the page background and the page
+ * text colour through a selector scoring (0,4,1) — four classes' worth of `:not()` plus
+ * `:active` — which no reasonable stack of class names beats. Nextcloud reaches for
+ * `!important` in its own focus rule for the same reason, and the alternative here is a
+ * specificity ladder whose next rung is decided by whoever edits the server stylesheet.
+ * Scoped to the two properties it actually contests.
+ */
+.tdv-btn.tdv-btn:active {
+	background: var(--tdv-color-primary-hover) !important;
+	color: var(--tdv-color-on-primary) !important;
+}
+
+.tdv-btn.tdv-btn--icon:active,
+.tdv-btn.tdv-btn--tertiary:active {
+	background: var(--tdv-color-hover-bg) !important;
+	color: var(--tdv-color-text) !important;
+}
+
+.tdv-btn.tdv-btn--on-canvas:active {
+	background: var(--tdv-hud-hover-bg) !important;
+	color: var(--tdv-hud-text) !important;
+}
+
+.tdv-btn.tdv-btn--primary:hover,
+.tdv-btn.tdv-btn--primary:focus,
+.tdv-btn.tdv-btn--primary:focus-visible {
+	background: var(--tdv-color-primary-hover);
+}
+
+.tdv-btn.tdv-btn--secondary {
+	border: 2px solid var(--tdv-color-primary);
+	color: var(--tdv-color-primary-text);
+}
+
+.tdv-btn.tdv-btn--secondary:hover,
+.tdv-btn.tdv-btn--secondary:focus,
+.tdv-btn.tdv-btn--secondary:focus-visible {
+	background: var(--tdv-color-primary-light);
+}
+
+.tdv-btn.tdv-btn--tertiary:hover,
+.tdv-btn.tdv-btn--tertiary:focus,
+.tdv-btn.tdv-btn--tertiary:focus-visible {
+	background: var(--tdv-color-hover-bg);
+}
+
+.tdv-btn.tdv-btn--destructive {
+	background: var(--tdv-color-error);
+	color: var(--tdv-color-on-error);
+}
+
+.tdv-btn.tdv-btn--icon {
+	width: var(--tdv-hit-target);
+	height: var(--tdv-hit-target);
+	padding: 0;
+}
+
+.tdv-btn.tdv-btn--icon:hover,
+.tdv-btn.tdv-btn--icon:focus,
+.tdv-btn.tdv-btn--icon:focus-visible {
+	background: var(--tdv-color-hover-bg);
+}
+
+/* Toggled-on icon button: primary-light background, primary glyph. */
+.tdv-btn.tdv-btn--active {
+	background: var(--tdv-color-primary-light);
+	color: var(--tdv-color-primary-text);
+}
+
+.tdv-btn.tdv-btn--icon svg {
+	width: var(--tdv-icon-size);
+	height: var(--tdv-icon-size);
+}
+
+/* Icon buttons on the canvas chrome cannot use the themed hover. */
+.tdv-btn.tdv-btn--on-canvas {
+	color: var(--tdv-hud-text);
+}
+
+.tdv-btn.tdv-btn--on-canvas:hover,
+.tdv-btn.tdv-btn--on-canvas:focus,
+.tdv-btn.tdv-btn--on-canvas:focus-visible {
+	background: var(--tdv-hud-hover-bg);
+}
+
+/* ========================= Panels and rows ========================= */
+
+.tdv-panel {
+	overflow: hidden;
+	border: 1px solid var(--tdv-color-border);
+	border-radius: var(--tdv-radius-panel);
+	background: var(--tdv-color-surface);
+	box-shadow: var(--tdv-shadow-panel);
+}
+
+.tdv-panel--floating {
+	box-shadow: var(--tdv-shadow-floating);
+}
+
+/*
+ * A panel drawn on the canvas rather than beside it: the panel's structure — a header rule
+ * above a scrolling body — over the HUD's surface.
+ *
+ * It exists so there is one dark in the app rather than two. The statistics panel and the
+ * performance HUD are on screen together, a few hundred pixels apart, and both float over
+ * the rendered model; when each carried its own background they drifted into a light card
+ * and a dark card side by side. Anything using this takes its text and divider colours
+ * from the HUD tokens too — `--tdv-color-text` on this surface is white on white in
+ * Nextcloud's light theme.
+ */
+.tdv-panel--hud {
+	background: var(--tdv-hud-bg);
+	backdrop-filter: blur(8px);
+	border-color: var(--tdv-hud-border);
+	color: var(--tdv-hud-text);
+}
+
+.tdv-panel-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 14px 12px 14px 20px;
+	border-bottom: 1px solid var(--tdv-color-border);
+}
+
+/* 44px list row: icon, label, then a trailing shortcut or control. */
+.tdv-row {
+	display: flex;
+	gap: 12px;
+	align-items: center;
+	min-height: var(--tdv-hit-target);
+	padding: 10px 12px;
+	font-size: var(--tdv-font-size-body);
+	cursor: pointer;
+	border-radius: var(--tdv-radius-row);
+	color: var(--tdv-color-text);
+}
+
+.tdv-row:hover,
+.tdv-row:focus-visible {
+	background: var(--tdv-color-surface-sunken);
+}
+
+.tdv-row svg {
+	width: var(--tdv-icon-size-row);
+	height: var(--tdv-icon-size-row);
+	flex-shrink: 0;
+	color: var(--tdv-color-text-secondary);
+}
+
+.tdv-row-trailing {
+	margin-inline-start: auto;
+	font-family: var(--tdv-font-mono);
+	font-size: var(--tdv-font-size-label);
+	color: var(--tdv-color-text-secondary);
+}
+
+/* ================================ HUD ================================ */
+
+/* Overlays that sit on the 3D canvas. Fixed dark, see the header note. */
+.tdv-hud {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	padding: 14px 16px;
+	border-radius: var(--tdv-radius-panel);
+	background: var(--tdv-hud-bg);
+	backdrop-filter: blur(8px);
+	color: var(--tdv-hud-text);
+}
+
+.tdv-hud-row {
+	display: flex;
+	justify-content: space-between;
+	font-size: var(--tdv-font-size-secondary);
+}
+
+.tdv-hud-row dt,
+.tdv-hud-label {
+	color: var(--tdv-hud-text-secondary);
+}
+
+.tdv-hud-value {
+	font-family: var(--tdv-font-mono);
+	font-weight: var(--tdv-font-weight-medium);
+}
+
+/*
+ * Doubled, like .tdv-btn, and for the same reason — a chip is sometimes a button. The
+ * performance HUD's mode chip is one, and Nextcloud's `button:not(...)` rule paints every
+ * button on the page in the instance's pale primary tint at rest and repaints it on hover,
+ * focus and click. At (0,1,0) this primitive lost all four states, so the one chip in the
+ * app that happens to be a button rendered as a pale blue pill with near-black text on the
+ * near-black HUD, while every span chip beside it was correct.
+ */
+.tdv-hud-chip.tdv-hud-chip {
+	padding: 2px 8px;
+	font-size: 11px;
+	font-weight: var(--tdv-font-weight-bold);
+	border: none;
+	border-radius: 10px;
+	background: var(--tdv-hud-chip-bg);
+	color: var(--tdv-hud-chip-text);
+}
+
+.tdv-hud-chip.tdv-hud-chip:hover,
+.tdv-hud-chip.tdv-hud-chip:focus,
+.tdv-hud-chip.tdv-hud-chip:focus-visible {
+	background: var(--tdv-hud-chip-bg);
+	color: var(--tdv-hud-chip-text);
+}
+
+/* Nextcloud's pressed rule carries enough `:not()`s to outscore the doubled class, and a
+   mouse click leaves a button focused without making it focus-visible. */
+.tdv-hud-chip.tdv-hud-chip:active {
+	background: var(--tdv-hud-chip-bg) !important;
+	color: var(--tdv-hud-chip-text) !important;
+}
+
+/* ============================== Dialog ============================== */
+
+.tdv-dialog {
+	overflow: hidden;
+	max-width: 560px;
+	border: 1px solid var(--tdv-color-border);
+	border-radius: var(--tdv-radius-dialog);
+	background: var(--tdv-color-surface);
+	box-shadow: var(--tdv-shadow-dialog);
+}
+
+.tdv-dialog-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 20px 16px 16px 24px;
+	font-size: var(--tdv-font-size-heading);
+	font-weight: var(--tdv-font-weight-bold);
+}
+
+.tdv-dialog-body {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	padding: 0 24px 20px;
+}
+
+/* One accent per row: the row itself is neutral, only its action carries colour. */
+.tdv-dialog-row {
+	display: flex;
+	gap: 14px;
+	align-items: center;
+	padding: 12px;
+	border: 1px solid var(--tdv-color-border);
+	border-radius: var(--tdv-radius-panel);
+}
+
+.tdv-dialog-row:hover {
+	border-color: var(--tdv-color-primary);
+}
+
+/* =========================== Form controls =========================== */
+
+.tdv-switch {
+	position: relative;
+	width: 40px;
+	height: 24px;
+	cursor: pointer;
+	border-radius: 12px;
+	background: #c9c9c9;
+}
+
+.tdv-switch--on {
+	background: var(--tdv-color-primary);
+}
+
+.tdv-switch::after {
+	position: absolute;
+	inset-block-start: 3px;
+	inset-inline-start: 3px;
+	width: 18px;
+	height: 18px;
+	border-radius: 50%;
+
+	/* The knob rides a track that is the accent when on and a border grey when off, so it
+	   takes the colour written to sit on the accent rather than the theme's surface — on
+	   the dark palette that surface is near-black, and the knob would vanish into it. */
+	background: var(--tdv-color-on-primary);
+	box-shadow: 0 1px 3px rgb(0, 0, 0, 0.3);
+	content: "";
+}
+
+.tdv-switch--on::after {
+	inset-inline: auto 3px;
+}
+
+.tdv-segmented {
+	display: flex;
+	overflow: hidden;
+	width: fit-content;
+	border: 2px solid var(--tdv-color-primary);
+	border-radius: var(--tdv-radius-pill);
+}
+
+.tdv-segmented button {
+	height: 40px;
+	padding: 0 24px;
+	font-family: inherit;
+	font-size: 14px;
+	font-weight: var(--tdv-font-weight-medium);
+	cursor: pointer;
+	border: none;
+	background: transparent;
+	color: var(--tdv-color-primary-text);
+}
+
+.tdv-segmented button[aria-pressed="true"] {
+	background: var(--tdv-color-primary);
+	color: var(--tdv-color-on-primary);
+}
+
+.tdv-select {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	height: var(--tdv-hit-target);
+	padding: 0 14px;
+	font-size: var(--tdv-font-size-body);
+	cursor: pointer;
+	border: 2px solid var(--tdv-color-border);
+	border-radius: var(--tdv-radius-row);
+	background: var(--tdv-color-surface);
+}
+
+.tdv-select:hover,
+.tdv-select:focus-visible {
+	border-color: var(--tdv-color-primary);
+}

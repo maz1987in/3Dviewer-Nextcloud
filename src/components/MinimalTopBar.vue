@@ -2,110 +2,109 @@
 	<div class="minimal-top-bar"
 		role="toolbar"
 		:aria-label="t('threedviewer', 'Quick actions')"
-		:class="{ 'mobile': isMobile }">
-		<!-- Left: Quick Actions -->
-		<div class="left-section">
+		:class="{ mobile: isMobile }">
+		<!-- Left: view actions -->
+		<div class="bar-cluster">
 			<button :aria-label="t('threedviewer', 'Reset view')"
-				class="quick-btn"
+				class="tdv-btn tdv-btn--icon tdv-btn--on-canvas"
 				:title="t('threedviewer', 'Reset view')"
 				@click="$emit('reset-view')">
-				<span class="btn-icon">🔄</span>
-				<span class="btn-text">{{ t('threedviewer', 'Reset') }}</span>
+				<ViewerIcon name="resetView" :size="20" />
 			</button>
 
 			<button :aria-label="t('threedviewer', 'Fit to view')"
-				class="quick-btn"
+				class="tdv-btn tdv-btn--icon tdv-btn--on-canvas"
 				:title="t('threedviewer', 'Fit model to view')"
 				@click="$emit('fit-to-view')">
-				<span class="btn-icon">📏</span>
-				<span class="btn-text">{{ t('threedviewer', 'Fit') }}</span>
-			</button>
-		</div>
-
-		<!-- Center: Model Info -->
-		<div class="center-section">
-			<span class="model-name" :title="modelName">
-				{{ modelName || t('threedviewer', '3D Viewer') }}
-			</span>
-			<span v-if="isLoading" class="loading-indicator">
-				<span class="spinner">⏳</span>
-				{{ t('threedviewer', 'Loading...') }}
-			</span>
-		</div>
-
-		<!-- Right: Settings & Info -->
-		<div class="right-section">
-			<!-- G-code toolpath color mode toggle (only show for G-code models) -->
-			<button
-				v-if="isGcodeModel"
-				:aria-label="t('threedviewer', 'Toggle toolpath color mode')"
-				class="icon-btn"
-				:title="gcodeColorMode === 'single' ? t('threedviewer','Color: Single') : t('threedviewer','Color: Gradient')"
-				@click="$emit('toggle-gcode-color-mode')">
-				<span class="btn-icon">🎨</span>
-				<span class="btn-text">{{ gcodeColorMode === 'single' ? t('threedviewer','Single') : t('threedviewer','Gradient') }}</span>
-			</button>
-
-			<!-- Single color picker (visible in Single mode for G-code models) -->
-			<label v-if="isGcodeModel && gcodeColorMode === 'single'" class="topbar-color-picker" :title="t('threedviewer','Select toolpath color')">
-				<input type="color" :value="gcodeSingleColor" @input="$emit('change-gcode-color', $event.target.value)">
-			</label>
-			<!-- Animation Play/Pause Button -->
-			<button v-if="hasAnimations"
-				:aria-label="isAnimationPlaying ? t('threedviewer', 'Pause animation') : t('threedviewer', 'Play animation')"
-				class="icon-btn"
-				:class="{ 'active': isAnimationPlaying }"
-				:title="isAnimationPlaying ? t('threedviewer', 'Pause animation') : t('threedviewer', 'Play animation')"
-				@click="$emit('toggle-animation-play')">
-				<span class="btn-icon">{{ isAnimationPlaying ? '⏸️' : '▶️' }}</span>
-			</button>
-
-			<button v-if="showPerformance"
-				:aria-label="t('threedviewer', 'Toggle performance stats')"
-				class="icon-btn"
-				:title="performanceText"
-				@click="$emit('toggle-performance')">
-				<span class="btn-icon">⚡</span>
-				<span v-if="fps" class="fps-badge">{{ Math.round(fps) }}</span>
-			</button>
-
-			<button :aria-label="t('threedviewer', '3D Controller')"
-				class="icon-btn"
-				:class="{ 'active': showController }"
-				:title="t('threedviewer', '3D Controller')"
-				@click="$emit('toggle-controller')">
-				<span class="btn-icon">🎮</span>
+				<ViewerIcon name="fitToView" :size="20" />
 			</button>
 
 			<button :aria-label="t('threedviewer', 'Take screenshot')"
-				class="icon-btn"
+				class="tdv-btn tdv-btn--icon tdv-btn--on-canvas"
 				:title="t('threedviewer', 'Take screenshot')"
 				@click="$emit('take-screenshot')">
-				<span class="btn-icon">📷</span>
+				<ViewerIcon name="camera" :size="20" />
+			</button>
+		</div>
+
+		<!-- Centre: what is open. Absolutely positioned so it is centred on the bar rather
+			than on whatever space the two clusters happen to leave, and click-through so a
+			long filename cannot cover the buttons underneath it. -->
+		<div class="bar-title">
+			<span class="model-name" :title="modelName">
+				{{ modelName || t('threedviewer', '3D Viewer') }}
+			</span>
+			<span v-if="isLoading" class="model-meta">
+				{{ t('threedviewer', 'Loading…') }}
+			</span>
+			<span v-else-if="modelFormat" class="model-meta">{{ modelFormat }}</span>
+		</div>
+
+		<!-- Right: state, then the panels -->
+		<div class="bar-cluster bar-cluster--end">
+			<button v-if="showPerformance"
+				class="fps-badge"
+				:aria-label="performanceText"
+				:title="performanceText"
+				@click="$emit('toggle-performance')">
+				<span class="fps-dot" :class="`fps-dot--${fpsHealth}`" />
+				<span class="fps-value">{{ fps ? t('threedviewer', '{fps} fps', { fps: Math.round(fps) }) : '—' }}</span>
+			</button>
+
+			<!-- G-code toolpath colour mode (G-code models only) -->
+			<button v-if="isGcodeModel"
+				:aria-label="t('threedviewer', 'Toggle toolpath color mode')"
+				class="tdv-btn tdv-btn--icon tdv-btn--on-canvas"
+				:title="gcodeColorMode === 'single' ? t('threedviewer', 'Color: Single') : t('threedviewer', 'Color: Gradient')"
+				@click="$emit('toggle-gcode-color-mode')">
+				<ViewerIcon name="palette" :size="20" />
+			</button>
+
+			<label v-if="isGcodeModel && gcodeColorMode === 'single'"
+				class="topbar-color-picker"
+				:title="t('threedviewer', 'Select toolpath color')">
+				<input type="color" :value="gcodeSingleColor" @input="$emit('change-gcode-color', $event.target.value)">
+			</label>
+
+			<button v-if="hasAnimations"
+				:aria-label="isAnimationPlaying ? t('threedviewer', 'Pause animation') : t('threedviewer', 'Play animation')"
+				class="tdv-btn tdv-btn--icon tdv-btn--on-canvas"
+				:class="{ 'is-active': isAnimationPlaying }"
+				:title="isAnimationPlaying ? t('threedviewer', 'Pause animation') : t('threedviewer', 'Play animation')"
+				@click="$emit('toggle-animation-play')">
+				<ViewerIcon v-if="isAnimationPlaying" name="animationPause" :size="20" />
+				<ViewerIcon v-else name="animationPlay" :size="20" />
+			</button>
+
+			<button :aria-label="t('threedviewer', '3D Controller')"
+				class="tdv-btn tdv-btn--icon tdv-btn--on-canvas"
+				:class="{ 'is-active': showController }"
+				:title="t('threedviewer', '3D Controller')"
+				@click="$emit('toggle-controller')">
+				<ViewerIcon name="controller" :size="20" />
 			</button>
 
 			<button v-if="webxrSupported"
 				:aria-label="webxrActive ? t('threedviewer', 'Exit VR') : t('threedviewer', 'Enter VR')"
-				class="icon-btn"
-				:class="{ active: webxrActive }"
+				class="tdv-btn tdv-btn--icon tdv-btn--on-canvas"
+				:class="{ 'is-active': webxrActive }"
 				:title="webxrActive ? t('threedviewer', 'Exit VR') : t('threedviewer', 'Enter VR')"
 				@click="$emit('toggle-vr')">
-				<span class="btn-icon">🥽</span>
+				<ViewerIcon name="vr" :size="20" />
 			</button>
 
 			<button :aria-label="t('threedviewer', 'Help')"
-				class="icon-btn"
+				class="tdv-btn tdv-btn--icon tdv-btn--on-canvas"
 				:title="t('threedviewer', 'Help & shortcuts')"
 				@click="$emit('toggle-help')">
-				<span class="btn-icon">ⓘ</span>
+				<ViewerIcon name="help" :size="20" />
 			</button>
 
-			<!-- Tools Button - Last item -->
 			<button :aria-label="t('threedviewer', 'Toggle tools panel')"
-				class="tools-btn"
+				class="tdv-btn tdv-btn--primary tools-btn"
 				:title="t('threedviewer', 'Toggle tools panel (T)')"
 				@click="$emit('toggle-tools')">
-				<span class="btn-icon">☰</span>
+				<ViewerIcon name="tools" :size="18" />
 				<span class="btn-text">{{ t('threedviewer', 'Tools') }}</span>
 			</button>
 		</div>
@@ -116,9 +115,21 @@
 import { computed } from 'vue'
 // eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
 import { translate as t } from '@nextcloud/l10n'
+import ViewerIcon from './ViewerIcon.vue'
+import { getFormatLabel } from '../utils/fileHelpers.js'
+
+/** Below this the frame budget is missed often enough to be felt as stutter. */
+const FPS_DEGRADED = 45
+
+/** Below this it reads as a slideshow rather than as a slow scene. */
+const FPS_POOR = 25
 
 export default {
 	name: 'MinimalTopBar',
+
+	components: {
+		ViewerIcon,
+	},
 
 	props: {
 		modelName: { type: String, default: '' },
@@ -152,15 +163,36 @@ export default {
 		'change-gcode-color',
 	],
 
-	setup(props, { emit }) {
+	setup(props) {
 		const performanceText = computed(() => {
 			if (!props.fps) return t('threedviewer', 'Performance info')
 			return t('threedviewer', 'FPS: {fps}', { fps: Math.round(props.fps) })
 		})
 
+		/**
+		 * The format, for the line under the filename.
+		 *
+		 * Read off the name rather than taken as a prop: the parent has the filename and
+		 * nothing else, and a prop nothing passes renders nothing while looking wired up.
+		 *
+		 * The helper handles the empty name, which matters more than it looks: `App.vue`
+		 * declares `filename` with a `null` default, and a prop default only fills in for
+		 * `undefined`, so this receives `null` every time the app opens without a model.
+		 */
+		const modelFormat = computed(() => getFormatLabel(props.modelName))
+
+		/** Which of the three status colours the dot takes. */
+		const fpsHealth = computed(() => {
+			if (!props.fps) return 'unknown'
+			if (props.fps < FPS_POOR) return 'poor'
+			return props.fps < FPS_DEGRADED ? 'degraded' : 'good'
+		})
+
 		return {
 			t,
 			performanceText,
+			modelFormat,
+			fpsHealth,
 		}
 	},
 }
@@ -171,124 +203,141 @@ export default {
 	position: absolute;
 	top: 0;
 	inset-inline: 0;
+	z-index: 100;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 12px 16px 12px 45px;
-	background: rgb(0 0 0 / 85%);
-	border-bottom: 1px solid rgb(255 255 255 / 20%);
-	z-index: 100;
-	gap: 16px;
-	box-shadow: 0 1px 3px rgb(0 0 0 / 30%);
-	backdrop-filter: blur(10px);
-}
-
-/* Sections */
-.left-section,
-.right-section {
-	display: flex;
-	align-items: center;
 	gap: 8px;
+	height: var(--tdv-topbar-height);
+	background: var(--tdv-canvas-dark);
+
+	/*
+	 * The mockup pads this bar 12px on both sides. The start side keeps a wider inset
+	 * because Nextcloud draws its own navigation toggle over the top-left of the app
+	 * content, inside this bar's own box. The previous bar reserved 45px for it with no
+	 * recorded reason; loading the app on a Nextcloud 34 confirmed the toggle is there,
+	 * centred around 33px in, so 45px is what keeps Reset from sitting underneath a
+	 * button belonging to something else.
+	 */
+	padding: 0 12px 0 45px;
 }
 
-.center-section {
-	flex: 1;
+.bar-cluster {
 	display: flex;
+	gap: 2px;
 	align-items: center;
-	justify-content: center;
-	gap: 12px;
-	min-width: 0; /* Allow text truncation */
-}
 
-/* Model Name */
-.model-name {
-	font-size: 15px;
-	font-weight: 600;
-	color: #fff;
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	max-width: 400px;
-}
-
-.loading-indicator {
-	display: flex;
-	align-items: center;
-	gap: 6px;
-	font-size: 13px;
-	color: rgb(255 255 255 / 70%);
-}
-
-.spinner {
-	animation: spin 2s linear infinite;
-}
-
-@keyframes spin {
-	from { transform: rotate(0deg); }
-	to { transform: rotate(360deg); }
-}
-
-/* Buttons */
-.quick-btn,
-.icon-btn {
-	display: flex;
-	align-items: center;
-	gap: 6px;
-	padding: 8px 12px;
-	background: rgb(255 255 255 / 10%);
-	border: 1px solid rgb(255 255 255 / 20%);
-	border-radius: 6px;
-	color: #fff;
-	font-size: 13px;
-	font-weight: 500;
-	cursor: pointer;
-	transition: all 0.2s ease;
-	white-space: nowrap;
-}
-
-.quick-btn:hover,
-.icon-btn:hover {
-	background: rgb(255 255 255 / 20%);
-	border-color: rgb(255 255 255 / 40%);
-	transform: translateY(-1px);
-}
-
-.quick-btn:active,
-.icon-btn:active {
-	transform: translateY(0);
-}
-
-.icon-btn {
-	padding: 8px 10px;
+	/* Above the centred title, which spans the bar and would otherwise sit on top. */
 	position: relative;
+	z-index: 1;
 }
 
-.icon-btn.active {
-	background: var(--color-primary-element, #0082c9) !important;
-	border-color: var(--color-primary-element, #0082c9) !important;
+.bar-cluster--end {
+	gap: 4px;
+	margin-inline-start: auto;
 }
 
-.btn-icon {
-	font-size: 16px;
-	line-height: 1;
+/* ---------------------------------- Title ---------------------------------- */
+
+.bar-title {
+	position: absolute;
+	inset-inline: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	max-width: 100%;
+	line-height: 1.2;
+	text-align: center;
+
+	/* The clusters are the only interactive thing in this bar; the title must not take
+	   a click meant for a button it happens to overlap. */
+	pointer-events: none;
 }
 
-.btn-text {
-	font-size: 13px;
+.model-name {
+	max-width: 40vw;
+	overflow: hidden;
+	font-size: var(--tdv-font-size-body);
+	font-weight: var(--tdv-font-weight-medium);
+	color: var(--tdv-hud-text);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+
+	/* Re-enabled so the title attribute's tooltip still works on a truncated name. */
+	pointer-events: auto;
 }
 
-/* Tools Button - Nextcloud blue accent */
-.tools-btn {
-	background: var(--color-primary-element, #0082c9) !important;
-	border-color: var(--color-primary-element, #0082c9) !important;
-	color: var(--color-primary-element-text, #fff) !important;
-	font-weight: 600;
+.model-meta {
+	font-size: 11px;
+	color: var(--tdv-hud-text-secondary);
 }
 
-.tools-btn:hover {
-	background: var(--color-primary-element-hover, #006aa3) !important;
-	border-color: var(--color-primary-element-hover, #006aa3) !important;
-	color: var(--color-primary-element-text, #fff) !important;
+/* --------------------------------- Controls -------------------------------- */
+
+/* Toggled-on icon button on the canvas chrome: the themed active pair is tuned for a
+   light surface and disappears here. */
+.tdv-btn--on-canvas.is-active {
+	background: var(--tdv-hud-chip-bg);
+	color: var(--tdv-hud-text);
+}
+
+.tools-btn.tools-btn {
+	margin-inline-start: 4px;
+	padding: 0 18px;
+}
+
+.fps-badge.fps-badge {
+	display: flex;
+	gap: 6px;
+	align-items: center;
+	height: 32px;
+	margin-inline-end: 4px;
+	padding: 0 12px;
+	border: none;
+	border-radius: 16px;
+	background: var(--tdv-hud-chip-bg);
+
+	/* Stated, not inherited: Nextcloud sets a colour on every button, and anything in
+	   here without its own would take the light theme's text on this near-black pill. */
+	color: var(--tdv-hud-text);
+	cursor: pointer;
+}
+
+/*
+ * Nextcloud paints every button's hover, focus and pressed states, and its selectors
+ * outrank a bare class. Without these the pill turns pale blue under its own pale text
+ * the moment it is clicked — and `:focus` has to be named alongside `:focus-visible`,
+ * because a mouse click leaves a button focused but not focus-visible, which is the
+ * state Nextcloud's rule was winning.
+ */
+.fps-badge:hover,
+.fps-badge:focus,
+.fps-badge.fps-badge:focus-visible {
+	background: var(--tdv-hud-hover-bg);
+	color: var(--tdv-hud-text);
+}
+
+.fps-badge.fps-badge:active {
+	background: var(--tdv-hud-hover-bg) !important;
+	color: var(--tdv-hud-text) !important;
+}
+
+.fps-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: var(--tdv-hud-text-secondary);
+}
+
+.fps-dot--good { background: var(--tdv-hud-success); }
+.fps-dot--degraded { background: var(--tdv-hud-warning); }
+.fps-dot--poor { background: var(--tdv-hud-error); }
+
+.fps-value {
+	font-family: var(--tdv-font-mono);
+	font-size: var(--tdv-font-size-secondary);
+	font-weight: var(--tdv-font-weight-medium);
+	color: var(--tdv-hud-text);
 }
 
 /* Topbar color picker */
@@ -298,172 +347,81 @@ export default {
 	justify-content: center;
 	width: 40px;
 	height: 36px;
-	border-radius: 6px;
-	background: #fff;
-	box-shadow: 0 2px 8px rgb(0 0 0 / 30%);
-	border: 1px solid rgb(255 255 255 / 30%);
+	border-radius: 8px;
+
+	/* The well behind a colour input, which is a swatch of the user's own colour: it needs
+	   a neutral behind it in either theme, not the chrome's own surface. */
+	background: var(--tdv-color-on-primary);
 }
 
 .topbar-color-picker input[type="color"] {
-	appearance: none;
-	border: none;
-	padding: 0;
 	width: 32px;
 	height: 24px;
+	padding: 0;
+	border: none;
+	border-radius: 4px;
 	background: transparent;
 	cursor: pointer;
-	border-radius: 4px;
+	appearance: none;
 }
 
-.fps-badge {
-	position: absolute;
-	top: -4px;
-	inset-inline-end: -4px;
-	padding: 2px 5px;
-	background: var(--color-primary-element, #0082c9);
-	color: var(--color-primary-element-text, #fff);
-	font-size: 10px;
-	font-weight: 700;
-	border-radius: 8px;
-	line-height: 1;
-	box-shadow: 0 2px 4px rgb(0 0 0 / 30%);
-}
+/* --------------------------------- Narrow --------------------------------- */
 
-/* Mobile Styles */
 .minimal-top-bar.mobile {
-	padding: 8px 12px;
-	gap: 8px;
+	gap: 4px;
+	padding: 0 8px 0 45px;
 }
 
 .minimal-top-bar.mobile .btn-text {
 	display: none;
 }
 
-.minimal-top-bar.mobile .quick-btn,
-.minimal-top-bar.mobile .icon-btn {
-	padding: 8px;
-	min-width: 40px;
-	justify-content: center;
+.minimal-top-bar.mobile .tools-btn {
+	padding: 0;
+	width: var(--tdv-hit-target);
 }
 
-.minimal-top-bar.mobile .model-name {
-	font-size: 13px;
-	max-width: 200px;
-}
-
-.minimal-top-bar.mobile .loading-indicator {
-	font-size: 11px;
-}
-
-/* Very small screens */
-@media (width <= 480px) {
-	.minimal-top-bar {
-		padding: 6px 8px;
-		flex-wrap: wrap;
-		gap: 4px;
-	}
-
-	.left-section {
-		flex: 0 0 auto;
-		gap: 4px;
-	}
-
-	.left-section .quick-btn {
-		padding: 6px;
-	}
-
-	.left-section .btn-text,
-	.right-section .btn-text {
+/*
+ * Under 600px the two clusters meet in the middle and there is no centre left to put a
+ * title in. It is hidden rather than shrunk: the filename is in the Files list the viewer
+ * was opened from, and a name clipped to four characters is not information.
+ */
+@media (width <= 600px) {
+	.bar-title {
 		display: none;
 	}
+}
 
-	.left-section .quick-btn:last-child {
-		display: inline-flex; /* Show all buttons, remove the Fit button hide */
+@media (width <= 480px) {
+	.minimal-top-bar {
+		gap: 2px;
+		padding: 0 4px 0 45px;
 	}
 
-	.center-section {
-		flex: 1 1 100%;
-		order: 3;
-		min-width: 100%;
-	}
-
-	.model-name {
-		font-size: 12px;
-		max-width: 100%;
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-
-	.right-section {
-		flex: 0 0 auto;
-		gap: 4px;
-		flex-wrap: wrap;
-	}
-
-	.icon-btn,
-	.quick-btn {
-		padding: 6px;
-		min-width: 32px;
-		height: 32px;
-		font-size: 14px;
-	}
-
-	.topbar-color-picker input {
-		width: 28px;
-		height: 28px;
-	}
-
-	.fps-badge {
-		font-size: 9px;
-		padding: 1px 2px;
-		min-width: auto;
+	.fps-badge.fps-badge {
+		padding: 0 8px;
 	}
 }
 
 /* Accessibility */
 @media (prefers-reduced-motion: reduce) {
-	.quick-btn,
-	.icon-btn,
-	.spinner {
+	.tdv-btn,
+	.fps-badge.fps-badge {
 		transition: none;
-		animation: none;
 	}
 }
 
-/* High contrast mode */
 @media (prefers-contrast: high) {
-	.quick-btn,
-	.icon-btn {
-		border-width: 2px;
-		border-color: white;
+	.tdv-btn,
+	.fps-badge.fps-badge {
+		border: 2px solid #fff;
 	}
 }
 
 /* Landscape mobile optimization */
 @media (height <= 500px) and (orientation: landscape) {
 	.minimal-top-bar {
-		padding: 4px 8px;
+		height: 44px;
 	}
-
-	.quick-btn,
-	.icon-btn {
-		padding: 6px 8px;
-	}
-}
-
-/* RTL (Right-to-Left) Support */
-[dir="rtl"] .btn-group {
-	flex-direction: row-reverse;
-}
-
-[dir="rtl"] .quick-btn,
-[dir="rtl"] .icon-btn {
-	margin-inline: 0 4px;
-}
-
-[dir="rtl"] .quick-btn:first-child,
-[dir="rtl"] .icon-btn:first-child {
-	margin-inline-end: 0;
 }
 </style>

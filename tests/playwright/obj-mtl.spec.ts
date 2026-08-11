@@ -53,12 +53,114 @@ function startStaticServer(): Promise<{url: string, close: () => Promise<void>}>
 
 function buildHtmlWrapper() {
   const mainScript = '/js/threedviewer-main.mjs'
-  return `<!doctype html><html><head><meta charset="utf-8"><title>Viewer Test</title></head><body>
+  return `<!doctype html><html><head><meta charset="utf-8"><title>Viewer Test</title>
+  <!-- templates/index.php adds this with Util::addStyle. The module loader injects the
+       CSS of the chunks it imports but not the entry's, so without this link the design
+       system's token layer never arrives and every measurement below is of an unstyled
+       page that still mounts and still passes. -->
+  <link rel="stylesheet" href="/css/threedviewer-main.css">
+  <style>
+    /*
+     * Nextcloud's page header, and a viewer that fills what is left. Both matter to what
+     * this file measures: the viewer's floating panels are positioned in viewport
+     * coordinates and have to clear this header, so a fixture without it cannot see a
+     * panel drawn across the top bar — which is a defect this suite had already been
+     * passing over. #header is also the element the viewer itself measures when placing
+     * its overlays.
+     */
+    html, body { margin: 0; height: 100%; }
+    #header { height: 50px; background: #0082c9; }
+    #content { position: relative; height: calc(100% - 50px); }
+    #threedviewer { position: absolute; inset: 0; }
+
+    /*
+     * NcContent's own root, which Nextcloud's server stylesheet lays out and this fixture
+     * did not. Without it the element is a bare div: the navigation takes its 300px, the
+     * app content beside it is left 0px wide, and the whole viewer — bar, canvas, panels —
+     * renders into a zero-width column. Every geometry this file measured was of that.
+     *
+     * The frosted panel matters as much as the box. A backdrop-filter makes an element the
+     * containing block for every fixed-position descendant, so inside a Nextcloud app a
+     * fixed overlay is fixed to this, not to the viewport — which is not a thing a fixture
+     * can leave out and still be measuring modals.
+     */
+    #content-vue {
+      display: flex;
+      box-sizing: border-box;
+      width: calc(100% - 16px);
+      height: calc(100% - 8px);
+      margin: 0 8px 8px;
+      border-radius: 16px;
+      background-color: rgba(255, 255, 255, 0.8);
+      backdrop-filter: blur(25px);
+    }
+
+    /*
+     * The colours Nextcloud's theming app serves on every page. The app's own tokens name
+     * these with fallbacks, so their absence is invisible in what this app draws — but the
+     * Nextcloud components bundled into it read them without one, and a component styled
+     * in a variable that does not exist paints nothing at all here while painting an
+     * opaque surface on the instance.
+     */
+    :root {
+      --color-main-background: #ffffff;
+      --color-main-text: #222222;
+      --color-background-hover: #f5f5f5;
+      --color-primary-element: #0082c9;
+
+      /* And the metrics, read off a Nextcloud 34. The navigation toggle is placed by two
+         of these, so without them it lands somewhere the instance never puts it. */
+      --header-height: 50px;
+      --default-clickable-area: 34px;
+      --default-grid-baseline: 4px;
+      --border-radius: 4px;
+      --border-radius-element: 8px;
+      --default-font-size: 15px;
+      --font-weight-element: 500;
+    }
+
+    /*
+     * The button rules Nextcloud's server stylesheet applies to every page, trimmed to
+     * their button arms. Without them this fixture measures an app that has the page to
+     * itself, which no user ever sees — and the states are exactly where that difference
+     * shows: Nextcloud styles hover, focus and active at a specificity a plain class does
+     * not beat, so a control can look right at rest and be unreadable while in use.
+     */
+    button:not(.button-vue, [class^="vs__"]) {
+      width: auto;
+      min-height: var(--default-clickable-area, 34px);
+      padding: 8px 12px;
+      box-sizing: border-box;
+      /* Both from core/css/inputs.css, and both were missing here. They are what turns a
+         segmented control into three rounded chips floating inside their own track: every
+         button on a Nextcloud page carries a radius and a 3px margin on three sides. A
+         fixture without them renders the control the way the design mockup does and the
+         way the instance never will. */
+      border-radius: var(--border-radius, 8px);
+      margin: 3px;
+      margin-inline-start: 0;
+      /* The instance's pale primary tint, which is what Nextcloud actually paints a button
+         at rest — not the page background this fixture named for a while. */
+      background-color: var(--color-primary-element-light, #e5eff5);
+      color: var(--color-primary-element-light-text, #00293f);
+      border: none;
+    }
+    button:not(.button-vue, [class^="vs__"]):hover,
+    button:not(.button-vue, [class^="vs__"]):focus {
+      background-color: var(--color-primary-element-light-hover, #d8eaf5);
+    }
+    button:not(.button-vue, [class^="vs__"]):not(:disabled, .primary):not(.app-navigation-entry-button):active {
+      background-color: var(--color-main-background, #fff);
+      color: var(--color-main-text, #222);
+    }
+  </style>
+  </head><body>
   <!-- Simulated minimal Nextcloud layout -->
   <div id="body-user">
+    <div id="header"></div>
     <div id="content">
       <div id="app-content">
-        <div id="threedviewer" style="width:600px;height:400px;"></div>
+        <div id="threedviewer"></div>
       </div>
     </div>
   </div>
@@ -69,6 +171,13 @@ function buildHtmlWrapper() {
     // NOTE: This code is injected by the test harness for diagnostics; it should not be needed in production.
     // Stub out minimal Nextcloud-like globals to avoid reference errors
     window.OC = window.OC || { config: { version: 'test' } }
+    // The Nextcloud vite config resolves every dynamic chunk through OC.filePath, so
+    // without it the bundle's first import throws and nothing mounts — which is what
+    // this spec was reporting as a mount failure. The static server serves the project
+    // root, and \`type\` is empty for chunks, so the file path is the URL.
+    window.OC.filePath = window.OC.filePath || function (_app, type, file) {
+      return '/' + (type ? type + '/' : '') + file
+    }
     window.OCA = window.OCA || {}
     window.OCP = window.OCP || {}
     window._oc_config = window._oc_config || { session_lifetime: 0 }
@@ -186,5 +295,584 @@ test.describe('Viewer smoke', () => {
   // Ensure a canvas eventually appears (viewer component mounted)
   const canvas = page.locator('canvas')
   await expect(canvas.first()).toBeVisible({ timeout: 5000 })
+  })
+
+  /*
+   * Nothing in the top bar may be covered by another element.
+   *
+   * The tools panel floats over the viewer and is positioned in viewport coordinates, so
+   * it has to clear both Nextcloud's header and the viewer's own bar. Clearing only the
+   * first put the card over the right end of the bar — across the help button and the
+   * Tools button itself, so the control that opens the panel sat underneath the panel and
+   * the only way to close it was the Escape key.
+   *
+   * Nothing failed. Both elements rendered exactly as their own styles asked, at the
+   * position their own styles asked for; the defect is entirely in the relationship
+   * between them, which is the kind a test of either one alone cannot see.
+   */
+  test('no top bar control is covered by a floating panel', async ({ page }) => {
+    await page.goto(server.url)
+    await page.waitForSelector('.minimal-top-bar', { timeout: 20000 })
+    /*
+     * The bar exists, and reports sensible coordinates, before anything is painted there:
+     * during mount the app's subtree is laid out but clipped, so every control hit-tests
+     * as the page body. Waiting for the canvas is not enough — wait until the first
+     * control is actually the thing at its own centre, which is the precondition this
+     * assertion needs and a failure worth reporting on its own if it never arrives.
+     */
+    await page.waitForFunction(() => {
+      const control = document.querySelector('.minimal-top-bar button')
+      if (!control) return false
+      const r = control.getBoundingClientRect()
+      if (!r.width || !r.height) return false
+      const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)
+      return !!hit && control.contains(hit)
+    }, { timeout: 20000 })
+
+    const covered = await page.evaluate(() => {
+      const bar = document.querySelector('.minimal-top-bar')
+      if (!bar) return ['no top bar']
+      const controls = [...bar.querySelectorAll('button, label')]
+      return controls.flatMap((control) => {
+        const rect = control.getBoundingClientRect()
+        if (rect.width === 0 || rect.height === 0) return []
+        const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)
+        if (hit && (hit === control || control.contains(hit))) return []
+        const name = control.getAttribute('aria-label') || control.className
+        const where = `${Math.round(rect.x)},${Math.round(rect.y)} ${Math.round(rect.width)}x${Math.round(rect.height)}`
+        const hitName = hit ? (typeof hit.className === 'string' && hit.className) || hit.tagName : 'nothing'
+        return [`${name} at ${where} -> ${hitName}`]
+      })
+    })
+    expect(covered).toEqual([])
+  })
+
+  /*
+   * Every word in a floating panel has to be legible against what is behind it.
+   *
+   * The statistics panel was a dark overlay and became a light one, and three rules kept
+   * their old colours through the change: the watertight badge, "No textures" and "+ N
+   * more" were left as pale-on-pale or white-on-white. A section whose text is invisible
+   * looks exactly like a section that rendered nothing, which is how it was reported — as
+   * a blank gap, not as unreadable text.
+   *
+   * Checking the declared colours is what missed it the first time: each rule was fine in
+   * isolation and wrong against the surface it ended up on. This asks the browser what
+   * was actually painted, for every panel that floats on the canvas rather than only the
+   * one that was reported.
+   */
+  /*
+   * Each panel is checked in every palette the viewer can be in. The viewer's own theme
+   * control now moves these surfaces as well as the scene, and a light palette is where a
+   * colour left behind as a literal shows up — white-on-white is invisible in exactly the
+   * theme it was written for and reviewed in.
+   *
+   * The palette is stamped rather than clicked through the control: what the control does
+   * is settled in `themeSignal.test.js`, and what is at issue here is what gets painted
+   * once a palette is in effect.
+   */
+  for (const theme of ['auto', 'light', 'dark'] as const) {
+  for (const [label, open, selector, floats, painted] of [
+    ['statistics', 'Model Statistics', '.model-stats-overlay', true, null],
+    ['measurements', 'Measurement', '.measurement-overlay', true, null],
+    ['annotations', 'Annotation', '.annotation-overlay', true, null],
+    // Always on screen, so nothing to open. Its own root is transparent — the ring is the
+    // surface, and the readout beside it is the text.
+    ['controller', null, '.circular-controller', true, '.steer-ring'],
+    // Not an overlay on the render but a dialog over the whole app, so it takes the theme
+    // rather than the inverse of it — and it is here because it is the surface where a
+    // half-converted palette last hid: a dark card that kept `#222` body text.
+    ['slicer', 'Send to Slicer', '.slicer-modal', false, null],
+  ] as const) {
+  test(`every word in the ${label} panel is legible on the ${theme} palette`, async ({ page }) => {
+    await page.goto(server.url)
+    await page.waitForSelector('.minimal-top-bar', { timeout: 20000 })
+    await page.waitForSelector('canvas', { timeout: 20000 })
+    await page.click('[aria-label="Toggle tools panel"]')
+    await page.waitForSelector('.slide-out-panel', { timeout: 5000 })
+    if (!floats) {
+      // Its row lives in a collapsed section.
+      await page.getByText('Export', { exact: true }).first().click()
+    }
+    if (open) await page.getByText(open, { exact: true }).first().click()
+    await page.waitForSelector(selector, { timeout: 5000 })
+    if (theme !== 'auto') {
+      // Both signals the app writes: the attribute that says a theme was chosen, and the
+      // class that says what it resolved to. The panels key off the first, the canvas
+      // chrome off the second.
+      //
+      // After the panel is open, not before: the app restores its stored preference during
+      // startup, and on Auto that clears the attribute — a stamp applied earlier is wiped
+      // by the app's own initialisation and the check silently measures the base palette.
+      //
+      // `toggle(name, force)` rather than remove-then-add: re-adding a class the element
+      // already has still takes it away for an instant, and the controller transitions its
+      // colours over 140ms, so the second stamp restarted every one of them and the
+      // measurement below read the palette it was leaving. Written this way the repeat is
+      // genuinely a no-op.
+      const stamp = async () => await page.evaluate((t) => {
+        document.documentElement.setAttribute('data-tdv-theme', t)
+        document.body.classList.toggle('theme--light', t === 'light')
+        document.body.classList.toggle('theme--dark', t === 'dark')
+      }, theme)
+      // Twice, with a beat between: the app restores its stored preference during startup,
+      // and on Auto that clears both signals. A single stamp is a race — when it lost, the
+      // check measured the base palette under the name of another one and passed.
+      await stamp()
+      await page.waitForTimeout(400)
+      await stamp()
+
+      /*
+       * And then let the palette arrive. Controls that transition their colours are part
+       * way between the two palettes for as long as that runs, and a colour part way
+       * between near-white and near-black lands on the surface it is being measured
+       * against: the controller's rail read 1.03:1 here, against a background that had
+       * already changed. Waiting on the transitions themselves rather than on a number of
+       * milliseconds, which is the same guess that made this measurable in the first place.
+       */
+      await page.waitForFunction(() => document.getAnimations()
+        .filter((a) => a instanceof CSSTransition)
+        .every((a) => a.playState === 'finished'), null, { timeout: 5000 })
+    }
+
+    const unreadable = await page.evaluate((panelSelector) => {
+      /*
+       * `rgb(r, g, b)` and `rgba(...)` carry 0-255 channels; a `color-mix()` result comes
+       * back from Chromium as `color(srgb 1 1 1 / 0.86)`, whose channels are 0-1. Reading
+       * the numbers out and using them as they come makes an 86% white surface measure as
+       * near-black, and every label on it "illegible" against a colour it is nowhere near.
+       * The controller's ring and rail are the only color-mix surfaces in the app, which is
+       * why this went unnoticed until they were checked.
+       */
+      const parse = (c: string) => {
+        const n = (c.match(/[\d.]+/g) || []).map(Number)
+        return c.startsWith('color(') ? [n[0] * 255, n[1] * 255, n[2] * 255, ...n.slice(3)] : n
+      }
+      const over = (c: number[], b: number[]) => {
+        const a = c.length > 3 ? c[3] : 1
+        return [0, 1, 2].map((i) => c[i] * a + b[i] * (1 - a))
+      }
+      const lum = ([r, g, b]: number[]) => {
+        const ch = (v: number) => { const s = v / 255; return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4 }
+        return 0.2126 * ch(r) + 0.7152 * ch(g) + 0.0722 * ch(b)
+      }
+      const ratio = (x: number[], y: number[]) => {
+        const [hi, lo] = [lum(x), lum(y)].sort((a, b) => b - a)
+        return (hi + 0.05) / (lo + 0.05)
+      }
+      /*
+       * The painted background behind an element: every translucent layer from the element
+       * outwards, composited down onto the first opaque one.
+       *
+       * Taking the nearest opaque ancestor and ignoring what floats above it is close
+       * enough while every layer is opaque, and reports the wrong colour entirely the
+       * moment one is not — a panel drawn at 85% over a dark canvas would be measured as
+       * the page behind it, and its light text called illegible against a background it is
+       * nowhere near.
+       */
+      const backdrop = (el: Element): number[] => {
+        const layers: number[][] = []
+        for (let e: Element | null = el; e; e = e.parentElement) {
+          const c = parse(getComputedStyle(e).backgroundColor)
+          const a = c.length > 3 ? c[3] : 1
+          if (c.length < 3 || a === 0) continue
+          layers.push(c)
+          if (a > 0.95) break
+        }
+        return layers.reduceRight((under, layer) => over(layer, under), [255, 255, 255])
+      }
+
+      const panel = document.querySelector(panelSelector)!
+      const bad: string[] = []
+      for (const el of panel.querySelectorAll('*')) {
+        const own = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent!.trim())
+        if (!own) continue
+        const r = el.getBoundingClientRect()
+        if (!r.width || !r.height) continue
+        /*
+         * Text with no painted surface anywhere between it and the panel's root is drawn
+         * straight on the render — the controller's readout is the only one. What is behind
+         * it is a WebGL frame, which reports no background colour, so measuring it here
+         * would compare it against this fixture's white page rather than the themed scene
+         * and call it illegible on the dark theme, where it is white on near-black. Its
+         * contrast is checked against the scene's own colour in `themeOverride.test.js`.
+         */
+        let surfaced = false
+        for (let e: Element | null = el; e && e !== panel.parentElement; e = e.parentElement) {
+          const c = parse(getComputedStyle(e).backgroundColor)
+          if (c.length >= 3 && (c.length > 3 ? c[3] : 1) > 0) { surfaced = true; break }
+        }
+        if (!surfaced) continue
+        const bg = backdrop(el)
+        const fg = over(parse(getComputedStyle(el).color), bg)
+        const c = ratio(fg, bg)
+        // 3:1, and these are readouts rather than body copy.
+        if (c < 3) bad.push(`"${el.textContent!.trim().slice(0, 30)}" ${c.toFixed(2)}:1 (${getComputedStyle(el).color} on rgb(${bg.join(', ')}))`)
+      }
+      return bad
+    }, selector)
+    expect(unreadable).toEqual([])
+
+    /*
+     * And the palette actually took. Without this, a stamp that changed nothing would run
+     * the same check three times and report three passes — the panels would be legible, in
+     * one theme, and the other two names in the report would be fiction.
+     *
+     * The ones that float on the render are drawn in the chrome palette, which is the
+     * inverse of the theme: dark panels on the light theme, light panels on the dark one. A
+     * panel that matched its theme would have no edge against the scene behind it. The
+     * dialog is not on the render and follows the theme like the rest of the UI.
+     */
+    if (theme !== 'auto') {
+      const surface = await page.evaluate((panelSelector) => {
+        const declared = getComputedStyle(document.querySelector(panelSelector)!).backgroundColor
+        const n = (declared.match(/[\d.]+/g) || []).map(Number)
+        // `color(srgb 0.97 0.97 0.97 / 0.78)` carries 0-1 channels, `rgb()` carries 0-255.
+        // Read as-is, every color-mix surface in the app measures as near-black.
+        const c = declared.startsWith('color(') ? n.map((v) => v * 255) : n
+        return (0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]) > 128 ? 'light' : 'dark'
+      }, painted ?? selector)
+      expect(surface).toBe(floats ? (theme === 'light' ? 'dark' : 'light') : theme)
+    }
+  })
+  }
+  }
+
+  /*
+   * The format control is one control, not three buttons that happen to be adjacent.
+   *
+   * Nextcloud gives every button on the page a border radius and a 3px margin on three
+   * sides, so the selected segment renders as a rounded chip floating inside the track with
+   * a 5px gap above and below it — while the design mockup, which has no Nextcloud on the
+   * page, shows it flush. Nothing about the rule looks wrong in this app's stylesheet,
+   * because the declarations that break it are not in this app's stylesheet.
+   */
+  test('the format control\'s selected segment fills its slot', async ({ page }) => {
+    await page.goto(server.url)
+    await page.waitForSelector('.minimal-top-bar', { timeout: 20000 })
+    await page.click('[aria-label="Toggle tools panel"]')
+    await page.waitForSelector('.slide-out-panel', { timeout: 5000 })
+    await page.getByText('Export', { exact: true }).first().click()
+    await page.getByText('Send to Slicer', { exact: true }).first().click()
+    await page.waitForSelector('.format-buttons', { timeout: 5000 })
+
+    const fit = await page.evaluate(() => {
+      const track = document.querySelector('.format-buttons')!
+      const active = document.querySelector('.format-btn.active')!
+      const t = track.getBoundingClientRect()
+      const a = active.getBoundingClientRect()
+      const border = parseFloat(getComputedStyle(track).borderTopWidth)
+      return {
+        top: a.top - t.top - border,
+        bottom: t.bottom - a.bottom - border,
+        start: a.left - t.left - border,
+        margin: getComputedStyle(active).margin,
+        radius: getComputedStyle(active).borderRadius,
+      }
+    })
+
+    // Flush against the track's inner edge on the three sides it touches.
+    expect(Math.abs(fit.top)).toBeLessThanOrEqual(0.5)
+    expect(Math.abs(fit.bottom)).toBeLessThanOrEqual(0.5)
+    expect(Math.abs(fit.start)).toBeLessThanOrEqual(0.5)
+    // And square, so the track's own rounding is what shapes the ends.
+    expect(fit.margin).toBe('0px')
+    expect(fit.radius).toBe('0px')
+  })
+
+  /*
+   * A panel opened from the tools panel is not hidden behind it.
+   *
+   * Measurement and annotation modes are switched on from a row in the tools panel, and
+   * their panels floated at the same edge the tools panel occupies — at a lower z-index,
+   * so turning measurement on put its readout underneath the card that turned it on. The
+   * only sign anything had happened was the row's "Active" badge.
+   *
+   * Hit-testing rather than comparing rectangles: a panel can also be covered by something
+   * that is not the tools panel, and the question is only ever whether the user can see
+   * and click what they just opened.
+   */
+  for (const [label, open, selector] of [
+    ['measurements', 'Measurement', '.measurement-overlay'],
+    ['annotations', 'Annotation', '.annotation-overlay'],
+  ] as const) {
+    test(`the ${label} panel is not covered by the tools panel that opens it`, async ({ page }) => {
+      await page.goto(server.url)
+      await page.waitForSelector('.minimal-top-bar', { timeout: 20000 })
+      await page.waitForSelector('canvas', { timeout: 20000 })
+      await page.click('[aria-label="Toggle tools panel"]')
+      await page.waitForSelector('.slide-out-panel', { timeout: 5000 })
+      await page.getByText(open, { exact: true }).first().click()
+      await page.waitForSelector(selector, { timeout: 5000 })
+
+      const covered = await page.evaluate((panelSelector) => {
+        const panel = document.querySelector(panelSelector)!
+        const r = panel.getBoundingClientRect()
+        // The four corners inset past the radius, and the middle.
+        const probes: [string, number, number][] = [
+          ['top-left', r.x + 12, r.y + 12],
+          ['top-right', r.right - 12, r.y + 12],
+          ['bottom-left', r.x + 12, r.bottom - 12],
+          ['bottom-right', r.right - 12, r.bottom - 12],
+          ['centre', r.x + r.width / 2, r.y + r.height / 2],
+        ]
+        return probes.flatMap(([where, x, y]) => {
+          const hit = document.elementFromPoint(x, y)
+          if (hit && (hit === panel || panel.contains(hit))) return []
+          const name = hit ? (typeof hit.className === 'string' && hit.className) || hit.tagName : 'nothing'
+          return [`${where} -> ${name}`]
+        })
+      }, selector)
+      expect(covered).toEqual([])
+    })
+  }
+
+  /*
+   * The statistics panel is canvas chrome, so it is drawn like the rest of the canvas
+   * chrome.
+   *
+   * It sits over the rendered model, next to the performance HUD, and for a while the two
+   * were opposite colours: a light card and a dark card, a few hundred pixels apart, both
+   * floating on the same scene. Neither is wrong read on its own, which is why the
+   * disagreement survived — a light panel is right for content beside the viewer and wrong
+   * for content on top of it, and only the pair on screen at once shows which this is.
+   *
+   * Compared against a live `.tdv-hud`, not against a colour written here: the point is
+   * that the two surfaces cannot drift apart, not that either of them is any particular
+   * shade today.
+   */
+  test('the statistics panel is drawn on the same surface as the performance HUD', async ({ page }) => {
+    await page.goto(server.url)
+    await page.waitForSelector('.minimal-top-bar', { timeout: 20000 })
+    await page.waitForSelector('canvas', { timeout: 20000 })
+    await page.click('[aria-label="Toggle tools panel"]')
+    await page.waitForSelector('.slide-out-panel', { timeout: 5000 })
+    await page.getByText('Model Statistics', { exact: false }).first().click()
+    await page.waitForSelector('.model-stats-overlay', { timeout: 5000 })
+
+    const { panel, hud } = await page.evaluate(() => {
+      const probe = document.createElement('div')
+      probe.className = 'tdv-hud'
+      document.body.appendChild(probe)
+      const read = (el: Element) => {
+        const s = getComputedStyle(el)
+        return { background: s.backgroundColor, color: s.color }
+      }
+      const result = { hud: read(probe), panel: read(document.querySelector('.model-stats-overlay')!) }
+      probe.remove()
+      return result
+    })
+    expect(panel).toEqual(hud)
+  })
+
+  /*
+   * The one control on the top bar that this app does not own.
+   *
+   * Nextcloud draws its navigation toggle over the top-left of the app content, which is
+   * inside the bar's own box — the bar reserves 45px of start padding for it rather than
+   * put Reset underneath it. But reserving the space is only half of hosting the button:
+   * the bar also paints the canvas chrome behind it, and the toggle is coloured for
+   * Nextcloud's own light surface, in `--color-main-text`.
+   *
+   * So it arrives as a near-black icon on a near-black bar. At rest it hides that by
+   * painting an opaque `--color-main-background` square behind itself — a white box punched
+   * into the bar — and on hover that square drops to 8% of the primary, leaving #222 on
+   * #171717 at 1.07:1. Which reads exactly as a disabled control, because a greyed-out
+   * icon is the one thing that looks like.
+   *
+   * Both states are checked. Fixing only the hover leaves the white box, and fixing only
+   * the box makes the hover worse.
+   */
+  test('the navigation toggle is legible on the bar it is drawn on', async ({ page }) => {
+    await page.goto(server.url)
+    await page.waitForSelector('.minimal-top-bar', { timeout: 20000 })
+    await page.waitForSelector('.app-navigation-toggle', { timeout: 20000 })
+
+    const read = () => page.evaluate(() => {
+      const parse = (c: string) => {
+        const n = (c.match(/[\d.]+/g) || []).map(Number)
+        return c.startsWith('color(') ? [n[0] * 255, n[1] * 255, n[2] * 255, ...n.slice(3)] : n
+      }
+      const over = (c: number[], b: number[]) => {
+        const a = c.length > 3 ? c[3] : 1
+        return [0, 1, 2].map((i) => c[i] * a + b[i] * (1 - a))
+      }
+      const lum = ([r, g, b]: number[]) => {
+        const ch = (v: number) => { const s = v / 255; return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4 }
+        return 0.2126 * ch(r) + 0.7152 * ch(g) + 0.0722 * ch(b)
+      }
+      const ratio = (x: number[], y: number[]) => {
+        const [hi, lo] = [lum(x), lum(y)].sort((a, b) => b - a)
+        return (hi + 0.05) / (lo + 0.05)
+      }
+
+      const toggle = document.querySelector('.app-navigation-toggle')!
+      const bar = document.querySelector('.minimal-top-bar')!
+      const barBg = parse(getComputedStyle(bar).backgroundColor)
+      const surface = over(parse(getComputedStyle(toggle).backgroundColor), barBg)
+      const icon = over(parse(getComputedStyle(toggle).color), surface)
+
+      const t = toggle.getBoundingClientRect()
+      const b = bar.getBoundingClientRect()
+      return {
+        // Whether the premise holds: a toggle somewhere else needs none of this.
+        onTheBar: t.left >= b.left && t.right <= b.right && t.top >= b.top && t.bottom <= b.bottom,
+        contrast: ratio(icon, surface),
+        // How far its own surface departs from the bar's, per channel.
+        boxed: Math.max(...[0, 1, 2].map((i) => Math.abs(surface[i] - barBg[i]))),
+      }
+    })
+
+    const rest = await read()
+    expect(rest.onTheBar).toBe(true)
+    // A control that draws its own surface across a bar is a hole in the bar.
+    expect(rest.boxed).toBeLessThanOrEqual(24)
+    // 3:1, the threshold for a graphic that carries meaning without text beside it.
+    expect(rest.contrast).toBeGreaterThanOrEqual(3)
+
+    await page.hover('.app-navigation-toggle')
+    const hovered = await read()
+    expect(hovered.contrast).toBeGreaterThanOrEqual(3)
+  })
+
+  /*
+   * And only while the viewer is what the app content holds.
+   *
+   * The same toggle, in the same place, is over the file browser on the other branch — a
+   * light list, where the chrome's own near-white would be invisible. The colours above
+   * are right for one of the two things this app shows and wrong for the other, so the
+   * rule that applies them is conditional, and this is the condition.
+   */
+  test('the navigation toggle keeps Nextcloud\'s own colours over the file browser', async ({ page }) => {
+    await page.goto(server.url)
+    await page.waitForSelector('.minimal-top-bar', { timeout: 20000 })
+    await page.getByRole('link', { name: 'By Folders' }).click()
+    await page.waitForSelector('.minimal-top-bar', { state: 'detached', timeout: 10000 })
+
+    /*
+     * Polled rather than read once: the vendor button transitions `color` over 100ms, so
+     * the value straight after the switch is a point on that curve — 231 on one run and
+     * 245 on the next, neither of them either of the two colours in question.
+     */
+    await expect.poll(() => page.evaluate(() => {
+      const probe = document.createElement('span')
+      document.body.appendChild(probe)
+      probe.style.color = 'var(--color-main-text)'
+      const pageText = getComputedStyle(probe).color
+      probe.remove()
+      const toggle = getComputedStyle(document.querySelector('.app-navigation-toggle')!).color
+      return toggle === pageText ? 'the page\'s own text colour' : `${toggle}, and the page's is ${pageText}`
+    })).toBe('the page\'s own text colour')
+  })
+
+  /*
+   * The controller's rail is one column of controls, and the wide ones are centred on it.
+   *
+   * It is a two-column grid: rotate beside pan, zoom in beside zoom out, and three items
+   * that span both — the drag handle at the top, the two dividers, and recentre at the
+   * bottom. The spanning ones kept the base button's fixed 32px width, and an explicit
+   * width cancels a grid item's stretch, so they sat at the start of the pair rather than
+   * across it: a rail whose dividers were centred and whose top and bottom controls were
+   * seventeen pixels to the left of everything between them.
+   *
+   * Measured against the buttons themselves rather than against a figure written here, so
+   * the rail can be any width and this still says the same thing.
+   */
+  test('every control on the controller rail is centred on the column it spans', async ({ page }) => {
+    await page.goto(server.url)
+    await page.waitForSelector('.minimal-top-bar', { timeout: 20000 })
+    await page.waitForSelector('.rail', { timeout: 20000 })
+
+    const rail = await page.evaluate(() => {
+      const el = document.querySelector('.rail')!
+      const r = el.getBoundingClientRect()
+      return [...el.children].map((child) => {
+        const b = child.getBoundingClientRect()
+        return {
+          name: child.className,
+          spans: getComputedStyle(child).gridColumnStart === '1'
+            && getComputedStyle(child).gridColumnEnd === '-1',
+          offset: b.left + b.width / 2 - (r.left + r.width / 2),
+        }
+      })
+    })
+
+    // The premise: a rail with nothing spanning it has no question to answer.
+    expect(rail.filter((c) => c.spans).length).toBeGreaterThanOrEqual(3)
+    // And the paired controls, which are what "centred" is being judged against.
+    expect(rail.filter((c) => !c.spans).length).toBeGreaterThanOrEqual(4)
+
+    const offCentre = rail.filter((c) => c.spans && Math.abs(c.offset) > 0.5)
+      .map((c) => `${c.name} is ${c.offset.toFixed(1)}px off centre`)
+    expect(offCentre).toEqual([])
+
+    // The pairs sit either side of it, so "centred" is the middle of the row rather than
+    // the middle of an empty rail.
+    const pairs = rail.filter((c) => !c.spans).map((c) => c.offset)
+    expect(Math.abs(Math.min(...pairs) + Math.max(...pairs))).toBeLessThanOrEqual(0.5)
+  })
+
+  /*
+   * A modal covers the page, not the part of it this app was given.
+   *
+   * `position: fixed` is fixed to the viewport only while no ancestor has taken over as its
+   * containing block, and Nextcloud gives `#content-vue` a `backdrop-filter` — which does
+   * exactly that, along with `transform`, `filter`, `perspective` and `will-change`. So a
+   * backdrop written `position: fixed; inset: 0` inside the app came out at the app
+   * content's own box: dimming the render and leaving the navigation and the page header
+   * lit, with the dialog centred on what was left rather than on the screen. It reads as a
+   * z-index problem and no z-index reaches it.
+   *
+   * Checked against the viewport, which is the thing being claimed.
+   */
+  for (const [label, open, backdrop] of [
+    ['help panel', 'Help', '.help-panel-backdrop'],
+    ['slicer dialog', 'Send to Slicer', '.slicer-modal-backdrop'],
+  ] as const) {
+    test(`the ${label} covers the page it is drawn over`, async ({ page }) => {
+      await page.goto(server.url)
+      await page.waitForSelector('.minimal-top-bar', { timeout: 20000 })
+      await page.waitForSelector('canvas', { timeout: 20000 })
+      if (open === 'Help') {
+        await page.click('[aria-label="Help"]')
+      } else {
+        await page.click('[aria-label="Toggle tools panel"]')
+        await page.waitForSelector('.slide-out-panel', { timeout: 5000 })
+        await page.getByText('Export', { exact: true }).first().click()
+        await page.getByText(open, { exact: true }).first().click()
+      }
+      await page.waitForSelector(backdrop, { timeout: 5000 })
+
+      const covered = await page.evaluate((selector) => {
+        const r = document.querySelector(selector)!.getBoundingClientRect()
+        return {
+          gaps: [
+            r.left > 0.5 && `${r.left.toFixed(0)}px uncovered at the start`,
+            r.top > 0.5 && `${r.top.toFixed(0)}px uncovered at the top`,
+            r.right < window.innerWidth - 0.5 && `${(window.innerWidth - r.right).toFixed(0)}px uncovered at the end`,
+            r.bottom < window.innerHeight - 0.5 && `${(window.innerHeight - r.bottom).toFixed(0)}px uncovered at the bottom`,
+          ].filter(Boolean),
+          // And the dialog is centred on the page rather than on whatever it covers.
+          offCentre: Math.abs(r.left + r.width / 2 - window.innerWidth / 2),
+        }
+      }, backdrop)
+
+      expect(covered.gaps).toEqual([])
+      expect(covered.offCentre).toBeLessThanOrEqual(0.5)
+    })
+  }
+
+  test('the tools panel opens clear of the bar that opens it', async ({ page }) => {
+    await page.goto(server.url)
+    await page.waitForSelector('.minimal-top-bar', { timeout: 20000 })
+    await page.waitForSelector('canvas', { timeout: 20000 })
+    await page.click('[aria-label="Toggle tools panel"]')
+    await page.waitForSelector('.slide-out-panel', { timeout: 5000 })
+
+    const [bar, panel] = await Promise.all([
+      page.locator('.minimal-top-bar').boundingBox(),
+      page.locator('.slide-out-panel').boundingBox(),
+    ])
+    expect(panel!.y).toBeGreaterThanOrEqual(bar!.y + bar!.height)
   })
 })

@@ -27,6 +27,7 @@ export const REQUIRED = [
 	'php-lint-summary',
 	'phpunit-summary',
 	'phpunit-integration-summary',
+	'playwright-tests',
 	'static-psalm-analysis-summary',
 ]
 

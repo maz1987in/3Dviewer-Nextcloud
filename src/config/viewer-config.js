@@ -74,12 +74,57 @@ export const CAMERA_SETTINGS = {
 /**
  * Grid settings
  */
+/**
+ * The ground grid, per theme.
+ *
+ * A neutral that reads as a rule under the model rather than as part of it. This was
+ * `#00ff00` on both themes — a value picked to be unmissable while the grid was being
+ * built, declared separately in six places that then drifted apart, including a settings
+ * swatch showing `#888888` for a grid that was rendering green.
+ *
+ * Declared once here and read by everything else, so a change to it is a change to the
+ * grid rather than to one of the six.
+ */
+export const GRID_COLORS = {
+	light: '#c8c8c8',
+	dark: '#3c3c3c',
+}
+
+/**
+ * The measurement and annotation markers the viewer draws into the scene.
+ *
+ * The design system's canvas-chrome accents, in the form a WebGL material and a 2D canvas
+ * can use — the HUD's own greens and ambers, not the CSS tokens, which nothing in the
+ * scene can read. They are deliberately fixed rather than themed, for the same reason the
+ * HUD is: a marker has to stay legible against the model, and the model is not the
+ * instance's colour scheme.
+ *
+ * Before this table there was no table. The measurement line was `#00ff00`, its two end
+ * markers `#ffff00`, the annotation dot and its label `#ff0000` — a different saturated
+ * primary at each of the nine places that drew something, so a single measurement was two
+ * colours and a single annotation clashed with it. See `GRID_COLORS` above, which is the
+ * same story with six copies of one value.
+ *
+ * The two modes differ on purpose: a measurement and an annotation on the same model have
+ * to be tellable apart at a glance, which a shared accent would prevent.
+ */
+export const MARKER_COLORS = {
+	measurement: '#5ad471',
+	annotation: '#ffc95c',
+
+	/* Labels are drawn on the HUD's surface, so they read as the same chrome as the
+	   panel listing them. Opaque here rather than the HUD's 85%: a label sits on the model
+	   rather than on the page, and there is nothing behind it worth showing through. */
+	labelSurface: '#181818',
+	font: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+}
+
 export const GRID_SETTINGS = {
 	defaultSize: 10,
 	defaultDivisions: 10,
-	color: 0x00ff00,
-	colorCenterLine: 0x00ff00,
-	colorGrid: 0x00ff00,
+	color: GRID_COLORS.light,
+	colorCenterLine: GRID_COLORS.light,
+	colorGrid: GRID_COLORS.light,
 	opacity: 1.0,
 	transparent: false,
 	visible: true,
@@ -203,14 +248,14 @@ export const THEME_SETTINGS = {
 	mode: 'auto', // 'auto', 'light', 'dark'
 	light: {
 		background: '#ffffff',
-		gridColor: '#00ff00',
+		gridColor: GRID_COLORS.light,
 		axesColor: '#ff0000',
 		toolbarBg: '#f0f0f0',
 		toolbarText: '#333333',
 	},
 	dark: {
 		background: '#1a1a1a',
-		gridColor: '#00ff00',
+		gridColor: GRID_COLORS.dark,
 		axesColor: '#ff0000',
 		toolbarBg: '#2a2a2a',
 		toolbarText: '#ffffff',
@@ -286,14 +331,14 @@ export const VISUAL_SIZING_SETTINGS = {
 		pointSizePercent: 1.5,
 		// Approximate radius of measurement lines (tube thickness), 0.8% of model size
 		lineThicknessPercent: 0.8,
-		// Approximate width of the measurement label plane, 20% of model size
-		labelWidthPercent: 20,
+		// Height of the label, as a percentage of model size. Width follows the text.
+		labelHeightPercent: 4,
 	},
 	annotation: {
 		// Approximate radius of annotation points, 1.5% of model size
 		pointSizePercent: 1.5,
-		// Approximate width of the annotation label plane, 20% of model size
-		labelWidthPercent: 20,
+		// Height of the label, as a percentage of model size. Width follows the text.
+		labelHeightPercent: 4,
 	},
 }
 
@@ -883,7 +928,6 @@ export const INTERACTION_SETTINGS = {
 export const UI_TIMING = {
 	fpsEmitThrottle: 500, // ms between FPS updates
 	overlayPositionDelay: 200, // ms delay for overlay positioning
-	overlayInitialDelay: 100, // ms initial delay for overlay positioning
 	debounceDelay: 100, // ms for debounced actions
 	gestureHintDuration: 3000, // ms to show gesture hints
 	errorDisplayDuration: 5000, // ms to display errors

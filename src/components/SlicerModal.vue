@@ -1,132 +1,156 @@
 <template>
-	<div v-if="isOpen" class="slicer-modal-backdrop" @click="handleBackdropClick">
-		<div ref="modalRef"
-			class="slicer-modal"
-			role="dialog"
-			aria-modal="true"
-			aria-labelledby="slicer-modal-title"
-			tabindex="-1"
-			:class="{ 'dark-theme': isDarkTheme }"
-			@click.stop>
-			<!-- Modal Header -->
-			<div class="modal-header">
-				<h2 id="slicer-modal-title" class="modal-title">
-					{{ t('threedviewer', 'Send to Slicer') }}
-				</h2>
-				<button class="close-btn"
-					:aria-label="t('threedviewer', 'Close')"
-					@click="closeModal">
-					<span class="icon">×</span>
-				</button>
-			</div>
-
-			<!-- Modal Content -->
-			<div class="modal-content">
-				<p class="modal-description">
-					{{ t('threedviewer', 'Send your model to a slicer. Formats you mark as passthrough are sent as-is; everything else is converted to STL.') }}
-				</p>
-
-				<!-- Export Format Selector -->
-				<div v-if="!exporting && !isPassthrough" class="format-selector">
-					<label class="tool-label-small">{{ t('threedviewer', 'Export format') }}</label>
-					<div class="format-buttons">
-						<button v-for="fmt in ['stl', 'obj', 'ply']"
-							:key="fmt"
-							class="format-btn"
-							:class="{ active: selectedFormat === fmt }"
-							@click="selectedFormat = fmt">
-							{{ fmt.toUpperCase() }}
-						</button>
-					</div>
-				</div>
-
-				<!-- Loading State -->
-				<div v-if="exporting" class="loading-state">
-					<div class="spinner" />
-					<p>{{ exportMessage }}</p>
-					<!-- Upload progress bar -->
-					<div v-if="uploadProgress > 0" class="upload-progress">
-						<div class="progress-bar-track">
-							<div class="progress-bar-fill" :style="{ width: uploadProgress + '%' }" />
-						</div>
-						<span class="progress-text">{{ uploadProgress }}%</span>
-					</div>
-				</div>
-
-				<!-- Error State -->
-				<div v-if="errorMessage" class="error-state">
-					<span class="error-icon">⚠️</span>
-					<p>{{ errorMessage }}</p>
-					<button class="retry-btn" @click="clearError">
-						{{ t('threedviewer', 'Dismiss') }}
+	<!--
+		Teleported: Nextcloud gives `#content-vue` a backdrop-filter, which makes it the
+		containing block for every fixed-position descendant — so a backdrop written
+		`position: fixed; inset: 0` inside the app covered the app content and left the
+		navigation and the page header lit, with the dialog centred on what was left. No
+		z-index reaches that; the element has to be outside the box to be fixed to the page.
+	-->
+	<Teleport to="body">
+		<div v-if="isOpen" class="slicer-modal-backdrop" @click="handleBackdropClick">
+			<div ref="modalRef"
+				class="slicer-modal"
+				role="dialog"
+				aria-modal="true"
+				aria-labelledby="slicer-modal-title"
+				tabindex="-1"
+				@click.stop>
+				<!-- Modal Header -->
+				<div class="modal-header">
+					<h2 id="slicer-modal-title" class="modal-title">
+						{{ t('threedviewer', 'Send to Slicer') }}
+					</h2>
+					<button class="tdv-btn tdv-btn--icon close-btn"
+						:aria-label="t('threedviewer', 'Close')"
+						:title="t('threedviewer', 'Close')"
+						@click="closeModal">
+						<ViewerIcon name="close" :size="18" />
 					</button>
 				</div>
 
-				<!-- Slicer Grid -->
-				<div v-if="!exporting" class="slicer-grid">
-					<div v-for="slicer in slicers"
-						:key="slicer.id"
-						class="slicer-card"
-						:class="{ 'last-used': slicer.id === lastUsedSlicer }"
-						:style="{ '--slicer-color': slicer.color }">
-						<div class="slicer-icon">
-							<img :src="slicer.icon"
-								:alt="slicer.name"
-								@error="handleImageError">
-						</div>
-						<div class="slicer-info">
-							<h3 class="slicer-name">
-								{{ slicer.name }}
-								<span v-if="slicer.id === lastUsedSlicer" class="last-used-badge">
-									{{ t('threedviewer', 'Last used') }}
-								</span>
-							</h3>
-							<p class="slicer-description">
-								{{ slicer.description }}
-							</p>
-						</div>
-						<div class="slicer-actions">
-							<button class="slicer-btn primary"
-								:disabled="!modelObject"
-								:title="t('threedviewer', 'Open directly in {name}', { name: slicer.name })"
-								@click="handleOpenInSlicer(slicer.id)">
-								<span class="btn-icon">🚀</span>
-								{{ t('threedviewer', 'Open in {name}', { name: slicer.name }) }}
+				<!-- Modal Content -->
+				<div class="modal-content">
+					<p class="modal-description">
+						{{ t('threedviewer', 'Send your model to a slicer. Formats you mark as passthrough are sent as-is; everything else is converted to STL.') }}
+					</p>
+
+					<!-- Export Format Selector -->
+					<!--
+						One row, per the sheet. The label was a `<label>` with no `for`, stacked
+						above the control: it named nothing, so the segmented buttons were three
+						unrelated toggles as far as a screen reader was concerned. A labelled group
+						with a pressed state says what the sighted layout already says.
+					-->
+					<div v-if="!exporting && !isPassthrough" class="format-selector">
+						<span id="slicer-format-label" class="format-label">{{ t('threedviewer', 'Format') }}</span>
+						<div class="format-buttons" role="group" aria-labelledby="slicer-format-label">
+							<button v-for="fmt in ['stl', 'obj', 'ply']"
+								:key="fmt"
+								class="format-btn"
+								:class="{ active: selectedFormat === fmt }"
+								:aria-pressed="selectedFormat === fmt"
+								@click="selectedFormat = fmt">
+								{{ fmt.toUpperCase() }}
 							</button>
 						</div>
 					</div>
-				</div>
 
-				<!-- Share link copy -->
-				<div v-if="lastShareUrl" class="share-link-row">
-					<input type="text"
-						:value="lastShareUrl"
-						readonly
-						:aria-label="t('threedviewer', 'Share link')"
-						class="share-link-input"
-						@focus="$event.target.select()">
-					<button class="copy-btn"
-						:aria-label="t('threedviewer', 'Copy link')"
-						:title="t('threedviewer', 'Copy link')"
-						@click="copyShareLink">
-						{{ copied ? '✓' : '📋' }}
-					</button>
-				</div>
+					<!-- Loading State -->
+					<div v-if="exporting" class="loading-state">
+						<div class="spinner" />
+						<p>{{ exportMessage }}</p>
+						<!-- Upload progress bar -->
+						<div v-if="uploadProgress > 0" class="upload-progress">
+							<div class="progress-bar-track">
+								<div class="progress-bar-fill" :style="{ width: uploadProgress + '%' }" />
+							</div>
+							<span class="progress-text">{{ uploadProgress }}%</span>
+						</div>
+					</div>
 
-				<!-- Info Footer -->
-				<div v-if="!exporting" class="modal-info">
-					<p class="info-text">
-						<span class="info-icon">💡</span>
-						<strong>{{ t('threedviewer', 'Tip:') }}</strong> {{ t('threedviewer', 'The app creates a temporary Nextcloud share link that works with slicer applications. Link expires after 24 hours.') }}
-					</p>
+					<!-- Error State -->
+					<div v-if="errorMessage" class="error-state">
+						<ViewerIcon class="error-icon" name="alert" :size="20" />
+						<p>{{ errorMessage }}</p>
+						<button class="retry-btn" @click="clearError">
+							{{ t('threedviewer', 'Dismiss') }}
+						</button>
+					</div>
+
+					<!-- Slicer Grid -->
+					<div v-if="!exporting" class="slicer-grid">
+						<div v-for="slicer in slicers"
+							:key="slicer.id"
+							class="tdv-dialog-row slicer-card"
+							:class="{ 'last-used': slicer.id === lastUsedSlicer }"
+							:style="{ '--slicer-color': slicer.color }">
+							<div class="slicer-icon">
+								<img :src="slicer.icon"
+									:alt="slicer.name"
+									@error="handleImageError">
+							</div>
+							<div class="slicer-info">
+								<h3 class="slicer-name">
+									{{ slicer.name }}
+									<span v-if="slicer.id === lastUsedSlicer" class="last-used-badge">
+										{{ t('threedviewer', 'Last used') }}
+									</span>
+								</h3>
+								<p class="slicer-description">
+									{{ slicer.description }}
+								</p>
+							</div>
+							<div class="slicer-actions">
+								<!--
+									"Open", not "Open in PrusaSlicer": the row names the slicer two
+									inches to the left, and four buttons whose width is set by the
+									length of a brand name make a ragged column of the one thing every
+									row has in common. The accessible name keeps the slicer, since
+									nothing places it next to the button for a screen reader.
+								-->
+								<button class="slicer-btn primary"
+									:disabled="!modelObject"
+									:aria-label="t('threedviewer', 'Open in {name}', { name: slicer.name })"
+									:title="t('threedviewer', 'Open directly in {name}', { name: slicer.name })"
+									@click="handleOpenInSlicer(slicer.id)">
+									{{ t('threedviewer', 'Open') }}
+								</button>
+							</div>
+						</div>
+					</div>
+
+					<!-- Share link copy -->
+					<div v-if="lastShareUrl" class="share-link-row">
+						<input type="text"
+							:value="lastShareUrl"
+							readonly
+							:aria-label="t('threedviewer', 'Share link')"
+							class="share-link-input"
+							@focus="$event.target.select()">
+						<button class="copy-btn"
+							:aria-label="t('threedviewer', 'Copy link')"
+							:title="t('threedviewer', 'Copy link')"
+							@click="copyShareLink">
+							<ViewerIcon :name="copied ? 'check' : 'copy'" :size="16" />
+						</button>
+					</div>
+
+					<!-- Info Footer -->
+					<div v-if="!exporting" class="modal-info">
+						<p class="info-text">
+							<ViewerIcon class="info-icon" name="hint" :size="18" />
+							<strong>{{ t('threedviewer', 'Tip:') }}</strong> {{ t('threedviewer', 'The app creates a temporary Nextcloud share link that works with slicer applications. Link expires after 24 hours.') }}
+						</p>
+					</div>
 				</div>
 			</div>
 		</div>
-	</div>
+	</Teleport>
 </template>
 
 <script>
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import ViewerIcon from './ViewerIcon.vue'
 // eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
 import { translate as t } from '@nextcloud/l10n'
 import { generateUrl } from '@nextcloud/router'
@@ -137,6 +161,10 @@ import { logger } from '../utils/logger.js'
 
 export default {
 	name: 'SlicerModal',
+
+	components: {
+		ViewerIcon,
+	},
 
 	props: {
 		isOpen: {
@@ -167,10 +195,6 @@ export default {
 			type: String,
 			default: 'stl',
 			validator: (value) => ['stl', 'obj', 'ply'].includes(value),
-		},
-		isDarkTheme: {
-			type: Boolean,
-			default: false,
 		},
 	},
 
@@ -634,13 +658,16 @@ export default {
 .slicer-modal-backdrop {
 	position: fixed;
 	inset: 0;
-	background: rgb(0, 0, 0, 0.6);
-	backdrop-filter: blur(4px);
 	z-index: 10000;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	padding: 20px;
+
+	/* The sheet dims to 35%, not 60%: the dialog is a step in a task, and the model
+	   behind it is the thing the task is about. */
+	background: rgb(0 0 0 / 35%);
+	backdrop-filter: blur(4px);
 	animation: fadeIn 0.2s ease;
 }
 
@@ -657,14 +684,20 @@ export default {
 /* Modal Container */
 
 .slicer-modal {
-	background: var(--color-main-background, #fff);
-	border-radius: 12px;
-	box-shadow: 0 8px 32px rgb(0, 0, 0, 0.3);
-	max-width: 800px;
-	width: 100%;
-	max-height: 90vh;
 	display: flex;
 	flex-direction: column;
+	width: 100%;
+	max-width: 560px;
+	max-height: 90vh;
+	border-radius: var(--tdv-radius-dialog);
+	background: var(--tdv-color-surface);
+
+	/* Set here as well as on the individual lines: a surface that states its background and
+	   not its foreground leaves anything without a colour of its own inheriting the page's,
+	   which on a light instance is near-black — and this dialog's background is near-black
+	   on the dark theme. */
+	color: var(--tdv-color-text);
+	box-shadow: var(--tdv-shadow-dialog);
 	animation: slideUp 0.3s ease;
 }
 
@@ -685,34 +718,26 @@ export default {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 20px 24px;
-	border-bottom: 1px solid var(--color-border, #e0e0e0);
+	padding: 20px 16px 16px 24px;
 }
 
 .modal-title {
-	font-size: 22px;
-	font-weight: 600;
 	margin: 0;
-	color: var(--color-main-text, #000);
+	font-size: var(--tdv-font-size-heading);
+	font-weight: var(--tdv-font-weight-bold);
+	color: var(--tdv-color-text);
 }
 
-.close-btn {
-	background: transparent;
-	border: none;
-	color: var(--color-main-text, #000);
-	font-size: 32px;
-	line-height: 1;
-	cursor: pointer;
-	padding: 4px 8px;
-	border-radius: 6px;
+.close-btn.close-btn {
+	color: var(--tdv-color-text-secondary);
 	transition: background 0.2s ease;
 }
 
-.close-btn:hover {
-	background: var(--color-background-hover, #f0f0f0);
+.close-btn.close-btn:hover {
+	background: var(--tdv-color-hover-bg);
 }
 
-.close-btn .icon {
+.close-btn.close-btn .icon {
 	display: block;
 }
 
@@ -720,12 +745,12 @@ export default {
 .modal-content {
 	flex: 1;
 	overflow: auto;
-	padding: 24px;
+	padding: 0 24px 20px;
 }
 
 .modal-description {
 	margin-bottom: 20px;
-	color: var(--color-text-maxcontrast, #666);
+	color: var(--tdv-color-text-secondary);
 	font-size: 14px;
 	line-height: 1.5;
 }
@@ -743,8 +768,8 @@ export default {
 .spinner {
 	width: 48px;
 	height: 48px;
-	border: 4px solid var(--color-border, #e0e0e0);
-	border-top-color: var(--color-primary-element, #0082c9);
+	border: 4px solid var(--tdv-color-border);
+	border-top-color: var(--tdv-color-primary);
 	border-radius: 50%;
 	animation: spin 0.8s linear infinite;
 	margin-bottom: 16px;
@@ -758,7 +783,7 @@ export default {
 
 .loading-state p {
 	margin: 0;
-	color: var(--color-main-text, #000);
+	color: var(--tdv-color-text);
 	font-size: 14px;
 }
 
@@ -780,15 +805,15 @@ export default {
 
 .error-state p {
 	margin: 0 0 16px;
-	color: var(--color-error, #dc3545);
+	color: var(--tdv-color-error);
 	font-size: 14px;
 	text-align: center;
 }
 
-.retry-btn {
+.retry-btn.retry-btn {
 	padding: 8px 16px;
-	background: var(--color-primary-element, #0082c9);
-	color: var(--color-primary-element-text, #fff);
+	background: var(--tdv-color-primary);
+	color: var(--tdv-color-on-primary);
 	border: none;
 	border-radius: 6px;
 	cursor: pointer;
@@ -797,50 +822,84 @@ export default {
 	transition: background 0.2s ease;
 }
 
-.retry-btn:hover {
-	background: var(--color-primary-element-hover, #006aa3);
+.retry-btn.retry-btn:hover {
+	background: var(--tdv-color-primary-hover);
 }
 
 /* Format Selector */
 .format-selector {
+	display: flex;
+	gap: 10px;
+	align-items: center;
 	margin-bottom: 16px;
 }
 
-.format-selector .tool-label-small {
-	display: block;
-	font-size: 12px;
-	color: var(--color-text-maxcontrast);
-	margin-bottom: 6px;
-	font-weight: 500;
+.format-label {
+	font-size: var(--tdv-font-size-secondary);
+	font-weight: var(--tdv-font-weight-medium);
+	color: var(--tdv-color-text-secondary);
 }
 
 .format-buttons {
-	display: flex;
-	gap: 6px;
+	display: inline-flex;
+	overflow: hidden;
+	border: 2px solid var(--tdv-color-primary);
+	border-radius: 20px;
 }
 
-.format-btn {
-	flex: 1;
-	padding: 6px 12px;
-	border: 1px solid var(--color-border);
-	border-radius: 6px;
-	background: var(--color-main-background);
-	color: var(--color-main-text);
+/*
+ * Doubled class, for the same reason the design system's button primitive is.
+ *
+ * Nextcloud's server stylesheet reaches every button on the page through
+ * `button:not(.button-vue, [class^="vs__"])`, which scores (0,1,1) and beats a single
+ * class. Two of the things it sets are a border radius and `margin: 3px` on three sides,
+ * and inside a segmented control those turn one control into three rounded chips floating
+ * in their own track — a 5px gap above and below the selected segment where the mockup has
+ * none. Its hover rule wins the same way, so the states are doubled too.
+ *
+ * The track's `overflow: hidden` and its radius are what shape the ends, so the segments
+ * themselves are square.
+ */
+.format-btn.format-btn {
+	height: 36px;
+	margin: 0;
+	padding: 0 20px;
+	border: none;
+	border-radius: 0;
+	background: transparent;
+	font-family: inherit;
+	font-size: var(--tdv-font-size-secondary);
+	font-weight: var(--tdv-font-weight-medium);
+	color: var(--tdv-color-primary-text);
 	cursor: pointer;
-	font-size: 13px;
-	font-weight: 600;
-	text-align: center;
-	transition: all 0.15s ease;
+	transition: background 0.15s ease;
 }
 
-.format-btn:hover {
-	background: var(--color-background-hover);
+.format-btn.format-btn:hover,
+.format-btn.format-btn:focus,
+.format-btn.format-btn:focus-visible {
+	background: var(--tdv-color-primary-light);
 }
 
-.format-btn.active {
-	background: var(--color-primary-element);
-	color: var(--color-primary-element-text);
-	border-color: var(--color-primary-element);
+.format-btn.format-btn.active {
+	background: var(--tdv-color-primary);
+	color: var(--tdv-color-on-primary);
+}
+
+/*
+ * `!important`, and only here. Nextcloud's pressed state is
+ * `button:not(…):not(:disabled, .primary):not(.app-navigation-entry-button):active`, which
+ * scores (0,4,1) — no reasonable stacking of this class outranks it, and without this the
+ * segment you are clicking flashes to the page background under its own label.
+ */
+.format-btn.format-btn:active {
+	background: var(--tdv-color-primary-light) !important;
+	color: var(--tdv-color-primary-text) !important;
+}
+
+.format-btn.format-btn.active:active {
+	background: var(--tdv-color-primary) !important;
+	color: var(--tdv-color-on-primary) !important;
 }
 
 /* Upload Progress */
@@ -854,14 +913,14 @@ export default {
 .progress-bar-track {
 	flex: 1;
 	height: 6px;
-	background: var(--color-background-dark);
+	background: var(--tdv-color-surface-sunken);
 	border-radius: 3px;
 	overflow: hidden;
 }
 
 .progress-bar-fill {
 	height: 100%;
-	background: var(--color-primary-element);
+	background: var(--tdv-color-primary);
 	border-radius: 3px;
 	transition: width 0.2s ease;
 }
@@ -869,7 +928,7 @@ export default {
 .progress-text {
 	font-size: 12px;
 	font-weight: 600;
-	color: var(--color-main-text);
+	color: var(--tdv-color-text);
 	min-width: 36px;
 	text-align: end;
 }
@@ -884,26 +943,26 @@ export default {
 .share-link-input {
 	flex: 1;
 	padding: 6px 10px;
-	border: 1px solid var(--color-border);
+	border: 1px solid var(--tdv-color-border);
 	border-radius: 6px;
-	background: var(--color-background-dark);
-	color: var(--color-main-text);
+	background: var(--tdv-color-surface-sunken);
+	color: var(--tdv-color-text);
 	font-size: 12px;
 }
 
-.copy-btn {
+.copy-btn.copy-btn {
 	padding: 6px 10px;
-	border: 1px solid var(--color-border);
+	border: 1px solid var(--tdv-color-border);
 	border-radius: 6px;
-	background: var(--color-main-background);
+	background: var(--tdv-color-surface);
 	cursor: pointer;
 	font-size: 14px;
 	transition: all 0.15s ease;
 }
 
-.copy-btn:hover {
-	background: var(--color-background-hover);
-	border-color: var(--color-primary-element);
+.copy-btn.copy-btn:hover {
+	background: var(--tdv-color-hover-bg);
+	border-color: var(--tdv-color-primary);
 }
 
 /* Slicer Grid */
@@ -918,36 +977,29 @@ export default {
 .slicer-card {
 	display: grid;
 	grid-template-columns: auto 1fr auto;
-	gap: 16px;
+	gap: 14px;
 	align-items: center;
-	padding: 20px;
-	background: var(--color-background-hover, #f8f8f8);
-	border: 2px solid var(--color-border, #e0e0e0);
-	border-radius: 10px;
-	transition: all 0.2s ease;
+	transition: border-color 0.2s ease;
 }
 
 .slicer-card:hover {
-	border-color: var(--slicer-color, var(--color-primary-element, #0082c9));
-	box-shadow: 0 4px 12px rgb(0, 0, 0, 0.1);
-	transform: translateY(-2px);
+	border-color: var(--slicer-color, var(--tdv-color-primary));
 }
 
 .slicer-card.last-used {
-	border-color: var(--slicer-color, var(--color-primary-element, #0082c9));
-	background: var(--color-primary-element-light, rgb(0, 130, 201, 0.05));
+	border-color: var(--slicer-color, var(--tdv-color-primary));
+	background: var(--tdv-color-primary-light);
 }
 
 .slicer-icon {
-	width: 64px;
-	height: 64px;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	background: var(--color-main-background, #fff);
-	border-radius: 12px;
-	box-shadow: 0 2px 8px rgb(0, 0, 0, 0.08);
-	padding: 8px;
+	width: 38px;
+	height: 38px;
+	padding: 4px;
+	border-radius: 10px;
+	background: var(--tdv-color-surface-sunken);
 }
 
 .slicer-icon img {
@@ -982,19 +1034,19 @@ export default {
 }
 
 .slicer-name {
-	font-size: 16px;
-	font-weight: 600;
-	margin: 0;
-	color: var(--color-main-text, #000);
 	display: flex;
-	align-items: center;
 	gap: 8px;
+	align-items: center;
+	margin: 0;
+	font-size: var(--tdv-font-size-body);
+	font-weight: var(--tdv-font-weight-medium);
+	color: var(--tdv-color-text);
 }
 
 .last-used-badge {
 	display: inline-block;
 	padding: 2px 8px;
-	background: var(--slicer-color, var(--color-primary-element, #0082c9));
+	background: var(--slicer-color, var(--tdv-color-primary));
 	color: white;
 	font-size: 11px;
 	font-weight: 600;
@@ -1005,7 +1057,7 @@ export default {
 .slicer-description {
 	margin: 0;
 	font-size: 13px;
-	color: var(--color-text-maxcontrast, #666);
+	color: var(--tdv-color-text-secondary);
 	line-height: 1.4;
 }
 
@@ -1015,54 +1067,66 @@ export default {
 	min-width: 150px;
 }
 
-.slicer-btn {
-	padding: 12px 20px;
-	border: none;
-	border-radius: 6px;
-	font-size: 14px;
-	font-weight: 600;
-	cursor: pointer;
-	transition: all 0.2s ease;
+.slicer-btn.slicer-btn {
 	display: flex;
+	gap: 8px;
 	align-items: center;
 	justify-content: center;
-	gap: 8px;
+	height: 34px;
+	padding: 0 16px;
+	border-radius: 17px;
+	font-size: var(--tdv-font-size-secondary);
+	font-weight: var(--tdv-font-weight-medium);
 	white-space: nowrap;
-	width: 100%;
+	cursor: pointer;
+	transition: background 0.2s ease;
 }
 
-.slicer-btn.primary {
-	background: var(--slicer-color, var(--color-primary-element, #0082c9));
-	color: white;
+/*
+ * The instance's primary, not the slicer's own colour.
+ *
+ * This label used to be `--slicer-color`: PrusaSlicer orange on white measures 2.96:1 and
+ * Cura green 2.94:1, and on the dark theme BambuStudio's purple on the card came out at
+ * 1.78:1. A brand colour is picked to be recognisable, not to be legible as text on two
+ * different surfaces, and there is no shade of it that is both. It stays where it is
+ * decorative — the round icon tile and the "last used" badge, where it sits behind text
+ * rather than being the text.
+ */
+.slicer-btn.slicer-btn.primary {
+	border: 2px solid var(--tdv-color-primary);
+	background: transparent;
+	color: var(--tdv-color-primary-text);
 }
 
-.slicer-btn.primary:hover:not(:disabled) {
+.slicer-btn.primary:hover:not(:disabled),
+.slicer-btn.slicer-btn.primary:focus-visible {
+	background: var(--tdv-color-primary);
+	color: var(--tdv-color-on-primary);
+}
+
+.slicer-btn.slicer-btn.primary:hover:not(:disabled) {
 	filter: brightness(1.1);
 	transform: translateY(-1px);
 	box-shadow: 0 2px 8px rgb(0, 0, 0, 0.15);
 }
 
-.slicer-btn:disabled {
+.slicer-btn.slicer-btn:disabled {
 	opacity: 0.5;
 	cursor: not-allowed;
-}
-
-.btn-icon {
-	font-size: 16px;
 }
 
 /* Modal Info */
 .modal-info {
 	padding: 16px;
-	background: var(--color-background-dark, #f0f0f0);
+	background: var(--tdv-color-surface-sunken);
 	border-radius: 8px;
-	border-left: 4px solid var(--color-primary-element, #0082c9);
+	border-left: 4px solid var(--tdv-color-primary);
 }
 
 .info-text {
 	margin: 0;
 	font-size: 13px;
-	color: var(--color-text-maxcontrast, #666);
+	color: var(--tdv-color-text-secondary);
 	display: flex;
 	align-items: flex-start;
 	gap: 8px;
@@ -1074,70 +1138,15 @@ export default {
 	flex-shrink: 0;
 }
 
-/* Dark Theme */
-.slicer-modal.dark-theme {
-	background: #2a2a2a;
-}
-
-.slicer-modal.dark-theme .modal-header {
-	border-bottom-color: rgb(255, 255, 255, 0.1);
-}
-
-.slicer-modal.dark-theme .modal-title,
-.slicer-modal.dark-theme .close-btn {
-	color: #fff;
-}
-
-.slicer-modal.dark-theme .close-btn:hover {
-	background: rgb(255, 255, 255, 0.1);
-}
-
-.slicer-modal.dark-theme .modal-description {
-	color: rgb(255, 255, 255, 0.7);
-}
-
-.slicer-modal.dark-theme .slicer-card {
-	background: #333;
-	border-color: rgb(255, 255, 255, 0.2);
-}
-
-.slicer-modal.dark-theme .slicer-card:hover {
-	border-color: var(--slicer-color);
-}
-
-.slicer-modal.dark-theme .slicer-card.last-used {
-	background: rgb(66, 135, 245, 0.15);
-}
-
-.slicer-modal.dark-theme .slicer-icon {
-	background: #1f1f1f;
-}
-
-.slicer-modal.dark-theme .slicer-name {
-	color: #fff;
-}
-
-.slicer-modal.dark-theme .slicer-description {
-	color: rgb(255, 255, 255, 0.6);
-}
-
-.slicer-modal.dark-theme .modal-info {
-	background: rgb(255, 255, 255, 0.05);
-	border-left-color: #4287f5;
-}
-
-.slicer-modal.dark-theme .info-text {
-	color: rgb(255, 255, 255, 0.7);
-}
-
-.slicer-modal.dark-theme .spinner {
-	border-color: rgb(255, 255, 255, 0.2);
-	border-top-color: #4287f5;
-}
-
-.slicer-modal.dark-theme .loading-state p {
-	color: #fff;
-}
+/*
+ * There was a hand-written dark block here — twenty-four rules restating this dialog in
+ * near-blacks, from when the design tokens did not flip with the theme. They do now, and
+ * the two disagreed: it painted the card `#2a2a2a` where the token says `#1e1e1e`, and it
+ * covered the surfaces it remembered and not the ones added since, so a body line kept
+ * `#222` on a `#2a2a2a` card — 1.03:1, which is not text. Deleted rather than corrected:
+ * every rule in it was a second opinion about a colour this file already reads from a
+ * token.
+ */
 
 /* Responsive */
 @media (max-width: 768px) {
@@ -1180,13 +1189,13 @@ export default {
 	.slicer-modal-backdrop,
 	.slicer-modal,
 	.slicer-card,
-	.slicer-btn {
+	.slicer-btn.slicer-btn {
 		animation: none;
 		transition: none;
 	}
 
 	.slicer-card:hover,
-	.slicer-btn:hover {
+	.slicer-btn.slicer-btn:hover {
 		transform: none;
 	}
 }

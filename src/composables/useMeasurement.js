@@ -2,12 +2,14 @@ import { ref, shallowRef, computed, readonly, toRaw } from 'vue'
 import * as THREE from 'three'
 import { logger } from '../utils/logger.js'
 import { logError } from '../utils/error-handler.js'
-import { VIEWER_CONFIG } from '../config/viewer-config.js'
+import { VIEWER_CONFIG, MARKER_COLORS } from '../config/viewer-config.js'
 import {
 	calculateModelScale,
-	createTextTexture,
 	createTextMesh,
+	getModelMaxDimension,
+	isHelperMesh,
 	raycastIntersection,
+	updateTextMesh,
 } from '../utils/modelScaleUtils.js'
 
 // Unit conversion factors from config
@@ -186,70 +188,13 @@ export function useMeasurement() {
 						measurement.value = converted.value
 					}
 
-					// Update existing texture canvas if it's a CanvasTexture, otherwise create new texture
-					const existingTexture = textMesh.material.map
-					let texture = null
-
-					if (existingTexture && existingTexture.isCanvasTexture && existingTexture.image) {
-						// Update existing canvas texture
-						const canvas = existingTexture.image
-						const context = canvas.getContext('2d')
-
-						// Get original font size from userData, fallback to 48 for small models
-						const originalFontSize = textMesh.userData?.originalFontSize || 48
-
-						// Clear canvas completely first (important to prevent ghosting)
-						context.clearRect(0, 0, canvas.width, canvas.height)
-
-						// Draw background
-						context.fillStyle = 'rgba(0, 0, 0, 0.9)'
-						context.fillRect(0, 0, canvas.width, canvas.height)
-
-						// Draw text with original font size
-						context.fillStyle = '#ffffff'
-						context.font = `bold ${originalFontSize}px Arial`
-						context.textAlign = 'center'
-						context.textBaseline = 'middle'
-						context.fillText(displayText, canvas.width / 2, canvas.height / 2)
-
-						// Mark texture for update - this is critical for CanvasTexture
-						existingTexture.needsUpdate = true
-						// Also ensure the material knows the texture changed
-						if (textMesh.material) {
-							textMesh.material.needsUpdate = true
-						}
-						texture = existingTexture
-					} else {
-						// Create new texture - use original dimensions and font size from userData if available
-						const originalFontSize = textMesh.userData?.originalFontSize || 48
-						const originalCanvasWidth = textMesh.userData?.originalCanvasWidth || 512
-						const originalCanvasHeight = textMesh.userData?.originalCanvasHeight || 128
-
-						texture = createTextTexture(displayText, {
-							width: originalCanvasWidth,
-							height: originalCanvasHeight,
-							textColor: '#ffffff',
-							bgColor: 'rgba(0, 0, 0, 0.9)',
-							fontSize: originalFontSize,
-							fontFamily: 'Arial',
-						})
-
-						if (texture) {
-							// Dispose old texture to prevent memory leaks
-							if (existingTexture) {
-								existingTexture.dispose()
-							}
-							textMesh.material.map = texture
-							texture.needsUpdate = true
-						} else {
-							logError('useMeasurement', 'Failed to create texture', new Error('Texture creation failed'))
-						}
-					}
-
-					// Always mark material for update
-					if (texture) {
-						textMesh.material.needsUpdate = true
-					}
+					// One updater, shared with the annotation labels: it re-measures the text,
+					// so a reading that gets longer when the unit changes is redrawn rather than
+					// clipped by the canvas it was first drawn into.
+					updateTextMesh(textMesh, displayText, {
+						textColor: MARKER_COLORS.measurement,
+						bgColor: MARKER_COLORS.labelSurface,
+					})
 
 					// Keep label at its current position — only text content changes when switching units
 				}
@@ -280,8 +225,15 @@ export function useMeasurement() {
 
 		try {
 			// Use shared raycasting utility with custom filter
+			/*
+			 * The model, and nothing else the viewer put in the scene. Filtering only by
+			 * name and visibility let the click land on TransformControls' picker — an
+			 * invisible material on a visible object, sized so a drag cannot run off it —
+			 * so a point clicked on the model was placed on a plane in front of it and the
+			 * marker floated clear of the surface.
+			 */
 			const point = raycastIntersection(event, camera, sceneRef.value, {
-				filterMesh: (mesh) => mesh.isMesh && mesh.name !== 'measurementGroup' && mesh.visible,
+				filterMesh: (mesh) => mesh.isMesh && mesh.visible && !isHelperMesh(mesh),
 				recursive: true,
 			})
 
@@ -310,31 +262,9 @@ export function useMeasurement() {
 	const createPointIndicator = (point) => {
 		if (!measurementGroup.value) return
 
-		// Calculate point size - use a percentage of the *actual* model size with a minimum visible size
-		// Prefer the real bounding box over the reverse-calculated value from visualScale,
-		// because visualScale is clamped and can greatly overestimate size for tiny models.
-		let modelMaxDim = visualScale.value / 0.005 // Fallback from visualScale
-
-		if (sceneRef.value) {
-			const box = new THREE.Box3()
-			const meshes = []
-			sceneRef.value.traverse((child) => {
-				if (child.isMesh && !child.name?.startsWith('measurement') && !child.name?.startsWith('annotation')) {
-					meshes.push(child)
-					const meshBox = new THREE.Box3().setFromObject(child)
-					box.union(meshBox)
-				}
-			})
-
-			if (meshes.length > 0) {
-				const size = new THREE.Vector3()
-				box.getSize(size)
-				const actualMaxDim = Math.max(size.x, size.y, size.z)
-				if (actualMaxDim > 0) {
-					modelMaxDim = actualMaxDim
-				}
-			}
-		}
+		// The real bounding box rather than the reverse-calculated value from visualScale,
+		// which is clamped and greatly overestimates the size of a small model.
+		const modelMaxDim = getModelMaxDimension(sceneRef.value, visualScale.value / 0.005)
 
 		// Use a small percentage of the model size for the measurement point radius,
 		// driven by configuration (default ~1.5% of model size, clamped between ~1% and ~3%)
@@ -347,7 +277,7 @@ export function useMeasurement() {
 		// Create sphere directly to bypass the 0.02 cap in createMarkerSphere
 		const geometry = new THREE.SphereGeometry(pointRadius, 16, 16)
 		const material = new THREE.MeshBasicMaterial({
-			color: 0xffff00, // Bright yellow for measurements
+			color: MARKER_COLORS.measurement,
 			transparent: true,
 			opacity: 0.9,
 			depthTest: false, // Always render on top
@@ -407,31 +337,7 @@ export function useMeasurement() {
 		// Note: linewidth doesn't work in WebGL, so we create a cylinder instead.
 		const direction = new THREE.Vector3().subVectors(measurement.point2, measurement.point1)
 		const distance = direction.length()
-		// Calculate line radius - use a percentage of the *actual* model size with a minimum visible size
-		// Prefer the real bounding box over the reverse-calculated value from visualScale, because
-		// visualScale is clamped and can greatly overestimate size for tiny models.
-		let modelMaxDim = visualScale.value / 0.005 // Fallback from visualScale
-
-		if (sceneRef.value) {
-			const box = new THREE.Box3()
-			const meshes = []
-			sceneRef.value.traverse((child) => {
-				if (child.isMesh && !child.name?.startsWith('measurement') && !child.name?.startsWith('annotation')) {
-					meshes.push(child)
-					const meshBox = new THREE.Box3().setFromObject(child)
-					box.union(meshBox)
-				}
-			})
-
-			if (meshes.length > 0) {
-				const size = new THREE.Vector3()
-				box.getSize(size)
-				const actualMaxDim = Math.max(size.x, size.y, size.z)
-				if (actualMaxDim > 0) {
-					modelMaxDim = actualMaxDim
-				}
-			}
-		}
+		const modelMaxDim = getModelMaxDimension(sceneRef.value, visualScale.value / 0.005)
 
 		// Target radius based on configuration (default ~0.8% of model size),
 		// clamped to stay within a reasonable visible range
@@ -443,7 +349,7 @@ export function useMeasurement() {
 
 		const cylinderGeometry = new THREE.CylinderGeometry(lineRadius, lineRadius, distance, 8)
 		const cylinderMaterial = new THREE.MeshBasicMaterial({
-			color: 0x00ff00,
+			color: MARKER_COLORS.measurement,
 			transparent: true,
 			opacity: 0.8,
 			depthTest: false,
@@ -469,67 +375,34 @@ export function useMeasurement() {
 			// Use formatted value if available, otherwise show raw distance with units
 			const displayText = measurement.formatted || `${measurement.distance.toFixed(3)} units`
 
-			// Calculate text size - use a percentage of actual model size with a minimum visible size
-			// Prefer the real bounding box size over the reverse-calculated value from visualScale,
-			// because visualScale is clamped (min 0.3) which can greatly overestimate size for tiny models.
-			let modelMaxDim = visualScale.value / 0.005 // Fallback: reverse calculate from visualScale
+			const modelMaxDim = getModelMaxDimension(sceneRef.value, visualScale.value / 0.005)
 
-			if (sceneRef.value) {
-				const box = new THREE.Box3()
-				const meshes = []
-				sceneRef.value.traverse((child) => {
-					if (child.isMesh && !child.name?.startsWith('measurement') && !child.name?.startsWith('annotation')) {
-						meshes.push(child)
-						const meshBox = new THREE.Box3().setFromObject(child)
-						box.union(meshBox)
-					}
-				})
+			/*
+			 * One number decides how big the reading is: its height, as a percentage of the
+			 * model. Width follows the text, so nothing else needs saying.
+			 *
+			 * What was here computed a scale from three clamps — a minimum that branched on
+			 * whether the model was over one unit, a second minimum, and a cap — then
+			 * multiplied it by a height multiplier that branched again on the result. None
+			 * of the four was about legibility, and together they produced a label 1% of the
+			 * model's height: a smudge, on the one thing a measurement exists to tell you.
+			 */
+			const basePercent = typeof MEASUREMENT_SIZING.labelHeightPercent === 'number' ? MEASUREMENT_SIZING.labelHeightPercent : 4
+			const labelHeight = modelMaxDim * (basePercent / 100)
+			const yOffset = 0.2
 
-				if (meshes.length > 0) {
-					const size = new THREE.Vector3()
-					box.getSize(size)
-					const actualMaxDim = Math.max(size.x, size.y, size.z)
-					if (actualMaxDim > 0) {
-						modelMaxDim = actualMaxDim
-					}
-				}
-			}
-
-			// For very small models, use a smaller minimum text scale so labels don't cover everything
-			const minTextScale = modelMaxDim < 1 ? modelMaxDim * 0.1 : Math.min(modelMaxDim * 0.02, 2)
-			const baseTextScale = Math.max(minTextScale, modelMaxDim * 0.02) // At least 2% of model
-			const textScale = Math.min(baseTextScale, modelMaxDim * 0.1) // Cap at 10% of model size
-
-			// Use shared text mesh utility
-			// Position text close to the line with better visibility (similar to annotations)
-			// For large models, use larger multipliers to ensure visibility
-			// Position label above the line (positive yOffset moves label upward)
-			// For large models, use a larger yOffset to ensure label is clearly above the line
-			const yOffset = textScale >= 2 ? 0.15 : 0.2 // Increased offset to position label above the line
-			// For large models, use larger canvas to ensure text quality at larger sizes
-			const canvasWidth = textScale >= 2 ? 1024 : 512
-			const canvasHeight = textScale >= 2 ? 256 : 128
-			const fontSize = textScale >= 2 ? 96 : 48 // Much larger font for large models (increased from 64)
-
-			// For large models, reduce width but keep height for better text visibility.
-			// Width is driven by configuration as a percentage of model size, relative to a 20% baseline.
-			const baseLabelWidthPercent = 20
-			const configuredLabelWidthPercent = typeof MEASUREMENT_SIZING.labelWidthPercent === 'number'
-				? MEASUREMENT_SIZING.labelWidthPercent
-				: baseLabelWidthPercent
-			const widthScale = configuredLabelWidthPercent / baseLabelWidthPercent
-			const widthMultiplier = (textScale >= 2 ? 6 : 2) * widthScale
-			const heightMultiplier = textScale >= 2 ? 2.5 : 0.5 // Keep height the same
+			// The texture's own resolution, which is about crispness rather than size —
+			// the label's dimensions in the scene come from `labelHeight` and the text.
+			const fontSize = 48
+			const canvasHeight = 128
 
 			const textMesh = createTextMesh(displayText, measurement.midpoint, {
-				scale: textScale, // Use calculated size directly
-				widthMultiplier, // Larger multiplier for better visibility
-				heightMultiplier, // Larger multiplier for better visibility
-				yOffset, // Offset above the line, adjusted for large models
-				textColor: '#ffffff', // White text for better contrast
-				bgColor: 'rgba(0, 0, 0, 0.9)', // Darker background for better readability
+				scale: labelHeight,
+				heightMultiplier: 1,
+				yOffset,
+				textColor: MARKER_COLORS.measurement,
+				bgColor: MARKER_COLORS.labelSurface,
 				fontSize,
-				canvasWidth,
 				canvasHeight,
 				renderOrder: 998, // Higher render order to be in front of the line (997)
 				name: 'measurementText',
@@ -556,9 +429,8 @@ export function useMeasurement() {
 					textMeshes.value.splice(existingMeshIndex, 1)
 				}
 
-				// Store original font size and canvas dimensions in userData for later updates
+				// Kept for the in-place texture update when a unit changes.
 				textMesh.userData.originalFontSize = fontSize
-				textMesh.userData.originalCanvasWidth = canvasWidth
 				textMesh.userData.originalCanvasHeight = canvasHeight
 
 				// Double-check mesh isn't already in scene

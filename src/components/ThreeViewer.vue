@@ -33,14 +33,14 @@
 				<div class="loading-actions" :class="{ 'mobile': isMobile }">
 					<NcButton
 						v-if="progress.stage !== 'error'"
-						type="error"
+						variant="error"
 						:disabled="aborting"
 						@click="cancelLoad">
 						{{ aborting ? t('threedviewer','Canceling…') : t('threedviewer','Cancel loading') }}
 					</NcButton>
 					<NcButton
 						v-if="progress.stage === 'error'"
-						type="primary"
+						variant="primary"
 						@click="retryLoad">
 						{{ t('threedviewer','Retry') }}
 					</NcButton>
@@ -54,7 +54,7 @@
 			:class="{ 'mobile': isMobile }">
 			<div class="export-progress-content">
 				<div class="export-icon">
-					📦
+					<ViewerIcon name="package" :size="32" />
 				</div>
 				<div class="export-stage">
 					{{ exportProgress.stage || t('threedviewer', 'Preparing export...') }}
@@ -71,16 +71,19 @@
 		</div>
 
 		<!-- Model Statistics Panel -->
-		<div v-if="showModelStats && modelStats" class="model-stats-overlay" :class="{ 'mobile': isMobile }">
-			<div class="stats-panel-header">
+		<div v-if="showModelStats && modelStats" class="tdv-panel tdv-panel--floating tdv-panel--hud model-stats-overlay" :class="{ 'mobile': isMobile }">
+			<div class="tdv-panel-header stats-panel-header">
 				<div class="stats-title-group">
 					<span v-if="modelStats.format" class="format-icon-text">
 						{{ modelStats.format.toUpperCase() }}
 					</span>
 					<h3>{{ t('threedviewer', 'Model Statistics') }}</h3>
 				</div>
-				<button class="close-stats-btn" @click="toggleModelStats">
-					×
+				<button class="tdv-btn tdv-btn--icon close-stats-btn"
+					:aria-label="t('threedviewer', 'Close')"
+					:title="t('threedviewer', 'Close')"
+					@click="toggleModelStats">
+					<ViewerIcon name="close" :size="16" />
 				</button>
 			</div>
 
@@ -90,15 +93,15 @@
 					<h4>{{ t('threedviewer', 'Geometry') }}</h4>
 					<div class="stat-row">
 						<span>{{ t('threedviewer', 'Vertices') }}:</span>
-						<span class="stat-value">{{ modelStats.vertices.toLocaleString() }}</span>
+						<span class="tdv-value stat-value">{{ modelStats.vertices.toLocaleString() }}</span>
 					</div>
 					<div class="stat-row">
 						<span>{{ t('threedviewer', 'Faces') }}:</span>
-						<span class="stat-value">{{ modelStats.faces.toLocaleString() }}</span>
+						<span class="tdv-value stat-value">{{ modelStats.faces.toLocaleString() }}</span>
 					</div>
 					<div class="stat-row">
 						<span>{{ t('threedviewer', 'Meshes') }}:</span>
-						<span class="stat-value">{{ modelStats.meshes }}</span>
+						<span class="tdv-value stat-value">{{ modelStats.meshes }}</span>
 					</div>
 				</div>
 
@@ -124,7 +127,7 @@
 					<h4>{{ t('threedviewer', 'Textures') }} ({{ modelStats.textureCount }})</h4>
 					<div v-if="modelStats.textureCount > 0" class="stat-row">
 						<span>{{ t('threedviewer', 'Memory') }}:</span>
-						<span class="stat-value">
+						<span class="tdv-value stat-value">
 							<template v-if="modelStats.textureMissingCount === modelStats.textureCount">
 								{{ t('threedviewer', 'missing') }}
 							</template>
@@ -162,10 +165,10 @@
 					<!-- Watertightness badge -->
 					<div class="stats-watertight-row">
 						<span v-if="modelStats.allWatertight === true" class="stats-badge stats-badge-ok">
-							✓ {{ t('threedviewer', 'Watertight — volume is reliable') }}
+							{{ t('threedviewer', 'Watertight — volume is reliable') }}
 						</span>
 						<span v-else-if="modelStats.allWatertight === false" class="stats-badge stats-badge-warn" :title="t('threedviewer', 'Open edges detected — computed volume treats the mesh as if closed and may not match the real enclosed volume.')">
-							⚠ {{ t('threedviewer', 'Not watertight — volume may be unreliable') }}
+							{{ t('threedviewer', 'Not watertight — volume may be unreliable') }}
 						</span>
 						<span v-else class="stats-badge stats-badge-unknown" :title="t('threedviewer', 'Watertightness check skipped for non-indexed or very large meshes.')">
 							? {{ t('threedviewer', 'Watertightness unknown') }}
@@ -182,27 +185,27 @@
 					</div>
 					<div class="stat-row">
 						<span>{{ t('threedviewer', 'Width (X)') }}:</span>
-						<span class="stat-value">{{ formatStatNumber(modelStats.boundingBox.x * statsLengthScale) }} {{ statsUnitConfig.suffix }}</span>
+						<span class="tdv-value stat-value">{{ formatStatNumber(modelStats.boundingBox.x * statsLengthScale) }} {{ statsUnitConfig.suffix }}</span>
 					</div>
 					<div class="stat-row">
 						<span>{{ t('threedviewer', 'Height (Y)') }}:</span>
-						<span class="stat-value">{{ formatStatNumber(modelStats.boundingBox.y * statsLengthScale) }} {{ statsUnitConfig.suffix }}</span>
+						<span class="tdv-value stat-value">{{ formatStatNumber(modelStats.boundingBox.y * statsLengthScale) }} {{ statsUnitConfig.suffix }}</span>
 					</div>
 					<div class="stat-row">
 						<span>{{ t('threedviewer', 'Depth (Z)') }}:</span>
-						<span class="stat-value">{{ formatStatNumber(modelStats.boundingBox.z * statsLengthScale) }} {{ statsUnitConfig.suffix }}</span>
+						<span class="tdv-value stat-value">{{ formatStatNumber(modelStats.boundingBox.z * statsLengthScale) }} {{ statsUnitConfig.suffix }}</span>
 					</div>
 					<div class="stat-row">
 						<span>{{ t('threedviewer', 'Surface Area') }}:</span>
-						<span class="stat-value">{{ formatStatNumber(activeSurfaceArea * statsAreaScale) }} {{ statsUnitConfig.suffix }}²</span>
+						<span class="tdv-value stat-value">{{ formatStatNumber(activeSurfaceArea * statsAreaScale) }} {{ statsUnitConfig.suffix }}²</span>
 					</div>
 					<div class="stat-row">
 						<span>{{ t('threedviewer', 'Mesh Volume') }}:</span>
-						<span class="stat-value">{{ formatStatNumber(activeVolume * statsVolumeScale) }} {{ statsUnitConfig.suffix }}³</span>
+						<span class="tdv-value stat-value">{{ formatStatNumber(activeVolume * statsVolumeScale) }} {{ statsUnitConfig.suffix }}³</span>
 					</div>
 					<div v-if="!activeMeshStats" class="stat-row">
 						<span>{{ t('threedviewer', 'Bounding Box Vol.') }}:</span>
-						<span class="stat-value">{{ formatStatNumber(modelStats.volume * statsVolumeScale) }} {{ statsUnitConfig.suffix }}³</span>
+						<span class="tdv-value stat-value">{{ formatStatNumber(modelStats.volume * statsVolumeScale) }} {{ statsUnitConfig.suffix }}³</span>
 					</div>
 					<!-- Per-mesh breakdown (only when >1 mesh) -->
 					<div v-if="modelStats.perMesh && modelStats.perMesh.length > 1" class="per-mesh-panel">
@@ -222,8 +225,8 @@
 									{{ formatStatNumber(mesh.surfaceArea * statsAreaScale) }} {{ statsUnitConfig.suffix }}² ·
 									{{ formatStatNumber(mesh.volume * statsVolumeScale) }} {{ statsUnitConfig.suffix }}³
 								</span>
-								<span v-if="mesh.watertight === false" class="per-mesh-flag" :title="t('threedviewer', 'Open mesh — volume is approximate')">⚠</span>
-								<span v-else-if="mesh.watertight === true" class="per-mesh-flag per-mesh-flag-ok" :title="t('threedviewer', 'Watertight')">✓</span>
+								<span v-if="mesh.watertight === false" class="per-mesh-flag" :title="t('threedviewer', 'Open mesh — volume is approximate')"><ViewerIcon name="alert" :size="13" /></span>
+								<span v-else-if="mesh.watertight === true" class="per-mesh-flag per-mesh-flag-ok" :title="t('threedviewer', 'Watertight')"><ViewerIcon name="check" :size="13" /></span>
 							</li>
 						</ul>
 					</div>
@@ -252,11 +255,11 @@
 					<h4>{{ t('threedviewer', 'File') }}</h4>
 					<div class="stat-row">
 						<span>{{ t('threedviewer', 'Size') }}:</span>
-						<span class="stat-value">{{ modelStats.fileSizeMB.toFixed(2) }} MB</span>
+						<span class="tdv-value stat-value">{{ modelStats.fileSizeMB.toFixed(2) }} MB</span>
 					</div>
 					<div class="stat-row">
 						<span>{{ t('threedviewer', 'Format') }}:</span>
-						<span class="stat-value">{{ modelStats.format.toUpperCase() }}</span>
+						<span class="tdv-value stat-value">{{ modelStats.format.toUpperCase() }}</span>
 					</div>
 				</div>
 			</div>
@@ -266,7 +269,7 @@
 		<div v-if="hasError && errorState" class="error-display" :class="{ 'mobile': isMobile }">
 			<div class="error-content">
 				<div class="error-icon">
-					⚠️
+					<ViewerIcon name="alert" :size="32" />
 				</div>
 				<div class="error-message">
 					{{ errorState?.message || t('threedviewer', 'An error occurred') }}
@@ -286,12 +289,12 @@
 				</div>
 				<div class="error-actions">
 					<NcButton v-if="canRetry"
-						type="primary"
+						variant="primary"
 						@click="retryLoad">
 						{{ t('threedviewer','Retry') }}
 					</NcButton>
 					<NcButton
-						type="secondary"
+						variant="secondary"
 						@click="clearError">
 						{{ t('threedviewer','Dismiss') }}
 					</NcButton>
@@ -303,15 +306,15 @@
 		<div v-if="isComparisonMode && hasComparisonModel" class="comparison-controls" :class="{ 'mobile': isMobile }">
 			<div class="comparison-buttons">
 				<button class="comparison-btn" :title="t('threedviewer', 'Toggle original model')" @click="toggleOriginalModel">
-					<span class="btn-icon">👁️</span>
+					<ViewerIcon class="btn-icon" name="visibility" :size="18" />
 					<span class="btn-text">{{ t('threedviewer', 'Original') }}</span>
 				</button>
 				<button class="comparison-btn" :title="t('threedviewer', 'Toggle comparison model')" @click="toggleComparisonModel">
-					<span class="btn-icon">👁️</span>
+					<ViewerIcon class="btn-icon" name="visibility" :size="18" />
 					<span class="btn-text">{{ t('threedviewer', 'Comparison') }}</span>
 				</button>
 				<button class="comparison-btn" :title="t('threedviewer', 'Fit both models to view')" @click="fitBothModelsToView">
-					<span class="btn-icon">📏</span>
+					<ViewerIcon class="btn-icon" name="measurement" :size="18" />
 					<span class="btn-text">{{ t('threedviewer', 'Fit Both') }}</span>
 				</button>
 				<button
@@ -319,7 +322,7 @@
 					class="comparison-btn"
 					:title="t('threedviewer', 'Show diff overlay')"
 					@click="showDiffOverlayPanel">
-					<span class="btn-icon">📊</span>
+					<ViewerIcon class="btn-icon" name="statistics" :size="18" />
 					<span class="btn-text">{{ t('threedviewer', 'Diff') }}</span>
 				</button>
 			</div>
@@ -450,7 +453,7 @@
 
 		<!-- Texture Loading Indicator (Bottom-Right) -->
 		<div v-if="loadingTextures && textureProgress.total > 0" class="texture-progress-indicator">
-			<span class="texture-icon">🖼️</span>
+			<ViewerIcon class="texture-icon" name="texture" :size="16" />
 			<span class="texture-status">
 				{{ t('threedviewer', 'Loading textures') }}... {{ textureProgress.loaded }}/{{ textureProgress.total }}
 			</span>
@@ -460,60 +463,58 @@
 		</div>
 
 		<!-- Performance Stats Overlay (Dev/Debug) -->
-		<div v-if="showPerformanceStats && performance && currentFPS > 0 && !isMobile" class="performance-stats">
+		<div v-if="showPerformanceStats && performance && currentFPS > 0 && !isMobile" class="tdv-hud performance-stats">
 			<div class="stats-header">
-				<span class="stats-icon">📊</span>
-				<span class="stats-title">Performance</span>
+				<span class="stats-title">{{ t('threedviewer', 'Performance') }}</span>
 				<button
-					class="stats-mode clickable"
-					:class="'mode-' + currentPerformanceMode"
+					class="tdv-hud-chip stats-mode clickable"
 					:title="t('threedviewer', 'Click to cycle performance mode')"
 					@click="cyclePerformanceModeFromStats">
 					{{ currentPerformanceMode }}
 				</button>
 			</div>
 			<div class="stats-grid">
-				<div class="stat-item">
-					<span class="stat-label">FPS:</span>
-					<span class="stat-value" :class="{ 'good': currentFPS >= 60, 'warning': currentFPS >= 30 && currentFPS < 60, 'poor': currentFPS < 30 }">
+				<div class="tdv-hud-row stat-item">
+					<span class="tdv-hud-label">FPS:</span>
+					<span class="tdv-hud-value stat-value" :class="{ 'good': currentFPS >= 60, 'warning': currentFPS >= 30 && currentFPS < 60, 'poor': currentFPS < 30 }">
 						{{ currentFPS }}
 					</span>
 				</div>
-				<div class="stat-item">
-					<span class="stat-label">Frame:</span>
-					<span class="stat-value">{{ currentFrameTime?.toFixed(1) }}ms</span>
+				<div class="tdv-hud-row stat-item">
+					<span class="tdv-hud-label">Frame:</span>
+					<span class="tdv-hud-value stat-value">{{ currentFrameTime?.toFixed(1) }}ms</span>
 				</div>
-				<div class="stat-item">
-					<span class="stat-label">Memory:</span>
-					<span class="stat-value">{{ currentMemoryUsage?.toFixed(1) }}MB</span>
+				<div class="tdv-hud-row stat-item">
+					<span class="tdv-hud-label">Memory:</span>
+					<span class="tdv-hud-value stat-value">{{ currentMemoryUsage?.toFixed(1) }}MB</span>
 				</div>
-				<div class="stat-item">
-					<span class="stat-label">Quality:</span>
-					<span class="stat-value">{{ currentPixelRatio?.toFixed(2) }}x</span>
+				<div class="tdv-hud-row stat-item">
+					<span class="tdv-hud-label">Quality:</span>
+					<span class="tdv-hud-value stat-value">{{ currentPixelRatio?.toFixed(2) }}x</span>
 				</div>
-				<div class="stat-item">
-					<span class="stat-label">Draws:</span>
-					<span class="stat-value">{{ currentDrawCalls }}</span>
+				<div class="tdv-hud-row stat-item">
+					<span class="tdv-hud-label">Draws:</span>
+					<span class="tdv-hud-value stat-value">{{ currentDrawCalls }}</span>
 				</div>
-				<div class="stat-item">
-					<span class="stat-label">Triangles:</span>
-					<span class="stat-value">{{ (currentTriangles / 1000).toFixed(1) }}K</span>
+				<div class="tdv-hud-row stat-item">
+					<span class="tdv-hud-label">Triangles:</span>
+					<span class="tdv-hud-value stat-value">{{ (currentTriangles / 1000).toFixed(1) }}K</span>
 				</div>
-				<div v-if="cacheStats.enabled" class="stat-item cache-stats">
-					<span class="stat-label">Cache:</span>
-					<span class="stat-value">{{ cacheStats.sizeMB.toFixed(1) }}MB</span>
+				<div v-if="cacheStats.enabled" class="tdv-hud-row stat-item cache-stats">
+					<span class="tdv-hud-label">Cache:</span>
+					<span class="tdv-hud-value stat-value">{{ cacheStats.sizeMB.toFixed(1) }}MB</span>
 				</div>
-				<div v-if="cacheStats.enabled && cacheStats.hits + cacheStats.misses > 0" class="stat-item cache-stats">
-					<span class="stat-label">Hits:</span>
+				<div v-if="cacheStats.enabled && cacheStats.hits + cacheStats.misses > 0" class="tdv-hud-row stat-item cache-stats">
+					<span class="tdv-hud-label">Hits:</span>
 					<span class="stat-value good">{{ cacheStats.hits }}</span>
 				</div>
-				<div v-if="cacheStats.enabled && cacheStats.hits + cacheStats.misses > 0" class="stat-item cache-stats">
-					<span class="stat-label">Misses:</span>
+				<div v-if="cacheStats.enabled && cacheStats.hits + cacheStats.misses > 0" class="tdv-hud-row stat-item cache-stats">
+					<span class="tdv-hud-label">Misses:</span>
 					<span class="stat-value poor">{{ cacheStats.misses }}</span>
 				</div>
-				<div v-if="cacheStats.enabled && cacheStats.hits + cacheStats.misses > 0" class="stat-item cache-stats">
-					<span class="stat-label">Hit Rate:</span>
-					<span class="stat-value" :class="{ 'good': cacheStats.hitRate >= 70, 'warning': cacheStats.hitRate >= 50 && cacheStats.hitRate < 70, 'poor': cacheStats.hitRate < 50 }">
+				<div v-if="cacheStats.enabled && cacheStats.hits + cacheStats.misses > 0" class="tdv-hud-row stat-item cache-stats">
+					<span class="tdv-hud-label">Hit Rate:</span>
+					<span class="tdv-hud-value stat-value" :class="{ 'good': cacheStats.hitRate >= 70, 'warning': cacheStats.hitRate >= 50 && cacheStats.hitRate < 70, 'poor': cacheStats.hitRate < 50 }">
 						{{ cacheStats.hitRate.toFixed(1) }}%
 					</span>
 				</div>
@@ -522,26 +523,44 @@
 		<!-- Mobile gesture hints -->
 		<div v-if="isMobile && !isLoading && modelRoot" class="mobile-hints">
 			<div class="hint-item">
-				<span class="hint-icon">👆</span>
+				<ViewerIcon class="hint-icon" name="gestureTap" :size="18" />
 				<span class="hint-text">{{ t('threedviewer', 'Drag to rotate') }}</span>
 			</div>
 			<div class="hint-item">
-				<span class="hint-icon">🤏</span>
+				<ViewerIcon class="hint-icon" name="gesturePinch" :size="18" />
 				<span class="hint-text">{{ t('threedviewer', 'Pinch to zoom') }}</span>
 			</div>
 			<div class="hint-item">
-				<span class="hint-icon">👆👆</span>
+				<ViewerIcon class="hint-icon" name="gestureDoubleTap" :size="18" />
 				<span class="hint-text">{{ t('threedviewer', 'Double tap to reset') }}</span>
 			</div>
 		</div>
 
-		<!-- Measurement overlay -->
-		<div v-if="measurementActive && measurements.length > 0" class="measurement-overlay" :class="{ 'mobile': isMobile }">
-			<div class="measurement-header">
+		<!--
+			Measurement overlay.
+
+			Shown for as long as the mode is on, not only once there is something to list:
+			taking a measurement needs two clicks on the model, and the panel is where the
+			instruction for that lives. Rendering it only when `measurements.length > 0`
+			meant switching the mode on produced no visible change at all.
+		-->
+		<div v-if="measurementActive"
+			class="tdv-panel tdv-panel--floating tdv-panel--hud canvas-panel measurement-overlay"
+			:class="{ 'mobile': isMobile, 'is-offset': toolsPanelOpen }">
+			<div class="tdv-panel-header canvas-panel-header">
 				<h3>{{ t('threedviewer', 'Measurements') }}</h3>
-				<div class="measurement-controls">
+				<button class="tdv-btn tdv-btn--icon canvas-panel-close"
+					:aria-label="t('threedviewer', 'Close measurements')"
+					:title="t('threedviewer', 'Close')"
+					@click="closeMeasurementPanel">
+					<ViewerIcon name="close" :size="16" />
+				</button>
+			</div>
+			<div class="canvas-panel-content">
+				<div class="canvas-panel-actions">
 					<select v-model="currentUnitModel"
-						class="unit-selector"
+						class="canvas-panel-select"
+						:aria-label="t('threedviewer', 'Display unit')"
 						@change="handleUnitChange">
 						<option v-for="unit in availableUnits"
 							:key="unit.value"
@@ -550,32 +569,36 @@
 						</option>
 					</select>
 					<button type="button"
-						class="clear-measurements-btn"
-						:class="{ 'mobile': isMobile }"
+						class="canvas-panel-danger"
+						:disabled="measurements.length === 0"
 						@click="measurement.clearAllMeasurements">
-						{{ t('threedviewer', 'Clear All') }}
+						{{ t('threedviewer', 'Clear all') }}
 					</button>
 				</div>
-			</div>
-			<div class="measurement-list">
-				<div v-for="(m, index) in measurements" :key="m.id" class="measurement-item">
-					<div class="measurement-info">
-						<span class="measurement-label">{{ t('threedviewer', 'Measurement') }} {{ index + 1 }}</span>
-						<button type="button"
-							class="delete-measurement-btn"
-							:class="{ 'mobile': isMobile }"
-							@click="deleteMeasurement(m.id)">
-							{{ t('threedviewer', 'Delete') }}
-						</button>
-					</div>
-					<div class="measurement-details">
-						<span class="measurement-distance">{{ m.formatted || (m.distance.toFixed(2) + ' units') }}</span>
-						<div class="measurement-point">
-							<span class="point-label">{{ t('threedviewer', 'Point 1') }}:</span>
+				<p class="canvas-panel-hint">
+					{{ t('threedviewer', 'Click two points on the model to measure.') }}
+				</p>
+				<div class="measurement-list">
+					<div v-for="(m, index) in measurements" :key="m.id" class="canvas-panel-card measurement-item">
+						<div class="canvas-panel-card-header">
+							<span class="canvas-panel-card-title">{{ t('threedviewer', 'Measurement') }} {{ index + 1 }}</span>
+							<button type="button"
+								class="tdv-btn tdv-btn--icon canvas-panel-delete"
+								:aria-label="t('threedviewer', 'Delete measurement {number}', { number: index + 1 })"
+								:title="t('threedviewer', 'Delete')"
+								@click="deleteMeasurement(m.id)">
+								<ViewerIcon name="delete" :size="16" />
+							</button>
+						</div>
+						<div class="measurement-distance">
+							{{ m.formatted || (m.distance.toFixed(2) + ' units') }}
+						</div>
+						<div class="canvas-panel-row">
+							<span>{{ t('threedviewer', 'Point 1') }}</span>
 							<span class="point-coords">({{ m.point1.x.toFixed(2) }}, {{ m.point1.y.toFixed(2) }}, {{ m.point1.z.toFixed(2) }})</span>
 						</div>
-						<div class="measurement-point">
-							<span class="point-label">{{ t('threedviewer', 'Point 2') }}:</span>
+						<div class="canvas-panel-row">
+							<span>{{ t('threedviewer', 'Point 2') }}</span>
 							<span class="point-coords">({{ m.point2.x.toFixed(2) }}, {{ m.point2.y.toFixed(2) }}, {{ m.point2.z.toFixed(2) }})</span>
 						</div>
 					</div>
@@ -584,8 +607,10 @@
 		</div>
 
 		<!-- Annotation overlay -->
-		<div v-if="annotationActive" class="annotation-overlay" :class="{ 'mobile': isMobile }">
-			<div class="annotation-header">
+		<div v-if="annotationActive"
+			class="tdv-panel tdv-panel--floating tdv-panel--hud canvas-panel annotation-overlay"
+			:class="{ 'mobile': isMobile, 'is-offset': toolsPanelOpen }">
+			<div class="tdv-panel-header canvas-panel-header">
 				<h3>
 					{{ t('threedviewer', 'Annotations') }}
 					<span
@@ -596,53 +621,76 @@
 						{{ annotationSyncLabel }}
 					</span>
 				</h3>
-				<div class="annotation-header-actions">
-					<button type="button"
-						class="annotation-header-btn"
-						:title="t('threedviewer', 'Import annotations from JSON')"
-						@click="triggerAnnotationImport">
-						{{ t('threedviewer', 'Import') }}
-					</button>
-					<button type="button"
-						class="annotation-header-btn"
-						:disabled="annotations.length === 0"
-						:title="t('threedviewer', 'Export annotations as JSON')"
-						@click="exportAnnotationsJSON">
-						{{ t('threedviewer', 'Export') }}
-					</button>
-					<button type="button"
-						class="clear-annotations-btn"
-						:class="{ 'mobile': isMobile }"
-						:disabled="annotations.length === 0"
-						@click="clearAllAnnotations">
-						{{ t('threedviewer', 'Clear All') }}
-					</button>
-				</div>
+				<button class="tdv-btn tdv-btn--icon canvas-panel-close"
+					:aria-label="t('threedviewer', 'Close annotations')"
+					:title="t('threedviewer', 'Close')"
+					@click="closeAnnotationPanel">
+					<ViewerIcon name="close" :size="16" />
+				</button>
 			</div>
 			<input ref="annotationImportInput"
 				type="file"
 				accept=".json,application/json"
 				style="display: none;"
 				@change="onAnnotationImportFile">
-			<div class="annotation-list">
-				<div v-for="(annotation, index) in annotations" :key="annotation.id" class="annotation-item">
-					<div class="annotation-info">
-						<span class="annotation-label">{{ t('threedviewer', 'Annotation') }} {{ index + 1 }}</span>
-						<button type="button"
-							class="delete-annotation-btn"
-							:class="{ 'mobile': isMobile }"
-							@click="deleteAnnotation(annotation.id)">
-							{{ t('threedviewer', 'Delete') }}
-						</button>
-					</div>
-					<div class="annotation-details">
+			<div class="canvas-panel-content">
+				<div class="canvas-panel-actions">
+					<button type="button"
+						class="canvas-panel-outline"
+						:title="t('threedviewer', 'Import annotations from JSON')"
+						@click="triggerAnnotationImport">
+						{{ t('threedviewer', 'Import') }}
+					</button>
+					<button type="button"
+						class="canvas-panel-outline"
+						:disabled="annotations.length === 0"
+						:title="t('threedviewer', 'Export annotations as JSON')"
+						@click="exportAnnotationsJSON">
+						{{ t('threedviewer', 'Export') }}
+					</button>
+					<button type="button"
+						class="canvas-panel-danger"
+						:disabled="annotations.length === 0"
+						@click="clearAllAnnotations">
+						{{ t('threedviewer', 'Clear all') }}
+					</button>
+				</div>
+				<p class="canvas-panel-hint">
+					{{ t('threedviewer', 'Click the model to place a note at that point.') }}
+				</p>
+				<div class="annotation-list">
+					<div v-for="(annotation, index) in annotations" :key="annotation.id" class="canvas-panel-card annotation-item">
+						<div class="canvas-panel-card-header">
+							<span class="canvas-panel-card-title">{{ t('threedviewer', 'Annotation') }} {{ index + 1 }}</span>
+							<button type="button"
+								class="tdv-btn tdv-btn--icon canvas-panel-delete"
+								:aria-label="t('threedviewer', 'Delete annotation {number}', { number: index + 1 })"
+								:title="t('threedviewer', 'Delete')"
+								@click="deleteAnnotation(annotation.id)">
+								<ViewerIcon name="delete" :size="16" />
+							</button>
+						</div>
+						<!--
+							`:value` and an event, not `v-model`: `annotations` is exposed by the
+							composable through `readonly()`, and a `v-model` writes into a proxy
+							that ignores it — a warning in a development build, silence in a
+							production one, and a field that reverts either way.
+
+							The event is `input`, not `change`. `:value` leaves the DOM holding
+							text the component does not know about, and Vue writes `el.value` back
+							to the bound string whenever it patches this subtree. Committing on
+							`change` leaves that window open for as long as the field has focus,
+							and the panel does re-render mid-note: typing "Left bracket" a key at
+							a time left the field reading "Annotation 1t". Committing per
+							keystroke keeps the two in step, so a patch rewrites the same string.
+						-->
 						<input
-							v-model="annotation.text"
+							:value="annotation.text"
 							class="annotation-text-input"
 							:placeholder="t('threedviewer', 'Enter annotation text...')"
-							@blur="updateAnnotationText(annotation.id, annotation.text)">
-						<div class="annotation-point">
-							<span class="point-label">{{ t('threedviewer', 'Position') }}:</span>
+							@input="updateAnnotationText(annotation.id, $event.target.value)">
+						<div class="canvas-panel-row">
+							<span>{{ t('threedviewer', 'Position') }}</span>
 							<span class="point-coords">({{ annotation.point.x.toFixed(2) }}, {{ annotation.point.y.toFixed(2) }}, {{ annotation.point.z.toFixed(2) }})</span>
 						</div>
 					</div>
@@ -669,6 +717,7 @@
 
 <script>
 import { ref, shallowRef, markRaw, toRaw, onMounted, onBeforeUnmount, watch, computed, nextTick } from 'vue'
+import ViewerIcon from './ViewerIcon.vue'
 import * as THREE from 'three'
 import { NcProgressBar, NcButton } from '@nextcloud/vue'
 import { generateUrl, imagePath } from '@nextcloud/router'
@@ -709,6 +758,7 @@ import { initCache, clearExpired, clearAll, getCacheStats } from '../utils/depen
 export default {
 	name: 'ThreeViewer',
 	components: {
+		ViewerIcon,
 		NcProgressBar,
 		NcButton,
 		CircularController,
@@ -722,9 +772,6 @@ export default {
 		showFaceLabels: { type: Boolean, default: false },
 		wireframe: { type: Boolean, default: false },
 		background: { type: String, default: null },
-		measurementMode: { type: Boolean, default: false },
-		annotationMode: { type: Boolean, default: false },
-		comparisonMode: { type: Boolean, default: false },
 		performanceMode: { type: String, default: 'auto' },
 		themeMode: { type: String, default: 'auto' },
 		showController: { type: Boolean, default: true },
@@ -743,8 +790,16 @@ export default {
 		gcodeSingleColor: { type: String, default: '#ff5722' },
 		// Thumbnail generation
 		enableThumbnails: { type: Boolean, default: true },
+		// The tools panel owns the right edge at 320px while it is open. The panels it
+		// opens move clear of it rather than under it — they are lower in the stacking
+		// order, so a panel drawn at the same edge is simply not there as far as the user
+		// can tell.
+		toolsPanelOpen: { type: Boolean, default: false },
 	},
-	emits: ['model-loaded', 'error', 'view-reset', 'fit-to-view', 'toggle-auto-rotate', 'toggle-projection', 'change-preset', 'toggle-grid', 'axes-toggle', 'wireframe-toggle', 'background-change', 'toggle-measurement', 'toggle-annotation', 'toggle-comparison', 'toggle-performance', 'cycle-performance-mode', 'dismiss', 'push-toast', 'loading-state-changed', 'fps-updated'],
+	// Declared and never sent is as misleading as sent and never declared: nine of these
+	// named toolbar actions the viewer stopped emitting long ago, and among them sat the
+	// three mode toggles it did send and nothing received.
+	emits: ['model-loaded', 'error', 'measurement-active', 'annotation-active', 'comparison-active', 'cycle-performance-mode', 'push-toast', 'loading-state-changed', 'fps-updated', 'animations-initialized'],
 	setup(props, { emit }) {
 		// Refs
 		const container = ref(null)
@@ -1070,7 +1125,7 @@ export default {
 				const gridSize = VIEWER_CONFIG.grid?.defaultSize || 10
 				const gridDivisions = VIEWER_CONFIG.grid?.defaultDivisions || 10
 				const palette = themeComposable.getEffectivePalette?.()
-				const gridColor = palette?.gridColor || VIEWER_CONFIG.grid?.colorGrid || 0x00ff00
+				const gridColor = palette?.gridColor || VIEWER_CONFIG.grid.colorGrid
 
 				grid.value = markRaw(new THREE.GridHelper(gridSize, gridDivisions, gridColor, gridColor))
 				grid.value.material.opacity = VIEWER_CONFIG.grid?.opacity || 1.0
@@ -1106,7 +1161,7 @@ export default {
 				const gridSize = VIEWER_CONFIG.grid?.defaultSize || 10
 				const gridDivisions = VIEWER_CONFIG.grid?.defaultDivisions || 10
 				const palette = themeComposable.getEffectivePalette?.()
-				const gridColor = palette?.gridColor || VIEWER_CONFIG.grid?.colorGrid || 0x00ff00
+				const gridColor = palette?.gridColor || VIEWER_CONFIG.grid.colorGrid
 				grid.value = markRaw(new THREE.GridHelper(gridSize, gridDivisions, gridColor, gridColor))
 				grid.value.material.opacity = VIEWER_CONFIG.grid?.opacity || 1.0
 				grid.value.material.transparent = VIEWER_CONFIG.grid?.transparent || false
@@ -1167,7 +1222,7 @@ export default {
 				emit('push-toast', {
 					type: 'info',
 					title: t('threedviewer', 'Heavy model detected'),
-					message: t('threedviewer', 'Model has ~{faces} faces. Enable Performance mode (⚡) to improve FPS.', {
+					message: t('threedviewer', 'Model has ~{faces} faces. Enable Performance mode to improve FPS.', {
 						faces: faces.toLocaleString(),
 					}),
 					timeout: 7000,
@@ -1777,12 +1832,16 @@ export default {
 				// Calculate grid position (always at y=0)
 				const gridY = 0
 
-				// Update grid
+				// Update grid. Rebuilt at the model's scale, so the colour has to be given
+				// again — from the palette, the same as when it was first built. A literal
+				// here is what made the grid green whatever the theme said: the setting
+				// applied, and then the first model to load painted over it.
 				scene.value.remove(grid.value)
-				grid.value = new THREE.GridHelper(gridSize, divisions)
-				grid.value.material.color.setHex(0x00ff00)
-				grid.value.material.opacity = 1.0
-				grid.value.material.transparent = false
+				const palette = themeComposable.getEffectivePalette?.()
+				const gridColor = palette?.gridColor || VIEWER_CONFIG.grid.colorGrid
+				grid.value = new THREE.GridHelper(gridSize, divisions, gridColor, gridColor)
+				grid.value.material.opacity = VIEWER_CONFIG.grid.opacity
+				grid.value.material.transparent = VIEWER_CONFIG.grid.transparent
 
 				// Position grid at the origin
 				grid.value.position.set(0, gridY, 0)
@@ -1961,70 +2020,6 @@ export default {
 				width,
 				height,
 				pixelRatio: renderer.value.getPixelRatio(),
-			})
-
-			// Re-adjust overlay positioning on window resize
-			adjustOverlayPositioning()
-		}
-
-		/**
-		 * Dynamically adjust overlay positioning to avoid toolbar overlap
-		 */
-		const adjustOverlayPositioning = () => {
-		// Wait for DOM to be ready and add a small delay to ensure toolbar is fully rendered
-			nextTick(() => {
-				setTimeout(() => {
-					const toolbar = document.querySelector('.minimal-top-bar')
-					const nextcloudHeader = document.querySelector('#header')
-
-					let totalHeaderHeight = 0
-
-					// Check for Nextcloud header height
-					if (nextcloudHeader) {
-						const headerRect = nextcloudHeader.getBoundingClientRect()
-						totalHeaderHeight += headerRect.height
-					}
-
-					// Check for minimal top bar height
-					if (toolbar) {
-						const toolbarRect = toolbar.getBoundingClientRect()
-						totalHeaderHeight += toolbarRect.height + 10 // Add some padding
-					}
-
-					// Calculate safe spacing: total header height + padding (more conservative)
-					const safeTopSpacing = Math.max(180, totalHeaderHeight + 50)
-
-					// Update CSS custom property
-					document.documentElement.style.setProperty('--overlay-top-spacing', `${safeTopSpacing}px`)
-
-					// For mobile, use a slightly smaller spacing but ensure minimum
-					const mobileSpacing = Math.max(140, safeTopSpacing - 30)
-					document.documentElement.style.setProperty('--overlay-mobile-top-spacing', `${mobileSpacing}px`)
-
-					logger.info('ThreeViewer', 'Adjusted overlay positioning', {
-						totalHeaderHeight,
-						safeTopSpacing,
-						mobileSpacing,
-						hasMinimalTopBar: !!toolbar,
-						hasNextcloudHeader: !!nextcloudHeader,
-						windowHeight: window.innerHeight,
-						windowWidth: window.innerWidth,
-					})
-
-					// Force a style recalculation by directly setting styles on overlays
-					const measurementOverlay = document.querySelector('.measurement-overlay')
-					const annotationOverlay = document.querySelector('.annotation-overlay')
-
-					if (measurementOverlay) {
-						measurementOverlay.style.top = `${safeTopSpacing}px`
-						logger.info('ThreeViewer', 'Forced measurement overlay positioning', { top: safeTopSpacing })
-					}
-
-					if (annotationOverlay) {
-						annotationOverlay.style.top = `${safeTopSpacing}px`
-						logger.info('ThreeViewer', 'Forced annotation overlay positioning', { top: safeTopSpacing })
-					}
-				}, 200) // Increased delay to ensure DOM is fully rendered
 			})
 		}
 
@@ -2234,6 +2229,9 @@ export default {
 			measurement.deleteMeasurement(measurementId)
 		}
 
+		const closeMeasurementPanel = () => toggleMeasurementMode()
+		const closeAnnotationPanel = () => toggleAnnotationMode()
+
 		const toggleAnnotationMode = () => {
 		// If turning annotation ON, turn measurement OFF
 			if (!annotation.isActive.value) {
@@ -2242,8 +2240,23 @@ export default {
 				}
 			}
 			annotation.toggleAnnotation()
-			emit('toggle-annotation')
 		}
+
+		/*
+		 * Tell the parent what these modes are, rather than telling it to toggle them.
+		 *
+		 * The modes live in the composables here; `App.vue` keeps a copy because the tools
+		 * panel's rows are drawn from it. Every path that changed a mode had to remember to
+		 * announce it — the tools panel, each panel's close button, the transform gizmo,
+		 * which turns both off when it claims the pointer, and comparison mode, which turns
+		 * itself back off if the file picker is cancelled. What they announced was a request
+		 * to toggle, which is a different thing from what had happened: a parent that acted
+		 * on it flipped its copy a second time, and one that did not listen at all left the
+		 * copy behind. Both happened. One watcher per mode says what is true.
+		 */
+		watch(() => measurement.isActive.value, (active) => emit('measurement-active', active))
+		watch(() => annotation.isActive.value, (active) => emit('annotation-active', active))
+		watch(() => comparison.comparisonMode.value, (active) => emit('comparison-active', active))
 
 		const toggleTransformGizmo = () => {
 			// Turn off measurement/annotation when enabling gizmo
@@ -2664,7 +2677,6 @@ export default {
 				if (!comparison.isComparisonMode.value) {
 					// Entering comparison mode - open native file picker
 					comparison.toggleComparisonMode()
-					emit('toggle-comparison')
 
 					try {
 						const filePath = await comparison.openFilePicker()
@@ -2674,7 +2686,6 @@ export default {
 							logger.info('ThreeViewer', 'File picker cancelled by user')
 							// Exit comparison mode
 							comparison.toggleComparisonMode()
-							emit('toggle-comparison')
 							return
 						}
 
@@ -2793,13 +2804,11 @@ export default {
 						renderPaused.value = false
 						// Exit comparison mode if picker was cancelled
 						comparison.toggleComparisonMode()
-						emit('toggle-comparison')
 					}
 				} else {
 					// Exiting comparison mode - clear comparison
 					comparison.clearComparison()
 					comparison.toggleComparisonMode()
-					emit('toggle-comparison')
 				}
 			} catch (error) {
 				logger.error('ThreeViewer', 'Failed to toggle comparison mode', error)
@@ -2814,7 +2823,6 @@ export default {
 				// Reset comparison mode state
 				if (comparison.isComparisonMode.value) {
 					comparison.toggleComparisonMode()
-					emit('toggle-comparison')
 				}
 			}
 		}
@@ -3360,23 +3368,6 @@ export default {
 			}
 		})
 
-		// Watch for measurement/annotation mode changes to adjust positioning
-		watch(() => measurement.isActive.value, (active) => {
-			if (active) {
-				nextTick(() => {
-					setTimeout(() => adjustOverlayPositioning(), VIEWER_CONFIG.uiTiming.overlayInitialDelay)
-				})
-			}
-		})
-
-		watch(() => annotation.isActive.value, (active) => {
-			if (active) {
-				nextTick(() => {
-					setTimeout(() => adjustOverlayPositioning(), VIEWER_CONFIG.uiTiming.overlayInitialDelay)
-				})
-			}
-		})
-
 		// Debounced auto-save for annotation persistence.
 		// We watch the lightweight summary (count + ids/text) instead of the
 		// raw annotations array because Vue would otherwise re-fire on every
@@ -3570,9 +3561,6 @@ export default {
 					})
 				}
 				await init()
-
-				// Adjust overlay positioning to avoid toolbar overlap
-				adjustOverlayPositioning()
 			} catch (error) {
 				console.error('ThreeViewer: Initialization failed', error)
 				logger.error('ThreeViewer', 'Initialization failed', error)
@@ -3709,6 +3697,7 @@ export default {
 
 			// Measurement
 			measurement,
+			closeMeasurementPanel,
 			measurementActive: measurement.isActive,
 			measurementPoints: measurement.points,
 			measurementCount: measurement.measurementCount,
@@ -3716,6 +3705,7 @@ export default {
 
 			// Annotation
 			annotation,
+			closeAnnotationPanel,
 			annotationActive: annotation.isActive,
 			annotations: annotation.annotations,
 			annotationCount: annotation.annotationCount,
@@ -3877,35 +3867,6 @@ export default {
 </script>
 
 <style scoped>
-/* CSS Variables for consistent spacing */
-:root {
-	--overlay-top-spacing: 150px; /* Further increased to ensure no overlap */
-	--overlay-side-spacing: 20px;
-	--overlay-mobile-top-spacing: 120px; /* Further increased for mobile */
-	--overlay-mobile-side-spacing: 10px;
-}
-
-/* Force overlay positioning to prevent overlap */
-.measurement-overlay,
-.annotation-overlay {
-	/* Ensure panels are positioned below any header/toolbar */
-	top: 80px !important;
-
-	/* Ensure panels don't extend beyond viewport */
-	max-width: 280px !important;
-
-	/* Ensure proper z-index */
-	z-index: 250 !important;
-}
-
-@media (width <= 768px) {
-	.measurement-overlay,
-	.annotation-overlay {
-		top: 140px !important;
-		max-width: calc(100vw - 40px) !important;
-	}
-}
-
 .three-viewer {
 	position: relative;
 	width: 100%;
@@ -3963,7 +3924,7 @@ export default {
 	font-size: 24px;
 	font-weight: bold;
 	margin-top: 10px;
-	color: var(--color-primary-element);
+	color: var(--tdv-color-primary-text);
 }
 
 .loading-actions {
@@ -4035,7 +3996,7 @@ export default {
 	font-size: 28px;
 	font-weight: bold;
 	margin-bottom: 16px;
-	color: var(--color-primary-element, #0082c9);
+	color: var(--tdv-color-primary-text);
 }
 
 .export-progress-overlay.mobile .export-progress-content {
@@ -4056,30 +4017,31 @@ export default {
 }
 
 /* Model Statistics Panel */
+
+/*
+ * Canvas chrome, drawn like the rest of it. Surface, blur and text colour come from
+ * .tdv-panel--hud, structure and shadow from .tdv-panel; what is left here is where it
+ * sits.
+ *
+ * This was a light panel for a while, on the reasoning that it reads numbers rather than
+ * the scene. What that missed is that it reads them *over* the scene, alongside the
+ * performance HUD — so the app drew a light card and a dark card on the same rendered
+ * model, and which of the two the eye took as chrome depended on the model.
+ */
 .model-stats-overlay {
 	position: absolute;
 	top: 80px;
 	inset-inline-start: 20px;
-	width: 320px;
-	max-height: 600px;
-	background: rgb(0 0 0 / 90%);
-	border: 1px solid rgb(255 255 255 / 20%);
-	border-radius: 8px;
-	color: white;
 	z-index: 300;
-	overflow: hidden;
 	display: flex;
 	flex-direction: column;
-	box-shadow: 0 8px 32px rgb(0 0 0 / 40%);
+	width: 320px;
+	max-height: 600px;
 }
 
 .stats-panel-header {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	padding: 8px 20px;
-	background: rgb(0 0 0 / 50%);
-	border-bottom: 1px solid rgb(255 255 255 / 20%);
+	flex-shrink: 0;
+	padding: 12px 10px 12px 18px;
 }
 
 .stats-title-group {
@@ -4093,8 +4055,13 @@ export default {
 	font-weight: 700;
 	line-height: 1;
 	padding: 4px 8px;
-	background: rgb(255, 255, 255, 0.2);
-	border-radius: 4px;
+
+	/* Outlined rather than filled, per the sheet. Drawn in the HUD's own foreground rather
+	   than the instance's primary, which is chosen for contrast against Nextcloud's page
+	   background and can be a near-black on this surface. */
+	border: 1px solid var(--tdv-hud-border);
+	border-radius: 8px;
+	color: var(--tdv-hud-text);
 	letter-spacing: 0.5px;
 	display: flex;
 	align-items: center;
@@ -4104,25 +4071,32 @@ export default {
 
 .stats-panel-header h3 {
 	margin: 0;
-	font-size: 16px;
-	font-weight: 600;
-	color: var(--color-primary-element, #0082c9);
+	font-size: var(--tdv-font-size-section);
+	font-weight: var(--tdv-font-weight-bold);
+	color: var(--tdv-hud-text);
 }
 
-.close-stats-btn {
-	background: transparent;
-	border: none;
-	color: white;
-	font-size: 28px;
-	line-height: 1;
-	cursor: pointer;
-	padding: 4px 8px;
+/*
+ * Doubled for the same reason .tdv-btn is: Nextcloud's `button:not(...)` rule scores
+ * (0,1,1) and would otherwise decide this button's colour, and its hover and pressed
+ * states, out from under the panel.
+ */
+.close-stats-btn.close-stats-btn {
+	color: var(--tdv-hud-text-secondary);
 	border-radius: 4px;
 	transition: background 0.2s ease;
 }
 
-.close-stats-btn:hover {
-	background: rgb(255 255 255 / 10%);
+.close-stats-btn.close-stats-btn:hover,
+.close-stats-btn.close-stats-btn:focus,
+.close-stats-btn.close-stats-btn:focus-visible {
+	background: var(--tdv-hud-hover-bg);
+	color: var(--tdv-hud-text);
+}
+
+.close-stats-btn.close-stats-btn:active {
+	background: var(--tdv-hud-hover-bg) !important;
+	color: var(--tdv-hud-text) !important;
 }
 
 .stats-panel-content {
@@ -4134,7 +4108,7 @@ export default {
 .stats-section {
 	margin-bottom: 20px;
 	padding-bottom: 16px;
-	border-bottom: 1px solid rgb(255 255 255 / 10%);
+	border-bottom: 1px solid var(--tdv-hud-border);
 }
 
 .stats-section:last-child {
@@ -4146,7 +4120,7 @@ export default {
 	margin: 0 0 12px;
 	font-size: 14px;
 	font-weight: 600;
-	color: rgb(255 255 255 / 90%);
+	color: var(--tdv-hud-text);
 }
 
 .stat-row {
@@ -4157,14 +4131,16 @@ export default {
 	font-size: 13px;
 }
 
+/* The label half of a readout, and the value half. Both follow the panel's surface — they
+   have already been white on white once, when the surface changed and they did not. */
 .stat-row span:first-child {
-	color: rgb(255 255 255 / 70%);
+	color: var(--tdv-hud-text-secondary);
 }
 
 .stat-row .stat-value {
-	font-weight: 600;
-	color: #fff;
-	font-family: 'Courier New', monospace;
+	font-family: var(--tdv-font-mono);
+	font-weight: var(--tdv-font-weight-medium);
+	color: var(--tdv-hud-text);
 }
 
 .material-list {
@@ -4174,33 +4150,43 @@ export default {
 }
 
 .material-item {
+	gap: 12px;
 	display: flex;
 	justify-content: space-between;
 	padding: 8px 12px;
-	background: rgb(255 255 255 / 5%);
+	background: var(--tdv-hud-sunken-bg);
 	border-radius: 4px;
 	font-size: 12px;
 }
 
 .material-name {
-	color: #fff;
+	/* The name is the part worth reading, so it takes the space and truncates; the type
+	   keeps its own width rather than being pushed into the name. */
+	overflow: hidden;
+	flex: 1;
+	color: var(--tdv-hud-text);
 	font-weight: 500;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .material-type {
-	color: rgb(255 255 255 / 60%);
+	flex-shrink: 0;
+	color: var(--tdv-hud-text-secondary);
 	font-size: 11px;
 }
 
+/* "No textures", "+ 3 more". Text that has been the same colour as its own background
+   once already, which reads as a section that rendered nothing rather than as text. */
 .no-items {
-	color: rgb(255 255 255 / 50%);
+	color: var(--tdv-hud-text-secondary);
 	font-style: italic;
 	font-size: 12px;
 	padding: 8px 0;
 }
 
 .more-items {
-	color: rgb(255 255 255 / 60%);
+	color: var(--tdv-hud-text-secondary);
 	font-size: 12px;
 	padding: 8px 12px;
 	text-align: center;
@@ -4220,46 +4206,61 @@ export default {
 	margin: 0;
 }
 
-.stats-unit-select {
-	background: rgb(255 255 255 / 10%);
-	color: #fff;
-	border: 1px solid rgb(255 255 255 / 20%);
+/* Doubled: Nextcloud styles every select on the page through a rule that outscores a
+   single class, so the panel would lose this control's colours to the page's. */
+.stats-unit-select.stats-unit-select {
+	background: var(--tdv-hud-sunken-bg);
+	color: var(--tdv-hud-text);
+	border: 1px solid var(--tdv-hud-border);
 	border-radius: 4px;
 	padding: 4px 6px;
 	font-size: 12px;
 	cursor: pointer;
 }
 
-.stats-unit-select:focus {
-	outline: 1px solid rgb(255 255 255 / 40%);
+/* The list itself is drawn by the platform, on the platform's surface — so its options
+   have to be legible there rather than on this panel. */
+.stats-unit-select.stats-unit-select option {
+	background: var(--tdv-color-surface);
+	color: var(--tdv-color-text);
+}
+
+.stats-unit-select.stats-unit-select:focus {
+	outline: 2px solid var(--tdv-hud-text);
 }
 
 .stats-watertight-row {
 	margin-bottom: 10px;
 }
 
+/*
+ * One chip, three foregrounds — the same treatment the HUD gives a live value, for the
+ * same reason: the state is in the word, and a filled panel-status chip on this surface is
+ * a bright block that draws the eye to whichever badge happens to be showing rather than
+ * to the one that says something is wrong.
+ */
 .stats-badge {
 	display: inline-block;
 	padding: 4px 8px;
 	border-radius: 4px;
+	background: var(--tdv-hud-chip-bg);
 	font-size: 12px;
 	font-weight: 500;
 	cursor: default;
 }
 
 .stats-badge-ok {
-	background: rgb(76 175 80 / 18%);
-	color: #8fe2a3;
+	color: var(--tdv-hud-success);
 }
 
 .stats-badge-warn {
-	background: rgb(255 152 0 / 22%);
-	color: #ffb74d;
+	color: var(--tdv-hud-warning);
 }
 
+/* Neutral rather than dim: the chip is already the lightest surface in the panel, and the
+   secondary text colour on it measures 3.06:1 — over the line, with nothing to spare. */
 .stats-badge-unknown {
-	background: rgb(255 255 255 / 8%);
-	color: rgb(255 255 255 / 70%);
+	color: var(--tdv-hud-text);
 }
 
 .stats-selected-row {
@@ -4274,10 +4275,12 @@ export default {
 }
 
 .stats-selected-label {
-	color: rgb(255 255 255 / 85%);
+	color: var(--tdv-hud-text);
 }
 
-.stats-link-btn {
+/* Doubled, like every other bare button on this surface: Nextcloud's own button rule sets
+   a background and a text colour and outscores a single class. */
+.stats-link-btn.stats-link-btn {
 	background: transparent;
 	border: none;
 	color: #90caf9;
@@ -4287,19 +4290,30 @@ export default {
 	text-decoration: underline;
 }
 
-.stats-link-btn:hover {
+.stats-link-btn.stats-link-btn:hover,
+.stats-link-btn.stats-link-btn:focus,
+.stats-link-btn.stats-link-btn:focus-visible {
+	background: transparent;
 	color: #bbdefb;
+}
+
+/* Nextcloud's pressed rule carries enough `:not()`s to outscore the doubled class, and a
+   click leaves a button focused but not focus-visible — so without this the button keeps
+   the page's pressed colours for as long as it holds focus. */
+.stats-link-btn.stats-link-btn:active {
+	background: transparent !important;
+	color: #bbdefb !important;
 }
 
 .per-mesh-panel {
 	margin-top: 12px;
 	padding-top: 10px;
-	border-top: 1px dashed rgb(255 255 255 / 15%);
+	border-top: 1px dashed var(--tdv-hud-border);
 }
 
 .per-mesh-header {
 	font-size: 12px;
-	color: rgb(255 255 255 / 70%);
+	color: var(--tdv-hud-text-secondary);
 	margin-bottom: 6px;
 }
 
@@ -4320,7 +4334,7 @@ export default {
 	column-gap: 8px;
 	align-items: center;
 	padding: 6px 8px;
-	background: rgb(255 255 255 / 4%);
+	background: var(--tdv-hud-sunken-bg);
 	border-radius: 4px;
 	font-size: 12px;
 	cursor: pointer;
@@ -4328,7 +4342,7 @@ export default {
 }
 
 .per-mesh-item:hover {
-	background: rgb(255 255 255 / 10%);
+	background: var(--tdv-hud-hover-bg);
 }
 
 .per-mesh-item.is-selected {
@@ -4337,7 +4351,7 @@ export default {
 }
 
 .per-mesh-name {
-	color: #fff;
+	color: var(--tdv-hud-text);
 	font-weight: 500;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -4345,19 +4359,19 @@ export default {
 }
 
 .per-mesh-meta {
-	color: rgb(255 255 255 / 70%);
-	font-family: 'Courier New', monospace;
+	color: var(--tdv-hud-text-secondary);
+	font-family: var(--tdv-font-mono);
 	font-size: 11px;
 	text-align: right;
 }
 
 .per-mesh-flag {
 	font-size: 12px;
-	color: #ffb74d;
+	color: var(--tdv-hud-warning);
 }
 
 .per-mesh-flag-ok {
-	color: #8fe2a3;
+	color: var(--tdv-hud-success);
 }
 
 .stats-actions {
@@ -4367,26 +4381,38 @@ export default {
 	flex-wrap: wrap;
 }
 
-.stats-action-btn {
+/* Doubled, as everywhere else on this surface: a single class loses this button's
+   background and text colour to Nextcloud's own button rule. */
+.stats-action-btn.stats-action-btn {
 	flex: 1 1 auto;
 	min-width: 120px;
 	padding: 6px 10px;
-	background: rgb(255 255 255 / 8%);
-	color: #fff;
-	border: 1px solid rgb(255 255 255 / 20%);
+	background: var(--tdv-hud-sunken-bg);
+	color: var(--tdv-hud-text);
+	border: 1px solid var(--tdv-hud-border);
 	border-radius: 4px;
 	font-size: 12px;
 	cursor: pointer;
 	transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
-.stats-action-btn:hover {
-	background: rgb(255 255 255 / 15%);
-	border-color: rgb(255 255 255 / 35%);
+.stats-action-btn.stats-action-btn:hover,
+.stats-action-btn.stats-action-btn:focus,
+.stats-action-btn.stats-action-btn:focus-visible {
+	background: var(--tdv-hud-hover-bg);
+	color: var(--tdv-hud-text);
 }
 
-.stats-action-btn.is-active {
-	background: rgb(33 150 243 / 35%);
+.stats-action-btn.stats-action-btn:active {
+	background: var(--tdv-hud-hover-bg) !important;
+	color: var(--tdv-hud-text) !important;
+}
+
+/* Pick-a-mesh is a mode, not a press — it stays on until a mesh is clicked, so it has to
+   outrank the pressed state above rather than sit beside it. */
+.stats-action-btn.stats-action-btn.is-active,
+.stats-action-btn.stats-action-btn.is-active:active {
+	background: rgb(33 150 243 / 35%) !important;
 	border-color: rgb(33 150 243 / 70%);
 }
 
@@ -4449,7 +4475,7 @@ export default {
 .texture-status {
 	flex: 1;
 	font-size: 11px;
-	color: rgb(255 255 255 / 90%);
+	color: var(--tdv-color-text);
 }
 
 .mini-progress-bar {
@@ -4462,7 +4488,7 @@ export default {
 
 .progress-fill {
 	height: 100%;
-	background: var(--color-primary-element, #0082c9);
+	background: var(--tdv-color-primary);
 	transition: width 0.3s ease;
 	border-radius: 2px;
 }
@@ -4474,58 +4500,48 @@ export default {
 }
 
 /* Performance Stats Overlay */
+
+/*
+ * Surface, radius, blur and text colour come from .tdv-hud; what is left here is where
+ * the panel sits and how wide it is. The !important flags are gone with them: they were
+ * on every declaration, so any of these values could only ever be overridden by another
+ * !important, and none of them was defending against anything.
+ */
 .performance-stats {
-	position: absolute !important;
-	bottom: 10px !important;
-	inset-inline-start: 10px !important;
-	background: rgb(0 0 0 / 85%) !important;
-	color: #fff !important;
-	padding: 12px !important;
-	border-radius: 8px !important;
-	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-	font-size: 12px !important;
-	z-index: 900 !important;
-	min-width: 180px !important;
-	border: 1px solid rgb(255 255 255 / 20%) !important;
-	box-shadow: 0 4px 12px rgb(0 0 0 / 30%) !important;
-	display: block !important;
-	backdrop-filter: blur(10px) !important;
+	position: absolute;
+	bottom: 24px;
+	inset-inline-start: 24px;
+	z-index: 900;
+	width: 220px;
+	gap: 6px;
 }
 
 .stats-header {
 	display: flex;
 	align-items: center;
 	gap: 8px;
-	margin-bottom: 10px;
-	padding-bottom: 8px;
-	border-bottom: 1px solid rgb(255 255 255 / 20%);
-}
-
-.stats-icon {
-	font-size: 16px;
 }
 
 .stats-title {
-	font-weight: bold;
-	font-size: 13px;
 	flex: 1;
+	font-size: var(--tdv-font-size-secondary);
+	font-weight: var(--tdv-font-weight-bold);
 }
 
+/*
+ * One neutral chip, per the sheet, rather than a colour per mode. Five colours for five
+ * modes said nothing the word inside the chip did not already say, and spent the HUD's
+ * only accent on which mode is selected instead of on the readout that is in trouble.
+ */
 .stats-mode {
-	font-size: 10px;
-	padding: 4px 6px;
-	border-radius: 4px;
-	font-weight: bold;
-	text-transform: uppercase;
-	height: 24px;
 	display: inline-flex;
 	align-items: center;
+	text-transform: uppercase;
 }
 
 .stats-mode.clickable {
-	cursor: pointer;
 	border: none;
-	background: inherit;
+	cursor: pointer;
 	transition: opacity 0.2s, transform 0.1s;
 }
 
@@ -4538,84 +4554,37 @@ export default {
 	transform: scale(0.95);
 }
 
-.stats-mode.mode-low {
-	background: rgb(255 193 7 / 30%);
-	color: #ffc107;
-}
-
-.stats-mode.mode-balanced {
-	background: rgb(76 175 80 / 30%);
-	color: #4caf50;
-}
-
-.stats-mode.mode-high {
-	background: rgb(33 150 243 / 30%);
-	color: #2196f3;
-}
-
-.stats-mode.mode-ultra {
-	background: rgb(156 39 176 / 30%);
-	color: #9c27b0;
-}
-
-.stats-mode.mode-auto {
-	background: rgb(158 158 158 / 30%);
-	color: #9e9e9e;
-}
-
 .stats-grid {
-	display: grid;
-	grid-template-columns: 1fr;
+	display: flex;
+	flex-direction: column;
 	gap: 6px;
 }
 
 .stat-item {
-	display: flex;
-	justify-content: space-between;
 	align-items: center;
-	padding: 2px 0;
 }
 
 .stat-item.cache-stats {
-	border-top: 1px solid rgb(255 255 255 / 20%);
+	border-top: 1px solid var(--tdv-hud-border);
 	padding-top: 6px;
 	margin-top: 4px;
 }
 
-.stat-label {
-	color: rgb(255 255 255 / 70%);
-	font-size: 11px;
+/*
+ * A live value in one of three states. The sheet colours these as text rather than as
+ * filled chips — a chip per row turns a six-row readout into six coloured blocks, and
+ * the point of the colour is the one row that is not fine.
+ */
+.stat-item .stat-value.good {
+	color: var(--tdv-hud-success);
 }
 
-.stat-value {
-	font-weight: bold;
-	font-size: 12px;
-	color: #fff;
+.stat-item .stat-value.warning {
+	color: var(--tdv-hud-warning);
 }
 
-.stat-value.good,
-.stat-value.warning,
-.stat-value.poor {
-	padding: 2px 6px !important;
-	border-radius: 4px !important;
-	line-height: normal !important;
-	min-height: auto !important;
-	margin: 0 !important;
-}
-
-.stat-value.good {
-	background: rgb(76 175 80 / 20%);
-	color: #81c784;
-}
-
-.stat-value.warning {
-	background: rgb(255 178 0 / 86%) !important;
-	color: #000 !important;
-}
-
-.stat-value.poor {
-	background: rgb(244 67 54 / 20%);
-	color: #e57373;
+.stat-item .stat-value.poor {
+	color: var(--tdv-hud-error);
 }
 
 .comparison-controls {
@@ -4780,11 +4749,11 @@ export default {
 	max-width: none;
 }
 
-.comparison-btn {
+.comparison-btn.comparison-btn {
 	font-size: 11px;
 	line-height: 1;
 	padding: 6px 8px;
-	background: var(--color-primary-element, #0082c9);
+	background: var(--tdv-color-primary);
 	color: #fff;
 	border: none;
 	border-radius: 6px;
@@ -4801,7 +4770,7 @@ export default {
 	overflow: hidden;
 }
 
-.comparison-btn::before {
+.comparison-btn.comparison-btn::before {
 	content: '';
 	position: absolute;
 	top: 0;
@@ -4812,17 +4781,17 @@ export default {
 	transition: left 0.5s;
 }
 
-.comparison-btn:hover::before {
+.comparison-btn.comparison-btn:hover::before {
 	inset-inline-start: 100%;
 }
 
-.comparison-btn:hover {
-	background: var(--color-primary-element-hover, #006aa3);
+.comparison-btn.comparison-btn:hover {
+	background: var(--tdv-color-primary-hover);
 	transform: translateY(-1px);
 }
 
-.comparison-btn:focus-visible {
-	outline: 2px solid var(--color-primary-text, #fff);
+.comparison-btn.comparison-btn:focus-visible {
+	outline: 2px solid var(--tdv-color-on-primary);
 	outline-offset: 2px;
 }
 
@@ -4894,31 +4863,31 @@ export default {
 }
 
 /* Dark theme support for comparison controls */
-.dark-theme .comparison-controls {
+.theme--dark .comparison-controls {
 	background: rgb(30 30 30 / 80%);
 	border-color: rgb(255 255 255 / 20%);
 	box-shadow: 0 4px 12px rgb(0 0 0 / 30%);
 }
 
-.dark-theme .comparison-btn {
-	background: var(--color-primary, #64b5f6);
-	color: #000;
+.theme--dark .comparison-btn {
+	background: var(--tdv-color-primary);
+	color: var(--tdv-color-on-primary);
 }
 
-.dark-theme .comparison-btn:hover {
-	background: var(--color-primary-element-hover, #006aa3);
+.theme--dark .comparison-btn:hover {
+	background: var(--tdv-color-primary-hover);
 }
 
 /* Accessibility improvements for comparison controls */
-.comparison-btn:focus-visible {
-	outline: 2px solid var(--color-primary, #0d47a1);
+.comparison-btn.comparison-btn:focus-visible {
+	outline: 2px solid var(--tdv-color-primary);
 	outline-offset: 2px;
 	box-shadow: 0 0 0 4px rgb(13 71 161 / 20%);
 }
 
 /* High contrast mode for comparison controls */
 @media (prefers-contrast: high) {
-	.comparison-btn {
+	.comparison-btn.comparison-btn {
 		border: 2px solid currentcolor;
 	}
 
@@ -4929,11 +4898,11 @@ export default {
 
 /* Reduced motion for comparison controls */
 @media (prefers-reduced-motion: reduce) {
-	.comparison-btn::before {
+	.comparison-btn.comparison-btn::before {
 		display: none;
 	}
 
-	.comparison-btn:hover {
+	.comparison-btn.comparison-btn:hover {
 		transform: none;
 	}
 
@@ -4982,383 +4951,303 @@ export default {
 	}
 }
 
-/* Measurement overlay styles */
-.measurement-overlay {
+/*
+ * Measurements and annotations: one panel, drawn twice.
+ *
+ * Both were black boxes outlined in a saturated primary — `#0f0` for measurements, `#f00`
+ * for annotations, headings to match, set in Arial. That is the palette you reach for to
+ * make an overlay findable while you are building it, and the same decision as the
+ * fluorescent green the ground grid carried for years. Neither panel had been touched
+ * since; nothing failed, because each rendered exactly as its own styles asked.
+ *
+ * They share this block rather than each carrying a copy. The two are the same object —
+ * a titled card over the canvas, a row of actions, an instruction, a list of entries with
+ * a delete — and the pair that came before differed in every measurement of padding,
+ * radius and colour, none of it deliberately.
+ *
+ * Surface and text come from .tdv-panel--hud, the same tokens as the performance HUD and
+ * the statistics panel; what is here is the layout.
+ */
+.canvas-panel {
 	position: absolute;
-	top: var(--overlay-top-spacing);
-	inset-inline-end: var(--overlay-side-spacing);
-	background: rgb(0 0 0 / 80%);
-	border: 1px solid #0f0;
-	border-radius: 8px;
-	padding: 15px;
-	max-width: 300px;
-	max-height: 400px;
-	overflow-y: auto;
-	z-index: 200;
-	color: white;
-	font-family: Arial, sans-serif;
 
-	/* Ensure panel stays within bounds */
-	min-width: 250px;
-	width: auto;
+	/* Clear of the viewer's own bar, and of Nextcloud's above it. */
+	top: calc(var(--tdv-topbar-height) + 16px);
+	inset-inline-end: 16px;
+	z-index: 250;
+	display: flex;
+	flex-direction: column;
+	width: 320px;
+	max-height: calc(100% - var(--tdv-topbar-height) - 32px);
 }
 
-.measurement-header {
-	display: flex;
-	flex-wrap: wrap;
-	justify-content: space-between;
-	align-items: center;
+/*
+ * The tools panel is 320px at the same edge and sits above these in the stacking order,
+ * so a panel it opens has to step aside or it is simply not there. The measurement panel
+ * spent its whole life underneath it: switching the mode on produced no visible change
+ * beyond the row's own "Active" badge.
+ */
+.canvas-panel.is-offset {
+	inset-inline-end: 352px;
+}
+
+.canvas-panel-header h3 {
+	display: inline-flex;
 	gap: 8px;
-	margin-bottom: 10px;
-	padding-bottom: 10px;
-	border-bottom: 1px solid #0f0;
-}
-
-.measurement-header h3 {
+	align-items: center;
 	margin: 0;
-	font-size: 16px;
-	color: #0f0;
+	font-size: var(--tdv-font-size-section);
+	font-weight: var(--tdv-font-weight-bold);
+	color: var(--tdv-hud-text);
 }
 
-.measurement-controls {
+/* Doubled, like every button on this surface: Nextcloud's own button rule sets a
+   background and a text colour through a selector a single class does not beat. */
+.canvas-panel-close.canvas-panel-close,
+.canvas-panel-delete.canvas-panel-delete {
+	color: var(--tdv-hud-text-secondary);
+	border-radius: 4px;
+	transition: background 0.2s ease;
+}
+
+.canvas-panel-close.canvas-panel-close:hover,
+.canvas-panel-close.canvas-panel-close:focus,
+.canvas-panel-close.canvas-panel-close:focus-visible {
+	background: var(--tdv-hud-hover-bg);
+	color: var(--tdv-hud-text);
+}
+
+.canvas-panel-close.canvas-panel-close:active {
+	background: var(--tdv-hud-hover-bg) !important;
+	color: var(--tdv-hud-text) !important;
+}
+
+.canvas-panel-content {
 	display: flex;
-	gap: 10px;
+	flex: 1;
+	flex-direction: column;
+	gap: 12px;
+	overflow-y: auto;
+	padding: 14px 18px 16px;
+}
+
+.canvas-panel-actions {
+	display: flex;
+	gap: 8px;
 	align-items: center;
 }
 
-.unit-selector {
-	background: #2a2a2a;
-	color: #0f0;
-	border: 1px solid #0f0;
-	padding: 5px 10px;
-	border-radius: 4px;
-	font-size: 12px;
+.canvas-panel-select.canvas-panel-select {
+	flex: 1;
+	min-width: 0;
+	height: 34px;
+	padding: 0 10px;
+	background: var(--tdv-hud-sunken-bg);
+	color: var(--tdv-hud-text);
+	border: 1px solid var(--tdv-hud-border);
+	border-radius: 8px;
+	font-size: var(--tdv-font-size-secondary);
 	cursor: pointer;
 }
 
-.unit-selector:hover {
-	background: #3a3a3a;
+/* The list is drawn by the platform, on the platform's surface, so its options have to be
+   legible there rather than on this panel. */
+.canvas-panel-select.canvas-panel-select option {
+	background: var(--tdv-color-surface);
+	color: var(--tdv-color-text);
 }
 
-.clear-measurements-btn {
-	background: #f44;
-	color: white;
+.canvas-panel-outline.canvas-panel-outline {
+	height: 34px;
+	padding: 0 14px;
+	background: transparent;
+	border: 2px solid var(--tdv-hud-text-secondary);
+	border-radius: 17px;
+	color: var(--tdv-hud-text);
+	font-size: var(--tdv-font-size-secondary);
+	font-weight: var(--tdv-font-weight-medium);
+	font-family: inherit;
+	cursor: pointer;
+}
+
+.canvas-panel-outline.canvas-panel-outline:hover:not(:disabled),
+.canvas-panel-outline.canvas-panel-outline:focus:not(:disabled),
+.canvas-panel-outline.canvas-panel-outline:focus-visible:not(:disabled) {
+	background: var(--tdv-hud-hover-bg);
+	color: var(--tdv-hud-text);
+}
+
+.canvas-panel-outline.canvas-panel-outline:active:not(:disabled) {
+	background: var(--tdv-hud-hover-bg) !important;
+	color: var(--tdv-hud-text) !important;
+}
+
+/*
+ * Destructive, so it is the only coloured thing in the panel — and text rather than a
+ * filled block, per the sheet. "Clear all" that shouts louder than the readings it would
+ * delete is the wrong way round.
+ */
+.canvas-panel-danger.canvas-panel-danger {
+	height: 34px;
+	margin-inline-start: auto;
+	padding: 0 14px;
+	background: transparent;
 	border: none;
-	padding: 5px 10px;
-	border-radius: 4px;
+	border-radius: 17px;
+	color: var(--tdv-hud-error);
+	font-size: var(--tdv-font-size-secondary);
+	font-weight: var(--tdv-font-weight-medium);
+	font-family: inherit;
 	cursor: pointer;
-	font-size: 12px;
 }
 
-.clear-measurements-btn:hover {
-	background: #f66;
+.canvas-panel-danger.canvas-panel-danger:hover:not(:disabled),
+.canvas-panel-danger.canvas-panel-danger:focus:not(:disabled),
+.canvas-panel-danger.canvas-panel-danger:focus-visible:not(:disabled) {
+	background: var(--tdv-hud-hover-bg);
+	color: var(--tdv-hud-error);
 }
 
-.measurement-list {
+.canvas-panel-danger.canvas-panel-danger:active:not(:disabled) {
+	background: var(--tdv-hud-hover-bg) !important;
+	color: var(--tdv-hud-error) !important;
+}
+
+.canvas-panel-outline:disabled,
+.canvas-panel-danger:disabled {
+	opacity: 0.4;
+	cursor: not-allowed;
+}
+
+/* What to do to get an entry into the list. Both modes need two or one click on the model
+   itself, which is not discoverable from a panel that only ever shows results. */
+.canvas-panel-hint {
+	margin: 0;
+	color: var(--tdv-hud-text-secondary);
+	font-size: var(--tdv-font-size-secondary);
+}
+
+.canvas-panel-card {
 	display: flex;
 	flex-direction: column;
-	gap: 10px;
+	gap: 6px;
+	padding: 12px 14px;
+	border: 1px solid var(--tdv-hud-border);
+	border-radius: 12px;
 }
 
-.measurement-item {
-	background: rgb(0 255 0 / 10%);
-	border: 1px solid rgb(0 255 0 / 30%);
-	border-radius: 4px;
-	padding: 10px;
+.canvas-panel-card-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
 }
 
-.measurement-info {
+.canvas-panel-card-title {
+	color: var(--tdv-hud-text-secondary);
+	font-size: var(--tdv-font-size-secondary);
+	font-weight: var(--tdv-font-weight-bold);
+}
+
+.canvas-panel-delete.canvas-panel-delete:hover,
+.canvas-panel-delete.canvas-panel-delete:focus,
+.canvas-panel-delete.canvas-panel-delete:focus-visible {
+	background: var(--tdv-hud-hover-bg);
+	color: var(--tdv-hud-error);
+}
+
+.canvas-panel-delete.canvas-panel-delete:active {
+	background: var(--tdv-hud-hover-bg) !important;
+	color: var(--tdv-hud-error) !important;
+}
+
+.canvas-panel-row {
 	display: flex;
 	justify-content: space-between;
-	align-items: center;
-	margin-bottom: 8px;
-}
-
-.measurement-label {
-	font-weight: bold;
-	font-size: 14px;
-	color: #0f0;
-}
-
-.delete-measurement-btn {
-	background: #f44;
-	color: white;
-	border: none;
-	padding: 3px 8px;
-	border-radius: 3px;
-	cursor: pointer;
-	font-size: 11px;
-}
-
-.delete-measurement-btn:hover {
-	background: #f66;
-}
-
-.measurement-distance {
-	font-size: 16px;
-	font-weight: bold;
-	color: #fff;
-}
-
-.measurement-details {
-	display: flex;
-	flex-direction: column;
-	gap: 4px;
-}
-
-.measurement-point {
-	display: flex;
-	flex-direction: column;
-	gap: 2px;
-}
-
-.point-label {
-	font-size: 12px;
-	color: #ccc;
+	gap: 8px;
+	color: var(--tdv-hud-text-secondary);
+	font-size: var(--tdv-font-size-secondary);
 }
 
 .point-coords {
-	font-size: 11px;
-	color: #aaa;
-	font-family: monospace;
+	color: var(--tdv-hud-text);
+	font-family: var(--tdv-font-mono);
+	font-size: var(--tdv-font-size-label);
 }
 
-@media (width <= 768px) {
-	.measurement-overlay {
-		top: var(--overlay-mobile-top-spacing);
-		inset-inline: var(--overlay-mobile-side-spacing);
-		max-width: none;
-		max-height: 300px;
-	}
-
-	.measurement-header {
-		flex-direction: column;
-		gap: 10px;
-		align-items: stretch;
-	}
-
-	.clear-measurements-btn {
-		width: 100%;
-		padding: 8px;
-	}
-}
-
-/* Annotation overlay styles */
-.annotation-overlay {
-	position: absolute;
-	top: var(--overlay-top-spacing);
-	inset-inline-start: var(--overlay-side-spacing);
-	background: rgb(0 0 0 / 80%);
-	border: 1px solid #f00;
-	border-radius: 8px;
-	padding: 15px;
-	max-width: 300px;
-	max-height: 400px;
-	overflow-y: auto;
-	z-index: 200;
-	color: white;
-	font-family: Arial, sans-serif;
-}
-
-.annotation-header {
-	display: flex;
-	flex-direction: column;
-	gap: 8px;
-	margin-bottom: 10px;
-	padding-bottom: 10px;
-	border-bottom: 1px solid #f00;
-}
-
-.annotation-header h3 {
-	margin: 0;
-	font-size: 16px;
-	color: #f00;
-	display: inline-flex;
-	align-items: center;
-	gap: 8px;
-}
-
-.annotation-sync-pill {
-	display: inline-flex;
-	align-items: center;
-	font-size: 10px;
-	font-weight: 500;
-	padding: 2px 8px;
-	border-radius: 10px;
-	background: rgb(255 255 255 / 12%);
-	color: #fff;
-	letter-spacing: 0.3px;
-	text-transform: uppercase;
-	white-space: nowrap;
-}
-
-.annotation-sync-pill.sync-loading,
-.annotation-sync-pill.sync-saving {
-	background: rgb(255 255 255 / 18%);
-	color: #ffe48a;
-}
-
-.annotation-sync-pill.sync-saved {
-	background: rgb(80 180 100 / 25%);
-	color: #b2f0c0;
-}
-
-.annotation-sync-pill.sync-error {
-	background: rgb(220 80 80 / 25%);
-	color: #ffb2b2;
-}
-
-.annotation-header-actions {
-	display: flex;
-	gap: 6px;
-	align-items: center;
-	flex-wrap: wrap;
-}
-
-.annotation-header-actions > * {
-	flex: 1;
-	min-width: 0;
-	white-space: nowrap;
-}
-
-.annotation-header-btn {
-	background: rgb(255 255 255 / 10%);
-	color: white;
-	border: 1px solid rgb(255 255 255 / 30%);
-	padding: 5px 10px;
-	border-radius: 4px;
-	cursor: pointer;
-	font-size: 12px;
-}
-
-.annotation-header-btn:hover:not(:disabled) {
-	background: rgb(255 255 255 / 20%);
-}
-
-.annotation-header-btn:disabled {
-	opacity: 0.4;
-	cursor: not-allowed;
-}
-
-.clear-annotations-btn {
-	background: #f44;
-	color: white;
-	border: none;
-	padding: 5px 10px;
-	border-radius: 4px;
-	cursor: pointer;
-	font-size: 12px;
-}
-
-.clear-annotations-btn:hover:not(:disabled) {
-	background: #f66;
-}
-
-.clear-annotations-btn:disabled {
-	opacity: 0.4;
-	cursor: not-allowed;
-}
-
+.measurement-list,
 .annotation-list {
 	display: flex;
 	flex-direction: column;
 	gap: 10px;
 }
 
-.annotation-item {
-	background: rgb(255 0 0 / 10%);
-	border: 1px solid rgb(255 0 0 / 30%);
-	border-radius: 4px;
-	padding: 10px;
-}
-
-.annotation-info {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	margin-bottom: 8px;
-}
-
-.annotation-label {
-	font-weight: bold;
-	font-size: 14px;
-	color: #f00;
-}
-
-.delete-annotation-btn {
-	background: #f44;
-	color: white;
-	border: none;
-	padding: 3px 8px;
-	border-radius: 3px;
-	cursor: pointer;
-	font-size: 11px;
-}
-
-.delete-annotation-btn:hover {
-	background: #f66;
-}
-
-.annotation-details {
-	display: flex;
-	flex-direction: column;
-	gap: 6px;
+/* The reading is what the panel is for, so it is the largest thing in the card. */
+.measurement-distance {
+	color: var(--tdv-hud-text);
+	font-family: var(--tdv-font-mono);
+	font-size: 20px;
+	font-weight: var(--tdv-font-weight-bold);
 }
 
 .annotation-text-input {
-	background: rgb(255 255 255 / 10%);
-	border: 1px solid rgb(255 0 0 / 50%);
-	border-radius: 3px;
-	padding: 5px 8px;
-	color: white;
-	font-size: 12px;
 	width: 100%;
+	height: 36px;
+	box-sizing: border-box;
+	padding: 0 12px;
+	background: var(--tdv-hud-sunken-bg);
+	border: 2px solid var(--tdv-hud-border);
+	border-radius: 8px;
+	color: var(--tdv-hud-text);
+	font-family: inherit;
+	font-size: var(--tdv-font-size-body);
 }
 
 .annotation-text-input::placeholder {
-	color: #ccc;
+	color: var(--tdv-hud-text-secondary);
 }
 
 .annotation-text-input:focus {
 	outline: none;
-	border-color: #f00;
-	background: rgb(255 255 255 / 15%);
+	border-color: var(--tdv-hud-text);
 }
 
-.annotation-point {
-	display: flex;
-	flex-direction: column;
-	gap: 2px;
-}
-
-.point-label {
-	font-size: 12px;
-	color: #ccc;
-}
-
-.point-coords {
+.annotation-sync-pill {
+	display: inline-flex;
+	align-items: center;
+	padding: 2px 9px;
+	background: var(--tdv-hud-chip-bg);
+	border-radius: 10px;
+	color: var(--tdv-hud-text);
 	font-size: 11px;
-	color: #aaa;
-	font-family: monospace;
+	font-weight: var(--tdv-font-weight-bold);
+	white-space: nowrap;
+}
+
+.annotation-sync-pill.sync-loading,
+.annotation-sync-pill.sync-saving {
+	color: var(--tdv-hud-warning);
+}
+
+.annotation-sync-pill.sync-saved {
+	color: var(--tdv-hud-success);
+}
+
+.annotation-sync-pill.sync-error {
+	color: var(--tdv-hud-error);
 }
 
 @media (width <= 768px) {
-	.annotation-overlay {
-		top: var(--overlay-mobile-top-spacing);
-		inset-inline: var(--overlay-mobile-side-spacing);
-		max-width: none;
+	/* Nothing to step aside from: the tools panel is a bottom sheet at this width. */
+	.canvas-panel,
+	.canvas-panel.is-offset {
+		top: calc(var(--tdv-topbar-height) + 10px);
+		inset-inline: 10px;
+		width: auto;
 		max-height: 300px;
 	}
 
-	.annotation-header {
-	flex-direction: column;
-		gap: 10px;
-		align-items: stretch;
-}
-
-	.clear-annotations-btn {
-	width: 100%;
-		padding: 8px;
+	.canvas-panel-content {
+		padding: 12px 14px 14px;
 	}
 }
 
@@ -5377,10 +5266,5 @@ export default {
 
 [dir="rtl"] .performance-stats {
 	inset-inline: auto 10px;
-}
-
-[dir="rtl"] .measurement-overlay,
-[dir="rtl"] .annotation-overlay {
-	/* Top-center aligned, no change needed */
 }
 </style>

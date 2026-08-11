@@ -8,7 +8,7 @@
  * A gate that blocks a ready pull request is not a safe failure: it is the one that
  * teaches people to merge past it.
  */
-import { assess, latestPerName, stateOf, timeOf } from '../../scripts/pr-ready-lib.mjs'
+import { REQUIRED, assess, latestPerName, stateOf, timeOf } from '../../scripts/pr-ready-lib.mjs'
 
 /** A CheckRun as `gh pr view --json statusCheckRollup` returns it. */
 const run = (name, conclusion, status = 'COMPLETED', times = {}) => ({
@@ -20,16 +20,16 @@ const run = (name, conclusion, status = 'COMPLETED', times = {}) => ({
 	completedAt: times.completedAt ?? (conclusion ? '2026-07-28T05:01:00Z' : ''),
 })
 
-/** Every required check, passing. */
-const allRequiredPassing = () => [
-	run('eslint', 'SUCCESS'),
-	run('jest-tests', 'SUCCESS'),
-	run('node', 'SUCCESS'),
-	run('php-lint-summary', 'SUCCESS'),
-	run('phpunit-summary', 'SUCCESS'),
-	run('phpunit-integration-summary', 'SUCCESS'),
-	run('static-psalm-analysis-summary', 'SUCCESS'),
-]
+/**
+ * Every required check, passing.
+ *
+ * Built from `REQUIRED` rather than listed again. A second copy of the list makes adding
+ * a check fail these tests for the wrong reason — not because the gate is broken, but
+ * because the fixture is out of date — and the temptation then is to edit the fixture
+ * until it agrees, which is how a gate ends up tested against a set of checks it no
+ * longer enforces.
+ */
+const allRequiredPassing = () => REQUIRED.map((name) => run(name, 'SUCCESS'))
 
 describe('stateOf', () => {
 	it('reads a finished CheckRun from its conclusion', () => {
@@ -170,7 +170,7 @@ describe('assess', () => {
 	})
 
 	it('treats an empty rollup as every required check missing', () => {
-		expect(assess([]).missing).toHaveLength(7)
-		expect(assess(undefined).missing).toHaveLength(7)
+		expect(assess([]).missing).toEqual(REQUIRED)
+		expect(assess(undefined).missing).toEqual(REQUIRED)
 	})
 })
