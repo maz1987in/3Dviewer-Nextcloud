@@ -1,4 +1,3 @@
-/* global THREE */
 /**
  * Validation utilities for input validation and data checking
  */
