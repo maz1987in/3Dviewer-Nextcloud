@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- The release workflow reported success when nothing was published. The app store step was `continue-on-error`, so a failed publish went green at the step, the job and the run — v3.5.0 was tagged, built and released with nothing on the store and nothing anywhere to say so. That flag is gone, and a step after it asks the store whether it is serving the release, checking the platform range and download URL as well as the version.
+
 ## [3.5.0] - 2026-08-11
 
 The viewer is redrawn on a themeable design system: the Theme control now moves the whole viewer rather than only the scene, every control is a Material Design icon instead of an emoji, and the top bar, tools panel, slicer dialog, performance HUD and the measurement and annotation surfaces follow the design sheet. Also carries three.js r185, the move to ESLint flat config, and the security fixes listed below.
