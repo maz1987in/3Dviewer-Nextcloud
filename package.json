@@ -71,7 +71,7 @@
     "@types/jest": "^30.0.0",
     "babel-jest": "^30.3.0",
     "eslint": "^10.8.1",
-    "eslint-plugin-n": "^17.24.0",
+    "eslint-plugin-n": "^18.3.0",
     "jest": "^30.3.0",
     "jest-environment-jsdom": "^30.3.0",
     "postcss": "^8.4.49",
