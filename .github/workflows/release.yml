@@ -111,12 +111,28 @@ jobs:
     environment: Prod
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.build-and-release.outputs.tag }}
+          persist-credentials: false
+
+      - name: Set up node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Deliberately not continue-on-error. It was, and a failed publish then reported
+      # success at the step, the job and the run - which is how v3.5.0 came to be
+      # tagged, built and released with nothing on the store and nothing going red.
       - name: Publish to Nextcloud App Store
         uses: R0Wi/nextcloud-appstore-push-action@v1
-        continue-on-error: true
         with:
           app_name: threedviewer
           appstore_token: ${{ secrets.APPSTORE_TOKEN }}
           app_private_key: ${{ secrets.APP_PRIVATE_KEY }}
           download_url: https://github.com/${{ github.repository }}/releases/download/${{ needs.build-and-release.outputs.tag }}/threedviewer-${{ needs.build-and-release.outputs.tag }}.tar.gz
 
+      # The action above can report success without publishing, so ask the store.
+      - name: Verify the store is serving the release
+        run: node scripts/verify-appstore-release.mjs --tag ${{ needs.build-and-release.outputs.tag }}
