@@ -57,7 +57,7 @@
     "web-ifc": "^0.0.77"
   },
   "devDependencies": {
-    "@babel/core": "^7.29.0",
+    "@babel/core": "^8.0.1",
     "@babel/plugin-proposal-object-rest-spread": "^7.20.7",
     "@babel/plugin-syntax-dynamic-import": "^7.8.3",
     "@babel/plugin-transform-runtime": "^7.29.0",
