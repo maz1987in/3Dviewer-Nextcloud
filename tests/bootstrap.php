@@ -114,3 +114,10 @@ if (!class_exists('Doctrine\\DBAL\\Types\\Type')) {
 if (!class_exists('OCA\\Files_Sharing\\Event\\BeforeTemplateRenderedEvent')) {
     require_once __DIR__ . '/stubs/Files_Sharing_BeforeTemplateRenderedEvent.php';
 }
+
+// AddContentSecurityPolicyEvent is public API whose constructor takes a private server
+// class. Without this stub the event cannot be built outside a full server, and the CSP
+// listener would go untested.
+if (!class_exists('OC\\Security\\CSP\\ContentSecurityPolicyManager')) {
+    require_once __DIR__ . '/stubs/ContentSecurityPolicyManager.php';
+}

@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- STEP, IGES, BREP and FCSTD files failed to open with `EvalError: call to Function() blocked by CSP`, and no page let the viewer compile WebAssembly at all. The OCCT runtime is rewritten at build time to stop compiling its bindings with `new Function`, and the app now adds `'wasm-unsafe-eval'` — never `'unsafe-eval'` — through Nextcloud's additive CSP event, so CAD and IFC models open from the Files app without an administrator editing the policy ([#169](https://github.com/maz1987in/3Dviewer-Nextcloud/issues/169)).
 - The release workflow reported success when nothing was published. The app store step was `continue-on-error`, so a failed publish went green at the step, the job and the run — v3.5.0 was tagged, built and released with nothing on the store and nothing anywhere to say so. That flag is gone, and a step after it asks the store whether it is serving the release, checking the platform range and download URL as well as the version.
 
 ## [3.5.0] - 2026-08-11

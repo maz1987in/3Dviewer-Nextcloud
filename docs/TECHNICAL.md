@@ -1701,7 +1701,7 @@ meshopt/ (optional, not currently used)
 #### Packaging Considerations
 
 - Ensure `draco/` and `basis/` directories are included in the distributed app tarball. (They are plain static assets; no build fingerprints.)
-- CSP must allow loading the Wasm modules. A future CSP rule adjustment will add the required `wasm-unsafe-eval` or appropriate `script-src`/`worker-src` allowances.
+- CSP must allow compiling the Wasm modules. `lib/Listener/CspListener.php` adds `'wasm-unsafe-eval'` through `AddContentSecurityPolicyEvent`, so it applies on the Files app and public share pages as well as the app's own routes. `'unsafe-eval'` is never requested — Nextcloud 34 removed the API for it — which is why `scripts/occt-no-eval.mjs` rewrites the `occt-import-js` glue at build time to stop compiling its bindings with `new Function`. That rewrite matches the published glue exactly and fails the build when it no longer applies, so bumping `occt-import-js` may require updating it.
 
 #### Troubleshooting
 

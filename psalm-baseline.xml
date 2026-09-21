@@ -910,6 +910,11 @@
       <code><![CDATA[ServerEnvironmentTest]]></code>
     </UnusedClass>
   </file>
+  <file src="tests/stubs/ContentSecurityPolicyManager.php">
+    <UnusedClass>
+      <code><![CDATA[ContentSecurityPolicyManager]]></code>
+    </UnusedClass>
+  </file>
   <file src="tests/stubs/Files_Sharing_BeforeTemplateRenderedEvent.php">
     <PossiblyUnusedMethod>
       <code><![CDATA[__construct]]></code>
@@ -977,6 +982,14 @@
     </UndefinedClass>
     <UnusedClass>
       <code><![CDATA[FileIndexMapperFolderTest]]></code>
+    </UnusedClass>
+  </file>
+  <file src="tests/unit/Listener/CspListenerTest.php">
+    <UndefinedClass>
+      <code><![CDATA[TestCase]]></code>
+    </UndefinedClass>
+    <UnusedClass>
+      <code><![CDATA[CspListenerTest]]></code>
     </UnusedClass>
   </file>
   <file src="tests/unit/Listener/LoadPublicShareListenerTest.php">
