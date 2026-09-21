@@ -1,4 +1,5 @@
 import { createAppConfig } from "@nextcloud/vite-config";
+import { occtNoEval } from "./scripts/occt-no-eval.mjs";
 
 export default createAppConfig(
   {
@@ -12,6 +13,9 @@ export default createAppConfig(
     inlineCSS: false,
     // Decoder assets are now copied by scripts/copy-decoders.mjs via prebuild script
     config: {
+      // The OCCT glue compiles its bindings with `new Function`, which Nextcloud's CSP
+      // blocks; rewrite it to closures as it is bundled (#169).
+      plugins: [occtNoEval()],
       build: {
         target: 'es2022', // Support top-level await
         chunkSizeWarningLimit: 600, // Increase limit to 600kB (gzipped sizes are reasonable)

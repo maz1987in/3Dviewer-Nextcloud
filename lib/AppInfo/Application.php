@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OCA\ThreeDViewer\AppInfo;
 
 use OCA\Files_Sharing\Event\BeforeTemplateRenderedEvent as PublicShareTemplateRenderedEvent;
+use OCA\ThreeDViewer\Listener\CspListener;
 use OCA\ThreeDViewer\Listener\FileIndexListener;
 use OCA\ThreeDViewer\Listener\LoadFilesListener;
 use OCA\ThreeDViewer\Listener\LoadPublicShareListener;
@@ -23,6 +24,7 @@ use OCP\Files\Events\Node\NodeDeletedEvent;
 use OCP\Files\Events\Node\NodeWrittenEvent;
 use OCP\IL10N;
 use OCP\IURLGenerator;
+use OCP\Security\CSP\AddContentSecurityPolicyEvent;
 
 class Application extends App implements IBootstrap
 {
@@ -78,8 +80,11 @@ class Application extends App implements IBootstrap
         $context->registerEventListener(NodeWrittenEvent::class, FileIndexListener::class);
         $context->registerEventListener(NodeDeletedEvent::class, FileIndexListener::class);
 
-        // CSP modifications are now only applied to 3D viewer routes via PageController
-        // This prevents conflicts with other apps' CSP requirements
+        // Source allowances (blob:, data:) are only applied to 3D viewer routes via
+        // ResponseBuilder, which prevents conflicts with other apps' CSP requirements.
+        // The one exception is WebAssembly: the viewer opens inside the Files app, whose
+        // policy is the server's, so that has to be contributed through the additive event.
+        $context->registerEventListener(AddContentSecurityPolicyEvent::class, CspListener::class);
     }
 
     public function boot(IBootContext $context): void
