@@ -60,7 +60,7 @@ A measurement stores only its two points. The distance is recalculated on load, 
 
 ### Validation (`NotesService`)
 
-- Payload at most 4 KB of JSON, and annotation text at most 2,000 characters.
+- Annotation text at most 2,000 characters, and the whole stored payload at most 10 KB of JSON. The byte cap is set above what 2,000 characters can need, so emoji, CJK text and quotes are never rejected by it; 4 KB, the figure first agreed, would have rejected about 1,000 emoji.
 - Coordinates must be finite numbers.
 - Unknown keys are rejected, and `type` must match the payload shape.
 - At most 1,000 notes per model.
@@ -73,7 +73,7 @@ Access is worked out on every request from the model file itself, never from the
   - No node found returns **404**, so the response doesn't reveal that the file exists.
   - Otherwise the user can read, and `canEdit` is true if any node found is updateable (`isUpdateable()`). One file can be visible at more than one path.
 - **Public links:** access goes through a controller that extends `PublicShareController`. That is where Nextcloud enforces share passwords, expiry and brute-force protection; the same approach fixed GHSA-gjh8-x4wm-3cfj. `ShareFileService::getFileFromShare()` confirms the file ID belongs to the share. Public links are always read-only, and author fields are left out of public responses so user names aren't shown to anonymous visitors.
-- **CSRF:** write routes require Nextcloud's request token. The new routes don't carry `#[NoCSRFRequired]`, unlike the current annotation routes.
+- **CSRF:** every signed-in route requires Nextcloud's request token, including `GET`. None carries `#[NoCSRFRequired]`, unlike the current annotation routes. `GET` needs the token as well because it runs the legacy migration, which publishes a user's private annotations to everyone who can open the model; a forged cross-site request must not be able to set that off. The read-only public route keeps `#[NoCSRFRequired]`, the way `PublicFileController` does.
 
 ## API
 
@@ -101,14 +101,16 @@ This runs inside `GET /api/notes/{fileId}` whenever the caller still has a legac
 
 When the viewer sees a note with `space: "scene"`, it converts the point with `modelRoot.worldToLocal()`. If `canEdit` is true, it saves the converted payload back once with `PATCH`.
 
+Two tabs opening the same model at once must not migrate twice. The migration takes an exclusive lock on the user and file, and re-reads the legacy document once it holds the lock; a request that can't get the lock skips the migration.
+
 ## Viewer behaviour
 
 A new composable, `useSharedNotes`, owns all traffic to the server. `useAnnotation` and `useMeasurement` keep drawing and editing, and report changes to `useSharedNotes` instead of saving themselves. The whole-document autosave in `ThreeViewer.vue` is removed.
 
 - **Load:** after the model loads, the viewer fetches its notes (from the public route on a share page) and draws them. Comparison mode is skipped, as today.
-- **Add:** the note is drawn straight away and saved with `POST`. When the server answers, its ID replaces the temporary one. If the save fails, the note is marked unsaved and a toast offers Retry or Discard.
+- **Add:** the note is drawn straight away and saved with `POST`. When the server answers, its ID replaces the temporary one. If the save fails, the note is marked unsaved, its entry in the panel shows Retry and Discard buttons, and a toast says it wasn't saved. The buttons sit in the panel rather than the toast because the app's toasts can't hold actions.
 - **Edit text:** saved per note with `PATCH`, 600 ms after typing stops.
-- **Delete:** `DELETE` for that one note.
+- **Delete:** `DELETE` for that one note. "Clear all" asks for confirmation first, because it deletes the notes for everyone.
 - **Read-only** (`canEdit` false):
   - Adding an annotation is disabled, with a tooltip saying the model is view-only.
   - Measuring still works, but the new measurements are labelled "Not saved" and aren't sent to the server.
