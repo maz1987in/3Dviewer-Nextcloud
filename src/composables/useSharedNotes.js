@@ -9,7 +9,9 @@
  * model's api must finish against that same api even if load() has since moved on to another
  * model, and a load() that's been superseded by a newer one must never draw its results or
  * touch status/canEdit. Every server call therefore runs against the api (and "generation")
- * it started with, captured once and reused for every follow-up of that same operation.
+ * it started with, captured once and reused for every follow-up of that same operation — and
+ * every point sent in that call is converted through the model root captured at the same time,
+ * since getModelRoot() would otherwise hand a later follow-up the wrong model's transform.
  */
 
 import { ref, readonly } from 'vue'
@@ -35,16 +37,24 @@ export function useSharedNotes({ annotation, measurement, getModelRoot, notify =
 	let api = null
 	let generation = 0
 	const textTimers = new Map()
-	// The api (and load generation) each item was created or loaded under, so a follow-up
-	// save/delete always targets the model it belongs to, even after load() moves on.
+	// The api, load generation, and model root each item was created or loaded under, so a
+	// follow-up save/delete always targets the model it belongs to, even after load() moves on
+	// to a different one (a different api, and a different transform to convert points through).
 	const itemApi = new WeakMap()
 
 	const tools = { annotation, measurement }
 
 	const isCurrent = (gen) => gen === generation
 
-	const payloadFor = (kind, item) => {
-		const root = getModelRoot()
+	/**
+	 * @param {'annotation'|'measurement'} kind - the note kind
+	 * @param {object} item - the reactive list entry
+	 * @param {?THREE.Object3D} [root] - the model root to convert through; defaults to the
+	 *   model loaded right now, for the very first save of a brand-new item. Every follow-up
+	 *   passes the root captured for that item so it keeps converting through its own model.
+	 * @return {object} the payload to send to the notes API
+	 */
+	const payloadFor = (kind, item, root = getModelRoot()) => {
 		const toModel = (p) => (root ? sceneToModel(p, root) : toPlain(p))
 		if (kind === 'annotation') {
 			return { space: 'model', point: toModel(item.point), text: item.text }
@@ -87,10 +97,10 @@ export function useSharedNotes({ annotation, measurement, getModelRoot, notify =
 		if (item.meta.deleted || item.meta.noteId === null) {
 			return
 		}
-		const { api: opApi, gen } = itemApi.get(item) ?? { api, gen: generation }
+		const { api: opApi, gen, root } = itemApi.get(item) ?? { api, gen: generation, root: undefined }
 		if (isCurrent(gen)) status.value = 'saving'
 		try {
-			await opApi.update(item.meta.noteId, payloadFor('annotation', item))
+			await opApi.update(item.meta.noteId, payloadFor('annotation', item, root))
 			item.meta.saveState = 'saved'
 			setStatusAfterSave(gen)
 		} catch (error) {
@@ -118,14 +128,20 @@ export function useSharedNotes({ annotation, measurement, getModelRoot, notify =
 	}
 
 	const create = async (kind, item) => {
-		const opApi = api
-		const gen = generation
-		itemApi.set(item, { api: opApi, gen })
+		// A retry reuses the api/generation/root the item was first created under; a brand-new
+		// item captures them now, from whatever is current.
+		const existing = itemApi.get(item)
+		const opApi = existing ? existing.api : api
+		const gen = existing ? existing.gen : generation
+		const root = existing ? existing.root : getModelRoot()
+		if (!existing) {
+			itemApi.set(item, { api: opApi, gen, root })
+		}
 		item.meta.saveState = 'saving'
 		if (isCurrent(gen)) status.value = 'saving'
 		const sent = kind === 'annotation' ? item.text : null
 		try {
-			const note = await opApi.create(kind, payloadFor(kind, item))
+			const note = await opApi.create(kind, payloadFor(kind, item, root))
 			item.meta.noteId = note.id
 			item.meta.author = note.author ?? null
 			item.meta.saveState = 'saved'
@@ -184,11 +200,12 @@ export function useSharedNotes({ annotation, measurement, getModelRoot, notify =
 		const { payload } = note
 		if (note.type === 'annotation') {
 			const item = annotation.addAnnotationFromNote(pointToScene(payload.point, payload.space, root), payload.text, meta)
-			itemApi.set(item, { api: notesApi, gen })
+			itemApi.set(item, { api: notesApi, gen, root })
 			if (payload.space === 'scene' && saveState === 'saved' && root) {
 				// A migrated pre-3.6 annotation: save it back in model space, once. Uses the
-				// api this load started with, not whatever load() may have moved on to since.
-				notesApi.update(meta.noteId, payloadFor('annotation', item)).catch((error) => {
+				// api and root this load started with, not whatever load() may have moved on
+				// to since.
+				notesApi.update(meta.noteId, payloadFor('annotation', item, root)).catch((error) => {
 					logger.warn('useSharedNotes', 'Legacy note conversion failed; retried on next open', { error: error?.message })
 				})
 			}
@@ -198,7 +215,7 @@ export function useSharedNotes({ annotation, measurement, getModelRoot, notify =
 				pointToScene(payload.points[1], payload.space, root),
 				meta,
 			)
-			itemApi.set(item, { api: notesApi, gen })
+			itemApi.set(item, { api: notesApi, gen, root })
 		}
 	}
 

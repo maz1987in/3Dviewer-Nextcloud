@@ -60,6 +60,21 @@ function setup() {
 	return { annotation, measurement, notify, root, notes }
 }
 
+/*
+ * Like setup(), but getModelRoot() reads a variable the test can swap out — so a test can tell
+ * whether a follow-up save converted its point through the model it started on (rootA) or
+ * whatever model happens to be loaded when the follow-up actually runs (rootB).
+ */
+function setupSwappableRoot() {
+	const annotation = fakeTool('a')
+	const measurement = fakeTool('m')
+	const notify = jest.fn()
+	const state = { root: new THREE.Group() }
+	state.root.position.set(10, 0, 0)
+	const notes = useSharedNotes({ annotation, measurement, getModelRoot: () => state.root, notify })
+	return { annotation, measurement, notify, notes, state }
+}
+
 const flushPromises = () => new Promise(resolve => setTimeout(resolve, 0))
 
 beforeEach(() => jest.useRealTimers())
@@ -306,21 +321,25 @@ test('delete during save across a model switch removes the note from the model i
 	expect(apiB.remove).not.toHaveBeenCalled()
 })
 
+/** Review focus: the follow-up save must convert through the note's own model, not the newly loaded one. */
 test('text typed during the first save across a model switch is sent to the model it was created on', async () => {
 	let resolveCreate
 	const apiA = fakeApi({ create: jest.fn(() => new Promise(r => { resolveCreate = r })) })
 	const apiB = fakeApi()
-	const { annotation, notes } = setup()
+	const { annotation, notes, state } = setupSwappableRoot()
 	await notes.load(apiA)
 	const item = annotation.userAdd({ point: new THREE.Vector3(10, 0, 0), text: 'A' })
 
 	annotation.userEditText(item, 'Typed early')
+	const rootB = new THREE.Group()
+	rootB.position.set(100, 0, 0)
+	state.root = rootB
 	await notes.load(apiB)
 	resolveCreate({ id: 55, author: null })
 	await flushPromises()
 	await notes.flush()
 
-	expect(apiA.update).toHaveBeenCalledWith(55, expect.objectContaining({ text: 'Typed early' }))
+	expect(apiA.update).toHaveBeenCalledWith(55, { space: 'model', point: { x: 0, y: 0, z: 0 }, text: 'Typed early' })
 	expect(apiB.update).not.toHaveBeenCalled()
 })
 
@@ -337,6 +356,26 @@ test('a pending debounced edit at switch time is sent to the model it was typed 
 	await flushPromises()
 
 	expect(apiA.update).toHaveBeenCalledWith(100, { space: 'model', point: { x: 0, y: 0, z: 0 }, text: 'Ab' })
+	expect(apiB.update).not.toHaveBeenCalled()
+})
+
+/** Review focus: getModelRoot() has already moved on to rootB by the time this follow-up runs. */
+test('a text edit saved after a model switch converts through the model the note was created on, not the newly loaded one', async () => {
+	const apiA = fakeApi()
+	const apiB = fakeApi()
+	const { annotation, notes, state } = setupSwappableRoot()
+	await notes.load(apiA)
+	const item = annotation.userAdd({ point: new THREE.Vector3(11, 0, 0), text: 'A' })
+	await flushPromises() // let the create finish, note takes its server id
+
+	annotation.userEditText(item, 'Ab')
+	const rootB = new THREE.Group()
+	rootB.position.set(100, 0, 0)
+	state.root = rootB
+	await notes.load(apiB)
+	await flushPromises()
+
+	expect(apiA.update).toHaveBeenCalledWith(100, { space: 'model', point: { x: 1, y: 0, z: 0 }, text: 'Ab' })
 	expect(apiB.update).not.toHaveBeenCalled()
 })
 
