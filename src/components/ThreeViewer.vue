@@ -2520,7 +2520,7 @@ export default {
 
 		/**
 		 * Handle model export
-		 * @param {string} format - Export format (glb, stl, obj)
+		 * @param {string} format - Export format (glb, stl, obj, ply, 3mf, usdz, zip)
 		 */
 		const handleExport = async (format) => {
 			if (!modelRoot.value) {
@@ -2585,6 +2585,23 @@ export default {
 						message: t('threedviewer', 'Model exported as {name}', { name: `${baseFilename}.obj` }),
 					})
 					break
+				case 'ply':
+				case '3mf':
+				case 'usdz': {
+					const ext = format.toLowerCase()
+					const exporters = {
+						ply: exportComposable.exportAsPLY,
+						'3mf': exportComposable.exportAs3MF,
+						usdz: exportComposable.exportAsUSDZ,
+					}
+					await exporters[ext](modelRoot.value, baseFilename)
+					emit('push-toast', {
+						type: 'success',
+						title: t('threedviewer', 'Export Successful'),
+						message: t('threedviewer', 'Model exported as {name}', { name: `${baseFilename}.${ext}` }),
+					})
+					break
+				}
 				case 'zip':
 					if (!modelSourceFiles.value || modelSourceFiles.value.length <= 1) {
 						emit('push-toast', {

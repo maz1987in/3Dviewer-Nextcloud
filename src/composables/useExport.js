@@ -1,6 +1,6 @@
 /**
  * Export composable for 3D model export functionality
- * Supports GLB, STL, and OBJ formats
+ * Supports GLB, STL, OBJ, PLY, 3MF and USDZ formats
  */
 
 import { ref, readonly } from 'vue'
@@ -339,6 +339,105 @@ export function useExport() {
 	}
 
 	/**
+	 * Run one export: produce the file's bytes, then hand them to the browser as a
+	 * download, tracking progress and errors the same way for every format.
+	 * @param {object} spec
+	 * @param {string} spec.label - format name for progress and logs
+	 * @param {THREE.Object3D} spec.object - what to export
+	 * @param {string} spec.filename - base filename, without extension
+	 * @param {string} spec.extension - file extension, without the dot
+	 * @param {string} spec.mimeType - MIME type of the file
+	 * @param {Function} spec.produce - async (object) => file contents
+	 * @return {Promise<void>}
+	 */
+	const runExport = async ({ label, object, filename, extension, mimeType, produce }) => {
+		if (!object) {
+			throw new Error('No object provided for export')
+		}
+
+		exporting.value = true
+		exportError.value = null
+		exportProgress.value = { stage: `Preparing ${label} export...`, percentage: 0 }
+
+		try {
+			logger.info('useExport', `Starting ${label} export`, { filename })
+
+			exportProgress.value = { stage: `Exporting geometry to ${label}...`, percentage: 40 }
+			const result = await produce(object)
+
+			const blob = new Blob([result], { type: mimeType })
+			const sizeMB = (blob.size / 1024 / 1024).toFixed(2)
+			logger.info('useExport', `${label} export complete`, { filename, sizeMB: `${sizeMB}MB` })
+
+			exportProgress.value = { stage: 'Triggering download...', percentage: 95 }
+			triggerDownload(blob, `${filename}.${extension}`)
+
+			exportProgress.value = { stage: 'Export complete!', percentage: 100 }
+			exporting.value = false
+		} catch (error) {
+			logger.error('useExport', `${label} export error`, error)
+			exportError.value = error.message
+			exporting.value = false
+			throw error
+		}
+	}
+
+	/**
+	 * Export model as binary PLY (meshes with vertex colours; common for scans)
+	 * @param {THREE.Object3D} object - 3D object to export
+	 * @param {string} filename - Base filename (without extension)
+	 * @return {Promise<void>}
+	 */
+	const exportAsPLY = (object, filename = 'model') => runExport({
+		label: 'PLY',
+		object,
+		filename,
+		extension: 'ply',
+		mimeType: 'model/ply',
+		produce: async (obj) => {
+			const { PLYExporter } = await import('three/examples/jsm/exporters/PLYExporter.js')
+			// parse(object, onDone, options): the options are the third argument
+			return new PLYExporter().parse(obj, null, { binary: true, littleEndian: true })
+		},
+	})
+
+	/**
+	 * Export model as 3MF (the slicers' native format; Z-up, millimetres)
+	 * @param {THREE.Object3D} object - 3D object to export
+	 * @param {string} filename - Base filename (without extension)
+	 * @return {Promise<void>}
+	 */
+	const exportAs3MF = (object, filename = 'model') => runExport({
+		label: '3MF',
+		object,
+		filename,
+		extension: '3mf',
+		mimeType: 'model/3mf',
+		produce: async (obj) => {
+			const { build3MF } = await import('../utils/threeMFWriter.js')
+			return build3MF(obj)
+		},
+	})
+
+	/**
+	 * Export model as USDZ (opens in AR Quick Look on iPhone and iPad)
+	 * @param {THREE.Object3D} object - 3D object to export
+	 * @param {string} filename - Base filename (without extension)
+	 * @return {Promise<void>}
+	 */
+	const exportAsUSDZ = (object, filename = 'model') => runExport({
+		label: 'USDZ',
+		object,
+		filename,
+		extension: 'usdz',
+		mimeType: 'model/vnd.usdz+zip',
+		produce: async (obj) => {
+			const { USDZExporter } = await import('three/examples/jsm/exporters/USDZExporter.js')
+			return new USDZExporter().parseAsync(obj)
+		},
+	})
+
+	/**
 	 * Export source files as a ZIP archive (model + textures + materials)
 	 * @param {File[]} sourceFiles - Array of File objects from loading pipeline
 	 * @param {string} filename - Base filename (without extension)
@@ -425,6 +524,9 @@ export function useExport() {
 		exportAsGLTF,
 		exportAsSTL,
 		exportAsOBJ,
+		exportAsPLY,
+		exportAs3MF,
+		exportAsUSDZ,
 		exportAsZIP,
 		clearError,
 	}
