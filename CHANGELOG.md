@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- three.js r185 → r186. The Babel config moves from `package.json` to a project-wide `babel.config.json`: r186's CommonJS entry only re-exports the ES module build, and a `package.json` config never reaches files inside `node_modules`, so Jest could no longer load `three`.
+
 ## [3.5.1] - 2026-09-21
 
 CAD models open again on Nextcloud 34: STEP, IGES, BREP and FCSTD no longer need `'unsafe-eval'`, which the server stopped letting apps request.
