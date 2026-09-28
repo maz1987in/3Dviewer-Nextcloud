@@ -54,7 +54,7 @@
     "three": "^0.185.1",
     "vue": "^3.5.33",
     "vue-material-design-icons": "^5.3.1",
-    "web-ifc": "^0.0.77"
+    "web-ifc": "^0.0.78"
   },
   "devDependencies": {
     "@babel/core": "^7.29.0",
