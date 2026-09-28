@@ -36,6 +36,10 @@ class PublicNotesControllerTest extends TestCase
         $this->assertFalse($controller->isAuthenticated());
     }
 
+    /**
+     * The id in the URL (99) differs from the file the share resolves to (7), as on a
+     * single-file share: notes must be listed for the resolved file, never the requested id.
+     */
     public function testListsTheSharedFilesNotesWithoutAuthors(): void
     {
         $file = $this->createMock(File::class);
@@ -43,10 +47,10 @@ class PublicNotesControllerTest extends TestCase
         $notes = $this->createMock(NotesService::class);
         $note = new Note();
         $note->setId(3);
-        $notes->method('list')->with(7)->willReturn([$note]);
+        $notes->expects($this->once())->method('list')->with(7)->willReturn([$note]);
         $notes->expects($this->once())->method('serialize')->with($note, false)->willReturn(['id' => 3, 'author' => null]);
 
-        $response = $this->controller($this->createMock(IShare::class), $notes, $file)->index('tok', 7);
+        $response = $this->controller($this->createMock(IShare::class), $notes, $file)->index('tok', 99);
 
         $this->assertSame(200, $response->getStatus());
         $this->assertSame(['canEdit' => false, 'notes' => [['id' => 3, 'author' => null]]], $response->getData());

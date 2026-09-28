@@ -105,9 +105,13 @@ class NotesHttpTest extends HttpTestCase
     {
         $owner = $this->newUser();
         $model = $this->newModel($owner);
-        [$client] = $this->session($owner);
+        [$client, $token] = $this->session($owner);
 
-        $this->assertNotSame(200, $client->get(self::notesUrl($model->getId()))->getStatusCode());
+        $without = $client->get(self::notesUrl($model->getId()));
+        $with = $client->get(self::notesUrl($model->getId()), ['headers' => ['requesttoken' => $token]]);
+
+        $this->assertSame(200, $with->getStatusCode(), 'the same session with its token is accepted, so the login worked');
+        $this->assertSame(412, $without->getStatusCode(), 'a failed CSRF check answers 412 Precondition Failed');
     }
 
     /**
@@ -131,6 +135,27 @@ class NotesHttpTest extends HttpTestCase
         $this->assertSame('Drop-7c1e', self::json($read)['notes'][0]['payload']['text']);
         $this->assertSame(404, $drop->getStatusCode());
         $this->assertStringNotContainsString('Drop-7c1e', (string) $drop->getBody());
+    }
+
+    /**
+     * A single-file link resolves to its own file whatever id the caller sends, so another
+     * model of the same owner cannot be reached by swapping the id in the URL.
+     */
+    public function testASingleFileLinkIgnoresAnotherModelsId(): void
+    {
+        $owner = $this->newUser();
+        $shared = $this->newModel($owner, 'shared.stl');
+        $other = $this->newModel($owner, 'other.stl');
+        $client = $this->basic($owner);
+        $this->assertSame(201, $client->post(self::notesUrl($shared->getId()), ['json' => self::annotation('Shared-3b8d')])->getStatusCode());
+        $this->assertSame(201, $client->post(self::notesUrl($other->getId()), ['json' => self::annotation('Other-5e4a')])->getStatusCode());
+        $token = $this->shareByLink($shared, $owner);
+
+        $response = $this->anonymous()->get(self::publicNotesUrl($token, $other->getId()), ['headers' => ['OCS-APIRequest' => 'true']]);
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertSame('Shared-3b8d', self::json($response)['notes'][0]['payload']['text']);
+        $this->assertStringNotContainsString('Other-5e4a', (string) $response->getBody());
     }
 
     public function testAPasswordProtectedLinkWithoutThePasswordReturnsNoNotes(): void
