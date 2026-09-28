@@ -103,8 +103,13 @@ class GCodeLoader extends BaseLoader {
 				})
 			}
 
-			const line = new THREE.Line(geometry, material)
+			// Positions are stored as start/end pairs, one pair per move. A `Line` would join
+			// the end of each move to the start of the next, drawing the very travel moves
+			// the parser filtered out; `LineSegments` draws each pair on its own.
+			const line = new THREE.LineSegments(geometry, material)
 			line.name = `Layer_${index + 1}`
+			// Read by the layer slider (useGcodeLayers) to group and label layers
+			line.userData.gcodeLayerZ = layers[index]?.z ?? null
 			gcodeGroup.add(line)
 		})
 

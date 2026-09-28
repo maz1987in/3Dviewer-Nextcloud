@@ -292,6 +292,25 @@
 										:value="explodedViewFactor"
 										@input="emit('set-exploded-factor', parseFloat($event.target.value))">
 								</div>
+								<!-- G-code layers: step through a print the way a slicer preview does -->
+								<div v-if="gcodeLayerCount > 1" class="tool-group gcode-layers">
+									<label class="tool-label-small" for="gcode-layer-slider">
+										{{ t('threedviewer', 'Layer {current} of {total}', { current: gcodeLayer, total: gcodeLayerCount }) }}
+										<span v-if="gcodeLayerZ !== null" class="gcode-layer-z">Z {{ Number(gcodeLayerZ).toFixed(2) }}</span>
+									</label>
+									<input id="gcode-layer-slider"
+										type="range"
+										class="clipping-slider"
+										min="1"
+										:max="gcodeLayerCount"
+										step="1"
+										:value="gcodeLayer"
+										@input="emit('set-gcode-layer', parseInt($event.target.value, 10))">
+									<label class="toggle-row" @click.prevent="emit('toggle-gcode-single-layer')">
+										<span class="toggle-switch" :class="{ on: gcodeSingleLayer }" />
+										<span class="toggle-text">{{ t('threedviewer', 'Only this layer') }}</span>
+									</label>
+								</div>
 								<!-- Transform Gizmo -->
 								<button class="tool-btn feature-btn"
 									:class="{ 'active': transformGizmoActive }"
@@ -633,6 +652,11 @@ export default {
 		explodedViewActive: { type: Boolean, default: false },
 		explodedViewAvailable: { type: Boolean, default: false },
 		explodedViewFactor: { type: Number, default: 0 },
+		// G-code layer slider
+		gcodeLayerCount: { type: Number, default: 0 },
+		gcodeLayer: { type: Number, default: 0 },
+		gcodeLayerZ: { type: Number, default: null },
+		gcodeSingleLayer: { type: Boolean, default: false },
 
 		// Mobile detection
 		isMobile: { type: Boolean, default: false },
@@ -696,6 +720,8 @@ export default {
 		'remove-bookmark',
 		'toggle-exploded-view',
 		'set-exploded-factor',
+		'set-gcode-layer',
+		'toggle-gcode-single-layer',
 	],
 
 	setup(props, { emit }) {
@@ -1177,6 +1203,16 @@ export default {
 	font-size: 12px;
 	font-weight: 400;
 	color: var(--tdv-color-text-secondary);
+}
+
+/* The layer number on the left, its height on the right */
+.gcode-layers .tool-label-small {
+	display: flex;
+	justify-content: space-between;
+}
+
+.gcode-layer-z {
+	font-family: var(--tdv-font-mono);
 }
 
 /* Clip selector */

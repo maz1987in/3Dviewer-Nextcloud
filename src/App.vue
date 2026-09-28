@@ -126,6 +126,10 @@
 					:exploded-view-active="explodedViewActive"
 					:exploded-view-available="explodedViewAvailable"
 					:exploded-view-factor="explodedViewFactor"
+					:gcode-layer-count="gcodeLayerCount"
+					:gcode-layer="gcodeLayer"
+					:gcode-layer-z="gcodeLayerZ"
+					:gcode-single-layer="gcodeSingleLayer"
 					:is-mobile="isMobile"
 					:cache-stats="cacheStats"
 					:custom-palette="customPalette"
@@ -175,6 +179,8 @@
 					@apply-lighting-preset="onApplyLightingPreset"
 					@toggle-exploded-view="onToggleExplodedView"
 					@set-exploded-factor="onSetExplodedFactor"
+					@set-gcode-layer="onSetGcodeLayer"
+					@toggle-gcode-single-layer="onToggleGcodeSingleLayer"
 					@add-bookmark="onAddBookmark"
 					@load-bookmark="onLoadBookmark"
 					@remove-bookmark="onRemoveBookmark" />
@@ -374,6 +380,11 @@ export default {
 			explodedViewActive: false,
 			explodedViewAvailable: false,
 			explodedViewFactor: 0,
+			// G-code layer slider
+			gcodeLayerCount: 0,
+			gcodeLayer: 0,
+			gcodeLayerZ: null,
+			gcodeSingleLayer: false,
 			// WebXR
 			webxrSupported: false,
 			webxrActive: false,
@@ -1326,6 +1337,9 @@ export default {
 					this.explodedViewActive = ev.isActive?.value ?? ev.isActive ?? false
 					this.explodedViewFactor = ev.factor?.value ?? ev.factor ?? 0
 				}
+				if (viewer.gcodeLayers) {
+					this.syncGcodeLayers()
+				}
 				// Transform gizmo state (synced from composable, same pattern as clipping)
 				if (viewer.transformGizmo) {
 					this.transformGizmoActive = viewer.transformGizmo.isActive?.value ?? viewer.transformGizmo.isActive ?? false
@@ -1426,6 +1440,25 @@ export default {
 				this.$refs.viewer.explodedView.setFactor(factor)
 				this.explodedViewFactor = factor
 			}
+		},
+		// G-code layer slider
+		syncGcodeLayers() {
+			const gl = this.$refs.viewer?.gcodeLayers
+			if (!gl) return
+			this.gcodeLayerCount = gl.layerCount.value
+			this.gcodeLayer = gl.currentLayer.value
+			this.gcodeLayerZ = gl.currentZ.value
+			this.gcodeSingleLayer = gl.singleLayer.value
+		},
+		onSetGcodeLayer(layer) {
+			this.$refs.viewer?.gcodeLayers?.setLayer(layer)
+			this.syncGcodeLayers()
+		},
+		onToggleGcodeSingleLayer() {
+			const gl = this.$refs.viewer?.gcodeLayers
+			if (!gl) return
+			gl.setSingleLayer(!gl.singleLayer.value)
+			this.syncGcodeLayers()
 		},
 		// Bookmarks
 		onAddBookmark() {
