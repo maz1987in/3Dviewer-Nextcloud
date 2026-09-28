@@ -61,6 +61,20 @@ class NotesHttpTest extends HttpTestCase
         $this->assertSame('New', self::json($response)['payload']['text']);
     }
 
+    public function testDeleteAnswers204WithAnEmptyBody(): void
+    {
+        $owner = $this->newUser();
+        $model = $this->newModel($owner);
+        $client = $this->basic($owner);
+        $noteId = self::json($client->post(self::notesUrl($model->getId()), ['json' => self::annotation('Gone')]))['id'];
+
+        $response = $client->delete(self::notesUrl($model->getId(), $noteId));
+
+        $this->assertSame(204, $response->getStatusCode());
+        $this->assertSame('', (string) $response->getBody());
+        $this->assertSame(0, self::noteCount($model->getId()));
+    }
+
     public function testAStrangerGets404NotForbidden(): void
     {
         $owner = $this->newUser();

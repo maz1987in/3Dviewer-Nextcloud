@@ -16,6 +16,7 @@ use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\FrontpageRoute;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\JSONResponse;
+use OCP\AppFramework\Http\Response;
 use OCP\ICacheFactory;
 use OCP\IRequest;
 use OCP\IUserSession;
@@ -118,7 +119,7 @@ class NotesController extends BaseController
 
     #[NoAdminRequired]
     #[FrontpageRoute(verb: 'DELETE', url: '/api/notes/{fileId}/{noteId}')]
-    public function destroy(int $fileId, int $noteId): JSONResponse
+    public function destroy(int $fileId, int $noteId): Response
     {
         [, $access] = $this->resolve($fileId);
         if ($access === null) {
@@ -134,7 +135,11 @@ class NotesController extends BaseController
             return $this->notFound();
         }
 
-        return new JSONResponse(null, Http::STATUS_NO_CONTENT);
+        // A plain Response: a JSONResponse would send the body `null` with a 204.
+        $response = new Response();
+        $response->setStatus(Http::STATUS_NO_CONTENT);
+
+        return $response;
     }
 
     /**

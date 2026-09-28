@@ -15,6 +15,7 @@ use OCA\ThreeDViewer\Service\NotesService;
 use OCA\ThreeDViewer\Service\ResponseBuilder;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
+use OCP\AppFramework\Http\JSONResponse;
 use OCP\ICache;
 use OCP\ICacheFactory;
 use OCP\IRequest;
@@ -140,7 +141,11 @@ class NotesControllerTest extends TestCase
         $this->access->method('forUser')->willReturn(new NoteAccessResult(true));
         $this->notes->expects($this->once())->method('delete')->with(7, 1);
 
-        $this->assertSame(204, $this->controller->destroy(7, 1)->getStatus());
+        $response = $this->controller->destroy(7, 1);
+
+        $this->assertSame(204, $response->getStatus());
+        $this->assertNotInstanceOf(JSONResponse::class, $response, 'a 204 carries no body, not the JSON `null`');
+        $this->assertSame('', $response->render());
     }
 
     private function note(int $id): Note
