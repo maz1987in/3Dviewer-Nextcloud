@@ -29,6 +29,7 @@ class NotesService
     /** @var array<string, ?string> display names already looked up in this request */
     private array $displayNames = [];
 
+    /** @psalm-suppress PossiblyUnusedMethod Constructed by the DI container */
     public function __construct(
         private readonly NoteMapper $mapper,
         private readonly AnnotationsService $legacy,
@@ -234,7 +235,7 @@ class NotesService
             if (!is_array($annotation)) {
                 continue;
             }
-            $text = is_string($annotation['text'] ?? null) ? mb_substr($annotation['text'], 0, NotePayload::MAX_TEXT_CHARS) : '';
+            $text = isset($annotation['text']) && is_string($annotation['text']) ? mb_substr($annotation['text'], 0, NotePayload::MAX_TEXT_CHARS) : '';
 
             try {
                 $payload = NotePayload::validate('annotation', [
@@ -245,7 +246,7 @@ class NotesService
             } catch (InvalidNoteException) {
                 continue;
             }
-            $timestamp = is_string($annotation['timestamp'] ?? null) ? strtotime($annotation['timestamp']) : false;
+            $timestamp = isset($annotation['timestamp']) && is_string($annotation['timestamp']) ? strtotime($annotation['timestamp']) : false;
             $items[] = ['payload' => $payload, 'createdAt' => $timestamp === false ? $this->time->getTime() : $timestamp];
         }
 

@@ -6,6 +6,7 @@ namespace OCA\ThreeDViewer\Service;
 
 use OCP\Files\File;
 use OCP\Files\IRootFolder;
+use OCP\Files\Node;
 use OCP\Files\NotPermittedException;
 
 /**
@@ -13,9 +14,12 @@ use OCP\Files\NotPermittedException;
  *
  * Never from the note: a note has no permissions of its own, so anything that asked the
  * note would be asking the wrong thing.
+ *
+ * @psalm-suppress MissingDependency Nextcloud runtime provides dependent classes in full environment.
  */
 class NoteAccess
 {
+    /** @psalm-suppress PossiblyUnusedMethod Constructed by the DI container */
     public function __construct(
         private readonly IRootFolder $rootFolder,
     ) {
@@ -36,7 +40,7 @@ class NoteAccess
 
         $nodes = $home->getById($fileId);
 
-        $files = array_filter($nodes, static fn ($node) => $node instanceof File);
+        $files = array_filter($nodes, static fn (Node $node): bool => $node instanceof File);
         if ($files === []) {
             return null;
         }

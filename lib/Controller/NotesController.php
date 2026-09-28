@@ -27,6 +27,8 @@ use Psr\Log\LoggerInterface;
  * No route carries NoCSRFRequired — the read included, because it runs the legacy
  * migration, and that publishes a user's private annotations to everyone who can open
  * the model.
+ *
+ * @psalm-suppress UnusedClass Routed via attribute registration in Nextcloud runtime.
  */
 class NotesController extends BaseController
 {

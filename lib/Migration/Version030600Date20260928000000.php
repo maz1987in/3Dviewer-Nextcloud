@@ -13,6 +13,8 @@ use OCP\Migration\SimpleMigrationStep;
 /**
  * Creates the shared notes table: one row per annotation or measurement, keyed by the
  * model's file id so a note follows the model through moves and renames.
+ *
+ * @psalm-suppress UnusedClass Discovered by the migration runner at runtime.
  */
 class Version030600Date20260928000000 extends SimpleMigrationStep
 {

@@ -11,9 +11,12 @@ use Psr\Log\LoggerInterface;
 
 /**
  * Removes notes whose model has been permanently deleted.
+ *
+ * @psalm-suppress UnusedClass Registered via info.xml background-jobs at runtime.
  */
 class CleanupOrphanNotes extends TimedJob
 {
+    /** @psalm-suppress PossiblyUnusedMethod Constructed by the DI container */
     public function __construct(
         ITimeFactory $time,
         private readonly NoteMapper $mapper,
@@ -24,7 +27,7 @@ class CleanupOrphanNotes extends TimedJob
         $this->setTimeSensitivity(self::TIME_INSENSITIVE);
     }
 
-    protected function run($argument): void
+    protected function run(mixed $argument): void
     {
         $deleted = $this->mapper->deleteOrphans();
         if ($deleted > 0) {

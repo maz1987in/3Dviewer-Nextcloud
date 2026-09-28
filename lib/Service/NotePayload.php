@@ -37,7 +37,10 @@ final class NotePayload
         if (!in_array($type, self::TYPES, true)) {
             throw new InvalidNoteException('Unknown note type');
         }
-        if (!is_array($payload) || ($payload !== [] && array_is_list($payload))) {
+        if (!is_array($payload)) {
+            throw new InvalidNoteException('Payload must be an object');
+        }
+        if ($payload !== [] && array_is_list($payload)) {
             throw new InvalidNoteException('Payload must be an object');
         }
 

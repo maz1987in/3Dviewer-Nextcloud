@@ -17,6 +17,7 @@ class NoteMapper extends QBMapper
     /** Keeps each IN (...) list well under every database's parameter limit. */
     private const DELETE_CHUNK = 500;
 
+    /** @psalm-suppress PossiblyUnusedMethod Constructed by the DI container */
     public function __construct(IDBConnection $db)
     {
         parent::__construct($db, 'threedviewer_notes', Note::class);
@@ -84,10 +85,7 @@ class NoteMapper extends QBMapper
             ->where($qb->expr()->isNull('f.fileid'));
 
         $result = $qb->executeQuery();
-        $orphanFileIds = [];
-        while (($fileId = $result->fetchOne()) !== false) {
-            $orphanFileIds[] = (int) $fileId;
-        }
+        $orphanFileIds = array_map('intval', $result->fetchAll(\PDO::FETCH_COLUMN));
         $result->closeCursor();
 
         $deleted = 0;
