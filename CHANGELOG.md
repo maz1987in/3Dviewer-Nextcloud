@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - three.js r185 → r186. The Babel config moves from `package.json` to a project-wide `babel.config.json`: r186's CommonJS entry only re-exports the ES module build, and a `package.json` config never reaches files inside `node_modules`, so Jest could no longer load `three`.
+- Babel 7 → 8 for the Jest transform. `@babel/plugin-proposal-object-rest-spread`, `@babel/plugin-syntax-dynamic-import` and `@babel/plugin-transform-runtime` are dropped: no config referenced them, and the first had no Babel 8 release. Babel 8 needs Node 22.18 or later, so `engines.node` and `.nvmrc` move to 22.18.
 
 ## [3.5.1] - 2026-09-21
 
