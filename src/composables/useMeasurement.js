@@ -23,6 +23,55 @@ const MEASUREMENT_SIZING = (VIEWER_CONFIG.visualSizing && VIEWER_CONFIG.visualSi
 	labelWidthPercent: 20,
 }
 
+// Distance takes two clicks; angle takes three, the middle one being the vertex
+export const MEASUREMENT_MODES = ['distance', 'angle']
+
+/**
+ * Angle at `vertex` between the legs to `point1` and `point2`, in degrees.
+ * @param {THREE.Vector3} point1
+ * @param {THREE.Vector3} vertex
+ * @param {THREE.Vector3} point2
+ * @return {number} 0..180, or 0 when a leg has no length
+ */
+export function computeAngle(point1, vertex, point2) {
+	const a = new THREE.Vector3().subVectors(point1, vertex)
+	const b = new THREE.Vector3().subVectors(point2, vertex)
+	if (a.lengthSq() === 0 || b.lengthSq() === 0) return 0
+	return THREE.MathUtils.radToDeg(a.angleTo(b))
+}
+
+/**
+ * Reading for an angle; degrees are the same whatever the length unit.
+ * @param {number} angle - degrees
+ * @return {object} value, formatted, unit, suffix
+ */
+export function formatAngle(angle) {
+	return {
+		value: angle,
+		formatted: `${angle.toFixed(2)}°`,
+		unit: 'deg',
+		suffix: '°',
+	}
+}
+
+/**
+ * Where an angle's label goes: a little way from the vertex, inside the angle, so it
+ * sits between the legs rather than on top of the vertex marker.
+ * @param {THREE.Vector3} point1
+ * @param {THREE.Vector3} vertex
+ * @param {THREE.Vector3} point2
+ * @return {THREE.Vector3}
+ */
+function angleLabelPosition(point1, vertex, point2) {
+	const a = new THREE.Vector3().subVectors(point1, vertex)
+	const b = new THREE.Vector3().subVectors(point2, vertex)
+	const reach = Math.min(a.length(), b.length()) * 0.35
+	const bisector = a.normalize().add(b.normalize())
+	// Legs pointing opposite ways have no bisector; the vertex itself will do
+	if (bisector.lengthSq() < 1e-8) return vertex.clone()
+	return vertex.clone().add(bisector.normalize().multiplyScalar(reach))
+}
+
 export function useMeasurement() {
 	// Measurement state
 	const isActive = ref(false)
@@ -38,15 +87,19 @@ export function useMeasurement() {
 	// Scene reference
 	const sceneRef = shallowRef(null)
 
-	// Visual elements
+	// Distance or angle
+	const mode = ref('distance')
+	const requiredPoints = computed(() => (mode.value === 'angle' ? 3 : 2))
+
+	// Visual elements. Kept out of reactive state: the scene holds the real objects, and
+	// a proxy of one is a different object as far as `remove` is concerned.
 	const measurementGroup = shallowRef(null)
-	const pointMeshes = ref([])
-	const lineMeshes = ref([])
-	const textMeshes = ref([])
+	const pendingPointMeshes = [] // markers for points not yet part of a measurement
+	const measurementObjects = new Map() // measurement id -> { points, lines, text }
 
 	// Computed properties
 	const hasPoints = computed(() => points.value.length > 0)
-	const canMeasure = computed(() => points.value.length >= 2)
+	const canMeasure = computed(() => points.value.length >= requiredPoints.value)
 	const measurementCount = computed(() => measurements.value.length)
 
 	// Initialize measurement system
@@ -125,14 +178,9 @@ export function useMeasurement() {
 		const oldUnit = currentUnit.value
 		currentUnit.value = unit
 		// Recalculate all existing measurements
-		measurements.value = measurements.value.map(m => {
-			const converted = convertDistance(m.distance)
-			const updated = {
-				...m,
-				...converted,
-			}
-			return updated
-		})
+		measurements.value = measurements.value.map(m => (m.type === 'angle'
+			? m
+			: { ...m, ...convertDistance(m.distance) }))
 		// Update all text labels on 3D objects
 		updateAllTextLabels()
 		logger.info('useMeasurement', 'Unit changed', { unit, oldUnit, measurementCount: measurements.value.length })
@@ -155,10 +203,9 @@ export function useMeasurement() {
 
 		modelScale.value = scale
 		// Recalculate all existing measurements
-		measurements.value = measurements.value.map(m => ({
-			...m,
-			...convertDistance(m.distance),
-		}))
+		measurements.value = measurements.value.map(m => (m.type === 'angle'
+			? m
+			: { ...m, ...convertDistance(m.distance) }))
 		// Update all text labels on 3D objects
 		updateAllTextLabels()
 		logger.info('useMeasurement', 'Model scale updated', { scale })
@@ -166,38 +213,26 @@ export function useMeasurement() {
 
 	// Update all text labels on 3D objects with current measurement values
 	const updateAllTextLabels = () => {
-		if (!measurementGroup.value || textMeshes.value.length === 0) {
+		if (!measurementGroup.value) {
 			return
 		}
 
 		try {
-			// Update each text mesh with corresponding measurement
-			measurements.value.forEach((measurement, index) => {
-				if (index < textMeshes.value.length) {
-					const textMesh = textMeshes.value[index]
+			measurements.value.forEach((measurement) => {
+				// An angle reads the same in any unit
+				if (measurement.type === 'angle') return
+				const textMesh = measurementObjects.get(measurement.id)?.text
+				if (!textMesh) return
 
-					// Use formatted value with current unit
-					// If formatted is not up to date, recalculate it
-					let displayText = measurement.formatted
-					if (!displayText || !measurement.formatted) {
-						const converted = convertDistance(measurement.distance)
-						displayText = converted.formatted
-						// Update the measurement object with the correct formatted value
-						measurement.formatted = converted.formatted
-						measurement.suffix = converted.suffix
-						measurement.value = converted.value
-					}
+				const displayText = measurement.formatted || convertDistance(measurement.distance).formatted
 
-					// One updater, shared with the annotation labels: it re-measures the text,
-					// so a reading that gets longer when the unit changes is redrawn rather than
-					// clipped by the canvas it was first drawn into.
-					updateTextMesh(textMesh, displayText, {
-						textColor: MARKER_COLORS.measurement,
-						bgColor: MARKER_COLORS.labelSurface,
-					})
-
-					// Keep label at its current position — only text content changes when switching units
-				}
+				// One updater, shared with the annotation labels: it re-measures the text,
+				// so a reading that gets longer when the unit changes is redrawn rather than
+				// clipped by the canvas it was first drawn into.
+				updateTextMesh(textMesh, displayText, {
+					textColor: MARKER_COLORS.measurement,
+					bgColor: MARKER_COLORS.labelSurface,
+				})
 			})
 		} catch (error) {
 			logError('useMeasurement', 'Failed to update text labels', error)
@@ -250,29 +285,44 @@ export function useMeasurement() {
 		points.value.push(point.clone())
 
 		// Create visual indicator for the point
-		createPointIndicator(point)
+		pendingPointMeshes.push(createPointIndicator(point))
 
-		// If we have 2 points, create a measurement
-		if (points.value.length === 2) {
+		// Two clicks make a distance, three make an angle
+		if (points.value.length >= requiredPoints.value) {
 			createMeasurement()
 		}
 	}
 
-	// Create visual indicator for a point
-	const createPointIndicator = (point) => {
-		if (!measurementGroup.value) return
+	// Remove a scene object and free what it holds on the GPU
+	const disposeObject = (object) => {
+		if (!object) return
+		const raw = toRaw(object)
+		if (raw.parent) raw.parent.remove(raw)
+		raw.geometry?.dispose()
+		if (raw.material) {
+			raw.material.map?.dispose()
+			raw.material.dispose()
+		}
+	}
 
+	// Size of a marker, as a percentage of the model, clamped to a band around it
+	const markerSize = (percent, fallback, minFactor, maxFactor) => {
 		// The real bounding box rather than the reverse-calculated value from visualScale,
 		// which is clamped and greatly overestimates the size of a small model.
 		const modelMaxDim = getModelMaxDimension(sceneRef.value, visualScale.value / 0.005)
+		const basePercent = typeof percent === 'number' ? percent : fallback
+		const target = modelMaxDim * (basePercent / 100)
+		const min = modelMaxDim * ((basePercent * minFactor) / 100)
+		const max = modelMaxDim * ((basePercent * maxFactor) / 100)
+		return Math.min(Math.max(target, min), max)
+	}
 
-		// Use a small percentage of the model size for the measurement point radius,
-		// driven by configuration (default ~1.5% of model size, clamped between ~1% and ~3%)
-		const basePercent = typeof MEASUREMENT_SIZING.pointSizePercent === 'number' ? MEASUREMENT_SIZING.pointSizePercent : 1.5
-		const targetRadius = modelMaxDim * (basePercent / 100)
-		const minRadius = modelMaxDim * ((basePercent * 0.666) / 100) // ~2/3 of target → ~1% when base is 1.5%
-		const maxRadius = modelMaxDim * ((basePercent * 2) / 100) // 2x target → ~3% when base is 1.5%
-		const pointRadius = Math.min(Math.max(targetRadius, minRadius), maxRadius)
+	// Create visual indicator for a point
+	const createPointIndicator = (point) => {
+		if (!measurementGroup.value) return null
+
+		// Default ~1.5% of model size, clamped between ~1% and ~3%
+		const pointRadius = markerSize(MEASUREMENT_SIZING.pointSizePercent, 1.5, 0.666, 2)
 
 		// Create sphere directly to bypass the 0.02 cap in createMarkerSphere
 		const geometry = new THREE.SphereGeometry(pointRadius, 16, 16)
@@ -287,65 +337,75 @@ export function useMeasurement() {
 		sphere.name = `measurementPoint_${points.value.length}`
 		sphere.renderOrder = 999
 
-		// Add to scene
 		measurementGroup.value.add(sphere)
-		pointMeshes.value.push(sphere)
-
+		return sphere
 	}
 
-	// Create measurement between two points
+	// Create a measurement from the points collected so far
 	const createMeasurement = () => {
-		if (points.value.length < 2) return
+		const required = requiredPoints.value
+		if (points.value.length < required) return
 
-		const point1 = points.value[points.value.length - 2]
-		const point2 = points.value[points.value.length - 1]
+		const picked = points.value.slice(-required).map(p => p.clone())
+		const id = Date.now() + Math.random()
+		let measurement
 
-		// Calculate distance in Three.js units
-		const distance = point1.distanceTo(point2)
-
-		// Convert to real-world units
-		const converted = convertDistance(distance)
-
-		// Create measurement object
-		const measurement = {
-			id: Date.now(),
-			point1: point1.clone(),
-			point2: point2.clone(),
-			distance, // Raw Three.js distance
-			...converted, // Add value, formatted, unit, suffix
-			midpoint: new THREE.Vector3().addVectors(point1, point2).multiplyScalar(0.5),
+		if (required === 3) {
+			const [point1, vertex, point2] = picked
+			const angle = computeAngle(point1, vertex, point2)
+			measurement = {
+				id,
+				type: 'angle',
+				point1,
+				vertex,
+				point2,
+				angle,
+				...formatAngle(angle),
+				midpoint: angleLabelPosition(point1, vertex, point2),
+			}
+		} else {
+			const [point1, point2] = picked
+			const distance = point1.distanceTo(point2)
+			measurement = {
+				id,
+				type: 'distance',
+				point1,
+				point2,
+				distance, // Raw Three.js distance
+				...convertDistance(distance), // Add value, formatted, unit, suffix
+				midpoint: new THREE.Vector3().addVectors(point1, point2).multiplyScalar(0.5),
+			}
 		}
 
 		measurements.value.push(measurement)
 		currentMeasurement.value = measurement
 
-		// Create visual line between points
-		createMeasurementLine(measurement)
+		// Legs: one for a distance, two meeting at the vertex for an angle
+		const legs = measurement.type === 'angle'
+			? [[measurement.vertex, measurement.point1], [measurement.vertex, measurement.point2]]
+			: [[measurement.point1, measurement.point2]]
 
-		// Create distance text
-		createDistanceText(measurement)
+		measurementObjects.set(id, {
+			points: pendingPointMeshes.splice(0).filter(Boolean),
+			lines: legs.map(([a, b]) => createMeasurementLine(a, b, id)).filter(Boolean),
+			text: createMeasurementText(measurement.formatted, measurement.midpoint),
+		})
 
 		// Reset for next measurement
 		points.value = []
 	}
 
-	// Create visual line between measurement points
-	const createMeasurementLine = (measurement) => {
-		if (!measurementGroup.value) return
+	// Create visual line between two points
+	const createMeasurementLine = (start, end, id) => {
+		if (!measurementGroup.value) return null
 
-		// Use a thicker, more visible line with tube geometry for WebGL.
-		// Note: linewidth doesn't work in WebGL, so we create a cylinder instead.
-		const direction = new THREE.Vector3().subVectors(measurement.point2, measurement.point1)
+		// linewidth doesn't work in WebGL, so the line is a thin cylinder.
+		const direction = new THREE.Vector3().subVectors(end, start)
 		const distance = direction.length()
-		const modelMaxDim = getModelMaxDimension(sceneRef.value, visualScale.value / 0.005)
+		if (distance === 0) return null
 
-		// Target radius based on configuration (default ~0.8% of model size),
-		// clamped to stay within a reasonable visible range
-		const basePercent = typeof MEASUREMENT_SIZING.lineThicknessPercent === 'number' ? MEASUREMENT_SIZING.lineThicknessPercent : 0.8
-		const targetRadius = modelMaxDim * (basePercent / 100)
-		const minRadius = modelMaxDim * ((basePercent * 0.625) / 100) // ~0.5% when base is 0.8
-		const maxRadius = modelMaxDim * ((basePercent * 1.875) / 100) // ~1.5% when base is 0.8
-		const lineRadius = Math.min(Math.max(targetRadius, minRadius), maxRadius)
+		// Default ~0.8% of model size, clamped between ~0.5% and ~1.5%
+		const lineRadius = markerSize(MEASUREMENT_SIZING.lineThicknessPercent, 0.8, 0.625, 1.875)
 
 		const cylinderGeometry = new THREE.CylinderGeometry(lineRadius, lineRadius, distance, 8)
 		const cylinderMaterial = new THREE.MeshBasicMaterial({
@@ -357,160 +417,100 @@ export function useMeasurement() {
 		const cylinder = new THREE.Mesh(cylinderGeometry, cylinderMaterial)
 
 		// Position and orient the cylinder
-		cylinder.position.copy(measurement.point1).add(direction.multiplyScalar(0.5))
+		cylinder.position.copy(start).add(direction.clone().multiplyScalar(0.5))
 		cylinder.quaternion.setFromUnitVectors(
 			new THREE.Vector3(0, 1, 0),
 			direction.normalize(),
 		)
 		cylinder.renderOrder = 997
-		cylinder.name = `measurementLine_${measurement.id}`
+		cylinder.name = `measurementLine_${id}`
 
 		measurementGroup.value.add(cylinder)
-		lineMeshes.value.push(cylinder)
+		return cylinder
 	}
 
-	// Create distance text
-	const createDistanceText = (measurement) => {
+	// Create the label that shows a measurement's reading
+	const createMeasurementText = (displayText, position) => {
+		if (!measurementGroup.value) return null
 		try {
-			// Use formatted value if available, otherwise show raw distance with units
-			const displayText = measurement.formatted || `${measurement.distance.toFixed(3)} units`
-
 			const modelMaxDim = getModelMaxDimension(sceneRef.value, visualScale.value / 0.005)
 
 			/*
 			 * One number decides how big the reading is: its height, as a percentage of the
 			 * model. Width follows the text, so nothing else needs saying.
-			 *
-			 * What was here computed a scale from three clamps — a minimum that branched on
-			 * whether the model was over one unit, a second minimum, and a cap — then
-			 * multiplied it by a height multiplier that branched again on the result. None
-			 * of the four was about legibility, and together they produced a label 1% of the
-			 * model's height: a smudge, on the one thing a measurement exists to tell you.
 			 */
 			const basePercent = typeof MEASUREMENT_SIZING.labelHeightPercent === 'number' ? MEASUREMENT_SIZING.labelHeightPercent : 4
 			const labelHeight = modelMaxDim * (basePercent / 100)
-			const yOffset = 0.2
 
-			// The texture's own resolution, which is about crispness rather than size —
-			// the label's dimensions in the scene come from `labelHeight` and the text.
+			// The texture's own resolution, which is about crispness rather than size.
 			const fontSize = 48
 			const canvasHeight = 128
 
-			const textMesh = createTextMesh(displayText, measurement.midpoint, {
+			const textMesh = createTextMesh(displayText, position, {
 				scale: labelHeight,
 				heightMultiplier: 1,
-				yOffset,
+				yOffset: 0.2,
 				textColor: MARKER_COLORS.measurement,
 				bgColor: MARKER_COLORS.labelSurface,
 				fontSize,
 				canvasHeight,
-				renderOrder: 998, // Higher render order to be in front of the line (997)
+				renderOrder: 998, // In front of the line (997)
 				name: 'measurementText',
 			})
+			if (!textMesh) return null
 
-			if (textMesh) {
-				// Check if a text mesh already exists for this measurement
-				const existingMeshIndex = textMeshes.value.findIndex((mesh, idx) => {
-					return measurements.value[idx]?.id === measurement.id
-				})
+			// Kept for the in-place texture update when a unit changes.
+			textMesh.userData.originalFontSize = fontSize
+			textMesh.userData.originalCanvasHeight = canvasHeight
 
-				if (existingMeshIndex >= 0) {
-					// Remove existing mesh before adding new one
-					const oldMesh = textMeshes.value[existingMeshIndex]
-					if (oldMesh && oldMesh.parent) {
-						oldMesh.parent.remove(oldMesh)
-						// Dispose geometry and material
-						if (oldMesh.geometry) oldMesh.geometry.dispose()
-						if (oldMesh.material) {
-							if (oldMesh.material.map) oldMesh.material.map.dispose()
-							oldMesh.material.dispose()
-						}
-					}
-					textMeshes.value.splice(existingMeshIndex, 1)
-				}
-
-				// Kept for the in-place texture update when a unit changes.
-				textMesh.userData.originalFontSize = fontSize
-				textMesh.userData.originalCanvasHeight = canvasHeight
-
-				// Double-check mesh isn't already in scene
-				if (!textMesh.parent) {
-					measurementGroup.value.add(textMesh)
-				} else if (textMesh.parent !== measurementGroup.value) {
-					// Mesh is in wrong parent, move it
-					textMesh.parent.remove(textMesh)
-					measurementGroup.value.add(textMesh)
-				}
-
-				// Only add to array if not already present
-				if (!textMeshes.value.includes(textMesh)) {
-					textMeshes.value.push(textMesh)
-				}
-
-			}
+			measurementGroup.value.add(textMesh)
+			return textMesh
 		} catch (error) {
-			logError('useMeasurement', 'Failed to create distance text', error)
+			logError('useMeasurement', 'Failed to create measurement text', error)
+			return null
 		}
 	}
 
-	// Clear current measurement
+	// Clear current measurement (the points picked so far, not the finished ones)
 	const clearCurrentMeasurement = () => {
+		pendingPointMeshes.splice(0).forEach(disposeObject)
 		points.value = []
 		currentMeasurement.value = null
+	}
+
+	// Switch between distance (two clicks) and angle (three clicks)
+	const setMode = (newMode) => {
+		if (!MEASUREMENT_MODES.includes(newMode)) {
+			throw new Error(`Invalid measurement mode: ${newMode}. Available modes: ${MEASUREMENT_MODES.join(', ')}`)
+		}
+		if (mode.value === newMode) return
+		// Points picked for one kind of measurement mean nothing to the other
+		clearCurrentMeasurement()
+		mode.value = newMode
+		logger.info('useMeasurement', 'Mode changed', { mode: newMode })
 	}
 
 	// Delete a single measurement
 	const deleteMeasurement = (measurementId) => {
 		const index = measurements.value.findIndex(m => m.id === measurementId)
-		if (index !== -1) {
-			// Remove visual elements for this measurement
-			if (measurementGroup.value) {
-				// Find and remove point meshes (2 per measurement)
-				// Note: Each measurement has 2 points, but we need to be careful not to delete
-				// points that might be shared with other measurements
-				// For safety, we'll remove line and text, but keep point cleanup simple
+		if (index === -1) return
 
-				// Remove line mesh (toRaw to match Three.js scene reference)
-				if (index < lineMeshes.value.length) {
-					const lineMesh = lineMeshes.value[index]
-					if (lineMesh) {
-						measurementGroup.value.remove(toRaw(lineMesh))
-						lineMeshes.value.splice(index, 1)
-					}
-				}
-
-				// Remove text mesh
-				if (index < textMeshes.value.length) {
-					const textMesh = textMeshes.value[index]
-					if (textMesh) {
-						measurementGroup.value.remove(toRaw(textMesh))
-						textMeshes.value.splice(index, 1)
-					}
-				}
-
-				// Remove point meshes for this measurement (2 points per measurement)
-				// Points are stored sequentially: measurement 0 = points 0,1; measurement 1 = points 2,3; etc.
-				const pointStartIndex = index * 2
-				for (let i = 0; i < 2; i++) {
-					const pointIndex = pointStartIndex
-					if (pointIndex < pointMeshes.value.length) {
-						const pointMesh = pointMeshes.value[pointIndex]
-						if (pointMesh) {
-							measurementGroup.value.remove(toRaw(pointMesh))
-						}
-						pointMeshes.value.splice(pointIndex, 1)
-					}
-				}
-			}
-
-			// Remove from measurements array
-			measurements.value.splice(index, 1)
+		const objects = measurementObjects.get(measurementId)
+		if (objects) {
+			[...objects.points, ...objects.lines, objects.text].forEach(disposeObject)
+			measurementObjects.delete(measurementId)
 		}
+
+		measurements.value.splice(index, 1)
 	}
 
 	// Clear all measurements
 	const clearAllMeasurements = () => {
-		// Remove visual elements
+		measurementObjects.forEach(({ points: p, lines, text }) => [...p, ...lines, text].forEach(disposeObject))
+		measurementObjects.clear()
+		pendingPointMeshes.splice(0).forEach(disposeObject)
+
+		// Anything else left in the group
 		if (measurementGroup.value) {
 			measurementGroup.value.clear()
 		}
@@ -519,9 +519,6 @@ export function useMeasurement() {
 		points.value = []
 		measurements.value = []
 		currentMeasurement.value = null
-		pointMeshes.value = []
-		lineMeshes.value = []
-		textMeshes.value = []
 	}
 
 	// Get measurement summary
@@ -532,9 +529,12 @@ export function useMeasurement() {
 			measurementCount: measurements.value.length,
 			currentUnit: currentUnit.value,
 			modelScale: modelScale.value,
+			mode: mode.value,
 			measurements: measurements.value.map(m => ({
 				id: m.id,
+				type: m.type,
 				distance: m.distance,
+				angle: m.angle,
 				formattedDistance: m.formatted || `${m.distance.toFixed(3)} units`,
 				value: m.value,
 				unit: m.unit,
@@ -546,16 +546,9 @@ export function useMeasurement() {
 	 * Dispose of measurement resources
 	 */
 	const dispose = () => {
-		// Clear all measurements and points
-		points.value = []
-		measurements.value = []
-		currentMeasurement.value = null
+		// Clear all measurements, points and the objects drawn for them
+		clearAllMeasurements()
 		isActive.value = false
-
-		// Clear visual elements
-		pointMeshes.value = []
-		lineMeshes.value = []
-		textMeshes.value = []
 
 		logger.info('useMeasurement', 'Measurement resources disposed')
 	}
@@ -567,6 +560,7 @@ export function useMeasurement() {
 		measurements: readonly(measurements),
 		currentMeasurement: readonly(currentMeasurement),
 		currentUnit: readonly(currentUnit),
+		mode: readonly(mode),
 		modelScale: readonly(modelScale),
 		visualScale: readonly(visualScale),
 
@@ -574,6 +568,7 @@ export function useMeasurement() {
 		hasPoints,
 		canMeasure,
 		measurementCount,
+		requiredPoints,
 
 		// Methods
 		init,
@@ -583,6 +578,7 @@ export function useMeasurement() {
 		addMeasurementPoint,
 		createMeasurement,
 		clearCurrentMeasurement,
+		setMode,
 		deleteMeasurement,
 		clearAllMeasurements,
 		getMeasurementSummary,

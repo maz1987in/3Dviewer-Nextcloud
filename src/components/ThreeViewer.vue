@@ -557,6 +557,20 @@
 				</button>
 			</div>
 			<div class="canvas-panel-content">
+				<div class="tdv-segmented measurement-mode"
+					role="group"
+					:aria-label="t('threedviewer', 'Measurement type')">
+					<button type="button"
+						:aria-pressed="measurementMode === 'distance' ? 'true' : 'false'"
+						@click="measurement.setMode('distance')">
+						{{ t('threedviewer', 'Distance') }}
+					</button>
+					<button type="button"
+						:aria-pressed="measurementMode === 'angle' ? 'true' : 'false'"
+						@click="measurement.setMode('angle')">
+						{{ t('threedviewer', 'Angle') }}
+					</button>
+				</div>
 				<div class="canvas-panel-actions">
 					<select v-model="currentUnitModel"
 						class="canvas-panel-select"
@@ -576,12 +590,14 @@
 					</button>
 				</div>
 				<p class="canvas-panel-hint">
-					{{ t('threedviewer', 'Click two points on the model to measure.') }}
+					{{ measurementMode === 'angle'
+						? t('threedviewer', 'Click three points on the model; the second is the corner.')
+						: t('threedviewer', 'Click two points on the model to measure.') }}
 				</p>
 				<div class="measurement-list">
 					<div v-for="(m, index) in measurements" :key="m.id" class="canvas-panel-card measurement-item">
 						<div class="canvas-panel-card-header">
-							<span class="canvas-panel-card-title">{{ t('threedviewer', 'Measurement') }} {{ index + 1 }}</span>
+							<span class="canvas-panel-card-title">{{ m.type === 'angle' ? t('threedviewer', 'Angle') : t('threedviewer', 'Measurement') }} {{ index + 1 }}</span>
 							<button type="button"
 								class="tdv-btn tdv-btn--icon canvas-panel-delete"
 								:aria-label="t('threedviewer', 'Delete measurement {number}', { number: index + 1 })"
@@ -596,6 +612,10 @@
 						<div class="canvas-panel-row">
 							<span>{{ t('threedviewer', 'Point 1') }}</span>
 							<span class="point-coords">({{ m.point1.x.toFixed(2) }}, {{ m.point1.y.toFixed(2) }}, {{ m.point1.z.toFixed(2) }})</span>
+						</div>
+						<div v-if="m.vertex" class="canvas-panel-row">
+							<span>{{ t('threedviewer', 'Corner') }}</span>
+							<span class="point-coords">({{ m.vertex.x.toFixed(2) }}, {{ m.vertex.y.toFixed(2) }}, {{ m.vertex.z.toFixed(2) }})</span>
 						</div>
 						<div class="canvas-panel-row">
 							<span>{{ t('threedviewer', 'Point 2') }}</span>
@@ -3704,6 +3724,7 @@ export default {
 			measurementPoints: measurement.points,
 			measurementCount: measurement.measurementCount,
 			measurements: measurement.measurements,
+			measurementMode: measurement.mode,
 
 			// Annotation
 			annotation,
@@ -5189,6 +5210,17 @@ export default {
 	font-family: var(--tdv-font-mono);
 	font-size: 20px;
 	font-weight: var(--tdv-font-weight-bold);
+}
+
+/* Distance or angle: the panel is narrow, so the two halves share its width. */
+.measurement-mode {
+	width: 100%;
+}
+
+.measurement-mode button {
+	flex: 1;
+	height: 32px;
+	padding: 0 12px;
 }
 
 .annotation-text-input {
