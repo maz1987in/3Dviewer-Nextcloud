@@ -325,6 +325,23 @@ export function useClippingPlane() {
 		logger.info('useClippingPlane', 'Clipping plane disposed')
 	}
 
+	/**
+	 * Run something that replaces the model's materials (a render mode) without losing
+	 * the open cut. Double-siding lives on the materials themselves, so the ones leaving
+	 * get their own side back first and the ones arriving are made double-sided after.
+	 * @param {Function} fn - swaps the materials
+	 * @return {*} whatever fn returns
+	 */
+	const aroundMaterialSwap = (fn) => {
+		if (!isActive.value) return fn()
+		restoreSides()
+		try {
+			return fn()
+		} finally {
+			enableDoubleSide()
+		}
+	}
+
 	return {
 		// State
 		isActive,
@@ -347,6 +364,7 @@ export function useClippingPlane() {
 		toggleFlip,
 		setBoxOffset,
 		resetBoxOffsets,
+		aroundMaterialSwap,
 		dispose,
 	}
 }

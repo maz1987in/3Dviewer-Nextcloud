@@ -770,6 +770,7 @@ import { useLightingPresets } from '../composables/useLightingPresets.js'
 import { useBookmarks } from '../composables/useBookmarks.js'
 import { useExplodedView } from '../composables/useExplodedView.js'
 import { useGcodeLayers } from '../composables/useGcodeLayers.js'
+import { useRenderMode } from '../composables/useRenderMode.js'
 import { useTransformGizmo } from '../composables/useTransformGizmo.js'
 import { useWebXR } from '../composables/useWebXR.js'
 import { logger } from '../utils/logger.js'
@@ -865,6 +866,7 @@ export default {
 		const bookmarksComposable = useBookmarks()
 		const explodedView = useExplodedView()
 		const gcodeLayers = useGcodeLayers()
+		const renderMode = useRenderMode()
 		const transformGizmo = useTransformGizmo()
 		const webxr = useWebXR()
 
@@ -1468,6 +1470,9 @@ export default {
 
 					// Collect G-code layers for the layer slider (none for other formats)
 					gcodeLayers.init(modelRoot.value)
+
+					// Keep the render mode the viewer was in for the new model
+					clippingPlane.aroundMaterialSwap(() => renderMode.init(modelRoot.value))
 
 					// Initialize animations if present
 					if (loadedModel.animations && loadedModel.animations.length > 0) {
@@ -2559,6 +2564,9 @@ export default {
 					? props.filename.split('/').pop().split('.')[0]
 					: 'model'
 
+				// Export the model's own materials, not a render mode standing in for them
+				clippingPlane.aroundMaterialSwap(() => renderMode.suspend())
+
 				// Export based on format
 				switch (format.toLowerCase()) {
 				case 'glb':
@@ -2630,7 +2638,17 @@ export default {
 					title: t('threedviewer', 'Export Failed'),
 					message: error.message || t('threedviewer', 'Failed to export model'),
 				})
+			} finally {
+				clippingPlane.aroundMaterialSwap(() => renderMode.resume())
 			}
+		}
+
+		/**
+		 * Draw the model in an inspection shading (standard, clay, normals, xray)
+		 * @param {string} mode - one of RENDER_MODES
+		 */
+		const setRenderMode = (mode) => {
+			clippingPlane.aroundMaterialSwap(() => renderMode.setMode(mode))
 		}
 
 		/**
@@ -3708,6 +3726,7 @@ export default {
 			bookmarksComposable.dispose()
 			explodedView.dispose()
 			gcodeLayers.dispose()
+			renderMode.dispose()
 			transformGizmo.dispose()
 
 			// Dispose performance monitoring
@@ -3802,6 +3821,8 @@ export default {
 			// Exploded view
 			explodedView,
 			gcodeLayers,
+			renderMode,
+			setRenderMode,
 
 			// Camera
 			cameraType: camera.cameraType,
