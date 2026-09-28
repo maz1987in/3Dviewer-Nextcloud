@@ -42,6 +42,7 @@ jobs:
               - 'package-lock.json'
               - 'jest.config.js'
               - 'babel.config.js'
+              - 'babel.config.json'
               - 'tsconfig.json'
               - '**.js'
               - '**.ts'
