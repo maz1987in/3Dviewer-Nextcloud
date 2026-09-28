@@ -7,9 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Annotations and measurements are shared with everyone who can open the model.** They were saved privately per user, and measurements were not saved at all. Now each model has one set of notes: share recipients and public-link visitors see it, and anyone who can edit the model can add, change or delete notes. Each note saves on its own, so two people editing at once never overwrite each other. Each note shows its author, except on public links. Existing private annotations move into the shared set the first time their author opens the model, if that user can edit it; otherwise they stay visible to that user only, marked "Private, not shared".
+- JSON export includes measurements, and import restores them.
+
 ### Changed
 - three.js r185 → r186. The Babel config moves from `package.json` to a project-wide `babel.config.json`: r186's CommonJS entry only re-exports the ES module build, and a `package.json` config never reaches files inside `node_modules`, so Jest could no longer load `three`.
 - Babel 7 → 8 for the Jest transform. `@babel/plugin-proposal-object-rest-spread`, `@babel/plugin-syntax-dynamic-import` and `@babel/plugin-transform-runtime` are dropped: no config referenced them, and the first had no Babel 8 release. Babel 8 needs Node 22.18 or later, so `engines.node` and `.nvmrc` move to 22.18.
+
+### Removed
+- The `/api/annotations/{fileId}` endpoints, replaced by `/api/notes/{fileId}`.
 
 ## [3.5.1] - 2026-09-21
 

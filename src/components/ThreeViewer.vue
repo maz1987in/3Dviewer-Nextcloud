@@ -571,23 +571,43 @@
 					<button type="button"
 						class="canvas-panel-danger"
 						:disabled="measurements.length === 0"
-						@click="measurement.clearAllMeasurements">
+						@click="clearAllMeasurements">
 						{{ t('threedviewer', 'Clear all') }}
 					</button>
 				</div>
 				<p class="canvas-panel-hint">
 					{{ t('threedviewer', 'Click two points on the model to measure.') }}
 				</p>
+				<p v-if="!notesCanEdit" class="canvas-panel-hint">
+					{{ t('threedviewer', 'Measurements you take here aren’t saved.') }}
+				</p>
 				<div class="measurement-list">
 					<div v-for="(m, index) in measurements" :key="m.id" class="canvas-panel-card measurement-item">
 						<div class="canvas-panel-card-header">
 							<span class="canvas-panel-card-title">{{ t('threedviewer', 'Measurement') }} {{ index + 1 }}</span>
-							<button type="button"
+							<button v-if="canChangeNote(m)"
+								type="button"
 								class="tdv-btn tdv-btn--icon canvas-panel-delete"
 								:aria-label="t('threedviewer', 'Delete measurement {number}', { number: index + 1 })"
 								:title="t('threedviewer', 'Delete')"
 								@click="deleteMeasurement(m.id)">
 								<ViewerIcon name="delete" :size="16" />
+							</button>
+						</div>
+						<p v-if="m.meta?.author || noteStateLabel(m)" class="canvas-panel-hint">
+							<span v-if="m.meta?.author">{{ m.meta.author.displayName }}</span>
+							<span v-if="m.meta?.author && noteStateLabel(m)"> · </span>
+							<span v-if="noteStateLabel(m)">{{ noteStateLabel(m) }}</span>
+						</p>
+						<div v-if="m.meta?.saveState === 'failed'" class="canvas-panel-actions">
+							<button type="button" class="tdv-btn" @click="sharedNotes.retry('measurement', m)">
+								{{ t('threedviewer', 'Retry') }}
+							</button>
+							<button v-if="m.meta.noteId === null"
+								type="button"
+								class="canvas-panel-danger"
+								@click="sharedNotes.discard('measurement', m)">
+								{{ t('threedviewer', 'Discard') }}
 							</button>
 						</div>
 						<div class="measurement-distance">
@@ -635,7 +655,8 @@
 				@change="onAnnotationImportFile">
 			<div class="canvas-panel-content">
 				<div class="canvas-panel-actions">
-					<button type="button"
+					<button v-if="notesCanEdit"
+						type="button"
 						class="canvas-panel-outline"
 						:title="t('threedviewer', 'Import annotations from JSON')"
 						@click="triggerAnnotationImport">
@@ -648,13 +669,17 @@
 						@click="exportAnnotationsJSON">
 						{{ t('threedviewer', 'Export') }}
 					</button>
-					<button type="button"
+					<button v-if="notesCanEdit"
+						type="button"
 						class="canvas-panel-danger"
 						:disabled="annotations.length === 0"
 						@click="clearAllAnnotations">
 						{{ t('threedviewer', 'Clear all') }}
 					</button>
 				</div>
+				<p v-if="!notesCanEdit" class="canvas-panel-hint">
+					{{ t('threedviewer', 'This model is view-only for you, so you can’t add annotations.') }}
+				</p>
 				<p class="canvas-panel-hint">
 					{{ t('threedviewer', 'Click the model to place a note at that point.') }}
 				</p>
@@ -662,12 +687,29 @@
 					<div v-for="(annotation, index) in annotations" :key="annotation.id" class="canvas-panel-card annotation-item">
 						<div class="canvas-panel-card-header">
 							<span class="canvas-panel-card-title">{{ t('threedviewer', 'Annotation') }} {{ index + 1 }}</span>
-							<button type="button"
+							<button v-if="canChangeNote(annotation)"
+								type="button"
 								class="tdv-btn tdv-btn--icon canvas-panel-delete"
 								:aria-label="t('threedviewer', 'Delete annotation {number}', { number: index + 1 })"
 								:title="t('threedviewer', 'Delete')"
 								@click="deleteAnnotation(annotation.id)">
 								<ViewerIcon name="delete" :size="16" />
+							</button>
+						</div>
+						<p v-if="annotation.meta?.author || noteStateLabel(annotation)" class="canvas-panel-hint">
+							<span v-if="annotation.meta?.author">{{ annotation.meta.author.displayName }}</span>
+							<span v-if="annotation.meta?.author && noteStateLabel(annotation)"> · </span>
+							<span v-if="noteStateLabel(annotation)">{{ noteStateLabel(annotation) }}</span>
+						</p>
+						<div v-if="annotation.meta?.saveState === 'failed'" class="canvas-panel-actions">
+							<button type="button" class="tdv-btn" @click="sharedNotes.retry('annotation', annotation)">
+								{{ t('threedviewer', 'Retry') }}
+							</button>
+							<button v-if="annotation.meta.noteId === null"
+								type="button"
+								class="canvas-panel-danger"
+								@click="sharedNotes.discard('annotation', annotation)">
+								{{ t('threedviewer', 'Discard') }}
 							</button>
 						</div>
 						<!--
@@ -687,6 +729,7 @@
 						<input
 							:value="annotation.text"
 							class="annotation-text-input"
+							:readonly="!canChangeNote(annotation)"
 							:placeholder="t('threedviewer', 'Enter annotation text...')"
 							@input="updateAnnotationText(annotation.id, $event.target.value)">
 						<div class="canvas-panel-row">
@@ -729,6 +772,9 @@ import { useModelLoading } from '../composables/useModelLoading.js'
 import { useComparison } from '../composables/useComparison.js'
 import { useMeasurement } from '../composables/useMeasurement.js'
 import { useAnnotation } from '../composables/useAnnotation.js'
+import { useSharedNotes } from '../composables/useSharedNotes.js'
+import { createNotesApi } from '../utils/notesApi.js'
+import { getPublicShareContext } from '../composables/usePublicShare.js'
 import { usePerformance } from '../composables/usePerformance.js'
 import { useExport, getGeometryStats } from '../composables/useExport.js'
 import { useModelStats } from '../composables/useModelStats.js'
@@ -829,6 +875,13 @@ export default {
 		const comparison = useComparison()
 		const measurement = useMeasurement()
 		const annotation = useAnnotation()
+		const sharedNotes = useSharedNotes({
+			annotation,
+			measurement,
+			getModelRoot: () => modelRoot.value,
+			notify: (toast) => emit('push-toast', toast),
+			t,
+		})
 		const performance = usePerformance()
 		const exportComposable = useExport()
 		const modelStatsComposable = useModelStats()
@@ -1540,12 +1593,12 @@ export default {
 					measurement.updateVisualScale()
 					annotation.updateModelScale()
 
-					// Auto-load any persisted annotations for this file from the backend.
-					// Skipped for the synthetic 'comparison' fileId since the comparison
-					// model is loaded into the same scene but isn't user-annotatable.
+					// Load the model's shared notes. Skipped for the synthetic 'comparison'
+					// fileId: the comparison model shares the scene but isn't annotatable.
 					if (fileId && fileId !== 'comparison') {
-						annotation.loadFromBackend(fileId, props.filename || '').catch((e) => {
-							logger.warn('ThreeViewer', 'Annotation backend load failed', e)
+						const share = getPublicShareContext()
+						sharedNotes.load(createNotesApi({ fileId, shareToken: share?.token ?? null })).catch((e) => {
+							logger.warn('ThreeViewer', 'Loading notes failed', e)
 						})
 					}
 
@@ -2380,23 +2433,42 @@ export default {
 		// annotation overlay header. Kept as computeds so they react to
 		// status changes without re-renders of the whole overlay.
 		const annotationSyncLabel = computed(() => {
-			switch (annotation.persistenceStatus.value) {
+			switch (sharedNotes.status.value) {
 			case 'loading': return t('threedviewer', 'Loading…')
 			case 'saving': return t('threedviewer', 'Saving…')
 			case 'saved': return t('threedviewer', 'Saved')
 			case 'error': return t('threedviewer', 'Save failed')
+			case 'readonly': return t('threedviewer', 'View only')
 			default: return ''
 			}
 		})
 		const annotationSyncTooltip = computed(() => {
-			switch (annotation.persistenceStatus.value) {
-			case 'loading': return t('threedviewer', 'Loading saved annotations…')
-			case 'saving': return t('threedviewer', 'Saving annotations to your Nextcloud account…')
-			case 'saved': return t('threedviewer', 'Annotations saved to your Nextcloud account')
-			case 'error': return t('threedviewer', 'Failed to sync annotations with the server')
+			switch (sharedNotes.status.value) {
+			case 'loading': return t('threedviewer', 'Loading notes…')
+			case 'saving': return t('threedviewer', 'Saving notes…')
+			case 'saved': return t('threedviewer', 'Shared with everyone who can open this model')
+			case 'error': return t('threedviewer', 'Some notes could not be saved')
+			case 'readonly': return t('threedviewer', 'You can see these notes but not change them')
 			default: return ''
 			}
 		})
+
+		const annotationPersistenceStatus = computed(() => sharedNotes.status.value)
+
+		const notesCanEdit = computed(() => sharedNotes.canEdit.value)
+
+		/** Whether this user may change a given note: shared notes need edit rights. */
+		const canChangeNote = (item) => notesCanEdit.value || ['local', 'private'].includes(item.meta?.saveState)
+
+		const noteStateLabel = (item) => {
+			switch (item.meta?.saveState) {
+			case 'saving': return t('threedviewer', 'Saving…')
+			case 'failed': return t('threedviewer', 'Not saved')
+			case 'local': return t('threedviewer', 'Not saved')
+			case 'private': return t('threedviewer', 'Private, not shared')
+			default: return ''
+			}
+		}
 
 		/**
 		 * Update cache statistics
@@ -2607,15 +2679,33 @@ export default {
 			annotation.updateAnnotationText(annotationId, newText)
 		}
 
+		const confirmClearShared = (count) => !notesCanEdit.value || count === 0
+			|| window.confirm(t('threedviewer', 'Delete all {count} notes for everyone who can open this model?', { count }))
+
 		const clearAllAnnotations = () => {
-			annotation.clearAllAnnotations()
+			if (confirmClearShared(annotation.annotations.value.length)) {
+				annotation.clearAllAnnotations()
+			}
+		}
+
+		const clearAllMeasurements = () => {
+			if (confirmClearShared(measurement.measurements.value.length)) {
+				measurement.clearAllMeasurements()
+			}
 		}
 
 		const annotationImportInput = ref(null)
 
 		const exportAnnotationsJSON = () => {
 			try {
-				const doc = annotation.exportAsJSON(props.filename || '')
+				const doc = {
+					...annotation.exportAsJSON(props.filename || ''),
+					version: 2,
+					measurements: measurement.measurements.value.map(m => ({
+						point1: { x: m.point1.x, y: m.point1.y, z: m.point1.z },
+						point2: { x: m.point2.x, y: m.point2.y, z: m.point2.z },
+					})),
+				}
 				const blob = new Blob([JSON.stringify(doc, null, 2)], { type: 'application/json' })
 				const url = URL.createObjectURL(blob)
 				const link = document.createElement('a')
@@ -2631,7 +2721,7 @@ export default {
 				emit('push-toast', {
 					type: 'success',
 					title: t('threedviewer', 'Annotations exported'),
-					message: t('threedviewer', '{count} annotation(s) saved to JSON', { count: doc.annotations.length }),
+					message: t('threedviewer', '{count} note(s) saved to JSON', { count: doc.annotations.length + doc.measurements.length }),
 				})
 			} catch (error) {
 				logger.error('ThreeViewer', 'Failed to export annotations', error)
@@ -2654,6 +2744,14 @@ export default {
 			try {
 				const text = await file.text()
 				const result = annotation.importFromJSON(text)
+				const parsed = JSON.parse(text)
+				for (const m of Array.isArray(parsed.measurements) ? parsed.measurements : []) {
+					const valid = [m?.point1, m?.point2].every(p => p && [p.x, p.y, p.z].every(Number.isFinite))
+					if (!valid) continue
+					measurement.addMeasurementPoint(new THREE.Vector3(m.point1.x, m.point1.y, m.point1.z))
+					measurement.addMeasurementPoint(new THREE.Vector3(m.point2.x, m.point2.y, m.point2.z))
+					result.added++
+				}
 				emit('push-toast', {
 					type: 'success',
 					title: t('threedviewer', 'Annotations imported'),
@@ -3370,30 +3468,6 @@ export default {
 			}
 		})
 
-		// Debounced auto-save for annotation persistence.
-		// We watch the lightweight summary (count + ids/text) instead of the
-		// raw annotations array because Vue would otherwise re-fire on every
-		// internal Vector3 mutation during point creation.
-		let annotationSaveTimer = null
-		const ANNOTATION_SAVE_DEBOUNCE_MS = 600
-		watch(
-			() => annotation.annotations.value.map(a => `${a.id}:${a.text}`).join('|'),
-			(newSig, oldSig) => {
-				// Skip the very first invocation (oldSig undefined) — that fires
-				// when the watcher is registered, before any user edit.
-				if (oldSig === undefined) return
-				if (!props.fileId || props.fileId === 'comparison') return
-
-				if (annotationSaveTimer) clearTimeout(annotationSaveTimer)
-				annotationSaveTimer = setTimeout(() => {
-					annotationSaveTimer = null
-					annotation.saveToBackend(props.fileId, props.filename || '').catch((e) => {
-						logger.warn('ThreeViewer', 'Annotation backend save failed', e)
-					})
-				}, ANNOTATION_SAVE_DEBOUNCE_MS)
-			},
-		)
-
 		// Emit loading state changes
 		watch(() => modelLoading.isLoading.value, (loading) => {
 			emit('loading-state-changed', loading)
@@ -3618,6 +3692,12 @@ export default {
 		})
 
 		onBeforeUnmount(() => {
+			// Send any note edits still waiting on their debounce before the viewer goes.
+			// Not awaited: the requests carry on after the component is gone.
+			sharedNotes.flush().catch((e) => {
+				logger.warn('ThreeViewer', 'Flushing notes failed', e)
+			})
+
 			// End any active VR session and stop the XR-driven loop
 			if (webxr.isSessionActive.value) {
 				webxr.exitVR()
@@ -3711,7 +3791,11 @@ export default {
 			annotationActive: annotation.isActive,
 			annotations: annotation.annotations,
 			annotationCount: annotation.annotationCount,
-			annotationPersistenceStatus: annotation.persistenceStatus,
+			annotationPersistenceStatus,
+			sharedNotes,
+			notesCanEdit,
+			canChangeNote,
+			noteStateLabel,
 
 			// Comparison
 			isComparisonLoading: comparison.isComparisonLoading,
@@ -3820,6 +3904,7 @@ export default {
 			deleteAnnotation,
 			updateAnnotationText,
 			clearAllAnnotations,
+			clearAllMeasurements,
 			annotationImportInput,
 			exportAnnotationsJSON,
 			triggerAnnotationImport,

@@ -53,6 +53,8 @@ function mountNoteField() {
 				tick,
 				annotation,
 				t: (_app, text) => text,
+				// The field is read-only for notes this user can't change; this one is theirs.
+				canChangeNote: () => true,
 				updateAnnotationText: (id, text) => {
 					if (annotation.id === id) annotation.text = text
 				},
