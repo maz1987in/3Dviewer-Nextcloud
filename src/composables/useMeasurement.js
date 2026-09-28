@@ -482,6 +482,20 @@ export function useMeasurement() {
 		currentMeasurement.value = null
 	}
 
+	/**
+	 * Drop a half-finished measurement: its pending point and that point's sphere.
+	 * Spheres are paired to measurements by index (two each), so an unpaired sphere left
+	 * behind would shift every later pair and make deleteMeasurement remove the wrong ones.
+	 */
+	const cancelPendingPoint = () => {
+		const paired = measurements.value.length * 2
+		for (const sphere of pointMeshes.value.splice(paired)) {
+			measurementGroup.value?.remove(toRaw(sphere))
+		}
+		points.value = []
+		currentMeasurement.value = null
+	}
+
 	// Delete a single measurement
 	const deleteMeasurement = (measurementId, { silent = false } = {}) => {
 		const index = measurements.value.findIndex(m => m.id === measurementId)
@@ -613,6 +627,7 @@ export function useMeasurement() {
 		addMeasurementFromNote,
 		createMeasurement,
 		clearCurrentMeasurement,
+		cancelPendingPoint,
 		deleteMeasurement,
 		clearAllMeasurements,
 		getMeasurementSummary,

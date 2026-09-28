@@ -127,6 +127,25 @@ describe('useMeasurement note hooks', () => {
 		expect(m.measurements.value).toHaveLength(0)
 	})
 
+	/** Importing after one click must not pair the first imported point with the pending one. */
+	test('cancelPendingPoint drops a half-taken measurement and its sphere', () => {
+		const scene = sceneWithModel()
+		const m = useMeasurement()
+		m.init(scene)
+		const spheres = () => scene.getObjectByName('measurementGroup').children
+			.filter(o => o.name.startsWith('measurementPoint_'))
+
+		m.addMeasurementPoint(new THREE.Vector3(5, 5, 5))
+		m.cancelPendingPoint()
+		m.addMeasurementPoint(new THREE.Vector3(0, 0, 0))
+		m.addMeasurementPoint(new THREE.Vector3(1, 0, 0))
+
+		expect(m.measurements.value).toHaveLength(1)
+		expect(m.measurements.value[0].distance).toBeCloseTo(1)
+		expect(m.points.value).toHaveLength(0)
+		expect(spheres()).toHaveLength(2)
+	})
+
 	/** Two notes loaded in the same millisecond must not share an id. */
 	test('ids stay unique when measurements are created back to back', () => {
 		const m = useMeasurement()

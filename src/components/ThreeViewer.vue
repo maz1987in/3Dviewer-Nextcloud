@@ -568,7 +568,8 @@
 							{{ unit.label }}
 						</option>
 					</select>
-					<button type="button"
+					<button v-if="notesCanEdit"
+						type="button"
 						class="canvas-panel-danger"
 						:disabled="measurements.length === 0"
 						@click="clearAllMeasurements">
@@ -2745,6 +2746,8 @@ export default {
 				const text = await file.text()
 				const result = annotation.importFromJSON(text)
 				const parsed = JSON.parse(text)
+				// A half-taken measurement would pair with the first imported point.
+				measurement.cancelPendingPoint()
 				for (const m of Array.isArray(parsed.measurements) ? parsed.measurements : []) {
 					const valid = [m?.point1, m?.point2].every(p => p && [p.x, p.y, p.z].every(Number.isFinite))
 					if (!valid) continue
