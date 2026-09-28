@@ -79,6 +79,21 @@ class NoteMapperTest extends TestCase
         $this->assertSame($kept->getId(), $this->mapper->findInFile($this->fileId, $kept->getId())->getId());
     }
 
+    /** A model in the trash is restorable, so its notes must survive the cleanup. */
+    public function testDeleteOrphansKeepsNotesOfATrashedFile(): void
+    {
+        $home = Server::get(IRootFolder::class)->getUserFolder($this->uid);
+        $trashed = $home->newFile('trashed.stl', 'solid y');
+        $trashedId = $trashed->getId();
+        $note = $this->insert($trashedId, 'survives');
+        $trashed->delete();
+
+        $this->mapper->deleteOrphans();
+
+        $this->assertSame($note->getId(), $this->mapper->findInFile($trashedId, $note->getId())->getId());
+        $this->mapper->delete($note);
+    }
+
     private function insert(int $fileId, string $text): Note
     {
         $note = new Note();
