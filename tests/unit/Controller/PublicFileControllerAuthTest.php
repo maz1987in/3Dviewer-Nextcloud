@@ -11,6 +11,7 @@ use OCA\ThreeDViewer\Service\ModelFileSupport;
 use OCA\ThreeDViewer\Service\PathLocator;
 use OCA\ThreeDViewer\Service\ShareFileService;
 use OCP\AppFramework\PublicShareController;
+use OCP\Constants;
 use OCP\Files\File;
 use OCP\IRequest;
 use OCP\ISession;
@@ -160,6 +161,7 @@ class PublicFileControllerAuthTest extends TestCase
         $share->method('getExpirationDate')->willReturn($expiration);
         $share->method('getShareType')->willReturn($shareType);
         $share->method('getPassword')->willReturn($password);
+        $share->method('getPermissions')->willReturn(Constants::PERMISSION_READ);
 
         return $share;
     }

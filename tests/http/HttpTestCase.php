@@ -10,6 +10,7 @@ use OCA\ThreeDViewer\Db\NoteMapper;
 use OCP\Constants;
 use OCP\Files\File;
 use OCP\Files\IRootFolder;
+use OCP\Files\Node;
 use OCP\IUserManager;
 use OCP\Server;
 use OCP\Share\IManager as ShareManager;
@@ -78,16 +79,19 @@ abstract class HttpTestCase extends TestCase
         $manager->createShare($share);
     }
 
-    /** @return string the share token */
-    protected function shareByLink(File $file, string $owner, ?string $password = null): string
+    /**
+     * @param int $permissions PERMISSION_CREATE alone on a folder makes a file-drop link
+     * @return string the share token
+     */
+    protected function shareByLink(Node $node, string $owner, ?string $password = null, int $permissions = Constants::PERMISSION_READ): string
     {
         $manager = Server::get(ShareManager::class);
         $share = $manager->newShare();
-        $share->setNode($file)
+        $share->setNode($node)
             ->setShareType(IShare::TYPE_LINK)
             ->setSharedBy($owner)
             ->setShareOwner($owner)
-            ->setPermissions(Constants::PERMISSION_READ);
+            ->setPermissions($permissions);
         if ($password !== null) {
             $share->setPassword($password);
         }

@@ -9,6 +9,7 @@ use OCA\ThreeDViewer\Service\ModelDependencyResolver;
 use OCA\ThreeDViewer\Service\ModelFileSupport;
 use OCA\ThreeDViewer\Service\PathLocator;
 use OCA\ThreeDViewer\Service\ShareFileService;
+use OCP\Constants;
 use OCP\Files\File;
 use OCP\Files\NotFoundException;
 use OCP\Share\IManager;
@@ -31,6 +32,7 @@ class ShareFileServiceTest extends TestCase
         // rejects it before the file type is ever considered.
         $share->method('getShareType')->willReturn(IShare::TYPE_LINK);
         $share->method('getExpirationDate')->willReturn(null);
+        $share->method('getPermissions')->willReturn(Constants::PERMISSION_READ);
         $shareManager->method('getShareByToken')->willReturn($share);
         $support = $this->createMock(ModelFileSupport::class);
         $support->method('isSupported')->willReturn(false);

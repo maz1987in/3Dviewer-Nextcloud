@@ -11,6 +11,7 @@ use OCA\ThreeDViewer\Db\NoteMapper;
 use OCP\Constants;
 use OCP\Files\AppData\IAppDataFactory;
 use OCP\Files\IAppData;
+use OCP\Files\IRootFolder;
 use OCP\Server;
 
 class NotesHttpTest extends HttpTestCase
@@ -93,6 +94,29 @@ class NotesHttpTest extends HttpTestCase
         [$client] = $this->session($owner);
 
         $this->assertNotSame(200, $client->get(self::notesUrl($model->getId()))->getStatusCode());
+    }
+
+    /**
+     * A file-drop link (PERMISSION_CREATE alone) lets a visitor upload into the folder,
+     * never read it. Its token must not open the notes of a model inside.
+     */
+    public function testAnUploadOnlyFolderLinkReturnsNoNotes(): void
+    {
+        $owner = $this->newUser();
+        $folder = Server::get(IRootFolder::class)->getUserFolder($owner)->newFolder('drop');
+        $model = $folder->newFile('model.stl', "solid t\nendsolid t\n");
+        $this->assertSame(201, $this->basic($owner)->post(self::notesUrl($model->getId()), ['json' => self::annotation('Drop-7c1e')])->getStatusCode());
+        $readToken = $this->shareByLink($folder, $owner);
+        $dropToken = $this->shareByLink($folder, $owner, null, Constants::PERMISSION_CREATE);
+        $headers = ['OCS-APIRequest' => 'true'];
+
+        $read = $this->anonymous()->get(self::publicNotesUrl($readToken, $model->getId()), ['headers' => $headers]);
+        $drop = $this->anonymous()->get(self::publicNotesUrl($dropToken, $model->getId()), ['headers' => $headers]);
+
+        $this->assertSame(200, $read->getStatusCode(), 'a readable link on the same folder reaches the model, so the URL is right');
+        $this->assertSame('Drop-7c1e', self::json($read)['notes'][0]['payload']['text']);
+        $this->assertSame(404, $drop->getStatusCode());
+        $this->assertStringNotContainsString('Drop-7c1e', (string) $drop->getBody());
     }
 
     public function testAPasswordProtectedLinkWithoutThePasswordReturnsNoNotes(): void

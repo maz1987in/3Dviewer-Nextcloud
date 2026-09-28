@@ -9,6 +9,7 @@ use OCA\ThreeDViewer\Service\ModelDependencyResolver;
 use OCA\ThreeDViewer\Service\ModelFileSupport;
 use OCA\ThreeDViewer\Service\PathLocator;
 use OCA\ThreeDViewer\Service\ShareFileService;
+use OCP\Constants;
 use OCP\Files\File;
 use OCP\Files\NotFoundException;
 use OCP\Share\Exceptions\ShareNotFound;
@@ -55,6 +56,26 @@ class ShareFileServiceSecurityTest extends TestCase
 
         $this->expectException(NotFoundException::class);
         $service->getFileFromShare('token', null);
+    }
+
+    /**
+     * A file-drop link carries only PERMISSION_CREATE: its token lets a visitor upload,
+     * never read. Anything resolved through it — the model, its notes — must refuse.
+     */
+    public function testUploadOnlyShareIsRejected(): void
+    {
+        $service = $this->serviceForShare($this->share(permissions: Constants::PERMISSION_CREATE));
+
+        $this->assertNull($service->findValidLinkShare('token'));
+        $this->expectException(NotFoundException::class);
+        $service->getFileFromShare('token', null);
+    }
+
+    public function testReadableShareWithExtraPermissionsIsAccepted(): void
+    {
+        $service = $this->serviceForShare($this->share(permissions: Constants::PERMISSION_READ | Constants::PERMISSION_UPDATE));
+
+        $this->assertNotNull($service->findValidLinkShare('token'));
     }
 
     public function testFindValidLinkShareReturnsNullForExpiredShare(): void
@@ -164,6 +185,7 @@ class ShareFileServiceSecurityTest extends TestCase
         ?DateTime $expiration = null,
         int $shareType = IShare::TYPE_LINK,
         ?string $password = null,
+        int $permissions = Constants::PERMISSION_READ,
     ): IShare {
         $file = $this->createMock(File::class);
         $file->method('getExtension')->willReturn('stl');
@@ -173,6 +195,7 @@ class ShareFileServiceSecurityTest extends TestCase
         $share->method('getExpirationDate')->willReturn($expiration);
         $share->method('getShareType')->willReturn($shareType);
         $share->method('getPassword')->willReturn($password);
+        $share->method('getPermissions')->willReturn($permissions);
 
         return $share;
     }
