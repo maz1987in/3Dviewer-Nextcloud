@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **Annotations and measurements are shared with everyone who can open the model.** They were saved privately per user, and measurements were not saved at all. Now each model has one set of notes: share recipients and public-link visitors see it, and anyone who can edit the model can add, change or delete notes. Each note saves on its own, so two people editing at once never overwrite each other. Each note shows its author, except on public links. Existing private annotations move into the shared set the first time their author opens the model, if that user can edit it; otherwise they stay visible to that user only, marked "Private, not shared".
+- **Annotations and measurements are shared with everyone who can open the model.** They were saved privately per user, and measurements were not saved at all. Now each model has one set of notes: share recipients and public-link visitors see it, and anyone who can edit the model can add, change or delete notes. Each note saves on its own, so two people editing at once never overwrite each other. Each note shows its author, except on public links. Existing private annotations move into the shared set the first time their author opens the model, if that user can edit it; otherwise they stay visible to that user only, marked "Private, not shared". Notes follow a model through moves and renames within the same storage; moving it to another storage, such as a group folder or external storage, gives it a new file id, and its notes are removed by the daily cleanup.
 - JSON export includes measurements, and import restores them.
 
 ### Changed
