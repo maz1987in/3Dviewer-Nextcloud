@@ -92,9 +92,13 @@ class NotesService
      * An editor's annotations become shared notes, authored by them, in scene space until
      * the viewer converts them. Someone who can't edit the model can't write to the
      * shared set, migration or not, so their annotations stay where they are and come
-     * back as private notes only they see.
+     * back as private notes only they see. An editor gets private notes back too when the
+     * move couldn't happen — the model is already at its note limit, the document isn't a
+     * recognizable annotation export, or the shared insert failed — so nothing is lost
+     * even though nothing moved; the legacy document is left in place in every one of
+     * those cases.
      *
-     * @return list<array<string, mixed>> private notes; empty for editors
+     * @return list<array<string, mixed>> private notes; empty once everything has moved
      */
     public function migrateLegacy(int $fileId, string $uid, bool $canEdit): array
     {
@@ -104,12 +108,15 @@ class NotesService
         }
 
         if (!$canEdit) {
-            return $this->privateNotes($this->legacyItems($raw), $uid);
+            return $this->privateNotes($this->legacyItems($raw) ?? [], $uid);
         }
 
         // Two tabs opening the model at once would otherwise both read the document and
-        // both insert it. Whoever doesn't get the lock skips the move this time.
-        $lockKey = 'threedviewer/legacy-notes/' . $uid . '/' . $fileId;
+        // both insert it. Whoever doesn't get the lock skips the move this time. The key
+        // is hashed rather than built from the raw uid because a DB-backed locking
+        // provider stores it in a VARCHAR(64) column, and some identity providers (LDAP
+        // UUIDs, OIDC subject hashes) hand out uids that would overflow it on their own.
+        $lockKey = 'threedviewer/legacy-notes/' . md5($uid . '/' . $fileId);
 
         try {
             $this->locking->acquireLock($lockKey, ILockingProvider::LOCK_EXCLUSIVE);
@@ -123,12 +130,24 @@ class NotesService
             if ($raw === null) {
                 return [];
             }
-            $this->moveToShared($fileId, $uid, $this->legacyItems($raw));
+
+            $items = $this->legacyItems($raw);
+            if ($items === null) {
+                $this->logger->warning('NotesService: legacy annotation document could not be parsed; left in place', [
+                    'fileId' => $fileId,
+                ]);
+
+                return [];
+            }
+
+            if ($this->moveToShared($fileId, $uid, $items)) {
+                return [];
+            }
+
+            return $this->privateNotes($items, $uid);
         } finally {
             $this->locking->releaseLock($lockKey, ILockingProvider::LOCK_EXCLUSIVE);
         }
-
-        return [];
     }
 
     /**
@@ -147,48 +166,67 @@ class NotesService
     }
 
     /**
+     * Insert every item as a shared note and remove the legacy document, atomically.
+     *
+     * Nothing is moved unless all of it fits: a partial move would strand the rest in a
+     * document that migrateLegacy has already decided to delete, so hitting the limit
+     * keeps the whole document in place and lets the caller keep the items private
+     * instead.
+     *
      * @param list<array{payload: array<string, mixed>, createdAt: int}> $items
+     * @return bool whether the items were moved into shared notes
      */
-    private function moveToShared(int $fileId, string $uid, array $items): void
+    private function moveToShared(int $fileId, string $uid, array $items): bool
     {
         $room = max(0, self::MAX_NOTES_PER_FILE - $this->mapper->countByFile($fileId));
         if (count($items) > $room) {
-            $this->logger->warning('NotesService: legacy annotations over the note limit were dropped', [
+            $this->logger->warning('NotesService: legacy annotations left private; the model is at its note limit', [
                 'fileId' => $fileId,
-                'dropped' => count($items) - $room,
+                'count' => count($items),
+                'room' => $room,
             ]);
+
+            return false;
         }
 
         $this->db->beginTransaction();
 
         try {
-            foreach (array_slice($items, 0, $room) as $item) {
+            foreach ($items as $item) {
                 $this->mapper->insert($this->newNote($fileId, 'annotation', $item['payload'], $uid, $item['createdAt']));
             }
-            // Removing the document inside the transaction is what makes the move happen
-            // once: if it can't be removed, the inserts are rolled back and the next open
-            // tries again from the same document.
+            // Deleting the legacy document before commit() is what makes the move happen
+            // once instead of being retried forever: if it can't be removed, the inserts
+            // are rolled back and the caller gets the items back as private notes. This
+            // chooses exactly-once over at-least-once — a commit() failure after a
+            // successful delete would still lose the notes it carried, and that narrow
+            // window is an accepted trade-off.
             if (!$this->legacy->delete($fileId, $uid)) {
                 throw new \RuntimeException('Could not remove the legacy annotation document');
             }
             $this->db->commit();
+
+            return true;
         } catch (\Throwable $e) {
             $this->db->rollBack();
             $this->logger->error('NotesService: legacy annotation migration failed', [
                 'fileId' => $fileId,
                 'exception' => $e,
             ]);
+
+            return false;
         }
     }
 
     /**
-     * @return list<array{payload: array<string, mixed>, createdAt: int}>
+     * @return null|list<array{payload: array<string, mixed>, createdAt: int}> null when
+     *     the document isn't a recognizable annotation export
      */
-    private function legacyItems(string $raw): array
+    private function legacyItems(string $raw): ?array
     {
         $doc = json_decode($raw, true);
         if (!is_array($doc) || !is_array($doc['annotations'] ?? null)) {
-            return [];
+            return null;
         }
 
         $items = [];

@@ -157,8 +157,13 @@ class NotesServiceTest extends TestCase
         $this->legacy->method('delete')->willReturn(false);
         $this->db->expects($this->never())->method('commit');
         $this->db->expects($this->once())->method('rollBack');
+        $this->locking->expects($this->once())->method('releaseLock');
 
-        $this->service->migrateLegacy(7, 'alice', true);
+        $private = $this->service->migrateLegacy(7, 'alice', true);
+
+        $this->assertCount(1, $private, 'the failed move is handed back as private notes rather than lost');
+        $this->assertSame('private-0', $private[0]['id']);
+        $this->assertSame('Hole', $private[0]['payload']['text']);
     }
 
     /** Review focus: a second tab that finds the lock held must not migrate as well. */
@@ -167,8 +172,61 @@ class NotesServiceTest extends TestCase
         $this->legacy->method('load')->willReturn(self::LEGACY);
         $this->locking->method('acquireLock')->willThrowException(new LockedException('held'));
         $this->mapper->expects($this->never())->method('insert');
+        $this->locking->expects($this->never())->method('releaseLock');
 
         $this->assertSame([], $this->service->migrateLegacy(7, 'alice', true));
+    }
+
+    /**
+     * A DB-backed locking provider stores the lock key in a VARCHAR(64) column; a uid from
+     * LDAP or OIDC can itself be close to that length, so the key must be hashed down
+     * rather than built by concatenation.
+     */
+    public function testMigrationUsesAShortHashedLockKeyForLongUids(): void
+    {
+        $uid = str_repeat('u', 64);
+        $this->legacy->method('load')->willReturn(self::LEGACY);
+        $this->mapper->method('countByFile')->willReturn(0);
+        $this->legacy->method('delete')->willReturn(true);
+
+        $keys = [];
+        $this->locking->method('acquireLock')->willReturnCallback(function (string $key) use (&$keys) {
+            $keys[] = $key;
+        });
+        $this->locking->method('releaseLock')->willReturnCallback(function (string $key) use (&$keys) {
+            $keys[] = $key;
+        });
+
+        $this->service->migrateLegacy(7, $uid, true);
+
+        $this->assertCount(2, $keys, 'both acquireLock and releaseLock must have been called');
+        $this->assertSame($keys[0], $keys[1], 'the same key must be used to acquire and release the lock');
+        $this->assertLessThanOrEqual(64, strlen($keys[0]));
+    }
+
+    public function testMigrationLeavesAnUndecodableDocumentInPlace(): void
+    {
+        $this->legacy->method('load')->willReturn('not valid json');
+        $this->legacy->expects($this->never())->method('delete');
+        $this->mapper->expects($this->never())->method('insert');
+        $this->db->expects($this->never())->method('beginTransaction');
+
+        $this->assertSame([], $this->service->migrateLegacy(7, 'alice', true));
+    }
+
+    public function testMigrationKeepsTheDocumentWhenThereIsNotEnoughRoom(): void
+    {
+        $this->legacy->method('load')->willReturn(self::LEGACY);
+        $this->mapper->method('countByFile')->willReturn(NotesService::MAX_NOTES_PER_FILE);
+        $this->mapper->expects($this->never())->method('insert');
+        $this->legacy->expects($this->never())->method('delete');
+        $this->db->expects($this->never())->method('beginTransaction');
+
+        $private = $this->service->migrateLegacy(7, 'alice', true);
+
+        $this->assertCount(1, $private);
+        $this->assertSame('private-0', $private[0]['id']);
+        $this->assertSame('Hole', $private[0]['payload']['text']);
     }
 
     /** The first request may finish the move between our first read and taking the lock. */
