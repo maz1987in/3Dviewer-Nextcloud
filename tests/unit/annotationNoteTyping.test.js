@@ -53,6 +53,8 @@ function mountNoteField() {
 				tick,
 				annotation,
 				t: (_app, text) => text,
+				// The field is read-only for notes this user can't change; this one is theirs.
+				canChangeNote: () => true,
 				updateAnnotationText: (id, text) => {
 					if (annotation.id === id) annotation.text = text
 				},
@@ -84,6 +86,12 @@ function typeChar(input, char) {
 describe('the annotation note field', () => {
 	it('is in the component, so this test is about shipped markup', () => {
 		expect(noteField).toBeDefined()
+	})
+
+	it('stops at the 2,000 characters the server accepts', () => {
+		const { input } = mountNoteField()
+
+		expect(input.maxLength).toBe(2000)
 	})
 
 	it('keeps text typed since the last commit when the panel re-renders', async () => {

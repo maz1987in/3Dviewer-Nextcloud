@@ -82,6 +82,7 @@ Built with Three.js for high-performance WebGL rendering. ✨]]></description>
 	</dependencies>
 	<background-jobs>
 		<job>OCA\ThreeDViewer\Cron\CleanupTempFiles</job>
+		<job>OCA\ThreeDViewer\Cron\CleanupOrphanNotes</job>
 	</background-jobs>
 	<repair-steps>
 		<install>

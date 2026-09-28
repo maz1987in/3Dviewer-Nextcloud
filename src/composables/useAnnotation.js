@@ -5,7 +5,6 @@
 
 import { ref, shallowRef, computed, readonly, toRaw } from 'vue'
 import * as THREE from 'three'
-import { generateUrl } from '@nextcloud/router'
 import { logger } from '../utils/logger.js'
 import { logError } from '../utils/error-handler.js'
 import { VIEWER_CONFIG, MARKER_COLORS } from '../config/viewer-config.js'
@@ -23,6 +22,9 @@ const ANNOTATION_SIZING = (VIEWER_CONFIG.visualSizing && VIEWER_CONFIG.visualSiz
 	labelWidthPercent: 20,
 }
 
+/** The longest note text the server accepts, in characters. */
+export const MAX_ANNOTATION_TEXT = 2000
+
 export function useAnnotation() {
 	// Annotation state
 	const isActive = ref(false)
@@ -34,12 +36,19 @@ export function useAnnotation() {
 	const sceneRef = shallowRef(null)
 	const modelScale = ref(1) // Scale factor based on model size
 
-	// Persistence state — drives the small status pill in the annotation overlay
-	// and lets ThreeViewer suppress auto-save while it's bulk-loading from the
-	// backend (so the load itself doesn't trigger a re-save round trip).
-	const persistenceStatus = ref('idle') // 'idle' | 'loading' | 'saving' | 'saved' | 'error'
-	const persistenceError = ref(null)
-	const persistenceSuppressed = ref(false)
+	// Whether a click may add an annotation. Off while a model's notes are loading and
+	// for users who can only view the model — useSharedNotes switches it.
+	const canAdd = ref(true)
+
+	// Change hooks, set by useSharedNotes. Notes that come from the server, and anything
+	// passed `{ silent: true }`, fire none, so loading notes never saves them back.
+	let noteHooks = {}
+	const setNoteHooks = (hooks) => { noteHooks = hooks || {} }
+	const setCanAdd = (value) => { canAdd.value = value }
+
+	// Date.now() alone collides when notes are drawn in the same millisecond on load.
+	let idSequence = 0
+	const nextId = () => `${Date.now()}-${++idSequence}`
 
 	// Computed properties
 	const hasAnnotations = computed(() => annotations.value.length > 0)
@@ -87,7 +96,7 @@ export function useAnnotation() {
 
 	// Handle click events for annotation placement
 	const handleClick = (event, camera) => {
-		if (!isActive.value) {
+		if (!isActive.value || !canAdd.value) {
 			return
 		}
 
@@ -114,28 +123,36 @@ export function useAnnotation() {
 	}
 
 	// Add annotation point
-	const addAnnotationPoint = (point) => {
+	const addAnnotationPoint = (point, { silent = false, text, meta } = {}) => {
 		try {
-			// Create annotation object
-			const annotation = {
-				id: Date.now(),
+			annotations.value.push({
+				id: nextId(),
 				point: point.clone(),
-				text: `Annotation ${annotations.value.length + 1}`,
+				text: typeof text === 'string' ? text : `Annotation ${annotations.value.length + 1}`,
 				timestamp: new Date().toISOString(),
+				meta: meta ?? { noteId: null, author: null, saveState: 'new' },
 				pointMesh: null,
 				textMesh: null,
-			}
-
-			annotations.value.push(annotation)
+			})
+			// The reactive entry, not the object pushed: useSharedNotes writes meta on it
+			// and the panel has to see those writes.
+			const annotation = annotations.value[annotations.value.length - 1]
 			currentAnnotation.value = annotation
 
-			// Create visual elements and store references
 			annotation.pointMesh = createAnnotationPoint(annotation)
 			annotation.textMesh = createAnnotationText(annotation)
+
+			if (!silent) {
+				noteHooks.added?.(annotation)
+			}
+			return annotation
 		} catch (error) {
 			logError('useAnnotation', 'Failed to add annotation point', error)
+			return null
 		}
 	}
+
+	const addAnnotationFromNote = (point, text, meta) => addAnnotationPoint(point, { silent: true, text, meta })
 
 	// Create visual point for annotation
 	const createAnnotationPoint = (annotation) => {
@@ -260,7 +277,7 @@ export function useAnnotation() {
 	}
 
 	// Update annotation text
-	const updateAnnotationText = (annotationId, newText) => {
+	const updateAnnotationText = (annotationId, newText, { silent = false } = {}) => {
 		const annotation = annotations.value.find(a => a.id === annotationId)
 		if (annotation) {
 			annotation.text = newText
@@ -290,14 +307,17 @@ export function useAnnotation() {
 				// Ensure renderOrder is highest to keep text on top
 				textMesh.renderOrder = 1000
 			}
+
+			if (!silent) noteHooks.changed?.(annotation)
 		}
 	}
 
 	// Delete annotation
-	const deleteAnnotation = (annotationId) => {
+	const deleteAnnotation = (annotationId, { silent = false } = {}) => {
 		const index = annotations.value.findIndex(a => a.id === annotationId)
 		if (index !== -1) {
 			const annotation = annotations.value[index]
+			if (!silent) noteHooks.deleted?.(annotation)
 
 			// Remove visual elements using stored references (toRaw to match Three.js scene reference)
 			if (annotation.pointMesh && annotationGroup.value) {
@@ -324,8 +344,12 @@ export function useAnnotation() {
 	}
 
 	// Clear all annotations
-	const clearAllAnnotations = () => {
+	const clearAllAnnotations = ({ silent = false } = {}) => {
 		try {
+			if (!silent) {
+				for (const annotation of annotations.value) noteHooks.deleted?.(annotation)
+			}
+
 			// Force remove all children from annotation group
 			if (annotationGroup.value) {
 				// Remove all children by iterating backwards to avoid index issues
@@ -434,180 +458,21 @@ export function useAnnotation() {
 			}
 
 			const point = new THREE.Vector3(item.point.x, item.point.y, item.point.z)
-			addAnnotationPoint(point)
-
-			// Apply the imported text/timestamp to the freshly created annotation
-			const fresh = annotations.value[annotations.value.length - 1]
-			if (fresh) {
-				if (typeof item.text === 'string' && item.text.length > 0) {
-					updateAnnotationText(fresh.id, item.text)
-				}
-				if (typeof item.timestamp === 'string') {
-					fresh.timestamp = item.timestamp
-				}
+			// The server refuses text over 2,000 characters (NotePayload::MAX_TEXT_CHARS,
+			// counted in code points), so a long imported note is cut rather than left to fail
+			// on save. Array.from splits by code point, never through a surrogate pair.
+			const text = typeof item.text === 'string' && item.text.length > 0
+				? Array.from(item.text).slice(0, MAX_ANNOTATION_TEXT).join('')
+				: undefined
+			const fresh = addAnnotationPoint(point, { text })
+			if (fresh && typeof item.timestamp === 'string') {
+				fresh.timestamp = item.timestamp
 			}
 			added++
 		}
 
 		logger.info('useAnnotation', 'Annotations imported', { added, skipped, total: data.annotations.length })
 		return { added, skipped }
-	}
-
-	/**
-	 * Load any saved annotations for a model from the Nextcloud backend.
-	 *
-	 * Calls `GET /api/annotations/{fileId}`. On success it suppresses the
-	 * auto-save watcher (so re-creating the annotations from the imported JSON
-	 * doesn't immediately PUT them back) and replaces existing annotations.
-	 * On 204 (no saved doc) the call is a no-op so a fresh model starts blank.
-	 *
-	 * @param {number|string} fileId - Nextcloud file ID
-	 * @param {string} [modelFilename] - Model filename (used as the import hint)
-	 * @return {Promise<{loaded: boolean, count: number}>}
-	 */
-	const loadFromBackend = async (fileId, modelFilename = '') => {
-		if (!fileId || fileId === 'comparison') {
-			return { loaded: false, count: 0 }
-		}
-
-		persistenceStatus.value = 'loading'
-		persistenceError.value = null
-
-		try {
-			const url = generateUrl(`/apps/threedviewer/api/annotations/${fileId}`)
-			const res = await fetch(url, {
-				method: 'GET',
-				credentials: 'same-origin',
-				headers: { Accept: 'application/json' },
-			})
-
-			// 204 = nothing saved yet for this (user, file) — leave annotations untouched.
-			if (res.status === 204) {
-				persistenceStatus.value = 'idle'
-				return { loaded: false, count: 0 }
-			}
-
-			if (!res.ok) {
-				throw new Error(`Backend returned ${res.status}`)
-			}
-
-			const body = await res.json()
-			const doc = body && body.annotations
-			if (!doc || typeof doc !== 'object') {
-				persistenceStatus.value = 'idle'
-				return { loaded: false, count: 0 }
-			}
-
-			// Suppress auto-save while we replay the saved doc through importFromJSON
-			// — otherwise every addAnnotationPoint call would mark dirty and trigger
-			// a PUT, racing with the load and creating a save loop.
-			persistenceSuppressed.value = true
-			let result
-			try {
-				result = importFromJSON(doc, { replace: true })
-			} finally {
-				persistenceSuppressed.value = false
-			}
-
-			persistenceStatus.value = 'saved'
-			logger.info('useAnnotation', 'Annotations loaded from backend', {
-				fileId,
-				added: result.added,
-				skipped: result.skipped,
-			})
-			return { loaded: true, count: result.added }
-		} catch (error) {
-			persistenceStatus.value = 'error'
-			persistenceError.value = error
-			logger.warn('useAnnotation', 'Failed to load annotations from backend', {
-				fileId,
-				error: error.message,
-			})
-			return { loaded: false, count: 0 }
-		}
-	}
-
-	/**
-	 * Persist the current annotations to the Nextcloud backend.
-	 *
-	 * No-op when:
-	 *   - the load is in progress (persistenceSuppressed)
-	 *   - fileId is missing or the synthetic 'comparison' marker
-	 *
-	 * When the in-memory list is empty we issue a DELETE so the backend file
-	 * is removed too — that way clearing all annotations actually clears them
-	 * across reloads, instead of leaving an empty document behind.
-	 *
-	 * @param {number|string} fileId
-	 * @param {string} [modelFilename]
-	 * @return {Promise<{saved: boolean}>}
-	 */
-	const saveToBackend = async (fileId, modelFilename = '') => {
-		if (!fileId || fileId === 'comparison' || persistenceSuppressed.value) {
-			return { saved: false }
-		}
-
-		persistenceStatus.value = 'saving'
-		persistenceError.value = null
-
-		try {
-			const url = generateUrl(`/apps/threedviewer/api/annotations/${fileId}`)
-
-			// Empty list → delete the backend doc rather than persist [].
-			if (annotations.value.length === 0) {
-				const res = await fetch(url, {
-					method: 'DELETE',
-					credentials: 'same-origin',
-					headers: { requesttoken: getRequestToken() },
-				})
-				if (!res.ok && res.status !== 404) {
-					throw new Error(`Backend returned ${res.status}`)
-				}
-				persistenceStatus.value = 'saved'
-				return { saved: true }
-			}
-
-			const body = JSON.stringify(exportAsJSON(modelFilename))
-			const res = await fetch(url, {
-				method: 'PUT',
-				credentials: 'same-origin',
-				headers: {
-					'Content-Type': 'application/json',
-					requesttoken: getRequestToken(),
-				},
-				body,
-			})
-
-			if (!res.ok) {
-				throw new Error(`Backend returned ${res.status}`)
-			}
-
-			persistenceStatus.value = 'saved'
-			logger.info('useAnnotation', 'Annotations saved to backend', {
-				fileId,
-				count: annotations.value.length,
-			})
-			return { saved: true }
-		} catch (error) {
-			persistenceStatus.value = 'error'
-			persistenceError.value = error
-			logger.warn('useAnnotation', 'Failed to save annotations to backend', {
-				fileId,
-				error: error.message,
-			})
-			return { saved: false }
-		}
-	}
-
-	/**
-	 * Read the Nextcloud requesttoken from the page so PUT/DELETE survive
-	 * the CSRF guard. We grab it lazily because the meta tag is injected by
-	 * the Nextcloud server template, not by Vite.
-	 */
-	function getRequestToken() {
-		if (typeof document === 'undefined') return ''
-		const meta = document.head?.querySelector('meta[name="requesttoken"]')
-		return meta?.getAttribute('content') || ''
 	}
 
 	/**
@@ -629,8 +494,7 @@ export function useAnnotation() {
 		annotations: readonly(annotations),
 		currentAnnotation: readonly(currentAnnotation),
 		modelScale: readonly(modelScale),
-		persistenceStatus: readonly(persistenceStatus),
-		persistenceError: readonly(persistenceError),
+		canAdd: readonly(canAdd),
 
 		// Computed
 		hasAnnotations,
@@ -641,15 +505,16 @@ export function useAnnotation() {
 		updateModelScale,
 		toggleAnnotation,
 		handleClick,
+		setCanAdd,
+		setNoteHooks,
 		addAnnotationPoint,
+		addAnnotationFromNote,
 		updateAnnotationText,
 		deleteAnnotation,
 		clearAllAnnotations,
 		getAnnotationSummary,
 		exportAsJSON,
 		importFromJSON,
-		loadFromBackend,
-		saveToBackend,
 		dispose,
 	}
 }

@@ -44,6 +44,13 @@ export function useMeasurement() {
 	const lineMeshes = ref([])
 	const textMeshes = ref([])
 
+	let noteHooks = {}
+	const setNoteHooks = (hooks) => { noteHooks = hooks || {} }
+
+	// Date.now() alone collides when notes are drawn in the same millisecond on load.
+	let idSequence = 0
+	const nextId = () => `${Date.now()}-${++idSequence}`
+
 	// Computed properties
 	const hasPoints = computed(() => points.value.length > 0)
 	const canMeasure = computed(() => points.value.length >= 2)
@@ -258,6 +265,22 @@ export function useMeasurement() {
 		}
 	}
 
+	/**
+	 * Draw a measurement that came from the server. Fires no hooks, so loading notes never
+	 * saves them back.
+	 *
+	 * A point the user had already clicked is dropped with its sphere first: clearing only
+	 * `points` would leave that sphere unpaired and shift every later sphere pair.
+	 */
+	const addMeasurementFromNote = (point1, point2, meta) => {
+		cancelPendingPoint()
+		points.value.push(point1.clone())
+		createPointIndicator(point1)
+		points.value.push(point2.clone())
+		createPointIndicator(point2)
+		return createMeasurement({ silent: true, meta })
+	}
+
 	// Create visual indicator for a point
 	const createPointIndicator = (point) => {
 		if (!measurementGroup.value) return
@@ -294,7 +317,7 @@ export function useMeasurement() {
 	}
 
 	// Create measurement between two points
-	const createMeasurement = () => {
+	const createMeasurement = ({ silent = false, meta = null } = {}) => {
 		if (points.value.length < 2) return
 
 		const point1 = points.value[points.value.length - 2]
@@ -308,25 +331,28 @@ export function useMeasurement() {
 
 		// Create measurement object
 		const measurement = {
-			id: Date.now(),
+			id: nextId(),
 			point1: point1.clone(),
 			point2: point2.clone(),
 			distance, // Raw Three.js distance
 			...converted, // Add value, formatted, unit, suffix
 			midpoint: new THREE.Vector3().addVectors(point1, point2).multiplyScalar(0.5),
+			meta: meta ?? { noteId: null, author: null, saveState: 'new' },
 		}
 
 		measurements.value.push(measurement)
-		currentMeasurement.value = measurement
+		const entry = measurements.value[measurements.value.length - 1]
+		currentMeasurement.value = entry
 
-		// Create visual line between points
-		createMeasurementLine(measurement)
+		createMeasurementLine(entry)
+		createDistanceText(entry)
 
-		// Create distance text
-		createDistanceText(measurement)
-
-		// Reset for next measurement
 		points.value = []
+
+		if (!silent) {
+			noteHooks.added?.(entry)
+		}
+		return entry
 	}
 
 	// Create visual line between measurement points
@@ -459,10 +485,25 @@ export function useMeasurement() {
 		currentMeasurement.value = null
 	}
 
+	/**
+	 * Drop a half-finished measurement: its pending point and that point's sphere.
+	 * Spheres are paired to measurements by index (two each), so an unpaired sphere left
+	 * behind would shift every later pair and make deleteMeasurement remove the wrong ones.
+	 */
+	const cancelPendingPoint = () => {
+		const paired = measurements.value.length * 2
+		for (const sphere of pointMeshes.value.splice(paired)) {
+			measurementGroup.value?.remove(toRaw(sphere))
+		}
+		points.value = []
+		currentMeasurement.value = null
+	}
+
 	// Delete a single measurement
-	const deleteMeasurement = (measurementId) => {
+	const deleteMeasurement = (measurementId, { silent = false } = {}) => {
 		const index = measurements.value.findIndex(m => m.id === measurementId)
 		if (index !== -1) {
+			if (!silent) noteHooks.deleted?.(measurements.value[index])
 			// Remove visual elements for this measurement
 			if (measurementGroup.value) {
 				// Find and remove point meshes (2 per measurement)
@@ -509,7 +550,11 @@ export function useMeasurement() {
 	}
 
 	// Clear all measurements
-	const clearAllMeasurements = () => {
+	const clearAllMeasurements = ({ silent = false } = {}) => {
+		if (!silent) {
+			for (const m of measurements.value) noteHooks.deleted?.(m)
+		}
+
 		// Remove visual elements
 		if (measurementGroup.value) {
 			measurementGroup.value.clear()
@@ -580,9 +625,12 @@ export function useMeasurement() {
 		updateVisualScale,
 		toggleMeasurement,
 		handleClick,
+		setNoteHooks,
 		addMeasurementPoint,
+		addMeasurementFromNote,
 		createMeasurement,
 		clearCurrentMeasurement,
+		cancelPendingPoint,
 		deleteMeasurement,
 		clearAllMeasurements,
 		getMeasurementSummary,
