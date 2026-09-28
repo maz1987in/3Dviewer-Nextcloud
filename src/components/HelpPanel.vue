@@ -154,7 +154,7 @@
 								<ViewerIcon class="help-icon" name="measurement" :size="18" />
 								<div class="help-text">
 									<h4>{{ t('threedviewer', 'Measurement') }}</h4>
-									<p>{{ t('threedviewer', 'Click on two points to measure distance. Switch units between mm, cm, m, inches, and feet.') }}</p>
+									<p>{{ t('threedviewer', 'Click on two points to measure distance, or switch to Angle and click three points, the second being the corner. Switch units between mm, cm, m, inches, and feet.') }}</p>
 								</div>
 							</div>
 							<div class="help-item">
@@ -185,6 +185,20 @@
 									<p>{{ t('threedviewer', 'For multi-mesh models, spread parts outward from center. Adjust the explosion factor with the slider. Only available when the model has 2 or more meshes.') }}</p>
 								</div>
 							</div>
+							<div class="help-item">
+								<ViewerIcon class="help-icon" name="visibility" :size="18" />
+								<div class="help-text">
+									<h4>{{ t('threedviewer', 'G-code Layers') }}</h4>
+									<p>{{ t('threedviewer', 'For G-code files, drag the layer slider to show the print up to a layer, or turn on Only this layer to see it alone.') }}</p>
+								</div>
+							</div>
+							<div class="help-item">
+								<ViewerIcon class="help-icon" name="palette" :size="18" />
+								<div class="help-text">
+									<h4>{{ t('threedviewer', 'Shading') }}</h4>
+									<p>{{ t('threedviewer', 'Clay shows surface form, Normals shows surface direction as colour, and X-ray makes parts see-through. Exports always keep the model\'s own materials.') }}</p>
+								</div>
+							</div>
 						</div>
 					</section>
 
@@ -203,7 +217,7 @@
 								<ViewerIcon class="help-icon" name="exportModel" :size="18" />
 								<div class="help-text">
 									<h4>{{ t('threedviewer', 'Export Model') }}</h4>
-									<p>{{ t('threedviewer', 'Download the model as GLB (with textures), STL (for 3D printing), or OBJ (universal format). Large models show a triangle count warning before export.') }}</p>
+									<p>{{ t('threedviewer', 'Download the model as GLB (with textures), STL or 3MF (for 3D printing), OBJ (universal format), PLY (scans with vertex colors), or USDZ (AR on iPhone and iPad). Large models show a triangle count warning before export.') }}</p>
 								</div>
 							</div>
 							<div class="help-item">

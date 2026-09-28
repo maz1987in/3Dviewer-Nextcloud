@@ -24,7 +24,12 @@ const BUDGETS = [
   // raw and put this over on their own. They are path data in src/config/icon-paths.js
   // drawn by one component instead, which costs 3.4 KB for the same ten and lands the
   // emoji it replaces back on the credit side.
-  { pattern: /^App-.*\.chunk\.mjs$/, name: 'app', maxRaw: 370000, maxGzip: 102000 },
+  // Bumped 370 KB → 380 KB raw and 102 KB → 105 KB gzip for four tools: angle measurement,
+  // the G-code layer slider, the Clay / Normals / X-ray render modes and the 3MF / PLY /
+  // USDZ export choices took this chunk from 354.8 KB / 97.8 KB to 365.8 KB / 101.1 KB,
+  // mostly in compiled template for their controls. The exporters and the 3MF writer are
+  // loaded on demand and are not in it.
+  { pattern: /^App-.*\.chunk\.mjs$/, name: 'app', maxRaw: 380000, maxGzip: 105000 },
   { pattern: /^three-core-.*\.chunk\.mjs$/, name: 'three-core', maxRaw: 800000, maxGzip: 210000 }, // Three.js core
   // Three chunks are named index-<hash>: the main one, a ~280 KB one and a 250-byte one.
   // This used to separate them with /^index-[A-Z][a-z]/, written to exclude one specific

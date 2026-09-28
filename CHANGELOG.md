@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Angle measurement. The measurement panel has a Distance / Angle switch; in angle mode the second of three clicks is the corner, and the reading is in degrees.
+- A layer slider for G-code in the tools panel's Analyze section: show the print up to a layer, with its height, or turn on *Only this layer* to see it alone. A Z-hop no longer counts as a layer of its own.
+- Export as 3MF, PLY (binary) and USDZ. Three.js has no 3MF exporter, so a small writer packages each visible mesh, turned from Y-up to the Z-up slicers expect.
+- Clay, Normals and X-ray shading, in the Scene section of the tools panel. The model's own materials are put back for exports and when the mode returns to Standard.
+
+### Fixed
+- G-code toolpaths drew the travel moves the parser filters out: each layer was a `Line` through start/end pairs, which joined every move to the next. Layers are now `LineSegments`.
+- Deleting a measurement could remove another measurement's markers. Markers were matched to measurements by position in a list that assumed two points each and ignored a point picked but not yet used; each measurement now owns what it drew.
+- Send to Slicer's PLY option always sent ASCII PLY: `{ binary: true }` was passed where `PLYExporter.parse` takes its callback. It now sends binary PLY.
+
 ### Changed
 - three.js r185 → r186. The Babel config moves from `package.json` to a project-wide `babel.config.json`: r186's CommonJS entry only re-exports the ES module build, and a `package.json` config never reaches files inside `node_modules`, so Jest could no longer load `three`.
 - Babel 7 → 8 for the Jest transform. `@babel/plugin-proposal-object-rest-spread`, `@babel/plugin-syntax-dynamic-import` and `@babel/plugin-transform-runtime` are dropped: no config referenced them, and the first had no Babel 8 release. Babel 8 needs Node 22.18 or later, so `engines.node` and `.nvmrc` move to 22.18.
