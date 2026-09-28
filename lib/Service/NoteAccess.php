@@ -24,7 +24,7 @@ class NoteAccess
     public function forUser(int $fileId, string $uid): ?NoteAccessResult
     {
         try {
-            $nodes = $this->rootFolder->getUserFolder($uid)->getById($fileId);
+            $home = $this->rootFolder->getUserFolder($uid);
         } catch (NotPermittedException) {
             return null;
         } catch (\Exception) {
@@ -33,6 +33,8 @@ class NoteAccess
             // other failure to resolve the folder means the same thing: no access.
             return null;
         }
+
+        $nodes = $home->getById($fileId);
 
         $files = array_filter($nodes, static fn ($node) => $node instanceof File);
         if ($files === []) {

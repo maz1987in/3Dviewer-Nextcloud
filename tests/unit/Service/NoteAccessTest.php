@@ -9,6 +9,7 @@ use OCP\Files\File;
 use OCP\Files\Folder;
 use OCP\Files\IRootFolder;
 use OCP\Files\NotPermittedException;
+use OCP\Files\StorageNotAvailableException;
 use PHPUnit\Framework\TestCase;
 
 class NoteAccessTest extends TestCase
@@ -45,6 +46,26 @@ class NoteAccessTest extends TestCase
         $root->method('getUserFolder')->willThrowException(new NotPermittedException());
 
         $this->assertNull((new NoteAccess($root))->forUser(7, 'alice'));
+    }
+
+    public function testAnUnknownUserMeansNoAccess(): void
+    {
+        $root = $this->createMock(IRootFolder::class);
+        $root->method('getUserFolder')->willThrowException(new \Exception('NoUserException'));
+
+        $this->assertNull((new NoteAccess($root))->forUser(7, 'alice'));
+    }
+
+    public function testAStorageFailureDuringLookupPropagates(): void
+    {
+        $exception = $this->createMock(StorageNotAvailableException::class);
+        $home = $this->createMock(Folder::class);
+        $home->method('getById')->willThrowException($exception);
+        $root = $this->createMock(IRootFolder::class);
+        $root->method('getUserFolder')->willReturn($home);
+
+        $this->expectException(StorageNotAvailableException::class);
+        (new NoteAccess($root))->forUser(7, 'alice');
     }
 
     /** @param list<object> $nodes */
