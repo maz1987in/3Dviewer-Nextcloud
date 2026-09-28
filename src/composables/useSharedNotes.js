@@ -4,6 +4,12 @@
  * useAnnotation and useMeasurement draw and edit; this composable is the only thing that
  * talks to the server. Each note is saved on its own — add, edit, delete — so two people
  * editing the same model never overwrite each other.
+ *
+ * Switching models mid-save is the tricky part: a create/update/delete started against one
+ * model's api must finish against that same api even if load() has since moved on to another
+ * model, and a load() that's been superseded by a newer one must never draw its results or
+ * touch status/canEdit. Every server call therefore runs against the api (and "generation")
+ * it started with, captured once and reused for every follow-up of that same operation.
  */
 
 import { ref, readonly } from 'vue'
@@ -27,9 +33,15 @@ export function useSharedNotes({ annotation, measurement, getModelRoot, notify =
 	const status = ref('idle')
 	const canEdit = ref(false)
 	let api = null
+	let generation = 0
 	const textTimers = new Map()
+	// The api (and load generation) each item was created or loaded under, so a follow-up
+	// save/delete always targets the model it belongs to, even after load() moves on.
+	const itemApi = new WeakMap()
 
 	const tools = { annotation, measurement }
+
+	const isCurrent = (gen) => gen === generation
 
 	const payloadFor = (kind, item) => {
 		const root = getModelRoot()
@@ -40,12 +52,13 @@ export function useSharedNotes({ annotation, measurement, getModelRoot, notify =
 		return { space: 'model', points: [toModel(item.point1), toModel(item.point2)] }
 	}
 
-	const setStatusAfterSave = () => {
-		status.value = 'saved'
+	const setStatusAfterSave = (gen) => {
+		if (isCurrent(gen)) status.value = 'saved'
 	}
 
-	const failed = (item, title) => {
+	const failed = (item, title, gen) => {
 		item.meta.saveState = 'failed'
+		if (!isCurrent(gen)) return
 		status.value = 'error'
 		notify({
 			type: 'error',
@@ -54,16 +67,69 @@ export function useSharedNotes({ annotation, measurement, getModelRoot, notify =
 		})
 	}
 
+	const remove = async (item) => {
+		const { api: opApi, gen } = itemApi.get(item) ?? { api, gen: generation }
+		try {
+			await opApi.remove(item.meta.noteId)
+		} catch (error) {
+			logger.warn('useSharedNotes', 'Note delete failed', { error: error?.message })
+			if (!isCurrent(gen)) return
+			notify({
+				type: 'error',
+				title: t('threedviewer', 'Note not deleted'),
+				message: t('threedviewer', 'It will reappear when the model is opened again.'),
+			})
+		}
+	}
+
+	const saveText = async (item) => {
+		textTimers.delete(item.id)
+		if (item.meta.deleted || item.meta.noteId === null) {
+			return
+		}
+		const { api: opApi, gen } = itemApi.get(item) ?? { api, gen: generation }
+		if (isCurrent(gen)) status.value = 'saving'
+		try {
+			await opApi.update(item.meta.noteId, payloadFor('annotation', item))
+			item.meta.saveState = 'saved'
+			setStatusAfterSave(gen)
+		} catch (error) {
+			logger.warn('useSharedNotes', 'Note update failed', { error: error?.message })
+			if (item.meta.deleted) {
+				return
+			}
+			failed(item, t('threedviewer', 'Change not saved'), gen)
+		}
+	}
+
+	const scheduleText = (item) => {
+		clearTimeout(textTimers.get(item.id)?.timer)
+		const timer = setTimeout(() => { saveText(item) }, TEXT_SAVE_DEBOUNCE_MS)
+		textTimers.set(item.id, { timer, item })
+	}
+
+	/** Send pending text edits against the api they were typed under, before load() moves on. */
+	const flushPendingBeforeSwitch = () => {
+		const pending = [...textTimers.values()]
+		for (const { timer, item } of pending) {
+			clearTimeout(timer)
+			saveText(item)
+		}
+	}
+
 	const create = async (kind, item) => {
+		const opApi = api
+		const gen = generation
+		itemApi.set(item, { api: opApi, gen })
 		item.meta.saveState = 'saving'
-		status.value = 'saving'
+		if (isCurrent(gen)) status.value = 'saving'
 		const sent = kind === 'annotation' ? item.text : null
 		try {
-			const note = await api.create(kind, payloadFor(kind, item))
+			const note = await opApi.create(kind, payloadFor(kind, item))
 			item.meta.noteId = note.id
 			item.meta.author = note.author ?? null
 			item.meta.saveState = 'saved'
-			setStatusAfterSave()
+			setStatusAfterSave(gen)
 			if (item.meta.deleted) {
 				await remove(item)
 				return
@@ -76,42 +142,7 @@ export function useSharedNotes({ annotation, measurement, getModelRoot, notify =
 			if (item.meta.deleted) {
 				return
 			}
-			failed(item, t('threedviewer', 'Note not saved'))
-		}
-	}
-
-	const saveText = async (item) => {
-		textTimers.delete(item.id)
-		if (item.meta.deleted || item.meta.noteId === null) {
-			return
-		}
-		status.value = 'saving'
-		try {
-			await api.update(item.meta.noteId, payloadFor('annotation', item))
-			item.meta.saveState = 'saved'
-			setStatusAfterSave()
-		} catch (error) {
-			logger.warn('useSharedNotes', 'Note update failed', { error: error?.message })
-			failed(item, t('threedviewer', 'Change not saved'))
-		}
-	}
-
-	const scheduleText = (item) => {
-		clearTimeout(textTimers.get(item.id)?.timer)
-		const timer = setTimeout(() => { saveText(item) }, TEXT_SAVE_DEBOUNCE_MS)
-		textTimers.set(item.id, { timer, item })
-	}
-
-	const remove = async (item) => {
-		try {
-			await api.remove(item.meta.noteId)
-		} catch (error) {
-			logger.warn('useSharedNotes', 'Note delete failed', { error: error?.message })
-			notify({
-				type: 'error',
-				title: t('threedviewer', 'Note not deleted'),
-				message: t('threedviewer', 'It will reappear when the model is opened again.'),
-			})
+			failed(item, t('threedviewer', 'Note not saved'), gen)
 		}
 	}
 
@@ -148,23 +179,26 @@ export function useSharedNotes({ annotation, measurement, getModelRoot, notify =
 	annotation.setNoteHooks(hooksFor('annotation'))
 	measurement.setNoteHooks(hooksFor('measurement'))
 
-	const place = (note, root, saveState) => {
+	const place = (note, root, saveState, notesApi, gen) => {
 		const meta = { noteId: typeof note.id === 'number' ? note.id : null, author: note.author ?? null, saveState }
 		const { payload } = note
 		if (note.type === 'annotation') {
 			const item = annotation.addAnnotationFromNote(pointToScene(payload.point, payload.space, root), payload.text, meta)
+			itemApi.set(item, { api: notesApi, gen })
 			if (payload.space === 'scene' && saveState === 'saved' && root) {
-				// A migrated pre-3.6 annotation: save it back in model space, once.
-				api.update(meta.noteId, payloadFor('annotation', item)).catch((error) => {
+				// A migrated pre-3.6 annotation: save it back in model space, once. Uses the
+				// api this load started with, not whatever load() may have moved on to since.
+				notesApi.update(meta.noteId, payloadFor('annotation', item)).catch((error) => {
 					logger.warn('useSharedNotes', 'Legacy note conversion failed; retried on next open', { error: error?.message })
 				})
 			}
 		} else if (note.type === 'measurement') {
-			measurement.addMeasurementFromNote(
+			const item = measurement.addMeasurementFromNote(
 				pointToScene(payload.points[0], payload.space, root),
 				pointToScene(payload.points[1], payload.space, root),
 				meta,
 			)
+			itemApi.set(item, { api: notesApi, gen })
 		}
 	}
 
@@ -174,8 +208,10 @@ export function useSharedNotes({ annotation, measurement, getModelRoot, notify =
 	 * @param {object} notesApi - from createNotesApi()
 	 */
 	const load = async (notesApi) => {
-		for (const { timer } of textTimers.values()) clearTimeout(timer)
-		textTimers.clear()
+		const gen = ++generation
+
+		// Save pending edits against the model being left, then stop tracking them locally.
+		flushPendingBeforeSwitch()
 		// Silent: these belong to the previous model and must not be deleted on the server.
 		annotation.clearAllAnnotations({ silent: true })
 		measurement.clearAllMeasurements({ silent: true })
@@ -187,22 +223,36 @@ export function useSharedNotes({ annotation, measurement, getModelRoot, notify =
 
 		let data
 		try {
-			data = await api.list()
+			data = await notesApi.list()
 		} catch (error) {
 			logger.warn('useSharedNotes', 'Loading notes failed', { error: error?.message })
+			if (!isCurrent(gen)) return
 			status.value = 'error'
+			notify({
+				type: 'error',
+				title: t('threedviewer', 'Notes not loaded'),
+				message: t('threedviewer', 'Shared annotations and measurements could not be loaded.'),
+			})
 			return
 		}
+
+		// A newer load() has since taken over; drawing this one's results would put the
+		// previous model's notes onto the current one.
+		if (!isCurrent(gen)) return
 
 		canEdit.value = data.canEdit
 		annotation.setCanAdd(data.canEdit)
 		const root = getModelRoot()
-		for (const note of data.notes) place(note, root, data.canEdit ? 'saved' : 'shared')
-		for (const note of data.private) place(note, root, 'private')
+		for (const note of data.notes) place(note, root, data.canEdit ? 'saved' : 'shared', notesApi, gen)
+		for (const note of data.private) place(note, root, 'private', notesApi, gen)
 		status.value = data.canEdit ? 'saved' : 'readonly'
 	}
 
 	const retry = async (kind, item) => {
+		if (item.meta.saveState === 'saving') {
+			// Already in flight; retrying now would send a duplicate create.
+			return
+		}
 		if (item.meta.noteId === null) {
 			await create(kind, item)
 		} else {

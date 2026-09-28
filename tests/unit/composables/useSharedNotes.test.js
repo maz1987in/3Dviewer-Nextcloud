@@ -259,3 +259,112 @@ test('a failed load reports an error and leaves the tools usable', async () => {
 	expect(notes.status.value).toBe('error')
 	expect(notes.canEdit.value).toBe(false)
 })
+
+test('a failed load notifies', async () => {
+	const { notes, notify } = setup()
+
+	await notes.load(fakeApi({ list: jest.fn().mockRejectedValue(new Error('500')) }))
+
+	expect(notify).toHaveBeenCalledWith({
+		type: 'error',
+		title: 'Notes not loaded',
+		message: 'Shared annotations and measurements could not be loaded.',
+	})
+})
+
+test('retry on a note that is already saving does not send a second create', async () => {
+	let resolveCreate
+	const api = fakeApi({ create: jest.fn(() => new Promise(r => { resolveCreate = r })) })
+	const { annotation, notes } = setup()
+	await notes.load(api)
+	const item = annotation.userAdd({ point: new THREE.Vector3(), text: 'x' })
+	expect(item.meta.saveState).toBe('saving')
+
+	await notes.retry('annotation', item)
+
+	expect(api.create).toHaveBeenCalledTimes(1)
+	resolveCreate({ id: 1, author: null })
+	await flushPromises()
+	expect(item.meta).toMatchObject({ noteId: 1, saveState: 'saved' })
+})
+
+/** Review focus: a create/update/delete that resolves after a model switch must stay on its own model. */
+test('delete during save across a model switch removes the note from the model it was created on', async () => {
+	let resolveCreate
+	const apiA = fakeApi({ create: jest.fn(() => new Promise(r => { resolveCreate = r })) })
+	const apiB = fakeApi()
+	const { annotation, notes } = setup()
+	await notes.load(apiA)
+	const item = annotation.userAdd({ point: new THREE.Vector3(), text: 'x' })
+
+	annotation.userDelete(item)
+	await notes.load(apiB)
+	resolveCreate({ id: 77, author: null })
+	await flushPromises()
+
+	expect(apiA.remove).toHaveBeenCalledWith(77)
+	expect(apiB.remove).not.toHaveBeenCalled()
+})
+
+test('text typed during the first save across a model switch is sent to the model it was created on', async () => {
+	let resolveCreate
+	const apiA = fakeApi({ create: jest.fn(() => new Promise(r => { resolveCreate = r })) })
+	const apiB = fakeApi()
+	const { annotation, notes } = setup()
+	await notes.load(apiA)
+	const item = annotation.userAdd({ point: new THREE.Vector3(10, 0, 0), text: 'A' })
+
+	annotation.userEditText(item, 'Typed early')
+	await notes.load(apiB)
+	resolveCreate({ id: 55, author: null })
+	await flushPromises()
+	await notes.flush()
+
+	expect(apiA.update).toHaveBeenCalledWith(55, expect.objectContaining({ text: 'Typed early' }))
+	expect(apiB.update).not.toHaveBeenCalled()
+})
+
+test('a pending debounced edit at switch time is sent to the model it was typed on, not the new one', async () => {
+	const apiA = fakeApi()
+	const apiB = fakeApi()
+	const { annotation, notes } = setup()
+	await notes.load(apiA)
+	const item = annotation.userAdd({ point: new THREE.Vector3(10, 0, 0), text: 'A' })
+	await flushPromises()
+
+	annotation.userEditText(item, 'Ab')
+	await notes.load(apiB)
+	await flushPromises()
+
+	expect(apiA.update).toHaveBeenCalledWith(100, { space: 'model', point: { x: 0, y: 0, z: 0 }, text: 'Ab' })
+	expect(apiB.update).not.toHaveBeenCalled()
+})
+
+test('a stale list() resolving after a newer load() draws nothing and leaves canEdit/status on the new model', async () => {
+	let resolveListA
+	const apiA = fakeApi({ list: jest.fn(() => new Promise(r => { resolveListA = r })) })
+	const apiB = fakeApi({
+		list: jest.fn().mockResolvedValue({
+			canEdit: false,
+			notes: [{ id: 9, type: 'annotation', payload: { space: 'model', point: { x: 0, y: 0, z: 0 }, text: 'B note' }, author: null }],
+			private: [],
+		}),
+	})
+	const { annotation, notes } = setup()
+
+	const loadA = notes.load(apiA)
+	await notes.load(apiB)
+
+	resolveListA({
+		canEdit: true,
+		notes: [{ id: 1, type: 'annotation', payload: { space: 'model', point: { x: 1, y: 0, z: 0 }, text: 'A note' }, author: null }],
+		private: [],
+	})
+	await loadA
+	await flushPromises()
+
+	expect(annotation.items).toHaveLength(1)
+	expect(annotation.items[0].meta.noteId).toBe(9)
+	expect(notes.canEdit.value).toBe(false)
+	expect(notes.status.value).toBe('readonly')
+})
