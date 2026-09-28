@@ -296,6 +296,10 @@
         {
             "name": "public_file",
             "description": "Public (unauthenticated) streaming of shared 3D files via share token. MUST extend PublicShareController rather than plain Controller: PublicShareMiddleware returns early for anything that is not a PublicShareController instance, so a `#[PublicPage]` controller performs no share authorisation at all and will serve password-protected shares to any caller holding the token. Extending it delegates password and token validation to the framework, and brings brute-force throttling with it."
+        },
+        {
+            "name": "public_notes",
+            "description": "A shared model's notes, read-only, for visitors on a public link. MUST extend PublicShareController, for the reason PublicFileController gives: the middleware enforces share passwords only for instances of it (GHSA-gjh8-x4wm-3cfj). Authors are left out so a public link doesn't hand out the names of the people who wrote on the model."
         }
     ]
 }
