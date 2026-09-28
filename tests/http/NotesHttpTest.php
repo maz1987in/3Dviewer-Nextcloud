@@ -7,6 +7,7 @@ namespace OCA\ThreeDViewer\Tests\Http;
 require_once __DIR__ . '/HttpTestCase.php';
 
 use GuzzleHttp\Promise\Utils;
+use OCA\ThreeDViewer\Db\NoteMapper;
 use OCP\Constants;
 use OCP\Files\AppData\IAppDataFactory;
 use OCP\Files\IAppData;
@@ -186,6 +187,73 @@ class NotesHttpTest extends HttpTestCase
         ]);
 
         $this->assertSame(3, self::noteCount($model->getId()));
+    }
+
+    /** A model in the trash can be restored, so the daily cleanup must leave its notes alone. */
+    public function testANoteSurvivesItsModelGoingToTheTrash(): void
+    {
+        $owner = $this->newUser();
+        $model = $this->newModel($owner, 'trashed.stl');
+        $fileId = $model->getId();
+        $this->assertSame(201, $this->basic($owner)->post(self::notesUrl($fileId), ['json' => self::annotation('Keep')])->getStatusCode());
+
+        $this->assertSame(204, $this->basic($owner)->delete(self::davFileUrl($owner, 'trashed.stl'))->getStatusCode());
+        $this->assertSame([$fileId], array_values($this->trash($owner)), 'the server moved the model into the trash');
+
+        Server::get(NoteMapper::class)->deleteOrphans();
+
+        $this->assertSame(1, self::noteCount($fileId));
+    }
+
+    public function testANoteIsRemovedOnceItsModelLeavesTheTrash(): void
+    {
+        $owner = $this->newUser();
+        $model = $this->newModel($owner, 'purged.stl');
+        $fileId = $model->getId();
+        $this->assertSame(201, $this->basic($owner)->post(self::notesUrl($fileId), ['json' => self::annotation('Gone')])->getStatusCode());
+        $this->assertSame(204, $this->basic($owner)->delete(self::davFileUrl($owner, 'purged.stl'))->getStatusCode());
+
+        $trash = $this->trash($owner);
+        $this->assertSame([$fileId], array_values($trash));
+        $this->assertSame(204, $this->basic($owner)->delete(array_key_first($trash))->getStatusCode());
+        $this->assertSame([], $this->trash($owner), 'the trash is empty');
+
+        Server::get(NoteMapper::class)->deleteOrphans();
+
+        $this->assertSame(0, self::noteCount($fileId));
+    }
+
+    private static function davFileUrl(string $uid, string $name): string
+    {
+        return '/remote.php/dav/files/' . rawurlencode($uid) . '/' . rawurlencode($name);
+    }
+
+    /**
+     * The user's trash as the server reports it over WebDAV.
+     *
+     * @return array<string, int> file id by the item's href
+     */
+    private function trash(string $uid): array
+    {
+        $collection = '/remote.php/dav/trashbin/' . rawurlencode($uid) . '/trash';
+        $response = $this->basic($uid)->request('PROPFIND', $collection, [
+            'headers' => ['Depth' => '1', 'Content-Type' => 'application/xml'],
+            'body' => '<?xml version="1.0"?><d:propfind xmlns:d="DAV:" xmlns:oc="http://owncloud.org/ns"><d:prop><oc:fileid/></d:prop></d:propfind>',
+        ]);
+        $this->assertSame(207, $response->getStatusCode());
+
+        $xml = new \DOMDocument();
+        $xml->loadXML((string) $response->getBody());
+        $items = [];
+        foreach ($xml->getElementsByTagNameNS('DAV:', 'response') as $entry) {
+            $href = $entry->getElementsByTagNameNS('DAV:', 'href')->item(0)?->textContent ?? '';
+            if (rtrim(rawurldecode($href), '/') === rtrim(rawurldecode($collection), '/')) {
+                continue;
+            }
+            $items[$href] = (int) $entry->getElementsByTagNameNS('http://owncloud.org/ns', 'fileid')->item(0)?->textContent;
+        }
+
+        return $items;
     }
 
     /** @param list<string> $texts */

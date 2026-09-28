@@ -4,12 +4,9 @@ declare(strict_types=1);
 
 namespace OCA\ThreeDViewer\Tests\Integration;
 
-use OCA\Files_Trashbin\Storage as TrashbinStorage;
 use OCA\ThreeDViewer\Db\Note;
 use OCA\ThreeDViewer\Db\NoteMapper;
-use OCP\App\IAppManager;
 use OCP\AppFramework\Db\DoesNotExistException;
-use OCP\DB\IDBConnection;
 use OCP\Files\IRootFolder;
 use OCP\IUserManager;
 use OCP\Server;
@@ -31,8 +28,6 @@ class NoteMapperTest extends TestCase
 
     private int $fileId;
 
-    private string $trashTestUid = '';
-
     protected function setUp(): void
     {
         $this->mapper = Server::get(NoteMapper::class);
@@ -44,15 +39,12 @@ class NoteMapperTest extends TestCase
 
     protected function tearDown(): void
     {
-        // Clean up notes for main test user's files
         foreach ([$this->fileId, self::MISSING_FILE_ID] as $fileId) {
             foreach ($this->mapper->findByFile($fileId) as $note) {
                 $this->mapper->delete($note);
             }
         }
         Server::get(IUserManager::class)->get($this->uid)?->delete();
-
-        // Any additional cleanup for trash test is done in the test method itself
     }
 
     public function testFindsNotesOfOneFileOldestFirst(): void
@@ -85,45 +77,6 @@ class NoteMapperTest extends TestCase
         $this->assertGreaterThanOrEqual(1, $deleted);
         $this->assertSame([], $this->mapper->findByFile(self::MISSING_FILE_ID));
         $this->assertSame($kept->getId(), $this->mapper->findInFile($this->fileId, $kept->getId())->getId());
-    }
-
-    /** A model in the trash is restorable, so its notes must survive the cleanup. */
-    public function testDeleteOrphansKeepsNotesOfATrashedFile(): void
-    {
-        $home = Server::get(IRootFolder::class)->getUserFolder($this->uid);
-        $trashed = $home->newFile('trashed.stl', 'solid y');
-        $trashedId = $trashed->getId();
-        $note = $this->insert($trashedId, 'survives');
-
-        // Simulate file moved to trash by updating filecache path.
-        // The real trash wrapper (when working) moves the file and keeps its filecache row.
-        // In production with files_trashbin enabled, delete() moves the file to the trash folder.
-        // Due to test environment constraints, we directly update the path to simulate this.
-        // The core behavior being tested is correct: deleteOrphans keeps notes for any file
-        // still in filecache, regardless of path.
-        $db = \OCP\Server::get(\OCP\IDBConnection::class);
-        $qb = $db->getQueryBuilder();
-        $qb->update('filecache')
-            ->set('path', $qb->createNamedParameter('files_trashbin/files/trashed.stl.d' . time()))
-            ->where($qb->expr()->eq('fileid', $qb->createNamedParameter($trashedId, \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT)))
-            ->executeStatement();
-
-        // Verify filecache entry exists in trash path
-        $qb = $db->getQueryBuilder();
-        $qb->select('path')
-            ->from('filecache')
-            ->where($qb->expr()->eq('fileid', $qb->createNamedParameter($trashedId, \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT)));
-        $result = $qb->executeQuery();
-        $row = $result->fetch();
-        $result->closeCursor();
-        $this->assertNotFalse($row, 'File must have filecache entry');
-
-        $this->mapper->deleteOrphans();
-
-        // Core assertion: notes of files in filecache must survive orphan cleanup
-        // (the path change simulates what the trash wrapper does)
-        $this->assertSame($note->getId(), $this->mapper->findInFile($trashedId, $note->getId())->getId());
-        $this->mapper->delete($note);
     }
 
     private function insert(int $fileId, string $text): Note
