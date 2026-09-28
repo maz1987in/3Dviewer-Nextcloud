@@ -278,12 +278,12 @@
     },
     "tags": [
         {
-            "name": "annotations",
-            "description": "Stores per-file annotation documents in app data so users don't have to manually export/import their annotations between sessions. Routes are scoped per file ID and authenticated. The user must have access to the underlying model file (verified via the user folder lookup) before we'll touch their annotation blob — this prevents leaking or stomping on annotations through guessed file IDs."
-        },
-        {
             "name": "file",
             "description": "Controller for serving 3D files using Nextcloud filesystem API."
+        },
+        {
+            "name": "notes",
+            "description": "The shared annotations and measurements of a model, for signed-in users. No route carries NoCSRFRequired — the read included, because it runs the legacy migration, and that publishes a user's private annotations to everyone who can open the model."
         },
         {
             "name": "slicer",
