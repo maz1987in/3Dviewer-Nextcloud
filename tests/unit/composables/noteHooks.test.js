@@ -1,5 +1,5 @@
 const THREE = require('three')
-const { useAnnotation } = require('../../../src/composables/useAnnotation.js')
+const { useAnnotation, MAX_ANNOTATION_TEXT } = require('../../../src/composables/useAnnotation.js')
 const { useMeasurement } = require('../../../src/composables/useMeasurement.js')
 
 // jsdom has no 2D canvas; the label code needs the calls below (see measurementMarkers.test.js).
@@ -93,6 +93,23 @@ describe('useAnnotation note hooks', () => {
 		expect(hooks.added).toHaveBeenCalledWith(expect.objectContaining({ text: 'Imported' }))
 		expect(hooks.changed).not.toHaveBeenCalled()
 	})
+
+	/** The server refuses more than 2,000 characters, counted in code points. */
+	test('import cuts long text to 2,000 characters without splitting a surrogate pair', () => {
+		const a = useAnnotation()
+		a.init(sceneWithModel())
+		const point = { x: 0, y: 0, z: 0 }
+
+		a.importFromJSON({
+			format: 'threedviewer-annotations',
+			annotations: [{ point, text: 'x'.repeat(2500) }, { point, text: '😀'.repeat(2001) }],
+		})
+
+		const [plain, emoji] = a.annotations.value
+		expect(plain.text).toBe('x'.repeat(MAX_ANNOTATION_TEXT))
+		expect(Array.from(emoji.text)).toHaveLength(MAX_ANNOTATION_TEXT)
+		expect(emoji.text).toBe('😀'.repeat(MAX_ANNOTATION_TEXT))
+	})
 })
 
 describe('useMeasurement note hooks', () => {
@@ -144,6 +161,26 @@ describe('useMeasurement note hooks', () => {
 		expect(m.measurements.value[0].distance).toBeCloseTo(1)
 		expect(m.points.value).toHaveLength(0)
 		expect(spheres()).toHaveLength(2)
+	})
+
+	/** Notes arriving while the user has clicked one point must not strand that point's sphere. */
+	test('a measurement from a note drops a pending point and its sphere', () => {
+		const scene = sceneWithModel()
+		const m = useMeasurement()
+		m.init(scene)
+		const spheres = () => scene.getObjectByName('measurementGroup').children
+			.filter(o => o.name.startsWith('measurementPoint_'))
+
+		m.addMeasurementPoint(new THREE.Vector3(5, 5, 5))
+		const fromNote = m.addMeasurementFromNote(new THREE.Vector3(), new THREE.Vector3(1, 0, 0), { noteId: 1, author: null, saveState: 'saved' })
+
+		expect(fromNote.distance).toBeCloseTo(1)
+		expect(m.points.value).toHaveLength(0)
+		expect(spheres()).toHaveLength(2)
+		expect(spheres().some(s => s.position.equals(new THREE.Vector3(5, 5, 5)))).toBe(false)
+
+		m.deleteMeasurement(fromNote.id)
+		expect(spheres()).toHaveLength(0)
 	})
 
 	/** Two notes loaded in the same millisecond must not share an id. */

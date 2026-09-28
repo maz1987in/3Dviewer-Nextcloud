@@ -268,9 +268,12 @@ export function useMeasurement() {
 	/**
 	 * Draw a measurement that came from the server. Fires no hooks, so loading notes never
 	 * saves them back.
+	 *
+	 * A point the user had already clicked is dropped with its sphere first: clearing only
+	 * `points` would leave that sphere unpaired and shift every later sphere pair.
 	 */
 	const addMeasurementFromNote = (point1, point2, meta) => {
-		points.value = []
+		cancelPendingPoint()
 		points.value.push(point1.clone())
 		createPointIndicator(point1)
 		points.value.push(point2.clone())

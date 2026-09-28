@@ -579,7 +579,7 @@
 				<p class="canvas-panel-hint">
 					{{ t('threedviewer', 'Click two points on the model to measure.') }}
 				</p>
-				<p v-if="!notesCanEdit" class="canvas-panel-hint">
+				<p v-if="notesReadOnly" class="canvas-panel-hint">
 					{{ t('threedviewer', 'Measurements you take here aren’t saved.') }}
 				</p>
 				<div class="measurement-list">
@@ -665,7 +665,7 @@
 					</button>
 					<button type="button"
 						class="canvas-panel-outline"
-						:disabled="annotations.length === 0"
+						:disabled="annotations.length === 0 && measurements.length === 0"
 						:title="t('threedviewer', 'Export annotations as JSON')"
 						@click="exportAnnotationsJSON">
 						{{ t('threedviewer', 'Export') }}
@@ -678,7 +678,7 @@
 						{{ t('threedviewer', 'Clear all') }}
 					</button>
 				</div>
-				<p v-if="!notesCanEdit" class="canvas-panel-hint">
+				<p v-if="notesReadOnly" class="canvas-panel-hint">
 					{{ t('threedviewer', 'This model is view-only for you, so you can’t add annotations.') }}
 				</p>
 				<p class="canvas-panel-hint">
@@ -730,6 +730,7 @@
 						<input
 							:value="annotation.text"
 							class="annotation-text-input"
+							maxlength="2000"
 							:readonly="!canChangeNote(annotation)"
 							:placeholder="t('threedviewer', 'Enter annotation text...')"
 							@input="updateAnnotationText(annotation.id, $event.target.value)">
@@ -2458,8 +2459,16 @@ export default {
 
 		const notesCanEdit = computed(() => sharedNotes.canEdit.value)
 
-		/** Whether this user may change a given note: shared notes need edit rights. */
-		const canChangeNote = (item) => notesCanEdit.value || ['local', 'private'].includes(item.meta?.saveState)
+		// The view-only hints wait for a load that says so. `canEdit` is false before the
+		// notes load and after a failed load too, and neither means the user can't edit.
+		const notesReadOnly = computed(() => sharedNotes.status.value === 'readonly')
+
+		/**
+		 * Whether this user may change a given note: shared notes need edit rights. Only a
+		 * note made here and never sent ('local') is theirs to change without them; a
+		 * 'private' note is a legacy annotation nothing would save a change to.
+		 */
+		const canChangeNote = (item) => notesCanEdit.value || item.meta?.saveState === 'local'
 
 		const noteStateLabel = (item) => {
 			switch (item.meta?.saveState) {
@@ -3797,6 +3806,7 @@ export default {
 			annotationPersistenceStatus,
 			sharedNotes,
 			notesCanEdit,
+			notesReadOnly,
 			canChangeNote,
 			noteStateLabel,
 

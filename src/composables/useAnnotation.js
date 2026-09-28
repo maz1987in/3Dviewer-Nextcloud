@@ -22,6 +22,9 @@ const ANNOTATION_SIZING = (VIEWER_CONFIG.visualSizing && VIEWER_CONFIG.visualSiz
 	labelWidthPercent: 20,
 }
 
+/** The longest note text the server accepts, in characters. */
+export const MAX_ANNOTATION_TEXT = 2000
+
 export function useAnnotation() {
 	// Annotation state
 	const isActive = ref(false)
@@ -455,7 +458,12 @@ export function useAnnotation() {
 			}
 
 			const point = new THREE.Vector3(item.point.x, item.point.y, item.point.z)
-			const text = typeof item.text === 'string' && item.text.length > 0 ? item.text : undefined
+			// The server refuses text over 2,000 characters (NotePayload::MAX_TEXT_CHARS,
+			// counted in code points), so a long imported note is cut rather than left to fail
+			// on save. Array.from splits by code point, never through a surrogate pair.
+			const text = typeof item.text === 'string' && item.text.length > 0
+				? Array.from(item.text).slice(0, MAX_ANNOTATION_TEXT).join('')
+				: undefined
 			const fresh = addAnnotationPoint(point, { text })
 			if (fresh && typeof item.timestamp === 'string') {
 				fresh.timestamp = item.timestamp

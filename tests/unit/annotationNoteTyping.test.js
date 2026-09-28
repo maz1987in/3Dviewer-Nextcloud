@@ -88,6 +88,12 @@ describe('the annotation note field', () => {
 		expect(noteField).toBeDefined()
 	})
 
+	it('stops at the 2,000 characters the server accepts', () => {
+		const { input } = mountNoteField()
+
+		expect(input.maxLength).toBe(2000)
+	})
+
 	it('keeps text typed since the last commit when the panel re-renders', async () => {
 		const { input, rerender } = mountNoteField()
 		input.value = ''
