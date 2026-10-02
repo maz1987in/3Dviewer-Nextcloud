@@ -70,7 +70,7 @@
     "eslint": "^10.11.0",
     "eslint-plugin-n": "^18.3.0",
     "jest": "^30.3.0",
-    "jest-environment-jsdom": "^30.3.0",
+    "jest-environment-jsdom": "^30.5.2",
     "postcss": "^8.4.49",
     "postcss-html": "^1.8.1",
     "postcss-scss": "^4.0.9",
