@@ -11,6 +11,14 @@ export default createAppConfig(
     extractLicenseInformation: true,
     thirdPartyLicense: false,
     inlineCSS: false,
+    // Replaces @nextcloud/vite-config's default, so it repeats `protocolImports`.
+    // `crypto` is left unpolyfilled: its only importer is the OCCT glue, which calls
+    // `require("crypto")` inside a Node-only branch, and the polyfill (crypto-browserify,
+    // bn.js, elliptic, asn1.js, readable-stream...) was most of the occt-runtime chunk.
+    nodePolyfills: {
+      protocolImports: true,
+      exclude: ['crypto'],
+    },
     // Decoder assets are now copied by scripts/copy-decoders.mjs via prebuild script
     config: {
       // The OCCT glue compiles its bindings with `new Function`, which Nextcloud's CSP

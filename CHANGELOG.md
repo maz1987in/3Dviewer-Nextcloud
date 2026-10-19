@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- The CAD runtime chunk is 63 KB instead of 776 KB. The OCCT glue's `require("crypto")`, reached only when it runs under Node, pulled the whole browser polyfill for Node's `crypto` into the bundle: crypto-browserify, bn.js, elliptic, asn1.js and readable-stream. `crypto` is no longer polyfilled, which also removes the `vm-browserify` eval warning from the build.
+- The GLB, STL and OBJ exporters load when an export starts instead of with the viewer, taking 40 KB off the main chunk. The slicer's dynamic imports of the same exporters had no effect while the export composable imported them statically.
+- webdav 5.10.0 → 5.11.0 and fast-xml-parser 5.10.1 → 5.11.2, which drop a duplicate key the build warned about.
+
 ## [3.6.0] - 2026-10-19
 
 Annotations and measurements become shared notes that everyone who can open a model sees, and the app supports Nextcloud 35. CAD, BIM and 3DM files open again on App Store installs, Rhino 3DM files open at all, and the Favorites view lists starred models.
