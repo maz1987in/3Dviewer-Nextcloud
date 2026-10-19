@@ -1,0 +1,5 @@
+Rhino 3DM written by rhino3dm itself (File3dm.toByteArray): a NURBS sphere of radius 5
+at the origin, stored as a Brep, and a five-vertex mesh pyramid beside it. The Brep was
+built in code and carries no render mesh, so Rhino3dmLoader skips it with a "missing
+mesh" warning; the mesh decodes. A decode therefore exercises both the warning path and
+the geometry path of the loader's worker.
