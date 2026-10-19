@@ -421,7 +421,7 @@ class FileController extends BaseController
 
             foreach ($favoriteFiles as $fileId) {
                 // Verify file exists and is a 3D file
-                $nodes = $userFolder->getById($fileId);
+                $nodes = $userFolder->getById((int) $fileId);
                 if (!empty($nodes)) {
                     $node = $nodes[0];
                     if ($node instanceof \OCP\Files\File) {
@@ -499,8 +499,10 @@ class FileController extends BaseController
             $userFolder = $this->rootFolder->getUserFolder($userId);
             /**
              * @var \OCP\Files\Folder $userFolder psalm cannot resolve IRootFolder's
-             * parents, so it reads getUserFolder() as mixed. The interface declares
-             * a Folder return.
+             * parents before the NC 35 stubs, so it reads getUserFolder() as mixed.
+             * The interface declares a Folder return. From 35 it resolves on its own,
+             * and the matrix runs both.
+             * @psalm-suppress UnnecessaryVarAnnotation
              */
             $normalizedPath = ltrim($folderPath, '/');
             // Same reason as findFileByPath: the folder here comes from a path a model
@@ -1122,8 +1124,10 @@ class FileController extends BaseController
             $userFolder = $this->rootFolder->getUserFolder($user->getUID());
             /**
              * @var \OCP\Files\Folder $userFolder psalm cannot resolve IRootFolder's
-             * parents, so it reads getUserFolder() as mixed. The interface declares
-             * a Folder return.
+             * parents before the NC 35 stubs, so it reads getUserFolder() as mixed.
+             * The interface declares a Folder return. From 35 it resolves on its own,
+             * and the matrix runs both.
+             * @psalm-suppress UnnecessaryVarAnnotation
              */
 
             // Normalize path (remove leading slash if present)

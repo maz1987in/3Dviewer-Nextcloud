@@ -12,6 +12,7 @@ use OCP\DB\ISchemaWrapper;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
 use OCP\Migration\IOutput;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 use ReflectionMethod;
@@ -27,6 +28,26 @@ use ReflectionMethod;
  */
 class Version010903Date20251121000000Test extends TestCase
 {
+    /** Named as a string: the interface only exists from NC 35. */
+    private const ITABLE = 'OCP\\DB\\Schema\\ITable';
+
+    /**
+     * A table double. From NC 35 ISchemaWrapper::getTable() declares ITable as its
+     * return type, so the double has to implement it. Before 35 the interface does
+     * not exist and getTable() returns Doctrine's Table, so the double only needs
+     * the methods the migration calls.
+     */
+    private function table(): MockObject
+    {
+        if (interface_exists(self::ITABLE)) {
+            return $this->createMock(self::ITABLE);
+        }
+
+        return $this->getMockBuilder(\stdClass::class)
+            ->addMethods(['hasColumn', 'modifyColumn', 'addColumn', 'hasIndex', 'dropIndex', 'addIndex'])
+            ->getMock();
+    }
+
     private function migration(?IDBConnection $connection = null): Version010903Date20251121000000
     {
         $reflection = new ReflectionClass(Version010903Date20251121000000::class);
@@ -58,9 +79,7 @@ class Version010903Date20251121000000Test extends TestCase
 
     public function testAddsTheHashColumnAndRepointsTheIndex(): void
     {
-        $table = $this->getMockBuilder(\stdClass::class)
-            ->addMethods(['hasColumn', 'changeColumn', 'addColumn', 'hasIndex', 'dropIndex', 'addIndex'])
-            ->getMock();
+        $table = $this->table();
 
         $table->method('hasColumn')->willReturnMap([
             ['folder_path', true],
@@ -69,7 +88,7 @@ class Version010903Date20251121000000Test extends TestCase
         $table->method('hasIndex')->with('tv_uf')->willReturn(true);
 
         // folder_path was STRING(512) in 010902; paths can exceed that.
-        $table->expects($this->once())->method('changeColumn')
+        $table->expects($this->once())->method('modifyColumn')
             ->with('folder_path', $this->callback(static function (array $spec): bool {
                 return $spec['notnull'] === true
                     && $spec['type'] instanceof Type;
@@ -96,9 +115,7 @@ class Version010903Date20251121000000Test extends TestCase
 
     public function testDoesNotReAddTheHashColumnWhenItAlreadyExists(): void
     {
-        $table = $this->getMockBuilder(\stdClass::class)
-            ->addMethods(['hasColumn', 'changeColumn', 'addColumn', 'hasIndex', 'dropIndex', 'addIndex'])
-            ->getMock();
+        $table = $this->table();
 
         $table->method('hasColumn')->willReturnMap([
             ['folder_path', true],

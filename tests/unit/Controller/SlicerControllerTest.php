@@ -191,6 +191,35 @@ class SlicerControllerTest extends TestCase
         $this->assertEquals(Http::STATUS_NOT_FOUND, $response->getStatus());
     }
 
+    public function testGetTempFileReturnsNotFoundForAFolderId(): void
+    {
+        // getById() resolves any node. A folder inside the temp folder passes the
+        // path check and used to be handled as a file: one older than a day was
+        // deleted as expired, a newer one reached getContent(), which folders lack.
+        $folder = $this->createMock(Folder::class);
+        $folder->expects($this->never())->method('delete');
+        $folder->method('getPath')->willReturn('/testuser/.3dviewer_temp/subdir');
+
+        $this->userFolder->method('getById')
+            ->with(456)
+            ->willReturn([$folder]);
+
+        $controller = new SlicerController(
+            'threedviewer',
+            $this->request,
+            $this->rootFolder,
+            $this->userSession,
+            $this->urlGenerator,
+            $this->shareManager,
+            $this->logger
+        );
+
+        $response = $controller->getTempFile(456);
+
+        $this->assertInstanceOf(JSONResponse::class, $response);
+        $this->assertEquals(Http::STATUS_NOT_FOUND, $response->getStatus());
+    }
+
     public function testGetTempFileRejectsFilesOutsideTempFolder(): void
     {
         $file = $this->createMock(File::class);
