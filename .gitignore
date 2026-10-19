@@ -90,6 +90,7 @@ occt/*.wasm
 /.php-cs-fixer.cache
 /tests/.phpunit.cache
 /tests/.phpunit.integration.cache
+/tests/.phpunit.http.cache
 /.phpunit.result.cache
 
 # ---- Temporary Files ----

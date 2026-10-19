@@ -278,12 +278,12 @@
     },
     "tags": [
         {
-            "name": "annotations",
-            "description": "Stores per-file annotation documents in app data so users don't have to manually export/import their annotations between sessions. Routes are scoped per file ID and authenticated. The user must have access to the underlying model file (verified via the user folder lookup) before we'll touch their annotation blob — this prevents leaking or stomping on annotations through guessed file IDs."
-        },
-        {
             "name": "file",
             "description": "Controller for serving 3D files using Nextcloud filesystem API."
+        },
+        {
+            "name": "notes",
+            "description": "The shared annotations and measurements of a model, for signed-in users. No route carries NoCSRFRequired — the read included, because it runs the legacy migration, and that publishes a user's private annotations to everyone who can open the model."
         },
         {
             "name": "slicer",
@@ -296,6 +296,10 @@
         {
             "name": "public_file",
             "description": "Public (unauthenticated) streaming of shared 3D files via share token. MUST extend PublicShareController rather than plain Controller: PublicShareMiddleware returns early for anything that is not a PublicShareController instance, so a `#[PublicPage]` controller performs no share authorisation at all and will serve password-protected shares to any caller holding the token. Extending it delegates password and token validation to the framework, and brings brute-force throttling with it."
+        },
+        {
+            "name": "public_notes",
+            "description": "A shared model's notes, read-only, for visitors on a public link. MUST extend PublicShareController, for the reason PublicFileController gives: the middleware enforces share passwords only for instances of it (GHSA-gjh8-x4wm-3cfj). Authors are left out so a public link doesn't hand out the names of the people who wrote on the model."
         }
     ]
 }

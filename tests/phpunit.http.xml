@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" bootstrap="integration/bootstrap.php" xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/10.4/phpunit.xsd" cacheDirectory=".phpunit.http.cache">
+	<testsuite name="Three D Viewer HTTP Tests">
+		<directory suffix="Test.php">http</directory>
+	</testsuite>
+</phpunit>

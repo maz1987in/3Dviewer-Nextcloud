@@ -138,9 +138,33 @@ jobs:
       - name: Show app state
         run: php occ app:list | grep -A1 -i threedviewer
 
+      # The HTTP suite needs requests to pass through the server's middleware — the CSRF
+      # check and PublicShareMiddleware's password check — which calling a controller
+      # directly never does. PHP's built-in server is enough for that.
+      - name: Start a web server
+        run: |
+          php occ config:system:set trusted_domains 1 --value=localhost:8080
+          php -S localhost:8080 > /tmp/php-server.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl -fsS http://localhost:8080/status.php > /dev/null && exit 0
+            sleep 1
+          done
+          cat /tmp/php-server.log
+          exit 1
+
       - name: Run integration tests
         working-directory: apps/threedviewer
         run: composer test:integration
+
+      - name: Run HTTP tests
+        working-directory: apps/threedviewer
+        env:
+          TDV_HTTP_BASE: http://localhost:8080
+        run: composer test:http
+
+      - name: Show web server log on failure
+        if: failure()
+        run: cat /tmp/php-server.log
 
   # The same suite against MySQL and Postgres.
   #
@@ -257,9 +281,33 @@ jobs:
       - name: Show the database in use
         run: php occ config:system:get dbtype
 
+      # The HTTP suite needs requests to pass through the server's middleware — the CSRF
+      # check and PublicShareMiddleware's password check — which calling a controller
+      # directly never does. PHP's built-in server is enough for that.
+      - name: Start a web server
+        run: |
+          php occ config:system:set trusted_domains 1 --value=localhost:8080
+          php -S localhost:8080 > /tmp/php-server.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl -fsS http://localhost:8080/status.php > /dev/null && exit 0
+            sleep 1
+          done
+          cat /tmp/php-server.log
+          exit 1
+
       - name: Run integration tests
         working-directory: apps/threedviewer
         run: composer test:integration
+
+      - name: Run HTTP tests
+        working-directory: apps/threedviewer
+        env:
+          TDV_HTTP_BASE: http://localhost:8080
+        run: composer test:http
+
+      - name: Show web server log on failure
+        if: failure()
+        run: cat /tmp/php-server.log
 
   summary:
     runs-on: ubuntu-latest

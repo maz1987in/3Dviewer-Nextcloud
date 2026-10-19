@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OCA\ThreeDViewer\Service;
 
 use OCA\ThreeDViewer\Service\Exception\UnsupportedFileTypeException;
+use OCP\Constants;
 use OCP\Files\File;
 use OCP\Files\Folder;
 use OCP\Files\Node;
@@ -151,6 +152,12 @@ class ShareFileService
 
         $expiration = $share->getExpirationDate();
         if ($expiration !== null && $expiration->getTimestamp() < time()) {
+            return null;
+        }
+
+        // A file-drop link is upload-only: holding its token lets a visitor add files,
+        // never read what is already there — not the model, and not its notes.
+        if (($share->getPermissions() & Constants::PERMISSION_READ) === 0) {
             return null;
         }
 
