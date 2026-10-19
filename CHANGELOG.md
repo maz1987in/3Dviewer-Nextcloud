@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Nextcloud 35 support. The app declared `max-version="34"`, so the updater listed 3D Viewer under "Apps missing compatible version" and an upgrade to 35 would have disabled it. Checked on 35.0.2 by upgrading a 34 instance in place: the app stays enabled, and models open from the Files app, the standalone viewer, the file picker and public shares, with nothing logged.
+
 ### Changed
 - three.js r185 → r186. The Babel config moves from `package.json` to a project-wide `babel.config.json`: r186's CommonJS entry only re-exports the ES module build, and a `package.json` config never reaches files inside `node_modules`, so Jest could no longer load `three`.
 - Babel 7 → 8 for the Jest transform. `@babel/plugin-proposal-object-rest-spread`, `@babel/plugin-syntax-dynamic-import` and `@babel/plugin-transform-runtime` are dropped: no config referenced them, and the first had no Babel 8 release. Babel 8 needs Node 22.18 or later, so `engines.node` and `.nvmrc` move to 22.18.

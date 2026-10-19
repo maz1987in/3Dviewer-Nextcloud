@@ -225,7 +225,7 @@ This project is licensed under the **AGPL-3.0 License**. See [LICENSE](LICENSE) 
 
 **Current Version**: 3.0.0
 **Released**: April 2, 2026
-**Requires**: Nextcloud 31 -- 34
+**Requires**: Nextcloud 31 -- 35
 
 ### What's New in 3.0.0
 

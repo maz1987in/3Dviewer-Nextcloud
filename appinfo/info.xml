@@ -78,7 +78,7 @@ Built with Three.js for high-performance WebGL rendering. ✨]]></description>
 	<screenshot>https://raw.githubusercontent.com/maz1987in/3Dviewer-Nextcloud/main/img/screenshots/05-dark-theme.png</screenshot>
 	<donation title="Donate to the developers with PayPal" type="paypal">https://www.paypal.com/ncp/payment/KZCB3XTCHGKZC</donation>
 	<dependencies>
-		<nextcloud min-version="31" max-version="34"/>
+		<nextcloud min-version="31" max-version="35"/>
 	</dependencies>
 	<background-jobs>
 		<job>OCA\ThreeDViewer\Cron\CleanupTempFiles</job>
