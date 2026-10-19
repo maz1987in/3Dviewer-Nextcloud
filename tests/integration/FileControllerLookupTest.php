@@ -16,6 +16,7 @@ use OCP\Files\Folder;
 use OCP\Files\IRootFolder;
 use OCP\ICacheFactory;
 use OCP\IRequest;
+use OCP\ITagManager;
 use OCP\IUser;
 use OCP\IUserManager;
 use OCP\IUserSession;
@@ -128,6 +129,28 @@ class FileControllerLookupTest extends TestCase
         $this->assertContains('wood.png', $names);
     }
 
+    /**
+     * Favorites are per-user tags, the data the Files app's star writes. The controller
+     * used to read system tag 10 through an interface that does not exist, so the
+     * container handed it null and the Favorites view was always empty (#205).
+     */
+    public function testListsTheModelsTheUserStarred(): void
+    {
+        $starred = $this->models->newFile('chair.obj', "v 0 0 0\n");
+        $other = $this->models->newFile('table.obj', "v 0 0 0\n");
+        $index = Server::get(FileIndexService::class);
+        $index->indexFile($starred, $this->uid);
+        $index->indexFile($other, $this->uid);
+
+        Server::get(ITagManager::class)->load('files', [], false, $this->uid)->addToFavorites($starred->getId());
+
+        $body = $this->decode($this->controller(['sort' => 'favorites'])->listFiles());
+
+        $files = is_array($body['files'] ?? null) ? $body['files'] : [];
+        $this->assertSame(['chair.obj'], array_column($files, 'name'));
+        $this->assertTrue($files[0]['isFavorite'] ?? null);
+    }
+
     /** @return array<string, mixed> */
     private function decode(JSONResponse $response): array
     {
@@ -163,10 +186,7 @@ class FileControllerLookupTest extends TestCase
             $session,
             Server::get(FileIndexMapper::class),
             Server::get(FileIndexService::class),
-            // The favourites filter is the only thing the tag manager drives, and nothing
-            // here asks for it. The interface is also absent on some server versions, where
-            // the container hands the app null for exactly this reason.
-            null,
+            Server::get(ITagManager::class),
             Server::get(ModelFileSupport::class),
             Server::get(ResponseBuilder::class),
             Server::get(LoggerInterface::class),
