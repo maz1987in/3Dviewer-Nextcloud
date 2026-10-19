@@ -8,6 +8,7 @@ use OCA\ThreeDViewer\Db\FileIndex;
 use OCA\ThreeDViewer\Migration\Version010902Date20251116061241;
 use OCP\DB\ISchemaWrapper;
 use OCP\Migration\IOutput;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 
@@ -16,6 +17,36 @@ use ReflectionClass;
  */
 class Version010902Date20251116061241Test extends TestCase
 {
+    /** Named as strings: both interfaces only exist from NC 35. */
+    private const ITABLE = 'OCP\\DB\\Schema\\ITable';
+    private const ICOLUMN = 'OCP\\DB\\Schema\\IColumn';
+
+    /**
+     * A table double. From NC 35 ISchemaWrapper::createTable() declares ITable as
+     * its return type, so the double has to implement it. Before 35 the interface
+     * does not exist and createTable() returns Doctrine's Table, so the double only
+     * needs the methods the migration calls.
+     */
+    private function table(): MockObject
+    {
+        if (interface_exists(self::ITABLE)) {
+            return $this->createMock(self::ITABLE);
+        }
+
+        return $this->getMockBuilder(\stdClass::class)
+            ->addMethods(['addColumn', 'setPrimaryKey', 'addUniqueIndex', 'addIndex'])
+            ->getMock();
+    }
+
+    /**
+     * What addColumn() hands back: ITable declares IColumn, Doctrine's Table a
+     * Column the migration never uses.
+     */
+    private function column(): ?MockObject
+    {
+        return interface_exists(self::ICOLUMN) ? $this->createMock(self::ICOLUMN) : null;
+    }
+
     /**
      * Records every column and index the migration declares on a new table.
      *
@@ -25,28 +56,35 @@ class Version010902Date20251116061241Test extends TestCase
     {
         $recorded = ['columns' => [], 'indexes' => [], 'primary' => []];
 
-        $table = $this->getMockBuilder(\stdClass::class)
-            ->addMethods(['addColumn', 'setPrimaryKey', 'addUniqueIndex', 'addIndex'])
-            ->getMock();
+        $table = $this->table();
+        $column = $this->column();
 
         $table->method('addColumn')->willReturnCallback(
-            function (string $name, string $type, array $spec = []) use (&$recorded) {
+            function (string $name, string $type, array $spec = []) use (&$recorded, $column) {
                 $recorded['columns'][$name] = ['type' => $type, 'spec' => $spec];
+
+                return $column;
             }
         );
         $table->method('setPrimaryKey')->willReturnCallback(
-            function (array $columns) use (&$recorded) {
+            function (array $columns) use (&$recorded, $table) {
                 $recorded['primary'] = $columns;
+
+                return $table;
             }
         );
         $table->method('addUniqueIndex')->willReturnCallback(
-            function (array $columns, string $name) use (&$recorded) {
+            function (array $columns, string $name) use (&$recorded, $table) {
                 $recorded['indexes'][$name] = $columns;
+
+                return $table;
             }
         );
         $table->method('addIndex')->willReturnCallback(
-            function (array $columns, string $name) use (&$recorded) {
+            function (array $columns, string $name) use (&$recorded, $table) {
                 $recorded['indexes'][$name] = $columns;
+
+                return $table;
             }
         );
 

@@ -10,6 +10,8 @@ use OCP\AppFramework\Http\Attribute\FrontpageRoute;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\JSONResponse;
+use OCP\Files\File;
+use OCP\Files\Folder;
 use OCP\Files\IRootFolder;
 use OCP\IRequest;
 use OCP\IURLGenerator;
@@ -172,6 +174,11 @@ class SlicerController extends Controller
                 $this->logger->info('SlicerController: Created temp folder');
             }
 
+            // get() returns any node; a file under the reserved name cannot hold uploads.
+            if (!$tempFolder instanceof Folder) {
+                return new JSONResponse(['error' => 'Temporary storage unavailable'], Http::STATUS_CONFLICT);
+            }
+
             // Clean up old files and shares
             $this->cleanupOldTempFiles($tempFolder);
 
@@ -285,6 +292,11 @@ class SlicerController extends Controller
             }
 
             $file = $files[0];
+
+            // getById() returns any node; only a file has content to download.
+            if (!$file instanceof File) {
+                return new JSONResponse(['error' => 'File not found'], Http::STATUS_NOT_FOUND);
+            }
 
             // Verify file is in temp folder using secure path validation
             try {

@@ -41,7 +41,11 @@ class Version010903Date20251121000000 extends SimpleMigrationStep
         $table = $schema->getTable('tv_file_index');
 
         if ($table->hasColumn('folder_path')) {
-            $table->changeColumn('folder_path', [
+            // modifyColumn, not changeColumn: from NC 35 getTable() returns
+            // OCP\DB\Schema\ITable, which only declares modifyColumn. Before 35 it
+            // returns Doctrine's Table, and every supported server ships DBAL 3.10,
+            // where changeColumn is a deprecated alias of modifyColumn.
+            $table->modifyColumn('folder_path', [
                 'type' => Type::getType(Types::TEXT),
                 'notnull' => true,
             ]);
