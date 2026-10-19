@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
-import { generateUrl } from '@nextcloud/router'
+import { generateFilePath } from '@nextcloud/router'
 import { BaseLoader } from '../BaseLoader.js'
 
 /**
@@ -778,12 +778,13 @@ class GltfLoader extends BaseLoader {
 			try {
 				const { DRACOLoader } = await import('three/examples/jsm/loaders/DRACOLoader.js')
 				const dracoLoader = new DRACOLoader()
-				dracoLoader.setDecoderPath(generateUrl('/apps/threedviewer/draco/'))
+				const dracoPath = generateFilePath('threedviewer', 'draco', '')
+				dracoLoader.setDecoderPath(dracoPath)
 				if (typeof dracoLoader.setWorkerLimit === 'function') {
 					dracoLoader.setWorkerLimit(workerLimit)
 				}
 				this.loader.setDRACOLoader(dracoLoader)
-				this.logInfo('DRACO loader configured', { path: generateUrl('/apps/threedviewer/draco/'), workerLimit })
+				this.logInfo('DRACO loader configured', { path: dracoPath, workerLimit })
 			} catch (error) {
 				this.logWarning('DRACO loader unavailable', { error: error.message })
 			}
@@ -804,13 +805,14 @@ class GltfLoader extends BaseLoader {
 				try {
 					const { KTX2Loader } = await import('three/examples/jsm/loaders/KTX2Loader.js')
 					const ktx2Loader = new KTX2Loader()
-					ktx2Loader.setTranscoderPath(generateUrl('/apps/threedviewer/basis/'))
+					const basisPath = generateFilePath('threedviewer', 'basis', '')
+					ktx2Loader.setTranscoderPath(basisPath)
 					if (typeof ktx2Loader.setWorkerLimit === 'function') {
 						ktx2Loader.setWorkerLimit(workerLimit)
 					}
 					ktx2Loader.detectSupport(renderer)
 					this.loader.setKTX2Loader(ktx2Loader)
-					this.logInfo('KTX2 loader configured', { path: generateUrl('/apps/threedviewer/basis/'), workerLimit })
+					this.logInfo('KTX2 loader configured', { path: basisPath, workerLimit })
 				} catch (error) {
 					this.logWarning('KTX2 loader unavailable', { error: error.message })
 				}

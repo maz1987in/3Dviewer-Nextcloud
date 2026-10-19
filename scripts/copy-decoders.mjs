@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Copy DRACO & Basis (KTX2) decoder/transcoder runtime assets into top-level
- * directories that the app serves statically (`/apps/threedviewer/draco/` & `/apps/threedviewer/basis/`).
+ * directories that the app serves statically (`draco/` & `basis/` under the app's web root).
  *
  * We intentionally run this as a pre-build (or manual) step instead of a Vite
  * plugin because earlier attempts at a custom plugin produced empty dirs in
