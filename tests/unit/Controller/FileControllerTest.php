@@ -19,6 +19,7 @@ use OCP\Files\IRootFolder;
 use OCP\ICache;
 use OCP\ICacheFactory;
 use OCP\IRequest;
+use OCP\ITagManager;
 use OCP\IUser;
 use OCP\IUserSession;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -97,7 +98,7 @@ class FileControllerTest extends TestCase
             $this->userSession,
             $this->fileIndexMapper,
             $this->fileIndexService,
-            null, // systemTagManager is nullable
+            $this->createMock(ITagManager::class),
             $this->modelFileSupport,
             $this->responseBuilder,
             $this->logger,
@@ -121,7 +122,7 @@ class FileControllerTest extends TestCase
             $this->userSession,
             $this->fileIndexMapper,
             $this->fileIndexService,
-            null, // systemTagManager is nullable
+            $this->createMock(ITagManager::class),
             $this->modelFileSupport,
             $this->responseBuilder,
             $this->logger,
@@ -156,7 +157,7 @@ class FileControllerTest extends TestCase
             $this->userSession,
             $this->fileIndexMapper,
             $this->fileIndexService,
-            null, // systemTagManager is nullable
+            $this->createMock(ITagManager::class),
             $this->modelFileSupport,
             $this->responseBuilder,
             $this->logger,

@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **Annotations and measurements are shared with everyone who can open the model.** They were saved privately per user, and measurements were not saved at all. Now each model has one set of notes: share recipients and public-link visitors see it, and anyone who can edit the model can add, change or delete notes. Each note saves on its own, so two people editing at once never overwrite each other. Each note shows its author, except on public links. Existing private annotations move into the shared set the first time their author opens the model, if that user can edit it; otherwise they stay visible to that user only, marked "Private, not shared". Notes follow a model through moves and renames within the same storage; moving it to another storage, such as a group folder or external storage, gives it a new file id, and its notes are removed by the daily cleanup.
 - JSON export includes measurements, and import restores them.
+- Nextcloud 35 support. The app declared `max-version="34"`, so the updater listed 3D Viewer under "Apps missing compatible version" and an upgrade to 35 would have disabled it. Checked on 35.0.2 by upgrading a 34 instance in place: the app stays enabled, and models open from the Files app, the standalone viewer, the file picker and public shares, with nothing logged. Nextcloud 35 types the schema and file APIs more strictly, which surfaced three changes: the `folder_path` migration calls `modifyColumn()`, the only form 35's `ITable` declares (`changeColumn()` was a deprecated alias of it in every supported server); the slicer download endpoint no longer treats a folder ID as a file, which deleted any folder older than a day inside its temp directory; and the temp-file cleanup job skips a non-folder at the temp path instead of failing on it.
 
 ### Changed
 - three.js r185 → r186. The Babel config moves from `package.json` to a project-wide `babel.config.json`: r186's CommonJS entry only re-exports the ES module build, and a `package.json` config never reaches files inside `node_modules`, so Jest could no longer load `three`.
@@ -17,6 +18,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 - The `/api/annotations/{fileId}` endpoints, replaced by `/api/notes/{fileId}`.
+
+### Fixed
+- STEP, IGES, BREP, FCSTD, IFC and 3DM files never opened when the app was installed from the App Store, failing with `both async and sync fetching of the wasm failed`. The loaders fetched their WebAssembly runtimes from `/apps/threedviewer/…`, which exists only when the app sits in the shipped apps root; App Store installs land in the writable root, `custom_apps/` on the official image. The OCCT, web-ifc, rhino3dm, DRACO and Basis paths now resolve against the app's actual web root, which also covers instances served from a sub-directory ([#188](https://github.com/maz1987in/3Dviewer-Nextcloud/issues/188)).
+- The file browser's Favorites view was always empty. The controller read favorites through `OCP\Files\Tags\ISystemTagManager`, which does not exist, so Nextcloud injected `null`; it also looked for system tag 10, while favorites are per-user tags. It now reads the user's starred files from `ITagManager`, and the browser renders the flat Favorites list, which no view state reached before ([#205](https://github.com/maz1987in/3Dviewer-Nextcloud/issues/205)).
+
+### Security
+- Production dependencies updated within their existing ranges to clear `npm audit`: vue 3.5.41 → 3.5.44 (`@vue/server-renderer` XSS), axios 1.19.0 → 1.20.0 (prototype-pollution gadgets), brace-expansion 5.0.9 → 5.0.12 (ReDoS), source-map-js 1.2.1 → 1.2.2 (event-loop DoS) and DOMPurify 3.4.15 → 3.4.17 (`IN_PLACE` sanitizer bypasses).
 
 ## [3.5.1] - 2026-09-21
 

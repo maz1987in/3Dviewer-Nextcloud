@@ -16,9 +16,10 @@ use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\Http\StreamResponse;
 use OCP\Files\IRootFolder;
-use OCP\Files\Tags\ISystemTagManager;
 use OCP\ICacheFactory;
 use OCP\IRequest;
+use OCP\ITagManager;
+use OCP\ITags;
 use OCP\IUserSession;
 use Psr\Log\LoggerInterface;
 
@@ -34,7 +35,7 @@ class FileController extends BaseController
         private readonly IUserSession $userSession,
         private readonly FileIndexMapper $fileIndexMapper,
         private readonly FileIndexService $fileIndexService,
-        private readonly ?ISystemTagManager $systemTagManager,
+        private readonly ITagManager $tagManager,
         ModelFileSupport $modelFileSupport,
         ResponseBuilder $responseBuilder,
         LoggerInterface $logger,
@@ -396,44 +397,28 @@ class FileController extends BaseController
     }
 
     /**
-     * Get favorite file IDs from Nextcloud system tags.
+     * IDs of the files the user has starred.
+     *
+     * Favorites are per-user tags on the `files` type, the same data the Files app
+     * shows and WebDAV exposes as `oc:favorite`. They are not system tags.
+     *
      * @return int[]
      */
     private function getFavoriteFileIds(string $userId): array
     {
-        if ($this->systemTagManager === null) {
-            return [];
-        }
-
         try {
-            // Nextcloud uses system tag ID 10 for favorites
-            $favoriteTag = $this->systemTagManager->getTagsByIds([10]);
-            if (empty($favoriteTag)) {
+            /**
+             * @var ITags|null $tags ITagManager::load() is declared non-null before NC 35 and
+             * nullable from 35; it returns null only when there is no user, and one is passed.
+             * @psalm-suppress UnnecessaryVarAnnotation
+             */
+            $tags = $this->tagManager->load('files', [], false, $userId);
+            $favorites = $tags?->getFavorites();
+            if (!is_array($favorites)) {
                 return [];
             }
 
-            $tag = $favoriteTag[0];
-            $userFolder = $this->rootFolder->getUserFolder($userId);
-
-            // Get all files with favorite tag
-            $favoriteFiles = $this->systemTagManager->getFilesWithTag($tag->getId());
-            $fileIds = [];
-
-            foreach ($favoriteFiles as $fileId) {
-                // Verify file exists and is a 3D file
-                $nodes = $userFolder->getById($fileId);
-                if (!empty($nodes)) {
-                    $node = $nodes[0];
-                    if ($node instanceof \OCP\Files\File) {
-                        $extension = strtolower($node->getExtension());
-                        if ($this->modelFileSupport->isSupported($extension)) {
-                            $fileIds[] = $fileId;
-                        }
-                    }
-                }
-            }
-
-            return $fileIds;
+            return array_map('intval', $favorites);
         } catch (\Throwable $e) {
             $this->logger->error('Failed to get favorite file IDs: ' . $e->getMessage(), [
                 'exception' => $e,
@@ -499,8 +484,10 @@ class FileController extends BaseController
             $userFolder = $this->rootFolder->getUserFolder($userId);
             /**
              * @var \OCP\Files\Folder $userFolder psalm cannot resolve IRootFolder's
-             * parents, so it reads getUserFolder() as mixed. The interface declares
-             * a Folder return.
+             * parents before the NC 35 stubs, so it reads getUserFolder() as mixed.
+             * The interface declares a Folder return. From 35 it resolves on its own,
+             * and the matrix runs both.
+             * @psalm-suppress UnnecessaryVarAnnotation
              */
             $normalizedPath = ltrim($folderPath, '/');
             // Same reason as findFileByPath: the folder here comes from a path a model
@@ -1122,8 +1109,10 @@ class FileController extends BaseController
             $userFolder = $this->rootFolder->getUserFolder($user->getUID());
             /**
              * @var \OCP\Files\Folder $userFolder psalm cannot resolve IRootFolder's
-             * parents, so it reads getUserFolder() as mixed. The interface declares
-             * a Folder return.
+             * parents before the NC 35 stubs, so it reads getUserFolder() as mixed.
+             * The interface declares a Folder return. From 35 it resolves on its own,
+             * and the matrix runs both.
+             * @psalm-suppress UnnecessaryVarAnnotation
              */
 
             // Normalize path (remove leading slash if present)

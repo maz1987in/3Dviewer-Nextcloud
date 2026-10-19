@@ -1,4 +1,5 @@
 import { Rhino3dmLoader } from 'three/examples/jsm/loaders/3DMLoader.js'
+import { generateFilePath } from '@nextcloud/router'
 import { BaseLoader } from '../BaseLoader.js'
 
 /**
@@ -26,7 +27,7 @@ class ThreeDMLoader extends BaseLoader {
 		// Point at the bundled rhino3dm assets served by the Nextcloud app.
 		// Trailing slash required — rhino3dm's internal loader appends the
 		// filename directly.
-		this.loader.setLibraryPath('/apps/threedviewer/rhino3dm/')
+		this.loader.setLibraryPath(generateFilePath('threedviewer', 'rhino3dm', ''))
 
 		// parse() is callback-based; wrap in a promise so we can await it.
 		const object3D = await new Promise((resolve, reject) => {

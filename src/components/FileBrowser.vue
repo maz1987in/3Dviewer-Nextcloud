@@ -350,8 +350,10 @@
 			</template>
 		</NcEmptyContent>
 
-		<!-- File Grid/List (show files and subfolders when a folder/type/date is selected) -->
-		<div v-else-if="!loading && (currentPath || currentType || (currentDate && currentDate.month))"
+		<!-- File Grid/List: the files of a selected folder/type/month, or a flat list
+		     with no overview behind it (Favorites). An empty flat list is caught by the
+		     empty state above. -->
+		<div v-else-if="!loading && (currentPath || currentType || (currentDate && currentDate.month) || (!folders && !types && !dates && !currentDate))"
 			:key="`file-container-${viewMode}`"
 			:class="viewMode === 'list' ? 'file-list' : 'file-grid'"
 			:tabindex="viewMode === 'list' ? 0 : -1"

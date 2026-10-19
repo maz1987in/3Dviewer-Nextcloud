@@ -355,9 +355,8 @@ export const PROGRESSIVE_LOADING_SETTINGS = {
 export const COMPRESSION_SETTINGS = {
 	ktx2Enabled: true, // Enable KTX2 texture compression support
 	dracoEnabled: true, // Enable DRACO geometry compression support
-	// Decoder paths are handled by AssetController
-	// DRACO: /apps/threedviewer/draco/
-	// Basis (KTX2): /apps/threedviewer/basis/
+	// Decoders are served statically from the app's draco/ and basis/
+	// directories; GltfLoader resolves them with generateFilePath().
 }
 
 /**

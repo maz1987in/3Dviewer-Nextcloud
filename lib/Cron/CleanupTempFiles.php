@@ -6,6 +6,7 @@ namespace OCA\ThreeDViewer\Cron;
 
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\TimedJob;
+use OCP\Files\Folder;
 use OCP\Files\IRootFolder;
 use OCP\Files\Node;
 use OCP\Files\NotFoundException;
@@ -84,6 +85,10 @@ class CleanupTempFiles extends TimedJob
             }
 
             $tempFolder = $userFolder->get(self::TEMP_FOLDER);
+            // A file the user created under the reserved name has nothing to clean.
+            if (!$tempFolder instanceof Folder) {
+                return;
+            }
             $files = $tempFolder->getDirectoryListing();
             $now = time();
 
