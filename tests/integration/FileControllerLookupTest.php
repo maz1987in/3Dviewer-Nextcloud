@@ -142,7 +142,16 @@ class FileControllerLookupTest extends TestCase
         $index->indexFile($starred, $this->uid);
         $index->indexFile($other, $this->uid);
 
-        Server::get(ITagManager::class)->load('files', [], false, $this->uid)->addToFavorites($starred->getId());
+        // Starring happens in a request, and Nextcloud 31 reads the user for its
+        // NodeAddedToFavorite event from the session rather than the tag owner.
+        $session = Server::get(IUserSession::class);
+        $session->setUser(Server::get(IUserManager::class)->get($this->uid));
+
+        try {
+            Server::get(ITagManager::class)->load('files', [], false, $this->uid)->addToFavorites($starred->getId());
+        } finally {
+            $session->setUser(null);
+        }
 
         $body = $this->decode($this->controller(['sort' => 'favorites'])->listFiles());
 
