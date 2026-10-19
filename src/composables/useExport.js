@@ -4,9 +4,6 @@
  */
 
 import { ref, readonly } from 'vue'
-import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
-import { STLExporter } from 'three/examples/jsm/exporters/STLExporter.js'
-import { OBJExporter } from 'three/examples/jsm/exporters/OBJExporter.js'
 import { logger } from '../utils/logger.js'
 
 /**
@@ -86,6 +83,7 @@ export function useExport() {
 			// Small delay to show initial progress
 			await new Promise(resolve => setTimeout(resolve, 100))
 
+			const { GLTFExporter } = await import('three/examples/jsm/exporters/GLTFExporter.js')
 			const exporter = new GLTFExporter()
 
 			return new Promise((resolve, reject) => {
@@ -172,6 +170,7 @@ export function useExport() {
 
 			await new Promise(resolve => setTimeout(resolve, 100))
 
+			const { GLTFExporter } = await import('three/examples/jsm/exporters/GLTFExporter.js')
 			const exporter = new GLTFExporter()
 
 			return new Promise((resolve, reject) => {
@@ -252,6 +251,7 @@ export function useExport() {
 
 			await new Promise(resolve => setTimeout(resolve, 100))
 
+			const { STLExporter } = await import('three/examples/jsm/exporters/STLExporter.js')
 			const exporter = new STLExporter()
 
 			exportProgress.value = { stage: 'Exporting geometry to STL...', percentage: 40 }
@@ -305,6 +305,7 @@ export function useExport() {
 
 			await new Promise(resolve => setTimeout(resolve, 100))
 
+			const { OBJExporter } = await import('three/examples/jsm/exporters/OBJExporter.js')
 			const exporter = new OBJExporter()
 
 			exportProgress.value = { stage: 'Exporting geometry to OBJ...', percentage: 40 }
