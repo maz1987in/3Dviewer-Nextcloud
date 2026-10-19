@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - three.js r185 → r186. The Babel config moves from `package.json` to a project-wide `babel.config.json`: r186's CommonJS entry only re-exports the ES module build, and a `package.json` config never reaches files inside `node_modules`, so Jest could no longer load `three`.
 - Babel 7 → 8 for the Jest transform. `@babel/plugin-proposal-object-rest-spread`, `@babel/plugin-syntax-dynamic-import` and `@babel/plugin-transform-runtime` are dropped: no config referenced them, and the first had no Babel 8 release. Babel 8 needs Node 22.18 or later, so `engines.node` and `.nvmrc` move to 22.18.
 
+### Fixed
+- STEP, IGES, BREP, FCSTD, IFC and 3DM files never opened when the app was installed from the App Store, failing with `both async and sync fetching of the wasm failed`. The loaders fetched their WebAssembly runtimes from `/apps/threedviewer/…`, which exists only when the app sits in the shipped apps root; App Store installs land in the writable root, `custom_apps/` on the official image. The OCCT, web-ifc, rhino3dm, DRACO and Basis paths now resolve against the app's actual web root, which also covers instances served from a sub-directory ([#188](https://github.com/maz1987in/3Dviewer-Nextcloud/issues/188)).
+
 ### Security
 - Production dependencies updated within their existing ranges to clear `npm audit`: vue 3.5.41 → 3.5.44 (`@vue/server-renderer` XSS), axios 1.19.0 → 1.20.0 (prototype-pollution gadgets), brace-expansion 5.0.9 → 5.0.12 (ReDoS), source-map-js 1.2.1 → 1.2.2 (event-loop DoS) and DOMPurify 3.4.15 → 3.4.17 (`IN_PLACE` sanitizer bypasses).
 

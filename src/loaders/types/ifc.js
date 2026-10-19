@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import * as WebIFC from 'web-ifc'
+import { generateFilePath } from '@nextcloud/router'
 import { BaseLoader } from '../BaseLoader.js'
 
 /**
@@ -7,7 +8,7 @@ import { BaseLoader } from '../BaseLoader.js'
  *
  * Uses ThatOpen's `web-ifc` WASM — a modern IFC 2x3/4 parser with
  * tessellator. On first use it fetches `web-ifc.wasm` (~5 MB) from
- * `/apps/threedviewer/web-ifc/`; `scripts/copy-decoders.mjs` copies both
+ * the app's `web-ifc/` directory; `scripts/copy-decoders.mjs` copies both
  * the single-threaded and multi-threaded variants out of `node_modules`
  * so air-gapped Nextcloud installs don't need CDN reachability.
  *
@@ -33,7 +34,7 @@ class IfcLoader extends BaseLoader {
 	async loadModel(arrayBuffer, context) {
 		this.ifcApi = new WebIFC.IfcAPI()
 		// `true` as 2nd arg = use path as absolute (don't prepend script URL).
-		this.ifcApi.SetWasmPath('/apps/threedviewer/web-ifc/', true)
+		this.ifcApi.SetWasmPath(generateFilePath('threedviewer', 'web-ifc', ''), true)
 		await this.ifcApi.Init()
 
 		const uint8 = new Uint8Array(arrayBuffer)

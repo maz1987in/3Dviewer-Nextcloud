@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import occtimportjs from 'occt-import-js'
+import { generateFilePath } from '@nextcloud/router'
 import { logger } from '../utils/logger.js'
 
 /**
@@ -20,7 +21,9 @@ let modulePromise = null
 
 /**
  * Resolve the occt-import-js module, loading its WASM from the app's
- * bundled copy at `/apps/threedviewer/occt/` so air-gapped installs work.
+ * bundled `occt/` directory so air-gapped installs work. The directory is
+ * resolved against the app's web root, which is `custom_apps/` rather than
+ * `apps/` on an App Store install (#188).
  *
  * @return {Promise<object>} the emscripten module with Read*File methods
  */
@@ -29,7 +32,7 @@ export function getOcct() {
 		modulePromise = occtimportjs({
 			locateFile(name) {
 				if (name.endsWith('.wasm')) {
-					return '/apps/threedviewer/occt/' + name
+					return generateFilePath('threedviewer', 'occt', name)
 				}
 				return name
 			},
