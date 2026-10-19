@@ -70,13 +70,15 @@ Thumbs.db
 draco/*.wasm
 basis/*.wasm
 rhino3dm/*.wasm
+# Copied from node_modules/rhino3dm and rewritten by scripts/copy-decoders.mjs
+rhino3dm/*.js
 web-ifc/*.wasm
 occt/*.wasm
 
 # Keep decoder JS files for production
 # draco/*.js
 # basis/*.js
-# rhino3dm/*.js
+# rhino3dm has no JS asset to keep — its glue is generated at build time (above)
 # web-ifc has no JS asset to keep — only WASM
 # occt has no JS asset to keep — the emscripten glue lives in the bundle
 

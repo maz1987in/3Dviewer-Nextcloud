@@ -11,16 +11,18 @@
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import url from 'node:url'
+import { stripDynamicExecution as rhino3dmNoEval } from './rhino3dm-no-eval.mjs'
 
 const root = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), '..')
 
 const sources = {
   draco: path.join(root, 'node_modules/three/examples/jsm/libs/draco'),
   basis: path.join(root, 'node_modules/three/examples/jsm/libs/basis'),
-  // rhino3dm WASM + loader JS for the 3DM format. three.js ships this under
-  // examples/jsm/libs/rhino3dm; Rhino3dmLoader downloads these files from
-  // the path we hand it via setLibraryPath().
-  rhino3dm: path.join(root, 'node_modules/three/examples/jsm/libs/rhino3dm'),
+  // rhino3dm WASM + JS glue for the 3DM format, from McNeel's `rhino3dm`
+  // package (pinned to the version three's Rhino3dmLoader names).
+  // Rhino3dmLoader downloads both from the path we hand it via
+  // setLibraryPath(). three.js no longer ships a copy under examples/.
+  rhino3dm: path.join(root, 'node_modules/rhino3dm'),
   // web-ifc WASM for the IFC format. ThatOpen's `web-ifc` package ships
   // both single-threaded and multi-threaded WASM builds; IfcAPI picks the
   // variant that matches the runtime. SetWasmPath(...) points at the copy
@@ -48,8 +50,6 @@ const fileGlobs = {
   rhino3dm: [
     'rhino3dm.js',
     'rhino3dm.wasm',
-    // Module form is loaded by the Rhino3dmLoader worker in newer three.js
-    'rhino3dm.module.js',
   ],
   'web-ifc': [
     'web-ifc.wasm',
@@ -61,15 +61,41 @@ const fileGlobs = {
   ],
 }
 
+// Text rewrites applied while copying. The rhino3dm glue is fetched as text and run
+// in a worker, so it never passes through Vite; this is where it loses its eval sites.
+const transforms = {
+  'rhino3dm/rhino3dm.js': rhino3dmNoEval,
+}
+
+// Files the build must not finish without. A missing decoder elsewhere degrades one
+// feature and is only warned about; a 3DM loader with no runtime behind it hangs.
+const required = [
+  'rhino3dm/rhino3dm.js',
+  'rhino3dm/rhino3dm.wasm',
+]
+
+/** An error that must fail the build rather than be warned about. */
+class FatalError extends Error {}
+
 async function ensureDir(dir) {
   await fs.mkdir(dir, { recursive: true })
 }
 
-async function copyIfExists(src, dest) {
+async function copyIfExists(src, dest, transform) {
   try {
     await fs.access(src)
   } catch {
     return false // skip silently
+  }
+  if (transform) {
+    let code
+    try {
+      code = transform(await fs.readFile(src, 'utf8'))
+    } catch (err) {
+      throw new FatalError(`${path.relative(root, src)}: ${err.message}`)
+    }
+    await fs.writeFile(dest, code)
+    return true
   }
   try {
     await fs.copyFile(src, dest)
@@ -93,8 +119,9 @@ async function run() {
       const from = path.join(srcDir, file)
       const to = path.join(outDir, file)
       const jsTo = path.join(jsOutDir, file)
-      const copied = await copyIfExists(from, to)
-      const jsCopied = await copyIfExists(from, jsTo)
+      const transform = transforms[`${key}/${file}`]
+      const copied = await copyIfExists(from, to, transform)
+      const jsCopied = await copyIfExists(from, jsTo, transform)
       report.push({ key, file, copied, jsCopied })
     }
   }
@@ -114,11 +141,17 @@ async function run() {
   if (missingCritical.length) {
     console.warn('[copy-decoders] Warning: missing critical decoder files:', missingCritical.join(', '))
   }
+
+  const missingRequired = required.filter(f => !report.find(r => `${r.key}/${r.file}` === f && r.copied))
+  if (missingRequired.length) {
+    throw new FatalError(`missing required runtime files: ${missingRequired.join(', ')}. Run npm ci.`)
+  }
 }
 
 run().catch(err => {
   console.error('[copy-decoders] Failed:', err)
-  // Do not fail the whole build; decoder assets can be pre-shipped in the app
-  // and missing copies are already warned about above.
-  process.exit(0)
+  // Do not fail the whole build for an optional decoder; those can be pre-shipped
+  // in the app and missing copies are already warned about above. Required files
+  // and failed rewrites do fail it.
+  process.exit(err instanceof FatalError ? 1 : 0)
 })
