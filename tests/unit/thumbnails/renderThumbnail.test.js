@@ -213,6 +213,73 @@ describe('renderThumbnail', () => {
 		expect(model.parent).toBe(parent)
 	})
 
+	it('puts the model back under its parent before the asynchronous encode finishes', async () => {
+		const model = cube()
+		const parent = new THREE.Group()
+		parent.add(model)
+		let finishEncode
+		const canvas = {
+			convertToBlob: jest.fn(() => new Promise((resolve) => {
+				finishEncode = () => resolve(PNG)
+			})),
+		}
+
+		const pending = renderThumbnail(model, { canvas })
+		// The encode has been requested synchronously after the render; it is not done yet
+		await Promise.resolve()
+		expect(canvas.convertToBlob).toHaveBeenCalledTimes(1)
+		expect(model.parent).toBe(parent)
+		expect(parent.children).toEqual([model])
+		expect(mockRenderers[0].dispose).not.toHaveBeenCalled()
+
+		finishEncode()
+		await expect(pending).resolves.toBe(PNG)
+		expect(mockRenderers[0].dispose).toHaveBeenCalledTimes(1)
+		expect(model.parent).toBe(parent)
+		expect(parent.children).toEqual([model])
+	})
+
+	it('returns the model to its original index and leaves siblings alone', async () => {
+		const before = new THREE.Object3D()
+		const model = cube()
+		const after = new THREE.Object3D()
+		const last = new THREE.Object3D()
+		const parent = new THREE.Group()
+		parent.add(before, model, after, last)
+
+		await renderThumbnail(model, { canvas: domCanvas() })
+
+		expect(parent.children).toEqual([before, model, after, last])
+		expect(before.parent).toBe(parent)
+		expect(after.parent).toBe(parent)
+		expect(last.parent).toBe(parent)
+	})
+
+	it('does not duplicate the model in its parent when setup throws before it moves', async () => {
+		const before = new THREE.Object3D()
+		const model = cube()
+		const parent = new THREE.Group()
+		parent.add(before, model)
+		THREE.WebGLRenderer.mockImplementationOnce(() => {
+			const renderer = {
+				setClearColor() {},
+				setPixelRatio() {},
+				setSize() { throw new Error('no size') },
+				render: jest.fn(),
+				dispose: jest.fn(),
+				forceContextLoss: jest.fn(),
+			}
+			mockRenderers.push(renderer)
+			return renderer
+		})
+
+		await expect(renderThumbnail(model, { canvas: domCanvas() })).rejects.toThrow('no size')
+
+		expect(parent.children).toEqual([before, model])
+		expect(model.parent).toBe(parent)
+		expect(mockRenderers[0].dispose).toHaveBeenCalledTimes(1)
+	})
+
 	it('does not touch document or window', async () => {
 		const documentSpy = jest.spyOn(document, 'createElement')
 

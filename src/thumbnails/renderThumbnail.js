@@ -104,6 +104,25 @@ export async function renderThumbnail(object3D, { canvas, size = DEFAULT_SIZE, f
 	const originalParent = object3D.parent
 	const originalIndex = originalParent ? originalParent.children.indexOf(object3D) : -1
 	const scene = new Scene()
+	let moved = false
+
+	/**
+	 * Take the model out of the temporary scene and back under its original parent.
+	 * Safe to call more than once, and a no-op if the model never left its parent.
+	 */
+	const restoreModel = () => {
+		if (!moved) {
+			return
+		}
+		moved = false
+		scene.remove(object3D)
+		if (originalParent) {
+			// Back at its old index, so sibling order is unchanged
+			originalParent.children.splice(originalIndex, 0, object3D)
+			object3D.parent = originalParent
+		}
+		object3D.updateWorldMatrix(true, true)
+	}
 
 	try {
 		renderer.setClearColor(0x000000, 0)
@@ -113,6 +132,7 @@ export async function renderThumbnail(object3D, { canvas, size = DEFAULT_SIZE, f
 		// Scene.add detaches the model from its parent, so its world matrix is now
 		// relative to the scene, which is what both the fit and the render use.
 		scene.add(object3D)
+		moved = true
 		object3D.updateWorldMatrix(true, true)
 
 		const fov = fovDegrees ?? DEFAULT_CAMERA_FOV
@@ -131,17 +151,17 @@ export async function renderThumbnail(object3D, { canvas, size = DEFAULT_SIZE, f
 		addDefaultLights(scene)
 		renderer.render(scene, camera)
 
+		// The render is synchronous and the encode snapshots the bitmap when it is
+		// called, so give a live model back to its parent before awaiting the encode:
+		// the viewer's frame loop must not draw without it in the meantime.
+		const encoded = encodePng(canvas)
+		restoreModel()
+
 		// Encode before the context is lost, or the drawing buffer is gone
-		return await encodePng(canvas)
+		return await encoded
 	} finally {
-		scene.remove(object3D)
+		restoreModel()
 		scene.clear()
-		if (originalParent) {
-			// Back at its old index, so sibling order is unchanged
-			originalParent.children.splice(originalIndex, 0, object3D)
-			object3D.parent = originalParent
-			object3D.updateWorldMatrix(true, true)
-		}
 		renderer.dispose()
 		renderer.forceContextLoss()
 	}
