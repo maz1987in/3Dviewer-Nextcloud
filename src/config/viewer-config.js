@@ -326,6 +326,10 @@ export const SLICER_SETTINGS = {
  */
 export const THUMBNAIL_SETTINGS = {
 	enabled: true, // Whether to automatically generate thumbnails
+	background: true, // Whether to create thumbnails while browsing Files
+	maxFileSizeMB: 50, // Background work skips files larger than this
+	timeoutSeconds: 30, // Background work gives up on one file after this long
+	folderBudgetMB: 500, // Background work stops for a folder visit after downloading this much
 	width: 512, // Thumbnail width in pixels
 	height: 512, // Thumbnail height in pixels
 	format: 'png', // Image format: 'png' or 'jpeg'
