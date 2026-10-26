@@ -626,8 +626,9 @@ test.describe('thumbnail worker', () => {
     expect.soft(elsewhere).toEqual([])
     expect.soft(requested.filter(reqPath => !allowed.test(reqPath))).toEqual([])
     expect.soft(fromBrowser.filter(url => !allowed.test(url.slice(server.origin.length)))).toEqual([])
-    // A load error, which skips the file; not an environment one, which would retry it
-    expect(outcome).toMatchObject({ ok: false, errorName: 'Error' })
+    // A refusal, which skips the file and stays out of the breaker; not an environment
+    // error, which would retry it
+    expect(outcome).toMatchObject({ ok: false, errorName: 'ThumbnailRefusedError' })
     expect(outcome.error).toMatch(/^Refused to load .*: not one of the model's files$/)
 
     // The same logs do see what a worker asks for, and a decoder is still allowed: a 3DM
