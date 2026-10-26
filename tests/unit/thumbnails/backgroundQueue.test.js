@@ -218,6 +218,44 @@ describe('createBackgroundQueue', () => {
 		expect(deps.skips.markSkipped).not.toHaveBeenCalled()
 	})
 
+	it('skips a file larger than the whole folder budget and goes on with the next', async () => {
+		// No visit could ever download it, so ending the visit at it would stop every
+		// visit to this folder at the same file
+		const { queue, deps } = setup({
+			settings: { folderBudgetMB: 500, maxFileSizeMB: 2048 },
+			statuses: {
+				1: status(1, { size: 600 * MB }),
+				2: status(2, { size: 10 * MB }),
+			},
+		})
+
+		queue.setFolder('/models', [1, 2], new Set())
+		await queue.idle()
+
+		expect(loadedIds(deps.load)).toEqual([2])
+		expect(deps.skips.markSkipped).toHaveBeenCalledTimes(1)
+		expect(deps.skips.markSkipped).toHaveBeenCalledWith(1, 'etag-1')
+		expect(deps.api.uploadThumbnail).toHaveBeenCalledWith(2, 'etag-2', PNG)
+	})
+
+	it('ends the visit at a file that fits a whole budget but not what is left, without skipping it', async () => {
+		const { queue, deps } = setup({
+			settings: { folderBudgetMB: 500, maxFileSizeMB: 2048 },
+			statuses: {
+				1: status(1, { size: 300 * MB }),
+				// 300 MB left; fits a fresh budget, so the next visit tries it
+				2: status(2, { size: 400 * MB }),
+				3: status(3, { size: MB }),
+			},
+		})
+
+		queue.setFolder('/models', [1, 2, 3], new Set())
+		await queue.idle()
+
+		expect(loadedIds(deps.load)).toEqual([1])
+		expect(deps.skips.markSkipped).not.toHaveBeenCalled()
+	})
+
 	it('counts dependency bytes against the budget', async () => {
 		const { queue, deps } = setup({
 			settings: { folderBudgetMB: 50 },

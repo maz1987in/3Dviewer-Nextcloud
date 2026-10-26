@@ -13,7 +13,8 @@
  * A file is marked skipped only for what would happen again on the next visit: running
  * out of time, a model with nothing to draw, a download the server refuses (4xx), a
  * model the loader cannot parse, a model that names a URL outside the files it was handed
- * (refused by the worker), or a companion the model declares that cannot be found.
+ * (refused by the worker), a companion the model declares that cannot be found, or a
+ * model that with its companions needs more than a whole folder budget.
  * Failures of the browser or the network (no WebGL in a worker, a worker that will not
  * start or crashes, a network error or a 5xx) never skip a file. A one-time capability
  * probe before the first download, and a breaker after BREAKER_LIMIT failures of that
@@ -242,7 +243,8 @@ export function createBackgroundQueue(deps) {
 	/**
 	 * Decide, before anything is downloaded, whether a file gets a thumbnail now. A file
 	 * that does not fit what is left of the budget ends the visit: nothing more is
-	 * downloaded, and the file is not skipped.
+	 * downloaded, and the file is not skipped. One larger than a whole folder budget can
+	 * never fit, so it is skipped instead and the visit goes on with the next file.
 	 *
 	 * @param {Visit} v - The visit
 	 * @param {number} id - File id
@@ -256,6 +258,12 @@ export function createBackgroundQueue(deps) {
 			|| status.hasThumbnail
 			|| skips.isSkipped(id, status.etag)
 			|| !(status.size <= settings.maxFileSizeMB * BYTES_PER_MB)) {
+			return null
+		}
+		if (status.size > settings.folderBudgetMB * BYTES_PER_MB) {
+			// No visit's budget can hold it; ending the visit would stop every visit here
+			logger.info('backgroundQueue', 'Model is larger than a whole folder budget', { fileId: id, size: status.size })
+			skips.markSkipped(id, status.etag)
 			return null
 		}
 		if (status.size > v.budget) {
