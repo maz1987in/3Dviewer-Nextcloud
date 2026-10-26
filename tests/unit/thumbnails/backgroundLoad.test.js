@@ -125,6 +125,21 @@ function serve(files) {
 
 const ASCII_FBX_WITHOUT_TEXTURES = '; FBX 7.4.0 project file\nFBXHeaderExtension:  {\n}\nObjects:  {\n}\n'
 
+/** An ASCII FBX whose only texture is embedded as base64 Content in its Video node. */
+const EMBEDDED_FBX = [
+	'; FBX 7.4.0 project file',
+	'Objects:  {',
+	'\tVideo: 1, "Video::wood", "Clip" {',
+	'\t\tRelativeFilename: "wood.png"',
+	'\t\tContent: ,',
+	'\t\t\t"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk"',
+	'\t}',
+	'\tTexture: 2, "Texture::wood", "" {',
+	'\t\tRelativeFilename: "wood.png"',
+	'\t}',
+	'}',
+].join('\n')
+
 /** A folder holding an untextured FBX, with a photo library beside and below it. */
 const PHOTO_FOLDER = {
 	'Projects/robot.fbx': { id: 10, body: ASCII_FBX_WITHOUT_TEXTURES },
@@ -201,6 +216,30 @@ describe('loadModelForBackground', () => {
 		const result = await loadModelForBackground(10, 'robot.fbx', 'fbx', '/Projects', { budgetBytes: 500 * MB })
 
 		expect(result).toMatchObject({ dependencies: [], missingFiles: [], budgetReached: false })
+	})
+
+	it('an FBX with an embedded texture reports nothing missing and asks for nothing beside it', async () => {
+		// The image travels inside the model, so the file must render rather than be
+		// skipped for a companion that was never meant to exist.
+		const server = serve({ 'Projects/robot.fbx': { id: 10, body: EMBEDDED_FBX } })
+
+		const result = await loadModelForBackground(10, 'robot.fbx', 'fbx', '/Projects', { budgetBytes: MB })
+
+		expect(result).toMatchObject({ dependencies: [], missingFiles: [], budgetReached: false })
+		expect(server.urls()).toEqual(['/index.php/apps/threedviewer/api/file/10'])
+	})
+
+	it('(the viewer\'s loader neither looks up an embedded texture nor lists the folder for one)', async () => {
+		const server = serve({
+			...PHOTO_FOLDER,
+			'Projects/robot.fbx': { id: 10, body: EMBEDDED_FBX },
+			'Projects/wood.png': { id: 15, body: 'PNG' },
+		})
+
+		const result = await loadModelWithDependencies(10, 'robot.fbx', 'fbx', 'Projects')
+
+		expect(result.missingFiles).toEqual([])
+		expect(server.urls()).toEqual(['/index.php/apps/threedviewer/api/file/10'])
 	})
 
 	it('fetches declared glTF companions that fit, buffers first, and counts every byte', async () => {

@@ -56,6 +56,33 @@ const strProp = (value) => cat(ascii('S'), u32(value.length), ascii(value))
 const arrProp = (bytes) => cat(ascii('b'), u32(bytes.length), u32(0), u32(bytes.length), bytes)
 
 /**
+ * A raw-bytes property ('R'), the type a Video node's embedded image is stored as.
+ *
+ * @param {Uint8Array} bytes - payload
+ * @return {Uint8Array} encoded property
+ */
+const rawProp = (bytes) => cat(ascii('R'), u32(bytes.length), bytes)
+
+/** The first bytes of a PNG, standing in for an embedded image. */
+const PNG_BYTES = Uint8Array.of(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)
+
+/**
+ * A Video node and the Texture that names it, as exporters write the pair.
+ *
+ * @param {string} path - RelativeFilename both nodes carry
+ * @param {Uint8Array} content - the Video's Content bytes; empty when not embedded
+ * @return {Function[]} the two node builders
+ */
+const videoAndTexture = (path, content) => [
+	fbxNode('Video', [strProp('Video::map'), strProp('Clip')], [
+		fbxNode('Type', [strProp('Clip')]),
+		fbxNode('RelativeFilename', [strProp(path)]),
+		fbxNode('Content', [rawProp(content)]),
+	]),
+	fbxNode('Texture', [strProp('Texture::map')], [fbxNode('RelativeFilename', [strProp(path)])]),
+]
+
+/**
  * Build one FBX node record, deferred until its absolute start offset is known —
  * every record stores the absolute offset of its own end.
  *
@@ -243,6 +270,84 @@ describe('parseFbxDependencies', () => {
 
 	it('returns nothing for content that is not FBX', () => {
 		expect(parseFbxDependencies(ascii('just some text').buffer)).toEqual([])
+	})
+
+	it('leaves out a texture whose image is embedded, and keeps one that is not', () => {
+		// three's FBXLoader renders an embedded image from the Video node's Content, so
+		// asking for that name beside the model would report a missing companion the
+		// model never needed.
+		const doc = fbxBinary([fbxNode('Objects', [], [
+			...videoAndTexture('embedded.png', PNG_BYTES),
+			...videoAndTexture('textures/external.png', new Uint8Array(0)),
+		])])
+
+		expect(parseFbxDependencies(doc)).toEqual(['textures/external.png'])
+	})
+
+	it('leaves out an embedded texture even when its Texture node comes first', () => {
+		const [video, texture] = videoAndTexture('embedded.png', PNG_BYTES)
+		const doc = fbxBinary([fbxNode('Objects', [], [texture, video])])
+
+		expect(parseFbxDependencies(doc)).toEqual([])
+	})
+
+	it('reads the Content after the RelativeFilename or before it', () => {
+		const doc = fbxBinary([fbxNode('Objects', [], [
+			fbxNode('Video', [], [
+				fbxNode('Content', [rawProp(PNG_BYTES)]),
+				fbxNode('RelativeFilename', [strProp('embedded.png')]),
+			]),
+			fbxNode('Texture', [], [fbxNode('RelativeFilename', [strProp('embedded.png')])]),
+		])])
+
+		expect(parseFbxDependencies(doc)).toEqual([])
+	})
+
+	it('leaves out an embedded texture in an ASCII document, and keeps one that is not', () => {
+		const text = [
+			'; FBX 7.4.0 project file',
+			'Objects:  {',
+			'\tVideo: 1, "Video::embedded", "Clip" {',
+			'\t\tType: "Clip"',
+			'\t\tProperties70:  {',
+			'\t\t\tP: "Path", "KString", "XRefUrl", "", "embedded.png"',
+			'\t\t}',
+			'\t\tRelativeFilename: "embedded.png"',
+			'\t\tContent: ,',
+			'\t\t\t"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk"',
+			'\t}',
+			'\tVideo: 2, "Video::external", "Clip" {',
+			'\t\tType: "Clip"',
+			'\t\tRelativeFilename: "textures/external.png"',
+			'\t\tContent: ',
+			'\t}',
+			'\tTexture: 3, "Texture::embedded", "" {',
+			'\t\tRelativeFilename: "embedded.png"',
+			'\t}',
+			'\tTexture: 4, "Texture::external", "" {',
+			'\t\tRelativeFilename: "textures/external.png"',
+			'\t}',
+			'}',
+		].join('\n')
+
+		expect(parseFbxDependencies(ascii(text).buffer)).toEqual(['textures/external.png'])
+	})
+
+	it('treats an ASCII Content written inline as embedded, and an empty string as not', () => {
+		const text = [
+			'Objects:  {',
+			'\tVideo: 1, "Video::a", "Clip" {',
+			'\t\tRelativeFilename: "inline.png"',
+			'\t\tContent: "iVBORw0KGgo="',
+			'\t}',
+			'\tVideo: 2, "Video::b", "Clip" {',
+			'\t\tRelativeFilename: "empty.png"',
+			'\t\tContent: ""',
+			'\t}',
+			'}',
+		].join('\n')
+
+		expect(parseFbxDependencies(ascii(text).buffer)).toEqual(['empty.png'])
 	})
 
 	it('survives a truncated document instead of throwing', () => {
