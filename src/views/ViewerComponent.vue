@@ -136,7 +136,7 @@ import { removePlaceholders } from '../utils/scene-helpers.js'
 import { useScene } from '../composables/useScene.js'
 import { useCamera } from '../composables/useCamera.js'
 import { useAnimation } from '../composables/useAnimation.js'
-import { captureForCurrentVersion, startStatusFetch } from '../thumbnails/captureFromViewer.js'
+import { scheduleCapture, startStatusFetch } from '../thumbnails/captureFromViewer.js'
 import { useScreenshot } from '../composables/useScreenshot.js'
 import { logger } from '../utils/logger.js'
 import { computeCameraFit } from '../thumbnails/cameraFit.js'
@@ -439,25 +439,26 @@ export default {
 		 * It is rendered off-screen with a fixed look, so the viewer's own camera and
 		 * helpers are not part of it.
 		 *
+		 * Everything comes from the load that produced the model, never from `this`: the
+		 * `fileid` watcher can start a second load in this instance while the first runs.
+		 *
 		 * @param {THREE.Object3D} object3D - The loaded model
 		 * @param {string} extension - Extension of the file the model was loaded from
+		 * @param {number|string} fileId - File id this load started with
+		 * @param {?Promise<Map<number, object>>} statusPromise - Status this load requested
+		 *   before downloading; null when there is nothing to capture
 		 */
-		captureThumbnail(object3D, extension) {
-			// The status was requested when the load began; without it there is nothing
-			// to store a thumbnail under (thumbnails off, not a model format, a share)
-			const pending = this.thumbnailStatus
-			if (!this.enableThumbnails || !pending || !object3D) return
+		captureThumbnail(object3D, extension, fileId, statusPromise) {
+			if (!this.enableThumbnails) return
 
-			setTimeout(() => {
-				// Skip when the load was cancelled or another model has replaced this one
-				if (this.loadingCancelled || this.thumbnailStatus !== pending) return
-				captureForCurrentVersion({
-					fileId: Number(this.fileid),
-					extension,
-					object3D,
-					statusPromise: pending.promise,
-				})
-			}, 500)
+			scheduleCapture({
+				fileId: Number(fileId),
+				extension,
+				object3D,
+				statusPromise,
+				// Only to notice that the load was cancelled or superseded by a later one
+				isCurrent: () => !this.loadingCancelled && this.thumbnailStatus?.promise === statusPromise,
+			})
 		},
 
 		/**
@@ -760,8 +761,11 @@ export default {
 		 * @param {object} THREE - Three.js module
 		 * @param {string} fallbackExtension - Extension to dispatch on when the main
 		 *   file carries no name of its own, as on a single-file public share
+		 * @param {number|string} fileId - File id the calling load started with
+		 * @param {?Promise<Map<number, object>>} statusPromise - Thumbnail status the calling
+		 *   load requested before downloading
 		 */
-		async loadModelWithFiles(result, THREE, fallbackExtension) {
+		async loadModelWithFiles(result, THREE, fallbackExtension, fileId, statusPromise) {
 			try {
 				logger.info('ViewerComponent', 'Loading model with files', {
 					mainFile: result.mainFile.name,
@@ -781,7 +785,7 @@ export default {
 					THREE,
 					scene: this.scene,
 					renderer: this.renderer,
-					fileId: this.fileid,
+					fileId,
 					additionalFiles: result.dependencies, // Pass dependencies to loader
 					applyWireframe: (enabled) => this.applyWireframe(enabled),
 					ensurePlaceholderRemoved: () => removePlaceholders(this.scene),
@@ -806,7 +810,7 @@ export default {
 					logger.info('ViewerComponent', 'Model loaded successfully')
 
 					// Capture thumbnail for supported 3D formats
-					this.captureThumbnail(this.modelRoot, extension)
+					this.captureThumbnail(modelResult.object3D, extension, fileId, statusPromise)
 
 					// Initialize animations if present
 					if (modelResult.animations && modelResult.animations.length > 0) {
@@ -855,7 +859,7 @@ export default {
 					// Emit success event
 					this.$emit('model-loaded', {
 						filename: result.mainFile.name,
-						fileId: this.fileid,
+						fileId,
 						dependencies: result.dependencies.length,
 					})
 
@@ -884,19 +888,23 @@ export default {
 				// Extract extension from filename
 				const extension = this.effectiveFilename.split('.').pop().toLowerCase()
 
+				// Everything this load needs later is read now, not when it finishes: the
+				// `fileid` watcher can start another load in this instance meanwhile.
+				const fileId = this.fileid
+
 				// Ask for the thumbnail status before any bytes are downloaded: the etag it
 				// reports is what the upload is stored under, so it must not be newer than
-				// the model the render is made from. Not reactive data, on purpose: it holds
-				// a promise and is compared by identity.
-				const promise = this.enableThumbnails
-					? startStatusFetch({ fileId: this.fileid, extension })
+				// the model the render is made from. The instance keeps the latest load's
+				// promise (not reactive data, on purpose) only to tell a superseded load.
+				const statusPromise = this.enableThumbnails
+					? startStatusFetch({ fileId, extension })
 					: null
-				this.thumbnailStatus = promise ? { promise } : null
+				this.thumbnailStatus = statusPromise ? { promise: statusPromise } : null
 
 				logger.info('ViewerComponent', 'Loading model', {
 					filename: this.filename,
 					extension,
-					fileId: this.fileid,
+					fileId,
 					mime: this.mime,
 					davPath: this.davPath,
 				})
@@ -917,7 +925,7 @@ export default {
 						// '/' — which leaves the loader with no extension to dispatch on and
 						// silently drops every dependency it just fetched.
 						const result = await loadModelWithDependencies(
-							this.fileid,
+							fileId,
 							this.effectiveFilename,
 							extension,
 							dirPath,
@@ -926,7 +934,7 @@ export default {
 						logger.info('ViewerComponent', 'Multi-file loading successful', { mainFile: result.mainFile?.name })
 
 						// Process the result and load the model
-						await this.loadModelWithFiles(result, THREE, extension)
+						await this.loadModelWithFiles(result, THREE, extension, fileId, statusPromise)
 						return
 
 					} catch (error) {
@@ -940,7 +948,7 @@ export default {
 				this.updateProgress(true, 0, this.t('threedviewer', 'Downloading model...'), this.filename, false)
 				// buildFileUrl resolves to the token-keyed public endpoint on a share
 				// page, where the session-authenticated route below would 404.
-				const response = await fetch(buildFileUrl(this.fileid))
+				const response = await fetch(buildFileUrl(fileId))
 
 				if (!response.ok) {
 					throw new Error(`Failed to fetch model: ${response.status} ${response.statusText}`)
@@ -1026,7 +1034,7 @@ export default {
 					logger.info('ViewerComponent', 'Model loaded successfully')
 
 					// Capture thumbnail for supported 3D formats
-					this.captureThumbnail(result.object3D, extension)
+					this.captureThumbnail(result.object3D, extension, fileId, statusPromise)
 
 					// Initialize animations if present
 					if (result.animations && result.animations.length > 0) {

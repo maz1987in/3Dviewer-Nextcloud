@@ -93,3 +93,30 @@ export async function captureForCurrentVersion({ fileId, extension, object3D, st
 		return 'skipped'
 	}
 }
+
+/**
+ * Capture after a short delay that lets the viewer finish its own first frames. Everything
+ * the capture needs is passed in by the load that produced the model, so two loads running
+ * in one viewer can never pair one load's model with the other's file id or status.
+ *
+ * @param {object} options - Options
+ * @param {number} options.fileId - Nextcloud file id the load started with
+ * @param {string} options.extension - File extension, without the dot
+ * @param {THREE.Object3D} options.object3D - The model this load produced
+ * @param {?Promise<Map<number, ThumbnailStatus>>} options.statusPromise - From `startStatusFetch`
+ *   at the start of the same load; null means nothing to capture
+ * @param {() => boolean} options.isCurrent - Asked when the delay is over: false when the
+ *   load was cancelled or another load or model has replaced this one, which skips the capture
+ * @param {number} [options.delayMs] - Delay before capturing
+ */
+export function scheduleCapture({ fileId, extension, object3D, statusPromise, isCurrent, delayMs = 500 }) {
+	if (!statusPromise || !object3D) {
+		return
+	}
+	setTimeout(() => {
+		if (!isCurrent()) {
+			return
+		}
+		captureForCurrentVersion({ fileId, extension, object3D, statusPromise })
+	}, delayMs)
+}

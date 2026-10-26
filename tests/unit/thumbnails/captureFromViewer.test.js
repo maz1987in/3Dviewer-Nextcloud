@@ -1,4 +1,4 @@
-import { captureForCurrentVersion, startStatusFetch } from '../../../src/thumbnails/captureFromViewer.js'
+import { captureForCurrentVersion, scheduleCapture, startStatusFetch } from '../../../src/thumbnails/captureFromViewer.js'
 import { fetchStatus, uploadThumbnail } from '../../../src/thumbnails/thumbnailApi.js'
 import { renderThumbnail } from '../../../src/thumbnails/renderThumbnail.js'
 import { EmptyModelError } from '../../../src/thumbnails/errors.js'
@@ -92,6 +92,8 @@ describe('captureForCurrentVersion', () => {
 	})
 
 	test('skips non-model extensions without a request', async () => {
+		fetchStatus.mockResolvedValue(new Map([[5, status()]]))
+
 		const result = await captureForCurrentVersion({
 			fileId: 5, extension: 'mtl', object3D: model, statusPromise: statusPromise(status()),
 		})
@@ -104,13 +106,17 @@ describe('captureForCurrentVersion', () => {
 
 	test('uses the status fetched before the download, never re-fetching', async () => {
 		// The etag must be the one from before the bytes were downloaded: a model edited
-		// meanwhile must not get an old render stored under its new version
+		// meanwhile must not get an old render stored under its new version. The mocked
+		// endpoint answers with the newer etag, so a re-fetch would show in the upload.
+		fetchStatus.mockResolvedValue(new Map([[5, status({ etag: 'after-download' })]]))
+
 		const result = await captureForCurrentVersion({
 			fileId: 5, extension: 'glb', object3D: model, statusPromise: statusPromise(status({ etag: 'before-download' })),
 		})
 
 		expect(result).toBe('stored')
 		expect(fetchStatus).not.toHaveBeenCalled()
+		expect(uploadThumbnail).toHaveBeenCalledTimes(1)
 		expect(uploadThumbnail).toHaveBeenCalledWith(5, 'before-download', PNG)
 	})
 
@@ -197,5 +203,61 @@ describe('startStatusFetch', () => {
 		fetchStatus.mockRejectedValue(new Error('offline'))
 
 		await expect(startStatusFetch({ fileId: 5, extension: 'glb' })).rejects.toThrow('offline')
+	})
+})
+
+describe('scheduleCapture', () => {
+	beforeEach(() => jest.useFakeTimers())
+	afterEach(() => jest.useRealTimers())
+
+	/**
+	 * Run the timers and the promise chains they start.
+	 */
+	async function flush() {
+		await jest.advanceTimersByTimeAsync(500)
+	}
+
+	test('two loads in one viewer each upload under their own file id and etag', async () => {
+		// The fileid watcher starts load B while load A is still running; A finishes last.
+		// Whatever the viewer's current file is by then, A must store file 1's render
+		// under file 1's etag and B file 2's under file 2's.
+		const modelA = { name: 'A' }
+		const modelB = { name: 'B' }
+		const statusA = Promise.resolve(new Map([[1, status({ etag: 'etag-A' })]]))
+		const statusB = Promise.resolve(new Map([[2, status({ etag: 'etag-B' })]]))
+
+		scheduleCapture({ fileId: 2, extension: 'glb', object3D: modelB, statusPromise: statusB, isCurrent: () => true })
+		scheduleCapture({ fileId: 1, extension: 'glb', object3D: modelA, statusPromise: statusA, isCurrent: () => true })
+		await flush()
+
+		expect(renderThumbnail.mock.calls.map(([object3D]) => object3D)).toEqual([modelB, modelA])
+		expect(uploadThumbnail.mock.calls.map(([id, etag]) => [id, etag])).toEqual([[2, 'etag-B'], [1, 'etag-A']])
+	})
+
+	test('a load that was superseded while waiting is skipped', async () => {
+		let current = true
+		scheduleCapture({ fileId: 1, extension: 'glb', object3D: model, statusPromise: statusPromise(status()), isCurrent: () => current })
+		current = false
+		await flush()
+
+		expect(renderThumbnail).not.toHaveBeenCalled()
+		expect(uploadThumbnail).not.toHaveBeenCalled()
+	})
+
+	test('waits for the delay before capturing', async () => {
+		scheduleCapture({ fileId: 5, extension: 'glb', object3D: model, statusPromise: statusPromise(status()), isCurrent: () => true })
+
+		await jest.advanceTimersByTimeAsync(499)
+		expect(renderThumbnail).not.toHaveBeenCalled()
+
+		await jest.advanceTimersByTimeAsync(1)
+		expect(renderThumbnail).toHaveBeenCalledTimes(1)
+	})
+
+	test('does nothing without a status promise', async () => {
+		scheduleCapture({ fileId: 5, extension: 'glb', object3D: model, statusPromise: null, isCurrent: () => true })
+		await flush()
+
+		expect(renderThumbnail).not.toHaveBeenCalled()
 	})
 })

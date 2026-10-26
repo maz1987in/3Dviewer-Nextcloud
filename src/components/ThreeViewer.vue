@@ -777,7 +777,7 @@ import { useAnnotation } from '../composables/useAnnotation.js'
 import { useSharedNotes } from '../composables/useSharedNotes.js'
 import { createNotesApi } from '../utils/notesApi.js'
 import { getPublicShareContext } from '../composables/usePublicShare.js'
-import { captureForCurrentVersion, startStatusFetch } from '../thumbnails/captureFromViewer.js'
+import { scheduleCapture, startStatusFetch } from '../thumbnails/captureFromViewer.js'
 import { usePerformance } from '../composables/usePerformance.js'
 import { useExport, getGeometryStats } from '../composables/useExport.js'
 import { useModelStats } from '../composables/useModelStats.js'
@@ -1611,19 +1611,17 @@ export default {
 					// Capture a thumbnail once per file version (if enabled). It is rendered
 					// off-screen with a fixed look, so the viewer's grid, axes and camera are
 					// not part of it and need no hiding.
-					if (thumbnailStatus) {
-						const model = modelRoot.value
-						setTimeout(() => {
-							// Skip when another model replaced this one in the meantime
-							if (modelRoot.value !== model) return
-							captureForCurrentVersion({
-								fileId: Number(fileId),
-								extension,
-								object3D: model,
-								statusPromise: thumbnailStatus,
-							})
-						}, 500)
-					}
+					// The model and the status both belong to this load; the model is not
+					// read back from modelRoot, which another load may have replaced by now.
+					const model = loadedModel.object3D
+					scheduleCapture({
+						fileId: Number(fileId),
+						extension,
+						object3D: model,
+						statusPromise: thumbnailStatus,
+						// Skip when another model replaced this one in the meantime
+						isCurrent: () => modelRoot.value === model,
+					})
 				} else {
 					// Don't fallback to demo scene - let error state handle it
 					throw new Error('Model loaded but no object3D returned')
