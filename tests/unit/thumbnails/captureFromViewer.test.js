@@ -1,4 +1,10 @@
-import { captureForCurrentVersion, scheduleCapture, startStatusFetch } from '../../../src/thumbnails/captureFromViewer.js'
+import {
+	awaitStatusBeforeDownload,
+	captureForCurrentVersion,
+	scheduleCapture,
+	startStatusFetch,
+	usedCachedFiles,
+} from '../../../src/thumbnails/captureFromViewer.js'
 import { fetchStatus, uploadThumbnail } from '../../../src/thumbnails/thumbnailApi.js'
 import { renderThumbnail } from '../../../src/thumbnails/renderThumbnail.js'
 import { EmptyModelError } from '../../../src/thumbnails/errors.js'
@@ -32,7 +38,7 @@ beforeEach(() => {
 describe('captureForCurrentVersion', () => {
 	test('skips read-only files without rendering', async () => {
 		const result = await captureForCurrentVersion({
-			fileId: 5, extension: 'glb', object3D: model, statusPromise: statusPromise(status({ canEdit: false })),
+			fileId: 5, extension: 'glb', object3D: model, statuses: statusPromise(status({ canEdit: false })),
 		})
 
 		expect(result).toBe('skipped')
@@ -42,7 +48,7 @@ describe('captureForCurrentVersion', () => {
 
 	test('skips when a thumbnail exists for this version', async () => {
 		const result = await captureForCurrentVersion({
-			fileId: 5, extension: 'glb', object3D: model, statusPromise: statusPromise(status({ hasThumbnail: true })),
+			fileId: 5, extension: 'glb', object3D: model, statuses: statusPromise(status({ hasThumbnail: true })),
 		})
 
 		expect(result).toBe('skipped')
@@ -51,7 +57,7 @@ describe('captureForCurrentVersion', () => {
 
 	test('skips a file the status does not list', async () => {
 		const result = await captureForCurrentVersion({
-			fileId: 5, extension: 'glb', object3D: model, statusPromise: statusPromise(null),
+			fileId: 5, extension: 'glb', object3D: model, statuses: statusPromise(null),
 		})
 
 		expect(result).toBe('skipped')
@@ -60,7 +66,7 @@ describe('captureForCurrentVersion', () => {
 
 	test('renders and uploads with the status etag', async () => {
 		const result = await captureForCurrentVersion({
-			fileId: 5, extension: 'GLB', object3D: model, statusPromise: statusPromise(status()),
+			fileId: 5, extension: 'GLB', object3D: model, statuses: statusPromise(status()),
 		})
 
 		expect(result).toBe('stored')
@@ -75,7 +81,7 @@ describe('captureForCurrentVersion', () => {
 		uploadThumbnail.mockResolvedValue('exists')
 
 		const result = await captureForCurrentVersion({
-			fileId: 5, extension: 'glb', object3D: model, statusPromise: statusPromise(status()),
+			fileId: 5, extension: 'glb', object3D: model, statuses: statusPromise(status()),
 		})
 
 		expect(result).toBe('exists')
@@ -85,7 +91,7 @@ describe('captureForCurrentVersion', () => {
 		uploadThumbnail.mockResolvedValue(outcome)
 
 		const result = await captureForCurrentVersion({
-			fileId: 5, extension: 'glb', object3D: model, statusPromise: statusPromise(status()),
+			fileId: 5, extension: 'glb', object3D: model, statuses: statusPromise(status()),
 		})
 
 		expect(result).toBe('skipped')
@@ -95,7 +101,7 @@ describe('captureForCurrentVersion', () => {
 		fetchStatus.mockResolvedValue(new Map([[5, status()]]))
 
 		const result = await captureForCurrentVersion({
-			fileId: 5, extension: 'mtl', object3D: model, statusPromise: statusPromise(status()),
+			fileId: 5, extension: 'mtl', object3D: model, statuses: statusPromise(status()),
 		})
 
 		expect(result).toBe('skipped')
@@ -111,7 +117,7 @@ describe('captureForCurrentVersion', () => {
 		fetchStatus.mockResolvedValue(new Map([[5, status({ etag: 'after-download' })]]))
 
 		const result = await captureForCurrentVersion({
-			fileId: 5, extension: 'glb', object3D: model, statusPromise: statusPromise(status({ etag: 'before-download' })),
+			fileId: 5, extension: 'glb', object3D: model, statuses: statusPromise(status({ etag: 'before-download' })),
 		})
 
 		expect(result).toBe('stored')
@@ -122,7 +128,7 @@ describe('captureForCurrentVersion', () => {
 
 	test('a rejected status fetch is skipped, not thrown', async () => {
 		const result = await captureForCurrentVersion({
-			fileId: 5, extension: 'glb', object3D: model, statusPromise: Promise.reject(new Error('401')),
+			fileId: 5, extension: 'glb', object3D: model, statuses: Promise.reject(new Error('401')),
 		})
 
 		expect(result).toBe('skipped')
@@ -133,7 +139,7 @@ describe('captureForCurrentVersion', () => {
 		renderThumbnail.mockRejectedValue(new EmptyModelError())
 
 		const result = await captureForCurrentVersion({
-			fileId: 5, extension: 'glb', object3D: model, statusPromise: statusPromise(status()),
+			fileId: 5, extension: 'glb', object3D: model, statuses: statusPromise(status()),
 		})
 
 		expect(result).toBe('skipped')
@@ -144,7 +150,7 @@ describe('captureForCurrentVersion', () => {
 		renderThumbnail.mockRejectedValue(new Error('context lost'))
 
 		const result = await captureForCurrentVersion({
-			fileId: 5, extension: 'glb', object3D: model, statusPromise: statusPromise(status()),
+			fileId: 5, extension: 'glb', object3D: model, statuses: statusPromise(status()),
 		})
 
 		expect(result).toBe('skipped')
@@ -206,6 +212,77 @@ describe('startStatusFetch', () => {
 	})
 })
 
+describe('awaitStatusBeforeDownload', () => {
+	afterEach(() => jest.useRealTimers())
+
+	test('settles only once the status has arrived, so a download started after it is never older', async () => {
+		let answer
+		fetchStatus.mockReturnValue(new Promise((resolve) => {
+			answer = resolve
+		}))
+		const order = []
+
+		const waiting = awaitStatusBeforeDownload({ fileId: 5, extension: 'glb' }).then((statuses) => {
+			order.push('download starts')
+			return statuses
+		})
+		await new Promise((resolve) => setTimeout(resolve, 10))
+		expect(order).toEqual([])
+
+		order.push('status arrives')
+		const map = new Map([[5, status()]])
+		answer(map)
+
+		expect(await waiting).toBe(map)
+		expect(order).toEqual(['status arrives', 'download starts'])
+	})
+
+	test('a failed status lets the load go on and skips the capture', async () => {
+		fetchStatus.mockRejectedValue(new Error('offline'))
+
+		// Resolves, so the caller downloads; null means no capture for this load
+		await expect(awaitStatusBeforeDownload({ fileId: 5, extension: 'glb' })).resolves.toBeNull()
+		jest.useFakeTimers()
+		scheduleCapture({ fileId: 5, extension: 'glb', object3D: model, statuses: null, isCurrent: () => true })
+		await jest.advanceTimersByTimeAsync(500)
+		expect(renderThumbnail).not.toHaveBeenCalled()
+	})
+
+	test('takes the status as a map as well as a promise', async () => {
+		const result = await captureForCurrentVersion({
+			fileId: 5, extension: 'glb', object3D: model, statuses: new Map([[5, status()]]),
+		})
+
+		expect(result).toBe('stored')
+	})
+
+	test('a status that never answers holds the load back only until the time limit, and skips the capture', async () => {
+		jest.useFakeTimers()
+		fetchStatus.mockReturnValue(new Promise(() => {}))
+
+		const waiting = awaitStatusBeforeDownload({ fileId: 5, extension: 'glb', timeoutMs: 1000 })
+		await jest.advanceTimersByTimeAsync(1000)
+
+		await expect(waiting).resolves.toBeNull()
+	})
+
+	test('resolves null without a request when there is nothing to capture', async () => {
+		await expect(awaitStatusBeforeDownload({ fileId: 5, extension: 'mtl' })).resolves.toBeNull()
+		expect(fetchStatus).not.toHaveBeenCalled()
+	})
+})
+
+describe('usedCachedFiles', () => {
+	test('true only when a file was served from the dependency cache', () => {
+		const fresh = { name: 'chair.mtl' }
+		const cached = { name: 'wood.png', _fromCache: true }
+
+		expect(usedCachedFiles([fresh])).toBe(false)
+		expect(usedCachedFiles([fresh, cached])).toBe(true)
+		expect(usedCachedFiles(null)).toBe(false)
+	})
+})
+
 describe('scheduleCapture', () => {
 	beforeEach(() => jest.useFakeTimers())
 	afterEach(() => jest.useRealTimers())
@@ -226,8 +303,8 @@ describe('scheduleCapture', () => {
 		const statusA = Promise.resolve(new Map([[1, status({ etag: 'etag-A' })]]))
 		const statusB = Promise.resolve(new Map([[2, status({ etag: 'etag-B' })]]))
 
-		scheduleCapture({ fileId: 2, extension: 'glb', object3D: modelB, statusPromise: statusB, isCurrent: () => true })
-		scheduleCapture({ fileId: 1, extension: 'glb', object3D: modelA, statusPromise: statusA, isCurrent: () => true })
+		scheduleCapture({ fileId: 2, extension: 'glb', object3D: modelB, statuses: statusB, isCurrent: () => true })
+		scheduleCapture({ fileId: 1, extension: 'glb', object3D: modelA, statuses: statusA, isCurrent: () => true })
 		await flush()
 
 		expect(renderThumbnail.mock.calls.map(([object3D]) => object3D)).toEqual([modelB, modelA])
@@ -236,7 +313,7 @@ describe('scheduleCapture', () => {
 
 	test('a load that was superseded while waiting is skipped', async () => {
 		let current = true
-		scheduleCapture({ fileId: 1, extension: 'glb', object3D: model, statusPromise: statusPromise(status()), isCurrent: () => current })
+		scheduleCapture({ fileId: 1, extension: 'glb', object3D: model, statuses: statusPromise(status()), isCurrent: () => current })
 		current = false
 		await flush()
 
@@ -245,7 +322,7 @@ describe('scheduleCapture', () => {
 	})
 
 	test('waits for the delay before capturing', async () => {
-		scheduleCapture({ fileId: 5, extension: 'glb', object3D: model, statusPromise: statusPromise(status()), isCurrent: () => true })
+		scheduleCapture({ fileId: 5, extension: 'glb', object3D: model, statuses: statusPromise(status()), isCurrent: () => true })
 
 		await jest.advanceTimersByTimeAsync(499)
 		expect(renderThumbnail).not.toHaveBeenCalled()
@@ -254,8 +331,25 @@ describe('scheduleCapture', () => {
 		expect(renderThumbnail).toHaveBeenCalledTimes(1)
 	})
 
+	test('a load that used a cached companion is not captured', async () => {
+		const sourceFiles = [{ name: 'chair.obj' }, { name: 'chair.mtl', _fromCache: true }]
+		scheduleCapture({ fileId: 5, extension: 'obj', object3D: model, statuses: statusPromise(status()), isCurrent: () => true, sourceFiles })
+		await flush()
+
+		expect(renderThumbnail).not.toHaveBeenCalled()
+		expect(uploadThumbnail).not.toHaveBeenCalled()
+	})
+
+	test('a load from fresh files is captured', async () => {
+		const sourceFiles = [{ name: 'chair.obj' }, { name: 'chair.mtl' }]
+		scheduleCapture({ fileId: 5, extension: 'obj', object3D: model, statuses: statusPromise(status()), isCurrent: () => true, sourceFiles })
+		await flush()
+
+		expect(uploadThumbnail).toHaveBeenCalledTimes(1)
+	})
+
 	test('does nothing without a status promise', async () => {
-		scheduleCapture({ fileId: 5, extension: 'glb', object3D: model, statusPromise: null, isCurrent: () => true })
+		scheduleCapture({ fileId: 5, extension: 'glb', object3D: model, statuses: null, isCurrent: () => true })
 		await flush()
 
 		expect(renderThumbnail).not.toHaveBeenCalled()

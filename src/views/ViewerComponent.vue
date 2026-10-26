@@ -136,7 +136,7 @@ import { removePlaceholders } from '../utils/scene-helpers.js'
 import { useScene } from '../composables/useScene.js'
 import { useCamera } from '../composables/useCamera.js'
 import { useAnimation } from '../composables/useAnimation.js'
-import { scheduleCapture, startStatusFetch } from '../thumbnails/captureFromViewer.js'
+import { awaitStatusBeforeDownload, scheduleCapture } from '../thumbnails/captureFromViewer.js'
 import { useScreenshot } from '../composables/useScreenshot.js'
 import { logger } from '../utils/logger.js'
 import { computeCameraFit } from '../thumbnails/cameraFit.js'
@@ -445,19 +445,22 @@ export default {
 		 * @param {THREE.Object3D} object3D - The loaded model
 		 * @param {string} extension - Extension of the file the model was loaded from
 		 * @param {number|string} fileId - File id this load started with
-		 * @param {?Promise<Map<number, object>>} statusPromise - Status this load requested
+		 * @param {?Map<number, object>} statuses - Status this load received
 		 *   before downloading; null when there is nothing to capture
+		 * @param {?File[]} [sourceFiles] - Companion files the load used; a cached one
+		 *   skips the capture
 		 */
-		captureThumbnail(object3D, extension, fileId, statusPromise) {
+		captureThumbnail(object3D, extension, fileId, statuses, sourceFiles = null) {
 			if (!this.enableThumbnails) return
 
 			scheduleCapture({
 				fileId: Number(fileId),
 				extension,
 				object3D,
-				statusPromise,
+				statuses,
+				sourceFiles,
 				// Only to notice that the load was cancelled or superseded by a later one
-				isCurrent: () => !this.loadingCancelled && this.thumbnailStatus?.promise === statusPromise,
+				isCurrent: () => !this.loadingCancelled && this.thumbnailStatus?.statuses === statuses,
 			})
 		},
 
@@ -762,10 +765,10 @@ export default {
 		 * @param {string} fallbackExtension - Extension to dispatch on when the main
 		 *   file carries no name of its own, as on a single-file public share
 		 * @param {number|string} fileId - File id the calling load started with
-		 * @param {?Promise<Map<number, object>>} statusPromise - Thumbnail status the calling
-		 *   load requested before downloading
+		 * @param {?Map<number, object>} statuses - Thumbnail status the calling load
+		 *   received before downloading
 		 */
-		async loadModelWithFiles(result, THREE, fallbackExtension, fileId, statusPromise) {
+		async loadModelWithFiles(result, THREE, fallbackExtension, fileId, statuses) {
 			try {
 				logger.info('ViewerComponent', 'Loading model with files', {
 					mainFile: result.mainFile.name,
@@ -810,7 +813,7 @@ export default {
 					logger.info('ViewerComponent', 'Model loaded successfully')
 
 					// Capture thumbnail for supported 3D formats
-					this.captureThumbnail(modelResult.object3D, extension, fileId, statusPromise)
+					this.captureThumbnail(modelResult.object3D, extension, fileId, statuses, result.dependencies)
 
 					// Initialize animations if present
 					if (modelResult.animations && modelResult.animations.length > 0) {
@@ -892,14 +895,19 @@ export default {
 				// `fileid` watcher can start another load in this instance meanwhile.
 				const fileId = this.fileid
 
-				// Ask for the thumbnail status before any bytes are downloaded: the etag it
+				// Wait for the thumbnail status before any bytes are downloaded: the etag it
 				// reports is what the upload is stored under, so it must not be newer than
-				// the model the render is made from. The instance keeps the latest load's
-				// promise (not reactive data, on purpose) only to tell a superseded load.
-				const statusPromise = this.enableThumbnails
-					? startStatusFetch({ fileId, extension })
-					: null
-				this.thumbnailStatus = statusPromise ? { promise: statusPromise } : null
+				// the model the render is made from, and only a status that has arrived
+				// guarantees that. It never fails the load; a failed status only skips the
+				// capture. The instance keeps the latest load's entry (not reactive data,
+				// on purpose) only to tell a superseded load; it is claimed before the wait
+				// so a slower earlier load cannot take it back.
+				const thumbnailLoad = { statuses: null }
+				this.thumbnailStatus = thumbnailLoad
+				if (this.enableThumbnails) {
+					thumbnailLoad.statuses = await awaitStatusBeforeDownload({ fileId, extension })
+				}
+				const statuses = thumbnailLoad.statuses
 
 				logger.info('ViewerComponent', 'Loading model', {
 					filename: this.filename,
@@ -934,7 +942,7 @@ export default {
 						logger.info('ViewerComponent', 'Multi-file loading successful', { mainFile: result.mainFile?.name })
 
 						// Process the result and load the model
-						await this.loadModelWithFiles(result, THREE, extension, fileId, statusPromise)
+						await this.loadModelWithFiles(result, THREE, extension, fileId, statuses)
 						return
 
 					} catch (error) {
@@ -1034,7 +1042,7 @@ export default {
 					logger.info('ViewerComponent', 'Model loaded successfully')
 
 					// Capture thumbnail for supported 3D formats
-					this.captureThumbnail(result.object3D, extension, fileId, statusPromise)
+					this.captureThumbnail(result.object3D, extension, fileId, statuses)
 
 					// Initialize animations if present
 					if (result.animations && result.animations.length > 0) {

@@ -40,7 +40,10 @@ export async function fetchFileFromUrl(url, name, defaultType = 'application/oct
 
 			if (cached && !cached.expired) {
 				logger.info('MultiFileHelpers', 'Using cached dependency', { name, cacheHit: true })
-				return new File([cached.data], name, { type: cached.mimeType })
+				const file = new File([cached.data], name, { type: cached.mimeType })
+				// The cache is not keyed by version, so a thumbnail capture must not use it
+				file._fromCache = true
+				return file
 			}
 		} catch (error) {
 			logger.warn('MultiFileHelpers', 'Cache read failed, fetching from network', error)

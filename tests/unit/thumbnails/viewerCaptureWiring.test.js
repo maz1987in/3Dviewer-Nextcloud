@@ -34,7 +34,7 @@ describe('ViewerComponent capture wiring', () => {
 	test('captureThumbnail takes the file id and status from its caller, not from the instance', () => {
 		const body = methodText(source, 'captureThumbnail(')
 
-		expect(body).toMatch(/captureThumbnail\(object3D, extension, fileId, statusPromise\)/)
+		expect(body).toMatch(/captureThumbnail\(object3D, extension, fileId, statuses, sourceFiles = null\)/)
 		expect(body).not.toMatch(/this\.fileid/)
 	})
 
@@ -43,7 +43,7 @@ describe('ViewerComponent capture wiring', () => {
 
 		expect(calls).toHaveLength(2)
 		for (const call of calls) {
-			expect(call).toMatch(/, extension, fileId, statusPromise\)$/)
+			expect(call).toMatch(/, extension, fileId, statuses(, result\.dependencies)?\)$/)
 		}
 	})
 
@@ -55,10 +55,36 @@ describe('ViewerComponent capture wiring', () => {
 		expect(loadModel.match(/this\.fileid/g)).toHaveLength(1)
 		expect(withFiles).not.toMatch(/this\.fileid/)
 	})
+
+	test('loadModel awaits the status before either download starts', () => {
+		const loadModel = methodText(source, 'async loadModel(THREE)')
+		const awaited = loadModel.indexOf('await awaitStatusBeforeDownload(')
+
+		expect(awaited).toBeGreaterThan(-1)
+		expect(loadModel).not.toMatch(/startStatusFetch/)
+		expect(awaited).toBeLessThan(loadModel.indexOf('loadModelWithDependencies('))
+		expect(awaited).toBeLessThan(loadModel.indexOf('fetch(buildFileUrl(fileId))'))
+	})
+
+	test('the multi-file capture passes the companions, so a cached one skips it', () => {
+		expect(source).toMatch(/this\.captureThumbnail\(modelResult\.object3D, extension, fileId, statuses, result\.dependencies\)/)
+	})
 })
 
 describe('ThreeViewer capture wiring', () => {
 	const source = readFileSync(join(SRC, 'components', 'ThreeViewer.vue'), 'utf8')
+
+	test('awaits the status before the model download starts', () => {
+		const awaited = source.indexOf('await awaitStatusBeforeDownload(')
+
+		expect(awaited).toBeGreaterThan(-1)
+		expect(source).not.toMatch(/startStatusFetch/)
+		expect(awaited).toBeLessThan(source.indexOf('modelLoading.loadModelFromFileId('))
+	})
+
+	test('hands the capture the files the load used, so a cached companion skips it', () => {
+		expect(source).toMatch(/sourceFiles: loadedModel\.sourceFiles,/)
+	})
 
 	test('captures the model this load produced, not whatever modelRoot holds later', () => {
 		expect(source).toMatch(/const model = loadedModel\.object3D\s+scheduleCapture\(/)

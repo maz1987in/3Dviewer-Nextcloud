@@ -777,7 +777,7 @@ import { useAnnotation } from '../composables/useAnnotation.js'
 import { useSharedNotes } from '../composables/useSharedNotes.js'
 import { createNotesApi } from '../utils/notesApi.js'
 import { getPublicShareContext } from '../composables/usePublicShare.js'
-import { scheduleCapture, startStatusFetch } from '../thumbnails/captureFromViewer.js'
+import { awaitStatusBeforeDownload, scheduleCapture } from '../thumbnails/captureFromViewer.js'
 import { usePerformance } from '../composables/usePerformance.js'
 import { useExport, getGeometryStats } from '../composables/useExport.js'
 import { useModelStats } from '../composables/useModelStats.js'
@@ -1346,10 +1346,14 @@ export default {
 
 				const extension = filename.split('.').pop()?.toLowerCase() || 'glb'
 
-				// Ask for the thumbnail status before the bytes are downloaded: the etag it
+				// Wait for the thumbnail status before the bytes are downloaded: the etag it
 				// reports is what the upload is stored under, so it must not be newer than
-				// the model the render is made from.
-				const thumbnailStatus = props.enableThumbnails ? startStatusFetch({ fileId, extension }) : null
+				// the model the render is made from, and only a status that has arrived
+				// guarantees that. It never fails the load; a failed status only skips the
+				// capture.
+				const thumbnailStatus = props.enableThumbnails
+					? await awaitStatusBeforeDownload({ fileId, extension })
+					: null
 
 				logger.info('ThreeViewer', 'Loading model', {
 					fileId,
@@ -1618,7 +1622,10 @@ export default {
 						fileId: Number(fileId),
 						extension,
 						object3D: model,
-						statusPromise: thumbnailStatus,
+						statuses: thumbnailStatus,
+						// The dependency cache is not keyed by version; a cached companion
+						// skips the capture rather than freeze an old texture into it
+						sourceFiles: loadedModel.sourceFiles,
 						// Skip when another model replaced this one in the meantime
 						isCurrent: () => modelRoot.value === model,
 					})
