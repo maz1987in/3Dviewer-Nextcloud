@@ -26,29 +26,15 @@ use OCP\Files\NotFoundException;
  */
 class ModelDependencyResolver
 {
-    /** `mtllib chair.mtl` */
-    private const MTLLIB_LINE = '/^[^\S\r\n]*mtllib[^\S\r\n]+(.+?)[^\S\r\n]*$/mi';
-
     /**
-     * COLLADA `<image …>…</image>`: not `<image …/>`, `<imager>` or `<instance_image>`.
-     * Only an image names a file; a 1.4 effect's `<surface><init_from>` holds an image's id.
+     * `mtllib chair.mtl`. The value runs greedily to the end of the line and is trimmed
+     * by candidatePaths(): a lazy value followed by optional trailing blanks was
+     * quadratic in a long run of blanks inside the line.
      */
-    private const COLLADA_IMAGE_ELEMENT = '#<image(?=[\s/>])[^>]*(?<!/)>(.*?)</image\s*>#is';
+    private const MTLLIB_LINE = '/^[^\S\r\n]*+mtllib[^\S\r\n]++(.+)$/mi';
 
-    /** COLLADA `<init_from>wood.png</init_from>`, and the 1.5 `<init_from><ref>…</ref></init_from>` */
-    private const COLLADA_IMAGE = '#<init_from\b[^>]*>\s*(?:<ref\b[^>]*>\s*)?([^<]+?)\s*(?:</ref>\s*)?</init_from>#i';
-
-    /**
-     * The start tag of an X3D `<ImageTexture>`, the only texture node the viewer reads;
-     * not `<ImageTexture3D>`, and not the `url` of an Anchor, Inline, AudioClip or Script.
-     */
-    private const X3D_IMAGE_TEXTURE = '#<ImageTexture(?=[\s/>])((?:[^>"\']++|"[^"]*+"|\'[^\']*+\')*+)>#i';
-
-    /** Its `url='"wood.png"'` or `url="&quot;wood.png&quot;"`, capturing the whole MFString list */
-    private const X3D_URL = '#(?:^|\s)url\s*=\s*(?:"([^"]*)"|\'([^\']*)\')#i';
-
-    /** `map_Kd wood.png`, `bump normal.png`, `refl env.png`, `disp height.png` */
-    private const MAP_LINE = '/^[^\S\r\n]*(?:map_[A-Za-z0-9_]+|bump|refl|disp|decal)[^\S\r\n]+(.+?)[^\S\r\n]*$/mi';
+    /** `map_Kd wood.png`, `bump normal.png`, `refl env.png`, `disp height.png`; greedy, as MTLLIB_LINE */
+    private const MAP_LINE = '/^[^\S\r\n]*+(?:map_[A-Za-z0-9_]++|bump|refl|disp|decal)[^\S\r\n]++(.+)$/mi';
 
     /**
      * `mtllib` must precede the first `usemtl`, so it sits in the header of every OBJ a
@@ -193,52 +179,198 @@ class ModelDependencyResolver
         /** @var array<string, string> $map */
         $map = [];
 
-        // COLLADA 1.4 writes <init_from>path</init_from> in each <image>; 1.5 wraps it in
-        // <ref>. Outside <image>, a 1.4 <surface><init_from> holds an image id, not a file.
-        /** @var array<int, array<int, string>> $images */
-        $images = [];
-        if (preg_match_all(self::COLLADA_IMAGE_ELEMENT, $document, $images) > 0) {
-            foreach ($images[1] as $image) {
-                /** @var array<int, array<int, string>> $matches */
-                $matches = [];
-                if (preg_match_all(self::COLLADA_IMAGE, $image, $matches) > 0) {
-                    foreach ($matches[1] as $value) {
-                        $this->register($map, rawurldecode(trim(html_entity_decode($value, ENT_QUOTES | ENT_XML1, 'UTF-8'))));
-                    }
-                }
-            }
+        // Forward scans with strpos rather than regular expressions: every one of these
+        // documents is an upload, and a pattern that runs from each `<image` or
+        // `<ImageTexture` to the end of an unclosed tag is quadratic in the document.
+        foreach (self::colladaImageFiles($document) as $value) {
+            $this->register($map, rawurldecode(trim(html_entity_decode($value, ENT_QUOTES | ENT_XML1, 'UTF-8'))));
         }
-
-        // An ImageTexture's url is an MFString: quoted alternatives tried in order, so any
-        // one of them may be the file sitting beside the model. Some exporters write a
-        // bare name instead.
-        /** @var array<int, array<int, string>> $tags */
-        $tags = [];
-        if (preg_match_all(self::X3D_IMAGE_TEXTURE, $document, $tags) > 0) {
-            foreach ($tags[1] as $attributes) {
-                /** @var array<int, string> $url */
-                $url = [];
-                if (preg_match(self::X3D_URL, $attributes, $url) !== 1) {
-                    continue;
-                }
-                $list = trim(html_entity_decode($url[1] !== '' ? $url[1] : ($url[2] ?? ''), ENT_QUOTES | ENT_XML1, 'UTF-8'));
-                /** @var array<int, array<int, string>> $quoted */
-                $quoted = [];
-                if (str_contains($list, '"')) {
-                    preg_match_all('/"([^"]*)"/', $list, $quoted);
-                    $entries = $quoted[1] ?? [];
-                } else {
-                    $entries = preg_split('/\s+/', $list);
-                }
-                foreach ($entries === false ? [] : $entries as $value) {
-                    if (trim($value) !== '') {
-                        $this->register($map, rawurldecode(trim($value)));
-                    }
-                }
-            }
+        foreach (self::x3dTextureUrls($document) as $value) {
+            $this->register($map, rawurldecode($value));
         }
 
         return $map;
+    }
+
+    /**
+     * The file each COLLADA `<image>` names: the text of its `<init_from>` (1.4), or of
+     * the `<ref>` inside it (1.5). Only inside `<image>`: a 1.4 effect's
+     * `<surface><init_from>` holds an image's id, not a file.
+     *
+     * Linear: every search starts where the last one ended, and a tag that never closes
+     * ends the scan. Mirrors colladaImageFiles() in src/loaders/multiFileHelpers.js.
+     *
+     * @return list<string> the values as written
+     */
+    private static function colladaImageFiles(string $document): array
+    {
+        $lower = strtolower($document);
+        $values = [];
+        $at = 0;
+        while (($start = strpos($lower, '<image', $at)) !== false) {
+            $at = $start + 6;
+            // <image>, <image id=…>; not <imager> or <image_…>
+            if (!self::endsTagName($lower, $at)) {
+                continue;
+            }
+            $openEnd = strpos($lower, '>', $start);
+            if ($openEnd === false) {
+                break;
+            }
+            if ($lower[$openEnd - 1] === '/') {
+                $at = $openEnd + 1;
+                continue;
+            }
+            $close = strpos($lower, '</image', $openEnd);
+            if ($close === false) {
+                break;
+            }
+            $p = $openEnd + 1;
+            while (($init = strpos($lower, '<init_from', $p)) !== false && $init < $close) {
+                $tagEnd = strpos($lower, '>', $init);
+                if ($tagEnd === false || $tagEnd >= $close) {
+                    break;
+                }
+                $textStart = $tagEnd + 1;
+                $textEnd = strpos($lower, '<', $textStart);
+                if ($textEnd !== false && $textEnd < $close
+                    && trim(substr($document, $textStart, $textEnd - $textStart)) === ''
+                    && substr($lower, $textEnd, 4) === '<ref'
+                    && self::endsTagName($lower, $textEnd + 4)) {
+                    $refEnd = strpos($lower, '>', $textEnd);
+                    if ($refEnd === false || $refEnd >= $close) {
+                        break;
+                    }
+                    $textStart = $refEnd + 1;
+                    $textEnd = strpos($lower, '<', $textStart);
+                }
+                if ($textEnd === false || $textEnd > $close) {
+                    break;
+                }
+                $values[] = substr($document, $textStart, $textEnd - $textStart);
+                $p = $textEnd;
+            }
+            $at = $close + 7;
+        }
+
+        return $values;
+    }
+
+    /** Whether the byte at $at ends a tag name: blank, `/` or `>` (so `<image>`, not `<imager>`). */
+    private static function endsTagName(string $document, int $at): bool
+    {
+        return strspn($document, " \t\r\n\f/>", $at, 1) === 1;
+    }
+
+    /**
+     * The names in the `url` of each X3D `<ImageTexture>`, the only texture node the
+     * viewer reads; not `<ImageTexture3D>`, nor the `url` of an Anchor, Inline, AudioClip
+     * or Script. `url` is an MFString: quoted alternatives in order, written
+     * `url='"a.png" "b.png"'` or entity-encoded; some exporters write a bare name.
+     *
+     * Linear: each start tag is walked once to its first unquoted `>`, and one that never
+     * closes ends the scan rather than being retried from the next `<ImageTexture`.
+     * Mirrors x3dTextureUrls() in src/loaders/multiFileHelpers.js.
+     *
+     * @return list<string> the names, entity-decoded and trimmed
+     */
+    private static function x3dTextureUrls(string $document): array
+    {
+        $lower = strtolower($document);
+        $length = strlen($document);
+        $values = [];
+        $at = 0;
+        while (($start = strpos($lower, '<imagetexture', $at)) !== false) {
+            $at = $start + 13;
+            if (!self::endsTagName($lower, $at)) {
+                continue;
+            }
+            // The start tag, up to the first > outside a quoted value
+            $end = $at;
+            while (true) {
+                $end += strcspn($document, "\"'>", $end);
+                if ($end >= $length) {
+                    return $values;
+                }
+                if ($document[$end] === '>') {
+                    break;
+                }
+                $closeQuote = strpos($document, $document[$end], $end + 1);
+                if ($closeQuote === false) {
+                    return $values;
+                }
+                $end = $closeQuote + 1;
+            }
+            $url = self::attributeValue(substr($document, $at, $end - $at), 'url');
+            $at = $end + 1;
+            if ($url === null) {
+                continue;
+            }
+            $list = trim(html_entity_decode($url, ENT_QUOTES | ENT_XML1, 'UTF-8'));
+            if (str_contains($list, '"')) {
+                // "a.png" "b b.png": every quoted entry whole, spaces included
+                $parts = explode('"', $list);
+                for ($i = 1; $i + 1 < count($parts); $i += 2) {
+                    $values[] = $parts[$i];
+                }
+            } else {
+                foreach (preg_split('/\s+/', $list) ?: [] as $value) {
+                    $values[] = $value;
+                }
+            }
+        }
+
+        return array_values(array_filter(array_map('trim', $values), static fn (string $value): bool => $value !== ''));
+    }
+
+    /**
+     * The value of one attribute in the inside of a start tag, read attribute by
+     * attribute so a name inside another attribute's value is never taken for one.
+     */
+    private static function attributeValue(string $tag, string $wanted): ?string
+    {
+        $blank = " \t\r\n\f";
+        $length = strlen($tag);
+        $i = 0;
+        while ($i < $length) {
+            $i += strspn($tag, $blank . '/', $i);
+            if ($i >= $length) {
+                break;
+            }
+            $nameStart = $i;
+            $i += strcspn($tag, $blank . '=/>', $i);
+            $name = substr($tag, $nameStart, $i - $nameStart);
+            $i += strspn($tag, $blank, $i);
+            if ($i >= $length || $tag[$i] !== '=') {
+                if ($i === $nameStart) {
+                    $i++;
+                }
+                continue;
+            }
+            $i++;
+            $i += strspn($tag, $blank, $i);
+            if ($i >= $length) {
+                break;
+            }
+            $quote = $tag[$i];
+            if ($quote === '"' || $quote === "'") {
+                $close = strpos($tag, $quote, $i + 1);
+                if ($close === false) {
+                    return null;
+                }
+                $value = substr($tag, $i + 1, $close - $i - 1);
+                $i = $close + 1;
+            } else {
+                $span = strcspn($tag, $blank, $i);
+                $value = substr($tag, $i, $span);
+                $i += $span;
+            }
+            if (strtolower($name) === $wanted) {
+                return $value;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -417,7 +549,8 @@ class ModelDependencyResolver
      */
     private function capture(File $file, string $pattern, int $maxBytes): array
     {
-        if (preg_match_all($pattern, $this->head($file, $maxBytes), $matches) === false) {
+        if (preg_match_all($pattern, $this->head($file, $maxBytes), $matches) === false
+            || preg_last_error() !== PREG_NO_ERROR) {
             return [];
         }
 

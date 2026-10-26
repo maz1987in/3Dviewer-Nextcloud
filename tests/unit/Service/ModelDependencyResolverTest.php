@@ -9,6 +9,7 @@ use OCA\ThreeDViewer\Service\PathLocator;
 use OCP\Files\File;
 use OCP\Files\Folder;
 use OCP\Files\NotFoundException;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -481,6 +482,64 @@ class ModelDependencyResolverTest extends TestCase
                 // Not declared by an ImageTexture
             }
         }
+    }
+
+    /**
+     * Uploads crafted so that a pattern running from each tag start to the end of the
+     * document would be quadratic. Each is scanned once, forward; mirrors the linear-time
+     * tests in tests/unit/loaders/xmlModelDependencies.test.js.
+     *
+     * @return array<string, array{string, string}>
+     */
+    public static function craftedXmlDocuments(): array
+    {
+        return [
+            'unclosed <ImageTexture starts' => ['chair.x3d', str_repeat('<ImageTexture ', 200000)],
+            'one huge unterminated quoted value' => ['chair.x3d', '<ImageTexture url="' . str_repeat('<ImageTexture ', 200000)],
+            'unterminated values in one closed tag' => ['chair.x3d', '<ImageTexture ' . str_repeat('a="', 300000) . '>'],
+            '<init_from without >' => ['chair.dae', '<image>' . str_repeat('<init_from ', 200000) . '</image>'],
+            '<image without >' => ['chair.dae', str_repeat('<image ', 300000)],
+            'unclosed <image> blocks' => ['chair.dae', str_repeat('<image><init_from>a.png</init_from>', 60000)],
+        ];
+    }
+
+    #[DataProvider('craftedXmlDocuments')]
+    public function testScansACraftedXmlDocumentInLinearTime(string $name, string $content): void
+    {
+        $model = $this->modelNamed($name, $content, ['a.png' => $this->fileNamed('a.png')]);
+
+        $started = microtime(true);
+
+        try {
+            $this->resolver->resolve($model, 'wood.png');
+            $this->fail('Nothing named wood.png is declared');
+        } catch (NotFoundException) {
+            // Expected: the point is how long it took
+        }
+
+        $this->assertLessThan(1.0, microtime(true) - $started);
+    }
+
+    public function testReadsAnMtllibLineWithALongRunOfBlanksInLinearTime(): void
+    {
+        // A lazy value followed by optional trailing blanks retried the blank run once per
+        // character of the value
+        $material = $this->fileNamed('chair.mtl', "newmtl seat\nmap_Kd wood.png\n");
+        $model = $this->modelNamed(
+            'chair.obj',
+            'mtllib chair.mtl' . str_repeat(' ', 500000) . "x\nf 1 2 3\n",
+            ['chair.mtl' => $material, 'wood.png' => $this->fileNamed('wood.png')],
+        );
+
+        $started = microtime(true);
+
+        try {
+            $this->resolver->resolve($model, 'wood.png');
+        } catch (NotFoundException) {
+            // The odd line names "chair.mtl   …   x"; only the timing is under test
+        }
+
+        $this->assertLessThan(1.0, microtime(true) - $started);
     }
 
     public function testRefusesAnUndeclaredSiblingOfAColladaFile(): void

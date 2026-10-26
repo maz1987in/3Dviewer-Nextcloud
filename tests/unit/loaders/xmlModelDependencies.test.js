@@ -108,11 +108,20 @@ describe('parseXmlModelDependencies', () => {
 		expect(parseXmlModelDependencies(dae, 'dae')).toEqual(['salt&pepper.png'])
 	})
 
-	it('scans a crafted X3D document in linear time', () => {
+	it('reads url as an attribute, not as text inside another attribute\'s value', () => {
+		const x3d = `<X3D><ImageTexture description='url="decoy.png"' url='"real.png"'/><ImageTexture title="url='also-decoy.png'"/></X3D>`
+
+		expect(parseXmlModelDependencies(x3d, 'x3d')).toEqual(['real.png'])
+	})
+
+	it.each([
+		['unclosed <ImageTexture starts', '<ImageTexture '.repeat(200000)],
+		['one huge unterminated quoted value', `<ImageTexture url="${'<ImageTexture '.repeat(200000)}`],
+		['unterminated values in one closed tag', `<ImageTexture ${'a="'.repeat(300000)}>`],
+	])('scans a crafted X3D document in linear time: %s', (_, x3d) => {
 		const started = Date.now()
 
-		expect(parseXmlModelDependencies(`<ImageTexture url="${'<ImageTexture '.repeat(200000)}`, 'x3d')).toEqual([])
-		expect(parseXmlModelDependencies('<ImageTexture '.repeat(200000), 'x3d')).toEqual([])
+		expect(parseXmlModelDependencies(x3d, 'x3d')).toEqual([])
 		expect(Date.now() - started).toBeLessThan(500)
 	})
 

@@ -482,6 +482,69 @@ function decodeXmlEntities(text) {
 }
 
 /**
+ * The value of one attribute in the inside of a start tag, read attribute by attribute,
+ * so a name inside another attribute's value is never taken for one. Linear in the tag.
+ * Mirrors attributeValue() in lib/Service/ModelDependencyResolver.php.
+ *
+ * @param {string} tag - What follows the element name, up to its closing `>`
+ * @param {string} wanted - Attribute name, lower case
+ * @return {?string} Its raw value, or null when the tag has none
+ */
+function attributeValue(tag, wanted) {
+	const isBlank = char => char === ' ' || char === '\t' || char === '\r' || char === '\n' || char === '\f'
+	let i = 0
+	while (i < tag.length) {
+		while (i < tag.length && (isBlank(tag[i]) || tag[i] === '/')) {
+			i++
+		}
+		if (i >= tag.length) {
+			break
+		}
+		const nameStart = i
+		while (i < tag.length && !isBlank(tag[i]) && !'=/>'.includes(tag[i])) {
+			i++
+		}
+		const name = tag.slice(nameStart, i)
+		while (i < tag.length && isBlank(tag[i])) {
+			i++
+		}
+		if (i >= tag.length || tag[i] !== '=') {
+			if (i === nameStart) {
+				i++
+			}
+			continue
+		}
+		i++
+		while (i < tag.length && isBlank(tag[i])) {
+			i++
+		}
+		if (i >= tag.length) {
+			break
+		}
+		let value
+		const quote = tag[i]
+		if (quote === '"' || quote === "'") {
+			const close = tag.indexOf(quote, i + 1)
+			if (close === -1) {
+				return null
+			}
+			value = tag.slice(i + 1, close)
+			i = close + 1
+		} else {
+			const valueStart = i
+			while (i < tag.length && !isBlank(tag[i])) {
+				i++
+			}
+			value = tag.slice(valueStart, i)
+		}
+		if (name.toLowerCase() === wanted) {
+			return value
+		}
+	}
+	return null
+}
+
+/**
  * The image paths each X3D `<ImageTexture>` names in its `url`, the only texture node
  * the X3D loader reads. Not every `url`: an Anchor's `#Top`, an Inline's scene, an
  * AudioClip or a Script are no textures, and declaring them made a model that names any
@@ -523,13 +586,16 @@ function x3dTextureUrls(content) {
 				break
 			}
 		}
-		const tag = content.slice(at, end)
+		if (end >= content.length) {
+			// A start tag that never closes: nothing after it is a tag either
+			break
+		}
+		const url = attributeValue(content.slice(at, end), 'url')
 		at = end + 1
-		const url = /(?:^|\s)url\s*=\s*(?:"([^"]*)"|'([^']*)')/.exec(tag)
-		if (!url) {
+		if (url === null) {
 			continue
 		}
-		const list = decodeXmlEntities(url[1] ?? url[2]).trim()
+		const list = decodeXmlEntities(url).trim()
 		const quoted = [...list.matchAll(/"([^"]*)"/g)].map(match => match[1])
 		values.push(...(quoted.length > 0 || list.includes('"') ? quoted : list.split(/\s+/)))
 	}
