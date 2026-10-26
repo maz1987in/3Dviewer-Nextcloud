@@ -1,6 +1,7 @@
 # Docker Compose file for Nextcloud with 3D Viewer app
 # This setup uses SQLite for simplicity and is intended for development or small-scale use.
 # To enter bash use docker exec -it -u www-data nextcloud-threedviewer bash
+# Run `npm run build` first: the repo is mounted as the app, so its js/ is what is served.
 services:
   nextcloud:
     image: nextcloud:stable-apache
@@ -10,7 +11,9 @@ services:
       - "8080:80"
     volumes:
       - nextcloud-main:/var/www/html
-      - ./:/var/www/html/apps/threedviewer
+      # custom_apps/, never apps/: the image's entrypoint syncs apps/ from the shipped
+      # Nextcloud with rsync --delete, which empties whatever is mounted there, here the repo
+      - ./:/var/www/html/custom_apps/threedviewer
     environment:
       NEXTCLOUD_ADMIN_USER: admin
       NEXTCLOUD_ADMIN_PASSWORD: admin
@@ -61,9 +64,13 @@ services:
             tar cf - --one-file-system -C /usr/src/nextcloud . | tar xf -
           fi
 
-          # Ensure dirs. and ownership
+          # Ensure dirs. and ownership, leaving the mounted repo's own files alone
           mkdir -p /var/www/html/data /var/www/html/config /var/www/html/custom_apps
-          chown -R www-data:www-data /var/www/html 2>/dev/null || true
+          own_html() {
+            find /var/www/html -path /var/www/html/custom_apps/threedviewer -prune \
+              -o -exec chown -h www-data:www-data {} + 2>/dev/null || true
+          }
+          own_html
 
           # Detect install state
           installed=false
@@ -107,7 +114,7 @@ services:
             #occ config:system:set files.chunked_upload.max_size --value=1048576000 || true
             #occ config:app:set files max_chunk_size --value 1048576000 || true
             # Enable your app
-            if ! occ app:list 2>/dev/null | grep -q threedviewer; then
+            if ! occ app:list --enabled 2>/dev/null | grep -q ' threedviewer:'; then
               log 'Enabling threedviewer app...'
               occ app:enable threedviewer || true
             fi
@@ -118,7 +125,7 @@ services:
             log 'Nextcloud not yet installed; finish via http://localhost:8080 (admin/admin), then restart container for post-install config.'
           fi
 
-          chown -R www-data:www-data /var/www/html 2>/dev/null || true
+          own_html
           log 'Starting Apache...'
           exec /entrypoint.sh apache2-foreground
     healthcheck:
