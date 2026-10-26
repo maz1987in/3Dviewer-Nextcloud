@@ -11,6 +11,7 @@ use OCA\ThreeDViewer\Listener\FileIndexListener;
 use OCA\ThreeDViewer\Listener\LoadFilesListener;
 use OCA\ThreeDViewer\Listener\LoadPublicShareListener;
 use OCA\ThreeDViewer\Listener\LoadViewerListener;
+use OCA\ThreeDViewer\Listener\ThumbnailInvalidationListener;
 use OCA\ThreeDViewer\Preview\ModelPreviewProvider;
 use OCA\ThreeDViewer\Repair\RegisterThreeDMimeTypes;
 use OCA\ThreeDViewer\Settings\Personal;
@@ -81,6 +82,10 @@ class Application extends App implements IBootstrap
         $context->registerEventListener(NodeCreatedEvent::class, FileIndexListener::class);
         $context->registerEventListener(NodeWrittenEvent::class, FileIndexListener::class);
         $context->registerEventListener(NodeDeletedEvent::class, FileIndexListener::class);
+
+        // Thumbnails are stored per file version; drop them when the file changes or goes
+        $context->registerEventListener(NodeWrittenEvent::class, ThumbnailInvalidationListener::class);
+        $context->registerEventListener(NodeDeletedEvent::class, ThumbnailInvalidationListener::class);
 
         // Source allowances (blob:, data:) are only applied to 3D viewer routes via
         // ResponseBuilder, which prevents conflicts with other apps' CSP requirements.

@@ -93,6 +93,10 @@ Built with Three.js for high-performance WebGL rendering. ✨]]></description>
 			<!-- Unregister 3D model MIME types and clean up config files -->
 			<step>OCA\ThreeDViewer\Repair\UnregisterThreeDMimeTypes</step>
 		</uninstall>
+		<post-migration>
+			<!-- Retire the per-user thumbnail store; thumbnails now live under thumbnails-v2 -->
+			<step>OCA\ThreeDViewer\Repair\RemoveLegacyThumbnails</step>
+		</post-migration>
 	</repair-steps>
 	<commands>
 		<command>OCA\ThreeDViewer\Command\IndexFiles</command>
