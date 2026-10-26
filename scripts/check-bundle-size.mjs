@@ -15,7 +15,9 @@ const pipe = promisify(pipeline);
 // Comprehensive budget thresholds (in bytes)
 // Based on current build sizes with reasonable headroom for growth
 const BUDGETS = [
-  { pattern: /^threedviewer-main\.mjs$/, name: 'main', maxRaw: 5000, maxGzip: 2000 }, // Entry point
+  // Entry point. 5400 since the thumbnail worker's test hook: its dynamic import lists the
+  // module's chunks for preloading, ~500 B the page never loads outside a test harness.
+  { pattern: /^threedviewer-main\.mjs$/, name: 'main', maxRaw: 5400, maxGzip: 2000 },
   { pattern: /^gltf-.*\.chunk\.mjs$/, name: 'gltf-loader', maxRaw: 22000, maxGzip: 6000 }, // GLTF loader chunk (includes decoder worker pool tuning via setWorkerLimit)
   // Main app component. Bumped 360 KB → 370 KB in v3.3.0 for the 9 new viewer-config
   // entries, and unchanged by the redesign: replacing every emoji control with a Material

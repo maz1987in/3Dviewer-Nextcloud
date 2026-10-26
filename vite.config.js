@@ -1,7 +1,10 @@
 import { createAppConfig } from "@nextcloud/vite-config";
 import { occtNoEval } from "./scripts/occt-no-eval.mjs";
 
-export default createAppConfig(
+// Every file of the background thumbnail worker's bundle (see `worker` below)
+const WORKER_FILE = /^js\/thumbnail-worker-/;
+
+const appConfig = createAppConfig(
   {
     main: 'src/main.js',
     'settings-personal': 'src/settings-personal.js',
@@ -24,6 +27,21 @@ export default createAppConfig(
       // The OCCT glue compiles its bindings with `new Function`, which Nextcloud's CSP
       // blocks; rewrite it to closures as it is bundled (#169).
       plugins: [occtNoEval()],
+      // The background thumbnail worker (src/thumbnails/thumbnail.worker.js) is bundled
+      // on its own, with none of the main build's plugins or output names. It is a module
+      // worker, because the loader registry code-splits, and its files go under js/ like
+      // every other chunk. The OCCT glue it bundles needs the same rewrite as above.
+      worker: {
+        format: 'es',
+        plugins: () => [occtNoEval()],
+        rollupOptions: {
+          output: {
+            entryFileNames: 'js/thumbnail-worker-[hash].mjs',
+            chunkFileNames: 'js/thumbnail-worker-[name]-[hash].chunk.mjs',
+            assetFileNames: 'dist/[name]-[hash][extname]',
+          },
+        },
+      },
       build: {
         target: 'es2022', // Support top-level await
         chunkSizeWarningLimit: 600, // Increase limit to 600kB (gzipped sizes are reasonable)
@@ -58,3 +76,17 @@ export default createAppConfig(
     }
   }
 );
+
+// @nextcloud/vite-config resolves every built URL in JS through `window.OC.filePath`, which
+// a worker does not have: three's DRACO and KTX2 loaders build their decoder URLs at module
+// load, so the worker would die importing them. Inside the worker's own files, resolve
+// URLs relative to the importing chunk instead. All of it sits under js/ and dist/ of the
+// app, so that holds wherever the app is served from (apps/ or custom_apps/).
+export default async (env) => {
+  const config = await appConfig(env);
+  const renderBuiltUrl = config.experimental.renderBuiltUrl;
+  config.experimental.renderBuiltUrl = (filename, context) => (
+    WORKER_FILE.test(context.hostId) ? { relative: true } : renderBuiltUrl(filename, context)
+  );
+  return config;
+};

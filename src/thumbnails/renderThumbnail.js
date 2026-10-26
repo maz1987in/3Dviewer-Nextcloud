@@ -22,22 +22,13 @@ import {
 import { DEFAULT_CAMERA_FOV } from '../config/cameraDefaults.js'
 import { LIGHT_LAYOUT, LIGHTING_PRESETS } from '../config/lightingPresets.js'
 import { computeCameraFit } from './cameraFit.js'
+import { EmptyModelError } from './errors.js'
+
+// Defined beside the worker's own errors; re-exported so callers keep one import site
+export { EmptyModelError }
 
 const DEFAULT_SIZE = 512
 const PNG = 'image/png'
-
-/**
- * Thrown when the model has no geometry to frame, so a caller can tell "nothing to
- * render" apart from a real failure.
- */
-export class EmptyModelError extends Error {
-
-	constructor(message = 'Model has no renderable geometry') {
-		super(message)
-		this.name = 'EmptyModelError'
-	}
-
-}
 
 /**
  * Add the default lighting preset to a scene.

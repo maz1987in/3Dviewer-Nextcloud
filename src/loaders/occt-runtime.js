@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import occtimportjs from 'occt-import-js'
-import { generateFilePath } from '@nextcloud/router'
+import { appAssetPath } from './appAssetPath.js'
 import { logger } from '../utils/logger.js'
 
 /**
@@ -32,7 +32,7 @@ export function getOcct() {
 		modulePromise = occtimportjs({
 			locateFile(name) {
 				if (name.endsWith('.wasm')) {
-					return generateFilePath('threedviewer', 'occt', name)
+					return appAssetPath('occt', name)
 				}
 				return name
 			},

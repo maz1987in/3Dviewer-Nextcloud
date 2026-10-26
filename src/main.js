@@ -23,6 +23,16 @@ if (typeof window !== 'undefined') {
 	window.n = translatePlural
 }
 
+// Test hook for tests/playwright/thumbnail-worker.spec.ts, like the window.__LOAD_COMPLETE
+// flag the viewer sets. Only a test harness sets __THREEDVIEWER_TEST__, so production never
+// loads this chunk from here. The whole module is exposed (renderInWorker,
+// canRenderInBackground and the rest): naming the two again costs the entry chunk bytes.
+if (window.__THREEDVIEWER_TEST__ === true) {
+	import('./thumbnails/workerRenderer.js').then((thumbnails) => {
+		window.__threedviewerThumbnails = thumbnails
+	})
+}
+
 // Supported MIME types for 3D models
 const SUPPORTED_MIMES = [
 	'model/gltf-binary', // .glb

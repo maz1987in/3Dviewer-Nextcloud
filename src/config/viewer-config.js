@@ -1,9 +1,19 @@
 /**
  * Viewer configuration and settings
  */
-import { imagePath } from '@nextcloud/router'
+import { imagePath as routerImagePath } from '@nextcloud/router'
 import { DEFAULT_CAMERA_FOV } from './cameraDefaults.js'
 import { LIGHT_LAYOUT } from './lightingPresets.js'
+
+/**
+ * Format icon URL. Empty in the thumbnail worker, which loads this module through the
+ * loaders but has no page to resolve the app's web root from, and shows no icons.
+ *
+ * @param {string} app - App id
+ * @param {string} file - Image path under the app's img/ directory
+ * @return {string} The icon URL
+ */
+const imagePath = (app, file) => (typeof window === 'undefined' ? '' : routerImagePath(app, file))
 
 /**
  * Default material settings

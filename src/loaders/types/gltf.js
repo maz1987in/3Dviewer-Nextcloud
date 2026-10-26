@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
-import { generateFilePath } from '@nextcloud/router'
+import { appAssetPath } from '../appAssetPath.js'
 import { BaseLoader } from '../BaseLoader.js'
 
 /**
@@ -88,6 +88,12 @@ class GltfLoader extends BaseLoader {
 	 * @return {boolean} True if in modal context
 	 */
 	detectModalContext() {
+		// No page at all: the thumbnail worker. Its blob: URLs fall under the worker's
+		// own policy, not the viewer modal's, so there is nothing to patch.
+		if (typeof document === 'undefined') {
+			return false
+		}
+
 		// Always log detection attempt for debugging
 		this.logInfo('GLTFLoader', 'Checking for modal context...', {
 			isIframe: window.self !== window.top,
@@ -778,7 +784,7 @@ class GltfLoader extends BaseLoader {
 			try {
 				const { DRACOLoader } = await import('three/examples/jsm/loaders/DRACOLoader.js')
 				const dracoLoader = new DRACOLoader()
-				const dracoPath = generateFilePath('threedviewer', 'draco', '')
+				const dracoPath = appAssetPath('draco')
 				dracoLoader.setDecoderPath(dracoPath)
 				if (typeof dracoLoader.setWorkerLimit === 'function') {
 					dracoLoader.setWorkerLimit(workerLimit)
@@ -805,7 +811,7 @@ class GltfLoader extends BaseLoader {
 				try {
 					const { KTX2Loader } = await import('three/examples/jsm/loaders/KTX2Loader.js')
 					const ktx2Loader = new KTX2Loader()
-					const basisPath = generateFilePath('threedviewer', 'basis', '')
+					const basisPath = appAssetPath('basis')
 					ktx2Loader.setTranscoderPath(basisPath)
 					if (typeof ktx2Loader.setWorkerLimit === 'function') {
 						ktx2Loader.setWorkerLimit(workerLimit)
