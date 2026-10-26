@@ -649,6 +649,11 @@
       <code><![CDATA[LoadViewerListener]]></code>
     </UndefinedDocblockClass>
   </file>
+  <file src="lib/Listener/ThumbnailInvalidationListener.php">
+    <PossiblyUnusedMethod>
+      <code><![CDATA[__construct]]></code>
+    </PossiblyUnusedMethod>
+  </file>
   <file src="lib/Migration/Version010902Date20251116061241.php">
     <MissingReturnType>
       <code><![CDATA[postSchemaChange]]></code>
@@ -1043,6 +1048,14 @@
       <code><![CDATA[SlicerControllerTest]]></code>
     </UnusedClass>
   </file>
+  <file src="tests/unit/Controller/ThumbnailControllerTest.php">
+    <UndefinedClass>
+      <code><![CDATA[TestCase]]></code>
+    </UndefinedClass>
+    <UnusedClass>
+      <code><![CDATA[ThumbnailControllerTest]]></code>
+    </UnusedClass>
+  </file>
   <file src="tests/unit/Db/FileIndexMapperFolderTest.php">
     <UndefinedClass>
       <code><![CDATA[TestCase]]></code>
@@ -1065,6 +1078,14 @@
     </UndefinedClass>
     <UnusedClass>
       <code><![CDATA[LoadPublicShareListenerTest]]></code>
+    </UnusedClass>
+  </file>
+  <file src="tests/unit/Listener/ThumbnailInvalidationListenerTest.php">
+    <UndefinedClass>
+      <code><![CDATA[TestCase]]></code>
+    </UndefinedClass>
+    <UnusedClass>
+      <code><![CDATA[ThumbnailInvalidationListenerTest]]></code>
     </UnusedClass>
   </file>
   <file src="tests/unit/Migration/Version010902Date20251116061241Test.php">
@@ -1097,6 +1118,23 @@
     </UndefinedClass>
     <UnusedClass>
       <code><![CDATA[NoPrivateServerApiTest]]></code>
+    </UnusedClass>
+  </file>
+  <file src="tests/unit/Preview/ModelPreviewProviderTest.php">
+    <UndefinedClass>
+      <code><![CDATA[TestCase]]></code>
+    </UndefinedClass>
+    <UnusedClass>
+      <code><![CDATA[ModelPreviewProviderTest]]></code>
+      <code><![CDATA[RecordingProvider]]></code>
+    </UnusedClass>
+  </file>
+  <file src="tests/unit/Repair/RemoveLegacyThumbnailsTest.php">
+    <UndefinedClass>
+      <code><![CDATA[TestCase]]></code>
+    </UndefinedClass>
+    <UnusedClass>
+      <code><![CDATA[RemoveLegacyThumbnailsTest]]></code>
     </UnusedClass>
   </file>
   <file src="tests/unit/Service/FileIndexServiceTest.php">
@@ -1209,6 +1247,14 @@
     </UndefinedClass>
     <UnusedClass>
       <code><![CDATA[ShareFileServiceTest]]></code>
+    </UnusedClass>
+  </file>
+  <file src="tests/unit/Service/ThumbnailServiceTest.php">
+    <UndefinedClass>
+      <code><![CDATA[TestCase]]></code>
+    </UndefinedClass>
+    <UnusedClass>
+      <code><![CDATA[ThumbnailServiceTest]]></code>
     </UnusedClass>
   </file>
 </files>

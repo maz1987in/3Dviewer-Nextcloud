@@ -56,10 +56,6 @@ class ThumbnailInvalidationListener implements IEventListener
             }
 
             $fileId = $node->getId();
-            if ($fileId === null) {
-                return;
-            }
-
             $this->thumbnails->deleteAll($fileId);
         } catch (\Throwable $e) {
             $this->logger->warning('ThumbnailInvalidationListener: Could not delete thumbnails', [

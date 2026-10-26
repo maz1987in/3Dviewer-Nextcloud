@@ -140,6 +140,7 @@ class ModelPreviewProvider implements IProviderV2
      */
     protected function createImage(string $data): ?IImage
     {
+        /** @var IImage $image */
         $image = new \OCP\Image();
 
         return $image->loadFromData($data) ? $image : null;
