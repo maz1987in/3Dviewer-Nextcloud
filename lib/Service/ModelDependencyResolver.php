@@ -38,8 +38,14 @@ class ModelDependencyResolver
     /** COLLADA `<init_from>wood.png</init_from>`, and the 1.5 `<init_from><ref>…</ref></init_from>` */
     private const COLLADA_IMAGE = '#<init_from\b[^>]*>\s*(?:<ref\b[^>]*>\s*)?([^<]+?)\s*(?:</ref>\s*)?</init_from>#i';
 
-    /** X3D `url='"wood.png"'` or `url="wood.png"`, capturing the whole MFString list */
-    private const X3D_URL = '#\burl\s*=\s*(["\'])(.*?)\1#is';
+    /**
+     * The start tag of an X3D `<ImageTexture>`, the only texture node the viewer reads;
+     * not `<ImageTexture3D>`, and not the `url` of an Anchor, Inline, AudioClip or Script.
+     */
+    private const X3D_IMAGE_TEXTURE = '#<ImageTexture(?=[\s/>])((?:[^>"\']++|"[^"]*+"|\'[^\']*+\')*+)>#i';
+
+    /** Its `url='"wood.png"'` or `url="&quot;wood.png&quot;"`, capturing the whole MFString list */
+    private const X3D_URL = '#(?:^|\s)url\s*=\s*(?:"([^"]*)"|\'([^\']*)\')#i';
 
     /** `map_Kd wood.png`, `bump normal.png`, `refl env.png`, `disp height.png` */
     private const MAP_LINE = '/^[^\S\r\n]*(?:map_[A-Za-z0-9_]+|bump|refl|disp|decal)[^\S\r\n]+(.+?)[^\S\r\n]*$/mi';
@@ -197,23 +203,36 @@ class ModelDependencyResolver
                 $matches = [];
                 if (preg_match_all(self::COLLADA_IMAGE, $image, $matches) > 0) {
                     foreach ($matches[1] as $value) {
-                        $this->register($map, rawurldecode(trim($value)));
+                        $this->register($map, rawurldecode(trim(html_entity_decode($value, ENT_QUOTES | ENT_XML1, 'UTF-8'))));
                     }
                 }
             }
         }
 
-        // X3D's url is an MFString: whitespace-separated, quoted alternatives tried in
-        // order, so any one of them may be the file sitting beside the model.
-        /** @var array<int, array<int, string>> $urls */
-        $urls = [];
-        if (preg_match_all(self::X3D_URL, $document, $urls) > 0) {
-            foreach ($urls[2] as $list) {
-                $entries = preg_split('/\s+/', trim($list));
+        // An ImageTexture's url is an MFString: quoted alternatives tried in order, so any
+        // one of them may be the file sitting beside the model. Some exporters write a
+        // bare name instead.
+        /** @var array<int, array<int, string>> $tags */
+        $tags = [];
+        if (preg_match_all(self::X3D_IMAGE_TEXTURE, $document, $tags) > 0) {
+            foreach ($tags[1] as $attributes) {
+                /** @var array<int, string> $url */
+                $url = [];
+                if (preg_match(self::X3D_URL, $attributes, $url) !== 1) {
+                    continue;
+                }
+                $list = trim(html_entity_decode($url[1] !== '' ? $url[1] : ($url[2] ?? ''), ENT_QUOTES | ENT_XML1, 'UTF-8'));
+                /** @var array<int, array<int, string>> $quoted */
+                $quoted = [];
+                if (str_contains($list, '"')) {
+                    preg_match_all('/"([^"]*)"/', $list, $quoted);
+                    $entries = $quoted[1] ?? [];
+                } else {
+                    $entries = preg_split('/\s+/', $list);
+                }
                 foreach ($entries === false ? [] : $entries as $value) {
-                    $value = trim($value, "\"'");
-                    if ($value !== '') {
-                        $this->register($map, rawurldecode($value));
+                    if (trim($value) !== '') {
+                        $this->register($map, rawurldecode(trim($value)));
                     }
                 }
             }

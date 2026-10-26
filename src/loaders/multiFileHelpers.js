@@ -466,6 +466,77 @@ function colladaImageFiles(content) {
 }
 
 /**
+ * Decode XML's predefined entities and character references, as a value may hold them.
+ *
+ * @param {string} text - As written in the document
+ * @return {string} The text it stands for
+ */
+function decodeXmlEntities(text) {
+	return text.replace(/&(?:#x([0-9a-f]+)|#(\d+)|(quot|apos|amp|lt|gt));/gi, (whole, hex, dec, name) => {
+		if (name) {
+			return { quot: '"', apos: "'", amp: '&', lt: '<', gt: '>' }[name.toLowerCase()]
+		}
+		const code = hex ? parseInt(hex, 16) : parseInt(dec, 10)
+		return code > 0 && code <= 0x10FFFF ? String.fromCodePoint(code) : whole
+	})
+}
+
+/**
+ * The image paths each X3D `<ImageTexture>` names in its `url`, the only texture node
+ * the X3D loader reads. Not every `url`: an Anchor's `#Top`, an Inline's scene, an
+ * AudioClip or a Script are no textures, and declaring them made a model that names any
+ * of them look like it was missing a companion.
+ *
+ * `url` is an MFString, written `url='"a.png" "b.png"'` or, entity-encoded,
+ * `url="&quot;a.png&quot;"`, a list of alternatives in order; some exporters write a
+ * bare `url="a.png"`. A forward scan, linear in the document.
+ *
+ * @param {string} content - Raw document text
+ * @return {string[]} The paths as written, in document order
+ */
+function x3dTextureUrls(content) {
+	const lower = content.toLowerCase()
+	const values = []
+	let at = 0
+	for (;;) {
+		const start = lower.indexOf('<imagetexture', at)
+		if (start === -1) {
+			break
+		}
+		at = start + 13
+		if (!/[\s/>]/.test(lower.charAt(at))) {
+			// <ImageTexture3D>, <ImageTextureAtlas>: not what the loader reads
+			continue
+		}
+		// The start tag, up to the first > outside a quoted value
+		let quote = null
+		let end = at
+		for (; end < content.length; end++) {
+			const char = content[end]
+			if (quote) {
+				if (char === quote) {
+					quote = null
+				}
+			} else if (char === '"' || char === "'") {
+				quote = char
+			} else if (char === '>') {
+				break
+			}
+		}
+		const tag = content.slice(at, end)
+		at = end + 1
+		const url = /(?:^|\s)url\s*=\s*(?:"([^"]*)"|'([^']*)')/.exec(tag)
+		if (!url) {
+			continue
+		}
+		const list = decodeXmlEntities(url[1] ?? url[2]).trim()
+		const quoted = [...list.matchAll(/"([^"]*)"/g)].map(match => match[1])
+		values.push(...(quoted.length > 0 || list.includes('"') ? quoted : list.split(/\s+/)))
+	}
+	return values
+}
+
+/**
  * Texture paths a COLLADA or X3D document declares, in document order.
  *
  * Matched by scanning rather than parsed with DOMParser: only the paths are needed,
@@ -499,16 +570,9 @@ export function parseXmlModelDependencies(content, extension) {
 	}
 
 	if (extension === 'dae') {
-		colladaImageFiles(content).forEach(push)
+		colladaImageFiles(content).map(decodeXmlEntities).forEach(push)
 	} else if (extension === 'x3d') {
-		// url is an MFString: whitespace-separated, quoted alternatives.
-		const pattern = /\burl\s*=\s*(["'])([\s\S]*?)\1/gi
-		let match
-		while ((match = pattern.exec(content)) !== null) {
-			for (const entry of match[2].trim().split(/\s+/)) {
-				push(entry.replace(/^["']|["']$/g, ''))
-			}
-		}
+		x3dTextureUrls(content).forEach(push)
 	}
 
 	return [...found]

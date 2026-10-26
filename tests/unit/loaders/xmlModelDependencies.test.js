@@ -78,6 +78,44 @@ describe('parseXmlModelDependencies', () => {
 		expect(parseXmlModelDependencies(x3d, 'x3d')).toEqual(['a.png', 'b.png'])
 	})
 
+	it('declares only the url of an X3D ImageTexture, the texture node the loader reads', () => {
+		const x3d = `<X3D><Scene>
+			<Anchor url='"#Top"' description="back to top"><Shape/></Anchor>
+			<Inline url='"room.x3d"'/>
+			<Sound><AudioClip url='"hum.wav"'/></Sound>
+			<Script url='"logic.js"'/>
+			<MovieTexture url='"clip.mp4"'/>
+			<ImageTexture3D url='"volume.nrrd"'/>
+			<Shape><Appearance><ImageTexture DEF="Wood" url='"wood.png"'/></Appearance></Shape>
+		</Scene></X3D>`
+
+		expect(parseXmlModelDependencies(x3d, 'x3d')).toEqual(['wood.png'])
+	})
+
+	it('decodes an entity-encoded X3D url and keeps a quoted name whole', () => {
+		const x3d = `<X3D>
+			<ImageTexture url="&quot;textures/wood grain.png&quot; &quot;wood.png&quot;"/>
+			<ImageTexture url="bare.png"/>
+			<ImageTexture solid="true" url='"a&amp;b.png"' repeatS="false"/>
+		</X3D>`
+
+		expect(parseXmlModelDependencies(x3d, 'x3d')).toEqual(['textures/wood grain.png', 'wood.png', 'bare.png', 'a&b.png'])
+	})
+
+	it('decodes entities in a COLLADA image path', () => {
+		const dae = '<COLLADA><library_images><image id="a"><init_from>salt&amp;pepper.png</init_from></image></library_images></COLLADA>'
+
+		expect(parseXmlModelDependencies(dae, 'dae')).toEqual(['salt&pepper.png'])
+	})
+
+	it('scans a crafted X3D document in linear time', () => {
+		const started = Date.now()
+
+		expect(parseXmlModelDependencies(`<ImageTexture url="${'<ImageTexture '.repeat(200000)}`, 'x3d')).toEqual([])
+		expect(parseXmlModelDependencies('<ImageTexture '.repeat(200000), 'x3d')).toEqual([])
+		expect(Date.now() - started).toBeLessThan(500)
+	})
+
 	it('drops embedded and remote references', () => {
 		const dae = `<COLLADA><library_images>
 			<image><init_from>data:image/png;base64,AAAA</init_from></image>

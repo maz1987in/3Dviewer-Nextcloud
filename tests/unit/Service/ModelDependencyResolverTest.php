@@ -454,6 +454,35 @@ class ModelDependencyResolverTest extends TestCase
         $this->assertSame($texture, $this->resolver->resolve($model, 'local.png'));
     }
 
+    public function testServesOnlyWhatAnX3dImageTextureNames(): void
+    {
+        // An Anchor, Inline, AudioClip or Script url names no texture, so it is no
+        // dependency, even when a file of that name sits beside the model
+        $texture = $this->fileNamed('wood grain.png');
+        $model = $this->modelNamed(
+            'chair.x3d',
+            '<X3D><Scene><Inline url=\'"room.png"\'/><AudioClip url=\'"hum.png"\'/>'
+            . '<ImageTexture3D url=\'"volume.png"\'/>'
+            . '<ImageTexture DEF="W" url="&quot;wood grain.png&quot;"/></Scene></X3D>',
+            [
+                'wood grain.png' => $texture,
+                'room.png' => $this->fileNamed('room.png'),
+                'hum.png' => $this->fileNamed('hum.png'),
+                'volume.png' => $this->fileNamed('volume.png'),
+            ],
+        );
+
+        $this->assertSame($texture, $this->resolver->resolve($model, 'wood grain.png'));
+        foreach (['room.png', 'hum.png', 'volume.png'] as $name) {
+            try {
+                $this->resolver->resolve($model, $name);
+                $this->fail("{$name} should not be servable");
+            } catch (NotFoundException) {
+                // Not declared by an ImageTexture
+            }
+        }
+    }
+
     public function testRefusesAnUndeclaredSiblingOfAColladaFile(): void
     {
         $model = $this->modelNamed(
