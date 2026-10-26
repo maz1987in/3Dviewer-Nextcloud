@@ -7,6 +7,7 @@
  *  3. Loader registry — src/loaders/registry.js
  *  4. Viewer MIME list — src/main.js (SUPPORTED_MIMES)
  *  5. NC file mapping — appinfo/mimetypemapping.json
+ *  6. Preview provider — mapped MIME vs SupportedFormats::getPreviewMimeRegex()
  *
  * Run: node scripts/check-format-parity.mjs
  */
@@ -188,6 +189,25 @@ const phpNoJson = phpExts.filter(e => !mimeMappingExts.includes(e))
 if (jsonOnly.length) warn(`In mimetypemapping.json but not in PHP: ${jsonOnly.join(', ')}`)
 if (phpNoJson.length) error(`In PHP but missing from mimetypemapping.json: ${phpNoJson.join(', ')}`)
 if (!jsonOnly.length && !phpNoJson.length) ok(`${mimeMappingExts.length} extensions match`)
+
+// ── Check 6: preview provider regex covers every mapped MIME ────────────────
+console.log('\n6. mimetypemapping.json <-> preview provider MIME regex')
+
+// Mirrors SupportedFormats::getPreviewMimeRegex(): the first MIME type of every model extension.
+const previewMimes = new Set(phpExts.map(e => phpMimeMap[e][0]))
+let previewOk = true
+for (const ext of mimeMappingExts) {
+	const mapped = mimeMapping[ext]
+	if (!phpMimeMap[ext]) continue // reported by check 5
+	if (!phpMimeMap[ext].includes(mapped)) {
+		error(`${ext}: mimetypemapping.json maps to "${mapped}", not one of PHP EXT_MIME_MAP ${JSON.stringify(phpMimeMap[ext])}`)
+		previewOk = false
+	} else if (!previewMimes.has(mapped)) {
+		error(`${ext}: mapped MIME "${mapped}" is not the primary type "${phpMimeMap[ext][0]}", so the preview provider regex would miss it`)
+		previewOk = false
+	}
+}
+if (previewOk) ok(`${mimeMappingExts.length} mapped extensions resolve to a previewed MIME type`)
 
 // ── Summary ────────────────────────────────────────────────────────────────
 console.log('\n' + '-'.repeat(60))
