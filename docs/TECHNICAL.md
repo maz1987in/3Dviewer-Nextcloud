@@ -239,6 +239,17 @@ export default defineConfig({
 });
 ```
 
+#### FreeCAD documents (`.fcstd`)
+
+An FCStd file is a ZIP of `Document.xml`, `GuiDocument.xml` and one `.brp` B-Rep per shape. FreeCAD saves a shape for every feature, not only the result, so `fcstd.js` (`visibleShapeEntries`) draws only what FreeCAD shows:
+
+- an object's `Shape` property in `Document.xml` names its file; other shape properties (`AddSubShape`, the tool a Pocket cut away, `SuppressedShape` and so on) are never drawn;
+- an object is drawn when `GuiDocument.xml` does not save it hidden (`Visibility`), and neither does any container above it. A `PartDesign::Body`, an `App::Part` and an assembly hide their members (their `Group` links) without clearing the members' own flags, so a Body hidden after a Part Cut used it still has a tip flagged visible. A plain `App::DocumentObjectGroup` is not such a container: hiding one sets each member's flag;
+- a Body in its default "Through" display mode draws nothing of its own (its shape is a copy of its tip); in "Tip" mode it draws its own shape and none of its members;
+- everything is drawn, as before, when `GuiDocument.xml` is missing (FreeCADCmd saves none) or either document cannot be parsed, when nothing visible is in the archive, and when no visible shape can be tessellated.
+
+The XML is read with the global `DOMParser`: the browser's on the page, the worker's own in the background (see the background thumbnails section). A document too long for the worker's parser fails the load rather than falling back to drawing everything.
+
 #### Memory Management
 
 **Resource Cleanup:**

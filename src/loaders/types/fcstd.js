@@ -10,6 +10,14 @@ const BREP_ENTRY = /\.(brep|brp)$/i
 const BODY_MODE_TIP = '1'
 
 /**
+ * Containers that draw their members inside their own scene node, so hiding one hides
+ * its whole subtree while each member keeps its own Visibility flag. Not
+ * App::DocumentObjectGroup or a Draft layer: hiding those sets each member's flag, and a
+ * member still flagged visible inside a hidden plain group is shown.
+ */
+const CONTAINER_TYPES = new Set(['PartDesign::Body', 'App::Part', 'Assembly::AssemblyObject'])
+
+/**
  * @param {Element} parent - An element
  * @param {string} name - Tag name
  * @return {Element[]} Its child elements of that name, in order
@@ -77,8 +85,14 @@ function parseXml(bytes) {
  * away (`AddSubShape`) and the Body's own copy of its tip; a Part workbench Cut stores its
  * base and tool. Drawn together they overlap, and a cutting tool sticks out of the part.
  * FreeCAD shows only what GuiDocument.xml marks visible, so only those are drawn: each
- * object's `Shape` property names its file in Document.xml. A Body in its default
- * "Through" display mode draws nothing of its own, since its visible tip is drawn.
+ * object's `Shape` property names its file in Document.xml.
+ *
+ * A Body or App::Part hides everything in it (its `Group`) without clearing the members'
+ * own flags, so an object is drawn only when it and every container above it are shown:
+ * the tip of a Body hidden after a Part Cut used it stays flagged visible, and would
+ * otherwise stick out of the cut. A Body in its default "Through" display mode draws
+ * nothing of its own, since its visible tip is drawn; in "Tip" mode it draws its own
+ * shape and none of its members.
  *
  * @param {Record<string, Uint8Array>} entries - The archive, by entry name
  * @return {?Set<string>} Entry names to draw, possibly none; null when the archive has
@@ -105,28 +119,68 @@ export function visibleShapeEntries(entries) {
 		}
 	}
 	// Shown unless FreeCAD saved it hidden, as a view provider is by default
-	const isShown = (name) => {
+	const isFlaggedShown = (name) => {
 		const visibility = viewProviders.has(name) ? propertyValue(viewProviders.get(name), 'Visibility') : null
 		return visibility?.getAttribute('value') !== 'false'
 	}
+	const isTipModeBody = (name) => {
+		if (types.get(name) !== 'PartDesign::Body') {
+			return false
+		}
+		const mode = viewProviders.has(name) ? propertyValue(viewProviders.get(name), 'DisplayModeBody') : null
+		return mode?.getAttribute('value') === BODY_MODE_TIP
+	}
+
+	const objects = []
+	for (const data of doc.getElementsByTagName('ObjectData')) {
+		objects.push(...childElements(data, 'Object'))
+	}
+
+	// Each member's container, from the Group links of each Body and App::Part
+	const containerOf = new Map()
+	for (const object of objects) {
+		const name = object.getAttribute('name')
+		if (!CONTAINER_TYPES.has(types.get(name))) {
+			continue
+		}
+		const links = propertyValue(object, 'Group')
+		for (const link of links ? childElements(links, 'Link') : []) {
+			const member = link.getAttribute('value')
+			if (member && member !== name && !containerOf.has(member)) {
+				containerOf.set(member, name)
+			}
+		}
+	}
+
+	// Drawn when it and every container above it are shown, and no Body above it draws
+	// itself in Tip mode instead. The walk stops at a container seen before, should a
+	// crafted document link containers in a circle.
+	const isDrawn = (name) => {
+		if (!isFlaggedShown(name)) {
+			return false
+		}
+		const seen = new Set([name])
+		for (let container = containerOf.get(name); container !== undefined; container = containerOf.get(container)) {
+			if (seen.has(container) || !isFlaggedShown(container) || isTipModeBody(container)) {
+				return false
+			}
+			seen.add(container)
+		}
+		return true
+	}
 
 	const shown = new Set()
-	for (const data of doc.getElementsByTagName('ObjectData')) {
-		for (const object of childElements(data, 'Object')) {
-			const name = object.getAttribute('name')
-			const part = propertyValue(object, 'Shape')
-			const file = part?.nodeName === 'Part' ? part.getAttribute('file') : null
-			if (!file || !isShown(name)) {
-				continue
-			}
-			if (types.get(name) === 'PartDesign::Body') {
-				const mode = viewProviders.has(name) ? propertyValue(viewProviders.get(name), 'DisplayModeBody') : null
-				if (mode?.getAttribute('value') !== BODY_MODE_TIP) {
-					continue
-				}
-			}
-			shown.add(file)
+	for (const object of objects) {
+		const name = object.getAttribute('name')
+		const part = propertyValue(object, 'Shape')
+		const file = part?.nodeName === 'Part' ? part.getAttribute('file') : null
+		if (!file || !isDrawn(name)) {
+			continue
 		}
+		if (types.get(name) === 'PartDesign::Body' && !isTipModeBody(name)) {
+			continue
+		}
+		shown.add(file)
 	}
 	return shown
 }

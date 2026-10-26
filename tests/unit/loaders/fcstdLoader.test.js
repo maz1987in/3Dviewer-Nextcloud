@@ -105,13 +105,17 @@ test('an archive with no B-Rep body at all is still an error', async () => {
  * A Document.xml in FreeCAD's layout: the object list with types, then each object's
  * properties, its `Shape` (and any other shape property) naming a file in the archive.
  *
- * @param {Array<{name: string, type: string, shapes: Record<string, string>}>} objects - Each object and its shape properties
+ * @param {Array<{name: string, type: string, shapes?: Record<string, string>, group?: string[], links?: Record<string, string>}>} objects -
+ *   Each object, its shape properties, the members of a container (`Group`) and the
+ *   objects a boolean uses (`Base`, `Tool`)
  * @return {string} The document
  */
 function documentXml(objects) {
 	const list = objects.map(({ name, type }) => `<Object type="${type}" name="${name}" id="1"/>`).join('')
-	const data = objects.map(({ name, shapes }) => `<Object name="${name}"><Properties Count="1">${
+	const data = objects.map(({ name, shapes = {}, group, links = {} }) => `<Object name="${name}"><Properties Count="1">${
 		Object.entries(shapes).map(([property, file]) => `<Property name="${property}" type="Part::PropertyPartShape"><Part file="${file}"/></Property>`).join('')
+	}${group ? `<Property name="Group" type="App::PropertyLinkList"><LinkList count="${group.length}">${group.map(member => `<Link value="${member}"/>`).join('')}</LinkList></Property>` : ''}${
+		Object.entries(links).map(([property, target]) => `<Property name="${property}" type="App::PropertyLink"><Link value="${target}"/></Property>`).join('')
 	}<Property name="Label" type="App::PropertyString"><String value="${name}"/></Property></Properties></Object>`).join('')
 	return `<?xml version='1.0' encoding='utf-8'?>
 <Document SchemaVersion="4"><Properties Count="0"/><Objects Count="${objects.length}">${list}</Objects><ObjectData Count="${objects.length}">${data}</ObjectData></Document>`
@@ -207,6 +211,114 @@ describe('FreeCAD visibility', () => {
 		await new FcstdLoader().loadModel(archive, {})
 
 		expect(readEntries()).toEqual(['box', 'cut'])
+	})
+
+	describe('containers', () => {
+		test('a hidden Body hides its tip, which stays flagged visible: only the Cut that used it is drawn', async () => {
+			// What FreeCAD leaves after Part → Cut of two Bodies: both Bodies hidden, their
+			// tips still flagged visible, the Cut shown
+			const archive = fcstd({
+				'Document.xml': documentXml([
+					{ name: 'Body', type: 'PartDesign::Body', shapes: { Shape: 'Body.Shape.brp' }, group: ['Pad'] },
+					{ name: 'Pad', type: 'PartDesign::Pad', shapes: { Shape: 'Pad.Shape.brp' } },
+					{ name: 'Body001', type: 'PartDesign::Body', shapes: { Shape: 'Body001.Shape.brp' }, group: ['Pad001'] },
+					{ name: 'Pad001', type: 'PartDesign::Pad', shapes: { Shape: 'Pad001.Shape.brp' } },
+					{ name: 'Cut', type: 'Part::Cut', shapes: { Shape: 'Cut.Shape.brp' }, links: { Base: 'Body', Tool: 'Body001' } },
+				]),
+				'GuiDocument.xml': guiDocumentXml({
+					Body: { visible: false, bodyMode: 0 },
+					Pad: { visible: true },
+					Body001: { visible: false, bodyMode: 0 },
+					Pad001: { visible: true },
+					Cut: { visible: true },
+				}),
+				'Body.Shape.brp': 'base body',
+				'Pad.Shape.brp': 'base tip',
+				'Body001.Shape.brp': 'tool body',
+				'Pad001.Shape.brp': 'tool tip',
+				'Cut.Shape.brp': 'cut',
+			})
+
+			await new FcstdLoader().loadModel(archive, {})
+
+			expect(readEntries()).toEqual(['cut'])
+		})
+
+		test('a hidden App::Part hides the Bodies and shapes inside it, at any depth', async () => {
+			const archive = fcstd({
+				'Document.xml': documentXml([
+					{ name: 'Part', type: 'App::Part', group: ['Body', 'Box'] },
+					{ name: 'Body', type: 'PartDesign::Body', shapes: { Shape: 'Body.Shape.brp' }, group: ['Pad'] },
+					{ name: 'Pad', type: 'PartDesign::Pad', shapes: { Shape: 'Pad.Shape.brp' } },
+					{ name: 'Box', type: 'Part::Box', shapes: { Shape: 'Box.Shape.brp' } },
+					{ name: 'Part001', type: 'App::Part', group: ['Cylinder'] },
+					{ name: 'Cylinder', type: 'Part::Cylinder', shapes: { Shape: 'Cylinder.Shape.brp' } },
+				]),
+				'GuiDocument.xml': guiDocumentXml({
+					Part: { visible: false },
+					Body: { visible: true, bodyMode: 0 },
+					Pad: { visible: true },
+					Box: { visible: true },
+					Part001: { visible: true },
+					Cylinder: { visible: true },
+				}),
+				'Body.Shape.brp': 'body',
+				'Pad.Shape.brp': 'pad',
+				'Box.Shape.brp': 'box',
+				'Cylinder.Shape.brp': 'cylinder',
+			})
+
+			await new FcstdLoader().loadModel(archive, {})
+
+			expect(readEntries()).toEqual(['cylinder'])
+		})
+
+		test('a plain group does not hide what it holds: FreeCAD sets each member\'s own flag', async () => {
+			const archive = fcstd({
+				'Document.xml': documentXml([
+					{ name: 'Group', type: 'App::DocumentObjectGroup', group: ['Box'] },
+					{ name: 'Box', type: 'Part::Box', shapes: { Shape: 'Box.Shape.brp' } },
+				]),
+				'GuiDocument.xml': guiDocumentXml({ Group: { visible: false }, Box: { visible: true } }),
+				'Box.Shape.brp': 'box',
+			})
+
+			await new FcstdLoader().loadModel(archive, {})
+
+			expect(readEntries()).toEqual(['box'])
+		})
+
+		test('a Body in Tip mode draws its own shape and not its shown tip, so the solid is drawn once', async () => {
+			const gui = guiDocumentXml({ Body: { visible: true, bodyMode: 1 }, Sketch: { visible: false }, Pad: { visible: false }, Pocket: { visible: true } })
+			const doc = documentXml([
+				{ name: 'Body', type: 'PartDesign::Body', shapes: { Shape: 'Body.Shape.brp' }, group: ['Sketch', 'Pad', 'Pocket'] },
+				{ name: 'Sketch', type: 'Sketcher::SketchObject', shapes: { Shape: 'Sketch.Shape.brp' } },
+				{ name: 'Pad', type: 'PartDesign::Pad', shapes: { AddSubShape: 'Pad.AddSubShape.brp', Shape: 'Pad.Shape.brp' } },
+				{ name: 'Pocket', type: 'PartDesign::Pocket', shapes: { AddSubShape: 'Pocket.AddSubShape.brp', Shape: 'Pocket.Shape.brp' } },
+			])
+
+			await new FcstdLoader().loadModel(fcstd({ 'Document.xml': doc, 'GuiDocument.xml': gui, ...PART_DESIGN_BODIES }), {})
+
+			expect(readEntries()).toEqual(['body copy of the tip'])
+		})
+
+		test('containers linked in a circle neither hang the loader nor draw their members', async () => {
+			const archive = fcstd({
+				'Document.xml': documentXml([
+					{ name: 'A', type: 'App::Part', group: ['B'] },
+					{ name: 'B', type: 'App::Part', group: ['A', 'Box'] },
+					{ name: 'Box', type: 'Part::Box', shapes: { Shape: 'Box.Shape.brp' } },
+					{ name: 'Free', type: 'Part::Box', shapes: { Shape: 'Free.Shape.brp' } },
+				]),
+				'GuiDocument.xml': guiDocumentXml({ A: { visible: true }, B: { visible: true }, Box: { visible: true }, Free: { visible: true } }),
+				'Box.Shape.brp': 'box',
+				'Free.Shape.brp': 'free',
+			})
+
+			await new FcstdLoader().loadModel(archive, {})
+
+			expect(readEntries()).toEqual(['free'])
+		})
 	})
 
 	describe('falls back to drawing every entry', () => {
