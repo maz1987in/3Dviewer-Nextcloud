@@ -374,15 +374,10 @@ class X3dLoader extends BaseLoader {
 
 			const dataUri = dataUriMap.get(fileName)
 			if (dataUri) {
-				const img = new Image()
-				img.src = dataUri
-				const texture = new THREE.Texture(img)
+				// Through three's loader rather than an <img> of our own: the thumbnail
+				// worker has no Image, and decodes what TextureLoader asks for instead
+				const texture = new THREE.TextureLoader().load(dataUri)
 				texture.colorSpace = THREE.SRGBColorSpace
-				texture.needsUpdate = true
-
-				img.onload = () => {
-					texture.needsUpdate = true
-				}
 
 				logger.info('X3DLoader', 'Loaded texture', { fileName })
 				return texture
