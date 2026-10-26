@@ -303,6 +303,14 @@ describe('parseFbxDependencies', () => {
 		expect(parseFbxDependencies(doc)).toEqual([])
 	})
 
+	it('keeps an embedded image of a type three cannot decode, since it asks for the file instead', () => {
+		const doc = fbxBinary([fbxNode('Objects', [], [
+			...videoAndTexture('scan.psd', PNG_BYTES),
+		])])
+
+		expect(parseFbxDependencies(doc)).toEqual(['scan.psd'])
+	})
+
 	it('leaves out an embedded texture in an ASCII document, and keeps one that is not', () => {
 		const text = [
 			'; FBX 7.4.0 project file',

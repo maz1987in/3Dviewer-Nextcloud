@@ -61,6 +61,12 @@ const FBX_ASCII_RELATIVE_LINE = /^[^\S\r\n]*RelativeFilename\s*:\s*"([^"]*)"/
 /** A `Content` line: the image data itself, or a lone comma with the data on the next line. */
 const FBX_ASCII_CONTENT_LINE = /^[^\S\r\n]*Content\s*:(.*)$/
 
+/**
+ * Image types three's FBXLoader decodes from a Video node's Content (`parseImage`). For
+ * any other it makes no image and asks for the file by name, so that name still counts.
+ */
+const FBX_EMBEDDABLE = /\.(bmp|jpe?g|png|tif|tga|webp)$/i
+
 /** Property type tags that can hold a `Video` node's embedded bytes: raw ('R') or string ('S'). */
 const FBX_RAW = 0x52
 const FBX_STRING = 0x53
@@ -301,7 +307,7 @@ function asciiEmbeddedNames(text) {
 		depth += (bare.match(/\{/g) ?? []).length - (bare.match(/\}/g) ?? []).length
 		if (depth <= 0) {
 			const path = hasContent && relative !== null ? normaliseRef(relative) : null
-			if (path !== null) {
+			if (path !== null && FBX_EMBEDDABLE.test(path)) {
 				embedded.add(path)
 			}
 			depth = 0
@@ -429,11 +435,9 @@ function readFbxVideo(view, start, end, wide, budget, out, embedded) {
 	if (relative === null) {
 		return
 	}
-	if (hasContent) {
-		const path = normaliseRef(relative)
-		if (path !== null) {
-			embedded.add(path)
-		}
+	const path = normaliseRef(relative)
+	if (hasContent && path !== null && FBX_EMBEDDABLE.test(path)) {
+		embedded.add(path)
 	} else if (out.length < MAX_DECLARED_TEXTURES) {
 		collect(out, relative)
 	}
