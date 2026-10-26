@@ -5,6 +5,7 @@ import {
 	ThumbnailEnvironmentError,
 	ThumbnailRefusedError,
 	ThumbnailTimeoutError,
+	ThumbnailTooLargeError,
 } from '../../../src/thumbnails/errors.js'
 
 jest.mock('../../../src/utils/logger.js', () => ({
@@ -893,6 +894,23 @@ describe('createBackgroundQueue', () => {
 			// Three crashes with a refusal between them still make three in a row
 			expect(loadedIds(deps.load)).toEqual([1, 2, 3, 4])
 			expect(deps.skips.markSkipped.mock.calls).toEqual([[2, 'etag-2']])
+		})
+
+		it('a model too large to parse is skipped, and like a timeout does not count toward the breaker', async () => {
+			const statuses = Object.fromEntries([1, 2, 3, 4, 5].map((id) => [id, status(id)]))
+			const { queue, deps } = setup({ statuses })
+			const tooLarge = () => new ThumbnailTooLargeError('XML document too large for a background thumbnail')
+			deps.render
+				.mockRejectedValueOnce(tooLarge())
+				.mockRejectedValueOnce(tooLarge())
+				.mockRejectedValueOnce(tooLarge())
+
+			queue.setFolder('/models', [1, 2, 3, 4, 5], new Set())
+			await queue.idle()
+
+			// Each is skipped for its version, and three in a row do not stop the page
+			expect(deps.skips.markSkipped.mock.calls).toEqual([[1, 'etag-1'], [2, 'etag-2'], [3, 'etag-3']])
+			expect(deps.api.uploadThumbnail.mock.calls.map(([id]) => id)).toEqual([4, 5])
 		})
 
 		it('timeouts and empty models do not trip the breaker, and a success resets it', async () => {

@@ -10,7 +10,16 @@
  */
 
 import { zipSync } from 'three/examples/jsm/libs/fflate.module.js'
-import { installWorkerDomParser, WorkerDOMParser } from '../../../src/thumbnails/workerDomParser.js'
+import fs from 'node:fs'
+import path from 'node:path'
+import {
+	createWorkerDomParser,
+	installWorkerDomParser,
+	MAX_XML_LENGTH,
+	NAMED_ATTRIBUTES,
+	WorkerDOMParser,
+	XmlTooLargeError,
+} from '../../../src/thumbnails/workerDomParser.js'
 
 const parse = (text) => new WorkerDOMParser().parseFromString(text, 'application/xml')
 const native = (text) => new DOMParser().parseFromString(text, 'application/xml')
@@ -131,16 +140,59 @@ describe('element traversal', () => {
 		expect(a.firstElementChild.firstElementChild).toBeNull()
 	})
 
-	it('reads attributes by name on element.attributes, as a browser does', () => {
+	it('reads the attributes the AMF loader names on element.attributes, as a browser does', () => {
 		const el = parse('<object id="7" type="model" length="x"/>').documentElement
 
 		expect(el.attributes.id.textContent).toBe('7')
 		expect(el.attributes.type.value).toBe('model')
 		expect(el.attributes.type.nodeValue).toBe('model')
+		// Missing reads as undefined, which the AMF loader tests for
+		expect(el.attributes.materialid).toBeUndefined()
+		expect(el.attributes.unit).toBeUndefined()
 		expect(el.attributes.missing).toBeUndefined()
 		// A name the map itself uses stays the map's, as in a browser
 		expect(el.attributes.length).toBe(3)
 		expect(el.attributes[0].name).toBe('id')
+	})
+
+	it('covers every attribute three\'s AMF loader reads by name', () => {
+		const source = fs.readFileSync(path.join(__dirname, '../../../node_modules/three/examples/jsm/loaders/AMFLoader.js'), 'utf8')
+		const read = [...new Set([...source.matchAll(/\.attributes\.([A-Za-z_]\w*)/g)].map(match => match[1]))]
+
+		// A three upgrade that reads another name fails here rather than in a worker
+		expect(read.filter(name => name !== 'length').sort()).toEqual([...NAMED_ATTRIBUTES].sort())
+	})
+
+	it('adds nothing to each parsed element, so memory does not grow with attributes', () => {
+		const el = parse('<object id="7" type="model"/>').documentElement
+
+		expect(Object.getOwnPropertyNames(el.attributes)).not.toContain('id')
+	})
+})
+
+describe('size cap', () => {
+	it('is 16 Mi characters by default', () => {
+		expect(MAX_XML_LENGTH).toBe(16 * 1024 * 1024)
+	})
+
+	it('refuses text over the cap before parsing it, and reports the refusal', () => {
+		const onTooLarge = jest.fn()
+		const Parser = createWorkerDomParser({ maxLength: 20, onTooLarge })
+
+		expect(new Parser().parseFromString('<a>0123456789</a>', 'application/xml').documentElement.nodeName).toBe('a')
+		expect(() => new Parser().parseFromString('<a>0123456789abcdef</a>', 'application/xml')).toThrow(XmlTooLargeError)
+		expect(onTooLarge).toHaveBeenCalledTimes(1)
+		expect(onTooLarge.mock.calls[0][0]).toBeInstanceOf(XmlTooLargeError)
+		expect(onTooLarge.mock.calls[0][0].name).toBe('XmlTooLargeError')
+	})
+
+	it('is applied by the installed parser', () => {
+		const scope = {}
+		const onTooLarge = jest.fn()
+		installWorkerDomParser(scope, { maxLength: 5, onTooLarge })
+
+		expect(() => new scope.DOMParser().parseFromString('<abc/>', 'application/xml')).toThrow(XmlTooLargeError)
+		expect(onTooLarge).toHaveBeenCalledTimes(1)
 	})
 })
 

@@ -16,9 +16,10 @@
  *   XML document. Any other selector throws a SyntaxError rather than match wrongly.
  * - `firstElementChild`, `lastElementChild`, `childElementCount`, `nextElementSibling`,
  *   `previousElementSibling`, and `children` where xmldom has none.
- * - Attributes by name on `element.attributes` (`attributes.id`), which the AMF loader
- *   reads. These are set on each parsed element, as xmldom's NamedNodeMap has no named
- *   properties; like a browser's, they never hide the map's own members (`length`).
+ * - Attributes by name on `element.attributes`, for the names three's AMF loader reads
+ *   (`attributes.id`, `.type`, `.unit`, `.materialid`). xmldom's NamedNodeMap has no
+ *   named properties; these are getters on its prototype, which cost nothing per element,
+ *   where a getter per attribute of every element took 40% of a document's memory.
  *
  * Malformed XML gives a document whose root is `<parsererror>`, as browsers do, rather
  * than an exception, so each loader reports it the way it does on the page. Unlike a
@@ -27,7 +28,12 @@
  *
  * Safety: xmldom never fetches anything, so neither an external DTD nor an external
  * entity is loaded, and it does not expand entities a document declares, so a
- * billion-laughs document stops at its first entity reference instead of growing.
+ * billion-laughs document stops at its first entity reference instead of growing. What
+ * a document does cost is memory in proportion to its size: about 31 bytes of heap per
+ * character of mesh-like XML (many small elements). A worker that runs out of memory
+ * crashes, which reads as a broken browser and is never skipped, so text longer than
+ * MAX_XML_LENGTH is refused before parsing with an XmlTooLargeError, an ordinary load
+ * error that skips the file for its version.
  */
 
 import {
@@ -36,8 +42,45 @@ import {
 	DocumentFragment,
 	DOMImplementation,
 	Element,
+	NamedNodeMap,
 	DOMParser as XmldomParser,
 } from '@xmldom/xmldom'
+
+/**
+ * Longest XML text the worker parses, in characters (16 Mi). Measured with this parser
+ * under Node: mesh-like XML, a 3MF's vertices and triangles, holds about 31 bytes of heap
+ * per character once parsed (48 with a getter per attribute, as this module first had),
+ * so a document at the cap holds about 500 MB, which leaves a worker room for the
+ * geometry it builds. A 29.6 MB document held 1.37 GB. Text-heavy XML (COLLADA float
+ * arrays) costs about one byte per character, so the cap is generous there. 16 Mi
+ * characters is roughly a 250,000-triangle 3MF; anything larger is left to the viewer.
+ * Each document is checked on its own, after a 3MF's model is inflated from its archive.
+ */
+export const MAX_XML_LENGTH = 16 * 1024 * 1024
+
+/**
+ * Thrown for XML longer than the worker parses. Not an environment error: the file is
+ * too big for a background thumbnail on any visit, so it is skipped for its version, and
+ * the viewer still makes its thumbnail when it is opened.
+ */
+export class XmlTooLargeError extends Error {
+
+	/**
+	 * @param {number} length - Characters in the document
+	 * @param {number} limit - The most allowed
+	 */
+	constructor(length, limit) {
+		super(`XML document too large for a background thumbnail: ${length} characters, limit ${limit}`)
+		this.name = 'XmlTooLargeError'
+	}
+
+}
+
+/**
+ * The attributes three's AMF loader reads by name, as `node.attributes.id`. Checked
+ * against the loader's source by tests/unit/thumbnails/workerDomParser.test.js.
+ */
+export const NAMED_ATTRIBUTES = Object.freeze(['id', 'materialid', 'type', 'unit'])
 
 /** Node types, which a worker has no `Node` global for. */
 const ELEMENT_NODE = 1
@@ -315,28 +358,14 @@ function patchXmldom() {
 	for (const prototype of [Element.prototype, CharacterData.prototype]) {
 		addGetters(prototype, CHILD_NODE)
 	}
-}
-
-/**
- * Make each attribute of each element readable by name on `element.attributes`, as in a
- * browser, where NamedNodeMap has named properties. Done once, after parsing: the
- * loaders read documents, they do not change them.
- *
- * @param {Document} doc - A parsed document
- */
-function nameAttributes(doc) {
-	eachDescendantElement(doc, (element) => {
-		const map = element.attributes
-		for (let i = 0; i < map.length; i++) {
-			const name = map[i].name
-			if (!(name in map)) {
-				Object.defineProperty(map, name, {
-					get: () => map.getNamedItem(name),
-					configurable: true,
-				})
-			}
-		}
-	})
+	// As in a browser, a missing attribute reads as undefined, and the map's own members
+	// (`length`, `item`) are never hidden
+	addGetters(NamedNodeMap.prototype, Object.fromEntries(NAMED_ATTRIBUTES.map(name => [
+		name,
+		function() {
+			return this.getNamedItem(name) ?? undefined
+		},
+	])))
 }
 
 /**
@@ -355,56 +384,73 @@ function parserErrorDocument(message) {
 }
 
 /**
- * The worker's DOMParser: `parseFromString(text, mimeType)` as on the page, for the XML
- * MIME types.
+ * Make a DOMParser class for the worker: `parseFromString(text, mimeType)` as on the
+ * page, for the XML MIME types.
+ *
+ * @param {object} [options] - How it behaves
+ * @param {number} [options.maxLength] - Longest text it parses, in characters
+ * @param {(error: XmlTooLargeError) => void} [options.onTooLarge] - Told about each
+ *   document refused for its size, before the error is thrown. A loader may catch the
+ *   error and rethrow its own, so the worker learns of the refusal here
+ * @return {new () => {parseFromString: (text: string, mimeType: string) => object}} The class
  */
-export class WorkerDOMParser {
+export function createWorkerDomParser({ maxLength = MAX_XML_LENGTH, onTooLarge = () => {} } = {}) {
+	return class WorkerDOMParser {
 
-	/**
-	 * @param {string} text - The document
-	 * @param {string} mimeType - `application/xml`, `text/xml` and the like
-	 * @return {Document} The document, or a `<parsererror>` document when it is malformed
-	 */
-	parseFromString(text, mimeType) {
-		patchXmldom()
-		const parser = new XmldomParser({
-			locator: false,
-			// Stop at the first error, as a browser does; warnings are what a browser
-			// recovers from too
-			onError: (level, message) => {
-				if (level !== 'warning') {
-					throw new Error(message)
-				}
-			},
-		})
-		let doc
-		try {
-			doc = parser.parseFromString(String(text), mimeType)
-		} catch (error) {
-			if (error instanceof TypeError) {
-				// An unsupported MIME type, which a browser rejects the same way
+		/**
+		 * @param {string} text - The document
+		 * @param {string} mimeType - `application/xml`, `text/xml` and the like
+		 * @return {Document} The document, or a `<parsererror>` document when it is malformed
+		 * @throws {XmlTooLargeError} When the text is longer than `maxLength`
+		 */
+		parseFromString(text, mimeType) {
+			const source = String(text)
+			if (source.length > maxLength) {
+				const error = new XmlTooLargeError(source.length, maxLength)
+				onTooLarge(error)
 				throw error
 			}
-			return parserErrorDocument(error?.message ?? error)
+			patchXmldom()
+			const parser = new XmldomParser({
+				locator: false,
+				// Stop at the first error, as a browser does; warnings are what a browser
+				// recovers from too
+				onError: (level, message) => {
+					if (level !== 'warning') {
+						throw new Error(message)
+					}
+				},
+			})
+			try {
+				return parser.parseFromString(source, mimeType)
+			} catch (error) {
+				if (error instanceof TypeError) {
+					// An unsupported MIME type, which a browser rejects the same way
+					throw error
+				}
+				return parserErrorDocument(error?.message ?? error)
+			}
 		}
-		nameAttributes(doc)
-		return doc
-	}
 
+	}
 }
+
+/** The worker's DOMParser with the default limit. */
+export const WorkerDOMParser = createWorkerDomParser()
 
 /**
  * Make `DOMParser` available to the loaders running in a worker, unless the scope has
  * its own.
  *
  * @param {object} scope - The worker's global scope (`self`)
+ * @param {object} [options] - See createWorkerDomParser
  * @return {boolean} True when this parser was installed, false when the scope had one
  */
-export function installWorkerDomParser(scope) {
+export function installWorkerDomParser(scope, options) {
 	if (typeof scope.DOMParser === 'function') {
 		return false
 	}
 	patchXmldom()
-	scope.DOMParser = WorkerDOMParser
+	scope.DOMParser = options ? createWorkerDomParser(options) : WorkerDOMParser
 	return true
 }

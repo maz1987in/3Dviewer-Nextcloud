@@ -73,6 +73,24 @@ export class ThumbnailRefusedError extends Error {
 }
 
 /**
+ * Thrown when a model is too large for the worker to parse safely: its XML is longer
+ * than the worker's parser takes (workerDomParser.js). The file is skipped for its
+ * version, like one that runs out of time, and like a timeout it says nothing about the
+ * browser, so it does not count toward the breaker. The viewer still makes its thumbnail.
+ */
+export class ThumbnailTooLargeError extends Error {
+
+	/**
+	 * @param {string} message - What was too large
+	 */
+	constructor(message) {
+		super(message)
+		this.name = 'ThumbnailTooLargeError'
+	}
+
+}
+
+/**
  * Thrown when a background download would go past what is left of the folder-visit
  * budget. The visit stops there; the file is not skipped.
  */

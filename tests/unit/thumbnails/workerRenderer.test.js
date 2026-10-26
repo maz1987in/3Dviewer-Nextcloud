@@ -4,6 +4,7 @@ import {
 	ThumbnailEnvironmentError,
 	ThumbnailRefusedError,
 	ThumbnailTimeoutError,
+	ThumbnailTooLargeError,
 	canRenderInBackground,
 	isThumbnailFormat,
 	AMBIGUOUS_FORMATS,
@@ -203,6 +204,24 @@ describe('renderInWorker', () => {
 		// The model's fault and not the browser's, so not an environment failure
 		expect(error).not.toBeInstanceOf(ThumbnailEnvironmentError)
 		expect(worker.terminated).toBe(1)
+	})
+
+	it('a model whose XML is longer than the worker parses rejects with ThumbnailTooLargeError', async () => {
+		const promise = renderInWorker(job(), { timeoutMs: 30000 })
+		const [worker] = workers
+
+		worker.emit({
+			ok: false,
+			error: 'XML document too large for a background thumbnail: 20000000 characters, limit 16777216',
+			stage: 'load',
+			tooLarge: true,
+		})
+
+		const error = await promise.catch(e => e)
+		expect(error).toBeInstanceOf(ThumbnailTooLargeError)
+		expect(error.message).toMatch(/too large/)
+		// The file's size, not the browser: not an environment failure
+		expect(error).not.toBeInstanceOf(ThumbnailEnvironmentError)
 	})
 
 	it('a failure while drawing, or a loader chunk that would not load, is the environment\'s', async () => {

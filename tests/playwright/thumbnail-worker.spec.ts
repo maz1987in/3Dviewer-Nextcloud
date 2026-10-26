@@ -108,6 +108,9 @@ async function buildGeneratedSamples() {
     '3D/Texture/checker.png': new Uint8Array(fs.readFileSync(path.join(PROJECT_ROOT, FIXTURES, 'checker.png'))),
   }))
   generated.set('quad.3mf', threeMf(texturedQuad3mf(false)))
+  // Over the worker parser's 16 Mi characters once inflated, from a zip of a few kilobytes
+  generated.set('huge.3mf', threeMf(TEXT_SAMPLES['3mf-model.xml'].replace('<vertices>', `<vertices>${OVERSIZED_PADDING}`)))
+  generated.set('huge.x3d', Buffer.from(TEXT_SAMPLES['triangle.x3d'].replace('<Scene>', `<Scene>${OVERSIZED_PADDING}`)))
   generated.set('textured.x3d', Buffer.from(texturedQuadX3d(true)))
   generated.set('quad.x3d', Buffer.from(texturedQuadX3d(false)))
   generated.set('textured.dae', Buffer.from(texturedQuadDae('checker.png')))
@@ -415,6 +418,9 @@ Connections:  {
 </mesh></object></resources><build><item objectid="1"/></build></model>
 `,
 }
+
+/** 17 Mi characters of XML comment, past the worker parser's limit of 16 Mi. */
+const OVERSIZED_PADDING = `<!--${' '.repeat(17 * 1024 * 1024)}-->`
 
 /** Ten levels of ten: a billion `lol`s, if a parser expanded the entities it declares. */
 const BILLION_LAUGHS_DTD = `<!DOCTYPE X3D [
@@ -888,6 +894,20 @@ test.describe('thumbnail worker', () => {
     expect(withDtd.covered).toBeGreaterThan(0)
     expect(elsewhere).toEqual([])
     expect(requested.filter(reqPath => !reqPath.startsWith(`${appRoot}js/`) && !reqPath.startsWith(`${appRoot}${GENERATED}`))).toEqual([])
+  })
+
+  test('XML longer than the worker parses is skipped as too large, not as a broken browser', async ({ page }) => {
+    const appRoot = APP_ROOTS[0]
+    await openHarness(page, server.origin, appRoot)
+
+    for (const [name, extension] of [['huge.3mf', '3mf'], ['huge.x3d', 'x3d']]) {
+      const outcome = await renderSample(page, appRoot, { name, extension, files: [`${GENERATED}${name}`] })
+
+      // The 3MF wraps the parser's error in its own; the worker reports the refusal anyway.
+      // The queue skips such a file for its version without counting it against the browser
+      expect(outcome, name).toMatchObject({ ok: false, errorName: 'ThumbnailTooLargeError' })
+      expect(outcome.error, name).toMatch(/^XML document too large for a background thumbnail/)
+    }
   })
 
   test('fcstd draws only what FreeCAD shows', async ({ page }) => {

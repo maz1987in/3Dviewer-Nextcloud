@@ -260,6 +260,20 @@ describe('FreeCAD visibility', () => {
 		})
 	})
 
+	test('fails rather than draw everything when the worker\'s parser refuses a document for its size', async () => {
+		const { createWorkerDomParser } = await import('../../../src/thumbnails/workerDomParser.js')
+		const original = global.DOMParser
+		global.DOMParser = createWorkerDomParser({ maxLength: 100 })
+		try {
+			const archive = fcstd({ 'Document.xml': PART_DESIGN, 'GuiDocument.xml': PART_DESIGN_GUI, ...PART_DESIGN_BODIES })
+
+			await expect(new FcstdLoader().loadModel(archive, {})).rejects.toMatchObject({ name: 'XmlTooLargeError' })
+			expect(mockReadBrepFile).not.toHaveBeenCalled()
+		} finally {
+			global.DOMParser = original
+		}
+	})
+
 	test('reads the same with the thumbnail worker\'s parser', async () => {
 		const { WorkerDOMParser } = await import('../../../src/thumbnails/workerDomParser.js')
 		const original = global.DOMParser

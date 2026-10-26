@@ -59,7 +59,12 @@ function parseXml(bytes) {
 	try {
 		const doc = new DOMParser().parseFromString(new TextDecoder().decode(bytes), 'application/xml')
 		return doc.getElementsByTagName('parsererror').length > 0 ? null : doc
-	} catch {
+	} catch (error) {
+		if (error?.name === 'XmlTooLargeError') {
+			// The thumbnail worker's parser refuses a document this large; drawing every
+			// entry instead would make a degraded thumbnail, so the load fails
+			throw error
+		}
 		return null
 	}
 }
