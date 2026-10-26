@@ -64,9 +64,9 @@ END-ISO-10303-21;
 /**
  * Samples no fixture covers, made from what node_modules has.
  *
- * The FCStd: occt-import-js's cube.FCStd stores its body as PartShape.brp, and the
- * FCSTD loader only reads `.brep` entries, in the viewer as much as in the worker. The
- * same body under a `.brep` name exercises the loader's actual path.
+ * The FCStd: occt-import-js's cube.FCStd stores its body as PartShape.brp, as FreeCAD
+ * does, and is rendered as it is. The same body under a `.brep` name, which some
+ * exporters write, is built here so that path stays covered too.
  */
 async function buildGeneratedSamples() {
   // @ts-ignore plain ES module without types
@@ -296,7 +296,8 @@ const SAMPLES: Sample[] = [
   { name: 'stp', extension: 'stp', files: [`${OCCT_SAMPLES}cube-10x10mm/Cube 10x10.stp`] },
   { name: 'iges', extension: 'igs', files: [`${OCCT_SAMPLES}cube-10x10mm/Cube 10x10.igs`] },
   { name: 'brep', extension: 'brep', files: [`${OCCT_SAMPLES}cax-if-brep/as1_pe_203.brep`] },
-  { name: 'fcstd', extension: 'fcstd', files: [`${GENERATED}cube.FCStd`] },
+  { name: 'fcstd', extension: 'fcstd', files: [`${OCCT_SAMPLES}cube-fcstd/cube.FCStd`] },
+  { name: 'fcstd (.brep entries)', extension: 'fcstd', files: [`${GENERATED}cube.FCStd`] },
   { name: 'ifc', extension: 'ifc', files: [`${GENERATED}box.ifc`] },
   // No fixture for these either; each is the smallest file of its kind, made below
   { name: 'glb', extension: 'glb', files: [`${GENERATED}triangle.glb`] },

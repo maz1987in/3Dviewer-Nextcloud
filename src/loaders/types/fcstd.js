@@ -3,16 +3,21 @@ import { unzip } from 'three/examples/jsm/libs/fflate.module.js'
 import { BaseLoader } from '../BaseLoader.js'
 import { getOcct, buildGroupFromOccResult } from '../occt-runtime.js'
 
+// FreeCAD writes `.brp`; `.brep` is the same format under its longer name
+const BREP_ENTRY = /\.(brep|brp)$/i
+
 /**
  * FCSTD loader — FreeCAD native document format.
  *
  * An FCSTD file is a ZIP archive containing one `Document.xml` (assembly
- * metadata) and one or more `*.brep` files (the actual geometry). We
- * extract every `.brep` entry and parse each one with the shared OCCT
- * runtime, combining the results into a single Three.js group.
+ * metadata) and one or more B-Rep files (the actual geometry). FreeCAD
+ * saves those as `*.brp` (e.g. `PartShape.brp`); some exporters write
+ * `*.brep`. We extract every entry with either extension and parse each
+ * one with the shared OCCT runtime, combining the results into a single
+ * Three.js group.
  *
  * The loader does not parse `Document.xml` at all — FreeCAD's assembly
- * placement is stored there as XML, but the `.brep` entries already
+ * placement is stored there as XML, but the B-Rep entries already
  * contain geometry in world space (FreeCAD writes transformed copies
  * when saving), so we can skip the XML without losing placement.
  *
@@ -27,10 +32,10 @@ class FcstdLoader extends BaseLoader {
 
 	async loadModel(arrayBuffer, context) {
 		const entries = await this.unzipEntries(arrayBuffer)
-		const brepNames = Object.keys(entries).filter(name => /\.brep$/i.test(name))
+		const brepNames = Object.keys(entries).filter(name => BREP_ENTRY.test(name))
 
 		if (brepNames.length === 0) {
-			throw new Error('FCSTD archive contains no .brep geometry entries')
+			throw new Error('FCSTD archive contains no .brep or .brp geometry entries')
 		}
 
 		const occt = await getOcct()
@@ -48,7 +53,7 @@ class FcstdLoader extends BaseLoader {
 					continue
 				}
 				const group = buildGroupFromOccResult(result, this.loaderName)
-				group.name = name.replace(/\.brep$/i, '')
+				group.name = name.replace(BREP_ENTRY, '')
 				root.add(group)
 				totalMeshes += result.meshes.length
 			} catch (e) {
