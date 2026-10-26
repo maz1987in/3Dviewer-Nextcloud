@@ -169,6 +169,10 @@ self.onmessage = async ({ data }) => {
 		if (error instanceof EmptyModelError) {
 			message.empty = true
 		}
+		if (resources.refused.length > 0) {
+			// Told apart from a load that failed on its own, which the host counts
+			message.refused = true
+		}
 		self.postMessage(message)
 	}
 }

@@ -55,6 +55,24 @@ export class ThumbnailEnvironmentError extends Error {
 }
 
 /**
+ * Thrown when the worker refused a model because it named a URL outside the files the
+ * job handed it. The model is at fault, so it is skipped, but the browser is fine: the
+ * worker ran, and a folder of crafted models must not be able to read as a broken
+ * browser and stop background work for everyone who browses it.
+ */
+export class ThumbnailRefusedError extends Error {
+
+	/**
+	 * @param {string} message - What was refused
+	 */
+	constructor(message) {
+		super(message)
+		this.name = 'ThumbnailRefusedError'
+	}
+
+}
+
+/**
  * Thrown when a background download would go past what is left of the folder-visit
  * budget. The visit stops there; the file is not skipped.
  */

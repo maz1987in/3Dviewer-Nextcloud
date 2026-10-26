@@ -3,6 +3,7 @@ import {
 	EmptyModelError,
 	ThumbnailBudgetError,
 	ThumbnailEnvironmentError,
+	ThumbnailRefusedError,
 	ThumbnailTimeoutError,
 } from '../../../src/thumbnails/errors.js'
 
@@ -812,6 +813,48 @@ describe('createBackgroundQueue', () => {
 			queue.setFolder('/other', [9], new Set())
 			await queue.idle()
 			expect(loadedIds(deps.load)).toEqual([1, 2, 3])
+		})
+
+		it('models the worker refused are skipped and never trip the breaker', async () => {
+			// Three crafted models in a row, then an ordinary file: had the refusals counted,
+			// the breaker would have stopped the page before the fourth was loaded (R19)
+			const statuses = Object.fromEntries([1, 2, 3, 4, 5].map((id) => [id, status(id)]))
+			const { queue, deps } = setup({ statuses })
+			const refusal = () => new ThumbnailRefusedError('Refused to load https://evil.example/x.png: not one of the model\'s files')
+			deps.render
+				.mockRejectedValueOnce(refusal())
+				.mockRejectedValueOnce(refusal())
+				.mockRejectedValueOnce(refusal())
+
+			queue.setFolder('/models', [1, 2, 3, 4], new Set())
+			await queue.idle()
+
+			expect(loadedIds(deps.load)).toEqual([1, 2, 3, 4])
+			expect(deps.skips.markSkipped.mock.calls).toEqual([[1, 'etag-1'], [2, 'etag-2'], [3, 'etag-3']])
+			expect(deps.api.uploadThumbnail.mock.calls.map(([id]) => id)).toEqual([4])
+
+			// Still running: another folder is worked on
+			queue.setFolder('/other', [5], new Set())
+			await queue.idle()
+			expect(loadedIds(deps.load)).toEqual([1, 2, 3, 4, 5])
+		})
+
+		it('refusals neither add to nor clear the failures in a row', async () => {
+			const statuses = Object.fromEntries([1, 2, 3, 4, 5].map((id) => [id, status(id)]))
+			const { queue, deps } = setup({ statuses })
+			const crash = () => new ThumbnailEnvironmentError('Thumbnail worker crashed')
+			deps.render
+				.mockRejectedValueOnce(crash())
+				.mockRejectedValueOnce(new ThumbnailRefusedError('Refused to load x'))
+				.mockRejectedValueOnce(crash())
+				.mockRejectedValueOnce(crash())
+
+			queue.setFolder('/models', [1, 2, 3, 4, 5], new Set())
+			await queue.idle()
+
+			// Three crashes with a refusal between them still make three in a row
+			expect(loadedIds(deps.load)).toEqual([1, 2, 3, 4])
+			expect(deps.skips.markSkipped.mock.calls).toEqual([[2, 'etag-2']])
 		})
 
 		it('timeouts and empty models do not trip the breaker, and a success resets it', async () => {

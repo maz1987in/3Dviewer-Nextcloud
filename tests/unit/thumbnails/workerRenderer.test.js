@@ -2,6 +2,7 @@ import {
 	probeWorkerRendering,
 	renderInWorker,
 	ThumbnailEnvironmentError,
+	ThumbnailRefusedError,
 	ThumbnailTimeoutError,
 	canRenderInBackground,
 	isThumbnailFormat,
@@ -182,6 +183,25 @@ describe('renderInWorker', () => {
 		const error = await promise.catch(e => e)
 		expect(error.message).toBe('No loader found for extension stl')
 		// The file's fault, which the queue marks skipped
+		expect(error).not.toBeInstanceOf(ThumbnailEnvironmentError)
+		expect(worker.terminated).toBe(1)
+	})
+
+	it('a model that named a file outside those it was handed rejects with ThumbnailRefusedError', async () => {
+		const promise = renderInWorker(job(), { timeoutMs: 30000 })
+		const [worker] = workers
+
+		worker.emit({
+			ok: false,
+			error: 'Refused to load https://evil.example/x.png: not one of the model\'s files',
+			stage: 'load',
+			refused: true,
+		})
+
+		const error = await promise.catch(e => e)
+		expect(error).toBeInstanceOf(ThumbnailRefusedError)
+		expect(error.message).toMatch(/^Refused to load/)
+		// The model's fault and not the browser's, so not an environment failure
 		expect(error).not.toBeInstanceOf(ThumbnailEnvironmentError)
 		expect(worker.terminated).toBe(1)
 	})

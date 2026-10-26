@@ -14,9 +14,9 @@
 
 import { generateFilePath } from '@nextcloud/router'
 import { createThumbnailWorker } from './createThumbnailWorker.js'
-import { EmptyModelError, ThumbnailEnvironmentError, ThumbnailTimeoutError } from './errors.js'
+import { EmptyModelError, ThumbnailEnvironmentError, ThumbnailRefusedError, ThumbnailTimeoutError } from './errors.js'
 
-export { ThumbnailEnvironmentError, ThumbnailTimeoutError }
+export { ThumbnailEnvironmentError, ThumbnailRefusedError, ThumbnailTimeoutError }
 export { AMBIGUOUS_FORMATS, canRenderInBackground, isThumbnailFormat, WORKER_UNSAFE_FORMATS } from './formats.js'
 
 /**
@@ -45,6 +45,7 @@ function abortError() {
  * @throws {ThumbnailTimeoutError} When the limit is reached first
  * @throws {DOMException} An AbortError when the signal fires first
  * @throws {EmptyModelError} When the model has no geometry to frame
+ * @throws {ThumbnailRefusedError} When the model named a URL outside the files it was handed
  * @throws {ThumbnailEnvironmentError} When the worker would not start, crashed, sent a
  *   message that could not be read, or could not render (WebGL); not the file's fault
  * @throws {Error} When the loader could not read the model, which is the file's fault
@@ -90,6 +91,9 @@ export function renderInWorker(job, { timeoutMs, signal } = {}) {
 				settle(resolve, data.blob)
 			} else if (data?.empty) {
 				settle(reject, new EmptyModelError(data.error || undefined))
+			} else if (data?.refused) {
+				// The model named a file outside those it was handed: its doing, not the browser's
+				settle(reject, new ThumbnailRefusedError(data.error || 'The model named a file it was not given'))
 			} else if (data?.stage === 'render' || data?.stage === 'environment') {
 				// The model loaded and drawing it failed (WebGL in this browser), or a loader
 				// chunk could not be fetched: either way not the file's fault

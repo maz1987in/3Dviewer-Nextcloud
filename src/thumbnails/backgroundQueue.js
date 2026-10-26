@@ -12,11 +12,13 @@
  *
  * A file is marked skipped only for what would happen again on the next visit: running
  * out of time, a model with nothing to draw, a download the server refuses (4xx), a
- * model the loader cannot parse, or a companion the model declares that cannot be found.
+ * model the loader cannot parse, a model that names a URL outside the files it was handed
+ * (refused by the worker), or a companion the model declares that cannot be found.
  * Failures of the browser or the network (no WebGL in a worker, a worker that will not
  * start or crashes, a network error or a 5xx) never skip a file. A one-time capability
  * probe before the first download, and a breaker after BREAKER_LIMIT failures of that
- * kind in a row, stop background work for the page instead.
+ * kind in a row, stop background work for the page instead. A refusal is not of that kind
+ * and does not count: the file is skipped and the streak is left as it was.
  *
  * A thumbnail is written once per version and never replaced, so none is made from a
  * load that is missing a declared companion: one left out for the budget ends the visit
@@ -29,13 +31,14 @@ import {
 	EmptyModelError,
 	ThumbnailBudgetError,
 	ThumbnailEnvironmentError,
+	ThumbnailRefusedError,
 	ThumbnailTimeoutError,
 } from './errors.js'
 // From formats.js rather than workerRenderer.js, which would pull in the worker factory
 import { canRenderInBackground } from './formats.js'
 
 const BYTES_PER_MB = 1048576
-// Consecutive failures that are neither a timeout nor an empty model, after which the
+// Consecutive failures that are neither a timeout, an empty model nor a refusal, after which the
 // browser is assumed unable to make thumbnails and the page stops trying
 const BREAKER_LIMIT = 3
 
@@ -303,6 +306,11 @@ export function createBackgroundQueue(deps) {
 				// The worker ran fine; the model just has nothing to draw
 				failureStreak = 0
 				logger.info('backgroundQueue', 'Model has no geometry to render', { fileId: id })
+			} else if (error instanceof ThumbnailRefusedError) {
+				// The model's doing, and the same next visit; not the browser's, so it does
+				// not count toward the breaker. Otherwise three crafted models in a folder
+				// would stop background work for everyone who browses it
+				logger.info('backgroundQueue', 'The worker refused a file the model named', { fileId: id, error })
 			} else if (error instanceof ThumbnailEnvironmentError) {
 				// The worker, not the file: try again next visit
 				logger.warn('backgroundQueue', 'The thumbnail worker failed', { fileId: id, error })
