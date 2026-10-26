@@ -29,6 +29,8 @@ const GENERATED = '__generated__/'
 const generated = new Map<string, Buffer>()
 // Paths the server answered with a file, as requested
 const served: string[] = []
+// Every path the server was asked for, answered or not
+const requested: string[] = []
 
 /**
  * The smallest IFC web-ifc will tessellate: one proxy element holding a 2 × 1 × 3 m
@@ -78,8 +80,10 @@ async function buildGeneratedSamples() {
   })))
   generated.set('box.ifc', Buffer.from(BOX_IFC))
   generated.set('triangle.glb', gltfToGlb(fs.readFileSync(path.join(PROJECT_ROOT, FIXTURES, 'triangle.gltf'), 'utf8')))
+  generated.set('outside.gltf', Buffer.from(JSON.stringify(gltfNamingOutsideFiles())))
   generated.set('triangle.3ds', triangle3ds())
   generated.set('textured.3ds', textured3ds())
+  generated.set('quad.3ds', textured3ds(false))
   for (const [name, text] of Object.entries(TEXT_SAMPLES)) {
     generated.set(name, Buffer.from(text))
   }
@@ -89,6 +93,24 @@ async function buildGeneratedSamples() {
     '_rels/.rels': new TextEncoder().encode(TEXT_SAMPLES['3mf-rels.xml']),
     '3D/3dmodel.model': new TextEncoder().encode(TEXT_SAMPLES['3mf-model.xml']),
   })))
+}
+
+/**
+ * The triangle, with a texture at another host and a second buffer above the model's
+ * folder: references a model in a shared folder can make, and that must not turn into
+ * requests from the browser of whoever happens to browse it.
+ */
+function gltfNamingOutsideFiles() {
+  const json = JSON.parse(fs.readFileSync(path.join(PROJECT_ROOT, FIXTURES, 'triangle.gltf'), 'utf8'))
+  json.buffers.push({ uri: '../../other.bin', byteLength: 24 })
+  json.bufferViews.push({ buffer: 1, byteOffset: 0, byteLength: 24, target: 34962 })
+  json.accessors.push({ bufferView: 1, componentType: 5126, count: 3, type: 'VEC2' })
+  json.meshes[0].primitives[0].attributes.TEXCOORD_0 = 1
+  json.meshes[0].primitives[0].material = 0
+  json.images = [{ uri: 'https://example.invalid/x.png' }]
+  json.textures = [{ source: 0 }]
+  json.materials = [{ pbrMetallicRoughness: { baseColorTexture: { index: 0 } } }]
+  return json
 }
 
 /**
@@ -144,8 +166,10 @@ function triangle3ds(): Buffer {
 /**
  * A unit quad mapped with checker.png through a 3DS material, so the texture goes
  * through three's TextureLoader, as it does for FBX, 3DM and VRML.
+ *
+ * @param withMap - False for the same quad and material without the texture
  */
-function textured3ds(): Buffer {
+function textured3ds(withMap = true): Buffer {
   const chunk = (id: number, ...parts: Buffer[]) => {
     const data = Buffer.concat(parts)
     const head = Buffer.alloc(6)
@@ -164,9 +188,9 @@ function textured3ds(): Buffer {
     return buffer
   }
   const name = (text: string) => Buffer.from(`${text}\0`, 'latin1')
-  const material = chunk(0xAFFF,
-    chunk(0xA000, name('checker')),
-    chunk(0xA200, chunk(0xA300, name('checker.png'))))
+  const material = withMap
+    ? chunk(0xAFFF, chunk(0xA000, name('checker')), chunk(0xA200, chunk(0xA300, name('checker.png'))))
+    : chunk(0xAFFF, chunk(0xA000, name('checker')))
   const mesh = chunk(0x4100,
     chunk(0x4110, words(4), floats(0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0)),
     chunk(0x4140, words(4), floats(0, 0, 1, 0, 1, 1, 0, 1)),
@@ -320,6 +344,7 @@ function startStaticServer(): Promise<{ origin: string, close: () => Promise<voi
   return new Promise((resolve, reject) => {
     const server = http.createServer((req, res) => {
       const reqPath = decodeURIComponent((req.url || '/').split('?')[0])
+      requested.push(reqPath)
       const appRoot = APP_ROOTS.find(root => reqPath.startsWith(root))
       if (!appRoot) {
         res.writeHead(404); res.end('Not found'); return
@@ -545,13 +570,16 @@ test.describe('thumbnail worker', () => {
     const model = { name: 'textured 3ds', extension: '3ds', files: [`${GENERATED}textured.3ds`] }
 
     const withMap = await renderSample(page, appRoot, { ...model, files: [...model.files, `${FIXTURES}checker.png`] })
-    const withoutMap = await renderSample(page, appRoot, model)
+    const withoutMap = await renderSample(page, appRoot, { name: 'untextured 3ds', extension: '3ds', files: [`${GENERATED}quad.3ds`] })
+    const mapNotHanded = await renderSample(page, appRoot, model)
 
     // three's TextureLoader decodes through an <img>, which a worker lacks; the
     // worker swaps in a bitmap decoder so the texture survives
     expect(withMap.error).toBeUndefined()
     expect(withoutMap.error).toBeUndefined()
     expect(withMap.colours).toBeGreaterThan(withoutMap.colours)
+    // A texture the job was not handed is not fetched by its name, and fails the job
+    expect(mapNotHanded).toMatchObject({ ok: false, error: "Refused to load checker.png: not one of the model's files" })
   })
 
   test('gltf (draco): the decoder loads from the app root', async ({ page }) => {
@@ -570,6 +598,44 @@ test.describe('thumbnail worker', () => {
     // The fixture declares no scene and carries a 4-byte payload, so no loader makes a
     // model of it, on the page or in a worker; it can only show the decoder is reachable
     expect(outcome.error).toBe('Invalid 3D object loaded')
+  })
+
+  test('a model naming files it was not handed makes no request for them, and fails to load', async ({ page }) => {
+    const appRoot = APP_ROOTS[0]
+    const fromBrowser: string[] = []
+    page.on('request', request => fromBrowser.push(request.url()))
+    // Anything bound for another host is stopped here, and kept
+    const elsewhere: string[] = []
+    await page.context().route(url => url.origin !== server.origin, (route) => {
+      elsewhere.push(route.request().url())
+      return route.abort()
+    })
+    await openHarness(page, server.origin, appRoot)
+    fromBrowser.length = 0
+    requested.length = 0
+
+    const outcome = await renderSample(page, appRoot, {
+      name: 'gltf naming outside files',
+      extension: 'gltf',
+      files: [`${GENERATED}outside.gltf`],
+    })
+
+    // What may be asked for: the sample the page fetched for the test, the worker
+    // script and its chunks, and the decoders
+    const allowed = new RegExp(`^${appRoot}(${GENERATED}outside\\.gltf|js/.+|(draco|basis|rhino3dm|occt|web-ifc)/.+)$`)
+    expect.soft(elsewhere).toEqual([])
+    expect.soft(requested.filter(reqPath => !allowed.test(reqPath))).toEqual([])
+    expect.soft(fromBrowser.filter(url => !allowed.test(url.slice(server.origin.length)))).toEqual([])
+    // A load error, which skips the file; not an environment one, which would retry it
+    expect(outcome).toMatchObject({ ok: false, errorName: 'Error' })
+    expect(outcome.error).toMatch(/^Refused to load .*: not one of the model's files$/)
+
+    // The same logs do see what a worker asks for, and a decoder is still allowed: a 3DM
+    // renders only once rhino3dm has been fetched from the app root
+    const control = await renderSample(page, appRoot, SAMPLES.find(s => s.name === '3dm'))
+    expect(control.error).toBeUndefined()
+    expect(requested).toContain(`${appRoot}rhino3dm/rhino3dm.wasm`)
+    expect(fromBrowser).toContain(`${server.origin}${appRoot}rhino3dm/rhino3dm.wasm`)
   })
 
   test('loads from apps/ as well as custom_apps/', async ({ page }) => {

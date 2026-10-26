@@ -10,6 +10,10 @@
  * Out: { ok: true, blob } or { ok: false, error, stage, empty? }, where `stage` is 'load'
  *      when the loader could not read the model and 'render' when drawing it failed
  *
+ * The job loads nothing but the files it was handed, its own data: and blob: URLs and the
+ * app's decoder assets (see workerResources.js). A model that names anything else fails
+ * at the 'load' stage, without a request being made for it.
+ *
  * In:  { probe: true }, the capability check from probeWorkerRendering()
  * Out: { probe: true, ok, error? }
  */
@@ -18,8 +22,21 @@ import * as THREE from 'three'
 import { setAppWebRoot } from '../loaders/appAssetPath.js'
 import { loadModelByExtension } from '../loaders/registry.js'
 import { EmptyModelError, renderThumbnail } from './renderThumbnail.js'
+import { createWorkerResources, guardWorkerRequests, RefusedResourceError } from './workerResources.js'
 
 const SIZE = 512
+
+// The running job's resources. Until a job names its files and the app root, nothing
+// but data: URLs may be loaded.
+let resources = createWorkerResources({ baseUrl: self.location.href })
+
+// Every fetch, XMLHttpRequest and object URL of this worker goes through `resources`,
+// whichever loader or decoder makes it
+guardWorkerRequests(self, () => resources)
+
+// Loaders that set up no loading manager of their own use the default one, and the glTF
+// and 3DS loaders hand it every URL they could not map to a file themselves
+THREE.DefaultLoadingManager.setURLModifier((url) => resources.resolve(url))
 
 // Image decodes still running. Loaders hand back their model before its textures have
 // arrived, which the viewer's render loop never notices; a single render would.
@@ -35,7 +52,13 @@ const pendingImages = new Set()
 THREE.ImageLoader.prototype.load = function(url, onLoad, onProgress, onError) {
 	const resolved = this.manager.resolveURL(this.path === undefined ? url : this.path + url)
 	this.manager.itemStart(resolved)
-	const decoding = fetch(resolved)
+	// A loader's own manager may hand back a URL as the model wrote it: map it to a
+	// handed file, or refuse it here rather than leave that to the fetch guard
+	const target = resources.resolve(resolved)
+	const request = resources.isAllowed(target)
+		? fetch(target)
+		: Promise.reject(new RefusedResourceError(target))
+	const decoding = request
 		.then((response) => {
 			if (!response.ok) {
 				throw new Error(`HTTP ${response.status} for ${resolved}`)
@@ -90,6 +113,10 @@ function answerProbe() {
  * @return {'load'|'render'|'environment'} The stage to report
  */
 function failedStage(stage, error) {
+	if (resources.refused.length > 0) {
+		// Whatever the loader made of the refusal, it is the model's doing
+		return 'load'
+	}
 	const text = String(error?.message ?? error)
 	if (stage === 'load' && /dynamically imported module|Importing a module script failed|Failed to fetch|NetworkError/i.test(text)) {
 		return 'environment'
@@ -108,6 +135,7 @@ self.onmessage = async ({ data }) => {
 		if (appWebRoot) {
 			setAppWebRoot(appWebRoot)
 		}
+		resources = createWorkerResources({ files: additionalFiles, appWebRoot, baseUrl: self.location.href })
 
 		// No scene: the loader hands the model back without adding it anywhere. No
 		// renderer either, so KTX2 textures are left untranscoded (the loader logs it).
@@ -123,6 +151,10 @@ self.onmessage = async ({ data }) => {
 			throw new Error('No valid 3D object returned from loader')
 		}
 		await imagesDecoded()
+		// A loader may carry on without a texture it could not load; the thumbnail must not
+		if (resources.refused.length > 0) {
+			throw new RefusedResourceError(resources.refused[0])
+		}
 
 		stage = 'render'
 		const blob = await renderThumbnail(result.object3D, {
@@ -131,7 +163,9 @@ self.onmessage = async ({ data }) => {
 		})
 		self.postMessage({ ok: true, blob })
 	} catch (error) {
-		const message = { ok: false, error: error?.message || String(error), stage: failedStage(stage, error) }
+		// Name the refusal rather than what the loader made of it
+		const reason = resources.refused.length > 0 ? new RefusedResourceError(resources.refused[0]) : error
+		const message = { ok: false, error: reason?.message || String(reason), stage: failedStage(stage, error) }
 		if (error instanceof EmptyModelError) {
 			message.empty = true
 		}

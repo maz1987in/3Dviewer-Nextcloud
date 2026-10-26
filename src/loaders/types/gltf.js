@@ -731,9 +731,11 @@ class GltfLoader extends BaseLoader {
 					return resourceUrl
 				}
 
-				// Return original URL if not found
-				this.logWarning('Resource not found in map, using original URL:', filename)
-				return url
+				// Not one of the files: the default manager decides. On a page it has no
+				// URL modifier and the URL is used as written; in the thumbnail worker its
+				// modifier refuses anything the job was not handed
+				this.logWarning('Resource not found in map:', filename)
+				return THREE.DefaultLoadingManager.resolveURL(url)
 			})
 
 			// Set the custom manager on the loader
