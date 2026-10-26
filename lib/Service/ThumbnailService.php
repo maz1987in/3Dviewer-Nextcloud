@@ -56,7 +56,16 @@ class ThumbnailService
             return ThumbnailStoreResult::Exists;
         }
 
-        $folder->newFile($name, $png);
+        try {
+            $folder->newFile($name, $png);
+        } catch (\Throwable $e) {
+            // A concurrent request for the same version may have written it between the check and now.
+            if ($folder->fileExists($name)) {
+                return ThumbnailStoreResult::Exists;
+            }
+
+            throw $e;
+        }
 
         $this->logger->info('ThumbnailService: Thumbnail stored', [
             'fileId' => $fileId,
@@ -150,16 +159,38 @@ class ThumbnailService
      */
     private function ensureFileFolder(int $fileId): ISimpleFolder
     {
-        try {
-            $root = $this->appData->getFolder(self::ROOT_FOLDER);
-        } catch (NotFoundException) {
-            $root = $this->appData->newFolder(self::ROOT_FOLDER);
-        }
+        $root = $this->getOrCreateFolder(
+            fn (): ISimpleFolder => $this->appData->getFolder(self::ROOT_FOLDER),
+            fn (): ISimpleFolder => $this->appData->newFolder(self::ROOT_FOLDER),
+        );
 
+        return $this->getOrCreateFolder(
+            fn (): ISimpleFolder => $root->getFolder((string) $fileId),
+            fn (): ISimpleFolder => $root->newFolder((string) $fileId),
+        );
+    }
+
+    /**
+     * Get a folder, creating it when missing. Bulk first uploads race to create the same
+     * folder, so a failed create is retried as a get: if the other request won, we use its folder.
+     *
+     * @param callable(): ISimpleFolder $get
+     * @param callable(): ISimpleFolder $create
+     */
+    private function getOrCreateFolder(callable $get, callable $create): ISimpleFolder
+    {
         try {
-            return $root->getFolder((string) $fileId);
+            return $get();
         } catch (NotFoundException) {
-            return $root->newFolder((string) $fileId);
+            try {
+                return $create();
+            } catch (\Throwable $e) {
+                try {
+                    return $get();
+                } catch (NotFoundException) {
+                    throw $e;
+                }
+            }
         }
     }
 }

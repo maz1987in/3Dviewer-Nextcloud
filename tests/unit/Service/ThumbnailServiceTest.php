@@ -8,6 +8,7 @@ use OCA\ThreeDViewer\Service\ThumbnailService;
 use OCA\ThreeDViewer\Service\ThumbnailStoreResult;
 use OCP\Files\IAppData;
 use OCP\Files\NotFoundException;
+use OCP\Files\NotPermittedException;
 use OCP\Files\SimpleFS\ISimpleFile;
 use OCP\Files\SimpleFS\ISimpleFolder;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -24,6 +25,12 @@ class ThumbnailServiceTest extends TestCase
     private array $tree = [];
 
     private ThumbnailService $service;
+
+    /** When set, creating a folder loses a race: the other request creates it first, then ours throws. */
+    private bool $foldersRaced = false;
+
+    /** Likewise for creating a file. */
+    private bool $filesRaced = false;
 
     protected function setUp(): void
     {
@@ -86,9 +93,55 @@ class ThumbnailServiceTest extends TestCase
 
     public function testRejectsOversizedPayload(): void
     {
-        $payload = str_repeat('a', ThumbnailService::MAX_BYTES + 1);
+        // A valid in-range PNG followed by padding: getimagesizefromstring() only reads the
+        // header, so only the length guard can reject this.
+        $payload = $this->fixture('64x64.png') . str_repeat("\0", ThumbnailService::MAX_BYTES);
+        $this->assertGreaterThan(ThumbnailService::MAX_BYTES, strlen($payload));
+        $this->assertIsArray(getimagesizefromstring($payload));
 
         $this->assertSame(ThumbnailStoreResult::InvalidImage, $this->service->store(7, '"abc"', $payload));
+        $this->assertFalse($this->service->has(7, '"abc"'));
+    }
+
+    public function testAPayloadExactlyAtTheCapIsAccepted(): void
+    {
+        $payload = $this->fixture('64x64.png') . str_repeat("\0", ThumbnailService::MAX_BYTES - strlen($this->fixture('64x64.png')));
+        $this->assertSame(ThumbnailService::MAX_BYTES, strlen($payload));
+
+        $this->assertSame(ThumbnailStoreResult::Stored, $this->service->store(7, '"abc"', $payload));
+    }
+
+    public function testLosingTheRaceToCreateFoldersStillStores(): void
+    {
+        $this->foldersRaced = true;
+        $png = $this->fixture('64x64.png');
+
+        // Both the root and the per-file folder are created by "another request" first.
+        $this->assertSame(ThumbnailStoreResult::Stored, $this->service->store(7, '"abc"', $png));
+        $this->assertSame($png, $this->service->get(7, '"abc"'));
+    }
+
+    public function testLosingTheRaceToWriteTheFileReportsExists(): void
+    {
+        $this->filesRaced = true;
+        $winner = $this->fixture('64x64-other.png');
+        $this->tree['thumbnails-v2']['7'] = [];
+
+        $result = $this->service->store(7, '"abc"', $this->fixture('64x64.png'));
+
+        $this->assertSame(ThumbnailStoreResult::Exists, $result);
+        $this->assertSame($winner, $this->service->get(7, '"abc"'));
+    }
+
+    public function testAFailedCreateThatNobodyWonStillThrows(): void
+    {
+        $appData = $this->createMock(IAppData::class);
+        $appData->method('getFolder')->willThrowException(new NotFoundException('thumbnails-v2'));
+        $appData->method('newFolder')->willThrowException(new NotPermittedException('read-only'));
+        $service = new ThumbnailService($appData, $this->createMock(LoggerInterface::class));
+
+        $this->expectException(NotPermittedException::class);
+        $service->store(7, '"abc"', $this->fixture('64x64.png'));
     }
 
     public function testDeleteAllRemovesEveryVersion(): void
@@ -139,6 +192,7 @@ class ThumbnailServiceTest extends TestCase
         });
         $appData->method('newFolder')->willReturnCallback(function (string $name): ISimpleFolder {
             $this->tree[$name] ??= [];
+            $this->loseRace($this->foldersRaced, 'newFolder');
 
             return $this->folder($name, null);
         });
@@ -161,6 +215,7 @@ class ThumbnailServiceTest extends TestCase
             });
             $folder->method('newFolder')->willReturnCallback(function (string $name) use ($top): ISimpleFolder {
                 $this->tree[$top][$name] ??= [];
+                $this->loseRace($this->foldersRaced, 'newFolder');
 
                 return $this->folder($top, $name);
             });
@@ -180,6 +235,11 @@ class ThumbnailServiceTest extends TestCase
             return $this->file($top, $child, $name);
         });
         $folder->method('newFile')->willReturnCallback(function (string $name, $content = null) use ($top, $child): ISimpleFile {
+            if ($this->filesRaced) {
+                // The other request's (different) bytes are already there; ours must not replace them.
+                $this->tree[$top][$child][$name] = $this->fixture('64x64-other.png');
+                $this->loseRace($this->filesRaced, 'newFile');
+            }
             $this->tree[$top][$child][$name] = (string) $content;
 
             return $this->file($top, $child, $name);
@@ -189,6 +249,14 @@ class ThumbnailServiceTest extends TestCase
         });
 
         return $folder;
+    }
+
+    /** Throw as Nextcloud does when the target was created by a concurrent request. */
+    private function loseRace(bool $raced, string $call): void
+    {
+        if ($raced) {
+            throw new NotPermittedException($call . ': already exists');
+        }
     }
 
     private function file(string $top, string $child, string $name): ISimpleFile
