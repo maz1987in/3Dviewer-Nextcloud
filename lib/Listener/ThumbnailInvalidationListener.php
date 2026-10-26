@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OCA\ThreeDViewer\Listener;
 
+use OCA\ThreeDViewer\Constants\SupportedFormats;
 use OCA\ThreeDViewer\Service\ThumbnailService;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
@@ -37,6 +38,12 @@ class ThumbnailInvalidationListener implements IEventListener
 
         $node = $event->getNode();
         if (!$node instanceof File) {
+            return;
+        }
+
+        // Only model files can have a thumbnail. Every other write and delete on the instance,
+        // including this app's own thumbnail PNGs, ends here without touching the app data.
+        if (!in_array(strtolower($node->getExtension()), SupportedFormats::getThumbnailExtensions(), true)) {
             return;
         }
 

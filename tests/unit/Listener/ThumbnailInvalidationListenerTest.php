@@ -49,6 +49,22 @@ class ThumbnailInvalidationListenerTest extends TestCase
         $this->listener->handle(new NodeDeletedEvent($this->file(42)));
     }
 
+    public function testFilesThatCanNeverHaveAThumbnailAreIgnored(): void
+    {
+        $this->thumbnails->expects($this->never())->method('deleteAll');
+
+        $this->listener->handle(new NodeWrittenEvent($this->file(42, 'notes.txt')));
+        $this->listener->handle(new NodeDeletedEvent($this->file(42, 'notes.txt')));
+        $this->listener->handle(new NodeWrittenEvent($this->file(42, 'thumbnail.png')));
+    }
+
+    public function testExtensionMatchIgnoresCase(): void
+    {
+        $this->thumbnails->expects($this->once())->method('deleteAll')->with(42);
+
+        $this->listener->handle(new NodeWrittenEvent($this->file(42, 'Part.STL')));
+    }
+
     public function testFoldersAreIgnored(): void
     {
         $folder = $this->createMock(Folder::class);
@@ -89,10 +105,12 @@ class ThumbnailInvalidationListenerTest extends TestCase
         $this->listener->handle(new NodeDeletedEvent($this->file(42)));
     }
 
-    private function file(?int $id): File
+    private function file(?int $id, string $name = 'part.stl'): File
     {
         $file = $this->createMock(File::class);
         $file->method('getId')->willReturn($id);
+        $file->method('getName')->willReturn($name);
+        $file->method('getExtension')->willReturn(pathinfo($name, PATHINFO_EXTENSION));
 
         return $file;
     }
