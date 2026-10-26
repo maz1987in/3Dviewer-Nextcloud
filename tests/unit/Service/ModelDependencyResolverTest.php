@@ -408,6 +408,19 @@ class ModelDependencyResolverTest extends TestCase
         $this->assertSame($texture, $this->resolver->resolve($model, 'wood.png'));
     }
 
+    public function testFindsEachImagesFileWhenOnlySomeImagesHaveOne(): void
+    {
+        $model = $this->modelNamed(
+            'chair.dae',
+            '<COLLADA><image id="a"></image><image id="b"><init_from>b.png</init_from></image><image id="c"/>'
+            . '<image id="d"></image><image id="e"><init_from><ref>e.png</ref></init_from></image></COLLADA>',
+            ['b.png' => $this->fileNamed('b.png'), 'e.png' => $this->fileNamed('e.png')],
+        );
+
+        $this->assertSame('b.png', $this->resolver->resolve($model, 'b.png')->getName());
+        $this->assertSame('e.png', $this->resolver->resolve($model, 'e.png')->getName());
+    }
+
     public function testDoesNotTakeAnEffectSurfaceImageIdForAFile(): void
     {
         // Blender, SketchUp and OpenCOLLADA write 1.4 like this: the effect's surface names
@@ -500,6 +513,7 @@ class ModelDependencyResolverTest extends TestCase
             '<init_from without >' => ['chair.dae', '<image>' . str_repeat('<init_from ', 200000) . '</image>'],
             '<image without >' => ['chair.dae', str_repeat('<image ', 300000)],
             'unclosed <image> blocks' => ['chair.dae', str_repeat('<image><init_from>a.png</init_from>', 60000)],
+            'a million empty <image> blocks' => ['chair.dae', str_repeat('<image></image>', 1000000)],
         ];
     }
 

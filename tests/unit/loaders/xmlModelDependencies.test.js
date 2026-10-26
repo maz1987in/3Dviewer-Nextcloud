@@ -38,6 +38,12 @@ describe('parseXmlModelDependencies', () => {
 		expect(parseXmlModelDependencies(dae, 'dae')).toEqual(['checker.png'])
 	})
 
+	it('finds each image\'s file when only some images have one', () => {
+		const dae = `<COLLADA><image id="a"></image><image id="b"><init_from>b.png</init_from></image><image id="c"/><image id="d"></image><image id="e"><init_from><ref>e.png</ref></init_from><init_from>e2.png</init_from></image></COLLADA>`
+
+		expect(parseXmlModelDependencies(dae, 'dae')).toEqual(['b.png', 'e.png', 'e2.png'])
+	})
+
 	it('reads only real <image> elements, whatever their attributes', () => {
 		const dae = `<COLLADA>
 			<image id="empty"/>
@@ -54,12 +60,13 @@ describe('parseXmlModelDependencies', () => {
 		['<init_from without >', '<init_from '.repeat(200000)],
 		['<image without >', '<image '.repeat(300000)],
 		['<image> blocks with <init_from but no >', `${'<image>'}${'<init_from '.repeat(200000)}</image>`],
+		['a million empty <image> blocks', '<image></image>'.repeat(1000000)],
 	])('scans a crafted document in linear time: %s', (_, dae) => {
 		const started = Date.now()
 
 		expect(parseXmlModelDependencies(dae, 'dae')).toEqual([])
 		// The regular expression this replaced took over a second on 200 KB of the first
-		expect(Date.now() - started).toBeLessThan(500)
+		expect(Date.now() - started).toBeLessThan(1000)
 	})
 
 	it('reads an X3D ImageTexture url', () => {

@@ -408,6 +408,10 @@ export function parseMtlTextureFiles(mtlContent) {
 function colladaImageFiles(content) {
 	const lower = content.toLowerCase()
 	const values = []
+	// The first <init_from at or after the last search, kept across <image> blocks: a
+	// search per block would run to the end of the document each time, which is
+	// quadratic in a document of many images without one. -1 once there is none left.
+	let nextInit = -2
 	let at = 0
 	for (;;) {
 		const start = lower.indexOf('<image', at)
@@ -435,7 +439,10 @@ function colladaImageFiles(content) {
 		// Each <init_from> of this image: its text (1.4), or the text of its <ref> (1.5)
 		let p = openEnd + 1
 		for (;;) {
-			const init = lower.indexOf('<init_from', p)
+			if (nextInit !== -1 && nextInit < p) {
+				nextInit = lower.indexOf('<init_from', p)
+			}
+			const init = nextInit
 			if (init === -1 || init >= close) {
 				break
 			}

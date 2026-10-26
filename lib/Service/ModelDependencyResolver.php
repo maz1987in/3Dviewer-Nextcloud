@@ -206,6 +206,10 @@ class ModelDependencyResolver
     {
         $lower = strtolower($document);
         $values = [];
+        // The first <init_from at or after the last search, kept across <image> blocks: a
+        // search per block would run to the end of the document each time, which is
+        // quadratic in a document of many images without one. False once there is none.
+        $nextInit = -1;
         $at = 0;
         while (($start = strpos($lower, '<image', $at)) !== false) {
             $at = $start + 6;
@@ -226,7 +230,14 @@ class ModelDependencyResolver
                 break;
             }
             $p = $openEnd + 1;
-            while (($init = strpos($lower, '<init_from', $p)) !== false && $init < $close) {
+            while (true) {
+                if ($nextInit !== false && $nextInit < $p) {
+                    $nextInit = strpos($lower, '<init_from', $p);
+                }
+                $init = $nextInit;
+                if ($init === false || $init >= $close) {
+                    break;
+                }
                 $tagEnd = strpos($lower, '>', $init);
                 if ($tagEnd === false || $tagEnd >= $close) {
                     break;
