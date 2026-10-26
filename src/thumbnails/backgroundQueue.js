@@ -11,11 +11,17 @@
  * without a DOM. Nothing a dependency throws escapes it.
  *
  * A file is marked skipped only for what would happen again on the next visit: running
- * out of time, a model with nothing to draw, a download the server refuses (4xx) or a
- * model the loader cannot parse. Failures of the browser or the network (no WebGL in a
- * worker, a worker that will not start or crashes, a network error or a 5xx) never skip a
- * file. A one-time capability probe before the first download, and a breaker after
- * BREAKER_LIMIT failures of that kind in a row, stop background work for the page instead.
+ * out of time, a model with nothing to draw, a download the server refuses (4xx), a
+ * model the loader cannot parse, or a companion the model declares that cannot be found.
+ * Failures of the browser or the network (no WebGL in a worker, a worker that will not
+ * start or crashes, a network error or a 5xx) never skip a file. A one-time capability
+ * probe before the first download, and a breaker after BREAKER_LIMIT failures of that
+ * kind in a row, stop background work for the page instead.
+ *
+ * A thumbnail is written once per version and never replaced, so none is made from a
+ * load that is missing a declared companion: one left out for the budget ends the visit
+ * and is tried again with the next visit's fresh budget; one that is not there skips the
+ * file, and the viewer, which searches more widely, makes its first thumbnail.
  */
 
 import { logger } from '../utils/logger.js'
@@ -41,7 +47,7 @@ const BREAKER_LIMIT = 3
  * @property {object} api - Server calls
  * @property {(fileIds: number[]) => Promise<Map<number, ThumbnailStatus>>} api.fetchStatus - See thumbnailApi.js
  * @property {(fileId: number, etag: string, blob: Blob) => Promise<string>} api.uploadThumbnail - See thumbnailApi.js
- * @property {(fileId: number, filename: string, extension: string, dirPath: string, options: LoadOptions) => Promise<{mainFile: File, dependencies: File[]}>} load
+ * @property {(fileId: number, filename: string, extension: string, dirPath: string, options: LoadOptions) => Promise<LoadResult>} load
  *   - Downloads a model and its companion files; see backgroundLoad.js
  * @property {(job: object, options: {timeoutMs: number, signal: AbortSignal}) => Promise<Blob>} render
  *   - Renders in a worker; see workerRenderer.js
@@ -71,6 +77,19 @@ const BREAKER_LIMIT = 3
  *   download more, main file and companions together
  * @property {(bytes: number) => void} onBytes - To be told about each chunk received, so
  *   a load stopped midway still counts what it downloaded
+ */
+
+/**
+ * What `load` resolves with. Only `mainFile` is required; a load that leaves the rest
+ * out had every companion the model declares.
+ *
+ * @typedef {object} LoadResult
+ * @property {File} mainFile - The model
+ * @property {File[]} [dependencies] - Its companions
+ * @property {string[]} [missingFiles] - Declared companions that were not fetched
+ * @property {boolean} [budgetReached] - One of them was left out for the budget
+ * @property {number} [bytesNeeded] - With `budgetReached`, the fewest bytes the load
+ *   needs, which a fresh visit's budget may or may not cover
  */
 
 /**
@@ -337,7 +356,13 @@ export function createBackgroundQueue(deps) {
 		let received = 0
 
 		try {
-			const { mainFile, dependencies = [] } = await load(id, status.name, extension, status.dir, {
+			const {
+				mainFile,
+				dependencies = [],
+				missingFiles = [],
+				budgetReached = false,
+				bytesNeeded = 0,
+			} = await load(id, status.name, extension, status.dir, {
 				signal: job.signal,
 				budgetBytes: v.budget,
 				onBytes: (bytes) => {
@@ -350,6 +375,26 @@ export function createBackgroundQueue(deps) {
 			}
 			// A load that reports no progress is charged what it returned
 			v.budget -= Math.max(received, dependencies.reduce((sum, file) => sum + file.size, mainFile.size))
+
+			// Never render without a declared companion: the thumbnail would be permanent
+			if (budgetReached) {
+				if (bytesNeeded > settings.folderBudgetMB * BYTES_PER_MB) {
+					// No visit's budget can hold it; skip rather than download it every visit
+					logger.info('backgroundQueue', 'Model needs more than a whole folder budget', { fileId: id, bytesNeeded })
+					skips.markSkipped(id, status.etag)
+				} else {
+					// Not enough left this visit; the next one starts with a fresh budget
+					logger.info('backgroundQueue', 'Folder budget spent on a companion', { fileId: id, missingFiles })
+					v.ended = true
+				}
+				return null
+			}
+			if (missingFiles.length > 0) {
+				// The viewer looks further for them and makes the first thumbnail
+				logger.info('backgroundQueue', 'Declared companions not found', { fileId: id, missingFiles })
+				skips.markSkipped(id, status.etag)
+				return null
+			}
 			return { mainFile, dependencies }
 		} catch (error) {
 			if (!isCurrent(v)) {

@@ -835,6 +835,150 @@ describe('createBackgroundQueue', () => {
 		})
 	})
 
+	describe('companions that were not fetched', () => {
+		// A thumbnail is written once per version and never replaced, so a model rendered
+		// without a companion would keep that degraded picture for good (R15)
+
+		it('a companion dropped for the budget ends the visit: no render, no upload, no skip', async () => {
+			const { queue, deps } = setup({
+				settings: { folderBudgetMB: 100 },
+				statuses: { 1: status(1, { name: 'chair.obj' }), 2: status(2) },
+			})
+			deps.load.mockImplementationOnce(async () => ({
+				mainFile: fakeFile(MB, 'chair.obj'),
+				dependencies: [fakeFile(1024, 'chair.mtl')],
+				missingFiles: ['wood.png'],
+				budgetReached: true,
+				bytesNeeded: 60 * MB,
+			}))
+
+			queue.setFolder('/models', [1, 2], new Set())
+			await queue.idle()
+
+			expect(deps.render).not.toHaveBeenCalled()
+			expect(deps.api.uploadThumbnail).not.toHaveBeenCalled()
+			expect(deps.skips.markSkipped).not.toHaveBeenCalled()
+			// The visit is over: the next file waits for a fresh budget too
+			expect(loadedIds(deps.load)).toEqual([1])
+		})
+
+		it('the next visit, with a fresh budget, tries the file again', async () => {
+			const { queue, deps } = setup({ statuses: { 1: status(1, { name: 'chair.obj' }) } })
+			deps.load.mockImplementationOnce(async () => ({
+				mainFile: fakeFile(MB, 'chair.obj'),
+				dependencies: [],
+				missingFiles: ['chair.mtl'],
+				budgetReached: true,
+				bytesNeeded: 2 * MB,
+			}))
+
+			queue.setFolder('/models', [1], new Set())
+			await queue.idle()
+			queue.setFolder('/elsewhere', [], new Set())
+			queue.setFolder('/models', [1], new Set())
+			await queue.idle()
+
+			expect(loadedIds(deps.load)).toEqual([1, 1])
+			expect(deps.api.uploadThumbnail).toHaveBeenCalledTimes(1)
+			expect(deps.api.uploadThumbnail).toHaveBeenCalledWith(1, 'etag-1', PNG)
+		})
+
+		it('a model that needs more than the whole folder budget is skipped, so it is not downloaded every visit', async () => {
+			const { queue, deps } = setup({
+				settings: { folderBudgetMB: 50 },
+				statuses: { 1: status(1, { name: 'scene.gltf' }), 2: status(2) },
+			})
+			// One companion alone is larger than the whole budget
+			deps.load.mockImplementationOnce(async () => ({
+				mainFile: fakeFile(MB, 'scene.gltf'),
+				dependencies: [],
+				missingFiles: ['scene.bin'],
+				budgetReached: true,
+				bytesNeeded: MB + 80 * MB,
+			}))
+
+			queue.setFolder('/models', [1, 2], new Set())
+			await queue.idle()
+
+			expect(deps.render).not.toHaveBeenCalledWith(expect.objectContaining({ extension: 'gltf' }), expect.anything())
+			expect(deps.skips.markSkipped.mock.calls).toEqual([[1, 'etag-1']])
+			// What is left of the budget still serves the rest of the folder
+			expect(loadedIds(deps.load)).toEqual([1, 2])
+			expect(deps.api.uploadThumbnail.mock.calls.map(([id]) => id)).toEqual([2])
+		})
+
+		it('a declared texture that is missing marks the file skipped without rendering it', async () => {
+			const { queue, deps } = setup({ statuses: { 1: status(1, { name: 'chair.obj' }), 2: status(2) } })
+			deps.load.mockImplementationOnce(async () => ({
+				mainFile: fakeFile(MB, 'chair.obj'),
+				dependencies: [fakeFile(1024, 'chair.mtl')],
+				missingFiles: ['textures/wood.png'],
+				budgetReached: false,
+			}))
+
+			queue.setFolder('/models', [1, 2], new Set())
+			await queue.idle()
+
+			// The viewer, which also searches the folder's subfolders, makes the first thumbnail
+			expect(deps.skips.markSkipped.mock.calls).toEqual([[1, 'etag-1']])
+			expect(deps.render).toHaveBeenCalledTimes(1)
+			expect(deps.render.mock.calls[0][0].extension).toBe('glb')
+			expect(deps.api.uploadThumbnail.mock.calls.map(([id]) => id)).toEqual([2])
+		})
+
+		it('a glTF whose .bin did not fit takes the budget path: no worker, no skip, no breaker count', async () => {
+			const statuses = {
+				1: status(1, { name: 'a.ply' }),
+				2: status(2, { name: 'b.ply' }),
+				3: status(3, { name: 'scene.gltf' }),
+				9: status(9, { name: 'part.stl' }),
+			}
+			const { queue, deps } = setup({ settings: { folderBudgetMB: 100 }, statuses })
+			// What the worker would do with a glTF handed over without its buffer
+			deps.render.mockImplementation(async (job) => {
+				if (job.extension === 'gltf' && job.additionalFiles.length === 0) {
+					throw new Error('THREE.GLTFLoader: Failed to load buffer "scene.bin".')
+				}
+				if (job.extension === 'ply') {
+					throw new Error('Invalid PLY file')
+				}
+				return PNG
+			})
+			deps.load.mockImplementation(async (id) => (id === 3
+				? { mainFile: fakeFile(MB, 'scene.gltf'), dependencies: [], missingFiles: ['scene.bin'], budgetReached: true, bytesNeeded: 60 * MB }
+				: { mainFile: fakeFile(MB), dependencies: [], missingFiles: [], budgetReached: false }))
+
+			queue.setFolder('/models', [1, 2, 3], new Set())
+			await queue.idle()
+
+			expect(deps.render.mock.calls.map(([job]) => job.extension)).toEqual(['ply', 'ply'])
+			expect(deps.skips.markSkipped.mock.calls).toEqual([[1, 'etag-1'], [2, 'etag-2']])
+
+			// Two parse failures so far; had the glTF counted as a third, the breaker would
+			// have stopped the page and this folder would get nothing
+			queue.setFolder('/other', [9], new Set())
+			await queue.idle()
+			expect(deps.api.uploadThumbnail).toHaveBeenCalledWith(9, 'etag-9', PNG)
+		})
+
+		it('an FBX that declares no textures at all is rendered as it is', async () => {
+			const { queue, deps } = setup({ statuses: { 1: status(1, { name: 'robot.fbx' }) } })
+			deps.load.mockImplementationOnce(async () => ({
+				mainFile: fakeFile(MB, 'robot.fbx'),
+				dependencies: [],
+				missingFiles: [],
+				budgetReached: false,
+			}))
+
+			queue.setFolder('/models', [1], new Set())
+			await queue.idle()
+
+			expect(deps.render.mock.calls[0][0]).toMatchObject({ extension: 'fbx', additionalFiles: [] })
+			expect(deps.api.uploadThumbnail).toHaveBeenCalledWith(1, 'etag-1', PNG)
+			expect(deps.skips.markSkipped).not.toHaveBeenCalled()
+		})
+	})
+
 	describe('capability probe', () => {
 		it('a failed probe skips nothing and stops the page before any download', async () => {
 			const { queue, deps } = setup({ statuses: { 1: status(1), 2: status(2), 9: status(9) } })

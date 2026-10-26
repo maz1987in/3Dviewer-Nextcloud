@@ -17,8 +17,10 @@
  *   ever found by listing or scanning a folder.
  * - Each companion's size, which the lookup already reports, is checked against what is
  *   left of the budget before it is fetched. A companion of unknown size is not fetched.
- *   Once the next one would go past the budget no more are fetched, and the model is
- *   rendered without them.
+ * - Once one declared companion cannot be fetched, for the budget or because it is not
+ *   there, no more are: the result says which are missing and whether the budget was the
+ *   reason, and the queue makes no thumbnail from such a load. A thumbnail is written
+ *   once per version, so one rendered without its companions would stay degraded.
  * - One AbortSignal runs through every request, so the caller can stop the whole load at
  *   its time limit or when the user leaves the folder.
  * - Bytes are reported as they arrive, so a load stopped midway still counts what it
@@ -42,6 +44,20 @@ const MAX_COMPANIONS = 64
  * @property {AbortSignal} [signal] - Stops every request of the load
  * @property {number} [budgetBytes] - Bytes the whole load may download, main file included
  * @property {(bytes: number) => void} [onBytes] - Told about every chunk of file data received
+ */
+
+/**
+ * @typedef {object} BackgroundLoadResult
+ * @property {File} mainFile - The model
+ * @property {File[]} dependencies - The declared companions that were fetched
+ * @property {string[]} missingFiles - The declared companions that were not: absent, of
+ *   unknown size, refused by the server, past the budget, or not tried because an earlier
+ *   one was missing. Empty when the model has everything it declares
+ * @property {boolean} budgetReached - A companion was left out because it did not fit
+ *   what was left of the budget; a fresh budget may fit it
+ * @property {number} bytesNeeded - When `budgetReached`, the fewest bytes the whole load
+ *   would have needed: everything downloaded plus the companion that did not fit. More
+ *   than a whole folder budget means no visit can ever make this thumbnail. 0 otherwise
  */
 
 /**
@@ -171,9 +187,8 @@ function parseMtlTexturePaths(mtlContent) {
  * @param {string} extension - Its extension, lower case, without the dot
  * @param {string} dirPath - Its folder below the user's root
  * @param {BackgroundLoadOptions} [options] - Signal, budget and progress
- * @return {Promise<{mainFile: File, dependencies: File[], missingFiles: string[]}>} The
- *   model and the companions that were fetched; `missingFiles` names the declared ones
- *   that were not (absent, of unknown size, or past the budget)
+ * @return {Promise<BackgroundLoadResult>} The model, the companions that were fetched,
+ *   and what was not
  * @throws {ThumbnailBudgetError} When the main file alone is larger than the budget
  * @throws {ThumbnailEnvironmentError} On a network error or a 5xx from any request
  * @throws {DOMException} An AbortError once the signal fires
@@ -198,16 +213,18 @@ export async function loadModelForBackground(fileId, filename, extension, dirPat
 	const dependencies = []
 	const missingFiles = []
 	let budgetReached = false
+	let bytesNeeded = 0
 
 	/**
-	 * Fetch one declared companion, if it exists and fits.
+	 * Fetch one declared companion, if it exists and fits. Once one has not been fetched,
+	 * none are: the load cannot make a thumbnail any more, so the rest would be wasted.
 	 *
 	 * @param {string} ref - The path the model declared
 	 * @param {string} type - MIME type to give the file when the server sends none
 	 * @return {Promise<?File>} The file, or null when it was not fetched
 	 */
 	const fetchCompanion = async (ref, type) => {
-		if (budgetReached || dependencies.length >= MAX_COMPANIONS) {
+		if (missingFiles.length > 0 || dependencies.length >= MAX_COMPANIONS) {
 			missingFiles.push(ref)
 			return null
 		}
@@ -220,6 +237,7 @@ export async function loadModelForBackground(fileId, filename, extension, dirPat
 		const left = budgetBytes - used
 		if (located.size > left) {
 			budgetReached = true
+			bytesNeeded = used + located.size
 			missingFiles.push(ref)
 			return null
 		}
@@ -232,6 +250,7 @@ export async function loadModelForBackground(fileId, filename, extension, dirPat
 			missingFiles.push(ref)
 			return null
 		}
+		const usedBefore = used
 		let body
 		try {
 			body = await readBody(companion, left, count)
@@ -239,8 +258,10 @@ export async function loadModelForBackground(fileId, filename, extension, dirPat
 			if (!(error instanceof ThumbnailBudgetError)) {
 				throw error
 			}
-			// Larger than the lookup said; the bytes it did send are already counted
+			// Larger than the lookup said, so more than was left; the bytes it did send
+			// are already counted
 			budgetReached = true
+			bytesNeeded = Math.max(used, usedBefore + left + 1)
 			missingFiles.push(ref)
 			return null
 		}
@@ -267,13 +288,13 @@ export async function loadModelForBackground(fileId, filename, extension, dirPat
 	}
 
 	if (missingFiles.length > 0) {
-		logger.info('backgroundLoad', 'Rendering without some declared companions', {
+		logger.info('backgroundLoad', 'Some declared companions were not fetched', {
 			fileId,
 			missingFiles,
 			budgetReached,
 		})
 	}
-	return { mainFile, dependencies, missingFiles }
+	return { mainFile, dependencies, missingFiles, budgetReached, bytesNeeded }
 }
 
 /**

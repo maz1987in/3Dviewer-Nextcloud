@@ -7,6 +7,7 @@
  * the folder tree and download every image in it.
  */
 import { loadModelForBackground } from '../../../src/thumbnails/backgroundLoad.js'
+import { createBackgroundQueue } from '../../../src/thumbnails/backgroundQueue.js'
 import { ThumbnailBudgetError, ThumbnailEnvironmentError } from '../../../src/thumbnails/errors.js'
 import { loadModelWithDependencies } from '../../../src/loaders/multiFileHelpers.js'
 
@@ -26,6 +27,18 @@ jest.mock('../../../src/utils/dependencyCache.js', () => ({
 jest.mock('../../../src/utils/logger.js', () => ({
 	logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() },
 }))
+
+// jsdom's Blob predates Blob.arrayBuffer(), which the queue reads the model with
+if (typeof Blob.prototype.arrayBuffer !== 'function') {
+	Blob.prototype.arrayBuffer = function() {
+		return new Promise((resolve, reject) => {
+			const reader = new FileReader()
+			reader.onload = () => resolve(reader.result)
+			reader.onerror = reject
+			reader.readAsArrayBuffer(this)
+		})
+	}
+}
 
 // jsdom's Blob predates Blob.text(); browsers have had it since 2019
 if (typeof Blob.prototype.text !== 'function') {
@@ -162,6 +175,32 @@ describe('loadModelForBackground', () => {
 		expect(server.urls()).not.toContain('/index.php/apps/threedviewer/api/file/22')
 		expect(result.dependencies).toEqual([])
 		expect(result.missingFiles).toEqual(['scene.bin', 'small.png'])
+		// Reported as the budget's doing, with what the load would have needed so far
+		expect(result.budgetReached).toBe(true)
+		expect(result.bytesNeeded).toBe(bytes(gltf).byteLength + 5 * MB)
+	})
+
+	it('a declared companion that is not there is reported missing, not as the budget', async () => {
+		const server = serve({
+			'parts/chair.obj': { id: 30, body: 'mtllib chair.mtl\nf 1 2 3\n' },
+			'parts/chair.mtl': { id: 31, body: 'newmtl seat\nmap_Kd textures/wood.png\nbump normal.png\n' },
+			'parts/normal.png': { id: 33, body: 'PNG' },
+		})
+
+		const result = await loadModelForBackground(30, 'chair.obj', 'obj', '/parts', { budgetBytes: MB })
+
+		expect(result.budgetReached).toBe(false)
+		expect(result.missingFiles).toEqual(['textures/wood.png', 'normal.png'])
+		// The thumbnail will not be made from this load, so nothing more is downloaded for it
+		expect(server.urls()).not.toContain('/index.php/apps/threedviewer/api/file/33')
+	})
+
+	it('an FBX that declares no textures reports nothing missing', async () => {
+		serve(PHOTO_FOLDER)
+
+		const result = await loadModelForBackground(10, 'robot.fbx', 'fbx', '/Projects', { budgetBytes: 500 * MB })
+
+		expect(result).toMatchObject({ dependencies: [], missingFiles: [], budgetReached: false })
 	})
 
 	it('fetches declared glTF companions that fit, buffers first, and counts every byte', async () => {
@@ -301,5 +340,89 @@ describe('loadModelForBackground', () => {
 
 		await expect(loadModelForBackground(20, 'scene.gltf', 'gltf', '/models', { budgetBytes: MB }))
 			.rejects.toBeInstanceOf(ThumbnailEnvironmentError)
+	})
+})
+
+describe('loadModelForBackground in the queue', () => {
+	/**
+	 * The real queue on the real loader and the fake server, rendering with a stand-in
+	 * that fails the way the worker does when a glTF arrives without its buffer.
+	 *
+	 * @param {object} statuses - Status by file id
+	 * @param {number} folderBudgetMB - Budget per visit
+	 * @return {object} The queue and the fakes to inspect
+	 */
+	function queueOn(statuses, folderBudgetMB) {
+		const skipped = new Set()
+		const deps = {
+			settings: { background: true, maxFileSizeMB: 100, timeoutSeconds: 60, folderBudgetMB },
+			api: {
+				fetchStatus: jest.fn(async (ids) => new Map(ids.map((id) => [id, statuses[id]]))),
+				uploadThumbnail: jest.fn(async () => 'stored'),
+			},
+			load: loadModelForBackground,
+			render: jest.fn(async (job) => {
+				if (job.extension === 'gltf' && !job.additionalFiles.some((file) => file.name === 'scene.bin')) {
+					throw new Error('THREE.GLTFLoader: Failed to load buffer "scene.bin".')
+				}
+				return { type: 'image/png', size: 4 }
+			}),
+			skips: {
+				isSkipped: (id, etag) => skipped.has(`${id}:${etag}`),
+				markSkipped: jest.fn((id, etag) => skipped.add(`${id}:${etag}`)),
+			},
+			env: { isPaused: () => false, onResume: () => {}, whenIdle: async () => {} },
+		}
+		return { queue: createBackgroundQueue(deps), deps }
+	}
+
+	it('a .gltf whose .bin is over what is left of the budget waits for the next visit', async () => {
+		const gltf = JSON.stringify({ buffers: [{ uri: 'scene.bin' }] })
+		const server = serve({
+			'models/big.stl': { id: 1, body: 8 * MB },
+			'models/scene.gltf': { id: 2, body: gltf },
+			'models/scene.bin': { id: 3, body: 5 * MB },
+		})
+		const statuses = {
+			1: { name: 'big.stl', dir: '/models', size: 8 * MB, etag: 'e1', canEdit: true, hasThumbnail: false },
+			2: { name: 'scene.gltf', dir: '/models', size: bytes(gltf).byteLength, etag: 'e2', canEdit: true, hasThumbnail: false },
+		}
+		const { queue, deps } = queueOn(statuses, 10)
+
+		// The STL leaves 2 MB, too little for the 5 MB buffer
+		queue.setFolder('/models', [1, 2], new Set())
+		await queue.idle()
+
+		expect(server.urls()).not.toContain('/index.php/apps/threedviewer/api/file/3')
+		expect(deps.render.mock.calls.map(([job]) => job.extension)).toEqual(['stl'])
+		expect(deps.skips.markSkipped).not.toHaveBeenCalled()
+
+		// Next visit: the STL is done, and the glTF gets the whole budget
+		statuses[1].hasThumbnail = true
+		queue.setFolder('/elsewhere', [], new Set())
+		queue.setFolder('/models', [1, 2], new Set())
+		await queue.idle()
+
+		expect(deps.render.mock.calls.map(([job]) => job.extension)).toEqual(['stl', 'gltf'])
+		expect(deps.api.uploadThumbnail.mock.calls.map(([id]) => id)).toEqual([1, 2])
+		expect(deps.skips.markSkipped).not.toHaveBeenCalled()
+	})
+
+	it('an OBJ whose MTL names a texture that is not beside it is skipped, not rendered untextured', async () => {
+		serve({
+			'parts/chair.obj': { id: 30, body: 'mtllib chair.mtl\nf 1 2 3\n' },
+			'parts/chair.mtl': { id: 31, body: 'newmtl seat\nmap_Kd textures/wood.png\n' },
+			// Where the viewer, which searches subfolders, would find it; the background does not look
+			'parts/maps/wood.png': { id: 32, body: 'PNG' },
+		})
+		const statuses = { 30: { name: 'chair.obj', dir: '/parts', size: 64, etag: 'e30', canEdit: true, hasThumbnail: false } }
+		const { queue, deps } = queueOn(statuses, 10)
+
+		queue.setFolder('/parts', [30], new Set())
+		await queue.idle()
+
+		expect(deps.render).not.toHaveBeenCalled()
+		expect(deps.api.uploadThumbnail).not.toHaveBeenCalled()
+		expect(deps.skips.markSkipped.mock.calls).toEqual([[30, 'e30']])
 	})
 })
