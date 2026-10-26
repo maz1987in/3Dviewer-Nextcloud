@@ -265,6 +265,57 @@ describe('loadModelForBackground', () => {
 		expect(received).toBe(bytes(gltf).byteLength + 64 + 32)
 	})
 
+	it('fetches the images a COLLADA or X3D file declares, by declared path then by name beside it', async () => {
+		const dae = '<COLLADA><library_images><image id="a"><init_from>textures/wood.png</init_from></image><image id="b"><init_from>C:/export/metal.png</init_from></image></library_images></COLLADA>'
+		const x3d = '<X3D><Scene><Shape><Appearance><ImageTexture url=\'"maps/stone.png" "https://example.com/stone.png"\'/></Appearance></Shape></Scene></X3D>'
+		const server = serve({
+			'models/chair.dae': { id: 40, body: dae },
+			'models/textures/wood.png': { id: 41, body: 16 },
+			'models/metal.png': { id: 42, body: 16 },
+			'models/wall.x3d': { id: 43, body: x3d },
+			'models/stone.png': { id: 44, body: 16 },
+		})
+
+		const fromDae = await loadModelForBackground(40, 'chair.dae', 'dae', '/models', { budgetBytes: MB })
+		const fromX3d = await loadModelForBackground(43, 'wall.x3d', 'x3d', '/models', { budgetBytes: MB })
+
+		// A drive-letter path reads as a URL scheme and is not declared, here as in the
+		// viewer and the server's resolver; the worker then refuses it, which skips the file
+		expect(fromDae.dependencies.map((file) => file.name)).toEqual(['wood.png'])
+		expect(fromDae.missingFiles).toEqual([])
+		// Not at maps/stone.png, so by its name beside the model; the remote one is not a companion
+		expect(fromX3d.dependencies.map((file) => file.name)).toEqual(['stone.png'])
+		expect(fromX3d.missingFiles).toEqual([])
+		expect(server.urls().filter((url) => url.includes('example.com'))).toEqual([])
+	})
+
+	it('a COLLADA image that is not beside the model is reported missing', async () => {
+		serve({
+			'models/chair.dae': { id: 40, body: '<COLLADA><library_images><image id="a"><init_from>wood.png</init_from></image></library_images></COLLADA>' },
+		})
+
+		const result = await loadModelForBackground(40, 'chair.dae', 'dae', '/models', { budgetBytes: MB })
+
+		expect(result.missingFiles).toEqual(['wood.png'])
+		expect(result.budgetReached).toBe(false)
+	})
+
+	it('a 3MF or AMF declares no companions: a 3MF carries its textures, an AMF has none', async () => {
+		const server = serve({
+			'models/part.3mf': { id: 50, body: 'PK\u0003\u0004 3D/Texture/a.png' },
+			'models/part.amf': { id: 51, body: '<amf><texture id="1">AAAA</texture></amf>' },
+		})
+
+		for (const [id, name, extension] of [[50, 'part.3mf', '3mf'], [51, 'part.amf', 'amf']]) {
+			const result = await loadModelForBackground(id, name, extension, '/models', { budgetBytes: MB })
+			expect(result).toMatchObject({ dependencies: [], missingFiles: [] })
+		}
+		expect(server.urls()).toEqual([
+			'/index.php/apps/threedviewer/api/file/50',
+			'/index.php/apps/threedviewer/api/file/51',
+		])
+	})
+
 	it('does not fetch a companion whose size the lookup does not report', async () => {
 		const gltf = JSON.stringify({ buffers: [{ uri: 'scene.bin' }] })
 		const server = serve({
@@ -463,5 +514,25 @@ describe('loadModelForBackground in the queue', () => {
 		expect(deps.render).not.toHaveBeenCalled()
 		expect(deps.api.uploadThumbnail).not.toHaveBeenCalled()
 		expect(deps.skips.markSkipped.mock.calls).toEqual([[30, 'e30']])
+	})
+
+	it('a DAE or X3D whose texture is not beside it is skipped, not rendered untextured', async () => {
+		serve({
+			'scenes/room.dae': { id: 60, body: '<COLLADA><library_images><image id="a"><init_from>wood.png</init_from></image></library_images></COLLADA>' },
+			'scenes/wall.x3d': { id: 61, body: '<X3D><Scene><ImageTexture url=\'"stone.png"\'/></Scene></X3D>' },
+			'scenes/maps/wood.png': { id: 62, body: 'PNG' },
+		})
+		const statuses = {
+			60: { name: 'room.dae', dir: '/scenes', size: 128, etag: 'e60', canEdit: true, hasThumbnail: false },
+			61: { name: 'wall.x3d', dir: '/scenes', size: 128, etag: 'e61', canEdit: true, hasThumbnail: false },
+		}
+		const { queue, deps } = queueOn(statuses, 10)
+
+		queue.setFolder('/scenes', [60, 61], new Set())
+		await queue.idle()
+
+		expect(deps.render).not.toHaveBeenCalled()
+		expect(deps.api.uploadThumbnail).not.toHaveBeenCalled()
+		expect(deps.skips.markSkipped.mock.calls).toEqual([[60, 'e60'], [61, 'e61']])
 	})
 })

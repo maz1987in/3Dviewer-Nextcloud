@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- 3MF, AMF, DAE (COLLADA) and X3D files get a thumbnail while you browse Files, like every other model, instead of only once opened in the viewer. Their loaders read XML with the browser's `DOMParser`, which the background worker does not have; the worker now loads its own XML parser (`@xmldom/xmldom`) for these formats only, and the viewer keeps the browser's. The parser fetches nothing a file names, such as an external DTD or entity, and expands no entity a file declares, so a crafted file can neither make a request nor grow without bound. As with OBJ, glTF and FBX, a DAE or X3D texture the file names is downloaded with it, and a file whose named texture cannot be found is left for the viewer rather than given an untextured thumbnail; a 3MF carries its textures inside it. Only `.nc` and `.g` files, which may not be G-code at all, are still left to the viewer.
+
 ## [3.7.0] - 2026-10-26
 
 Models get thumbnails in Files without anyone opening them: the browser of whoever is viewing a folder renders them in the background, within limits each user sets. A thumbnail is kept once per file version and shown to everyone who can see the file, including share recipients and public links. VRML files, FreeCAD files saved by FreeCAD and FBX files with embedded textures open correctly again. Existing thumbnails turn back into icons after the upgrade and are made again as folders are browsed.

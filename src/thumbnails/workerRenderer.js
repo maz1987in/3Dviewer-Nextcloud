@@ -17,7 +17,7 @@ import { createThumbnailWorker } from './createThumbnailWorker.js'
 import { EmptyModelError, ThumbnailEnvironmentError, ThumbnailRefusedError, ThumbnailTimeoutError } from './errors.js'
 
 export { ThumbnailEnvironmentError, ThumbnailRefusedError, ThumbnailTimeoutError }
-export { AMBIGUOUS_FORMATS, canRenderInBackground, isThumbnailFormat, WORKER_UNSAFE_FORMATS } from './formats.js'
+export { AMBIGUOUS_FORMATS, canRenderInBackground, isThumbnailFormat } from './formats.js'
 
 /**
  * The rejection an aborted render ends in, matching what fetch() throws.

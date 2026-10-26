@@ -178,7 +178,7 @@ describe('createBackgroundQueue', () => {
 		expect(deps.api.uploadThumbnail).toHaveBeenCalledTimes(2)
 	})
 
-	it('skips read-only, existing, skipped, oversized and worker-unsafe files without loading them', async () => {
+	it('skips read-only, existing, skipped, oversized and ambiguous files without loading them', async () => {
 		const { queue, deps, skipped } = setup({
 			settings: { maxFileSizeMB: 10 },
 			statuses: {
@@ -186,7 +186,7 @@ describe('createBackgroundQueue', () => {
 				2: status(2, { hasThumbnail: true }),
 				3: status(3),
 				4: status(4, { size: 10 * MB + 1 }),
-				5: status(5, { name: 'scene.dae' }),
+				5: status(5, { name: 'climate.nc' }),
 				6: status(6, { size: 10 * MB }),
 			},
 		})

@@ -26,6 +26,13 @@ import { createWorkerResources, guardWorkerRequests, RefusedResourceError } from
 
 const SIZE = 512
 
+/**
+ * Formats whose loader parses XML with `new DOMParser()`, which a worker does not have.
+ * The parser is loaded for these only, so no other job downloads it. A format missing
+ * here fails in tests/playwright/thumbnail-worker.spec.ts with "DOMParser is not defined".
+ */
+const XML_FORMATS = new Set(['3mf', 'amf', 'dae', 'x3d', 'fcstd'])
+
 // The running job's resources. Until a job names its files and the app root, nothing
 // but data: URLs may be loaded.
 let resources = createWorkerResources({ baseUrl: self.location.href })
@@ -136,6 +143,10 @@ self.onmessage = async ({ data }) => {
 			setAppWebRoot(appWebRoot)
 		}
 		resources = createWorkerResources({ files: additionalFiles, appWebRoot, baseUrl: self.location.href })
+		if (XML_FORMATS.has(String(extension).toLowerCase())) {
+			const { installWorkerDomParser } = await import('./workerDomParser.js')
+			installWorkerDomParser(self)
+		}
 
 		// No scene: the loader hands the model back without adding it anywhere. No
 		// renderer either, so KTX2 textures are left untranscoded (the loader logs it).
