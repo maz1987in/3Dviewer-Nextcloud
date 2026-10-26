@@ -30,6 +30,9 @@ class FakeWorker {
 	}
 
 	postMessage(message, transfer) {
+		if (FakeWorker.postMessageError) {
+			throw FakeWorker.postMessageError
+		}
 		this.posted.push({ message, transfer })
 	}
 
@@ -55,6 +58,11 @@ class FakeWorker {
 		this.onerror?.({ message, preventDefault() {} })
 	}
 
+	/** Deliver a message the host cannot deserialise. */
+	garble() {
+		this.onmessageerror?.({ data: null })
+	}
+
 }
 
 function job() {
@@ -71,6 +79,7 @@ describe('renderInWorker', () => {
 
 	afterEach(() => {
 		global.Worker = OriginalWorker
+		FakeWorker.postMessageError = null
 		jest.useRealTimers()
 	})
 
@@ -178,6 +187,33 @@ describe('renderInWorker', () => {
 		worker.fail('Uncaught ReferenceError: window is not defined')
 
 		await expect(promise).rejects.toThrow('window is not defined')
+		expect(worker.terminated).toBe(1)
+	})
+
+	it('a message that cannot be deserialised rejects and terminates once', async () => {
+		const promise = renderInWorker(job(), { timeoutMs: 30000 })
+		const [worker] = workers
+
+		worker.garble()
+		worker.emit({ ok: true, blob: {} })
+
+		await expect(promise).rejects.toThrow('could not be read')
+		expect(worker.terminated).toBe(1)
+	})
+
+	it('a postMessage that throws rejects and terminates once', async () => {
+		jest.useFakeTimers()
+		const cloneError = new DOMException('ArrayBuffer is detached', 'DataCloneError')
+		FakeWorker.postMessageError = cloneError
+
+		const promise = renderInWorker(job(), { timeoutMs: 30000 })
+		const [worker] = workers
+
+		await expect(promise).rejects.toBe(cloneError)
+		expect(worker.terminated).toBe(1)
+		// Nothing left to fire later and terminate it again
+		expect(jest.getTimerCount()).toBe(0)
+		jest.advanceTimersByTime(30000)
 		expect(worker.terminated).toBe(1)
 	})
 

@@ -83,6 +83,7 @@ async function buildGeneratedSamples() {
   for (const [name, text] of Object.entries(TEXT_SAMPLES)) {
     generated.set(name, Buffer.from(text))
   }
+  generated.set('triangle.vrml', Buffer.from(TEXT_SAMPLES['triangle.wrl']))
   generated.set('triangle.3mf', Buffer.from(zipSync({
     '[Content_Types].xml': new TextEncoder().encode(TEXT_SAMPLES['3mf-content-types.xml']),
     '_rels/.rels': new TextEncoder().encode(TEXT_SAMPLES['3mf-rels.xml']),
@@ -302,15 +303,9 @@ const SAMPLES: Sample[] = [
   { name: '3ds', extension: '3ds', files: [`${GENERATED}triangle.3ds`] },
   { name: 'fbx', extension: 'fbx', files: [`${GENERATED}triangle.fbx`] },
   { name: 'gcode', extension: 'gcode', files: [`${GENERATED}square.gcode`] },
+  { name: 'wrl', extension: 'wrl', files: [`${GENERATED}triangle.wrl`] },
+  { name: 'vrml', extension: 'vrml', files: [`${GENERATED}triangle.vrml`] },
 ]
-
-/**
- * VRML loads nowhere at the moment: src/loaders/types/vrml.js waits for a callback that
- * three's VRMLLoader.parse() never calls (it returns the scene), so every load runs into
- * the loader's own 30 s timeout, in the viewer as in the worker. Not a worker problem,
- * so the format stays allowed, and the time limit bounds it.
- */
-const VRML_SAMPLE: Sample = { name: 'wrl', extension: 'wrl', files: [`${GENERATED}triangle.wrl`] }
 
 /** Samples of the formats in WORKER_UNSAFE_FORMATS, which must fail in a worker. */
 const UNSAFE_SAMPLES: Sample[] = [
@@ -463,11 +458,17 @@ async function renderSample(page, appRoot: string, sample: Sample, timeoutMs = 3
   }, { urls, extension: sample.extension, timeoutMs })
 }
 
+/*
+ * Errors the page and its workers log during the current test. Several tests make a
+ * render fail on purpose, so these are kept quiet and attached only to a failing test.
+ */
+let browserErrors: string[] = []
+
 async function openHarness(page, origin: string, appRoot: string) {
-  page.on('pageerror', err => console.error('[pageerror]', err?.message))
+  page.on('pageerror', err => browserErrors.push(`[pageerror] ${err?.message}`))
   page.on('console', (msg) => {
     if (msg.type() === 'error') {
-      console.error('[browser]', msg.text())
+      browserErrors.push(`[console.error] ${msg.text()}`)
     }
   })
   await page.goto(origin + appRoot)
@@ -488,6 +489,16 @@ test.describe('thumbnail worker', () => {
 
   test.afterAll(async () => {
     await server?.close()
+  })
+
+  test.beforeEach(() => {
+    browserErrors = []
+  })
+
+  test.afterEach(async ({}, testInfo) => {
+    if (testInfo.status !== testInfo.expectedStatus && browserErrors.length > 0) {
+      await testInfo.attach('browser errors', { body: browserErrors.join('\n'), contentType: 'text/plain' })
+    }
   })
 
   test.describe('every model format renders in the worker', () => {
@@ -601,12 +612,6 @@ test.describe('thumbnail worker', () => {
       expect(outcome, sample.name).toMatchObject({ ok: false })
       expect(outcome.error, sample.name).toMatch(/DOMParser/)
     }
-  })
-
-  test.fixme('wrl', async ({ page }) => {
-    await openHarness(page, server.origin, APP_ROOTS[0])
-    const outcome = await renderSample(page, APP_ROOTS[0], VRML_SAMPLE)
-    expect(outcome.error).toBeUndefined()
   })
 
   test('a render past its time limit is stopped', async ({ page }) => {
