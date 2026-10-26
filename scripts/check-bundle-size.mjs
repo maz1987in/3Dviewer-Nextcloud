@@ -17,8 +17,11 @@ const pipe = promisify(pipeline);
 const BUDGETS = [
   // Entry point. 5400 since the thumbnail worker's test hook: its dynamic import lists the
   // module's chunks for preloading, ~500 B the page never loads outside a test harness.
-  // 5700 since the Files app's background thumbnails: the lazy import of filesPage.js and
-  // the four chunks it adds to the preload list come to 505 B.
+  // 5700 since the Files app's background thumbnails. Only filesPage.js, a small gate, is
+  // imported from here; the rest is not loaded until a folder shows a model. The bytes are
+  // its import and preload entries: filesPage, plus dependencyCache, thumbnailApi and
+  // errors, which Rollup now splits out of the viewer's chunks because filesQueue.js
+  // shares them.
   { pattern: /^threedviewer-main\.mjs$/, name: 'main', maxRaw: 5700, maxGzip: 2000 },
   { pattern: /^gltf-.*\.chunk\.mjs$/, name: 'gltf-loader', maxRaw: 22000, maxGzip: 6000 }, // GLTF loader chunk (includes decoder worker pool tuning via setWorkerLimit)
   // Main app component. Bumped 360 KB → 370 KB in v3.3.0 for the 9 new viewer-config

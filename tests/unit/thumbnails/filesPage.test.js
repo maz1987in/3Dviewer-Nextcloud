@@ -63,7 +63,12 @@ beforeEach(() => {
 	global.URL.revokeObjectURL = jest.fn()
 })
 
-afterEach(() => {
+afterEach(async () => {
+	// Earlier tests' observers stay connected; let them see an empty page now, while the
+	// document still exists, rather than after the environment is torn down
+	document.body.innerHTML = ''
+	await Promise.resolve()
+	jest.clearAllTimers()
 	jest.useRealTimers()
 })
 
@@ -172,8 +177,16 @@ describe('swapRowIcon', () => {
 	})
 })
 
+/** Let promise chains, such as a dynamic import, run to their end. */
+async function settle() {
+	for (let i = 0; i < 20; i++) {
+		await Promise.resolve()
+	}
+}
+
 describe('startFilesThumbnails', () => {
 	test('does nothing without a user or with background off', async () => {
+		filesList([{ id: 1 }])
 		getCurrentUser.mockReturnValue(null)
 		await startFilesThumbnails()
 		expect(loadThumbnailSettings).not.toHaveBeenCalled()
@@ -186,13 +199,61 @@ describe('startFilesThumbnails', () => {
 		expect(createBackgroundQueue).not.toHaveBeenCalled()
 	})
 
+	test('with background off, gives up for the rest of the page', async () => {
+		jest.useFakeTimers()
+		filesList([{ id: 1 }])
+		loadThumbnailSettings.mockResolvedValue({ ...SETTINGS, background: false })
+		await startFilesThumbnails()
+
+		filesList([{ id: 2 }])
+		await settle()
+		jest.advanceTimersByTime(3000)
+		await settle()
+
+		expect(loadThumbnailSettings).toHaveBeenCalledTimes(1)
+		expect(createBackgroundQueue).not.toHaveBeenCalled()
+	})
+
+	test('loads nothing until an eligible view shows a model row', async () => {
+		jest.useFakeTimers()
+		filesList([{ id: 1, name: 'notes.txt' }, { id: 2, name: 'Photos' }])
+		await startFilesThumbnails()
+		expect(getCurrentUser).not.toHaveBeenCalled()
+		expect(loadThumbnailSettings).not.toHaveBeenCalled()
+
+		navigate('/index.php/apps/files/recent')
+		filesList([{ id: 3, name: 'part.stl' }])
+		await settle()
+		jest.advanceTimersByTime(500)
+		await settle()
+		expect(loadThumbnailSettings).not.toHaveBeenCalled()
+
+		navigate('/index.php/apps/files/files?dir=/models')
+		window.dispatchEvent(new PopStateEvent('popstate'))
+		jest.advanceTimersByTime(500)
+		await settle()
+
+		expect(loadThumbnailSettings).toHaveBeenCalledTimes(1)
+		const queue = createBackgroundQueue.mock.results[0].value
+		expect(queue.setFolder).toHaveBeenCalledWith('files:/models', [3], expect.any(Set))
+	})
+
+	test('the gate statically imports nothing heavy', () => {
+		const source = require('node:fs').readFileSync(require.resolve('../../../src/thumbnails/filesPage.js'), 'utf8')
+		const staticImports = [...source.matchAll(/^import .* from '([^']+)'/gm)].map((m) => m[1])
+
+		expect(staticImports.sort()).toEqual(['../utils/logger.js', './formats.js'])
+	})
+
 	test('runs with background on even when viewer capture is off', async () => {
+		filesList([{ id: 1 }])
 		loadThumbnailSettings.mockResolvedValue({ ...SETTINGS, enabled: false, background: true })
 		await startFilesThumbnails()
 		expect(createBackgroundQueue).toHaveBeenCalledTimes(1)
 	})
 
 	test('starts once per page', async () => {
+		filesList([{ id: 1 }])
 		await startFilesThumbnails()
 		await startFilesThumbnails()
 		expect(createBackgroundQueue).toHaveBeenCalledTimes(1)
@@ -234,11 +295,27 @@ describe('startFilesThumbnails', () => {
 		expect(queue.setFolder).toHaveBeenLastCalledWith('files:/other', [1], expect.any(Set))
 	})
 
-	test('re-reads rows after the list changes, debounced', async () => {
+	test('a folder without models still ends the previous folder visit', async () => {
 		jest.useFakeTimers()
+		const table = filesList([{ id: 1 }])
 		await startFilesThumbnails()
 		const queue = createBackgroundQueue.mock.results[0].value
-		expect(queue.setFolder).toHaveBeenLastCalledWith('files:/models', [], expect.any(Set))
+
+		table.remove()
+		filesList([{ id: 5, name: 'notes.txt' }])
+		navigate('/index.php/apps/files/files?dir=/docs')
+		await settle()
+		jest.advanceTimersByTime(500)
+
+		expect(queue.setFolder).toHaveBeenLastCalledWith('files:/docs', [], expect.any(Set))
+	})
+
+	test('re-reads rows after the list changes, debounced', async () => {
+		jest.useFakeTimers()
+		filesList([{ id: 2 }])
+		await startFilesThumbnails()
+		const queue = createBackgroundQueue.mock.results[0].value
+		expect(queue.setFolder).toHaveBeenLastCalledWith('files:/models', [2], expect.any(Set))
 
 		filesList([{ id: 3 }])
 		await Promise.resolve() // MutationObserver callbacks run as microtasks
@@ -249,11 +326,12 @@ describe('startFilesThumbnails', () => {
 
 		jest.advanceTimersByTime(1)
 		expect(queue.setFolder).toHaveBeenCalledTimes(2)
-		expect(queue.setFolder).toHaveBeenLastCalledWith('files:/models', [3, 4], expect.any(Set))
+		expect(queue.setFolder).toHaveBeenLastCalledWith('files:/models', [2, 3, 4], expect.any(Set))
 	})
 
 	test('a page that never stops changing is still re-read', async () => {
 		jest.useFakeTimers()
+		filesList([{ id: 19 }])
 		await startFilesThumbnails()
 		const queue = createBackgroundQueue.mock.results[0].value
 
@@ -302,6 +380,7 @@ describe('startFilesThumbnails', () => {
 	})
 
 	test('a thumbnail made for a row that is not rendered shows once it is', async () => {
+		filesList([{ id: 14 }])
 		await startFilesThumbnails()
 		expect(createBackgroundQueue.mock.calls[0][0].onThumbnail(13, new Blob(['png']))).toBe(false)
 
@@ -314,6 +393,7 @@ describe('startFilesThumbnails', () => {
 	describe('env', () => {
 		/** @return {object} The env the queue was given */
 		async function startedEnv() {
+			filesList([{ id: 1 }])
 			await startFilesThumbnails()
 			return createBackgroundQueue.mock.calls[0][0].env
 		}
@@ -332,6 +412,43 @@ describe('startFilesThumbnails', () => {
 			expect(env.isPaused()).toBe(true)
 			delete navigator.connection
 			hidden.mockRestore()
+		})
+
+		test('pauses while the viewer is open over Files', async () => {
+			const env = await startedEnv()
+
+			navigate('/index.php/apps/files/files/42?dir=/models&openfile=true')
+			expect(env.isPaused()).toBe(true)
+
+			navigate('/index.php/apps/files/files/42?dir=/models')
+			expect(env.isPaused()).toBe(false)
+
+			const modal = document.createElement('div')
+			modal.id = 'viewer'
+			document.body.appendChild(modal)
+			expect(env.isPaused()).toBe(true)
+			modal.remove()
+			expect(env.isPaused()).toBe(false)
+		})
+
+		test('onResume calls back once the viewer closes', async () => {
+			const env = await startedEnv()
+			navigate('/index.php/apps/files/files/42?dir=/models&openfile=true')
+			const modal = document.createElement('div')
+			modal.id = 'viewer'
+			document.body.appendChild(modal)
+			const cb = jest.fn()
+			env.onResume(cb)
+
+			// Closing it changes the URL without popstate and removes the modal
+			navigate('/index.php/apps/files/files/42?dir=/models')
+			modal.remove()
+			await Promise.resolve()
+
+			expect(cb).toHaveBeenCalledTimes(1)
+			filesList([{ id: 2 }])
+			await Promise.resolve()
+			expect(cb).toHaveBeenCalledTimes(1)
 		})
 
 		test('onResume calls back once, on the next return to the tab', async () => {
@@ -362,6 +479,28 @@ describe('startFilesThumbnails', () => {
 			connection.dispatchEvent(new Event('change'))
 			connection.dispatchEvent(new Event('change'))
 			expect(cb).toHaveBeenCalledTimes(1)
+			delete navigator.connection
+		})
+
+		test('waiting callbacks share one listener pair', async () => {
+			const env = await startedEnv()
+			const connection = new EventTarget()
+			connection.saveData = true
+			Object.defineProperty(navigator, 'connection', { value: connection, configurable: true })
+			const onDocument = jest.spyOn(document, 'addEventListener')
+			const onConnection = jest.spyOn(connection, 'addEventListener')
+			const callbacks = Array.from({ length: 5 }, () => jest.fn())
+
+			// One per folder visit while Save-Data stays on
+			callbacks.forEach((cb) => env.onResume(cb))
+
+			expect(onDocument.mock.calls.filter(([type]) => type === 'visibilitychange').length).toBeLessThanOrEqual(1)
+			expect(onConnection).toHaveBeenCalledTimes(1)
+
+			connection.saveData = false
+			connection.dispatchEvent(new Event('change'))
+			callbacks.forEach((cb) => expect(cb).toHaveBeenCalledTimes(1))
+			onDocument.mockRestore()
 			delete navigator.connection
 		})
 

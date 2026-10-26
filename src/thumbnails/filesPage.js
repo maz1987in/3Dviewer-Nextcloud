@@ -9,18 +9,14 @@
  * The Files app gives no event for "the folder changed" that other apps can use, so this
  * reads its rendered list (the `data-cy-files-list-row-*` attributes it puts on every row)
  * and the URL whenever the page changes.
+ *
+ * This module loads on every Files page, so it is kept light: it imports only the format
+ * list. The user, the settings, the queue, the loader and the worker (filesQueue.js) are
+ * imported the first time a folder shows a model the worker can render.
  */
 
-// eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
-import { getCurrentUser } from '@nextcloud/auth'
-import { loadModelWithDependencies } from '../loaders/multiFileHelpers.js'
 import { logger } from '../utils/logger.js'
-import { createBackgroundQueue } from './backgroundQueue.js'
 import { canRenderInBackground } from './formats.js'
-import { isSkipped, markSkipped } from './skipList.js'
-import { fetchStatus, uploadThumbnail } from './thumbnailApi.js'
-import { loadThumbnailSettings } from './thumbnailSettings.js'
-import { renderInWorker } from './workerRenderer.js'
 
 /** Views that list files from many folders, or files that are gone. */
 const EXCLUDED_VIEWS = new Set(['recent', 'trashbin', 'search'])
@@ -252,30 +248,59 @@ function restoreThumbnails(root) {
 }
 
 /**
- * @return {boolean} True while background work should wait
+ * The viewer is open over the Files list. The Files app adds `openfile=true` to the URL
+ * while it is, and the Viewer app mounts its modal as `#viewer`; either is enough.
+ *
+ * @return {boolean} True while the viewer is open
  */
-function isPaused() {
-	return document.hidden || navigator.connection?.saveData === true
+function isViewerOpen() {
+	return new URLSearchParams(window.location.search).get('openfile') === 'true'
+		|| document.getElementById('viewer') !== null
 }
 
 /**
- * Call back once, the first time the tab is shown again or Save-Data is turned off and
- * nothing else still pauses the work.
+ * @return {boolean} True while background work should wait: the tab is hidden, Save-Data
+ *   is on, or the viewer is open and loading a model of its own
+ */
+function isPaused() {
+	return document.hidden || navigator.connection?.saveData === true || isViewerOpen()
+}
+
+/** @type {Set<() => void>} Callbacks waiting for the work to be allowed to go on */
+const pendingResumes = new Set()
+let listeningForVisibility = false
+let listenedConnection = null
+
+/**
+ * Call every waiting callback, once, if nothing pauses the work any more.
+ */
+function checkResume() {
+	if (pendingResumes.size === 0 || isPaused()) {
+		return
+	}
+	const callbacks = [...pendingResumes]
+	pendingResumes.clear()
+	callbacks.forEach((cb) => cb())
+}
+
+/**
+ * Call back once, the first time the tab is shown again, Save-Data is turned off or the
+ * viewer closes, and nothing else still pauses the work. All waiting callbacks share one
+ * listener pair, so a wait the queue abandoned costs nothing but its entry in the set.
  *
  * @param {() => void} cb - Called once
  */
 function onResume(cb) {
-	const connection = navigator.connection
-	const check = () => {
-		if (isPaused()) {
-			return
-		}
-		document.removeEventListener('visibilitychange', check)
-		connection?.removeEventListener?.('change', check)
-		cb()
+	pendingResumes.add(cb)
+	if (!listeningForVisibility) {
+		listeningForVisibility = true
+		document.addEventListener('visibilitychange', checkResume)
 	}
-	document.addEventListener('visibilitychange', check)
-	connection?.addEventListener?.('change', check)
+	const connection = navigator.connection
+	if (connection && connection !== listenedConnection && typeof connection.addEventListener === 'function') {
+		listenedConnection = connection
+		connection.addEventListener('change', checkResume)
+	}
 }
 
 /**
@@ -294,73 +319,108 @@ function whenIdle() {
 
 /**
  * Make thumbnails for the models in the folders the user browses in Files, if they are
- * logged in and have "Create thumbnails while browsing Files" on. Runs for the rest of
- * the page's life; a second call does nothing. Never rejects.
+ * logged in and have "Create thumbnails while browsing Files" on. Until a folder shows a
+ * model, only the URL and the rendered rows are read; the first one loads filesQueue.js,
+ * which checks the user and the settings. Runs for the rest of the page's life; a second
+ * call does nothing. Never rejects.
  *
- * @return {Promise<void>} Resolves once started, or once it decided not to
+ * @return {Promise<void>} Resolves once the first look at the page is done
  */
 export async function startFilesThumbnails() {
-	if (window[STARTED_KEY] || !getCurrentUser()) {
+	if (window[STARTED_KEY]) {
 		return
 	}
 	window[STARTED_KEY] = true
 
-	try {
-		const settings = await loadThumbnailSettings()
-		// Independent of `enabled`, which is about capturing from the open viewer
-		if (!settings.background) {
+	/** @type {?ReturnType<typeof import('./backgroundQueue.js').createBackgroundQueue>} */
+	let queue = null
+	/** @type {?Promise<void>} Set while the queue is being created */
+	let loading = null
+	let timer = null
+	let firstChange = 0
+	let observer = null
+
+	// Stop watching the page: no queue will ever be made on it
+	const shutDown = () => {
+		clearTimeout(timer)
+		observer?.disconnect()
+		window.removeEventListener('popstate', scheduleRefresh)
+	}
+
+	/**
+	 * Load filesQueue.js and create the queue, then look at the page again.
+	 *
+	 * @return {Promise<void>} Never rejects
+	 */
+	const loadQueue = async () => {
+		try {
+			const { createFilesQueue } = await import('./filesQueue.js')
+			queue = await createFilesQueue({
+				env: { isPaused, onResume, whenIdle },
+				onThumbnail: (fileId, blob) => swapRowIcon(document, fileId, blob),
+			})
+		} catch (error) {
+			logger.warn('filesPage', 'Background thumbnails did not start', error)
+		}
+		if (queue) {
+			refresh()
+		} else {
+			shutDown()
+		}
+	}
+
+	/**
+	 * @return {?Promise<void>} The queue being created, when this look started it
+	 */
+	function refresh() {
+		const url = new URL(window.location.href)
+		if (!isEligibleFilesView(url)) {
+			queue?.stop()
+			return null
+		}
+		const { ids, visible } = readRows(document)
+		if (queue) {
+			// Also for a folder without models, which ends the previous folder's visit
+			queue.setFolder(folderKey(url), ids, visible)
+			return null
+		}
+		if (ids.length > 0 && !loading) {
+			loading = loadQueue()
+			return loading
+		}
+		return null
+	}
+
+	// Waits for the list to settle, but not for ever: an upload's progress or another
+	// app can keep changing the page
+	function scheduleRefresh() {
+		checkResume()
+		const now = Date.now()
+		if (timer === null) {
+			firstChange = now
+		} else if (now - firstChange >= REFRESH_MAX_WAIT_MS) {
 			return
 		}
+		clearTimeout(timer)
+		timer = setTimeout(() => {
+			timer = null
+			refresh()
+		}, REFRESH_DELAY_MS)
+	}
 
-		const queue = createBackgroundQueue({
-			settings,
-			api: { fetchStatus, uploadThumbnail },
-			load: loadModelWithDependencies,
-			render: renderInWorker,
-			skips: { isSkipped, markSkipped },
-			env: { isPaused, onResume, whenIdle },
-			onThumbnail: (fileId, blob) => swapRowIcon(document, fileId, blob),
-		})
-
-		const refresh = () => {
-			const url = new URL(window.location.href)
-			if (!isEligibleFilesView(url)) {
-				queue.stop()
-				return
-			}
-			const { ids, visible } = readRows(document)
-			queue.setFolder(folderKey(url), ids, visible)
-		}
-
-		// Waits for the list to settle, but not for ever: an upload's progress or another
-		// app can keep changing the page
-		let timer = null
-		let firstChange = 0
-		const scheduleRefresh = () => {
-			const now = Date.now()
-			if (timer === null) {
-				firstChange = now
-			} else if (now - firstChange >= REFRESH_MAX_WAIT_MS) {
-				return
-			}
-			clearTimeout(timer)
-			timer = setTimeout(() => {
-				timer = null
-				refresh()
-			}, REFRESH_DELAY_MS)
-		}
-
-		new MutationObserver(() => {
+	try {
+		observer = new MutationObserver(() => {
 			restoreThumbnails(document)
 			scheduleRefresh()
-		}).observe(document.body, {
+		})
+		observer.observe(document.body, {
 			childList: true,
 			subtree: true,
 			attributes: true,
 			attributeFilter: ['data-cy-files-list-row-fileid'],
 		})
 		window.addEventListener('popstate', scheduleRefresh)
-		refresh()
+		await refresh()
 	} catch (error) {
 		logger.warn('filesPage', 'Background thumbnails did not start', error)
 	}

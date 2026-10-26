@@ -1864,9 +1864,10 @@ renderThumbnail: fixed look on a detached canvas → POST /api/thumbnail/{fileId
 ```
 main.js on /apps/files (not on public shares) → import('./thumbnails/filesPage.js') → startFilesThumbnails()
     ↓
-Logged-in user and "Create thumbnails while browsing Files" (thumbnails.background) on, else nothing more
+MutationObserver (500 ms debounce, 2 s at most) + popstate → read the URL and the rendered rows
     ↓
-MutationObserver (500 ms debounce) + popstate → read the URL and the rendered rows
+First eligible view with a model row → import('./filesQueue.js'): logged-in user and
+"Create thumbnails while browsing Files" (thumbnails.background) on, else stop watching the page
     ↓
 Eligible view → queue.setFolder(folderKey, model ids, visible ids); recent, trash bin, search or ?query= → queue.stop()
     ↓
@@ -1875,10 +1876,10 @@ backgroundQueue: status → limits → wait for idle and a visible tab → downl
 Stored → the row's icon is replaced at once (swapRowIcon); after a reload the Files app shows the preview
 ```
 
-- `filesPage.js` reads the Files app's rows by their `data-cy-files-list-row-fileid` and `data-cy-files-list-row-name` attributes and passes on only rows whose extension the worker can render, so a folder without models costs no request. Rows on screen go first. The folder key is `<view>:<dir param or route file id>`.
+- `filesPage.js` loads on every Files page, so it imports only the format list (about 15 KB with its chunks); the user, the settings, the API, the loader, the worker host and the queue live in `filesQueue.js` and its chunks (about 230 KB), loaded once per page and only when a folder shows a model. It reads the Files app's rows by their `data-cy-files-list-row-fileid` and `data-cy-files-list-row-name` attributes and passes on only rows whose extension the worker can render, so a folder without models costs no request. Rows on screen go first. The folder key is `<view>:<dir param or route file id>`.
 - The thumbnail is put in the row as an extra `<img class="threedviewer-thumbnail">`; the Files app's own icon is hidden, not removed, since its list reuses row elements as it scrolls and patches the nodes it owns. Thumbnails made on the page are remembered (up to 200) and put back when their row is rendered again, and taken out of a row that now shows another file.
 - `backgroundQueue.js` does one file at a time. Before downloading anything it skips files it cannot render in a worker, files the user cannot edit, versions that already have a thumbnail, files on the skip list and files over "Skip files larger than". A file larger than what is left of "Download at most, per folder visit" ends the visit. A new folder aborts the current job (without skipping its file) and starts a fresh budget.
-- Work waits for `requestIdleCallback` (a 200 ms timer where there is none) and pauses while the tab is hidden or Save-Data is on.
+- Work waits for `requestIdleCallback` (a 200 ms timer where there is none) and pauses while the tab is hidden, Save-Data is on, or the viewer is open over the list (the Files app's `openfile=true` URL parameter, or the Viewer app's `#viewer` modal). A job already running when the viewer opens finishes, within its time limit. Waiting callbacks share one `visibilitychange` and one `navigator.connection` listener; closing the viewer is noticed through the page's MutationObserver.
 - A file whose download fails, whose render fails or runs past "Give up on a file after" goes on the skip list, `localStorage['threedviewer:thumbnailSkips']`, keyed by file id and ETag (at most 2000 entries). A changed file is tried again; "Retry skipped files" clears the list.
 
 **The worker** (`workerRenderer.js`, `thumbnail.worker.js`): every render gets a fresh dedicated module worker, loaded from the app's own URL, which is terminated as soon as the job settles, times out or is aborted. Terminating is the only way to stop a parse running inside WebAssembly (OCCT, web-ifc), and it frees the parse's memory before the next file. The time limit covers the download and the render together. Formats whose loader needs `DOMParser`, which workers lack (`3mf`, `amf`, `dae`, `x3d`, `WORKER_UNSAFE_FORMATS` in `formats.js`), are left to the viewer. The worker script is a static file served without a CSP header, so the Files page's `worker-src 'self'` allows it, and the Draco decoder worker it starts from a `blob:` URL is allowed by the worker's own (empty) policy.
