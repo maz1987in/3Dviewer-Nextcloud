@@ -113,6 +113,38 @@ describe('createWorkerResources', () => {
 		}
 	})
 
+	it('refuses an encoded slash or backslash under a decoder folder', () => {
+		// WHATWG URL parsing resolves ../ and %2e%2e but leaves %2F and %5C alone, so
+		// these keep the decoder prefix while a decoding server reads them as a climb.
+		const resources = resourcesFor()
+
+		for (const url of [
+			`${APP_ROOT}draco/..%2F..%2Fremote.php/dav/files/alice/x`,
+			`${ORIGIN}${APP_ROOT}draco/..%2F..%2F..%2Fremote.php/dav/files/alice/x`,
+			`${APP_ROOT}draco/..%5C..%5Cremote.php/dav/files/alice/x`,
+			`${APP_ROOT}draco/%2e%2e%2F%2e%2e%2Fremote.php/dav/files/alice/x`,
+			`${APP_ROOT}draco/%2E%2E%2f..%2fremote.php/dav/files/alice/x`,
+			`${APP_ROOT}basis/basis_transcoder%2Ejs`,
+		]) {
+			expect([url, resources.isAllowed(url)]).toEqual([url, false])
+			resources.resolve(url)
+		}
+		expect(resources.refused).toHaveLength(6)
+	})
+
+	it('still allows decoder assets when the install path itself is percent-encoded', () => {
+		const root = '/my%20cloud/custom_apps/threedviewer/'
+		const resources = createWorkerResources({
+			files: [],
+			appWebRoot: root,
+			baseUrl: `${ORIGIN}${root}js/thumbnail-worker-abc.mjs`,
+			createObjectURL: () => 'blob:unused',
+		})
+
+		expect(resources.isAllowed(`${root}draco/draco_decoder.wasm`)).toBe(true)
+		expect(resources.isAllowed(`${root}draco/..%2F..%2Fremote.php/dav/files/alice/x`)).toBe(false)
+	})
+
 	it('never lets a handed file stand in for a decoder', () => {
 		// A companion named like the Draco wrapper must not replace the code the decoder runs
 		const resources = resourcesFor([new File(['evil'], 'draco_wasm_wrapper.js')])

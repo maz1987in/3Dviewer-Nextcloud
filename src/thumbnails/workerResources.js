@@ -120,8 +120,16 @@ export function createWorkerResources({ files = [], appWebRoot = null, baseUrl, 
 		} catch {
 			return false
 		}
-		// The parser has already resolved any ../ segments, encoded or not
-		return parsed.origin === base.origin && decoderRoots.some((root) => parsed.pathname.startsWith(root))
+		if (parsed.origin !== base.origin) {
+			return false
+		}
+		// The parser resolves ../ and %2e%2e, but leaves %2F and %5C encoded, and a
+		// server that decodes them would read draco/..%2F..%2Fremote.php as a climb out
+		// of the decoder folder. No decoder asset has a % in its name, so any is refused.
+		// Only the part under the root is checked: the root itself is the install's own
+		// path, which may be percent-encoded legitimately.
+		return decoderRoots.some((root) => parsed.pathname.startsWith(root)
+			&& !parsed.pathname.slice(root.length).includes('%'))
 	}
 
 	const isAllowed = (url) => {
