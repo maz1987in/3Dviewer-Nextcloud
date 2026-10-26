@@ -286,7 +286,7 @@ describe('loadModelForBackground', () => {
 		// Not at maps/stone.png, so by its name beside the model; the remote one is not a companion
 		expect(fromX3d.dependencies.map((file) => file.name)).toEqual(['stone.png'])
 		expect(fromX3d.missingFiles).toEqual([])
-		expect(server.urls().filter((url) => url.includes('example.com'))).toEqual([])
+		expect(server.urls().filter((url) => new URL(url, 'http://localhost').hostname === 'example.com')).toEqual([])
 	})
 
 	it('a COLLADA image that is not beside the model is reported missing', async () => {
