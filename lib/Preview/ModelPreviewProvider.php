@@ -4,16 +4,22 @@ declare(strict_types=1);
 
 namespace OCA\ThreeDViewer\Preview;
 
-use OCA\ThreeDViewer\Service\ModelFileSupport;
+use OCA\ThreeDViewer\Constants\SupportedFormats;
 use OCA\ThreeDViewer\Service\ThumbnailService;
 use OCP\Files\File;
 use OCP\Files\FileInfo;
 use OCP\IImage;
-use OCP\IUserSession;
 use OCP\Preview\IProviderV2;
+use Psr\Log\LoggerInterface;
 
 /**
  * Preview provider for 3D model files.
+ *
+ * Nextcloud caches the preview this provider returns per file, for every user, so the
+ * provider must not depend on who is asking: it is called for other users, by cron and
+ * for public-link visitors, none of whom have the session that uploaded the thumbnail.
+ * Thumbnails are stored once per file version (see ThumbnailService), so a lookup by
+ * file id and ETag serves any reader and never serves a thumbnail of an older version.
  *
  * This provider can be enabled/disabled by Nextcloud admins via the
  * `enabledPreviewProviders` config option in config/config.php:
@@ -24,61 +30,36 @@ use OCP\Preview\IProviderV2;
  *     'OCA\ThreeDViewer\Preview\ModelPreviewProvider',
  * ],
  *
- * When enabled, this provider will attempt to generate previews for 3D model files.
- * When disabled or when preview generation fails, Nextcloud automatically falls back
- * to displaying custom filetype SVG icons registered via mimetypemapping.json.
+ * When enabled, this provider returns the stored thumbnail of a model file. When
+ * disabled, or when there is no thumbnail for the current version, Nextcloud falls
+ * back to the custom filetype SVG icons registered via mimetypemapping.json.
  */
 class ModelPreviewProvider implements IProviderV2
 {
-    private ModelFileSupport $modelFileSupport;
-    private ThumbnailService $thumbnailService;
-    private IUserSession $userSession;
-
-    /** @var list<string> Supported MIME types for thumbnails */
-    private array $supportedMimes = [
-        'model/gltf-binary',        // .glb
-        'model/gltf+json',          // .gltf
-        'model/obj',                // .obj
-        'model/stl',                // .stl
-        'application/sla',          // .stl alternative
-        'model/ply',                // .ply
-        'model/vnd.collada+xml',    // .dae
-        'model/3mf',                // .3mf
-        'model/x3d+xml',            // .x3d
-        'model/vrml',               // .vrml, .wrl
-        // Generic MIME types that need extension check
-        'application/octet-stream', // Used for fbx, 3ds
-    ];
-
-    /** @var list<string> Formats supported for thumbnail generation */
-    private array $thumbnailSupportedFormats = ['glb', 'gltf', 'obj', 'stl', 'ply', '3mf', 'fbx', 'dae', '3ds', 'x3d', 'wrl', 'vrml'];
-
     public function __construct(
-        ModelFileSupport $modelFileSupport,
-        ThumbnailService $thumbnailService,
-        IUserSession $userSession
+        private readonly ThumbnailService $thumbnailService,
+        private readonly LoggerInterface $logger,
     ) {
-        $this->modelFileSupport = $modelFileSupport;
-        $this->thumbnailService = $thumbnailService;
-        $this->userSession = $userSession;
     }
 
     /**
      * Get the supported MIME type regex for this provider.
      *
+     * Derived from the supported formats, so formats whose MIME type is not `model/*`
+     * (ifc, fcstd, gcode) are covered too.
+     *
      * @return string Regex pattern matching supported MIME types
      */
     public function getMimeType(): string
     {
-        // Return regex that matches 3D model MIME types
-        return '/^model\/.*/';
+        return SupportedFormats::getPreviewMimeRegex();
     }
 
     /**
      * Check if this provider can generate a preview for a given file.
      *
-     * Only returns true if we have a stored client-generated thumbnail.
-     * This allows Nextcloud to fall back to mime type icons for files
+     * Only returns true if we have a stored client-generated thumbnail for the file's
+     * current version. This allows Nextcloud to fall back to mime type icons for files
      * that haven't been viewed yet.
      *
      * @param FileInfo $file The file info to check
@@ -86,33 +67,30 @@ class ModelPreviewProvider implements IProviderV2
      */
     public function isAvailable(FileInfo $file): bool
     {
-        $extension = strtolower(pathinfo($file->getName(), PATHINFO_EXTENSION));
-
-        // Check if file type is supported
-        if (!in_array($extension, $this->thumbnailSupportedFormats, true)) {
+        if (!$this->isThumbnailFormat($file->getName())) {
             return false;
         }
 
-        // Check if we have a stored thumbnail
-        $user = $this->userSession->getUser();
-        if ($user === null) {
+        $key = $this->versionKey($file->getId(), $file->getEtag());
+        if ($key === null) {
             return false;
         }
 
-        $fileId = $file->getId();
-        if ($fileId === null) {
+        try {
+            return $this->thumbnailService->has($key[0], $key[1]);
+        } catch (\Throwable $e) {
+            // A broken thumbnail store must not break a folder listing.
+            $this->logger->warning('Could not check for a stored thumbnail', ['exception' => $e, 'fileId' => $key[0]]);
+
             return false;
         }
-
-        // Only return true if thumbnail actually exists
-        return $this->thumbnailService->hasThumbnail($fileId, $user->getUID());
     }
 
     /**
      * Generate a preview image for a 3D model file.
      *
-     * Returns stored client-generated thumbnail if available, otherwise returns null
-     * to use filetype icons.
+     * Returns the stored client-generated thumbnail if there is one for the file's
+     * current version, otherwise null to use filetype icons.
      *
      * @param File $file The file to generate a preview for
      * @param int $maxX Maximum width of the preview
@@ -121,42 +99,66 @@ class ModelPreviewProvider implements IProviderV2
      */
     public function getThumbnail(File $file, int $maxX, int $maxY): ?IImage
     {
-        // Check if format is supported for thumbnails
-        $extension = strtolower(pathinfo($file->getName(), PATHINFO_EXTENSION));
-        if (!in_array($extension, $this->thumbnailSupportedFormats, true)) {
+        if (!$this->isThumbnailFormat($file->getName())) {
             return null;
         }
 
-        // Get current user (may be null in background contexts)
-        $user = $this->userSession->getUser();
-        if ($user === null) {
-            // No user session (e.g., in cron job) - can't access user-specific thumbnails
+        $key = $this->versionKey($file->getId(), $file->getEtag());
+        if ($key === null) {
             return null;
         }
 
-        $userId = $user->getUID();
-        $fileId = $file->getId();
-
-        // Try to get stored thumbnail content
-        $thumbnailContent = $this->thumbnailService->getThumbnailContent($fileId, $userId);
-        if ($thumbnailContent !== null) {
-            // Try to create image from content using Nextcloud's OC_Image
-            try {
-                $image = new \OCP\Image();
-                if ($image->loadFromData($thumbnailContent)) {
-                    // Resize if needed
-                    if ($image->width() > $maxX || $image->height() > $maxY) {
-                        $image->resize(max($maxX, $maxY));
-                    }
-
-                    return $image;
-                }
-            } catch (\Throwable $e) {
-                // Failed to load image, return null
+        try {
+            $bytes = $this->thumbnailService->get($key[0], $key[1]);
+            if ($bytes === null) {
+                return null;
             }
+
+            $image = $this->createImage($bytes);
+            if ($image === null) {
+                return null;
+            }
+
+            if ($image->width() > $maxX || $image->height() > $maxY) {
+                $image->resize(max($maxX, $maxY));
+            }
+
+            return $image;
+        } catch (\Throwable $e) {
+            // Unreadable or undecodable thumbnail: fall back to the filetype icon.
+            $this->logger->warning('Could not load the stored thumbnail', ['exception' => $e, 'fileId' => $key[0]]);
+
+            return null;
+        }
+    }
+
+    /**
+     * Seam for testing: `\OCP\Image` extends a server-internal class and cannot be
+     * constructed in a unit test.
+     *
+     * @return IImage|null The decoded image, or null if the bytes are not an image
+     */
+    protected function createImage(string $data): ?IImage
+    {
+        $image = new \OCP\Image();
+
+        return $image->loadFromData($data) ? $image : null;
+    }
+
+    private function isThumbnailFormat(string $name): bool
+    {
+        return in_array(strtolower(pathinfo($name, PATHINFO_EXTENSION)), SupportedFormats::getThumbnailExtensions(), true);
+    }
+
+    /**
+     * @return array{int, string}|null The thumbnail key, or null when the file has no id or ETag
+     */
+    private function versionKey(?int $fileId, ?string $etag): ?array
+    {
+        if ($fileId === null || $etag === null || $etag === '') {
+            return null;
         }
 
-        // No thumbnail available - return null to use filetype icon
-        return null;
+        return [$fileId, $etag];
     }
 }

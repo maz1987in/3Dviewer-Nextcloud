@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OCA\ThreeDViewer\AppInfo;
 
 use OCA\Files_Sharing\Event\BeforeTemplateRenderedEvent as PublicShareTemplateRenderedEvent;
+use OCA\ThreeDViewer\Constants\SupportedFormats;
 use OCA\ThreeDViewer\Listener\CspListener;
 use OCA\ThreeDViewer\Listener\FileIndexListener;
 use OCA\ThreeDViewer\Listener\LoadFilesListener;
@@ -71,9 +72,10 @@ class Application extends App implements IBootstrap
         }
 
         // Register preview provider for 3D model files
-        // The provider returns stored client-generated thumbnails when available
-        // Uses regex '/^model\/.*/' to match all model/* MIME types
-        $context->registerPreviewProvider(ModelPreviewProvider::class, '/^model\\/.*/');
+        // The provider returns stored client-generated thumbnails when available. The regex
+        // is derived from the supported formats, because not every one is a model/* type
+        // (ifc, fcstd and gcode are not), and generic types like octet-stream stay out.
+        $context->registerPreviewProvider(ModelPreviewProvider::class, SupportedFormats::getPreviewMimeRegex());
 
         // Register file index listener to automatically update index on file changes
         $context->registerEventListener(NodeCreatedEvent::class, FileIndexListener::class);
