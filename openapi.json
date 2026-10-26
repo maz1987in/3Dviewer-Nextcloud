@@ -291,7 +291,7 @@
         },
         {
             "name": "thumbnail",
-            "description": "Controller for handling thumbnail uploads from client."
+            "description": "Stores the thumbnails the browser renders for 3D models, and reports which models have one. A thumbnail is stored once per file version and shown to everyone who can read the file, so this controller is the only gate on who may write one: it requires the CSRF token and update rights on the file, and it only ever stores under the server's own ETag."
         },
         {
             "name": "public_file",

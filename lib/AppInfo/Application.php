@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace OCA\ThreeDViewer\AppInfo;
 
 use OCA\Files_Sharing\Event\BeforeTemplateRenderedEvent as PublicShareTemplateRenderedEvent;
+use OCA\ThreeDViewer\Constants\SupportedFormats;
 use OCA\ThreeDViewer\Listener\CspListener;
 use OCA\ThreeDViewer\Listener\FileIndexListener;
 use OCA\ThreeDViewer\Listener\LoadFilesListener;
 use OCA\ThreeDViewer\Listener\LoadPublicShareListener;
 use OCA\ThreeDViewer\Listener\LoadViewerListener;
+use OCA\ThreeDViewer\Listener\ThumbnailInvalidationListener;
 use OCA\ThreeDViewer\Preview\ModelPreviewProvider;
 use OCA\ThreeDViewer\Repair\RegisterThreeDMimeTypes;
 use OCA\ThreeDViewer\Settings\Personal;
@@ -71,14 +73,19 @@ class Application extends App implements IBootstrap
         }
 
         // Register preview provider for 3D model files
-        // The provider returns stored client-generated thumbnails when available
-        // Uses regex '/^model\/.*/' to match all model/* MIME types
-        $context->registerPreviewProvider(ModelPreviewProvider::class, '/^model\\/.*/');
+        // The provider returns stored client-generated thumbnails when available. The regex
+        // is derived from the supported formats, because not every one is a model/* type
+        // (ifc, fcstd and gcode are not), and generic types like octet-stream stay out.
+        $context->registerPreviewProvider(ModelPreviewProvider::class, SupportedFormats::getPreviewMimeRegex());
 
         // Register file index listener to automatically update index on file changes
         $context->registerEventListener(NodeCreatedEvent::class, FileIndexListener::class);
         $context->registerEventListener(NodeWrittenEvent::class, FileIndexListener::class);
         $context->registerEventListener(NodeDeletedEvent::class, FileIndexListener::class);
+
+        // Thumbnails are stored per file version; drop them when the file changes or goes
+        $context->registerEventListener(NodeWrittenEvent::class, ThumbnailInvalidationListener::class);
+        $context->registerEventListener(NodeDeletedEvent::class, ThumbnailInvalidationListener::class);
 
         // Source allowances (blob:, data:) are only applied to 3D viewer routes via
         // ResponseBuilder, which prevents conflicts with other apps' CSP requirements.

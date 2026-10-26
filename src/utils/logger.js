@@ -8,12 +8,15 @@
  * @return {boolean}
  */
 function isDevelopment() {
+	// globalThis rather than window: the thumbnail worker logs through here too, and a
+	// worker has a location but no window
+	const hostname = globalThis.location?.hostname ?? ''
 	// Check various environment indicators
 	return (
 		(typeof process !== 'undefined' && process.env?.NODE_ENV === 'development')
-		|| window.location.hostname === 'localhost'
-		|| window.location.hostname === '127.0.0.1'
-		|| window.location.hostname.includes('local')
+		|| hostname === 'localhost'
+		|| hostname === '127.0.0.1'
+		|| hostname.includes('local')
 	)
 }
 

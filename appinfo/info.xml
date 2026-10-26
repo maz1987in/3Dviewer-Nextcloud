@@ -85,6 +85,10 @@ Built with Three.js for high-performance WebGL rendering. ✨]]></description>
 		<job>OCA\ThreeDViewer\Cron\CleanupOrphanNotes</job>
 	</background-jobs>
 	<repair-steps>
+		<post-migration>
+			<!-- Retire the per-user thumbnail store; thumbnails now live under thumbnails-v2 -->
+			<step>OCA\ThreeDViewer\Repair\RemoveLegacyThumbnails</step>
+		</post-migration>
 		<install>
 			<!-- Register 3D model MIME types in database and create config files -->
 			<step>OCA\ThreeDViewer\Repair\RegisterThreeDMimeTypes</step>

@@ -387,6 +387,47 @@ class FbxLoader extends BaseLoader {
 		return null
 	}
 
+	/**
+	 * Where a texture the FBX asks for is loaded from.
+	 *
+	 * A `blob:` or `data:` URL is an image the FBX carries itself: three's FBXLoader makes
+	 * one from a Video node's Content and loads the texture from it. It is returned as it
+	 * is; looked up by name it matched nothing, and the texture got the placeholder.
+	 *
+	 * @param {string} url - As the FBXLoader asked for it
+	 * @param {Map<string, string>} dataUriMap - Companion images by lowercased name
+	 * @param {File[]} additionalFiles - The companions the model was loaded with
+	 * @return {string} The URL to load
+	 */
+	resolveTextureUrl(url, dataUriMap, additionalFiles) {
+		if (/^(blob|data):/i.test(url)) {
+			return url
+		}
+
+		const textureName = url.split('/').pop().split('\\').pop()
+
+		// Try data URI map first (CSP-safe)
+		const dataUri = dataUriMap.get(textureName.toLowerCase())
+		if (dataUri) {
+			logger.info('FBXLoader', 'Loading texture from dependencies', { textureName })
+			return dataUri
+		}
+
+		// Try flexible matching
+		const textureFile = this.findTextureFile(textureName, additionalFiles)
+		if (textureFile) {
+			const matchedName = textureFile.name.split(/[/\\]/).pop().toLowerCase()
+			const matchedUri = dataUriMap.get(matchedName)
+			if (matchedUri) {
+				logger.info('FBXLoader', 'Loading texture from dependencies (fuzzy match)', { textureName, matchedName })
+				return matchedUri
+			}
+		}
+
+		logger.warn('FBXLoader', `Texture "${textureName}" not found in dependencies`)
+		return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+	}
+
 	async loadFbxStandard(arrayBuffer, context) {
 		const { THREE, additionalFiles = [] } = context
 
@@ -413,30 +454,7 @@ class FbxLoader extends BaseLoader {
 		const manager = new THREE.LoadingManager()
 
 		// Set up URL modifier to intercept texture loading
-		manager.setURLModifier((url) => {
-			const textureName = url.split('/').pop().split('\\').pop()
-
-			// Try data URI map first (CSP-safe)
-			const dataUri = dataUriMap.get(textureName.toLowerCase())
-			if (dataUri) {
-				logger.info('FBXLoader', 'Loading texture from dependencies', { textureName })
-				return dataUri
-			}
-
-			// Try flexible matching
-			const textureFile = this.findTextureFile(textureName, additionalFiles)
-			if (textureFile) {
-				const matchedName = textureFile.name.split(/[/\\]/).pop().toLowerCase()
-				const matchedUri = dataUriMap.get(matchedName)
-				if (matchedUri) {
-					logger.info('FBXLoader', 'Loading texture from dependencies (fuzzy match)', { textureName, matchedName })
-					return matchedUri
-				}
-			}
-
-			logger.warn('FBXLoader', `Texture "${textureName}" not found in dependencies`)
-			return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
-		})
+		manager.setURLModifier((url) => this.resolveTextureUrl(url, dataUriMap, additionalFiles))
 
 		// Create FBX loader with the loading manager
 		this.loader = new FBXLoader(manager)

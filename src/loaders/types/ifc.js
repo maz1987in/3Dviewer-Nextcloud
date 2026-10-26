@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import * as WebIFC from 'web-ifc'
-import { generateFilePath } from '@nextcloud/router'
+import { appAssetPath } from '../appAssetPath.js'
 import { BaseLoader } from '../BaseLoader.js'
 
 /**
@@ -34,7 +34,7 @@ class IfcLoader extends BaseLoader {
 	async loadModel(arrayBuffer, context) {
 		this.ifcApi = new WebIFC.IfcAPI()
 		// `true` as 2nd arg = use path as absolute (don't prepend script URL).
-		this.ifcApi.SetWasmPath(generateFilePath('threedviewer', 'web-ifc', ''), true)
+		this.ifcApi.SetWasmPath(appAssetPath('web-ifc'), true)
 		await this.ifcApi.Init()
 
 		const uint8 = new Uint8Array(arrayBuffer)

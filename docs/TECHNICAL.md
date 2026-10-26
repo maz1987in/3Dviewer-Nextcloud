@@ -58,7 +58,7 @@ The 3D Viewer is a Nextcloud application that provides 3D model viewing capabili
 - **`PageController`**: Frontpage route returning the app shell
 - **`SettingsController`**: User settings management (`/settings`)
 - **`SlicerController`**: Slicer integration and temporary file handling (`/api/slicer/temp`)
-- **`ThumbnailController`**: Thumbnail upload and management (`/api/thumbnail/{fileId}`, `/api/thumbnails`)
+- **`ThumbnailController`**: Thumbnail status and upload (`/api/thumbnails/status`, `/api/thumbnail/{fileId}`)
 
 **Slicer temp file security posture:**
 - Temp folder: `.3dviewer_temp` under each user’s home.
@@ -73,7 +73,7 @@ The 3D Viewer is a Nextcloud application that provides 3D model viewing capabili
 - **`ShareFileService`**: Public share file handling
 - **`ModelFileSupport`**: 3D format support wrapper (delegates to `SupportedFormats`)
 - **`FileIndexService`**: Database-backed file indexing for navigation
-- **`ThumbnailService`**: Thumbnail storage and retrieval using IAppData
+- **`ThumbnailService`**: One thumbnail per file version, stored in IAppData
 
 **Constants:**
 - **`SupportedFormats`**: Centralized format definitions and MIME type mappings (single source of truth)
@@ -140,7 +140,7 @@ from becoming a way to name-guess files beside the model that were never shared.
 
 - Composition API with refs/computed: All 16 composables for comprehensive state management
 - Core composables: `useCamera`, `useModelLoading`, `useComparison`, `useMeasurement`, `useAnnotation`
-- UI composables: `useController`, `useExport`, `useFaceLabels`, `useModelStats`, `useProgressiveTextures`, `useTheme`, `useUI`, `useThumbnailCapture`
+- UI composables: `useController`, `useExport`, `useFaceLabels`, `useModelStats`, `useProgressiveTextures`, `useTheme`, `useUI`
 - Utility composables: `useMobile`, `usePerformance`, `useScene`
 - Emits include: `model-loaded`, `error`, `toggle-comparison`, `export-complete`, etc.
 
@@ -1827,83 +1827,89 @@ The application provides a comprehensive user-specific configuration system that
 
 ### Thumbnail Generation System
 
-The application automatically generates thumbnails for 3D models when they are viewed, providing visual previews in file lists.
+Nextcloud cannot render 3D models on the server, so the browser renders them and uploads a PNG that the app's preview provider then serves to the Files app. There are two producers: the open viewer, and a background queue on the Files page that works through the folder being browsed. Both render with the same fixed look (512x512, transparent background, default lighting and camera framing), so a thumbnail does not depend on who made it or how the viewer was set up.
 
-**Architecture:**
+**Storage and the version rule:**
+
+- One PNG per file version, shared by every reader, in the app data (`IAppData`), never in user files: `thumbnails-v2/<fileId>/<sha1(etag)>.png`.
+- The ETag identifies the version. The first thumbnail stored for a version is kept; a later upload for it gets 409.
+- An upload names the ETag of the version that was rendered. The server compares it with the file's current ETag and answers 412 (`stale`) when they differ, so a thumbnail of old bytes is never filed under a newer version. The storage key is always the server's ETag.
+- `ThumbnailInvalidationListener` deletes a file's folder on `NodeWrittenEvent` and `NodeDeletedEvent`, alongside Nextcloud clearing its own preview cache.
+- The `RemoveLegacyThumbnails` repair step removes the per-user store (`thumbnails/<userId>/`) that earlier versions used.
+- Accepted images: PNG, 16 to 1024 px per side, at most 1 MB (`ThumbnailService::MAX_BYTES`).
+
+**Endpoints** (`ThumbnailController`; both need a logged-in user and the request token):
+
+- `GET /api/thumbnails/status?ids=1,2,3`: up to 200 ids. For each model file the user can read it returns `name`, `dir`, `size`, `etag`, `canEdit` and `hasThumbnail` (for that ETag). Folders, other files and unreadable ids are left out.
+- `POST /api/thumbnail/{fileId}?etag=<etag>`: the body is the raw PNG. 201 stored, 409 exists, 412 stale, 403 without edit rights (`NoteAccess::forUser(...)->canEdit`), 404 for a file the user cannot read or that is not a model, 400 for a missing ETag or an image that is not accepted.
+
+**Preview provider** (`ModelPreviewProvider`, registered with `SupportedFormats::getPreviewMimeRegex()`, which covers every thumbnail format's MIME type, including `application/x-step`, `application/x-fcstd` and `text/x-gcode`): `isAvailable()` is true only when a thumbnail exists for the file's current ETag, and `getThumbnail()` returns it, scaled down to the requested size. It does not depend on the session, so share recipients and public links get the same image. Files without one fall back to the MIME icon.
+
+**From the viewer:**
 
 ```
-User views 3D model
+Model load begins → GET /api/thumbnails/status (startStatusFetch, before the download)
     ↓
-ThreeViewer/ViewerComponent renders model
+Model loaded, 500 ms later → captureForCurrentVersion (src/thumbnails/captureFromViewer.js)
     ↓
-After 500ms delay (allow render to complete)
+Skipped unless the user can edit the file and this version has no thumbnail; never on public shares
     ↓
-useThumbnailCapture composable
-    ↓
-Hide grid/axes → Render frame → Capture canvas
-    ↓
-Smart crop (find content bounds, add padding)
-    ↓
-Resize to 512x512 PNG
-    ↓
-Upload to /api/thumbnail/{fileId}
-    ↓
-ThumbnailController validates and stores
-    ↓
-ThumbnailService saves to IAppData (not user files)
+renderThumbnail: fixed look on a detached canvas → POST /api/thumbnail/{fileId}?etag=<etag from the status>
 ```
 
-**Backend Components:**
+`ThreeViewer.vue` and `ViewerComponent.vue` wait for the status (`awaitStatusBeforeDownload`) before they start the model download, and capture after the model loads, when "Enable Thumbnail Generation" (`thumbnails.enabled`) is on. The ETag therefore comes from a status that has arrived before the first byte of the download was requested; a request merely sent first would not do, as the server may read the file for the download before it reads it for the status. The wait is that one request: if it fails, or has no answer within 10 seconds, the model loads anyway and this open makes no thumbnail. A load that took a material or texture from the dependency cache (`_fromCache` on the file, set by `fetchFileFromUrl`) is not captured either, since that cache is keyed by file id and name rather than version and a thumbnail is permanent; the next open or the Files page makes it from fresh files.
 
-- **`ThumbnailController`** (`lib/Controller/ThumbnailController.php`):
-  - `POST /api/thumbnail/{fileId}` - Store thumbnail (base64 image data)
-  - `DELETE /api/thumbnails` - Clear all user thumbnails
-  - Validates file ownership, format support, and image data
+**From the Files page** (background):
 
-- **`ThumbnailService`** (`lib/Service/ThumbnailService.php`):
-  - Uses `IAppData` for storage (app-internal, not in user files)
-  - Thumbnails stored in `appdata_xxx/threedviewer/thumbnails/{userId}/`
-  - Prevents thumbnails from appearing in "Recommended files" or recent files
-  - Methods: `storeThumbnail()`, `getThumbnailContent()`, `hasThumbnail()`, `clearAllThumbnails()`
+```
+main.js on /apps/files (not on public shares) → import('./thumbnails/filesPage.js') → startFilesThumbnails()
+    ↓
+MutationObserver (500 ms debounce, 2 s at most) + popstate → read the URL and the rendered rows
+    ↓
+First eligible view with a model row → import('./filesQueue.js'): logged-in user and
+"Create thumbnails while browsing Files" (thumbnails.background) on, else stop watching the page
+    ↓
+Eligible view → queue.setFolder(folderKey, model ids, visible ids); recent, trash bin, search or ?query= → queue.stop()
+    ↓
+backgroundQueue: status → limits → wait for idle and a visible tab → download → render in a worker → upload
+    ↓
+Stored → the row's icon is replaced at once (swapRowIcon); after a reload the Files app shows the preview
+```
 
-**Frontend Components:**
+- `filesPage.js` loads on every Files page, so it imports only the format list (about 15 KB with its chunks); the user, the settings, the API, the loader, the worker host and the queue live in `filesQueue.js` and its chunks (about 230 KB), loaded once per page and only when a folder shows a model. It reads the Files app's rows by their `data-cy-files-list-row-fileid` and `data-cy-files-list-row-name` attributes and passes on only rows whose extension the worker can render, so a folder without models costs no request. Rows on screen go first. The folder key is `<view>:<dir param or route file id>`.
+- The thumbnail is put in the row as an extra `<img class="threedviewer-thumbnail">`; the Files app's own icon is hidden, not removed, since its list reuses row elements as it scrolls and patches the nodes it owns. Thumbnails made on the page are remembered (up to 200) and put back when their row is rendered again, and taken out of a row that now shows another file.
+- In views other than `files` (favorites, shares, tags), work starts only inside a folder, a `dir` other than the root: their top-level lists are flat and can span the whole library. In the tags view a `dir` whose first segment is a tag id is the flat list of that tag, so it does not count.
+- `backgroundQueue.js` does one file at a time. Before downloading anything it skips files it cannot render in a worker, files the user cannot edit, versions that already have a thumbnail, files on the skip list and files over "Skip files larger than". `.nc` and `.g` are never rendered in the background (`AMBIGUOUS_FORMATS` in `formats.js`): other software uses them too, NetCDF for `.nc`, so only opening one in the viewer says it is a model. A file larger than what is left of "Download at most, per folder visit" ends the visit without being skipped, so the next visit's fresh budget tries it; one larger than the whole budget can never fit, so it is skipped and the visit goes on with the next file. A new folder, or `stop()`, aborts the current job, its download included, without skipping its file, and starts a fresh budget.
+- Downloads use `loadModelForBackground` (`backgroundLoad.js`), not the viewer's `loadModelWithDependencies`. It fetches only the companions the model declares (the OBJ's `mtllib` and the maps its MTL names, glTF buffers and images, FBX and 3DS texture names; an FBX texture whose image is embedded in its `Video` node's `Content` is not a companion and is not looked up, in the viewer either), each found through `/api/files/find` at the path the model declares or by its name beside the model, and never lists or scans a folder. The viewer's loader does both: an FBX or 3DS that declares no texture it can resolve makes it list the model's folder tree and download every image in it, which is fine for one model someone chose to open and not for every model in a folder, unattended. The lookup reports each companion's size, which is checked against what is left of the budget before the companion is fetched; one of unknown size is not fetched. Once one declared companion cannot be had, no more are fetched, and the load reports `missingFiles`, `budgetReached` and `bytesNeeded` (everything downloaded plus the companion that did not fit). The queue never renders such a load, because a thumbnail is written once per version and a degraded one would stay: when the budget was the reason, the visit ends with nothing rendered, uploaded or skipped, and the next visit's fresh budget tries again, unless `bytesNeeded` is more than a whole folder budget, in which case the file is skipped so it is not downloaded on every visit; when a companion was not found (or was refused with a 4xx), the file is skipped and the viewer, whose search also covers subfolders, makes the first thumbnail. So a glTF whose `.bin` did not fit never reaches the worker and does not count toward the breaker. A model that declares no companions, such as an FBX without textures, renders as it is, so a model whose textures are not declared gets an untextured thumbnail. One `AbortSignal` goes to every request of the load; it fires at "Give up on a file after", counted from the start of the download, and when the visit ends. Bytes are counted as they arrive, so a download stopped midway still counts against the budget. The dependency cache is not used.
+- A file goes on the skip list, `localStorage['threedviewer:thumbnailSkips']`, keyed by file id and ETag (at most 2000 entries), when:
+  - it runs past "Give up on a file after", while downloading or rendering;
+  - it has nothing to draw;
+  - the server refuses it (4xx);
+  - the worker refuses it, because the model names a file it was not handed;
+  - its loader cannot parse it;
+  - a companion it declares is not found. An FBX with embedded textures declares none for them and renders with them; one that references external textures that are not found is skipped;
+  - it is larger than a whole folder budget, or needs more than one with its companions.
 
-- **`useThumbnailCapture`** (`src/composables/useThumbnailCapture.js`):
-  - `captureAndUpload(renderer, fileId, options)` - Main capture method
-  - Smart content-aware cropping using `findContentBounds()`
-  - Copies WebGL canvas to 2D canvas for pixel analysis
-  - Detects background color from corners, finds content bounding box
-  - Adds 10% padding and centers content in square output
-  - Uses `@nextcloud/axios` for CSRF-safe uploads
+  A changed file is tried again; "Retry skipped files" clears the list. Failures of the browser or the network never skip a file (`ThumbnailEnvironmentError`): a worker that will not load or crashes, a message that cannot be read, a failure while drawing (WebGL), a loader chunk that cannot be fetched, a network error or a 5xx. Before the first download on a page the queue asks the worker once whether it can create a WebGL 2 context on an `OffscreenCanvas` (`probeWorkerRendering`); if it cannot, nothing is downloaded on that page. After three failures in a row that are neither a timeout, an empty model nor a refusal by the worker, background work stops for the page too. A refusal (the model named a URL outside the files it was handed, `ThumbnailRefusedError`) skips the file but is not counted and does not reset the count, so a folder of crafted models cannot stop background work for everyone who browses it.
+- Work waits for `requestIdleCallback` (a 200 ms timer where there is none) and pauses while the tab is hidden, Save-Data is on, or the viewer is open over the list (the Files app's `openfile=true` URL parameter, or the Viewer app's `#viewer` modal). A job already running when the viewer opens finishes, within its time limit. Waiting callbacks share one `visibilitychange` and one `navigator.connection` listener; closing the viewer is noticed through the page's MutationObserver.
 
-- **Integration in Viewers:**
-  - `ThreeViewer.vue`: Hides grid/axes before capture, restores after
-  - `ViewerComponent.vue`: Loads thumbnail setting, captures after model load
-  - Both check `enableThumbnails` setting before capturing
+**The worker** (`workerRenderer.js`, `thumbnail.worker.js`): every render gets a fresh dedicated module worker, loaded from the app's own URL, which is terminated as soon as the job settles, times out or is aborted. Terminating is the only way to stop a parse running inside WebAssembly (OCCT, web-ifc), and it frees the parse's memory before the next file. The time limit covers the download and the render together: the download is aborted when it runs out, and the render gets whatever time is left. Formats whose loader needs `DOMParser`, which workers lack (`3mf`, `amf`, `dae`, `x3d`, `WORKER_UNSAFE_FORMATS` in `formats.js`), are left to the viewer.
 
-**User Settings:**
+**What the worker may load** (`workerResources.js`): the worker renders models from shared folders for someone who is only browsing them, and may run without the page's CSP, so it loads nothing a model merely names. It resolves only the files the job was handed (matched by name, as `blob:` URLs it makes), `data:` URLs, `blob:` URLs it made itself (embedded GLB images, decoder workers), and the decoder assets under the app's web root (`draco/`, `basis/`, `rhino3dm/`, `occt/`, `web-ifc/`) on its own origin; a handed file never stands in for a decoder, and a decoder path with a `%` below its folder is refused, since URL parsing leaves an encoded slash or backslash (`%2F`, `%5C`) in place and a server that decodes it would read `draco/..%2F..%2Fremote.php` as a climb out of the folder. `guardWorkerRequests` makes `fetch()` and `XMLHttpRequest` refuse anything else before a request is sent, the default `LoadingManager`'s URL modifier and the worker's image loader resolve through the same rules, and the glTF and 3DS loaders pass a URL they cannot map to one of their files to the default manager (on a page it has no modifier, so the viewer is unchanged). Every refusal is recorded, and a job with one fails at the `load` stage with `Refused to load …: not one of the model's files`, even when the loader would have carried on without the texture, so the file is skipped rather than given a degraded thumbnail. Loaders that fetch by URL in the worker, and how each is covered: glTF/GLB buffers and images (the glTF manager, then the default one), the Draco decoder (`DRACOLoader`'s `FileLoader`, a decoder asset), OBJ/MTL textures (decoded from the handed files directly; the native `MTLLoader` path goes through the default manager), FBX textures (its own manager, which never returns a network URL; an embedded image is the `blob:` or `data:` URL FBXLoader made from it), 3DS and VRML textures (the default manager), 3DM (`rhino3dm.js` and `.wasm` through the default manager; embedded textures are `data:` URLs), STEP, IGES, BREP and FCSTD (the OCCT `.wasm` via `locateFile`) and IFC (`web-ifc.wasm` via `SetWasmPath`). STL, PLY, OFF, BIM and G-code parse the bytes they are given and request nothing. Loader chunks come in through `import()`, from the app's `js/`, which no model controls.
 
-- **Enable/Disable**: Personal Settings → 3D Viewer → Thumbnails → "Enable Thumbnail Generation"
-- **Clear Thumbnails**: Button to delete all stored thumbnails with count feedback
-- Setting stored in `thumbnails.enabled` preference key
+The worker script is a static file served without a CSP header, so the Files page's `worker-src 'self'` allows it, and the Draco decoder worker it starts from a `blob:` URL is allowed by the worker's own (empty) policy.
 
-**Storage Strategy:**
+**Settings** (Personal Settings → 3D Viewer → Thumbnails; `THUMBNAIL_SETTINGS` in `src/config/viewer-config.js`, read by `loadThumbnailSettings()`, which falls back to the default for anything missing or out of range):
 
-Thumbnails are stored in Nextcloud's app data folder (`IAppData`) rather than in user files:
-- ✅ Does not appear in user's file list
-- ✅ Does not show in "Recommended files" or activity
-- ✅ Isolated per-user storage
-- ✅ Cleaned up with app uninstall
-- ✅ Not synced to desktop/mobile clients
+| Setting | Key | Default | Range |
+|---|---|---|---|
+| Enable Thumbnail Generation (viewer) | `thumbnails.enabled` | on | |
+| Create thumbnails while browsing Files | `thumbnails.background` | on | |
+| Skip files larger than | `thumbnails.maxFileSizeMB` | 50 MB | 1 to 2048 |
+| Give up on a file after | `thumbnails.timeoutSeconds` | 30 s | 5 to 300 |
+| Download at most, per folder visit | `thumbnails.folderBudgetMB` | 500 MB | 50 to 10000 |
 
-**Supported Formats:**
-`glb`, `gltf`, `obj`, `stl`, `ply`, `3mf`, `fbx`, `dae`, `3ds`, `x3d`, `wrl`, `vrml`
-
-**Security:**
-- File ownership validation before storing
-- Base64 image data validated (PNG/JPEG headers)
-- 1MB size limit per thumbnail
-- User authentication required for all operations
+The two switches are independent. "Retry skipped files" clears this browser's skip list.
 
 ### File Browser Implementation
 

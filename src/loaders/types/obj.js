@@ -613,6 +613,18 @@ class ObjLoader extends BaseLoader {
 						return
 					}
 
+					// The thumbnail worker has no <img>, but can decode the File directly.
+					// WebGL ignores flipY for a bitmap, so flip while decoding, which is
+					// what the upload of an <img> does.
+					if (typeof Image === 'undefined') {
+						createImageBitmap(textureFile, { imageOrientation: 'flipY', premultiplyAlpha: 'none' })
+							.then(onLoad, (error) => {
+								logger.warn('OBJLoader', ' Texture failed to load:', { url, error })
+								onLoad(null)
+							})
+						return
+					}
+
 					// Create a blob URL from the pre-fetched file
 					// File objects are already Blobs, so we can use them directly
 					const blobUrl = URL.createObjectURL(textureFile)

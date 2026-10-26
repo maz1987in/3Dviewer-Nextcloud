@@ -136,9 +136,10 @@ import { removePlaceholders } from '../utils/scene-helpers.js'
 import { useScene } from '../composables/useScene.js'
 import { useCamera } from '../composables/useCamera.js'
 import { useAnimation } from '../composables/useAnimation.js'
-import { useThumbnailCapture } from '../composables/useThumbnailCapture.js'
+import { awaitStatusBeforeDownload, scheduleCapture } from '../thumbnails/captureFromViewer.js'
 import { useScreenshot } from '../composables/useScreenshot.js'
 import { logger } from '../utils/logger.js'
+import { computeCameraFit } from '../thumbnails/cameraFit.js'
 
 export default {
 	name: 'ViewerComponent',
@@ -195,7 +196,6 @@ export default {
 		const sceneComposable = useScene()
 		const cameraComposable = useCamera()
 		const animationComposable = useAnimation()
-		const thumbnailCapture = useThumbnailCapture()
 		const screenshotComposable = useScreenshot()
 
 		// Return composables for use in Options API methods
@@ -203,7 +203,6 @@ export default {
 			sceneComposable,
 			cameraComposable,
 			animationComposable,
-			thumbnailCapture,
 			screenshotComposable,
 		}
 	},
@@ -436,25 +435,33 @@ export default {
 		},
 
 		/**
-		 * Capture and upload a thumbnail for the current model
+		 * Capture a thumbnail for the model that just loaded, once per file version.
+		 * It is rendered off-screen with a fixed look, so the viewer's own camera and
+		 * helpers are not part of it.
+		 *
+		 * Everything comes from the load that produced the model, never from `this`: the
+		 * `fileid` watcher can start a second load in this instance while the first runs.
+		 *
+		 * @param {THREE.Object3D} object3D - The loaded model
+		 * @param {string} extension - Extension of the file the model was loaded from
+		 * @param {number|string} fileId - File id this load started with
+		 * @param {?Map<number, object>} statuses - Status this load received
+		 *   before downloading; null when there is nothing to capture
+		 * @param {?File[]} [sourceFiles] - Companion files the load used; a cached one
+		 *   skips the capture
 		 */
-		captureThumbnail() {
+		captureThumbnail(object3D, extension, fileId, statuses, sourceFiles = null) {
 			if (!this.enableThumbnails) return
 
-			const extension = this.effectiveFilename.split('.').pop()?.toLowerCase() || ''
-			const supportedFormats = ['glb', 'gltf', 'obj', 'stl', 'ply', '3mf', 'fbx', 'dae', '3ds', 'x3d', 'wrl', 'vrml']
-
-			if (this.renderer && this.fileid && supportedFormats.includes(extension)) {
-				setTimeout(() => {
-					if (!this.renderer) return
-					this.thumbnailCapture.captureAndUpload(this.renderer, this.fileid, {
-						width: 512,
-						height: 512,
-						format: 'png',
-						quality: 0.9,
-					})
-				}, 500)
-			}
+			scheduleCapture({
+				fileId: Number(fileId),
+				extension,
+				object3D,
+				statuses,
+				sourceFiles,
+				// Only to notice that the load was cancelled or superseded by a later one
+				isCurrent: () => !this.loadingCancelled && this.thumbnailStatus?.statuses === statuses,
+			})
 		},
 
 		/**
@@ -757,8 +764,11 @@ export default {
 		 * @param {object} THREE - Three.js module
 		 * @param {string} fallbackExtension - Extension to dispatch on when the main
 		 *   file carries no name of its own, as on a single-file public share
+		 * @param {number|string} fileId - File id the calling load started with
+		 * @param {?Map<number, object>} statuses - Thumbnail status the calling load
+		 *   received before downloading
 		 */
-		async loadModelWithFiles(result, THREE, fallbackExtension) {
+		async loadModelWithFiles(result, THREE, fallbackExtension, fileId, statuses) {
 			try {
 				logger.info('ViewerComponent', 'Loading model with files', {
 					mainFile: result.mainFile.name,
@@ -778,7 +788,7 @@ export default {
 					THREE,
 					scene: this.scene,
 					renderer: this.renderer,
-					fileId: this.fileid,
+					fileId,
 					additionalFiles: result.dependencies, // Pass dependencies to loader
 					applyWireframe: (enabled) => this.applyWireframe(enabled),
 					ensurePlaceholderRemoved: () => removePlaceholders(this.scene),
@@ -803,7 +813,7 @@ export default {
 					logger.info('ViewerComponent', 'Model loaded successfully')
 
 					// Capture thumbnail for supported 3D formats
-					this.captureThumbnail()
+					this.captureThumbnail(modelResult.object3D, extension, fileId, statuses, result.dependencies)
 
 					// Initialize animations if present
 					if (modelResult.animations && modelResult.animations.length > 0) {
@@ -852,7 +862,7 @@ export default {
 					// Emit success event
 					this.$emit('model-loaded', {
 						filename: result.mainFile.name,
-						fileId: this.fileid,
+						fileId,
 						dependencies: result.dependencies.length,
 					})
 
@@ -880,10 +890,29 @@ export default {
 			try {
 				// Extract extension from filename
 				const extension = this.effectiveFilename.split('.').pop().toLowerCase()
+
+				// Everything this load needs later is read now, not when it finishes: the
+				// `fileid` watcher can start another load in this instance meanwhile.
+				const fileId = this.fileid
+
+				// Wait for the thumbnail status before any bytes are downloaded: the etag it
+				// reports is what the upload is stored under, so it must not be newer than
+				// the model the render is made from, and only a status that has arrived
+				// guarantees that. It never fails the load; a failed status only skips the
+				// capture. The instance keeps the latest load's entry (not reactive data,
+				// on purpose) only to tell a superseded load; it is claimed before the wait
+				// so a slower earlier load cannot take it back.
+				const thumbnailLoad = { statuses: null }
+				this.thumbnailStatus = thumbnailLoad
+				if (this.enableThumbnails) {
+					thumbnailLoad.statuses = await awaitStatusBeforeDownload({ fileId, extension })
+				}
+				const statuses = thumbnailLoad.statuses
+
 				logger.info('ViewerComponent', 'Loading model', {
 					filename: this.filename,
 					extension,
-					fileId: this.fileid,
+					fileId,
 					mime: this.mime,
 					davPath: this.davPath,
 				})
@@ -904,7 +933,7 @@ export default {
 						// '/' — which leaves the loader with no extension to dispatch on and
 						// silently drops every dependency it just fetched.
 						const result = await loadModelWithDependencies(
-							this.fileid,
+							fileId,
 							this.effectiveFilename,
 							extension,
 							dirPath,
@@ -913,7 +942,7 @@ export default {
 						logger.info('ViewerComponent', 'Multi-file loading successful', { mainFile: result.mainFile?.name })
 
 						// Process the result and load the model
-						await this.loadModelWithFiles(result, THREE, extension)
+						await this.loadModelWithFiles(result, THREE, extension, fileId, statuses)
 						return
 
 					} catch (error) {
@@ -927,7 +956,7 @@ export default {
 				this.updateProgress(true, 0, this.t('threedviewer', 'Downloading model...'), this.filename, false)
 				// buildFileUrl resolves to the token-keyed public endpoint on a share
 				// page, where the session-authenticated route below would 404.
-				const response = await fetch(buildFileUrl(this.fileid))
+				const response = await fetch(buildFileUrl(fileId))
 
 				if (!response.ok) {
 					throw new Error(`Failed to fetch model: ${response.status} ${response.statusText}`)
@@ -1013,7 +1042,7 @@ export default {
 					logger.info('ViewerComponent', 'Model loaded successfully')
 
 					// Capture thumbnail for supported 3D formats
-					this.captureThumbnail()
+					this.captureThumbnail(result.object3D, extension, fileId, statuses)
 
 					// Initialize animations if present
 					if (result.animations && result.animations.length > 0) {
@@ -1078,23 +1107,16 @@ export default {
 
 				const size = box.getSize(new THREE.Vector3())
 				const center = box.getCenter(new THREE.Vector3())
-				const maxDim = Math.max(size.x, size.y, size.z)
 
-				// Calculate optimal camera distance based on FOV and model size
-				const fov = this.camera.fov * (Math.PI / 180) // Convert to radians
-				const cameraDistance = Math.abs(maxDim / Math.sin(fov / 2)) * 0.75 // 0.75 fits better than 1.2
-
-				// Validate calculated values
-				if (!isFinite(cameraDistance) || !isFinite(center.x) || !isFinite(center.y) || !isFinite(center.z)) {
-					logger.error('ViewerComponent', 'Invalid camera position calculated', { cameraDistance, center })
+				// Same framing the background thumbnails use (see computeCameraFit)
+				const fit = computeCameraFit(box, this.camera.fov)
+				if (!fit) {
+					logger.error('ViewerComponent', 'Invalid camera position calculated', { center })
 					return
 				}
+				const cameraDistance = fit.position[2] - fit.target[2]
 
-				this.camera.position.set(
-					center.x + cameraDistance * 0.5,
-					center.y + cameraDistance * 0.5,
-					center.z + cameraDistance,
-				)
+				this.camera.position.set(...fit.position)
 				this.camera.lookAt(center)
 
 				if (this.controls) {

@@ -186,21 +186,19 @@
 						</NcButton>
 					</div>
 
-					<!-- Custom Clear Thumbnails Field -->
-					<div v-else-if="field.type === 'custom-clear-thumbnails'" class="setting-row">
+					<!-- Custom Retry Skipped Files Field -->
+					<div v-else-if="field.type === 'custom-retry-skipped'" class="setting-row">
 						<div class="setting-label">
 							<label>{{ field.label }}</label>
 							<span v-if="field.description" class="setting-description">{{ field.description }}</span>
 						</div>
 						<NcButton
 							variant="secondary"
-							:disabled="clearingThumbnails"
-							@click="clearThumbnails">
+							@click="retrySkipped">
 							<template #icon>
-								<Loading v-if="clearingThumbnails" :size="20" class="spin" />
-								<Delete v-else :size="20" />
+								<Sync :size="20" />
 							</template>
-							{{ t('threedviewer', 'Clear thumbnails') }}
+							{{ t('threedviewer', 'Retry skipped files') }}
 						</NcButton>
 					</div>
 				</div>
@@ -261,6 +259,7 @@ import {
 	CACHE_SETTINGS,
 } from '../config/viewer-config.js'
 import { initCache, clearAll, getCacheStats } from '../utils/dependencyCache.js'
+import { clearSkips } from '../thumbnails/skipList.js'
 
 export default {
 	name: 'PersonalSettings',
@@ -287,7 +286,6 @@ export default {
 			reindexing: false,
 			// Live indexing progress polled from /api/files/index-status while reindexing
 			indexProgress: null,
-			clearingThumbnails: false,
 			clearingCache: false,
 			cacheInfo: null,
 			userSettings: {}, // Holds the user's overrides
@@ -321,10 +319,40 @@ export default {
 							type: 'boolean',
 							default: THUMBNAIL_SETTINGS.enabled,
 						},
-						'thumbnails.clear': {
-							type: 'custom-clear-thumbnails',
-							label: this.t('threedviewer', 'Clear Thumbnails'),
-							description: this.t('threedviewer', 'Delete all stored thumbnails. They will be regenerated when you view the files again.'),
+						'thumbnails.background': {
+							label: this.t('threedviewer', 'Create thumbnails while browsing Files'),
+							description: this.t('threedviewer', 'Make thumbnails for models in the folder you are viewing, one at a time while the browser is idle.'),
+							type: 'boolean',
+							default: THUMBNAIL_SETTINGS.background,
+						},
+						'thumbnails.maxFileSizeMB': {
+							label: this.t('threedviewer', 'Skip files larger than'),
+							description: this.t('threedviewer', 'In MB. Larger files get a thumbnail when opened in the viewer.'),
+							type: 'number',
+							default: THUMBNAIL_SETTINGS.maxFileSizeMB,
+							min: 1,
+							max: 2048,
+						},
+						'thumbnails.timeoutSeconds': {
+							label: this.t('threedviewer', 'Give up on a file after'),
+							description: this.t('threedviewer', 'In seconds, for downloading and rendering one file.'),
+							type: 'number',
+							default: THUMBNAIL_SETTINGS.timeoutSeconds,
+							min: 5,
+							max: 300,
+						},
+						'thumbnails.folderBudgetMB': {
+							label: this.t('threedviewer', 'Download at most, per folder visit'),
+							description: this.t('threedviewer', 'In MB. Background work stops for that visit once this much has been downloaded.'),
+							type: 'number',
+							default: THUMBNAIL_SETTINGS.folderBudgetMB,
+							min: 50,
+							max: 10000,
+						},
+						'thumbnails.retrySkipped': {
+							type: 'custom-retry-skipped',
+							label: this.t('threedviewer', 'Retry skipped files'),
+							description: this.t('threedviewer', 'Try again the files this browser gave up on.'),
 						},
 					},
 				},
@@ -774,23 +802,9 @@ export default {
 			}
 		},
 
-		async clearThumbnails() {
-			if (!confirm(this.t('threedviewer', 'Are you sure you want to delete all thumbnails?'))) {
-				return
-			}
-
-			this.clearingThumbnails = true
-			try {
-				const url = generateUrl('/apps/threedviewer/api/thumbnails')
-				const response = await axios.delete(url)
-				const count = response.data?.deletedCount || 0
-				showSuccess(this.t('threedviewer', '{count} thumbnails deleted', { count }))
-			} catch (e) {
-				console.error('Error clearing thumbnails', e)
-				showError(this.t('threedviewer', 'Could not clear thumbnails'))
-			} finally {
-				this.clearingThumbnails = false
-			}
+		retrySkipped() {
+			clearSkips()
+			showSuccess(this.t('threedviewer', 'Skipped files will be tried again'))
 		},
 
 		async loadCacheInfo() {

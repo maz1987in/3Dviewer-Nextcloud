@@ -5,39 +5,11 @@
 
 import { ref } from 'vue'
 import { logger } from '../utils/logger.js'
+import { LIGHTING_PRESETS } from '../config/lightingPresets.js'
 
-const PRESETS = {
-	default: {
-		label: 'Default',
-		ambient: { intensity: 2.0 },
-		directional: { intensity: 1.0, x: 10, y: 10, z: 5 },
-		point: { intensity: 0.5 },
-	},
-	studio: {
-		label: 'Studio',
-		ambient: { intensity: 1.0 },
-		directional: { intensity: 1.8, x: 5, y: 8, z: 3 },
-		point: { intensity: 1.0 },
-	},
-	outdoor: {
-		label: 'Outdoor',
-		ambient: { intensity: 3.0 },
-		directional: { intensity: 0.8, x: -5, y: 15, z: 10 },
-		point: { intensity: 0.2 },
-	},
-	dramatic: {
-		label: 'Dramatic',
-		ambient: { intensity: 0.3 },
-		directional: { intensity: 2.5, x: 8, y: 4, z: -2 },
-		point: { intensity: 0.8 },
-	},
-	flat: {
-		label: 'Flat',
-		ambient: { intensity: 4.0 },
-		directional: { intensity: 0.2, x: 0, y: 10, z: 0 },
-		point: { intensity: 0.1 },
-	},
-}
+const PRESETS = LIGHTING_PRESETS
+
+export { LIGHTING_PRESETS }
 
 export function useLightingPresets() {
 	const currentPreset = ref('default')

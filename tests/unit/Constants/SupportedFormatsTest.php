@@ -235,4 +235,42 @@ class SupportedFormatsTest extends TestCase
             );
         }
     }
+
+    /**
+     * Thumbnails are generated for exactly the model formats, never companion files.
+     */
+    public function testThumbnailExtensionsAreTheModelExtensions(): void
+    {
+        $this->assertSame(SupportedFormats::getModelExtensions(), SupportedFormats::getThumbnailExtensions());
+        $this->assertNotContains('mtl', SupportedFormats::getThumbnailExtensions());
+    }
+
+    /**
+     * The preview provider regex must claim the primary MIME type of every model extension.
+     */
+    public function testPreviewRegexMatchesEveryModelPrimaryMime(): void
+    {
+        $regex = SupportedFormats::getPreviewMimeRegex();
+
+        foreach (SupportedFormats::getModelExtensions() as $ext) {
+            $mime = SupportedFormats::EXT_MIME_MAP[$ext][0];
+            $this->assertSame(
+                1,
+                preg_match($regex, $mime),
+                "Preview regex should match '$mime' (primary MIME type of '$ext')"
+            );
+        }
+    }
+
+    /**
+     * Generic types must never be claimed, or unrelated files would get 3D previews.
+     */
+    public function testPreviewRegexIgnoresGenericTypes(): void
+    {
+        $regex = SupportedFormats::getPreviewMimeRegex();
+
+        $this->assertSame(0, preg_match($regex, 'application/octet-stream'));
+        $this->assertSame(0, preg_match($regex, 'text/plain'));
+        $this->assertSame(0, preg_match($regex, 'image/png'));
+    }
 }

@@ -777,6 +777,7 @@ import { useAnnotation } from '../composables/useAnnotation.js'
 import { useSharedNotes } from '../composables/useSharedNotes.js'
 import { createNotesApi } from '../utils/notesApi.js'
 import { getPublicShareContext } from '../composables/usePublicShare.js'
+import { awaitStatusBeforeDownload, scheduleCapture } from '../thumbnails/captureFromViewer.js'
 import { usePerformance } from '../composables/usePerformance.js'
 import { useExport, getGeometryStats } from '../composables/useExport.js'
 import { useModelStats } from '../composables/useModelStats.js'
@@ -785,7 +786,6 @@ import { useTheme } from '../composables/useTheme.js'
 import { useFaceLabels } from '../composables/useFaceLabels.js'
 import { useController } from '../composables/useController.js'
 import { useScreenshot } from '../composables/useScreenshot.js'
-import { useThumbnailCapture } from '../composables/useThumbnailCapture.js'
 import { useAnimation } from '../composables/useAnimation.js'
 import { useClippingPlane } from '../composables/useClippingPlane.js'
 import {
@@ -892,7 +892,6 @@ export default {
 		const faceLabels = useFaceLabels()
 		const controller = useController()
 		const screenshot = useScreenshot()
-		const thumbnailCapture = useThumbnailCapture()
 		const animation = useAnimation()
 		const clippingPlane = useClippingPlane()
 		const lightingPresets = useLightingPresets()
@@ -1347,6 +1346,15 @@ export default {
 
 				const extension = filename.split('.').pop()?.toLowerCase() || 'glb'
 
+				// Wait for the thumbnail status before the bytes are downloaded: the etag it
+				// reports is what the upload is stored under, so it must not be newer than
+				// the model the render is made from, and only a status that has arrived
+				// guarantees that. It never fails the load; a failed status only skips the
+				// capture.
+				const thumbnailStatus = props.enableThumbnails
+					? await awaitStatusBeforeDownload({ fileId, extension })
+					: null
+
 				logger.info('ThreeViewer', 'Loading model', {
 					fileId,
 					filename,
@@ -1604,33 +1612,23 @@ export default {
 						})
 					}
 
-					// Capture thumbnail for supported 3D formats (if enabled)
-					const supportedFormats = ['glb', 'gltf', 'obj', 'stl', 'ply', '3mf', 'fbx', 'dae', '3ds', 'x3d', 'wrl', 'vrml']
-					if (props.enableThumbnails && renderer.value && fileId && supportedFormats.includes(extension)) {
-						setTimeout(() => {
-							if (!renderer.value) return
-
-							// Hide grid and axes for clean thumbnail
-							const gridWasVisible = grid.value?.visible ?? false
-							const axesWasVisible = axes.value?.visible ?? false
-							if (grid.value) grid.value.visible = false
-							if (axes.value) axes.value.visible = false
-
-							// Render one frame without helpers
-							renderer.value.render(scene.value, camera.camera.value)
-
-							thumbnailCapture.captureAndUpload(renderer.value, fileId, {
-								width: 512,
-								height: 512,
-								format: 'png',
-								quality: 0.9,
-							}).finally(() => {
-								// Restore grid and axes visibility
-								if (grid.value) grid.value.visible = gridWasVisible
-								if (axes.value) axes.value.visible = axesWasVisible
-							})
-						}, 500)
-					}
+					// Capture a thumbnail once per file version (if enabled). It is rendered
+					// off-screen with a fixed look, so the viewer's grid, axes and camera are
+					// not part of it and need no hiding.
+					// The model and the status both belong to this load; the model is not
+					// read back from modelRoot, which another load may have replaced by now.
+					const model = loadedModel.object3D
+					scheduleCapture({
+						fileId: Number(fileId),
+						extension,
+						object3D: model,
+						statuses: thumbnailStatus,
+						// The dependency cache is not keyed by version; a cached companion
+						// skips the capture rather than freeze an old texture into it
+						sourceFiles: loadedModel.sourceFiles,
+						// Skip when another model replaced this one in the meantime
+						isCurrent: () => modelRoot.value === model,
+					})
 				} else {
 					// Don't fallback to demo scene - let error state handle it
 					throw new Error('Model loaded but no object3D returned')

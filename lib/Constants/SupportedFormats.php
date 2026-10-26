@@ -150,7 +150,36 @@ class SupportedFormats
      */
     public static function getModelExtensions(): array
     {
-        return array_keys(self::EXT_MIME_MAP);
+        return array_values(array_filter(
+            array_keys(self::EXT_MIME_MAP),
+            static fn (string $ext): bool => !self::isDependencyFormat($ext)
+        ));
+    }
+
+    /**
+     * Extensions that get a Files-app thumbnail: every model, never a companion file.
+     *
+     * @return list<string>
+     */
+    public static function getThumbnailExtensions(): array
+    {
+        return self::getModelExtensions();
+    }
+
+    /**
+     * Anchored regex for registering the preview provider.
+     *
+     * Matches the primary MIME type of every model extension. Secondary types such as
+     * `application/octet-stream` (fbx, 3ds, 3dm) are never first, so generic files stay out.
+     */
+    public static function getPreviewMimeRegex(): string
+    {
+        $primary = array_unique(array_map(
+            static fn (string $ext): string => self::EXT_MIME_MAP[$ext][0],
+            self::getModelExtensions()
+        ));
+
+        return '/^(' . implode('|', array_map(static fn (string $mime): string => preg_quote($mime, '/'), $primary)) . ')$/';
     }
 
     /**

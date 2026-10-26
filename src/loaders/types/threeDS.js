@@ -60,7 +60,9 @@ class ThreeDSLoader extends BaseLoader {
 
 				missingTextures.push(textureName)
 				this.logWarning('3DS texture not found in dependencies', { textureName, url })
-				return url
+				// The default manager decides: as written on a page, refused in the
+				// thumbnail worker unless it is one of the job's files
+				return THREE.DefaultLoadingManager.resolveURL(url)
 			})
 
 			this.logInfo('3DS loader configured with external texture support', {

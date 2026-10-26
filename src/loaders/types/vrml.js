@@ -36,100 +36,65 @@ class VrmlLoader extends BaseLoader {
 	}
 
 	/**
-	 * Try to parse VRML with fallback to preprocessing if needed
+	 * Parse VRML, falling back to preprocessing if the lexer rejects the text.
+	 *
+	 * three's VRMLLoader.parse() is synchronous: it returns the scene or throws. It
+	 * takes no callback, so waiting for one only ever ran into a timeout.
+	 *
 	 * @param {string} text - VRML text
 	 * @param {object} context - Loading context
 	 * @return {Promise<object>} Parse result
 	 */
-	tryParseVrml(text, context) {
-		return new Promise((resolve, reject) => {
-			// Use a flag to track if we've already resolved/rejected
-			let resolved = false
-
-			// Set a timeout to catch cases where parse never calls the callback
-			const timeout = setTimeout(() => {
-				if (!resolved) {
-					resolved = true
-					reject(new Error('VRML parsing timed out - the file may be corrupted or unsupported'))
+	async tryParseVrml(text, context) {
+		let scene
+		try {
+			scene = this.loader.parse(text, '')
+		} catch (error) {
+			// If we get lexing errors, try with preprocessing as a fallback
+			if (error.message.includes('Lexing errors') || error.message.includes('Lexing')) {
+				// Try again with minimal preprocessing
+				const preprocessedText = this.preprocessVrmlText(text, true) // minimal mode
+				try {
+					return await this.tryParseVrmlWithPreprocessing(preprocessedText, context)
+				} catch (preprocessError) {
+					// If preprocessing also fails, provide helpful error message
+					let errorMessage = `Failed to load VRML file: ${error.message}`
+					errorMessage += '. The VRML file contains syntax errors that cannot be automatically fixed. The file might need to be exported in a different format (e.g., glTF, OBJ, or DAE) or a different VRML version.'
+					throw new Error(errorMessage, { cause: preprocessError })
 				}
-			}, 30000) // 30 second timeout
-
-			// Wrap parse in a try-catch to handle synchronous errors
-			let parseError = null
-			try {
-				// Parse the VRML content
-				// The parse method may throw synchronously or call the callback asynchronously
-				this.loader.parse(text, (result) => {
-					if (resolved) return // Already handled
-					clearTimeout(timeout)
-					resolved = true
-
-					// If there was a synchronous error, reject immediately
-					if (parseError) {
-						reject(parseError)
-						return
-					}
-
-					try {
-						if (!result) {
-							throw new Error('VRML parser returned null result')
-						}
-
-						if (!result.scene) {
-							throw new Error('No scene found in VRML file')
-						}
-
-						const vrmlScene = result.scene
-
-						this.logInfo('VRML model loaded successfully', {
-							animations: result.animations?.length || 0,
-						})
-
-						// Process the result
-						const processedResult = this.processModel(vrmlScene, context)
-
-						// Add animations if available
-						if (result.animations && result.animations.length > 0) {
-							processedResult.animations = result.animations
-						}
-
-						resolve(processedResult)
-					} catch (error) {
-						reject(new Error(`Failed to process VRML scene: ${error.message}`))
-					}
-				})
-			} catch (error) {
-				// Catch synchronous errors from parse
-				parseError = error
-				if (resolved) return // Already handled
-				clearTimeout(timeout)
-				resolved = true
-
-				// If we get lexing errors, try with preprocessing as a fallback
-				if (error.message.includes('Lexing errors') || error.message.includes('Lexing')) {
-					// Try again with minimal preprocessing
-					const preprocessedText = this.preprocessVrmlText(text, true) // minimal mode
-					this.tryParseVrmlWithPreprocessing(preprocessedText, context)
-						.then(resolve)
-						.catch((preprocessError) => {
-							// If preprocessing also fails, provide helpful error message
-							let errorMessage = `Failed to load VRML file: ${error.message}`
-							errorMessage += '. The VRML file contains syntax errors that cannot be automatically fixed. The file might need to be exported in a different format (e.g., glTF, OBJ, or DAE) or a different VRML version.'
-							reject(new Error(errorMessage))
-						})
-					return
-				}
-
-				// Provide more helpful error messages for other errors
-				let errorMessage = `Failed to load VRML file: ${error.message}`
-
-				if (error.message.includes('Parsing')) {
-					errorMessage += '. The VRML file structure may be invalid or corrupted.'
-				}
-
-				reject(new Error(errorMessage))
 			}
-		})
+
+			// Provide more helpful error messages for other errors
+			let errorMessage = `Failed to load VRML file: ${error.message}`
+
+			if (error.message.includes('Parsing')) {
+				errorMessage += '. The VRML file structure may be invalid or corrupted.'
+			}
+
+			throw new Error(errorMessage, { cause: error })
+		}
+
+		try {
+			if (!scene) {
+				throw new Error('VRML parser returned null result')
+			}
+
+			this.logInfo('VRML model loaded successfully', {
+				animations: scene.animations?.length || 0,
+			})
+
+			// Process the result
+			const processedResult = this.processModel(scene, context)
+
+			// Add animations if available
+			if (scene.animations && scene.animations.length > 0) {
+				processedResult.animations = scene.animations
+			}
+
+			return processedResult
+		} catch (error) {
+			throw new Error(`Failed to process VRML scene: ${error.message}`, { cause: error })
+		}
 	}
 
 	/**
@@ -138,53 +103,25 @@ class VrmlLoader extends BaseLoader {
 	 * @param {object} context - Loading context
 	 * @return {Promise<object>} Parse result
 	 */
-	tryParseVrmlWithPreprocessing(text, context) {
-		return new Promise((resolve, reject) => {
-			let resolved = false
-			const timeout = setTimeout(() => {
-				if (!resolved) {
-					resolved = true
-					reject(new Error('VRML parsing timed out after preprocessing'))
-				}
-			}, 30000)
+	async tryParseVrmlWithPreprocessing(text, context) {
+		// Synchronous like the first attempt; a throw here rejects as it is
+		const scene = this.loader.parse(text, '')
 
-			let parseError = null
-			try {
-				this.loader.parse(text, (result) => {
-					if (resolved) return
-					clearTimeout(timeout)
-					resolved = true
-
-					if (parseError) {
-						reject(parseError)
-						return
-					}
-
-					try {
-						if (!result || !result.scene) {
-							throw new Error('VRML parser returned invalid result after preprocessing')
-						}
-
-						const vrmlScene = result.scene
-						const processedResult = this.processModel(vrmlScene, context)
-
-						if (result.animations && result.animations.length > 0) {
-							processedResult.animations = result.animations
-						}
-
-						resolve(processedResult)
-					} catch (error) {
-						reject(new Error(`Failed to process VRML scene after preprocessing: ${error.message}`))
-					}
-				})
-			} catch (error) {
-				parseError = error
-				if (resolved) return
-				clearTimeout(timeout)
-				resolved = true
-				reject(error)
+		try {
+			if (!scene) {
+				throw new Error('VRML parser returned invalid result after preprocessing')
 			}
-		})
+
+			const processedResult = this.processModel(scene, context)
+
+			if (scene.animations && scene.animations.length > 0) {
+				processedResult.animations = scene.animations
+			}
+
+			return processedResult
+		} catch (error) {
+			throw new Error(`Failed to process VRML scene after preprocessing: ${error.message}`, { cause: error })
+		}
 	}
 
 	/**

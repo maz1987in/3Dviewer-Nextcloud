@@ -1,7 +1,19 @@
 /**
  * Viewer configuration and settings
  */
-import { imagePath } from '@nextcloud/router'
+import { imagePath as routerImagePath } from '@nextcloud/router'
+import { DEFAULT_CAMERA_FOV } from './cameraDefaults.js'
+import { LIGHT_LAYOUT } from './lightingPresets.js'
+
+/**
+ * Format icon URL. Empty in the thumbnail worker, which loads this module through the
+ * loaders but has no page to resolve the app's web root from, and shows no icons.
+ *
+ * @param {string} app - App id
+ * @param {string} file - Image path under the app's img/ directory
+ * @return {string} The icon URL
+ */
+const imagePath = (app, file) => (typeof window === 'undefined' ? '' : routerImagePath(app, file))
 
 /**
  * Default material settings
@@ -50,7 +62,7 @@ export const GEOMETRY_SETTINGS = {
  * Camera settings
  */
 export const CAMERA_SETTINGS = {
-	fov: 75,
+	fov: DEFAULT_CAMERA_FOV,
 	near: 0.1,
 	far: 1000,
 	// Orthographic camera settings
@@ -314,6 +326,10 @@ export const SLICER_SETTINGS = {
  */
 export const THUMBNAIL_SETTINGS = {
 	enabled: true, // Whether to automatically generate thumbnails
+	background: true, // Whether to create thumbnails while browsing Files
+	maxFileSizeMB: 50, // Background work skips files larger than this
+	timeoutSeconds: 30, // Background work gives up on one file after this long
+	folderBudgetMB: 500, // Background work stops for a folder visit after downloading this much
 	width: 512, // Thumbnail width in pixels
 	height: 512, // Thumbnail height in pixels
 	format: 'png', // Image format: 'png' or 'jpeg'
@@ -851,11 +867,11 @@ export const CONTROLLER_SETTINGS = {
  */
 export const LIGHTING_SETTINGS = {
 	ambient: {
-		color: 0x404040,
+		color: LIGHT_LAYOUT.ambientColor,
 		intensity: 2.0,
 	},
 	directional: {
-		color: 0xffffff,
+		color: LIGHT_LAYOUT.directionalColor,
 		intensity: 1.0,
 		position: { x: 10, y: 10, z: 5 },
 		castShadow: true,
@@ -869,10 +885,10 @@ export const LIGHTING_SETTINGS = {
 	},
 	point: {
 		enabled: true,
-		color: 0xffffff,
+		color: LIGHT_LAYOUT.pointColor,
 		intensity: 0.5,
-		distance: 100,
-		position: { x: -10, y: 10, z: -10 },
+		distance: LIGHT_LAYOUT.pointDistance,
+		position: { ...LIGHT_LAYOUT.pointPosition },
 	},
 	hemisphere: {
 		enabled: false,

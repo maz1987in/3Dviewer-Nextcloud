@@ -8,7 +8,7 @@
 
 import { generateUrl } from '@nextcloud/router'
 import { buildFileUrl, buildPublicDepUrl, isPublicShare } from '../composables/usePublicShare.js'
-import { parse3dsDependencies, parseFbxDependencies } from './binaryModelDependencies.js'
+import { parse3dsDependencies, parseFbxTextures } from './binaryModelDependencies.js'
 import { logger } from '../utils/logger.js'
 import { getFulfilledValues } from '../utils/arrayHelpers.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
@@ -40,7 +40,10 @@ export async function fetchFileFromUrl(url, name, defaultType = 'application/oct
 
 			if (cached && !cached.expired) {
 				logger.info('MultiFileHelpers', 'Using cached dependency', { name, cacheHit: true })
-				return new File([cached.data], name, { type: cached.mimeType })
+				const file = new File([cached.data], name, { type: cached.mimeType })
+				// The cache is not keyed by version, so a thumbnail capture must not use it
+				file._fromCache = true
+				return file
 			}
 		} catch (error) {
 			logger.warn('MultiFileHelpers', 'Cache read failed, fetching from network', error)
@@ -589,14 +592,17 @@ export async function fetchXmlDependencies(content, extension, fileId, dirPath) 
  * @param {string} extension - "fbx" or "3ds"
  * @param {number} fileId - File id of the model
  * @param {string} dirPath - Directory holding the model
- * @return {Promise<{found: File[], missing: string[]}>} Fetched dependencies
+ * @return {Promise<{found: File[], missing: string[], embedded: string[]}>} Fetched dependencies, and the textures the model embeds
  */
 export async function fetchBinaryDependencies(buffer, extension, fileId, dirPath) {
-	const declared = extension === 'fbx'
-		? parseFbxDependencies(buffer)
-		: parse3dsDependencies(buffer)
+	const { declared, embedded } = extension === 'fbx'
+		? parseFbxTextures(buffer)
+		: { declared: parse3dsDependencies(buffer), embedded: [] }
 
-	return fetchDeclaredDependencies(declared, extension, fileId, dirPath)
+	const result = await fetchDeclaredDependencies(declared, extension, fileId, dirPath)
+	// Textures the model carries inside it are not looked up, and say the parser
+	// understood the document, which the caller's folder-listing fallback relies on.
+	return { ...result, embedded }
 }
 
 /**
@@ -943,8 +949,10 @@ export async function loadModelWithDependencies(fileId, filename, extension, dir
 		// A document whose declarations resolved to nothing still finds its textures by
 		// listing the folder when signed in. Keeping that means models the parsers do not
 		// cover — an exporter writing only an absolute FileName, say — are no worse off
-		// than before; on a share page there is nothing to fall back to.
-		if (dependencyResult.found.length === 0 && !isPublicShare()) {
+		// than before; on a share page there is nothing to fall back to. A model with
+		// embedded textures was understood, so it does not go downloading the folder's
+		// images for textures it already holds.
+		if (dependencyResult.found.length === 0 && dependencyResult.embedded.length === 0 && !isPublicShare()) {
 			dependencyResult = await fetchFbxDependencies(filename, fileId, dirPath)
 		}
 	} else if (extension === 'dae' || extension === 'x3d') {
