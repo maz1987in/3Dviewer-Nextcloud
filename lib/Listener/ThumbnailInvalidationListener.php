@@ -36,26 +36,30 @@ class ThumbnailInvalidationListener implements IEventListener
             return;
         }
 
-        $node = $event->getNode();
-        if (!$node instanceof File) {
-            return;
-        }
+        // Never let cleanup break the write or delete that triggered it, so every node
+        // access is in here too: a node already gone can throw from getId(). Two deletes
+        // can race, and the app data may be unwritable; stale thumbnails are harmless
+        // because they are keyed by ETag.
+        $fileId = null;
 
-        // Only model files can have a thumbnail. Every other write and delete on the instance,
-        // including this app's own thumbnail PNGs, ends here without touching the app data.
-        if (!in_array(strtolower($node->getExtension()), SupportedFormats::getThumbnailExtensions(), true)) {
-            return;
-        }
-
-        $fileId = $node->getId();
-        if ($fileId === null) {
-            return;
-        }
-
-        // Never let cleanup break the write or delete that triggered it. Two deletes can
-        // race, and the app data may be unwritable; stale thumbnails are harmless because
-        // they are keyed by ETag.
         try {
+            $node = $event->getNode();
+            if (!$node instanceof File) {
+                return;
+            }
+
+            // Only model files can have a thumbnail. Every other write and delete on the
+            // instance, including this app's own thumbnail PNGs, ends here without touching
+            // the app data.
+            if (!in_array(strtolower($node->getExtension()), SupportedFormats::getThumbnailExtensions(), true)) {
+                return;
+            }
+
+            $fileId = $node->getId();
+            if ($fileId === null) {
+                return;
+            }
+
             $this->thumbnails->deleteAll($fileId);
         } catch (\Throwable $e) {
             $this->logger->warning('ThumbnailInvalidationListener: Could not delete thumbnails', [

@@ -105,6 +105,28 @@ class ThumbnailInvalidationListenerTest extends TestCase
         $this->listener->handle(new NodeDeletedEvent($this->file(42)));
     }
 
+    public function testAThrowingGetIdNeverBlocksTheDelete(): void
+    {
+        // A node already gone from the cache can answer getId() with NotFoundException
+        $file = $this->createMock(File::class);
+        $file->method('getExtension')->willReturn('stl');
+        $file->method('getId')->willThrowException(new NotFoundException('gone'));
+        $this->thumbnails->expects($this->never())->method('deleteAll');
+        $this->logger->expects($this->once())->method('warning');
+
+        $this->listener->handle(new NodeDeletedEvent($file));
+    }
+
+    public function testAThrowingGetExtensionNeverBlocksTheWrite(): void
+    {
+        $file = $this->createMock(File::class);
+        $file->method('getExtension')->willThrowException(new NotFoundException('gone'));
+        $this->thumbnails->expects($this->never())->method('deleteAll');
+        $this->logger->expects($this->once())->method('warning');
+
+        $this->listener->handle(new NodeWrittenEvent($file));
+    }
+
     private function file(?int $id, string $name = 'part.stl'): File
     {
         $file = $this->createMock(File::class);
