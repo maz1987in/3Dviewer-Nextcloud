@@ -9,14 +9,29 @@
  *
  * Every dependency is injected, so this module holds only the scheduling rules and runs
  * without a DOM. Nothing a dependency throws escapes it.
+ *
+ * A file is marked skipped only for what would happen again on the next visit: running
+ * out of time, a model with nothing to draw, a download the server refuses (4xx) or a
+ * model the loader cannot parse. Failures of the browser or the network (no WebGL in a
+ * worker, a worker that will not start or crashes, a network error or a 5xx) never skip a
+ * file. A one-time capability probe before the first download, and a breaker after
+ * BREAKER_LIMIT failures of that kind in a row, stop background work for the page instead.
  */
 
 import { logger } from '../utils/logger.js'
-import { EmptyModelError, ThumbnailTimeoutError } from './errors.js'
+import {
+	EmptyModelError,
+	ThumbnailBudgetError,
+	ThumbnailEnvironmentError,
+	ThumbnailTimeoutError,
+} from './errors.js'
 // From formats.js rather than workerRenderer.js, which would pull in the worker factory
 import { canRenderInBackground } from './formats.js'
 
 const BYTES_PER_MB = 1048576
+// Consecutive failures that are neither a timeout nor an empty model, after which the
+// browser is assumed unable to make thumbnails and the page stops trying
+const BREAKER_LIMIT = 3
 
 /** @typedef {import('./thumbnailApi.js').ThumbnailStatus} ThumbnailStatus */
 
@@ -26,10 +41,13 @@ const BYTES_PER_MB = 1048576
  * @property {object} api - Server calls
  * @property {(fileIds: number[]) => Promise<Map<number, ThumbnailStatus>>} api.fetchStatus - See thumbnailApi.js
  * @property {(fileId: number, etag: string, blob: Blob) => Promise<string>} api.uploadThumbnail - See thumbnailApi.js
- * @property {(fileId: number, filename: string, extension: string, dirPath: string) => Promise<{mainFile: File, dependencies: File[]}>} load
- *   - Downloads a model and its companion files; cannot be aborted
+ * @property {(fileId: number, filename: string, extension: string, dirPath: string, options: LoadOptions) => Promise<{mainFile: File, dependencies: File[]}>} load
+ *   - Downloads a model and its companion files; see backgroundLoad.js
  * @property {(job: object, options: {timeoutMs: number, signal: AbortSignal}) => Promise<Blob>} render
  *   - Renders in a worker; see workerRenderer.js
+ * @property {(options: {timeoutMs: number}) => Promise<boolean>} [probe] - Whether this
+ *   browser can render in a worker at all; asked once, before the first download. Without
+ *   it the browser is assumed able
  * @property {object} skips - The per-browser skip list
  * @property {(fileId: number, etag: string) => boolean} skips.isSkipped - See skipList.js
  * @property {(fileId: number, etag: string) => void} skips.markSkipped - See skipList.js
@@ -38,8 +56,32 @@ const BYTES_PER_MB = 1048576
  * @property {(cb: () => void) => void} env.onResume - Calls `cb` once work may go on
  * @property {() => Promise<void>} env.whenIdle - Resolves at a moment the page is idle
  * @property {() => number} [env.now] - Current time in ms; defaults to Date.now
+ * @property {(cb: () => void, ms: number) => (() => void)} [env.setTimer] - Calls `cb` after
+ *   `ms` and returns a cancel function; defaults to setTimeout
  * @property {(fileId: number, blob: Blob) => void} [onThumbnail] - Told about each stored thumbnail
  */
+
+/**
+ * What `load` is given besides the file.
+ *
+ * @typedef {object} LoadOptions
+ * @property {AbortSignal} signal - Fires at the file's time limit or when the visit ends;
+ *   every request of the load must stop then
+ * @property {number} budgetBytes - What is left of the folder budget; the load must not
+ *   download more, main file and companions together
+ * @property {(bytes: number) => void} onBytes - To be told about each chunk received, so
+ *   a load stopped midway still counts what it downloaded
+ */
+
+/**
+ * @param {() => void} cb - What to call
+ * @param {number} ms - After how long
+ * @return {() => void} Cancels the call
+ */
+function defaultSetTimer(cb, ms) {
+	const timer = setTimeout(cb, ms)
+	return () => clearTimeout(timer)
+}
 
 /**
  * @param {string} name - File name
@@ -86,6 +128,7 @@ function untilAborted(promise, signal) {
 export function createBackgroundQueue(deps) {
 	const { settings, api, load, render, skips, env } = deps
 	const now = () => (env.now ? env.now() : Date.now())
+	const setTimer = env.setTimer ?? defaultSetTimer
 
 	/**
 	 * One visit to a folder.
@@ -105,8 +148,53 @@ export function createBackgroundQueue(deps) {
 	/** @type {?Visit} */
 	let visit = null
 	// Settles when the most recent loop has let go, so loops never overlap: a new folder
-	// waits for an unabortable download from the old one instead of starting a second
+	// waits for the old one's job to wind down after its abort instead of starting a second
 	let tail = Promise.resolve()
+	// Set once this browser is found unable to make thumbnails; nothing runs on this page after
+	let halted = false
+	/** @type {?Promise<boolean>} The capability probe, asked once per page */
+	let capability = null
+	// Failures in a row that point at the browser rather than the file
+	let failureStreak = 0
+
+	/**
+	 * Stop all background work on this page, skipping nothing.
+	 *
+	 * @param {string} reason - For the log
+	 */
+	const halt = (reason) => {
+		if (halted) {
+			return
+		}
+		halted = true
+		logger.warn('backgroundQueue', 'Background thumbnails stopped for this page', { reason })
+		visit?.controller.abort()
+		visit = null
+	}
+
+	/** Count a failure that may be the browser's, and trip the breaker at the limit. */
+	const noteFailure = () => {
+		failureStreak += 1
+		if (failureStreak >= BREAKER_LIMIT) {
+			halt(`${failureStreak} renders in a row failed`)
+		}
+	}
+
+	/**
+	 * Whether the browser can render in a worker, probing it the first time.
+	 *
+	 * @param {Visit} v - The visit asking, whose end stops the wait (not the probe)
+	 * @return {Promise<boolean|undefined>} The answer, or undefined if the visit ended first
+	 */
+	const isCapable = (v) => {
+		if (!deps.probe) {
+			return Promise.resolve(true)
+		}
+		capability ??= Promise.resolve()
+			.then(() => deps.probe({ timeoutMs: settings.timeoutSeconds * 1000 }))
+			.then((ok) => ok === true, () => false)
+		return untilAborted(capability, v.controller.signal)
+	}
 
 	/**
 	 * @param {Visit} v - A visit
@@ -164,27 +252,13 @@ export function createBackgroundQueue(deps) {
 	 */
 	async function processFile(v, id, status) {
 		const extension = extensionOf(status.name)
-		const deadline = now() + settings.timeoutSeconds * 1000
-		let files
-		try {
-			files = await load(id, status.name, extension, status.dir)
-		} catch (error) {
-			if (!isCurrent(v)) {
-				return
-			}
-			// Whatever was downloaded before it failed is unknown; count the whole file
-			v.budget -= status.size
-			logger.info('backgroundQueue', 'Could not download the model', { fileId: id, error })
-			skips.markSkipped(id, status.etag)
+		const timeoutMs = settings.timeoutSeconds * 1000
+		const deadline = now() + timeoutMs
+		const files = await download(v, id, status, extension, timeoutMs)
+		if (!files) {
 			return
 		}
-		if (!isCurrent(v)) {
-			// Left the folder while downloading; the file is tried on the next visit
-			return
-		}
-
-		const { mainFile, dependencies = [] } = files
-		v.budget -= dependencies.reduce((sum, file) => sum + file.size, mainFile.size)
+		const { mainFile, dependencies } = files
 
 		const remaining = deadline - now()
 		if (remaining <= 0) {
@@ -207,14 +281,23 @@ export function createBackgroundQueue(deps) {
 			if (error instanceof ThumbnailTimeoutError) {
 				logger.info('backgroundQueue', 'Render ran out of time', { fileId: id })
 			} else if (error instanceof EmptyModelError) {
+				// The worker ran fine; the model just has nothing to draw
+				failureStreak = 0
 				logger.info('backgroundQueue', 'Model has no geometry to render', { fileId: id })
+			} else if (error instanceof ThumbnailEnvironmentError) {
+				// The worker, not the file: try again next visit
+				logger.warn('backgroundQueue', 'The thumbnail worker failed', { fileId: id, error })
+				noteFailure()
+				return
 			} else {
 				logger.warn('backgroundQueue', 'Render failed', { fileId: id, error })
+				noteFailure()
 			}
 			// It would fail the same way next visit; "Retry skipped files" clears this
 			skips.markSkipped(id, status.etag)
 			return
 		}
+		failureStreak = 0
 		if (!isCurrent(v)) {
 			return
 		}
@@ -226,6 +309,72 @@ export function createBackgroundQueue(deps) {
 			deps.onThumbnail?.(id, blob)
 		} else if (outcome !== 'exists') {
 			logger.info('backgroundQueue', 'Thumbnail not stored', { fileId: id, outcome })
+		}
+	}
+
+	/**
+	 * Download a file and its companions under one signal that fires at the file's time
+	 * limit or when the visit ends, so no request outlives either. Every byte received
+	 * counts against the visit's budget, even when the download was stopped midway.
+	 *
+	 * @param {Visit} v - The visit
+	 * @param {number} id - File id
+	 * @param {ThumbnailStatus} status - Its status
+	 * @param {string} extension - Its extension
+	 * @param {number} timeoutMs - The file's time limit, which the download starts
+	 * @return {Promise<?{mainFile: File, dependencies: File[]}>} The files, or null when
+	 *   there is nothing to render
+	 */
+	async function download(v, id, status, extension, timeoutMs) {
+		const job = new AbortController()
+		let timedOut = false
+		const leave = () => job.abort()
+		v.controller.signal.addEventListener('abort', leave, { once: true })
+		const cancelTimer = setTimer(() => {
+			timedOut = true
+			job.abort()
+		}, timeoutMs)
+		let received = 0
+
+		try {
+			const { mainFile, dependencies = [] } = await load(id, status.name, extension, status.dir, {
+				signal: job.signal,
+				budgetBytes: v.budget,
+				onBytes: (bytes) => {
+					received += bytes
+				},
+			})
+			if (!isCurrent(v)) {
+				// Left the folder while downloading; the file is tried on the next visit
+				return null
+			}
+			// A load that reports no progress is charged what it returned
+			v.budget -= Math.max(received, dependencies.reduce((sum, file) => sum + file.size, mainFile.size))
+			return { mainFile, dependencies }
+		} catch (error) {
+			if (!isCurrent(v)) {
+				// Aborted because the user left; not the file's fault
+				return null
+			}
+			v.budget -= received
+			if (timedOut) {
+				logger.info('backgroundQueue', 'Download used up the time limit', { fileId: id })
+				skips.markSkipped(id, status.etag)
+			} else if (error instanceof ThumbnailBudgetError) {
+				// Bigger than its status said: stop the visit here, as for any file that does not fit
+				v.ended = true
+			} else if (error instanceof ThumbnailEnvironmentError) {
+				logger.warn('backgroundQueue', 'Could not download the model', { fileId: id, error })
+				noteFailure()
+			} else {
+				// Refused by the server (gone, forbidden, too large for it)
+				logger.info('backgroundQueue', 'Could not download the model', { fileId: id, error })
+				skips.markSkipped(id, status.etag)
+			}
+			return null
+		} finally {
+			cancelTimer()
+			v.controller.signal.removeEventListener('abort', leave)
 		}
 	}
 
@@ -277,6 +426,14 @@ export function createBackgroundQueue(deps) {
 				if (!isCurrent(v)) {
 					break
 				}
+				const capable = await isCapable(v)
+				if (!isCurrent(v)) {
+					break
+				}
+				if (!capable) {
+					halt('This browser cannot render thumbnails in a worker')
+					break
+				}
 
 				try {
 					await processFile(v, id, status)
@@ -319,6 +476,9 @@ export function createBackgroundQueue(deps) {
 		 * @param {Set<number>} [visibleIds] - Ids on screen, processed first
 		 */
 		setFolder(folderKey, fileIds, visibleIds = new Set()) {
+			if (halted) {
+				return
+			}
 			if (!visit || visit.key !== folderKey) {
 				visit?.controller.abort()
 				visit = {
@@ -351,8 +511,8 @@ export function createBackgroundQueue(deps) {
 
 		/**
 		 * @return {Promise<void>} Resolves once the queue has no work left running, either
-		 *   finished or stopped. A download already in flight when the visit ended is
-		 *   waited for, since it cannot be aborted.
+		 *   finished or stopped. A job that was aborted is waited for until it has wound
+		 *   down, which the abort makes quick.
 		 */
 		async idle() {
 			// A setFolder() made while waiting can chain another loop onto `tail`

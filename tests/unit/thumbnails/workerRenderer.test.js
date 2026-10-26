@@ -1,9 +1,12 @@
 import {
+	probeWorkerRendering,
 	renderInWorker,
+	ThumbnailEnvironmentError,
 	ThumbnailTimeoutError,
 	canRenderInBackground,
 	isThumbnailFormat,
 	WORKER_UNSAFE_FORMATS,
+	AMBIGUOUS_FORMATS,
 } from '../../../src/thumbnails/workerRenderer.js'
 import { EmptyModelError } from '../../../src/thumbnails/renderThumbnail.js'
 
@@ -170,34 +173,53 @@ describe('renderInWorker', () => {
 		expect(worker.terminated).toBe(1)
 	})
 
-	it('a failed render rejects with the worker\'s message and terminates', async () => {
+	it('a failed load rejects with the worker\'s message and terminates', async () => {
 		const promise = renderInWorker(job(), { timeoutMs: 30000 })
 		const [worker] = workers
 
-		worker.emit({ ok: false, error: 'No loader found for extension stl' })
+		worker.emit({ ok: false, error: 'No loader found for extension stl', stage: 'load' })
 
-		await expect(promise).rejects.toThrow('No loader found for extension stl')
+		const error = await promise.catch(e => e)
+		expect(error.message).toBe('No loader found for extension stl')
+		// The file's fault, which the queue marks skipped
+		expect(error).not.toBeInstanceOf(ThumbnailEnvironmentError)
 		expect(worker.terminated).toBe(1)
 	})
 
-	it('a worker error event rejects and terminates', async () => {
+	it('a failure while drawing, or a loader chunk that would not load, is the environment\'s', async () => {
+		for (const stage of ['render', 'environment']) {
+			const promise = renderInWorker(job(), { timeoutMs: 30000 })
+			const worker = workers[workers.length - 1]
+
+			worker.emit({ ok: false, error: 'Error creating WebGL context.', stage })
+
+			await expect(promise).rejects.toBeInstanceOf(ThumbnailEnvironmentError)
+			expect(worker.terminated).toBe(1)
+		}
+	})
+
+	it('a worker error event rejects with an environment error and terminates', async () => {
 		const promise = renderInWorker(job(), { timeoutMs: 30000 })
 		const [worker] = workers
 
 		worker.fail('Uncaught ReferenceError: window is not defined')
 
-		await expect(promise).rejects.toThrow('window is not defined')
+		const error = await promise.catch(e => e)
+		expect(error).toBeInstanceOf(ThumbnailEnvironmentError)
+		expect(error.message).toMatch('window is not defined')
 		expect(worker.terminated).toBe(1)
 	})
 
-	it('a message that cannot be deserialised rejects and terminates once', async () => {
+	it('a message that cannot be deserialised rejects with an environment error and terminates once', async () => {
 		const promise = renderInWorker(job(), { timeoutMs: 30000 })
 		const [worker] = workers
 
 		worker.garble()
 		worker.emit({ ok: true, blob: {} })
 
-		await expect(promise).rejects.toThrow('could not be read')
+		const error = await promise.catch(e => e)
+		expect(error).toBeInstanceOf(ThumbnailEnvironmentError)
+		expect(error.message).toMatch('could not be read')
 		expect(worker.terminated).toBe(1)
 	})
 
@@ -209,7 +231,9 @@ describe('renderInWorker', () => {
 		const promise = renderInWorker(job(), { timeoutMs: 30000 })
 		const [worker] = workers
 
-		await expect(promise).rejects.toBe(cloneError)
+		const error = await promise.catch(e => e)
+		expect(error).toBeInstanceOf(ThumbnailEnvironmentError)
+		expect(error.cause).toBe(cloneError)
 		expect(worker.terminated).toBe(1)
 		// Nothing left to fire later and terminate it again
 		expect(jest.getTimerCount()).toBe(0)
@@ -233,6 +257,58 @@ describe('renderInWorker', () => {
 	})
 })
 
+describe('probeWorkerRendering', () => {
+	const OriginalWorker = global.Worker
+	const OriginalOffscreenCanvas = global.OffscreenCanvas
+
+	beforeEach(() => {
+		workers.length = 0
+		global.Worker = FakeWorker
+		global.OffscreenCanvas = class {}
+	})
+
+	afterEach(() => {
+		global.Worker = OriginalWorker
+		global.OffscreenCanvas = OriginalOffscreenCanvas
+		jest.useRealTimers()
+	})
+
+	it('asks a worker for a WebGL context and resolves true when it has one', async () => {
+		const answer = probeWorkerRendering({ timeoutMs: 1000 })
+		const [worker] = workers
+
+		expect(worker.posted[0].message).toEqual({ probe: true })
+		worker.emit({ probe: true, ok: true })
+
+		await expect(answer).resolves.toBe(true)
+		expect(worker.terminated).toBe(1)
+	})
+
+	it('resolves false when the worker has no WebGL, crashes, or never answers', async () => {
+		const noWebGL = probeWorkerRendering({ timeoutMs: 1000 })
+		workers[0].emit({ probe: true, ok: false, error: 'No WebGL 2 context' })
+		await expect(noWebGL).resolves.toBe(false)
+
+		const crashed = probeWorkerRendering({ timeoutMs: 1000 })
+		workers[1].fail('Failed to load worker script')
+		await expect(crashed).resolves.toBe(false)
+
+		jest.useFakeTimers()
+		const silent = probeWorkerRendering({ timeoutMs: 1000 })
+		jest.advanceTimersByTime(1000)
+		await expect(silent).resolves.toBe(false)
+
+		expect(workers.map(worker => worker.terminated)).toEqual([1, 1, 1])
+	})
+
+	it('resolves false without a worker when the browser has no OffscreenCanvas', async () => {
+		global.OffscreenCanvas = undefined
+
+		await expect(probeWorkerRendering()).resolves.toBe(false)
+		expect(workers).toHaveLength(0)
+	})
+})
+
 describe('format gates', () => {
 	it('isThumbnailFormat follows the loader registry', () => {
 		expect(isThumbnailFormat('stl')).toBe(true)
@@ -252,5 +328,19 @@ describe('format gates', () => {
 		expect(canRenderInBackground('STL')).toBe(true)
 		expect(canRenderInBackground('mtl')).toBe(false)
 		expect(canRenderInBackground('png')).toBe(false)
+	})
+
+	it('canRenderInBackground leaves the ambiguous G-code extensions nc and g to the viewer', () => {
+		for (const ext of ['nc', 'g', 'NC', 'G']) {
+			expect(isThumbnailFormat(ext)).toBe(true)
+			expect(canRenderInBackground(ext)).toBe(false)
+		}
+		expect([...AMBIGUOUS_FORMATS].sort()).toEqual(['g', 'nc'])
+		// Kept apart: their loader runs in a worker, so they are not worker-unsafe
+		expect(WORKER_UNSAFE_FORMATS.has('nc')).toBe(false)
+		expect(WORKER_UNSAFE_FORMATS.has('g')).toBe(false)
+		// The unambiguous G-code extensions still render in the background
+		expect(canRenderInBackground('gcode')).toBe(true)
+		expect(canRenderInBackground('gco')).toBe(true)
 	})
 })

@@ -25,6 +25,20 @@ export const WORKER_UNSAFE_FORMATS = new Set([
 ])
 
 /**
+ * Extensions the viewer opens as G-code but that other software also uses: `.nc` is
+ * NetCDF as often as CNC G-code, and `.g` is used by several unrelated formats. Opening
+ * such a file is the user saying it is a model, so the viewer still captures it; the
+ * background queue does not guess, and never downloads one. Separate from
+ * WORKER_UNSAFE_FORMATS because their loader runs in a worker just fine.
+ *
+ * @type {ReadonlySet<string>}
+ */
+export const AMBIGUOUS_FORMATS = new Set([
+	'nc', // CNC G-code, but also NetCDF scientific data
+	'g', // generic G-code, but also several unrelated formats
+])
+
+/**
  * Whether files with this extension get a thumbnail at all: every model format the
  * viewer can open, and none of its companions (.mtl, textures).
  *
@@ -36,11 +50,16 @@ export function isThumbnailFormat(ext) {
 }
 
 /**
- * Whether a thumbnail for this extension can be rendered in the background worker.
+ * Whether a thumbnail for this extension is made in the background worker: a model
+ * format whose loader runs in a worker and whose extension is not ambiguous.
  *
  * @param {string} ext - File extension, without the dot
- * @return {boolean} True when the format's loader runs in a worker
+ * @return {boolean} True when the background queue may render it
  */
 export function canRenderInBackground(ext) {
-	return isThumbnailFormat(ext) && !WORKER_UNSAFE_FORMATS.has(ext.toLowerCase())
+	if (!isThumbnailFormat(ext)) {
+		return false
+	}
+	const lower = ext.toLowerCase()
+	return !WORKER_UNSAFE_FORMATS.has(lower) && !AMBIGUOUS_FORMATS.has(lower)
 }

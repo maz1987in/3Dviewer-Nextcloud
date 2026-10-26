@@ -14,10 +14,10 @@
 
 import { generateFilePath } from '@nextcloud/router'
 import { createThumbnailWorker } from './createThumbnailWorker.js'
-import { EmptyModelError, ThumbnailTimeoutError } from './errors.js'
+import { EmptyModelError, ThumbnailEnvironmentError, ThumbnailTimeoutError } from './errors.js'
 
-export { ThumbnailTimeoutError }
-export { canRenderInBackground, isThumbnailFormat, WORKER_UNSAFE_FORMATS } from './formats.js'
+export { ThumbnailEnvironmentError, ThumbnailTimeoutError }
+export { AMBIGUOUS_FORMATS, canRenderInBackground, isThumbnailFormat, WORKER_UNSAFE_FORMATS } from './formats.js'
 
 /**
  * The rejection an aborted render ends in, matching what fetch() throws.
@@ -45,6 +45,9 @@ function abortError() {
  * @throws {ThumbnailTimeoutError} When the limit is reached first
  * @throws {DOMException} An AbortError when the signal fires first
  * @throws {EmptyModelError} When the model has no geometry to frame
+ * @throws {ThumbnailEnvironmentError} When the worker would not start, crashed, sent a
+ *   message that could not be read, or could not render (WebGL); not the file's fault
+ * @throws {Error} When the loader could not read the model, which is the file's fault
  */
 export function renderInWorker(job, { timeoutMs, signal } = {}) {
 	if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
@@ -87,17 +90,22 @@ export function renderInWorker(job, { timeoutMs, signal } = {}) {
 				settle(resolve, data.blob)
 			} else if (data?.empty) {
 				settle(reject, new EmptyModelError(data.error || undefined))
+			} else if (data?.stage === 'render' || data?.stage === 'environment') {
+				// The model loaded and drawing it failed (WebGL in this browser), or a loader
+				// chunk could not be fetched: either way not the file's fault
+				settle(reject, new ThumbnailEnvironmentError(data.error || 'Thumbnail render failed'))
 			} else {
 				settle(reject, new Error(data?.error || 'Thumbnail worker failed'))
 			}
 		}
 		worker.onerror = (event) => {
-			// Handled here; keep the browser from reporting it as uncaught on the page
+			// Handled here; keep the browser from reporting it as uncaught on the page.
+			// Also what a worker script that fails to load ends in.
 			event.preventDefault?.()
-			settle(reject, new Error(event.message || 'Thumbnail worker crashed'))
+			settle(reject, new ThumbnailEnvironmentError(event.message || 'Thumbnail worker crashed'))
 		}
 		worker.onmessageerror = () => {
-			settle(reject, new Error('Thumbnail worker sent a message that could not be read'))
+			settle(reject, new ThumbnailEnvironmentError('Thumbnail worker sent a message that could not be read'))
 		}
 
 		signal?.addEventListener('abort', () => settle(reject, abortError()), { once: true, signal: listening.signal })
@@ -113,7 +121,52 @@ export function renderInWorker(job, { timeoutMs, signal } = {}) {
 			}, [job.buffer])
 		} catch (error) {
 			// e.g. a buffer that was already transferred elsewhere
-			settle(reject, error)
+			settle(reject, new ThumbnailEnvironmentError(error?.message || 'Could not start the thumbnail job', { cause: error }))
+		}
+	})
+}
+
+/**
+ * Check once, before anything is downloaded for it, that this browser can make
+ * thumbnails in the background at all: the worker script loads, and a WebGL 2 context can
+ * be created on an OffscreenCanvas inside it. A browser that cannot would otherwise
+ * download every model in a folder only to fail each render.
+ *
+ * @param {object} [options] - Limits
+ * @param {number} [options.timeoutMs] - How long the worker may take to answer
+ * @return {Promise<boolean>} True when it can; never rejects
+ */
+export function probeWorkerRendering({ timeoutMs = 30000 } = {}) {
+	if (typeof Worker === 'undefined' || typeof OffscreenCanvas === 'undefined') {
+		return Promise.resolve(false)
+	}
+
+	return new Promise((resolve) => {
+		let worker
+		let timer = null
+		const finish = (ok) => {
+			clearTimeout(timer)
+			if (worker) {
+				worker.onmessage = null
+				worker.onerror = null
+				worker.onmessageerror = null
+				worker.terminate()
+			}
+			resolve(ok)
+		}
+
+		try {
+			worker = createThumbnailWorker()
+			worker.onmessage = ({ data }) => finish(data?.probe === true && data?.ok === true)
+			worker.onerror = (event) => {
+				event.preventDefault?.()
+				finish(false)
+			}
+			worker.onmessageerror = () => finish(false)
+			timer = setTimeout(() => finish(false), timeoutMs)
+			worker.postMessage({ probe: true })
+		} catch {
+			finish(false)
 		}
 	})
 }

@@ -623,4 +623,25 @@ test.describe('thumbnail worker', () => {
 
     expect(outcome).toMatchObject({ ok: false, errorName: 'ThumbnailTimeoutError' })
   })
+
+  test('the capability probe finds WebGL 2 in the worker', async ({ page }) => {
+    await openHarness(page, server.origin, APP_ROOTS[0])
+
+    // @ts-ignore test hook
+    const capable = await page.evaluate(() => window.__threedviewerThumbnails.probeWorkerRendering({ timeoutMs: 30000 }))
+
+    expect(capable).toBe(true)
+  })
+
+  test('the ambiguous G-code extensions are left to the viewer', async ({ page }) => {
+    await openHarness(page, server.origin, APP_ROOTS[0])
+
+    const gate = await page.evaluate(() => {
+      // @ts-ignore test hook
+      const api = window.__threedviewerThumbnails
+      return ['nc', 'g', 'gcode'].map(ext => [ext, api.isThumbnailFormat(ext), api.canRenderInBackground(ext)])
+    })
+
+    expect(gate).toEqual([['nc', true, false], ['g', true, false], ['gcode', true, true]])
+  })
 })

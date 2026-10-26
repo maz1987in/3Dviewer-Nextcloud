@@ -7,7 +7,11 @@
  * terminates it when the job is over, so nothing here needs to clean up after itself.
  *
  * In:  { extension, buffer, additionalFiles, appWebRoot }, with `buffer` transferred
- * Out: { ok: true, blob } or { ok: false, error, empty? }
+ * Out: { ok: true, blob } or { ok: false, error, stage, empty? }, where `stage` is 'load'
+ *      when the loader could not read the model and 'render' when drawing it failed
+ *
+ * In:  { probe: true }, the capability check from probeWorkerRendering()
+ * Out: { probe: true, ok, error? }
  */
 
 import * as THREE from 'three'
@@ -62,8 +66,44 @@ async function imagesDecoded() {
 	}
 }
 
+/**
+ * Answer the capability probe: the renderer needs WebGL 2 on an OffscreenCanvas.
+ */
+function answerProbe() {
+	try {
+		const context = new OffscreenCanvas(1, 1).getContext('webgl2')
+		self.postMessage(context
+			? { probe: true, ok: true }
+			: { probe: true, ok: false, error: 'No WebGL 2 context on an OffscreenCanvas' })
+	} catch (error) {
+		self.postMessage({ probe: true, ok: false, error: error?.message || String(error) })
+	}
+}
+
+/**
+ * Which stage to report a failure under. A loader chunk or decoder that could not be
+ * fetched (a network error, or a page left open across an app upgrade whose chunks are
+ * gone) is the environment's fault, not the model's, even though it fails while loading.
+ *
+ * @param {'load'|'render'} stage - Where the job was
+ * @param {unknown} error - What it failed with
+ * @return {'load'|'render'|'environment'} The stage to report
+ */
+function failedStage(stage, error) {
+	const text = String(error?.message ?? error)
+	if (stage === 'load' && /dynamically imported module|Importing a module script failed|Failed to fetch|NetworkError/i.test(text)) {
+		return 'environment'
+	}
+	return stage
+}
+
 self.onmessage = async ({ data }) => {
+	if (data?.probe) {
+		answerProbe()
+		return
+	}
 	const { extension, buffer, additionalFiles = [], appWebRoot } = data
+	let stage = 'load'
 	try {
 		if (appWebRoot) {
 			setAppWebRoot(appWebRoot)
@@ -84,13 +124,14 @@ self.onmessage = async ({ data }) => {
 		}
 		await imagesDecoded()
 
+		stage = 'render'
 		const blob = await renderThumbnail(result.object3D, {
 			canvas: new OffscreenCanvas(SIZE, SIZE),
 			size: SIZE,
 		})
 		self.postMessage({ ok: true, blob })
 	} catch (error) {
-		const message = { ok: false, error: error?.message || String(error) }
+		const message = { ok: false, error: error?.message || String(error), stage: failedStage(stage, error) }
 		if (error instanceof EmptyModelError) {
 			message.empty = true
 		}

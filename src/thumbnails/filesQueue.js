@@ -5,16 +5,20 @@
  * The heavy half of the Files page integration: the user, the settings, the server calls,
  * the model loader and the worker renderer, wired into a background queue. filesPage.js
  * imports this only once a folder shows a model, so other Files pages never load it.
+ *
+ * The loader is the background one, not the viewer's: it fetches only the companions a
+ * model declares, within the budget, and stops when the queue aborts it. See
+ * backgroundLoad.js for why.
  */
 
 // eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
 import { getCurrentUser } from '@nextcloud/auth'
-import { loadModelWithDependencies } from '../loaders/multiFileHelpers.js'
+import { loadModelForBackground } from './backgroundLoad.js'
 import { createBackgroundQueue } from './backgroundQueue.js'
 import { isSkipped, markSkipped } from './skipList.js'
 import { fetchStatus, uploadThumbnail } from './thumbnailApi.js'
 import { loadThumbnailSettings } from './thumbnailSettings.js'
-import { renderInWorker } from './workerRenderer.js'
+import { probeWorkerRendering, renderInWorker } from './workerRenderer.js'
 
 /**
  * Create the background queue, if there is a logged-in user with "Create thumbnails while
@@ -38,8 +42,9 @@ export async function createFilesQueue({ env, onThumbnail }) {
 	return createBackgroundQueue({
 		settings,
 		api: { fetchStatus, uploadThumbnail },
-		load: loadModelWithDependencies,
+		load: loadModelForBackground,
 		render: renderInWorker,
+		probe: probeWorkerRendering,
 		skips: { isSkipped, markSkipped },
 		env,
 		onThumbnail,

@@ -1,5 +1,10 @@
 import { createBackgroundQueue } from '../../../src/thumbnails/backgroundQueue.js'
-import { EmptyModelError, ThumbnailTimeoutError } from '../../../src/thumbnails/errors.js'
+import {
+	EmptyModelError,
+	ThumbnailBudgetError,
+	ThumbnailEnvironmentError,
+	ThumbnailTimeoutError,
+} from '../../../src/thumbnails/errors.js'
 
 jest.mock('../../../src/utils/logger.js', () => ({
 	logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() },
@@ -65,6 +70,8 @@ function setup({ statuses = {}, settings = {} } = {}) {
 	const skipped = new Set()
 	const resumeCallbacks = []
 	const state = { paused: false, clock: 1000 }
+	// Timers the queue set, which a test fires by hand
+	const timers = []
 
 	const deps = {
 		settings: {
@@ -90,6 +97,13 @@ function setup({ statuses = {}, settings = {} } = {}) {
 			onResume: jest.fn((cb) => resumeCallbacks.push(cb)),
 			whenIdle: jest.fn(() => Promise.resolve()),
 			now: jest.fn(() => state.clock),
+			setTimer: jest.fn((cb, ms) => {
+				const timer = { cb, ms, cancelled: false }
+				timers.push(timer)
+				return () => {
+					timer.cancelled = true
+				}
+			}),
 		},
 		onThumbnail: jest.fn(),
 	}
@@ -99,7 +113,24 @@ function setup({ statuses = {}, settings = {} } = {}) {
 		resumeCallbacks.splice(0).forEach((cb) => cb())
 	}
 
-	return { queue: createBackgroundQueue(deps), deps, table, skipped, state, resume }
+	/** Fire every timer still pending, as if its time had come. */
+	const fireTimers = () => timers.filter((timer) => !timer.cancelled).forEach((timer) => timer.cb())
+
+	return { queue: createBackgroundQueue(deps), deps, table, skipped, state, resume, timers, fireTimers }
+}
+
+/**
+ * A load that reports `bytes` received, then hangs until its signal fires and rejects the
+ * way fetch does.
+ *
+ * @param {number} bytes - Bytes it pretends to have received before hanging
+ * @return {Function} A `load` implementation
+ */
+function hangingLoad(bytes) {
+	return (id, name, extension, dir, { signal, onBytes }) => new Promise((resolve, reject) => {
+		onBytes(bytes)
+		signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')))
+	})
 }
 
 /**
@@ -384,7 +415,11 @@ describe('createBackgroundQueue', () => {
 			queue.setFolder('/parts', [1], new Set())
 			await queue.idle()
 
-			expect(deps.load).toHaveBeenCalledWith(1, 'Bracket.v2.GLB', 'glb', '/parts')
+			expect(deps.load).toHaveBeenCalledWith(1, 'Bracket.v2.GLB', 'glb', '/parts', {
+				signal: expect.any(AbortSignal),
+				budgetBytes: 500 * MB,
+				onBytes: expect.any(Function),
+			})
 			expect(deps.render.mock.calls[0][0]).toEqual({
 				extension: 'glb',
 				buffer: expect.any(ArrayBuffer),
@@ -449,9 +484,9 @@ describe('createBackgroundQueue', () => {
 			expect(deps.api.uploadThumbnail).toHaveBeenCalledWith(2, 'etag-2', PNG)
 		})
 
-		it('any other render error marks the file skipped', async () => {
+		it('a loader error on a file that downloaded fine marks it skipped', async () => {
 			const { queue, deps } = setup({ statuses: { 1: status(1) } })
-			deps.render.mockRejectedValueOnce(new Error('Thumbnail worker crashed'))
+			deps.render.mockRejectedValueOnce(new Error('Invalid FBX file'))
 
 			queue.setFolder('/models', [1], new Set())
 			await queue.idle()
@@ -523,7 +558,7 @@ describe('createBackgroundQueue', () => {
 			queue.setFolder('/other', [9], new Set())
 			await flush()
 
-			// The new folder waits for the old download instead of starting a second one
+			// A load that ignores its signal is still waited for, so two never overlap
 			expect(loadedIds(deps.load)).toEqual([1])
 
 			load.resolve({ mainFile: fakeFile(MB), dependencies: [] })
@@ -625,6 +660,232 @@ describe('createBackgroundQueue', () => {
 			moments[1].resolve()
 			await queue.idle()
 			expect(loadedIds(deps.load)).toEqual([1, 2])
+		})
+	})
+
+	describe('aborting downloads', () => {
+		it('gives the load one signal, the budget left and a byte counter', async () => {
+			const { queue, deps } = setup({
+				settings: { folderBudgetMB: 50 },
+				statuses: { 1: status(1, { size: 10 * MB }), 2: status(2, { size: 10 * MB }) },
+			})
+
+			queue.setFolder('/models', [1, 2], new Set())
+			await queue.idle()
+
+			const [first, second] = deps.load.mock.calls.map((call) => call[4])
+			expect(first.budgetBytes).toBe(50 * MB)
+			// The first file's 10 MB are spent
+			expect(second.budgetBytes).toBe(40 * MB)
+			expect(first.signal).not.toBe(second.signal)
+		})
+
+		it('an abort at the deadline mid-download marks the file skipped and counts the bytes received', async () => {
+			const { queue, deps, timers, fireTimers } = setup({
+				settings: { timeoutSeconds: 30, folderBudgetMB: 50 },
+				statuses: { 1: status(1, { size: 40 * MB }), 2: status(2, { size: 25 * MB }) },
+			})
+			let signal
+			deps.load.mockImplementationOnce((id, name, extension, dir, options) => {
+				signal = options.signal
+				return hangingLoad(30 * MB)(id, name, extension, dir, options)
+			})
+
+			queue.setFolder('/models', [1, 2], new Set())
+			await flush()
+			expect(timers[0].ms).toBe(30000)
+			expect(signal.aborted).toBe(false)
+
+			fireTimers()
+			expect(signal.aborted).toBe(true)
+			await queue.idle()
+
+			expect(deps.skips.markSkipped).toHaveBeenCalledWith(1, 'etag-1')
+			expect(deps.render).not.toHaveBeenCalled()
+			// 30 MB of the 50 MB arrived before the abort, so the 25 MB file no longer fits
+			expect(loadedIds(deps.load)).toEqual([1])
+			expect(deps.skips.markSkipped).toHaveBeenCalledTimes(1)
+		})
+
+		it('leaving the folder mid-download aborts the request without skipping the file', async () => {
+			const { queue, deps } = setup({ statuses: { 1: status(1), 9: status(9) } })
+			let signal
+			deps.load.mockImplementationOnce((id, name, extension, dir, options) => {
+				signal = options.signal
+				return hangingLoad(MB / 2)(id, name, extension, dir, options)
+			})
+
+			queue.setFolder('/models', [1], new Set())
+			await flush()
+			expect(signal.aborted).toBe(false)
+
+			queue.setFolder('/other', [9], new Set())
+			expect(signal.aborted).toBe(true)
+			await queue.idle()
+
+			expect(deps.skips.markSkipped).not.toHaveBeenCalled()
+			expect(loadedIds(deps.load)).toEqual([1, 9])
+			expect(deps.api.uploadThumbnail).toHaveBeenCalledWith(9, 'etag-9', PNG)
+		})
+
+		it('stop() mid-download aborts the request without skipping the file', async () => {
+			const { queue, deps } = setup({ statuses: { 1: status(1) } })
+			let signal
+			deps.load.mockImplementationOnce((id, name, extension, dir, options) => {
+				signal = options.signal
+				return hangingLoad(0)(id, name, extension, dir, options)
+			})
+
+			queue.setFolder('/models', [1], new Set())
+			await flush()
+			queue.stop()
+			await queue.idle()
+
+			expect(signal.aborted).toBe(true)
+			expect(deps.skips.markSkipped).not.toHaveBeenCalled()
+		})
+
+		it('cancels the deadline once the download is done', async () => {
+			const { queue, timers } = setup({ statuses: { 1: status(1) } })
+
+			queue.setFolder('/models', [1], new Set())
+			await queue.idle()
+
+			expect(timers).toHaveLength(1)
+			expect(timers[0].cancelled).toBe(true)
+		})
+
+		it('a main file bigger than the budget left ends the visit without skipping it', async () => {
+			const { queue, deps } = setup({ statuses: { 1: status(1), 2: status(2) } })
+			deps.load.mockRejectedValueOnce(new ThumbnailBudgetError(MB))
+
+			queue.setFolder('/models', [1, 2], new Set())
+			await queue.idle()
+
+			expect(loadedIds(deps.load)).toEqual([1])
+			expect(deps.skips.markSkipped).not.toHaveBeenCalled()
+		})
+	})
+
+	describe('environment failures', () => {
+		it('a network error or 5xx on download never marks the file skipped', async () => {
+			const { queue, deps } = setup({ statuses: { 1: status(1), 2: status(2), 3: status(3) } })
+			deps.load
+				.mockRejectedValueOnce(new ThumbnailEnvironmentError('Network error'))
+				.mockRejectedValueOnce(new ThumbnailEnvironmentError('HTTP 503'))
+
+			queue.setFolder('/models', [1, 2, 3], new Set())
+			await queue.idle()
+
+			expect(deps.skips.markSkipped).not.toHaveBeenCalled()
+			expect(deps.api.uploadThumbnail).toHaveBeenCalledWith(3, 'etag-3', PNG)
+		})
+
+		it('a worker that fails to start or crashes never marks the file skipped', async () => {
+			const { queue, deps } = setup({ statuses: { 1: status(1), 2: status(2) } })
+			deps.render.mockRejectedValueOnce(new ThumbnailEnvironmentError('Thumbnail worker crashed'))
+
+			queue.setFolder('/models', [1, 2], new Set())
+			await queue.idle()
+
+			expect(deps.skips.markSkipped).not.toHaveBeenCalled()
+			expect(deps.api.uploadThumbnail).toHaveBeenCalledWith(2, 'etag-2', PNG)
+		})
+
+		it('the breaker stops the page after three failures in a row', async () => {
+			const statuses = Object.fromEntries([1, 2, 3, 4, 5, 9].map((id) => [id, status(id)]))
+			const { queue, deps } = setup({ statuses })
+			deps.load.mockRejectedValueOnce(new ThumbnailEnvironmentError('Network error'))
+			deps.render
+				.mockRejectedValueOnce(new ThumbnailEnvironmentError('Thumbnail worker crashed'))
+				.mockRejectedValueOnce(new Error('Invalid model'))
+
+			queue.setFolder('/models', [1, 2, 3, 4, 5], new Set())
+			await queue.idle()
+
+			expect(loadedIds(deps.load)).toEqual([1, 2, 3])
+			// Only the parse error is the file's; the other two are the environment's
+			expect(deps.skips.markSkipped.mock.calls).toEqual([[3, 'etag-3']])
+			expect(deps.api.uploadThumbnail).not.toHaveBeenCalled()
+
+			// Nothing more on this page, not even in another folder
+			queue.setFolder('/other', [9], new Set())
+			await queue.idle()
+			expect(loadedIds(deps.load)).toEqual([1, 2, 3])
+		})
+
+		it('timeouts and empty models do not trip the breaker, and a success resets it', async () => {
+			const statuses = Object.fromEntries([1, 2, 3, 4, 5, 6, 7].map((id) => [id, status(id)]))
+			const { queue, deps } = setup({ statuses })
+			const crash = () => new ThumbnailEnvironmentError('Thumbnail worker crashed')
+			deps.render
+				.mockRejectedValueOnce(crash())
+				.mockRejectedValueOnce(crash())
+				.mockRejectedValueOnce(new ThumbnailTimeoutError(60000))
+				.mockResolvedValueOnce(PNG)
+				.mockRejectedValueOnce(crash())
+				.mockRejectedValueOnce(crash())
+
+			queue.setFolder('/models', [1, 2, 3, 4, 5, 6, 7], new Set())
+			await queue.idle()
+
+			expect(loadedIds(deps.load)).toEqual([1, 2, 3, 4, 5, 6, 7])
+			expect(deps.api.uploadThumbnail.mock.calls.map(([id]) => id)).toEqual([4, 7])
+			expect(deps.skips.markSkipped.mock.calls).toEqual([[3, 'etag-3']])
+		})
+	})
+
+	describe('capability probe', () => {
+		it('a failed probe skips nothing and stops the page before any download', async () => {
+			const { queue, deps } = setup({ statuses: { 1: status(1), 2: status(2), 9: status(9) } })
+			deps.probe = jest.fn(async () => false)
+			const probed = createBackgroundQueue(deps)
+
+			probed.setFolder('/models', [1, 2], new Set())
+			await probed.idle()
+			probed.setFolder('/other', [9], new Set())
+			await probed.idle()
+
+			expect(deps.probe).toHaveBeenCalledTimes(1)
+			expect(deps.probe).toHaveBeenCalledWith({ timeoutMs: 60000 })
+			expect(deps.load).not.toHaveBeenCalled()
+			expect(deps.skips.markSkipped).not.toHaveBeenCalled()
+			// The status is only a question to the server, not a download
+			expect(deps.api.fetchStatus).toHaveBeenCalledTimes(1)
+			queue.stop()
+		})
+
+		it('a probe that throws counts as failed', async () => {
+			const { deps } = setup({ statuses: { 1: status(1) } })
+			deps.probe = jest.fn(async () => {
+				throw new Error('Worker blocked by CSP')
+			})
+			const probed = createBackgroundQueue(deps)
+
+			probed.setFolder('/models', [1], new Set())
+			await probed.idle()
+
+			expect(deps.load).not.toHaveBeenCalled()
+			expect(deps.skips.markSkipped).not.toHaveBeenCalled()
+		})
+
+		it('probes once per page, before the first download, and only when there is one', async () => {
+			const { deps } = setup({ statuses: { 1: status(1, { hasThumbnail: true }), 2: status(2), 3: status(3) } })
+			deps.probe = jest.fn(async () => true)
+			const probed = createBackgroundQueue(deps)
+
+			probed.setFolder('/done', [1], new Set())
+			await probed.idle()
+			expect(deps.probe).not.toHaveBeenCalled()
+
+			probed.setFolder('/a', [2], new Set())
+			await probed.idle()
+			probed.setFolder('/b', [3], new Set())
+			await probed.idle()
+
+			expect(deps.probe).toHaveBeenCalledTimes(1)
+			expect(deps.probe.mock.invocationCallOrder[0]).toBeLessThan(deps.load.mock.invocationCallOrder[0])
+			expect(loadedIds(deps.load)).toEqual([2, 3])
 		})
 	})
 })
