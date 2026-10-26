@@ -58,7 +58,7 @@ The 3D Viewer is a Nextcloud application that provides 3D model viewing capabili
 - **`PageController`**: Frontpage route returning the app shell
 - **`SettingsController`**: User settings management (`/settings`)
 - **`SlicerController`**: Slicer integration and temporary file handling (`/api/slicer/temp`)
-- **`ThumbnailController`**: Thumbnail upload and management (`/api/thumbnail/{fileId}`, `/api/thumbnails`)
+- **`ThumbnailController`**: Thumbnail status and upload (`/api/thumbnails/status`, `/api/thumbnail/{fileId}`)
 
 **Slicer temp file security posture:**
 - Temp folder: `.3dviewer_temp` under each user’s home.
@@ -73,7 +73,7 @@ The 3D Viewer is a Nextcloud application that provides 3D model viewing capabili
 - **`ShareFileService`**: Public share file handling
 - **`ModelFileSupport`**: 3D format support wrapper (delegates to `SupportedFormats`)
 - **`FileIndexService`**: Database-backed file indexing for navigation
-- **`ThumbnailService`**: Thumbnail storage and retrieval using IAppData
+- **`ThumbnailService`**: One thumbnail per file version, stored in IAppData
 
 **Constants:**
 - **`SupportedFormats`**: Centralized format definitions and MIME type mappings (single source of truth)
@@ -1827,83 +1827,73 @@ The application provides a comprehensive user-specific configuration system that
 
 ### Thumbnail Generation System
 
-The application automatically generates thumbnails for 3D models when they are viewed, providing visual previews in file lists.
+Nextcloud cannot render 3D models on the server, so the browser renders them and uploads a PNG that the app's preview provider then serves to the Files app. There are two producers: the open viewer, and a background queue on the Files page that works through the folder being browsed. Both render with the same fixed look (512x512, transparent background, default lighting and camera framing), so a thumbnail does not depend on who made it or how the viewer was set up.
 
-**Architecture:**
+**Storage and the version rule:**
+
+- One PNG per file version, shared by every reader, in the app data (`IAppData`), never in user files: `thumbnails-v2/<fileId>/<sha1(etag)>.png`.
+- The ETag identifies the version. The first thumbnail stored for a version is kept; a later upload for it gets 409.
+- An upload names the ETag of the version that was rendered. The server compares it with the file's current ETag and answers 412 (`stale`) when they differ, so a thumbnail of old bytes is never filed under a newer version. The storage key is always the server's ETag.
+- `ThumbnailInvalidationListener` deletes a file's folder on `NodeWrittenEvent` and `NodeDeletedEvent`, alongside Nextcloud clearing its own preview cache.
+- The `RemoveLegacyThumbnails` repair step removes the per-user store (`thumbnails/<userId>/`) that earlier versions used.
+- Accepted images: PNG, 16 to 1024 px per side, at most 1 MB (`ThumbnailService::MAX_BYTES`).
+
+**Endpoints** (`ThumbnailController`; both need a logged-in user and the request token):
+
+- `GET /api/thumbnails/status?ids=1,2,3`: up to 200 ids. For each model file the user can read it returns `name`, `dir`, `size`, `etag`, `canEdit` and `hasThumbnail` (for that ETag). Folders, other files and unreadable ids are left out.
+- `POST /api/thumbnail/{fileId}?etag=<etag>`: the body is the raw PNG. 201 stored, 409 exists, 412 stale, 403 without edit rights (`NoteAccess::forUser(...)->canEdit`), 404 for a file the user cannot read or that is not a model, 400 for a missing ETag or an image that is not accepted.
+
+**Preview provider** (`ModelPreviewProvider`, registered with `SupportedFormats::getPreviewMimeRegex()`, which covers every thumbnail format's MIME type, including `application/x-step`, `application/x-fcstd` and `text/x-gcode`): `isAvailable()` is true only when a thumbnail exists for the file's current ETag, and `getThumbnail()` returns it, scaled down to the requested size. It does not depend on the session, so share recipients and public links get the same image. Files without one fall back to the MIME icon.
+
+**From the viewer:**
 
 ```
-User views 3D model
+Model load begins → GET /api/thumbnails/status (startStatusFetch, before the download)
     ↓
-ThreeViewer/ViewerComponent renders model
+Model loaded, 500 ms later → captureForCurrentVersion (src/thumbnails/captureFromViewer.js)
     ↓
-Status fetched when the load begins (GET /api/thumbnails/status)
+Skipped unless the user can edit the file and this version has no thumbnail; never on public shares
     ↓
-After 500ms delay (allow render to complete)
-    ↓
-captureForCurrentVersion (src/thumbnails/captureFromViewer.js)
-    ↓
-Skip unless the user can edit the file and this version has no thumbnail
-    ↓
-renderThumbnail: fixed look, 512x512 transparent PNG, on a detached canvas
-    ↓
-Upload to /api/thumbnail/{fileId}?etag=<etag from the status>
-    ↓
-ThumbnailController validates and stores
-    ↓
-ThumbnailService saves to IAppData (not user files)
+renderThumbnail: fixed look on a detached canvas → POST /api/thumbnail/{fileId}?etag=<etag from the status>
 ```
 
-**Backend Components:**
+`ThreeViewer.vue` and `ViewerComponent.vue` start the status fetch as the load begins and capture after the model loads, when "Enable Thumbnail Generation" (`thumbnails.enabled`) is on. The ETag comes from a status fetched before the download, never after it.
 
-- **`ThumbnailController`** (`lib/Controller/ThumbnailController.php`):
-  - `POST /api/thumbnail/{fileId}` - Store thumbnail (base64 image data)
-  - `DELETE /api/thumbnails` - Clear all user thumbnails
-  - Validates file ownership, format support, and image data
+**From the Files page** (background):
 
-- **`ThumbnailService`** (`lib/Service/ThumbnailService.php`):
-  - Uses `IAppData` for storage (app-internal, not in user files)
-  - Thumbnails stored in `appdata_xxx/threedviewer/thumbnails/{userId}/`
-  - Prevents thumbnails from appearing in "Recommended files" or recent files
-  - Methods: `storeThumbnail()`, `getThumbnailContent()`, `hasThumbnail()`, `clearAllThumbnails()`
+```
+main.js on /apps/files (not on public shares) → import('./thumbnails/filesPage.js') → startFilesThumbnails()
+    ↓
+Logged-in user and "Create thumbnails while browsing Files" (thumbnails.background) on, else nothing more
+    ↓
+MutationObserver (500 ms debounce) + popstate → read the URL and the rendered rows
+    ↓
+Eligible view → queue.setFolder(folderKey, model ids, visible ids); recent, trash bin, search or ?query= → queue.stop()
+    ↓
+backgroundQueue: status → limits → wait for idle and a visible tab → download → render in a worker → upload
+    ↓
+Stored → the row's icon is replaced at once (swapRowIcon); after a reload the Files app shows the preview
+```
 
-**Frontend Components:**
+- `filesPage.js` reads the Files app's rows by their `data-cy-files-list-row-fileid` and `data-cy-files-list-row-name` attributes and passes on only rows whose extension the worker can render, so a folder without models costs no request. Rows on screen go first. The folder key is `<view>:<dir param or route file id>`.
+- The thumbnail is put in the row as an extra `<img class="threedviewer-thumbnail">`; the Files app's own icon is hidden, not removed, since its list reuses row elements as it scrolls and patches the nodes it owns. Thumbnails made on the page are remembered (up to 200) and put back when their row is rendered again, and taken out of a row that now shows another file.
+- `backgroundQueue.js` does one file at a time. Before downloading anything it skips files it cannot render in a worker, files the user cannot edit, versions that already have a thumbnail, files on the skip list and files over "Skip files larger than". A file larger than what is left of "Download at most, per folder visit" ends the visit. A new folder aborts the current job (without skipping its file) and starts a fresh budget.
+- Work waits for `requestIdleCallback` (a 200 ms timer where there is none) and pauses while the tab is hidden or Save-Data is on.
+- A file whose download fails, whose render fails or runs past "Give up on a file after" goes on the skip list, `localStorage['threedviewer:thumbnailSkips']`, keyed by file id and ETag (at most 2000 entries). A changed file is tried again; "Retry skipped files" clears the list.
 
-- **`captureFromViewer`** (`src/thumbnails/captureFromViewer.js`):
-  - `startStatusFetch({ fileId, extension })` - Called when a model load begins, before the download; the etag it returns is the version the upload is stored under, so it must not be newer than the bytes that were rendered
-  - `captureForCurrentVersion({ fileId, extension, object3D, statusPromise })` - Renders and uploads once per file version; returns `'stored'`, `'exists'` or `'skipped'` and never throws
-  - Skips read-only files, versions that already have a thumbnail, non-model extensions and public shares
+**The worker** (`workerRenderer.js`, `thumbnail.worker.js`): every render gets a fresh dedicated module worker, loaded from the app's own URL, which is terminated as soon as the job settles, times out or is aborted. Terminating is the only way to stop a parse running inside WebAssembly (OCCT, web-ifc), and it frees the parse's memory before the next file. The time limit covers the download and the render together. Formats whose loader needs `DOMParser`, which workers lack (`3mf`, `amf`, `dae`, `x3d`, `WORKER_UNSAFE_FORMATS` in `formats.js`), are left to the viewer. The worker script is a static file served without a CSP header, so the Files page's `worker-src 'self'` allows it, and the Draco decoder worker it starts from a `blob:` URL is allowed by the worker's own (empty) policy.
 
-- **`thumbnailApi`** (`src/thumbnails/thumbnailApi.js`):
-  - `fetchStatus(fileIds)` - Batched (200 ids per request) status lookup through `@nextcloud/axios`
-  - `uploadThumbnail(fileId, etag, blob)` - Raw PNG upload; maps 201/409/412/403 to `'stored'`/`'exists'`/`'stale'`/`'forbidden'`
+**Settings** (Personal Settings → 3D Viewer → Thumbnails; `THUMBNAIL_SETTINGS` in `src/config/viewer-config.js`, read by `loadThumbnailSettings()`, which falls back to the default for anything missing or out of range):
 
-- **Integration in Viewers:**
-  - `ThreeViewer.vue` and `ViewerComponent.vue`: start the status fetch as the load begins and call `captureForCurrentVersion` after the model loads
-  - Both check `enableThumbnails` setting before capturing
+| Setting | Key | Default | Range |
+|---|---|---|---|
+| Enable Thumbnail Generation (viewer) | `thumbnails.enabled` | on | |
+| Create thumbnails while browsing Files | `thumbnails.background` | on | |
+| Skip files larger than | `thumbnails.maxFileSizeMB` | 50 MB | 1 to 2048 |
+| Give up on a file after | `thumbnails.timeoutSeconds` | 30 s | 5 to 300 |
+| Download at most, per folder visit | `thumbnails.folderBudgetMB` | 500 MB | 50 to 10000 |
 
-**User Settings:**
-
-- **Enable/Disable**: Personal Settings → 3D Viewer → Thumbnails → "Enable Thumbnail Generation"
-- **Clear Thumbnails**: Button to delete all stored thumbnails with count feedback
-- Setting stored in `thumbnails.enabled` preference key
-
-**Storage Strategy:**
-
-Thumbnails are stored in Nextcloud's app data folder (`IAppData`) rather than in user files:
-- ✅ Does not appear in user's file list
-- ✅ Does not show in "Recommended files" or activity
-- ✅ Isolated per-user storage
-- ✅ Cleaned up with app uninstall
-- ✅ Not synced to desktop/mobile clients
-
-**Supported Formats:**
-`glb`, `gltf`, `obj`, `stl`, `ply`, `3mf`, `fbx`, `dae`, `3ds`, `x3d`, `wrl`, `vrml`
-
-**Security:**
-- File ownership validation before storing
-- Base64 image data validated (PNG/JPEG headers)
-- 1MB size limit per thumbnail
-- User authentication required for all operations
+The two switches are independent. "Retry skipped files" clears this browser's skip list.
 
 ### File Browser Implementation
 

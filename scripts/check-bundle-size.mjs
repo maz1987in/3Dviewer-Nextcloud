@@ -17,7 +17,9 @@ const pipe = promisify(pipeline);
 const BUDGETS = [
   // Entry point. 5400 since the thumbnail worker's test hook: its dynamic import lists the
   // module's chunks for preloading, ~500 B the page never loads outside a test harness.
-  { pattern: /^threedviewer-main\.mjs$/, name: 'main', maxRaw: 5400, maxGzip: 2000 },
+  // 5700 since the Files app's background thumbnails: the lazy import of filesPage.js and
+  // the four chunks it adds to the preload list come to 505 B.
+  { pattern: /^threedviewer-main\.mjs$/, name: 'main', maxRaw: 5700, maxGzip: 2000 },
   { pattern: /^gltf-.*\.chunk\.mjs$/, name: 'gltf-loader', maxRaw: 22000, maxGzip: 6000 }, // GLTF loader chunk (includes decoder worker pool tuning via setWorkerLimit)
   // Main app component. Bumped 360 KB → 370 KB in v3.3.0 for the 9 new viewer-config
   // entries, and unchanged by the redesign: replacing every emoji control with a Material

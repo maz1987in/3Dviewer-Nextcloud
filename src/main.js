@@ -147,6 +147,12 @@ if (publicShare?.isSingleFile && publicShare.fileId) {
 	}
 }
 
+// Background thumbnails for the folders browsed in Files; the module checks the user
+// and their settings. A public share page has no user to store thumbnails for.
+if (!publicShare && location.pathname.includes('/apps/files')) {
+	import('./thumbnails/filesPage.js').then(m => m.startFilesThumbnails())
+}
+
 // Mode 2: Mount advanced viewer app when #threedviewer div exists (standalone page)
 const appRoot = document.getElementById('threedviewer')
 if (appRoot) {

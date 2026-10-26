@@ -7,14 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Thumbnails are made while you browse Files.** Models in the folder you are viewing get a thumbnail without being opened: one file at a time, while the browser is idle and the tab is visible, and not while Save-Data is on. Each model is rendered in its own Web Worker, which is stopped the moment it runs out of time, so a large CAD file never freezes the page. Personal Settings → 3D Viewer → Thumbnails has the new options: "Create thumbnails while browsing Files" (on by default, and separate from making thumbnails in the viewer), "Skip files larger than" (50 MB), "Give up on a file after" (30 seconds) and "Download at most, per folder visit" (500 MB). A file that fails or runs out of time is skipped by this browser until the file changes or you press "Retry skipped files". Only files you can edit get a thumbnail, and 3MF, AMF, DAE and X3D files, whose loaders cannot run in a worker, still get theirs when opened in the viewer.
+
 ### Changed
+- One thumbnail per file version, shared by everyone who can see the file. Thumbnails were stored per user, keyed by file id alone, so each user made their own and an edited file kept its old picture. They are now stored once per version in the app data (`thumbnails-v2/<fileId>/`), dropped when the file is edited or deleted, and the old per-user thumbnails are removed on upgrade.
 - The viewer captures a model's thumbnail with the same fixed look as every other thumbnail (transparent background, default lighting and camera framing) instead of a crop of the live canvas, and only once per file version: it asks the server first and skips files you cannot edit, files that already have a thumbnail for their current version, and public shares. It now covers every format the viewer opens, not a fixed list of 12.
 - The CAD runtime chunk is 63 KB instead of 776 KB. The OCCT glue's `require("crypto")`, reached only when it runs under Node, pulled the whole browser polyfill for Node's `crypto` into the bundle: crypto-browserify, bn.js, elliptic, asn1.js and readable-stream. `crypto` is no longer polyfilled, which also removes the `vm-browserify` eval warning from the build.
 - The GLB, STL and OBJ exporters load when an export starts instead of with the viewer, taking 40 KB off the main chunk. The slicer's dynamic imports of the same exporters had no effect while the export composable imported them statically.
 - webdav 5.10.0 → 5.11.0 and fast-xml-parser 5.10.1 → 5.11.2, which drop a duplicate key the build warned about.
+- "Retry skipped files" replaces "Clear thumbnails" in the thumbnail settings. Thumbnails are now shared, so clearing them would have removed other people's too; a thumbnail goes away when its file changes instead.
 - `roave/security-advisories` is no longer a dev dependency. Its latest release declares a conflict with every PHP below 8.2.35, PHP 8.1 included, so Composer could not resolve the dev tree for the app's minimum PHP and every PHP job in CI failed at install. Advisories are still checked by `composer audit` in the security scan.
 
+### Fixed
+- IFC, FCSTD and G-code files never showed a thumbnail in Files. The preview provider registered for `model/*` MIME types only, and these three have `application/x-step`, `application/x-fcstd` and `text/x-gcode`. It now registers for the MIME type of every format that gets a thumbnail.
+- Thumbnails never showed to share recipients or on public links. They were looked up for the logged-in user, so a recipient saw their own (usually none) and a public link, with no user, saw none at all. Anyone who can see a file now sees its thumbnail.
+- VRML files (`.wrl`, `.vrml`) spun for 30 seconds and then failed to open in the viewer. The loader waited for a callback three.js's VRML loader never calls; it now uses the scene the parser returns, so they open.
+
 ### Security
+- Storing a thumbnail requires the request token (CSRF protection) and edit rights on the file. The upload route opted out of CSRF checks, and anyone who could read a file could set its thumbnail; read-only share recipients now get 403. The browser also sends the version it rendered, and an upload for a version that is no longer current is refused, so a thumbnail can never be filed under a newer version of the file.
 - Dependencies updated within their existing ranges to clear `npm audit`: follow-redirects 1.16.0 → 1.16.2 (credential headers kept across cross-origin redirects), reached through axios's Node adapter, which the browser bundle does not use, and vite 7.3.6 → 7.3.7 (dev-server advisories). Dev-only fast-uri, brace-expansion, js-yaml, moment, pbkdf2 and qs move to patched releases as well.
 
 ## [3.6.0] - 2026-10-19
