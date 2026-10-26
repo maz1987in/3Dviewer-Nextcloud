@@ -24,6 +24,7 @@ use Psr\Log\LoggerInterface;
  */
 class ThumbnailInvalidationListener implements IEventListener
 {
+    /** @psalm-suppress PossiblyUnusedMethod Constructed by the DI container */
     public function __construct(
         private readonly ThumbnailService $thumbnails,
         private readonly LoggerInterface $logger,

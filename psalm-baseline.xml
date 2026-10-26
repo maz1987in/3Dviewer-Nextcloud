@@ -649,11 +649,6 @@
       <code><![CDATA[LoadViewerListener]]></code>
     </UndefinedDocblockClass>
   </file>
-  <file src="lib/Listener/ThumbnailInvalidationListener.php">
-    <PossiblyUnusedMethod>
-      <code><![CDATA[__construct]]></code>
-    </PossiblyUnusedMethod>
-  </file>
   <file src="lib/Migration/Version010902Date20251116061241.php">
     <MissingReturnType>
       <code><![CDATA[postSchemaChange]]></code>
