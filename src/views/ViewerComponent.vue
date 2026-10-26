@@ -136,7 +136,7 @@ import { removePlaceholders } from '../utils/scene-helpers.js'
 import { useScene } from '../composables/useScene.js'
 import { useCamera } from '../composables/useCamera.js'
 import { useAnimation } from '../composables/useAnimation.js'
-import { useThumbnailCapture } from '../composables/useThumbnailCapture.js'
+import { captureForCurrentVersion, startStatusFetch } from '../thumbnails/captureFromViewer.js'
 import { useScreenshot } from '../composables/useScreenshot.js'
 import { logger } from '../utils/logger.js'
 import { computeCameraFit } from '../thumbnails/cameraFit.js'
@@ -196,7 +196,6 @@ export default {
 		const sceneComposable = useScene()
 		const cameraComposable = useCamera()
 		const animationComposable = useAnimation()
-		const thumbnailCapture = useThumbnailCapture()
 		const screenshotComposable = useScreenshot()
 
 		// Return composables for use in Options API methods
@@ -204,7 +203,6 @@ export default {
 			sceneComposable,
 			cameraComposable,
 			animationComposable,
-			thumbnailCapture,
 			screenshotComposable,
 		}
 	},
@@ -437,25 +435,29 @@ export default {
 		},
 
 		/**
-		 * Capture and upload a thumbnail for the current model
+		 * Capture a thumbnail for the model that just loaded, once per file version.
+		 * It is rendered off-screen with a fixed look, so the viewer's own camera and
+		 * helpers are not part of it.
+		 *
+		 * @param {THREE.Object3D} object3D - The loaded model
+		 * @param {string} extension - Extension of the file the model was loaded from
 		 */
-		captureThumbnail() {
-			if (!this.enableThumbnails) return
+		captureThumbnail(object3D, extension) {
+			// The status was requested when the load began; without it there is nothing
+			// to store a thumbnail under (thumbnails off, not a model format, a share)
+			const pending = this.thumbnailStatus
+			if (!this.enableThumbnails || !pending || !object3D) return
 
-			const extension = this.effectiveFilename.split('.').pop()?.toLowerCase() || ''
-			const supportedFormats = ['glb', 'gltf', 'obj', 'stl', 'ply', '3mf', 'fbx', 'dae', '3ds', 'x3d', 'wrl', 'vrml']
-
-			if (this.renderer && this.fileid && supportedFormats.includes(extension)) {
-				setTimeout(() => {
-					if (!this.renderer) return
-					this.thumbnailCapture.captureAndUpload(this.renderer, this.fileid, {
-						width: 512,
-						height: 512,
-						format: 'png',
-						quality: 0.9,
-					})
-				}, 500)
-			}
+			setTimeout(() => {
+				// Skip when the load was cancelled or another model has replaced this one
+				if (this.loadingCancelled || this.thumbnailStatus !== pending) return
+				captureForCurrentVersion({
+					fileId: Number(this.fileid),
+					extension,
+					object3D,
+					statusPromise: pending.promise,
+				})
+			}, 500)
 		},
 
 		/**
@@ -804,7 +806,7 @@ export default {
 					logger.info('ViewerComponent', 'Model loaded successfully')
 
 					// Capture thumbnail for supported 3D formats
-					this.captureThumbnail()
+					this.captureThumbnail(this.modelRoot, extension)
 
 					// Initialize animations if present
 					if (modelResult.animations && modelResult.animations.length > 0) {
@@ -881,6 +883,16 @@ export default {
 			try {
 				// Extract extension from filename
 				const extension = this.effectiveFilename.split('.').pop().toLowerCase()
+
+				// Ask for the thumbnail status before any bytes are downloaded: the etag it
+				// reports is what the upload is stored under, so it must not be newer than
+				// the model the render is made from. Not reactive data, on purpose: it holds
+				// a promise and is compared by identity.
+				const promise = this.enableThumbnails
+					? startStatusFetch({ fileId: this.fileid, extension })
+					: null
+				this.thumbnailStatus = promise ? { promise } : null
+
 				logger.info('ViewerComponent', 'Loading model', {
 					filename: this.filename,
 					extension,
@@ -1014,7 +1026,7 @@ export default {
 					logger.info('ViewerComponent', 'Model loaded successfully')
 
 					// Capture thumbnail for supported 3D formats
-					this.captureThumbnail()
+					this.captureThumbnail(result.object3D, extension)
 
 					// Initialize animations if present
 					if (result.animations && result.animations.length > 0) {

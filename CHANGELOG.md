@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- The viewer captures a model's thumbnail with the same fixed look as every other thumbnail (transparent background, default lighting and camera framing) instead of a crop of the live canvas, and only once per file version: it asks the server first and skips files you cannot edit, files that already have a thumbnail for their current version, and public shares. It now covers every format the viewer opens, not a fixed list of 12.
 - The CAD runtime chunk is 63 KB instead of 776 KB. The OCCT glue's `require("crypto")`, reached only when it runs under Node, pulled the whole browser polyfill for Node's `crypto` into the bundle: crypto-browserify, bn.js, elliptic, asn1.js and readable-stream. `crypto` is no longer polyfilled, which also removes the `vm-browserify` eval warning from the build.
 - The GLB, STL and OBJ exporters load when an export starts instead of with the viewer, taking 40 KB off the main chunk. The slicer's dynamic imports of the same exporters had no effect while the export composable imported them statically.
 - webdav 5.10.0 → 5.11.0 and fast-xml-parser 5.10.1 → 5.11.2, which drop a duplicate key the build warned about.

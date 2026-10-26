@@ -140,7 +140,7 @@ from becoming a way to name-guess files beside the model that were never shared.
 
 - Composition API with refs/computed: All 16 composables for comprehensive state management
 - Core composables: `useCamera`, `useModelLoading`, `useComparison`, `useMeasurement`, `useAnnotation`
-- UI composables: `useController`, `useExport`, `useFaceLabels`, `useModelStats`, `useProgressiveTextures`, `useTheme`, `useUI`, `useThumbnailCapture`
+- UI composables: `useController`, `useExport`, `useFaceLabels`, `useModelStats`, `useProgressiveTextures`, `useTheme`, `useUI`
 - Utility composables: `useMobile`, `usePerformance`, `useScene`
 - Emits include: `model-loaded`, `error`, `toggle-comparison`, `export-complete`, etc.
 
@@ -1836,17 +1836,17 @@ User views 3D model
     ↓
 ThreeViewer/ViewerComponent renders model
     ↓
+Status fetched when the load begins (GET /api/thumbnails/status)
+    ↓
 After 500ms delay (allow render to complete)
     ↓
-useThumbnailCapture composable
+captureForCurrentVersion (src/thumbnails/captureFromViewer.js)
     ↓
-Hide grid/axes → Render frame → Capture canvas
+Skip unless the user can edit the file and this version has no thumbnail
     ↓
-Smart crop (find content bounds, add padding)
+renderThumbnail: fixed look, 512x512 transparent PNG, on a detached canvas
     ↓
-Resize to 512x512 PNG
-    ↓
-Upload to /api/thumbnail/{fileId}
+Upload to /api/thumbnail/{fileId}?etag=<etag from the status>
     ↓
 ThumbnailController validates and stores
     ↓
@@ -1868,17 +1868,17 @@ ThumbnailService saves to IAppData (not user files)
 
 **Frontend Components:**
 
-- **`useThumbnailCapture`** (`src/composables/useThumbnailCapture.js`):
-  - `captureAndUpload(renderer, fileId, options)` - Main capture method
-  - Smart content-aware cropping using `findContentBounds()`
-  - Copies WebGL canvas to 2D canvas for pixel analysis
-  - Detects background color from corners, finds content bounding box
-  - Adds 10% padding and centers content in square output
-  - Uses `@nextcloud/axios` for CSRF-safe uploads
+- **`captureFromViewer`** (`src/thumbnails/captureFromViewer.js`):
+  - `startStatusFetch({ fileId, extension })` - Called when a model load begins, before the download; the etag it returns is the version the upload is stored under, so it must not be newer than the bytes that were rendered
+  - `captureForCurrentVersion({ fileId, extension, object3D, statusPromise })` - Renders and uploads once per file version; returns `'stored'`, `'exists'` or `'skipped'` and never throws
+  - Skips read-only files, versions that already have a thumbnail, non-model extensions and public shares
+
+- **`thumbnailApi`** (`src/thumbnails/thumbnailApi.js`):
+  - `fetchStatus(fileIds)` - Batched (200 ids per request) status lookup through `@nextcloud/axios`
+  - `uploadThumbnail(fileId, etag, blob)` - Raw PNG upload; maps 201/409/412/403 to `'stored'`/`'exists'`/`'stale'`/`'forbidden'`
 
 - **Integration in Viewers:**
-  - `ThreeViewer.vue`: Hides grid/axes before capture, restores after
-  - `ViewerComponent.vue`: Loads thumbnail setting, captures after model load
+  - `ThreeViewer.vue` and `ViewerComponent.vue`: start the status fetch as the load begins and call `captureForCurrentVersion` after the model loads
   - Both check `enableThumbnails` setting before capturing
 
 **User Settings:**
