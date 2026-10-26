@@ -29,6 +29,12 @@ class ModelDependencyResolver
     /** `mtllib chair.mtl` */
     private const MTLLIB_LINE = '/^[^\S\r\n]*mtllib[^\S\r\n]+(.+?)[^\S\r\n]*$/mi';
 
+    /**
+     * COLLADA `<image …>…</image>`: not `<image …/>`, `<imager>` or `<instance_image>`.
+     * Only an image names a file; a 1.4 effect's `<surface><init_from>` holds an image's id.
+     */
+    private const COLLADA_IMAGE_ELEMENT = '#<image(?=[\s/>])[^>]*(?<!/)>(.*?)</image\s*>#is';
+
     /** COLLADA `<init_from>wood.png</init_from>`, and the 1.5 `<init_from><ref>…</ref></init_from>` */
     private const COLLADA_IMAGE = '#<init_from\b[^>]*>\s*(?:<ref\b[^>]*>\s*)?([^<]+?)\s*(?:</ref>\s*)?</init_from>#i';
 
@@ -181,12 +187,19 @@ class ModelDependencyResolver
         /** @var array<string, string> $map */
         $map = [];
 
-        // COLLADA 1.4 writes <init_from>path</init_from>; 1.5 wraps it in <ref>.
-        /** @var array<int, array<int, string>> $matches */
-        $matches = [];
-        if (preg_match_all(self::COLLADA_IMAGE, $document, $matches) > 0) {
-            foreach ($matches[1] as $value) {
-                $this->register($map, rawurldecode(trim($value)));
+        // COLLADA 1.4 writes <init_from>path</init_from> in each <image>; 1.5 wraps it in
+        // <ref>. Outside <image>, a 1.4 <surface><init_from> holds an image id, not a file.
+        /** @var array<int, array<int, string>> $images */
+        $images = [];
+        if (preg_match_all(self::COLLADA_IMAGE_ELEMENT, $document, $images) > 0) {
+            foreach ($images[1] as $image) {
+                /** @var array<int, array<int, string>> $matches */
+                $matches = [];
+                if (preg_match_all(self::COLLADA_IMAGE, $image, $matches) > 0) {
+                    foreach ($matches[1] as $value) {
+                        $this->register($map, rawurldecode(trim($value)));
+                    }
+                }
             }
         }
 

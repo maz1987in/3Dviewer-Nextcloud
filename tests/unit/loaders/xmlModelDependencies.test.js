@@ -23,6 +23,45 @@ describe('parseXmlModelDependencies', () => {
 		expect(parseXmlModelDependencies(dae, 'dae')).toEqual(['wood.png'])
 	})
 
+	it('does not take the image id in an effect\'s <surface><init_from> for a file', () => {
+		// Blender, SketchUp and OpenCOLLADA write COLLADA 1.4 like this: the surface names
+		// the <image> by id, and only the image names the file
+		const dae = `<COLLADA>
+			<library_images><image id="checker_png" name="checker_png"><init_from>checker.png</init_from></image></library_images>
+			<library_effects><effect id="Material-effect"><profile_COMMON>
+				<newparam sid="checker_png-surface"><surface type="2D"><init_from>checker_png</init_from></surface></newparam>
+				<newparam sid="checker_png-sampler"><sampler2D><source>checker_png-surface</source></sampler2D></newparam>
+				<technique sid="common"><lambert><diffuse><texture texture="checker_png-sampler" texcoord="UVMap"/></diffuse></lambert></technique>
+			</profile_COMMON></effect></library_effects>
+		</COLLADA>`
+
+		expect(parseXmlModelDependencies(dae, 'dae')).toEqual(['checker.png'])
+	})
+
+	it('reads only real <image> elements, whatever their attributes', () => {
+		const dae = `<COLLADA>
+			<image id="empty"/>
+			<imager><init_from>not-an-image.png</init_from></imager>
+			<instance_image url="#a"/>
+			<image id="a" name='x > y' height="2"><init_from>a.png</init_from></image>
+			<IMAGE id="b"><INIT_FROM> b.png </INIT_FROM></IMAGE>
+		</COLLADA>`
+
+		expect(parseXmlModelDependencies(dae, 'dae')).toEqual(['a.png', 'b.png'])
+	})
+
+	it.each([
+		['<init_from without >', '<init_from '.repeat(200000)],
+		['<image without >', '<image '.repeat(300000)],
+		['<image> blocks with <init_from but no >', `${'<image>'}${'<init_from '.repeat(200000)}</image>`],
+	])('scans a crafted document in linear time: %s', (_, dae) => {
+		const started = Date.now()
+
+		expect(parseXmlModelDependencies(dae, 'dae')).toEqual([])
+		// The regular expression this replaced took over a second on 200 KB of the first
+		expect(Date.now() - started).toBeLessThan(500)
+	})
+
 	it('reads an X3D ImageTexture url', () => {
 		const x3d = `<X3D><Scene><Shape><Appearance>
 			<ImageTexture url='"textures/wood.png"'/>

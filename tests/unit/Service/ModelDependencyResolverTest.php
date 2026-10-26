@@ -407,6 +407,25 @@ class ModelDependencyResolverTest extends TestCase
         $this->assertSame($texture, $this->resolver->resolve($model, 'wood.png'));
     }
 
+    public function testDoesNotTakeAnEffectSurfaceImageIdForAFile(): void
+    {
+        // Blender, SketchUp and OpenCOLLADA write 1.4 like this: the effect's surface names
+        // the <image> by id, and only the <image> names the file. An id that happens to look
+        // like an image file sits beside the model here, so only the rule keeps it private.
+        $model = $this->modelNamed(
+            'chair.dae',
+            '<COLLADA><library_images><image id="wood.png"><init_from>checker.png</init_from></image>'
+            . '</library_images><library_effects><effect id="fx"><profile_COMMON>'
+            . '<newparam sid="surf"><surface type="2D"><init_from>wood.png</init_from></surface></newparam>'
+            . '</profile_COMMON></effect></library_effects></COLLADA>',
+            ['checker.png' => $this->fileNamed('checker.png'), 'wood.png' => $this->fileNamed('wood.png')],
+        );
+
+        $this->assertSame('checker.png', $this->resolver->resolve($model, 'checker.png')->getName());
+        $this->expectException(NotFoundException::class);
+        $this->resolver->resolve($model, 'wood.png');
+    }
+
     public function testServesATextureAnX3dFileDeclares(): void
     {
         $texture = $this->fileNamed('wood.png');

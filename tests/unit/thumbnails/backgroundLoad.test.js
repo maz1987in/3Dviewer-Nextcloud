@@ -516,6 +516,36 @@ describe('loadModelForBackground in the queue', () => {
 		expect(deps.skips.markSkipped.mock.calls).toEqual([[30, 'e30']])
 	})
 
+	it('a Blender-style DAE declares only its image file, and is rendered with it', async () => {
+		// The effect's <surface><init_from> holds the image's id, not a file; taken for
+		// one, it was always missing and every textured export was skipped
+		const dae = `<?xml version="1.0" encoding="utf-8"?>
+<COLLADA xmlns="http://www.collada.org/2005/11/COLLADASchema" version="1.4.1">
+<library_images><image id="img" name="img"><init_from>checker.png</init_from></image></library_images>
+<library_effects><effect id="fx"><profile_COMMON>
+<newparam sid="surf"><surface type="2D"><init_from>img</init_from></surface></newparam>
+<newparam sid="samp"><sampler2D><source>surf</source></sampler2D></newparam>
+<technique sid="common"><lambert><diffuse><texture texture="samp" texcoord="UV"/></diffuse></lambert></technique>
+</profile_COMMON></effect></library_effects>
+</COLLADA>`
+		const server = serve({
+			'scenes/quad.dae': { id: 70, body: dae },
+			'scenes/checker.png': { id: 71, body: 'PNG' },
+		})
+		const statuses = { 70: { name: 'quad.dae', dir: '/scenes', size: dae.length, etag: 'e70', canEdit: true, hasThumbnail: false } }
+		const { queue, deps } = queueOn(statuses, 10)
+
+		queue.setFolder('/scenes', [70], new Set())
+		await queue.idle()
+
+		expect(server.urls().filter((url) => url.includes('/api/files/find'))).toEqual([
+			`/index.php/apps/threedviewer/api/files/find?path=${encodeURIComponent('scenes/checker.png')}`,
+		])
+		expect(deps.render.mock.calls.map(([job]) => job.additionalFiles.map((file) => file.name))).toEqual([['checker.png']])
+		expect(deps.api.uploadThumbnail.mock.calls.map(([id]) => id)).toEqual([70])
+		expect(deps.skips.markSkipped).not.toHaveBeenCalled()
+	})
+
 	it('a DAE or X3D whose texture is not beside it is skipped, not rendered untextured', async () => {
 		serve({
 			'scenes/room.dae': { id: 60, body: '<COLLADA><library_images><image id="a"><init_from>wood.png</init_from></image></library_images></COLLADA>' },

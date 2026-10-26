@@ -390,9 +390,85 @@ export function parseMtlTextureFiles(mtlContent) {
 }
 
 /**
+ * The image files a COLLADA document names: the `<init_from>` of each `<image>`, as
+ * COLLADA 1.4 writes it, or the `<ref>` inside it, as 1.5 does.
+ *
+ * Only inside `<image>`: a 1.4 effect also has `<surface><init_from>img</init_from>`,
+ * which holds the *id* of an `<image>`, not a file. Blender, SketchUp and OpenCOLLADA
+ * all write it, and taking it for a file made every textured model they export look like
+ * it was missing a companion.
+ *
+ * A forward scan with indexOf rather than a regular expression: a pattern that skips to
+ * the next `>` from every `<init_from` is quadratic on a document without one, and this
+ * runs on the Files page for every COLLADA file in a folder.
+ *
+ * @param {string} content - Raw document text
+ * @return {string[]} The values as written, in document order
+ */
+function colladaImageFiles(content) {
+	const lower = content.toLowerCase()
+	const values = []
+	let at = 0
+	for (;;) {
+		const start = lower.indexOf('<image', at)
+		if (start === -1) {
+			break
+		}
+		// <image>, <image id=…>, not <imager> or <image_…>
+		if (!/[\s/>]/.test(lower.charAt(start + 6))) {
+			at = start + 6
+			continue
+		}
+		const openEnd = lower.indexOf('>', start)
+		if (openEnd === -1) {
+			break
+		}
+		if (lower.charAt(openEnd - 1) === '/') {
+			// <image …/>: no file
+			at = openEnd + 1
+			continue
+		}
+		const close = lower.indexOf('</image', openEnd)
+		if (close === -1) {
+			break
+		}
+		// Each <init_from> of this image: its text (1.4), or the text of its <ref> (1.5)
+		let p = openEnd + 1
+		for (;;) {
+			const init = lower.indexOf('<init_from', p)
+			if (init === -1 || init >= close) {
+				break
+			}
+			const tagEnd = lower.indexOf('>', init)
+			if (tagEnd === -1 || tagEnd >= close) {
+				break
+			}
+			let textStart = tagEnd + 1
+			let textEnd = lower.indexOf('<', textStart)
+			if (textEnd !== -1 && textEnd < close && content.slice(textStart, textEnd).trim() === ''
+				&& lower.startsWith('<ref', textEnd) && /[\s/>]/.test(lower.charAt(textEnd + 4))) {
+				const refEnd = lower.indexOf('>', textEnd)
+				if (refEnd === -1 || refEnd >= close) {
+					break
+				}
+				textStart = refEnd + 1
+				textEnd = lower.indexOf('<', textStart)
+			}
+			if (textEnd === -1 || textEnd > close) {
+				break
+			}
+			values.push(content.slice(textStart, textEnd))
+			p = textEnd
+		}
+		at = close + 7
+	}
+	return values
+}
+
+/**
  * Texture paths a COLLADA or X3D document declares, in document order.
  *
- * Matched with patterns rather than parsed with DOMParser: only the paths are needed,
+ * Matched by scanning rather than parsed with DOMParser: only the paths are needed,
  * and the document comes from whoever uploaded it. The server applies the same rules in
  * ModelDependencyResolver, which is what actually gates the public route — this is the
  * client half, so it knows which names to ask for.
@@ -406,7 +482,7 @@ export function parseXmlModelDependencies(content, extension) {
 		return []
 	}
 
-	const found = []
+	const found = new Set()
 	const push = (raw) => {
 		const value = String(raw).trim()
 		// A scheme means it is not a file beside the model: data:, http:, https:, file:.
@@ -419,18 +495,11 @@ export function parseXmlModelDependencies(content, extension) {
 		} catch {
 			// Leave a malformed escape sequence as written.
 		}
-		if (!found.includes(decoded)) {
-			found.push(decoded)
-		}
+		found.add(decoded)
 	}
 
 	if (extension === 'dae') {
-		// COLLADA 1.4 writes <init_from>path</init_from>; 1.5 wraps it in <ref>.
-		const pattern = /<init_from\b[^>]*>\s*(?:<ref\b[^>]*>\s*)?([^<]+?)\s*(?:<\/ref>\s*)?<\/init_from>/gi
-		let match
-		while ((match = pattern.exec(content)) !== null) {
-			push(match[1])
-		}
+		colladaImageFiles(content).forEach(push)
 	} else if (extension === 'x3d') {
 		// url is an MFString: whitespace-separated, quoted alternatives.
 		const pattern = /\burl\s*=\s*(["'])([\s\S]*?)\1/gi
@@ -442,7 +511,7 @@ export function parseXmlModelDependencies(content, extension) {
 		}
 	}
 
-	return found
+	return [...found]
 }
 
 /**
