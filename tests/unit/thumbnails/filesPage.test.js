@@ -1,5 +1,8 @@
 import { getCurrentUser } from '@nextcloud/auth'
 import { createBackgroundQueue } from '../../../src/thumbnails/backgroundQueue.js'
+import { loadModelForBackground } from '../../../src/thumbnails/backgroundLoad.js'
+import { loadModelWithDependencies } from '../../../src/loaders/multiFileHelpers.js'
+import { probeWorkerRendering, renderInWorker } from '../../../src/thumbnails/workerRenderer.js'
 import { loadThumbnailSettings } from '../../../src/thumbnails/thumbnailSettings.js'
 import {
 	folderKey,
@@ -13,7 +16,8 @@ jest.mock('@nextcloud/auth', () => ({ getCurrentUser: jest.fn() }))
 jest.mock('../../../src/thumbnails/backgroundQueue.js', () => ({ createBackgroundQueue: jest.fn() }))
 jest.mock('../../../src/thumbnails/thumbnailSettings.js', () => ({ loadThumbnailSettings: jest.fn() }))
 jest.mock('../../../src/thumbnails/thumbnailApi.js', () => ({ fetchStatus: jest.fn(), uploadThumbnail: jest.fn() }))
-jest.mock('../../../src/thumbnails/workerRenderer.js', () => ({ renderInWorker: jest.fn() }))
+jest.mock('../../../src/thumbnails/workerRenderer.js', () => ({ renderInWorker: jest.fn(), probeWorkerRendering: jest.fn() }))
+jest.mock('../../../src/thumbnails/backgroundLoad.js', () => ({ loadModelForBackground: jest.fn() }))
 jest.mock('../../../src/loaders/multiFileHelpers.js', () => ({ loadModelWithDependencies: jest.fn() }))
 
 const SETTINGS = { enabled: true, background: true, maxFileSizeMB: 50, timeoutSeconds: 30, folderBudgetMB: 500 }
@@ -82,6 +86,32 @@ describe('isEligibleFilesView', () => {
 
 	test('eligible: /apps/files/favorites?dir=/a', () => {
 		expect(isEligibleFilesView(url('/index.php/apps/files/favorites?dir=/a'))).toBe(true)
+	})
+
+	test('not eligible: the flat top-level lists of favorites, shares and tags', () => {
+		for (const view of ['favorites', 'sharingin', 'sharingout', 'sharinglinks', 'shareoverview', 'tags']) {
+			expect(isEligibleFilesView(url(`/index.php/apps/files/${view}`))).toBe(false)
+			expect(isEligibleFilesView(url(`/index.php/apps/files/${view}?dir=/`))).toBe(false)
+			expect(isEligibleFilesView(url(`/index.php/apps/files/${view}?dir=`))).toBe(false)
+			expect(isEligibleFilesView(url(`/index.php/apps/files/${view}/42?dir=/`))).toBe(false)
+		}
+		// A tag is a flat list of everything carrying it, however the path goes on
+		expect(isEligibleFilesView(url('/index.php/apps/files/tags?dir=/5'))).toBe(false)
+		expect(isEligibleFilesView(url('/index.php/apps/files/tags?dir=/5/'))).toBe(false)
+		expect(isEligibleFilesView(url('/index.php/apps/files/tags?dir=/5/models'))).toBe(false)
+	})
+
+	test('eligible: a folder opened inside favorites, shares or tags', () => {
+		expect(isEligibleFilesView(url('/index.php/apps/files/favorites?dir=/Projects/models'))).toBe(true)
+		expect(isEligibleFilesView(url('/index.php/apps/files/sharingin?dir=/Shared/parts'))).toBe(true)
+		expect(isEligibleFilesView(url('/index.php/apps/files/sharingout/17?dir=/Exports'))).toBe(true)
+		expect(isEligibleFilesView(url('/index.php/apps/files/sharinglinks?dir=/public'))).toBe(true)
+		expect(isEligibleFilesView(url('/index.php/apps/files/tags?dir=/Projects/models'))).toBe(true)
+	})
+
+	test('the files view stays eligible at its root', () => {
+		expect(isEligibleFilesView(url('/index.php/apps/files/files?dir=/'))).toBe(true)
+		expect(isEligibleFilesView(url('/index.php/apps/files/files'))).toBe(true)
 	})
 
 	test('not eligible: recent, trashbin, search, or ?query=x', () => {
@@ -243,6 +273,18 @@ describe('startFilesThumbnails', () => {
 		const staticImports = [...source.matchAll(/^import .* from '([^']+)'/gm)].map((m) => m[1])
 
 		expect(staticImports.sort()).toEqual(['../utils/logger.js', './formats.js'])
+	})
+
+	test('wires the background loader and the capability probe, not the viewer\'s loader', async () => {
+		filesList([{ id: 1 }])
+		await startFilesThumbnails()
+		await settle()
+
+		const deps = createBackgroundQueue.mock.calls[0][0]
+		expect(deps.load).toBe(loadModelForBackground)
+		expect(deps.load).not.toBe(loadModelWithDependencies)
+		expect(deps.render).toBe(renderInWorker)
+		expect(deps.probe).toBe(probeWorkerRendering)
 	})
 
 	test('runs with background on even when viewer capture is off', async () => {

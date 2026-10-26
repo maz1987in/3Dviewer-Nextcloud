@@ -52,14 +52,27 @@ function filesRoute(url) {
  * Whether the URL shows one folder's files, which is where thumbnails are made. Recent
  * files, the trash bin and search results mix folders or hold deleted files.
  *
+ * Every other view (favorites, shares, tags, ...) starts at a flat list that can span the
+ * whole library, so it only counts once the user has opened a folder in it: a `dir` other
+ * than the root. In the tags view a first segment of digits is a tag id, whose contents are
+ * again the flat list of everything with that tag.
+ *
  * @param {URL} url - The page URL
  * @return {boolean} True for a Files view of one folder
  */
 export function isEligibleFilesView(url) {
 	const route = filesRoute(url)
-	return route !== null
-		&& !EXCLUDED_VIEWS.has(route.view)
-		&& !url.searchParams.get('query')
+	if (route === null || EXCLUDED_VIEWS.has(route.view) || url.searchParams.get('query')) {
+		return false
+	}
+	if (route.view === 'files') {
+		return true
+	}
+	const segments = (url.searchParams.get('dir') ?? '').split('/').filter(Boolean)
+	if (segments.length === 0) {
+		return false
+	}
+	return !(route.view === 'tags' && /^\d+$/.test(segments[0]))
 }
 
 /**
