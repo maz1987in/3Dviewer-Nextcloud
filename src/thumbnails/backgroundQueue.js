@@ -18,11 +18,13 @@ import { canRenderInBackground } from './formats.js'
 
 const BYTES_PER_MB = 1048576
 
+/** @typedef {import('./thumbnailApi.js').ThumbnailStatus} ThumbnailStatus */
+
 /**
  * @typedef {object} BackgroundQueueDeps
  * @property {import('./thumbnailSettings.js').ThumbnailSettings} settings - Limits to work within
  * @property {object} api - Server calls
- * @property {(fileIds: number[]) => Promise<Map<number, object>>} api.fetchStatus - See thumbnailApi.js
+ * @property {(fileIds: number[]) => Promise<Map<number, ThumbnailStatus>>} api.fetchStatus - See thumbnailApi.js
  * @property {(fileId: number, etag: string, blob: Blob) => Promise<string>} api.uploadThumbnail - See thumbnailApi.js
  * @property {(fileId: number, filename: string, extension: string, dirPath: string) => Promise<{mainFile: File, dependencies: File[]}>} load
  *   - Downloads a model and its companion files; cannot be aborted
@@ -94,7 +96,7 @@ export function createBackgroundQueue(deps) {
 	 * @property {Set<number>} known - Every id given for this visit
 	 * @property {number[]} unfetched - Ids whose status has not been asked for yet
 	 * @property {number[]} pending - Ids waiting to be processed, in order
-	 * @property {Map<number, object>} statuses - Status by id, fetched once
+	 * @property {Map<number, ThumbnailStatus>} statuses - Status by id, fetched once
 	 * @property {number} budget - Bytes this visit may still download
 	 * @property {boolean} ended - No more work will be done for this visit
 	 * @property {boolean} running - A loop is working on this visit
@@ -134,7 +136,7 @@ export function createBackgroundQueue(deps) {
 	 *
 	 * @param {Visit} v - The visit
 	 * @param {number} id - File id
-	 * @return {?object} The file's status when it should be processed, else null
+	 * @return {?ThumbnailStatus} The file's status when it should be processed, else null
 	 */
 	function eligibleStatus(v, id) {
 		const status = v.statuses.get(id)
@@ -158,7 +160,7 @@ export function createBackgroundQueue(deps) {
 	 *
 	 * @param {Visit} v - The visit
 	 * @param {number} id - File id
-	 * @param {object} status - Its status, fetched before the download
+	 * @param {ThumbnailStatus} status - Its status, fetched before the download
 	 */
 	async function processFile(v, id, status) {
 		const extension = extensionOf(status.name)
@@ -353,7 +355,7 @@ export function createBackgroundQueue(deps) {
 		 *   waited for, since it cannot be aborted.
 		 */
 		async idle() {
-			// A loop can start another as it ends, which replaces `tail`
+			// A setFolder() made while waiting can chain another loop onto `tail`
 			let settled
 			do {
 				settled = tail
