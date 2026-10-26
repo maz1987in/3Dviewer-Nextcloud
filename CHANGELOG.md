@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Thumbnails never showed to share recipients or on public links. They were looked up for the logged-in user, so a recipient saw their own (usually none) and a public link, with no user, saw none at all. Anyone who can see a file now sees its thumbnail.
 - FreeCAD files (`.fcstd`) saved by FreeCAD failed to open with "FCSTD archive contains no .brep geometry entries". FreeCAD stores each body as a `.brp` file inside the document, and only `.brep` was read; both are now.
 - VRML files (`.wrl`, `.vrml`) spun for 30 seconds and then failed to open in the viewer. The loader waited for a callback three.js's VRML loader never calls; it now uses the scene the parser returns, so they open.
+- FBX files with embedded textures opened untextured. The images the file carries were looked up by name among the companion files, matched nothing, and got a blank placeholder; they are now used as they are.
 
 ### Security
 - A model rendered in the background loads only the files it was given. A texture or buffer it named but that was not among them was requested from the URL the model wrote, so a model in a shared folder could make the browser of anyone browsing that folder request an address of its author's choosing. The worker now refuses every URL except the model's own files and the app's decoders, before any request is made, and skips the model.
