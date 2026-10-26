@@ -139,6 +139,7 @@ import { useAnimation } from '../composables/useAnimation.js'
 import { useThumbnailCapture } from '../composables/useThumbnailCapture.js'
 import { useScreenshot } from '../composables/useScreenshot.js'
 import { logger } from '../utils/logger.js'
+import { computeCameraFit } from '../thumbnails/cameraFit.js'
 
 export default {
 	name: 'ViewerComponent',
@@ -1078,23 +1079,16 @@ export default {
 
 				const size = box.getSize(new THREE.Vector3())
 				const center = box.getCenter(new THREE.Vector3())
-				const maxDim = Math.max(size.x, size.y, size.z)
 
-				// Calculate optimal camera distance based on FOV and model size
-				const fov = this.camera.fov * (Math.PI / 180) // Convert to radians
-				const cameraDistance = Math.abs(maxDim / Math.sin(fov / 2)) * 0.75 // 0.75 fits better than 1.2
-
-				// Validate calculated values
-				if (!isFinite(cameraDistance) || !isFinite(center.x) || !isFinite(center.y) || !isFinite(center.z)) {
-					logger.error('ViewerComponent', 'Invalid camera position calculated', { cameraDistance, center })
+				// Same framing the background thumbnails use (see computeCameraFit)
+				const fit = computeCameraFit(box, this.camera.fov)
+				if (!fit) {
+					logger.error('ViewerComponent', 'Invalid camera position calculated', { center })
 					return
 				}
+				const cameraDistance = fit.position[2] - fit.target[2]
 
-				this.camera.position.set(
-					center.x + cameraDistance * 0.5,
-					center.y + cameraDistance * 0.5,
-					center.z + cameraDistance,
-				)
+				this.camera.position.set(...fit.position)
 				this.camera.lookAt(center)
 
 				if (this.controls) {

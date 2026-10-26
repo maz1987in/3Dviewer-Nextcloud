@@ -2,6 +2,8 @@
  * Viewer configuration and settings
  */
 import { imagePath } from '@nextcloud/router'
+import { DEFAULT_CAMERA_FOV } from './cameraDefaults.js'
+import { LIGHT_LAYOUT } from './lightingPresets.js'
 
 /**
  * Default material settings
@@ -50,7 +52,7 @@ export const GEOMETRY_SETTINGS = {
  * Camera settings
  */
 export const CAMERA_SETTINGS = {
-	fov: 75,
+	fov: DEFAULT_CAMERA_FOV,
 	near: 0.1,
 	far: 1000,
 	// Orthographic camera settings
@@ -851,11 +853,11 @@ export const CONTROLLER_SETTINGS = {
  */
 export const LIGHTING_SETTINGS = {
 	ambient: {
-		color: 0x404040,
+		color: LIGHT_LAYOUT.ambientColor,
 		intensity: 2.0,
 	},
 	directional: {
-		color: 0xffffff,
+		color: LIGHT_LAYOUT.directionalColor,
 		intensity: 1.0,
 		position: { x: 10, y: 10, z: 5 },
 		castShadow: true,
@@ -869,10 +871,10 @@ export const LIGHTING_SETTINGS = {
 	},
 	point: {
 		enabled: true,
-		color: 0xffffff,
+		color: LIGHT_LAYOUT.pointColor,
 		intensity: 0.5,
-		distance: 100,
-		position: { x: -10, y: 10, z: -10 },
+		distance: LIGHT_LAYOUT.pointDistance,
+		position: { ...LIGHT_LAYOUT.pointPosition },
 	},
 	hemisphere: {
 		enabled: false,
