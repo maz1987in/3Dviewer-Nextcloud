@@ -69,7 +69,8 @@ END-ISO-10303-21;
  *
  * The FCStd: occt-import-js's cube.FCStd stores its body as PartShape.brp, as FreeCAD
  * does, and is rendered as it is. The same body under a `.brep` name, which some
- * exporters write, is built here so that path stays covered too.
+ * exporters write, is built here so that path stays covered too, and so is a PartDesign
+ * document whose earlier features are saved but hidden (see partDesignFcstd).
  */
 async function buildGeneratedSamples() {
   // @ts-ignore plain ES module without types
@@ -79,6 +80,10 @@ async function buildGeneratedSamples() {
     'Document.xml': cube['Document.xml'],
     'PartShape.brep': cube['PartShape.brp'],
   })))
+  const assembly = fs.readFileSync(path.join(PROJECT_ROOT, OCCT_SAMPLES, 'cax-if-brep/as1_pe_203.brep'))
+  generated.set('part-design.FCStd', partDesignFcstd(zipSync, cube['PartShape.brp'], assembly, true))
+  generated.set('part-design-no-gui.FCStd', partDesignFcstd(zipSync, cube['PartShape.brp'], assembly, false))
+  generated.set('tip-only.FCStd', Buffer.from(zipSync({ 'Pocket.Shape.brp': cube['PartShape.brp'] })))
   generated.set('box.ifc', Buffer.from(BOX_IFC))
   generated.set('triangle.glb', gltfToGlb(fs.readFileSync(path.join(PROJECT_ROOT, FIXTURES, 'triangle.gltf'), 'utf8')))
   generated.set('outside.gltf', Buffer.from(JSON.stringify(gltfNamingOutsideFiles())))
@@ -184,6 +189,45 @@ ${images}
  */
 function x3dWithDoctype(doctype: string): string {
   return TEXT_SAMPLES['triangle.x3d'].replace('<X3D ', `${doctype}\n<X3D `)
+}
+
+/**
+ * A FreeCAD PartDesign document laid out as FreeCAD saves one: every feature keeps its
+ * shape in the archive, and GuiDocument.xml shows only the Body and its tip. Here the tip
+ * (Pocket) is the cube, and the hidden Pad, the Pocket's cutting tool and the Body's own
+ * copy are a much larger assembly, so drawing any of them changes the picture.
+ *
+ * @param zipSync - fflate's zipSync
+ * @param tip - B-Rep of the visible result
+ * @param superseded - B-Rep standing in for every hidden shape
+ * @param withGui - False to leave GuiDocument.xml out, as FreeCADCmd does
+ */
+function partDesignFcstd(zipSync, tip: Uint8Array, superseded: Uint8Array, withGui: boolean): Buffer {
+  const objects = [
+    ['Body', 'PartDesign::Body', { Shape: 'Body.Shape.brp' }],
+    ['Pad', 'PartDesign::Pad', { AddSubShape: 'Pad.AddSubShape.brp', Shape: 'Pad.Shape.brp' }],
+    ['Pocket', 'PartDesign::Pocket', { AddSubShape: 'Pocket.AddSubShape.brp', Shape: 'Pocket.Shape.brp' }],
+  ] as const
+  const documentXml = `<?xml version='1.0' encoding='utf-8'?>
+<Document SchemaVersion="4" FileVersion="1"><Properties Count="0"/>
+<Objects Count="3">${objects.map(([name, type]) => `<Object type="${type}" name="${name}" id="1"/>`).join('')}</Objects>
+<ObjectData Count="3">${objects.map(([name, , shapes]) => `<Object name="${name}"><Properties Count="${Object.keys(shapes).length}">${
+    Object.entries(shapes).map(([property, file]) => `<Property name="${property}" type="Part::PropertyPartShape"><Part file="${file}"/></Property>`).join('')
+  }</Properties></Object>`).join('')}</ObjectData></Document>`
+  const view = (name: string, visible: boolean, extra = '') => `<ViewProvider name="${name}" expanded="0"><Properties Count="1">${extra}<Property name="Visibility" type="App::PropertyBool" status="1"><Bool value="${visible}"/></Property></Properties></ViewProvider>`
+  const guiXml = `<?xml version='1.0' encoding='utf-8'?>
+<Document SchemaVersion="1"><ViewProviderData Count="3">${
+    view('Body', true, '<Property name="DisplayModeBody" type="App::PropertyEnumeration" status="1"><Integer value="0"/></Property>')
+  }${view('Pad', false)}${view('Pocket', true)}</ViewProviderData></Document>`
+  return Buffer.from(zipSync({
+    'Document.xml': new TextEncoder().encode(documentXml),
+    ...(withGui ? { 'GuiDocument.xml': new TextEncoder().encode(guiXml) } : {}),
+    'Body.Shape.brp': superseded,
+    'Pad.AddSubShape.brp': superseded,
+    'Pad.Shape.brp': superseded,
+    'Pocket.AddSubShape.brp': superseded,
+    'Pocket.Shape.brp': tip,
+  }))
 }
 
 /**
@@ -844,6 +888,26 @@ test.describe('thumbnail worker', () => {
     expect(withDtd.covered).toBeGreaterThan(0)
     expect(elsewhere).toEqual([])
     expect(requested.filter(reqPath => !reqPath.startsWith(`${appRoot}js/`) && !reqPath.startsWith(`${appRoot}${GENERATED}`))).toEqual([])
+  })
+
+  test('fcstd draws only what FreeCAD shows', async ({ page }) => {
+    const appRoot = APP_ROOTS[0]
+    await openHarness(page, server.origin, appRoot)
+    const render = (file: string) => renderSample(page, appRoot, { name: file, extension: 'fcstd', files: [`${GENERATED}${file}`] })
+
+    const shown = await render('part-design.FCStd')
+    const tipOnly = await render('tip-only.FCStd')
+    const everything = await render('part-design-no-gui.FCStd')
+
+    // Read with the worker's own XML parser: the hidden features, the Pocket's tool and
+    // the Body's copy are left out, so the picture is the tip's alone
+    expect(shown.error).toBeUndefined()
+    expect(tipOnly.error).toBeUndefined()
+    expect(shown.covered).toBeGreaterThan(0)
+    expect(shown.covered).toBe(tipOnly.covered)
+    // Without GuiDocument.xml nothing says what is hidden, and every shape is drawn
+    expect(everything.error).toBeUndefined()
+    expect(everything.covered).not.toBe(tipOnly.covered)
   })
 
   test('a render past its time limit is stopped', async ({ page }) => {
