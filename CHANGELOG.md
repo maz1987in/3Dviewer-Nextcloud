@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The CAD runtime chunk is 63 KB instead of 776 KB. The OCCT glue's `require("crypto")`, reached only when it runs under Node, pulled the whole browser polyfill for Node's `crypto` into the bundle: crypto-browserify, bn.js, elliptic, asn1.js and readable-stream. `crypto` is no longer polyfilled, which also removes the `vm-browserify` eval warning from the build.
 - The GLB, STL and OBJ exporters load when an export starts instead of with the viewer, taking 40 KB off the main chunk. The slicer's dynamic imports of the same exporters had no effect while the export composable imported them statically.
 - webdav 5.10.0 → 5.11.0 and fast-xml-parser 5.10.1 → 5.11.2, which drop a duplicate key the build warned about.
+- `roave/security-advisories` is no longer a dev dependency. Its latest release declares a conflict with every PHP below 8.2.35, PHP 8.1 included, so Composer could not resolve the dev tree for the app's minimum PHP and every PHP job in CI failed at install. Advisories are still checked by `composer audit` in the security scan.
+
+### Security
+- Dependencies updated within their existing ranges to clear `npm audit`: follow-redirects 1.16.0 → 1.16.2 (credential headers kept across cross-origin redirects), reached through axios's Node adapter, which the browser bundle does not use, and vite 7.3.6 → 7.3.7 (dev-server advisories). Dev-only fast-uri, brace-expansion, js-yaml, moment, pbkdf2 and qs move to patched releases as well.
 
 ## [3.6.0] - 2026-10-19
 
