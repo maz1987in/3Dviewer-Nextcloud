@@ -132,6 +132,65 @@ async function openLoadedViewer(page: Page, url: string, model: Model = 'gcode',
 	return { errors, writes }
 }
 
+/**
+ * Three page positions on the loaded model's face that most faces the camera, each one
+ * the canvas itself rather than a panel over it. Projected through the viewer's own
+ * camera, so the test does not depend on where the layout puts the model.
+ * @param page - the page, with a model loaded
+ */
+async function pointsOnTheCube(page: Page): Promise<number[][]> {
+	return await page.evaluate(() => {
+		const viewer = (window as any).__THREEDVIEWER_APP.$.subTree.component.proxy.$refs.viewer
+		const root = viewer.modelRoot
+		const camera = viewer.camera.camera.value
+		const canvas = viewer.renderer.domElement
+		const Vector3 = root.position.constructor
+		root.updateMatrixWorld(true)
+		// The model's world-space box, corner by corner
+		const min = new Vector3(Infinity, Infinity, Infinity)
+		const max = new Vector3(-Infinity, -Infinity, -Infinity)
+		root.traverse((child: any) => {
+			const position = child.isMesh && child.geometry.attributes.position
+			for (let i = 0; position && i < position.count; i++) {
+				const p = new Vector3().fromBufferAttribute(position, i).applyMatrix4(child.matrixWorld)
+				min.min(p)
+				max.max(p)
+			}
+		})
+		const centre = min.clone().add(max).multiplyScalar(0.5)
+		// The face whose outward normal points most toward the camera
+		let best = { axis: 0, side: 1, score: -Infinity }
+		for (let axis = 0; axis < 3; axis++) {
+			for (const side of [-1, 1]) {
+				const normal = new Vector3().setComponent(axis, side)
+				const faceCentre = centre.clone().setComponent(axis, side > 0 ? max.getComponent(axis) : min.getComponent(axis))
+				const score = normal.dot(camera.position.clone().sub(faceCentre).normalize())
+				if (score > best.score) best = { axis, side, score }
+			}
+		}
+		const [u, v] = [0, 1, 2].filter((a) => a !== best.axis)
+		const rect = canvas.getBoundingClientRect()
+		const found: number[][] = []
+		// A corner, the middle and another corner make a real angle; the rest are fallbacks
+		// for when a panel covers one of them
+		const tries = [[0.25, 0.25], [0.5, 0.75], [0.75, 0.25], [0.3, 0.6], [0.7, 0.7], [0.6, 0.35], [0.4, 0.4], [0.65, 0.55]]
+		for (const [fu, fv] of tries) {
+			const p = centre.clone()
+			p.setComponent(best.axis, best.side > 0 ? max.getComponent(best.axis) : min.getComponent(best.axis))
+			p.setComponent(u, min.getComponent(u) + fu * (max.getComponent(u) - min.getComponent(u)))
+			p.setComponent(v, min.getComponent(v) + fv * (max.getComponent(v) - min.getComponent(v)))
+			const ndc = p.project(camera)
+			const x = rect.left + (ndc.x + 1) / 2 * rect.width
+			const y = rect.top + (1 - ndc.y) / 2 * rect.height
+			const clear = document.elementFromPoint(x, y) === canvas
+			const apart = found.every(([fx, fy]) => Math.hypot(fx - x, fy - y) > 15)
+			if (clear && apart) found.push([x, y])
+			if (found.length === 3) return found
+		}
+		throw new Error(`Only ${found.length} clear points on the model`)
+	})
+}
+
 test.describe('Inspection tools', () => {
 	let server: { url: string, close: () => Promise<void> }
 	test.beforeAll(async () => { server = await startServer() })
@@ -272,9 +331,8 @@ test.describe('Inspection tools', () => {
 		const overlay = page.locator('.measurement-overlay')
 		await overlay.getByRole('button', { name: 'Angle' }).click()
 
-		// Three points on the cube's front, below the measurement panel and left of the
-		// tools panel at this viewport
-		for (const [x, y] of [[720, 340], [780, 370], [740, 400]]) {
+		// Three points on the cube, found through the camera rather than fixed pixels:
+		for (const [x, y] of await pointsOnTheCube(page)) {
 			await page.mouse.click(x, y)
 		}
 
