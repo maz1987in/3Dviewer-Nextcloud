@@ -271,3 +271,18 @@ describe('adding a whole measurement', () => {
 		expect(() => measurement.addMeasurement('area', [v(0, 0, 0), v(1, 0, 0)])).toThrow()
 	})
 })
+
+describe('measurementNumbers', () => {
+	const { measurementNumbers } = require('../../../src/composables/useMeasurement.js')
+
+	it('numbers distances and angles each from 1, in panel order', () => {
+		const numbers = measurementNumbers([
+			{ id: 'a', type: 'distance' },
+			{ id: 'b', type: 'angle' },
+			{ id: 'c', type: 'distance' },
+			{ id: 'd', type: 'angle' },
+			{ id: 'e' }, // a distance from before measurements had a type
+		])
+		expect([...numbers]).toEqual([['a', 1], ['b', 1], ['c', 2], ['d', 2], ['e', 3]])
+	})
+})

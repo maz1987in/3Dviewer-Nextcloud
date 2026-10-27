@@ -280,6 +280,7 @@ test.describe('Inspection tools', () => {
 
 		await expect(overlay.locator('.measurement-item')).toHaveCount(1)
 		await expect(overlay.locator('.measurement-item')).toContainText('Angle 1')
+		await expect(overlay.getByRole('button', { name: 'Delete angle 1' })).toBeVisible()
 		await expect(overlay.locator('.measurement-distance')).toContainText('°')
 		await expect.poll(() => writes.length).toBe(1)
 		expect(writes[0].method).toBe('POST')

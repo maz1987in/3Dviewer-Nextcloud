@@ -599,13 +599,18 @@
 					{{ t('threedviewer', 'Measurements you take here aren’t saved.') }}
 				</p>
 				<div class="measurement-list">
-					<div v-for="(m, index) in measurements" :key="m.id" class="canvas-panel-card measurement-item">
+					<div v-for="m in measurements" :key="m.id" class="canvas-panel-card measurement-item">
 						<div class="canvas-panel-card-header">
-							<span class="canvas-panel-card-title">{{ m.type === 'angle' ? t('threedviewer', 'Angle') : t('threedviewer', 'Measurement') }} {{ index + 1 }}</span>
+							<!-- Distances and angles are numbered separately -->
+							<span class="canvas-panel-card-title">{{ m.type === 'angle'
+								? t('threedviewer', 'Angle {number}', { number: measurementNumber.get(m.id) })
+								: `${t('threedviewer', 'Measurement')} ${measurementNumber.get(m.id)}` }}</span>
 							<button v-if="canChangeNote(m)"
 								type="button"
 								class="tdv-btn tdv-btn--icon canvas-panel-delete"
-								:aria-label="t('threedviewer', 'Delete measurement {number}', { number: index + 1 })"
+								:aria-label="m.type === 'angle'
+									? t('threedviewer', 'Delete angle {number}', { number: measurementNumber.get(m.id) })
+									: t('threedviewer', 'Delete measurement {number}', { number: measurementNumber.get(m.id) })"
 								:title="t('threedviewer', 'Delete')"
 								@click="deleteMeasurement(m.id)">
 								<ViewerIcon name="delete" :size="16" />
@@ -792,7 +797,7 @@ import CircularController from './CircularController.vue'
 import { useCamera } from '../composables/useCamera.js'
 import { useModelLoading } from '../composables/useModelLoading.js'
 import { useComparison } from '../composables/useComparison.js'
-import { useMeasurement } from '../composables/useMeasurement.js'
+import { measurementNumbers, useMeasurement } from '../composables/useMeasurement.js'
 import { useAnnotation } from '../composables/useAnnotation.js'
 import { useSharedNotes } from '../composables/useSharedNotes.js'
 import { createNotesApi } from '../utils/notesApi.js'
@@ -2498,6 +2503,9 @@ export default {
 		 * note made here and never sent ('local') is theirs to change without them; a
 		 * 'private' note is a legacy annotation nothing would save a change to.
 		 */
+		// Each measurement's number in the panel, distances and angles counted apart
+		const measurementNumber = computed(() => measurementNumbers(measurement.measurements.value))
+
 		const canChangeNote = (item) => notesCanEdit.value || item.meta?.saveState === 'local'
 
 		const noteStateLabel = (item) => {
@@ -3874,6 +3882,7 @@ export default {
 			measurementCount: measurement.measurementCount,
 			measurements: measurement.measurements,
 			measurementMode: measurement.mode,
+			measurementNumber,
 
 			// Annotation
 			annotation,

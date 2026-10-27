@@ -41,6 +41,22 @@ export function computeAngle(point1, vertex, point2) {
 }
 
 /**
+ * Each measurement's number in the panel, counted within its kind: distances 1, 2, 3 and
+ * angles 1, 2, so "Angle 2" is the second angle, not the second item of the list.
+ * @param {Array<{ id: *, type?: string }>} list - the measurements, in panel order
+ * @return {Map<*, number>} measurement id -> its number
+ */
+export function measurementNumbers(list) {
+	const counts = { distance: 0, angle: 0 }
+	const numbers = new Map()
+	for (const m of list) {
+		const kind = m.type === 'angle' ? 'angle' : 'distance'
+		numbers.set(m.id, ++counts[kind])
+	}
+	return numbers
+}
+
+/**
  * Reading for an angle; degrees are the same whatever the length unit.
  * @param {number} angle - degrees
  * @return {object} value, formatted, unit, suffix
