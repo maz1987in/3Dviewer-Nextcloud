@@ -17,13 +17,17 @@ describe('requestedFileNames', () => {
 		expect(requestedFileNames('wood.jpg')).toEqual(['wood.jpg'])
 	})
 
-	it('adds the decoded name when the request is percent-encoded', () => {
-		expect(requestedFileNames('file:///C:/My%20Textures/wood%20grain.jpg')).toEqual(['wood%20grain.jpg', 'wood grain.jpg'])
+	it('tries a file: URL\'s decoded name first, the name its companion was fetched by', () => {
+		expect(requestedFileNames('file:///C:/My%20Textures/wood%20grain.jpg')).toEqual(['wood grain.jpg', 'wood%20grain.jpg'])
+	})
+
+	it('tries any other reference\'s name as written first', () => {
+		expect(requestedFileNames('textures/wood%20grain.jpg')).toEqual(['wood%20grain.jpg', 'wood grain.jpg'])
 	})
 
 	it('drops a file: URL\'s query and fragment, as the declaration does', () => {
 		expect(requestedFileNames('file:///C:/x/wood.jpg?v=2#top')).toEqual(['wood.jpg'])
-		expect(requestedFileNames('file:///C:/x/wood%20grain.jpg#top')).toEqual(['wood%20grain.jpg', 'wood grain.jpg'])
+		expect(requestedFileNames('file:///C:/x/wood%20grain.jpg#top')).toEqual(['wood grain.jpg', 'wood%20grain.jpg'])
 	})
 
 	it('keeps # and ? in any other reference, where they may be part of the name', () => {

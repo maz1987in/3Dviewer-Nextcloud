@@ -33,18 +33,21 @@ import { logger } from '../utils/logger.js'
  * the bare, decoded name normaliseRef() in textureReferences.js gives it. So: the last
  * segment after either separator, and that segment percent-decoded when it differs. A
  * `file:` URL loses its query and fragment first, as normaliseRef drops them; any other
- * reference keeps them, since `#` and `?` are legal in a file name on disk.
+ * reference keeps them, since `#` and `?` are legal in a file name on disk. A `file:`
+ * URL's decoded name comes first, since that is the name its companion was fetched by;
+ * for anything else the name as written does.
  *
  * Kept here rather than beside normaliseRef: every loader chunk already imports this
  * module, and importing that one from them would split it into a chunk of its own, which
  * the main entry then pays for in its preload list.
  *
  * @param {string} url - what the loader asked for
- * @return {string[]} one or two candidate names, the name as written first
+ * @return {string[]} one or two candidate names, the likelier first
  */
 export function requestedFileNames(url) {
 	let text = String(url)
-	if (/^\s*file:/i.test(text)) {
+	const fileUrl = /^\s*file:/i.test(text)
+	if (fileUrl) {
 		const end = text.search(/[?#]/)
 		if (end !== -1) {
 			text = text.slice(0, end)
@@ -57,7 +60,10 @@ export function requestedFileNames(url) {
 	} catch {
 		// A malformed escape is kept as written, as normaliseRef keeps it
 	}
-	return decoded === name ? [name] : [name, decoded]
+	if (decoded === name) {
+		return [name]
+	}
+	return fileUrl ? [decoded, name] : [name, decoded]
 }
 
 /**

@@ -404,10 +404,10 @@ class FbxLoader extends BaseLoader {
 			return url
 		}
 
-		// The name as written, then percent-decoded: a file: URL encodes it, and the
-		// companion was fetched by its decoded name
+		// The name as written and percent-decoded, the likelier first: a file: URL
+		// encodes it, and the companion was fetched by its decoded name
 		const names = requestedFileNames(url)
-		const textureName = names[names.length - 1]
+		const textureName = names[0]
 
 		// Try data URI map first (CSP-safe)
 		for (const name of names) {
@@ -418,8 +418,11 @@ class FbxLoader extends BaseLoader {
 			}
 		}
 
-		// Try flexible matching
-		const textureFile = this.findTextureFile(textureName, additionalFiles)
+		// Try flexible matching, by each name in turn
+		let textureFile = null
+		for (const name of names) {
+			textureFile = textureFile ?? this.findTextureFile(name, additionalFiles)
+		}
 		if (textureFile) {
 			const matchedName = textureFile.name.split(/[/\\]/).pop().toLowerCase()
 			const matchedUri = dataUriMap.get(matchedName)
