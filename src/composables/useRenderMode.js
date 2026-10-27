@@ -20,6 +20,7 @@ import {
 	SRGBColorSpace,
 } from 'three'
 import { logger } from '../utils/logger.js'
+import { restoreOwnMaterial, showStandIn } from '../utils/materialStandIns.js'
 
 export const RENDER_MODES = ['standard', 'clay', 'normals', 'xray']
 
@@ -104,7 +105,8 @@ export function useRenderMode() {
 			if (!child.isMesh || !child.material) return
 			if (!originals.has(child)) originals.set(child, child.material)
 			const own = originals.get(child)
-			child.material = Array.isArray(own) ? own.map(overrideFor) : overrideFor(own)
+			// Through the shared registry, so the thumbnail can draw the real ones
+			showStandIn(child, Array.isArray(own) ? own.map(overrideFor) : overrideFor(own))
 		})
 	}
 
@@ -117,6 +119,7 @@ export function useRenderMode() {
 			ownList.forEach((material, i) => {
 				if (material && shown[i]) material.wireframe = shown[i].wireframe
 			})
+			restoreOwnMaterial(mesh)
 			mesh.material = own
 		})
 		originals.clear()
