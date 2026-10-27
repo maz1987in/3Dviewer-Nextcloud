@@ -4,6 +4,7 @@
  */
 import * as THREE from 'three'
 import { unzipSync, strFromU8 } from 'three/examples/jsm/libs/fflate.module.js'
+import { ThreeMFLoader } from 'three/examples/jsm/loaders/3MFLoader.js'
 import { build3MF, build3MFModelXml } from '../../../src/utils/threeMFWriter.js'
 
 const parse = (xml) => new DOMParser().parseFromString(xml, 'application/xml')
@@ -21,8 +22,8 @@ describe('build3MF', () => {
 		const doc = parse(strFromU8(files['3D/3dmodel.model']))
 		expect(doc.getElementsByTagName('parsererror')).toHaveLength(0)
 		expect(doc.documentElement.getAttribute('unit')).toBe('millimeter')
-		// A box: 24 vertices (split normals), 12 triangles
-		expect(doc.getElementsByTagName('vertex')).toHaveLength(24)
+		// A box: three.js keeps 24 vertices (one per face corner); welded, its 8 corners
+		expect(doc.getElementsByTagName('vertex')).toHaveLength(8)
 		expect(doc.getElementsByTagName('triangle')).toHaveLength(12)
 		expect(doc.getElementsByTagName('item')).toHaveLength(1)
 	})
@@ -83,5 +84,102 @@ describe('build3MFModelXml', () => {
 		expect(objectCount).toBe(1)
 		expect(doc.getElementsByTagName('triangle')).toHaveLength(1)
 		expect(doc.getElementsByTagName('object')[0].getAttribute('name')).toBe('Bolt <M3> & "nut"')
+	})
+})
+
+/*
+ * Every edge of a closed solid is shared by exactly two triangles, once in each direction.
+ * That only holds in the file if the triangles share vertices: three.js splits them per
+ * face, and an STL arrives with three of its own per triangle.
+ */
+function edgeUse(doc) {
+	const uses = new Map()
+	for (const t of doc.getElementsByTagName('triangle')) {
+		const [a, b, c] = ['v1', 'v2', 'v3'].map((k) => t.getAttribute(k))
+		for (const [p, q] of [[a, b], [b, c], [c, a]]) {
+			uses.set(`${p}>${q}`, (uses.get(`${p}>${q}`) ?? 0) + 1)
+		}
+	}
+	return uses
+}
+
+function expectClosed(doc) {
+	const uses = edgeUse(doc)
+	for (const [edge, n] of uses) {
+		const [p, q] = edge.split('>')
+		expect(n).toBe(1)
+		expect(uses.get(`${q}>${p}`)).toBe(1)
+	}
+}
+
+describe('a closed model stays closed', () => {
+	it('welds a box into a closed solid', () => {
+		const doc = parse(build3MFModelXml(new THREE.Mesh(new THREE.BoxGeometry(2, 3, 4))).xml)
+		expectClosed(doc)
+	})
+
+	it('welds an STL-style triangle soup the same way', () => {
+		const soup = new THREE.BoxGeometry(2, 3, 4).toNonIndexed()
+		expect(soup.index).toBeNull()
+		const doc = parse(build3MFModelXml(new THREE.Mesh(soup)).xml)
+		expect(doc.getElementsByTagName('vertex')).toHaveLength(8)
+		expect(doc.getElementsByTagName('triangle')).toHaveLength(12)
+		expectClosed(doc)
+	})
+
+	it('drops a triangle that welding collapses', () => {
+		const g = new THREE.BufferGeometry()
+		// The third corner is the first one again, a hair away
+		g.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 1, 0, 0, 1e-9, 0, 0], 3))
+		expect(() => build3MF(new THREE.Mesh(g))).toThrow(/no triangle meshes/)
+	})
+})
+
+describe('what is written', () => {
+	it('leaves out a mesh inside a hidden group', () => {
+		const group = new THREE.Group()
+		const hiddenGroup = new THREE.Group()
+		hiddenGroup.visible = false
+		hiddenGroup.add(new THREE.Mesh(new THREE.BoxGeometry()))
+		group.add(hiddenGroup, new THREE.Mesh(new THREE.BoxGeometry()))
+		expect(build3MFModelXml(group).objectCount).toBe(1)
+	})
+
+	it('writes every copy an InstancedMesh draws, where it draws it', () => {
+		const mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial(), 3)
+		for (let i = 0; i < 3; i++) {
+			mesh.setMatrixAt(i, new THREE.Matrix4().makeTranslation(i * 10, 0, 0))
+		}
+		const { xml, objectCount } = build3MFModelXml(mesh)
+		expect(objectCount).toBe(3)
+		const xs = vertices(parse(xml)).map((v) => v[0])
+		expect(Math.max(...xs)).toBeCloseTo(20.5, 6)
+	})
+
+	it('strips characters XML cannot hold from a name', () => {
+		const mesh = new THREE.Mesh(new THREE.BoxGeometry())
+		mesh.name = 'Part\u0001 A'
+		const doc = parse(build3MFModelXml(mesh).xml)
+		expect(doc.getElementsByTagName('parsererror')).toHaveLength(0)
+		expect(doc.getElementsByTagName('object')[0].getAttribute('name')).toBe('Part A')
+	})
+})
+
+describe('read back by a 3MF reader', () => {
+	it('opens in three.js\'s 3MF loader with the shape it was written with', () => {
+		// 10 × 20 × 30, standing 20 tall in three.js (Y)
+		const mesh = new THREE.Mesh(new THREE.BoxGeometry(10, 20, 30))
+		const bytes = build3MF(mesh)
+		const group = new ThreeMFLoader().parse(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength))
+
+		const meshes = []
+		group.traverse((c) => { if (c.isMesh) meshes.push(c) })
+		expect(meshes).toHaveLength(1)
+		meshes[0].geometry.computeBoundingBox()
+		const size = meshes[0].geometry.boundingBox.getSize(new THREE.Vector3())
+		// In the file the part is Z-up: 10 wide, 30 deep, 20 tall
+		expect(size.x).toBeCloseTo(10, 4)
+		expect(size.y).toBeCloseTo(30, 4)
+		expect(size.z).toBeCloseTo(20, 4)
 	})
 })

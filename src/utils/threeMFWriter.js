@@ -8,6 +8,14 @@
  * Three.js is Y-up and 3MF, like every slicer, is Z-up, so vertices are turned onto
  * their back on the way out: (x, y, z) → (x, −z, y). That is a rotation, not a mirror,
  * so triangle winding (which way a face points) is preserved.
+ *
+ * One scene unit is written as one millimetre, the unit the viewer's measurements read.
+ *
+ * Vertices are welded: three.js keeps a separate copy of a vertex for every face that
+ * meets at it (a box has 24 for its 8 corners, an STL three per triangle), and a 3MF
+ * mesh whose triangles share no vertex has no shared edges, so a slicer reads it as a
+ * heap of loose triangles rather than a closed solid. Corners at the same written
+ * position become one vertex.
  */
 
 import { Matrix4, Vector3 } from 'three'
@@ -52,36 +60,59 @@ const bytes = (text) => {
 // Six decimals is a nanometre at millimetre scale; more is noise that only adds bytes
 const num = (value) => String(Math.round(value * 1e6) / 1e6)
 
+// Characters XML 1.0 does not allow anywhere, not even escaped
+// eslint-disable-next-line no-control-regex
+const NOT_XML = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g
+
 /**
- * The `<object>` element for one mesh, or null when it has no triangles.
- * @param {THREE.Mesh} mesh
- * @param {number} id
+ * The `<object>` element for one placement of a mesh, or null when it has no triangle.
+ * @param {THREE.Mesh} mesh - the mesh
+ * @param {THREE.Matrix4} placement - mesh space to 3MF build space
+ * @param {number} id - the object id to write
+ * @param {string} name - the object name, or '' for none
  * @return {string|null}
  */
-function meshObject(mesh, id) {
+function meshObject(mesh, placement, id, name) {
 	const position = mesh.geometry?.attributes?.position
 	if (!position || position.count < 3) return null
 
-	const matrix = new Matrix4().multiplyMatrices(Y_UP_TO_Z_UP, mesh.matrixWorld)
 	// A mirroring transform turns faces inside out; swap two corners to turn them back
-	const flip = matrix.determinant() < 0
+	const flip = placement.determinant() < 0
 	const v = new Vector3()
 
+	// Weld corners that land on the same written position into one vertex
 	const vertices = []
+	const welded = new Map() // written "x y z" -> vertex index
+	const remap = new Int32Array(position.count)
 	for (let i = 0; i < position.count; i++) {
-		v.fromBufferAttribute(position, i).applyMatrix4(matrix)
-		vertices.push(`<vertex x="${num(v.x)}" y="${num(v.y)}" z="${num(v.z)}"/>`)
+		v.fromBufferAttribute(position, i).applyMatrix4(placement)
+		if (!Number.isFinite(v.x) || !Number.isFinite(v.y) || !Number.isFinite(v.z)) {
+			remap[i] = -1
+			continue
+		}
+		const x = num(v.x)
+		const y = num(v.y)
+		const z = num(v.z)
+		const key = `${x} ${y} ${z}`
+		let index = welded.get(key)
+		if (index === undefined) {
+			index = vertices.length
+			welded.set(key, index)
+			vertices.push(`<vertex x="${x}" y="${y}" z="${z}"/>`)
+		}
+		remap[i] = index
 	}
 
 	const index = mesh.geometry.index
 	const count = index ? index.count : position.count
-	const corner = index ? (i) => index.getX(i) : (i) => i
+	const corner = index ? (i) => remap[index.getX(i)] : (i) => remap[i]
 	const triangles = []
 	for (let i = 0; i + 2 < count; i += 3) {
 		const a = corner(i)
 		const b = corner(i + 1)
 		const c = corner(i + 2)
-		// 3MF forbids a triangle that uses a vertex twice
+		if (a < 0 || b < 0 || c < 0) continue
+		// 3MF forbids a triangle that uses a vertex twice, welded corners included
 		if (a === b || b === c || a === c) continue
 		triangles.push(flip
 			? `<triangle v1="${a}" v2="${c}" v3="${b}"/>`
@@ -89,26 +120,39 @@ function meshObject(mesh, id) {
 	}
 	if (triangles.length === 0) return null
 
-	const name = mesh.name ? ` name="${escapeXml(mesh.name)}"` : ''
-	return `<object id="${id}" type="model"${name}><mesh>`
+	const nameAttr = name ? ` name="${escapeXml(name)}"` : ''
+	return `<object id="${id}" type="model"${nameAttr}><mesh>`
 		+ `<vertices>${vertices.join('')}</vertices>`
 		+ `<triangles>${triangles.join('')}</triangles>`
 		+ '</mesh></object>'
 }
 
 /**
- * The 3D model XML for every visible mesh under `object`.
- * @param {THREE.Object3D} object
+ * The 3D model XML for every mesh under `object` that the viewer shows: a mesh inside a
+ * hidden group is left out with it, and every copy an InstancedMesh draws is written.
+ * @param {THREE.Object3D} object - the model
  * @return {{ xml: string, objectCount: number }}
  */
 export function build3MFModelXml(object) {
 	object.updateMatrixWorld(true)
 
 	const objects = []
-	object.traverse((child) => {
-		if (!child.isMesh || child.visible === false) return
-		const xml = meshObject(child, objects.length + 1)
+	const instance = new Matrix4()
+	const add = (mesh, world, name) => {
+		const placement = new Matrix4().multiplyMatrices(Y_UP_TO_Z_UP, world)
+		const xml = meshObject(mesh, placement, objects.length + 1, name.replace(NOT_XML, ''))
 		if (xml) objects.push(xml)
+	}
+	object.traverseVisible((child) => {
+		if (!child.isMesh) return
+		if (child.isInstancedMesh) {
+			for (let i = 0; i < child.count; i++) {
+				child.getMatrixAt(i, instance)
+				add(child, new Matrix4().multiplyMatrices(child.matrixWorld, instance), child.name ? `${child.name} ${i + 1}` : '')
+			}
+			return
+		}
+		add(child, child.matrixWorld, child.name || '')
 	})
 
 	const items = objects.map((_, i) => `<item objectid="${i + 1}"/>`).join('')
