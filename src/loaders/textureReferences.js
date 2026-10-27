@@ -28,6 +28,34 @@ const FILE_URL = /^file:/i
 const SCHEME = /^[a-z][a-z0-9+.-]*:/i
 
 /**
+ * What a reference is trimmed of: the ASCII blanks, and nothing else. String#trim() also
+ * strips no-break spaces, a byte-order mark and the Unicode line separators, and PHP's
+ * trim() strips NUL instead; one set on both sides keeps the client and the server's
+ * resolver reading the same name.
+ */
+const BLANKS = ' \t\n\r\v\f'
+
+/**
+ * Trim the ASCII blanks off both ends. An index scan, linear in the text; a pattern
+ * anchored at the end, such as /\s+$/, retries from every blank in V8.
+ *
+ * @param {string} text - a reference as declared
+ * @return {string} the text without leading or trailing ASCII blanks
+ */
+export function asciiTrim(text) {
+	const value = String(text)
+	let start = 0
+	let end = value.length
+	while (start < end && BLANKS.includes(value[start])) {
+		start++
+	}
+	while (end > start && BLANKS.includes(value[end - 1])) {
+		end--
+	}
+	return value.slice(start, end)
+}
+
+/**
  * @param {string} text - possibly percent-encoded
  * @return {string} decoded, or as it was when it is not valid encoding
  */
@@ -44,7 +72,7 @@ export function percentDecoded(text) {
  * @return {boolean} true for a `file:` URL, whose name is percent-encoded
  */
 export function isFileUrl(ref) {
-	return FILE_URL.test(String(ref).trim())
+	return FILE_URL.test(asciiTrim(ref))
 }
 
 /**
@@ -52,7 +80,7 @@ export function isFileUrl(ref) {
  * @return {boolean} true when it starts with a URL scheme, `C:` included
  */
 export function hasScheme(ref) {
-	return SCHEME.test(String(ref).trim())
+	return SCHEME.test(asciiTrim(ref))
 }
 
 /**
@@ -64,7 +92,7 @@ export function hasScheme(ref) {
  * @return {boolean} true for an absolute or `file:` reference
  */
 export function isLocalAbsoluteRef(ref) {
-	const path = String(ref).replace(/\\/g, '/').trim()
+	const path = asciiTrim(String(ref).replace(/\\/g, '/'))
 	return FILE_URL.test(path) || DRIVE_LETTER.test(path) || path.startsWith('/')
 }
 
@@ -79,7 +107,7 @@ export function isLocalAbsoluteRef(ref) {
  * @return {string|null} the bare file name, or null when there is none to use
  */
 export function nameOnlyRef(ref) {
-	let path = String(ref).replace(/\\/g, '/').trim()
+	let path = asciiTrim(String(ref).replace(/\\/g, '/'))
 	const url = FILE_URL.test(path)
 	if (url) {
 		path = path.slice('file:'.length)
@@ -108,14 +136,15 @@ export function nameOnlyRef(ref) {
  *
  * An absolute or `file:` reference becomes its bare file name. Any other scheme is
  * rejected. A relative path has its separators folded and `..` collapsed, and is rejected
- * if it climbs out of the model's folder.
+ * if it climbs out of the model's folder or holds a NUL, which no file name does. Only
+ * the ASCII blanks are trimmed (see BLANKS).
  *
  * @param {string} raw - reference exactly as the document wrote it
  * @return {string|null} normalised relative path, or null if it is not one
  */
 export function normaliseRef(raw) {
 	// Exporters on Windows write backslashes; every path here uses forward slashes.
-	const path = String(raw).replace(/\\/g, '/').trim()
+	const path = asciiTrim(String(raw).replace(/\\/g, '/'))
 	if (path === '') {
 		return null
 	}
@@ -131,6 +160,9 @@ export function normaliseRef(raw) {
 	for (const segment of path.split('/')) {
 		if (segment === '' || segment === '.') {
 			continue
+		}
+		if (segment.includes('\0')) {
+			return null
 		}
 		if (segment === '..') {
 			if (segments.length === 0) {

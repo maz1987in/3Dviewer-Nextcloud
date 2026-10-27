@@ -33,7 +33,7 @@ import { generateUrl } from '@nextcloud/router'
 import { buildFileUrl } from '../composables/usePublicShare.js'
 import { parse3dsDependencies, parseFbxDependencies } from '../loaders/binaryModelDependencies.js'
 import { parseGltfDependencies, parseObjMaterialFiles, parseXmlModelDependencies } from '../loaders/multiFileHelpers.js'
-import { isLocalAbsoluteRef, nameOnlyRef } from '../loaders/textureReferences.js'
+import { asciiTrim, isLocalAbsoluteRef, nameOnlyRef } from '../loaders/textureReferences.js'
 import { logger } from '../utils/logger.js'
 import { ThumbnailBudgetError, ThumbnailEnvironmentError } from './errors.js'
 
@@ -177,7 +177,7 @@ function joinPath(dirPath, ref) {
 function parseMtlTexturePaths(mtlContent) {
 	const matches = [...mtlContent.matchAll(/^\s*(?:map_[A-Za-z0-9_]+|bump|refl)[^\S\r\n]+(.*?)$/gm)]
 	const paths = matches.map((match) => {
-		const path = match[1].trim()
+		const path = asciiTrim(match[1])
 		return isLocalAbsoluteRef(path) ? nameOnlyRef(path) : path.replace(/\\/g, '/')
 	}).filter(Boolean)
 	return [...new Set(paths)]

@@ -46,7 +46,7 @@ import { logger } from '../utils/logger.js'
  */
 export function requestedFileNames(url) {
 	let text = String(url)
-	const fileUrl = /^\s*file:/i.test(text)
+	const fileUrl = /^[ \t\n\r\v\f]*file:/i.test(text)
 	if (fileUrl) {
 		const end = text.search(/[?#]/)
 		if (end !== -1) {

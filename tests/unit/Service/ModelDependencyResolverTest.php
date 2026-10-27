@@ -717,6 +717,10 @@ class ModelDependencyResolverTest extends TestCase
         $cases = [];
         foreach ($table['cases'] as $case) {
             foreach (['fbx', '3ds'] as $format) {
+                // A 3DS map name ends at its first NUL, so it cannot carry one
+                if ($format === '3ds' && str_contains($case['ref'], "\0")) {
+                    continue;
+                }
                 $cases[$format . ': ' . $case['why'] . ': ' . json_encode($case['ref'])] = [$format, $case['ref'], $case['expected']];
             }
         }

@@ -9,7 +9,7 @@
 import { generateUrl } from '@nextcloud/router'
 import { buildFileUrl, buildPublicDepUrl, isPublicShare } from '../composables/usePublicShare.js'
 import { parse3dsDependencies, parseFbxTextures } from './binaryModelDependencies.js'
-import { hasScheme, isFileUrl, isLocalAbsoluteRef, nameOnlyRef, percentDecoded } from './textureReferences.js'
+import { asciiTrim, hasScheme, isFileUrl, isLocalAbsoluteRef, nameOnlyRef, percentDecoded } from './textureReferences.js'
 import { logger } from '../utils/logger.js'
 import { getFulfilledValues } from '../utils/arrayHelpers.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
@@ -369,7 +369,7 @@ export function parseObjMaterialFiles(objContent) {
 	// Match lines like: mtllib material.mtl
 	const matches = [...objContent.matchAll(/^\s*mtllib[^\S\r\n]+(.*?)$/gm)]
 	const names = matches.map((capture) => {
-		const value = capture[1].trim()
+		const value = asciiTrim(capture[1])
 		return isLocalAbsoluteRef(value) ? nameOnlyRef(value) : value
 	})
 	return [...new Set(names.filter(Boolean))]
@@ -388,7 +388,7 @@ export function parseMtlTextureFiles(mtlContent) {
 	// OBJ/MTL files often reference textures in subdirectories (e.g., 'images\texture.jpg')
 	// but Nextcloud stores all files flat in the same directory
 	const filenames = matches.map(capture => {
-		const fullPath = capture[1].trim()
+		const fullPath = asciiTrim(capture[1])
 		// An absolute or file: path goes through the same reduction the server applies,
 		// which decodes a file: URL's name and refuses one that is no file name at all
 		if (isLocalAbsoluteRef(fullPath)) {
@@ -616,9 +616,10 @@ function x3dTextureUrls(content) {
 		if (url === null) {
 			continue
 		}
-		const list = decodeXmlEntities(url).trim()
+		// Split and trimmed on the ASCII blanks alone, as the server's preg_split('/\s+/') does
+		const list = asciiTrim(decodeXmlEntities(url))
 		const quoted = [...list.matchAll(/"([^"]*)"/g)].map(match => match[1])
-		values.push(...(quoted.length > 0 || list.includes('"') ? quoted : list.split(/\s+/)))
+		values.push(...(quoted.length > 0 || list.includes('"') ? quoted : list.split(/[ \t\n\r\v\f]+/)))
 	}
 	return values
 }
@@ -642,7 +643,7 @@ export function parseXmlModelDependencies(content, extension) {
 
 	const found = new Set()
 	const push = (raw) => {
-		const value = String(raw).trim()
+		const value = asciiTrim(raw)
 		// Decoded first, as the server decodes before it normalises. A file: URL is the
 		// exception: nameOnlyRef decodes its name, and decoding twice would turn a
 		// literal %20 in a file name into a space.

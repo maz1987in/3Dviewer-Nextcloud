@@ -57,6 +57,14 @@ class ModelDependencyResolver
      */
     public const MAX_MATERIALS = 16;
 
+    /**
+     * What a reference is trimmed of: the ASCII blanks, and nothing else. PHP's default
+     * trim() also strips NUL, and JavaScript's strips no-break spaces, a byte-order mark
+     * and the Unicode line separators; one set on both sides keeps the server reading the
+     * name asciiTrim() in src/loaders/textureReferences.js reads.
+     */
+    private const BLANKS = " \t\n\r\v\f";
+
     /** @psalm-suppress PossiblyUnusedMethod Constructed via DI container */
     public function __construct(
         private readonly PathLocator $pathLocator,
@@ -183,7 +191,7 @@ class ModelDependencyResolver
         // documents is an upload, and a pattern that runs from each `<image` or
         // `<ImageTexture` to the end of an unclosed tag is quadratic in the document.
         foreach (self::colladaImageFiles($document) as $value) {
-            $this->register($map, self::uriDecoded(trim(html_entity_decode($value, ENT_QUOTES | ENT_XML1, 'UTF-8'))));
+            $this->register($map, self::uriDecoded(trim(html_entity_decode($value, ENT_QUOTES | ENT_XML1, 'UTF-8'), self::BLANKS)));
         }
         foreach (self::x3dTextureUrls($document) as $value) {
             $this->register($map, self::uriDecoded($value));
@@ -317,7 +325,7 @@ class ModelDependencyResolver
             if ($url === null) {
                 continue;
             }
-            $list = trim(html_entity_decode($url, ENT_QUOTES | ENT_XML1, 'UTF-8'));
+            $list = trim(html_entity_decode($url, ENT_QUOTES | ENT_XML1, 'UTF-8'), self::BLANKS);
             if (str_contains($list, '"')) {
                 // "a.png" "b b.png": every quoted entry whole, spaces included
                 $parts = explode('"', $list);
@@ -331,7 +339,10 @@ class ModelDependencyResolver
             }
         }
 
-        return array_values(array_filter(array_map('trim', $values), static fn (string $value): bool => $value !== ''));
+        return array_values(array_filter(
+            array_map(static fn (string $value): string => trim($value, self::BLANKS), $values),
+            static fn (string $value): bool => $value !== '',
+        ));
     }
 
     /**
@@ -465,7 +476,7 @@ class ModelDependencyResolver
      */
     private function candidatePaths(string $value): array
     {
-        $value = trim($value);
+        $value = trim($value, self::BLANKS);
         $tokens = preg_split('/\s+/', $value) ?: [];
 
         $paths = [str_starts_with($value, '-') ? (string) end($tokens) : $value];
@@ -513,12 +524,13 @@ class ModelDependencyResolver
      * directory, and resolve() looks for it in the model's folder alone; the directories
      * the path named are never followed. Any other scheme is not a file beside the model.
      * A relative path is relative to $directory, has `..` collapsed, and is rejected if it
-     * climbs out of the model's folder.
+     * climbs out of the model's folder or holds a NUL, which no file name does. Only the
+     * ASCII blanks are trimmed (see BLANKS).
      */
     private function normalise(string $rawPath, string $directory = '.'): ?string
     {
         // Exporters on Windows write backslashes; Nextcloud paths use forward slashes.
-        $path = str_replace('\\', '/', trim($rawPath));
+        $path = str_replace('\\', '/', trim($rawPath, self::BLANKS));
 
         if ($path === '') {
             return null;
@@ -538,6 +550,9 @@ class ModelDependencyResolver
         foreach (explode('/', $path) as $segment) {
             if ($segment === '' || $segment === '.') {
                 continue;
+            }
+            if (str_contains($segment, "\0")) {
+                return null;
             }
             if ($segment === '..') {
                 if ($segments === []) {
@@ -633,7 +648,7 @@ class ModelDependencyResolver
      */
     private static function uriDecoded(string $value): string
     {
-        return self::isFileUrl(ltrim($value)) ? $value : rawurldecode($value);
+        return self::isFileUrl(ltrim($value, self::BLANKS)) ? $value : rawurldecode($value);
     }
 
     /**
