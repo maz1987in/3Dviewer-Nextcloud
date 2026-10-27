@@ -130,6 +130,7 @@
 					:gcode-layer="gcodeLayer"
 					:gcode-layer-z="gcodeLayerZ"
 					:gcode-single-layer="gcodeSingleLayer"
+					:render-mode="renderMode"
 					:is-mobile="isMobile"
 					:cache-stats="cacheStats"
 					:custom-palette="customPalette"
@@ -181,6 +182,7 @@
 					@set-exploded-factor="onSetExplodedFactor"
 					@set-gcode-layer="onSetGcodeLayer"
 					@toggle-gcode-single-layer="onToggleGcodeSingleLayer"
+					@set-render-mode="onSetRenderMode"
 					@add-bookmark="onAddBookmark"
 					@load-bookmark="onLoadBookmark"
 					@remove-bookmark="onRemoveBookmark" />
@@ -385,6 +387,8 @@ export default {
 			gcodeLayer: 0,
 			gcodeLayerZ: null,
 			gcodeSingleLayer: false,
+			// Inspection shading: standard, clay, normals, xray
+			renderMode: 'standard',
 			// WebXR
 			webxrSupported: false,
 			webxrActive: false,
@@ -1440,6 +1444,12 @@ export default {
 				this.$refs.viewer.explodedView.setFactor(factor)
 				this.explodedViewFactor = factor
 			}
+		},
+		onSetRenderMode(mode) {
+			const viewer = this.$refs.viewer
+			if (!viewer?.setRenderMode) return
+			viewer.setRenderMode(mode)
+			this.renderMode = viewer.renderMode.mode.value
 		},
 		// G-code layer slider
 		syncGcodeLayers() {

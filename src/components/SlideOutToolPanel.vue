@@ -131,6 +131,22 @@
 									<span class="toggle-switch" :class="{ on: wireframe }" />
 									<span class="toggle-text">{{ t('threedviewer', 'Wireframe') }}</span>
 								</label>
+								<!-- Render mode: inspection shading in place of the model's materials -->
+								<div class="tool-group">
+									<label class="tool-label-small">{{ t('threedviewer', 'Shading') }}</label>
+									<div class="preset-buttons" role="group" :aria-label="t('threedviewer', 'Shading')">
+										<button v-for="option in renderModeOptions"
+											:key="option.value"
+											class="preset-btn"
+											:class="{ 'active': renderMode === option.value }"
+											:aria-pressed="renderMode === option.value ? 'true' : 'false'"
+											:title="option.title"
+											:disabled="!modelLoaded"
+											@click="emit('set-render-mode', option.value)">
+											{{ option.label }}
+										</button>
+									</div>
+								</div>
 								<!-- Lighting Presets -->
 								<div v-if="lightingPresets.length > 0" class="tool-group">
 									<label class="tool-label-small">{{ t('threedviewer', 'Lighting') }}</label>
@@ -666,6 +682,8 @@ export default {
 		gcodeLayer: { type: Number, default: 0 },
 		gcodeLayerZ: { type: Number, default: null },
 		gcodeSingleLayer: { type: Boolean, default: false },
+		// Render mode
+		renderMode: { type: String, default: 'standard' },
 
 		// Mobile detection
 		isMobile: { type: Boolean, default: false },
@@ -731,6 +749,7 @@ export default {
 		'set-exploded-factor',
 		'set-gcode-layer',
 		'toggle-gcode-single-layer',
+		'set-render-mode',
 	],
 
 	setup(props, { emit }) {
@@ -891,8 +910,16 @@ export default {
 			return !!(p.background || p.gridColor)
 		})
 
+		const renderModeOptions = [
+			{ value: 'standard', label: t('threedviewer', 'Standard'), title: t('threedviewer', 'The model\'s own materials') },
+			{ value: 'clay', label: t('threedviewer', 'Clay'), title: t('threedviewer', 'Even clay shading that shows surface form') },
+			{ value: 'normals', label: t('threedviewer', 'Normals'), title: t('threedviewer', 'Surface direction as colour, to spot dents and flipped faces') },
+			{ value: 'xray', label: t('threedviewer', 'X-ray'), title: t('threedviewer', 'See-through parts, to look inside assemblies') },
+		]
+
 		return {
 			t,
+			renderModeOptions,
 			// The rows print their hints from the shared table, so the template needs it.
 			shortcutKey,
 			isOpen,
