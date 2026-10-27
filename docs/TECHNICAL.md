@@ -1695,7 +1695,7 @@ The in-browser 3D viewer is implemented with Vue 2 + Three.js with lazy-loaded o
 
 - **Camera framing:** On initial model load, the scene bounding box is computed and the camera + orbit controls are adjusted to frame the model (with a small margin) and set a sensible near/far range.
 
-- **Wireframe & helpers:** Toolbar hooks are scaffolded for grid, axes, reset, wireframe. Wireframe application iterates mesh materials updating their `wireframe` flag.
+- **Wireframe & helpers:** Toolbar hooks are scaffolded for grid, axes, reset, wireframe. Wireframe goes through `setViewerWireframe` (`src/utils/viewerMaterialProps.js`), which sets each mesh's own materials' `wireframe` flag through the registry a thumbnail reads (see the Thumbnail Generation System), and stays on for the next model opened.
 
 - **Background:** Respects Nextcloud light/dark theme variables by default; a custom color override toggle can be layered later.
 
@@ -1909,6 +1909,19 @@ renderThumbnail: fixed look on a detached canvas → POST /api/thumbnail/{fileId
 ```
 
 `ThreeViewer.vue` and `ViewerComponent.vue` wait for the status (`awaitStatusBeforeDownload`) before they start the model download, and capture after the model loads, when "Enable Thumbnail Generation" (`thumbnails.enabled`) is on. The ETag therefore comes from a status that has arrived before the first byte of the download was requested; a request merely sent first would not do, as the server may read the file for the download before it reads it for the status. The wait is that one request: if it fails, or has no answer within 10 seconds, the model loads anyway and this open makes no thumbnail. A load that took a material or texture from the dependency cache (`_fromCache` on the file, set by `fetchFileFromUrl`) is not captured either, since that cache is keyed by file id and name rather than version and a thumbnail is permanent; the next open or the Files page makes it from fresh files.
+
+**The model as it is, not as the viewer shows it.** The capture renders the live model object, moved into a scene of its own for the one render, not a copy of it, and viewer tools change that object. A thumbnail is shared with everyone who can see the file, so no tool's state may reach it: each tool records what it changes in a small registry, a plain module with no Vue or DOM, and `renderThumbnail` frames and draws the model inside `withOwnDisplayState(root, fn)` (`src/utils/ownDisplayState.js`), which puts the model's own state back for that synchronous call and the viewer's state back in a `finally`, before the PNG is encoded, so the viewer never draws a wrong frame and a render that throws changes nothing. In the background worker no tool runs, every registry is empty, and the helper does nothing.
+
+| Registry | Records | Tools |
+|---|---|---|
+| `materialStandIns.js` | each mesh's own material, while a stand-in shows | Clay, Normals and X-ray (`useRenderMode`) |
+| `viewerMaterialProps.js` | each material's own value of a property a tool changed, from before the first change | Wireframe (`wireframe`), an open clipping plane or box (`side`), G-code Single colour (`color`, `vertexColors`) |
+| `viewerHidden.js` | what a tool hid, as against what the file hides | G-code layer slider (`useGcodeLayers`) |
+| `viewerTransforms.js` | each object's own position, rotation, scale and morph weights, from before a tool first moved it | Exploded view's parts (`useExplodedView`), the transform gizmo's root (`useTransformGizmo`, also what Reset returns to), every node of an animated model (`useAnimation`) |
+
+A shared material is changed once, and multi-material meshes are covered. Switching Wireframe off gives a material its own value back, so a material a file ships as wireframe stays one. An animated model is drawn in the pose it loads in, as a background thumbnail is, not at whatever frame its clip has reached. G-code is always loaded in its own gradient, which the background worker draws too, and Single colour is shown over it. The camera fit is made inside the helper, so exploded parts and a model the gizmo turned are framed as the model puts them. The clipping planes themselves are on the viewer's renderer and never reach the thumbnail's, and measurements, annotations, face labels and the gizmo's handles are in the viewer's scene, not under the model. A tool that changes the live model must register in one of these registries, or in a new one composed into `withOwnDisplayState`.
+
+Exports use the same helper: STL, OBJ and PLY, and Send to Slicer's copies of them, are written inside `withOwnDisplayState(root, fn, { keepRootTransform: true })`, so they get the model's own materials and its parts together while the transform the gizmo gave the model is kept, as the user placed it. GLB, USDZ and 3MF are written asynchronously and cannot be wrapped in one call: for those the viewer sets the explosion aside for the export (`explodedView.suspend()`/`resume()`, counted), and for GLB and USDZ the render mode as well.
 
 **From the Files page** (background):
 
