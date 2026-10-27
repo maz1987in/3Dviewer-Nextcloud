@@ -402,49 +402,49 @@
 					<tr>
 						<td>{{ t('threedviewer', 'BBox X') }}</td>
 						<td class="diff-col-orig">
-							{{ diffStats.original.bbox.x.toFixed(2) }}
+							{{ diffLength(diffStats.original.bbox.x).toFixed(2) }} {{ statsUnitConfig.suffix }}
 						</td>
 						<td class="diff-col-comp">
-							{{ diffStats.comparison.bbox.x.toFixed(2) }}
+							{{ diffLength(diffStats.comparison.bbox.x).toFixed(2) }} {{ statsUnitConfig.suffix }}
 						</td>
 						<td class="diff-col-delta" :class="diffDeltaClass(diffStats.delta.bbox.x)">
-							{{ formatDeltaFloat(diffStats.delta.bbox.x) }}
+							{{ formatDeltaFloat(diffLength(diffStats.delta.bbox.x)) }}
 						</td>
 					</tr>
 					<tr>
 						<td>{{ t('threedviewer', 'BBox Y') }}</td>
 						<td class="diff-col-orig">
-							{{ diffStats.original.bbox.y.toFixed(2) }}
+							{{ diffLength(diffStats.original.bbox.y).toFixed(2) }} {{ statsUnitConfig.suffix }}
 						</td>
 						<td class="diff-col-comp">
-							{{ diffStats.comparison.bbox.y.toFixed(2) }}
+							{{ diffLength(diffStats.comparison.bbox.y).toFixed(2) }} {{ statsUnitConfig.suffix }}
 						</td>
 						<td class="diff-col-delta" :class="diffDeltaClass(diffStats.delta.bbox.y)">
-							{{ formatDeltaFloat(diffStats.delta.bbox.y) }}
+							{{ formatDeltaFloat(diffLength(diffStats.delta.bbox.y)) }}
 						</td>
 					</tr>
 					<tr>
 						<td>{{ t('threedviewer', 'BBox Z') }}</td>
 						<td class="diff-col-orig">
-							{{ diffStats.original.bbox.z.toFixed(2) }}
+							{{ diffLength(diffStats.original.bbox.z).toFixed(2) }} {{ statsUnitConfig.suffix }}
 						</td>
 						<td class="diff-col-comp">
-							{{ diffStats.comparison.bbox.z.toFixed(2) }}
+							{{ diffLength(diffStats.comparison.bbox.z).toFixed(2) }} {{ statsUnitConfig.suffix }}
 						</td>
 						<td class="diff-col-delta" :class="diffDeltaClass(diffStats.delta.bbox.z)">
-							{{ formatDeltaFloat(diffStats.delta.bbox.z) }}
+							{{ formatDeltaFloat(diffLength(diffStats.delta.bbox.z)) }}
 						</td>
 					</tr>
 					<tr>
 						<td>{{ t('threedviewer', 'Diagonal') }}</td>
 						<td class="diff-col-orig">
-							{{ diffStats.original.bboxDiagonal.toFixed(2) }}
+							{{ diffLength(diffStats.original.bboxDiagonal).toFixed(2) }} {{ statsUnitConfig.suffix }}
 						</td>
 						<td class="diff-col-comp">
-							{{ diffStats.comparison.bboxDiagonal.toFixed(2) }}
+							{{ diffLength(diffStats.comparison.bboxDiagonal).toFixed(2) }} {{ statsUnitConfig.suffix }}
 						</td>
 						<td class="diff-col-delta" :class="diffDeltaClass(diffStats.delta.bboxDiagonal)">
-							{{ formatDeltaFloat(diffStats.delta.bboxDiagonal) }}
+							{{ formatDeltaFloat(diffLength(diffStats.delta.bboxDiagonal)) }}
 						</td>
 					</tr>
 				</tbody>
@@ -804,7 +804,7 @@ import { createNotesApi } from '../utils/notesApi.js'
 import { getPublicShareContext } from '../composables/usePublicShare.js'
 import { awaitStatusBeforeDownload, scheduleCapture } from '../thumbnails/captureFromViewer.js'
 import { measurementsFromJson, measurementsToJson } from '../utils/measurementJson.js'
-import { millimetresPerUnit } from '../utils/sourceUnits.js'
+import { millimetresPerUnit, defaultDisplayUnit, displayLengthFactor } from '../utils/sourceUnits.js'
 import { usePerformance } from '../composables/usePerformance.js'
 import { useExport, getGeometryStats } from '../composables/useExport.js'
 import { useModelStats } from '../composables/useModelStats.js'
@@ -886,6 +886,8 @@ export default {
 		const grid = shallowRef(null)
 		const axes = shallowRef(null)
 		const modelRoot = shallowRef(null)
+		// Millimetres per scene unit of the open model, from its format (utils/sourceUnits.js)
+		const modelMillimetresPerUnit = ref(1)
 		const modelSourceFiles = shallowRef(null) // File[] for ZIP export
 		const aborting = ref(false)
 		const initializing = ref(true) // Show loading during initial setup
@@ -973,6 +975,26 @@ export default {
 			if (focus) return focus.volume
 			return modelStatsComposable.modelStats.value?.meshVolume || 0
 		})
+
+		/**
+		 * Work out once, for the model just opened (or none), how many millimetres a scene
+		 * unit is, and give it to everything that shows a real size. The panels start in
+		 * the model's own unit unless the user has picked one.
+		 * @param {?string} filename - The file the model came from
+		 * @param {?THREE.Object3D} root - The loaded model
+		 */
+		const applySourceUnits = (filename, root) => {
+			const scale = millimetresPerUnit(filename, root)
+			modelMillimetresPerUnit.value = scale
+			measurement.setModelScale(scale)
+			modelStatsComposable.setModelScale(scale)
+			if (filename) {
+				const unit = defaultDisplayUnit(filename, root)
+				measurement.suggestUnit(unit)
+				modelStatsComposable.suggestUnit(unit)
+			}
+			logger.info('ThreeViewer', 'Source units', { filename, millimetresPerUnit: scale })
+		}
 
 		// Methods
 		const init = async () => {
@@ -1582,6 +1604,7 @@ export default {
 						const progressTotal = modelLoading.progress.value.total || 0
 						if (progressTotal > 1000) fileSize = progressTotal
 					}
+					applySourceUnits(filename, modelRoot.value)
 					const stats = modelStatsComposable.analyzeModel(modelRoot.value, filename, fileSize)
 					evaluatePerformanceScaling(stats)
 
@@ -1862,7 +1885,9 @@ export default {
 				camera.fitCameraToObject(modelRoot.value, newCenter)
 				updateGridSize(modelRoot.value)
 
-				// Analyze demo model for stats
+				// Analyze demo model for stats. It has no real size; read as before, a
+				// millimetre per unit.
+				applySourceUnits(null, null)
 				modelStatsComposable.analyzeModel(modelRoot.value, 'demo-scene.glb', 0)
 
 				emit('model-loaded', { fileId, filename: 'Demo Scene' })
@@ -2446,6 +2471,18 @@ export default {
 		}
 
 		/**
+		 * A comparison length, kept in millimetres, in the stats panel's display unit;
+		 * "units" are the original model's scene units.
+		 * @param {number} millimetres - Length in millimetres
+		 * @return {number} The same length in the display unit
+		 */
+		const diffLength = (millimetres) => {
+			const unit = modelStatsComposable.unitConfig.value
+			const perUnit = comparison.diffStats.value?.originalMillimetresPerUnit || 1
+			return millimetres / perUnit * displayLengthFactor(unit, perUnit)
+		}
+
+		/**
 		 * Pick a CSS class for the diff column based on delta sign.
 		 * @param {number} value - Signed delta
 		 * @return {string} CSS class name
@@ -2702,7 +2739,7 @@ export default {
 					}
 					// 3MF and USDZ carry a real size: a glTF is in metres, an STL in millimetres
 					await exporters[ext](modelRoot.value, baseFilename, {
-						millimetresPerUnit: millimetresPerUnit(props.filename, modelRoot.value),
+						millimetresPerUnit: modelMillimetresPerUnit.value,
 					})
 					emit('push-toast', {
 						type: 'success',
@@ -2961,7 +2998,7 @@ export default {
 											// Compute the side-by-side diff stats now that both models
 											// have valid world matrices and are placed in the scene.
 											try {
-												comparison.computeDiffStats(modelRoot.value, props.filename || '')
+												comparison.computeDiffStats(modelRoot.value, props.filename || '', modelMillimetresPerUnit.value)
 											} catch (diffError) {
 												logger.warn('ThreeViewer', 'Failed to compute comparison diff stats', diffError)
 											}
@@ -3615,6 +3652,7 @@ export default {
 
 				// Clear model stats
 				modelStatsComposable.clearStats()
+				applySourceUnits(null, null)
 
 				// Load new model (loadModel will use updated props.filename and props.dir)
 				try {
@@ -4027,6 +4065,7 @@ export default {
 			formatStatNumber,
 			formatDeltaInt,
 			formatDeltaFloat,
+			diffLength,
 			diffDeltaClass,
 			truncateLabel,
 			annotationSyncLabel,

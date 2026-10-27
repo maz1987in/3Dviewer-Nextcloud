@@ -12,6 +12,7 @@ import { loadModelByExtension } from '../loaders/registry.js'
 import { logger } from '../utils/logger.js'
 import { disposeObject } from '../utils/three-utils.js'
 import { isHelperMesh } from '../utils/modelScaleUtils.js'
+import { millimetresPerUnit } from '../utils/sourceUnits.js'
 import { getFileIdByPath, loadModelWithDependencies } from '../loaders/multiFileHelpers.js'
 
 export function useComparison() {
@@ -20,6 +21,9 @@ export function useComparison() {
 	const comparisonModel = shallowRef(null)
 	const comparisonIndicator = shallowRef(null)
 	const comparisonFilename = ref(null)
+	// Millimetres per scene unit of the comparison model, from its own format: it may
+	// not be in the original's unit (a glTF in metres beside an STL in millimetres)
+	let comparisonMillimetresPerUnit = 1
 
 	// Animation state for comparison model
 	const comparisonMixer = shallowRef(null)
@@ -472,6 +476,7 @@ export function useComparison() {
 
 		if (result && result.object3D) {
 			comparisonModel.value = markRaw(result.object3D)
+			comparisonMillimetresPerUnit = millimetresPerUnit(filename, result.object3D)
 
 			// Store animations if present
 			if (result.animations && result.animations.length > 0) {
@@ -1281,12 +1286,16 @@ export function useComparison() {
 
 	/**
 	 * Compute side-by-side and delta stats for the original + comparison models.
-	 * Result is stored in diffStats and consumed by the comparison diff overlay.
+	 * Result is stored in diffStats and consumed by the comparison diff overlay. Lengths
+	 * are in millimetres, each model's converted from its own unit, so the two sides
+	 * and their difference compare real sizes.
 	 * @param {THREE.Object3D} originalModel - Currently loaded primary model
 	 * @param {string} originalFilenameInput - Filename of the primary model
+	 * @param {number} [originalMillimetresPerUnit] - Millimetres per scene unit of the
+	 *   primary model (utils/sourceUnits.js)
 	 * @return {object|null} The diff stats object, or null if either model missing
 	 */
-	const computeDiffStats = (originalModel, originalFilenameInput = '') => {
+	const computeDiffStats = (originalModel, originalFilenameInput = '', originalMillimetresPerUnit = 1) => {
 		if (!originalModel || !comparisonModel.value) {
 			diffStats.value = null
 			return null
@@ -1298,8 +1307,8 @@ export function useComparison() {
 
 			const origSize = new THREE.Vector3()
 			const compSize = new THREE.Vector3()
-			if (!origRaw.box.isEmpty()) origRaw.box.getSize(origSize)
-			if (!compRaw.box.isEmpty()) compRaw.box.getSize(compSize)
+			if (!origRaw.box.isEmpty()) origRaw.box.getSize(origSize).multiplyScalar(originalMillimetresPerUnit)
+			if (!compRaw.box.isEmpty()) compRaw.box.getSize(compSize).multiplyScalar(comparisonMillimetresPerUnit)
 
 			const origStats = {
 				vertices: origRaw.vertices,
@@ -1334,6 +1343,9 @@ export function useComparison() {
 				original: origStats,
 				comparison: compStats,
 				delta,
+				// bbox and bboxDiagonal are in millimetres; this turns them back into the
+				// original's scene units, for the "units" display unit
+				originalMillimetresPerUnit,
 				computedAt: Date.now(),
 			}
 
@@ -1399,6 +1411,7 @@ export function useComparison() {
 		comparisonError.value = null
 		loadingComparison.value = false
 		comparisonFilename.value = null
+		comparisonMillimetresPerUnit = 1
 		diffStats.value = null
 		showDiffOverlay.value = true
 

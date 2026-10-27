@@ -2,8 +2,11 @@
  * SPDX-FileCopyrightText: 2026 Nextcloud contributors
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
- * What one scene unit is, in millimetres, for a model loaded from a given format: the
- * export formats that carry a real size (3MF in millimetres, USDZ in metres) need it.
+ * What one scene unit is, in millimetres, for a model loaded from a given format. The
+ * viewer works it out once per model, and everything that shows or writes a real size
+ * uses it: distance measurements, the model statistics (bounding box, area by its
+ * square, volume by its cube), the comparison table, and the exports that carry a real
+ * size (3MF in millimetres, USDZ in metres). Angles have no unit and are left alone.
  *
  * Decided per format, from the format's convention and from what the loader does:
  *
@@ -22,7 +25,7 @@
  * millimetres
  *   stl, obj, ply, off, 3ds
  *                    no unit in the file; millimetres is what printing and CAD tools
- *                    write, and what the viewer's measurements assume.
+ *                    write, and what the viewer has always measured them in.
  *   amf              AMFLoader scales by the file's `unit` into millimetres.
  *   step, stp, iges, igs, brep, brp, fcstd
  *                    OCCT and FreeCAD shapes are millimetres.
@@ -48,6 +51,8 @@
  *
  * Anything not listed is taken as millimetres.
  */
+
+import { VIEWER_CONFIG } from '../config/viewer-config.js'
 
 const METRE = 1000
 const CENTIMETRE = 10
@@ -214,4 +219,36 @@ export function millimetresPerFileUnit(filename, root = null) {
  */
 export function millimetresPerUnit(filename, root = null) {
 	return millimetresPerFileUnit(filename, root) / viewerScale(root)
+}
+
+/**
+ * The display unit a model's readings start in, until the user picks one: the unit its
+ * file is written in (m for a glTF, mm for an STL, cm for most FBX files, a Rhino or 3MF
+ * file's own), or millimetres for a unit the picker does not offer.
+ *
+ * @param {?string} filename - The file the model was loaded from (a path is fine)
+ * @param {?THREE.Object3D} [root] - The loaded model, read for formats that record a unit
+ * @return {string} A key of VIEWER_CONFIG.measurement.unitScales
+ */
+export function defaultDisplayUnit(filename, root = null) {
+	const fileUnit = millimetresPerFileUnit(filename, root)
+	const match = Object.entries(VIEWER_CONFIG.measurement.unitScales)
+		.find(([, unit]) => !unit.sceneUnits && Math.abs(unit.factor - fileUnit) < 1e-9 * fileUnit)
+	if (match) {
+		return match[0]
+	}
+	// Kilometres and the like read best in metres; anything smaller in millimetres
+	return fileUnit > METRE ? 'meters' : 'millimeters'
+}
+
+/**
+ * What to multiply a length in scene units by to show it in a display unit.
+ *
+ * @param {{ factor: number, sceneUnits?: boolean }} unit - An entry of
+ *   VIEWER_CONFIG.measurement.unitScales (`factor` is millimetres per display unit)
+ * @param {number} sceneMillimetres - Millimetres per scene unit, from millimetresPerUnit
+ * @return {number} Display units per scene unit; 1 for "units", the scene's own numbers
+ */
+export function displayLengthFactor(unit, sceneMillimetres) {
+	return unit.sceneUnits ? 1 : sceneMillimetres / unit.factor
 }
