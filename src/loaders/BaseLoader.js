@@ -26,6 +26,32 @@ import {
 import { logger } from '../utils/logger.js'
 
 /**
+ * The names a loader's request for a texture may match a fetched companion by.
+ *
+ * Loaders ask for the reference as the model wrote it, `C:\textures\wood.jpg` or
+ * `file:///C:/My%20Textures/wood%20grain.jpg`, while the companion was fetched under the
+ * bare, decoded name normaliseRef() in textureReferences.js gives it. So: the last segment
+ * after either separator, and that segment percent-decoded when it differs.
+ *
+ * Kept here rather than beside normaliseRef: every loader chunk already imports this
+ * module, and importing that one from them would split it into a chunk of its own, which
+ * the main entry then pays for in its preload list.
+ *
+ * @param {string} url - what the loader asked for
+ * @return {string[]} one or two candidate names, the name as written first
+ */
+export function requestedFileNames(url) {
+	const name = String(url).split(/[/\\]/).pop() || ''
+	let decoded = name
+	try {
+		decoded = decodeURIComponent(name)
+	} catch {
+		// A malformed escape is kept as written, as normaliseRef keeps it
+	}
+	return decoded === name ? [name] : [name, decoded]
+}
+
+/**
  * Base loader class with common functionality
  */
 export class BaseLoader {

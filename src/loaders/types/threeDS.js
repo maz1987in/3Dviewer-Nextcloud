@@ -1,5 +1,5 @@
 import { TDSLoader } from 'three/examples/jsm/loaders/TDSLoader.js'
-import { BaseLoader } from '../BaseLoader.js'
+import { BaseLoader, requestedFileNames } from '../BaseLoader.js'
 
 /**
  * 3DS loader class
@@ -50,14 +50,17 @@ class ThreeDSLoader extends BaseLoader {
 
 			// Override URL modifier to use data URIs
 			loadingManager.setURLModifier((url) => {
-				const textureName = url.split(/[/\\]/).pop()
-				const dataUri = dataUriMap.get(textureName.toLowerCase())
-
-				if (dataUri) {
-					this.logInfo('Loading 3DS texture from dependencies', { textureName })
-					return dataUri
+				// By name, raw and percent-decoded, whatever path the material wrote
+				const names = requestedFileNames(url)
+				for (const textureName of names) {
+					const dataUri = dataUriMap.get(textureName.toLowerCase())
+					if (dataUri) {
+						this.logInfo('Loading 3DS texture from dependencies', { textureName })
+						return dataUri
+					}
 				}
 
+				const textureName = names[0]
 				missingTextures.push(textureName)
 				this.logWarning('3DS texture not found in dependencies', { textureName, url })
 				// The default manager decides: as written on a page, refused in the

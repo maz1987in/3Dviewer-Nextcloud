@@ -1,4 +1,4 @@
-import { BaseLoader } from '../BaseLoader.js'
+import { BaseLoader, requestedFileNames } from '../BaseLoader.js'
 import { decodeTextFromBuffer } from '../../utils/fileHelpers.js'
 import { logger } from '../../utils/logger.js'
 
@@ -370,9 +370,12 @@ class X3dLoader extends BaseLoader {
 
 		for (let url of urls) {
 			url = url.replace(/"/g, '').trim()
-			const fileName = url.split(/[/\\]/).pop().toLowerCase()
+			// The bare name, raw or percent-decoded: a url may be a path on the author's
+			// machine or a file: URL, and its companion was fetched by its decoded name
+			const fileName = requestedFileNames(url).map(name => name.toLowerCase())
+				.find(name => dataUriMap.has(name))
 
-			const dataUri = dataUriMap.get(fileName)
+			const dataUri = fileName && dataUriMap.get(fileName)
 			if (dataUri) {
 				// Through three's loader rather than an <img> of our own: the thumbnail
 				// worker has no Image, and decodes what TextureLoader asks for instead

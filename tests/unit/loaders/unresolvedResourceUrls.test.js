@@ -88,4 +88,21 @@ describe('3DS', () => {
 		expect(tdsManager.resolveURL('checker.png')).toMatch(/^data:image\/png;base64,/)
 		expect(tdsManager.resolveURL('https://example.invalid/x.png')).toBe('refused:https://example.invalid/x.png')
 	})
+
+	it('maps a texture named by an absolute path by its name, and refuses one it was not given', async () => {
+		const context = {
+			THREE,
+			additionalFiles: [
+				new File(['png'], 'checker.png', { type: 'image/png' }),
+				new File(['png'], 'bump map.png', { type: 'image/png' }),
+			],
+		}
+
+		await new ThreeDSLoader().loadModel(new ArrayBuffer(8), context)
+
+		expect(tdsManager.resolveURL('C:\\3DSMAX\\MAPS\\CHECKER.PNG')).toMatch(/^data:image\/png;base64,/)
+		expect(tdsManager.resolveURL('\\\\server\\share\\checker.png')).toMatch(/^data:image\/png;base64,/)
+		expect(tdsManager.resolveURL('file:///C:/maps/bump%20map.png')).toMatch(/^data:image\/png;base64,/)
+		expect(tdsManager.resolveURL('C:\\maps\\other.png')).toBe('refused:C:\\maps\\other.png')
+	})
 })

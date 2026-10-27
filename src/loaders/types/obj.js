@@ -1,6 +1,6 @@
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js'
 import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js'
-import { BaseLoader } from '../BaseLoader.js'
+import { BaseLoader, requestedFileNames } from '../BaseLoader.js'
 import { logger } from '../../utils/logger.js'
 import { decodeTextFromBuffer } from '../../utils/fileHelpers.js'
 import { getBoundingInfo } from '../../utils/three-utils.js'
@@ -335,10 +335,12 @@ class ObjLoader extends BaseLoader {
 			// Search for MTL file in dependencies
 
 			// Find the MTL file in the pre-fetched dependencies
+			// An absolute mtllib was fetched by its bare name
+			const mtlNames = requestedFileNames(mtlName)
 			const mtlFile = additionalFiles.find(file => {
 				// Handle both relative and absolute paths
 				const fileName = file.name.split('/').pop()
-				return fileName === mtlName || file.name.endsWith(mtlName)
+				return fileName === mtlName || file.name.endsWith(mtlName) || mtlNames.includes(fileName)
 			})
 
 			// MTL file found
@@ -597,11 +599,13 @@ class ObjLoader extends BaseLoader {
 					return filePath.toLowerCase() === normalizedUrl.toLowerCase()
 				})
 
-				// Fall back to basename match if full path not found
+				// Fall back to basename match if full path not found. Also decoded: a
+				// file: URL encodes the name, and the texture was fetched by its decoded one
 				if (!textureFile) {
+					const wanted = requestedFileNames(basename).map(name => name.toLowerCase())
 					textureFile = additionalFiles.find(file => {
 						const fileName = file.name.split('/').pop()
-						return fileName.toLowerCase() === basename.toLowerCase()
+						return wanted.includes(fileName.toLowerCase())
 					})
 				}
 

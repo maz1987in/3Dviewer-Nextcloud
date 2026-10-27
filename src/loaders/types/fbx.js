@@ -1,5 +1,5 @@
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js'
-import { BaseLoader } from '../BaseLoader.js'
+import { BaseLoader, requestedFileNames } from '../BaseLoader.js'
 import { logger } from '../../utils/logger.js'
 
 /**
@@ -404,13 +404,18 @@ class FbxLoader extends BaseLoader {
 			return url
 		}
 
-		const textureName = url.split('/').pop().split('\\').pop()
+		// The name as written, then percent-decoded: a file: URL encodes it, and the
+		// companion was fetched by its decoded name
+		const names = requestedFileNames(url)
+		const textureName = names[names.length - 1]
 
 		// Try data URI map first (CSP-safe)
-		const dataUri = dataUriMap.get(textureName.toLowerCase())
-		if (dataUri) {
-			logger.info('FBXLoader', 'Loading texture from dependencies', { textureName })
-			return dataUri
+		for (const name of names) {
+			const dataUri = dataUriMap.get(name.toLowerCase())
+			if (dataUri) {
+				logger.info('FBXLoader', 'Loading texture from dependencies', { textureName: name })
+				return dataUri
+			}
 		}
 
 		// Try flexible matching

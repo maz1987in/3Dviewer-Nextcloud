@@ -1,5 +1,5 @@
 import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js'
-import { BaseLoader } from '../BaseLoader.js'
+import { BaseLoader, requestedFileNames } from '../BaseLoader.js'
 import { decodeTextFromBuffer } from '../../utils/fileHelpers.js'
 
 /**
@@ -46,12 +46,15 @@ class DaeLoader extends BaseLoader {
 			}
 			if (dataUriMap.size > 0) {
 				loadingManager = new THREE.LoadingManager()
+				// By name: an <init_from> may be C:\textures\wood.png or a percent-encoded
+				// file: URL, and its companion was fetched by its bare, decoded name
 				loadingManager.setURLModifier((url) => {
-					const textureName = url.split(/[/\\]/).pop()
-					const dataUri = dataUriMap.get(textureName.toLowerCase())
-					if (dataUri) {
-						this.logInfo('Loading DAE texture from dependencies', { textureName })
-						return dataUri
+					for (const textureName of requestedFileNames(url)) {
+						const dataUri = dataUriMap.get(textureName.toLowerCase())
+						if (dataUri) {
+							this.logInfo('Loading DAE texture from dependencies', { textureName })
+							return dataUri
+						}
 					}
 					return url
 				})

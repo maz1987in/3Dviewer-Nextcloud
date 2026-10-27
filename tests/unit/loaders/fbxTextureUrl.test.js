@@ -38,6 +38,19 @@ describe('FbxLoader.resolveTextureUrl', () => {
 			.toBe('data:image/png;base64,V09PRA==')
 	})
 
+	it('maps a texture named by an absolute path or a file: URL by its decoded name', () => {
+		const dataUris = new Map([
+			['wood.png', 'data:image/png;base64,V09PRA=='],
+			['wood grain.png', 'data:image/png;base64,R1JBSU4='],
+		])
+		const files = [new File(['x'], 'wood.png'), new File(['x'], 'wood grain.png')]
+
+		expect(loader.resolveTextureUrl('C:\\Users\\anna\\wood.png', dataUris, files)).toBe('data:image/png;base64,V09PRA==')
+		expect(loader.resolveTextureUrl('/home/anna/wood.png', dataUris, files)).toBe('data:image/png;base64,V09PRA==')
+		expect(loader.resolveTextureUrl('file:///C:/My%20Textures/wood%20grain.png', dataUris, files))
+			.toBe('data:image/png;base64,R1JBSU4=')
+	})
+
 	it('still gives a named texture that was not shipped the placeholder', () => {
 		expect(loader.resolveTextureUrl('missing.png', new Map(), []).startsWith(PLACEHOLDER_PREFIX)).toBe(true)
 	})
