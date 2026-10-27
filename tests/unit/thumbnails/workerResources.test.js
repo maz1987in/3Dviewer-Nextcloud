@@ -163,6 +163,45 @@ describe('createWorkerResources', () => {
 		expect(nativeFetch).not.toHaveBeenCalled()
 	})
 
+	it('resolves a reference with encoded separators to the handed file named by its decoded last segment', () => {
+		// The declaration decoded these before normalising them, and the queue fetched
+		// the file by the decoded reference's last segment
+		const resources = resourcesFor([new File(['png'], 'checker.png'), new File(['png'], 'wood.png')])
+		const checker = resources.resolve('checker.png')
+		const wood = resources.resolve('wood.png')
+
+		expect(resources.resolve('..%2F..%2Fmaps%2Fchecker.png')).toBe(checker)
+		expect(resources.resolve(new URL('..%2F..%2Fmaps%2Fchecker.png', WORKER_URL).href)).toBe(checker)
+		expect(resources.resolve('..%5C..%5Cmaps%5CCHECKER.PNG')).toBe(checker)
+		expect(resources.resolve('%2Fhome%2Fanna%2Fwood.png')).toBe(wood)
+		expect(resources.resolve('C:%5Cx%5Cwood.png')).toBe(wood)
+		expect(resources.refused).toEqual([])
+	})
+
+	it('refuses a reference with encoded separators whose decoded name it was not handed, without a request', async () => {
+		const resources = resourcesFor([new File(['png'], 'checker.png')])
+		const urls = [
+			'..%2F..%2Fmaps%2Fsecret.png',
+			'%2Fetc%2Fpasswd',
+			'C:%5Cx%5Csecret.png',
+			'..%2F..%2Fmaps%2Fchecker.png%2F',
+			'..%2F..%2Fmaps%2F..',
+			new URL('..%2F..%2Fremote.php%2Fdav%2Fsecret.png', WORKER_URL).href,
+		]
+
+		for (const url of urls) {
+			expect(resources.resolve(url)).toBe(url)
+			expect(resources.isAllowed(url)).toBe(false)
+		}
+		expect(resources.refused).toEqual(urls)
+
+		const nativeFetch = jest.fn()
+		const scope = { fetch: nativeFetch, URL: {} }
+		guardWorkerRequests(scope, () => resources)
+		await expect(scope.fetch('..%2F..%2Fmaps%2Fsecret.png')).rejects.toBeInstanceOf(RefusedResourceError)
+		expect(nativeFetch).not.toHaveBeenCalled()
+	})
+
 	it('allows data: URLs and the blob: URLs the worker made, but no other blob:', () => {
 		const resources = resourcesFor()
 		resources.noteObjectUrl(`blob:${ORIGIN}/made-here`)

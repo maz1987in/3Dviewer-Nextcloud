@@ -31,7 +31,8 @@ import { logger } from '../utils/logger.js'
  * Loaders ask for the reference as the model wrote it, `C:\textures\wood.jpg` or
  * `file:///C:/My%20Textures/wood%20grain.jpg?v=2`, while the companion was fetched under
  * the bare, decoded name normaliseRef() in textureReferences.js gives it. So: the last
- * segment after either separator, and that segment percent-decoded when it differs. A
+ * segment after either separator, that segment percent-decoded when it differs, and,
+ * where the decoding holds a separator, the last segment of what it decodes to. A
  * `file:` URL loses its query and fragment first, as normaliseRef drops them; any other
  * reference keeps them, since `#` and `?` are legal in a file name on disk. A `file:`
  * URL's decoded name comes first, since that is the name its companion was fetched by;
@@ -42,7 +43,7 @@ import { logger } from '../utils/logger.js'
  * the main entry then pays for in its preload list.
  *
  * @param {string} url - what the loader asked for
- * @return {string[]} one or two candidate names, the likelier first
+ * @return {string[]} one to three candidate names, the likelier first
  */
 export function requestedFileNames(url) {
 	let text = String(url)
@@ -63,7 +64,16 @@ export function requestedFileNames(url) {
 	if (decoded === name) {
 		return [name]
 	}
-	return fileUrl ? [decoded, name] : [name, decoded]
+	if (fileUrl) {
+		// A file: URL's name is decoded once and must hold no separator, as normaliseRef
+		// refuses one that does
+		return [decoded, name]
+	}
+	// Anything else was decoded before it was normalised, so an encoded separator,
+	// `..%2F..%2Fmaps%2Fwood.png` or `C:%5Cx%5Cwood.png`, divides it into folders like any
+	// other: its companion was fetched by the last segment of the decoded reference
+	const decodedName = decoded.split(/[/\\]/).pop() || ''
+	return [...new Set([name, decoded, decodedName])].filter(Boolean)
 }
 
 /**

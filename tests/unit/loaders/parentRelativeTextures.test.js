@@ -35,8 +35,24 @@ const CLIMBING = [
 	['a climb resolved past the root', new URL(`${'../'.repeat(12)}maps/wood.png`, MODEL_URL).href],
 ]
 
+/**
+ * Requests whose separators are percent-encoded, as a COLLADA, X3D or glTF reference may
+ * be written. The declaration decodes them, so the companion was fetched by the last
+ * segment of the decoded reference.
+ */
+const ENCODED = [
+	['an encoded climb', '..%2F..%2Fmaps%2Fwood.png'],
+	['an encoded climb with Windows separators', '..%5C..%5Ctextures%5Cwood.png'],
+	['an encoded leading slash', '%2Fhome%2Fanna%2Fwood.png'],
+	['an encoded drive-letter path', 'C:%5Cx%5Cwood.png'],
+	['an encoded climb resolved against the model\'s URL', new URL('..%2F..%2Fmaps%2Fwood.png', MODEL_URL).href],
+]
+
+/** Every request for `wood.png` above. */
+const REQUESTED = [...CLIMBING, ...ENCODED]
+
 /** The same, for a name that is none of the companions. */
-const CLIMBING_TO_OTHER = CLIMBING.map(([why, url]) => [why, url.replace('wood.png', 'other.png')])
+const CLIMBING_TO_OTHER = REQUESTED.map(([why, url]) => [why, url.replace('wood.png', 'other.png')])
 
 /** A 1×1 PNG. */
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64')
@@ -126,17 +142,17 @@ async function gltfManager() {
 }
 
 describe('a texture named above the model\'s folder, on the page', () => {
-	it.each(CLIMBING)('is asked for by its name: %s', (_, url) => {
+	it.each(REQUESTED)('is asked for by its name: %s', (_, url) => {
 		expect(requestedFileNames(url)).toContain('wood.png')
 	})
 
-	it.each(CLIMBING)('FBX maps %s to the companion of that name', (_, url) => {
+	it.each(REQUESTED)('FBX maps %s to the companion of that name', (_, url) => {
 		const dataUris = new Map([['wood.png', 'data:image/png;base64,V09PRA==']])
 
 		expect(new FbxLoader().resolveTextureUrl(url, dataUris, [wood()])).toBe('data:image/png;base64,V09PRA==')
 	})
 
-	it.each(CLIMBING)('COLLADA maps %s to the companion of that name', async (_, url) => {
+	it.each(REQUESTED)('COLLADA maps %s to the companion of that name', async (_, url) => {
 		await new DaeLoader().loadModel(new TextEncoder().encode(dae(url)).buffer, { THREE, additionalFiles: [wood()] })
 
 		expect(imageLoads).toHaveLength(1)
@@ -144,13 +160,13 @@ describe('a texture named above the model\'s folder, on the page', () => {
 		expect(imageLoads[0]).not.toBe(NO_TEXTURE_URL)
 	})
 
-	it.each(CLIMBING)('3DS maps %s to the companion of that name', async (_, url) => {
+	it.each(REQUESTED)('3DS maps %s to the companion of that name', async (_, url) => {
 		const manager = await threeDsManager()
 
 		expect(manager.resolveURL(url)).toMatch(/^data:image\/png;base64,/)
 	})
 
-	it.each(CLIMBING)('X3D maps %s to the companion of that name', async (_, url) => {
+	it.each(REQUESTED)('X3D maps %s to the companion of that name', async (_, url) => {
 		const load = jest.spyOn(THREE.TextureLoader.prototype, 'load')
 
 		const { object3D } = await new X3dLoader().loadModel(new TextEncoder().encode(x3d(url)).buffer, { THREE, additionalFiles: [wood()] })
@@ -162,7 +178,7 @@ describe('a texture named above the model\'s folder, on the page', () => {
 		expect(load.mock.calls[0][0]).toMatch(/^data:image\/png;base64,/)
 	})
 
-	it.each(CLIMBING)('glTF maps %s to the companion of that name', async (_, url) => {
+	it.each(REQUESTED)('glTF maps %s to the companion of that name', async (_, url) => {
 		const manager = await gltfManager()
 
 		expect(manager.resolveURL(url)).toMatch(/^blob:test\//)
@@ -197,7 +213,7 @@ describe('a texture named above the model\'s folder, in the thumbnail worker', (
 		return resources
 	}
 
-	it.each(CLIMBING)('resolves %s to the handed file of that name', (_, url) => {
+	it.each(REQUESTED)('resolves %s to the handed file of that name', (_, url) => {
 		const resources = inWorker([wood()])
 
 		expect(THREE.DefaultLoadingManager.resolveURL(url)).toBe('blob:worker/wood.png')

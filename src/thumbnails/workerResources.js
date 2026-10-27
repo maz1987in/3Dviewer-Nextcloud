@@ -149,7 +149,10 @@ export function createWorkerResources({ files = [], appWebRoot = null, baseUrl, 
 	 */
 	const handedFile = (url) => {
 		const name = lastSegment(url)
-		for (const candidate of [name, decoded(name)]) {
+		// The name as written, decoded, and the last segment of the decoded name: a
+		// reference with an encoded separator, `..%2F..%2Fmaps%2Fwood.png`, was fetched by
+		// that. Only a handed file can match, so nothing else becomes loadable
+		for (const candidate of [name, decoded(name), lastSegment(decoded(name))]) {
 			const file = byName.get(candidate) ?? byName.get(candidate.toLowerCase())
 			if (file) {
 				return file

@@ -120,6 +120,8 @@ async function buildGeneratedSamples() {
   generated.set('absolute-texture.dae', Buffer.from(texturedQuadDae('file:///C:/x/checker.png')))
   // A path relative to the project rather than the model, as 3ds Max writes one
   generated.set('parent-texture.dae', Buffer.from(texturedQuadDae('../../maps/checker.png')))
+  // The same with its separators percent-encoded, which the declaration decodes
+  generated.set('encoded-parent-texture.dae', Buffer.from(texturedQuadDae('..%2F..%2Fmaps%2Fchecker.png')))
   for (const [name, text] of Object.entries(HOSTILE_XML)) {
     generated.set(name, Buffer.from(text))
   }
@@ -907,6 +909,30 @@ test.describe('thumbnail worker', () => {
     expect(notHanded).toMatchObject({ ok: false, errorName: 'ThumbnailRefusedError' })
     expect(notHanded.error).toContain('checker.png')
     expect(requested.filter(reqPath => reqPath.endsWith('checker.png'))).toEqual([])
+    expect(elsewhere).toEqual([])
+  })
+
+  test('a dae whose image is a climb with encoded separators renders with the handed file of its decoded name', async ({ page }) => {
+    const appRoot = APP_ROOTS[0]
+    const elsewhere: string[] = []
+    await page.context().route(url => url.origin !== server.origin, (route) => {
+      elsewhere.push(route.request().url())
+      return route.abort()
+    })
+    await openHarness(page, server.origin, appRoot)
+
+    const withMap = await renderSample(page, appRoot, { name: 'dae', extension: 'dae', files: [`${GENERATED}encoded-parent-texture.dae`, `${FIXTURES}checker.png`] })
+    const withoutMap = await renderSample(page, appRoot, { name: 'dae', extension: 'dae', files: [`${GENERATED}quad.dae`] })
+    // The harness downloads the handed files itself; what follows hands none
+    requested.length = 0
+    const notHanded = await renderSample(page, appRoot, { name: 'dae', extension: 'dae', files: [`${GENERATED}encoded-parent-texture.dae`] })
+
+    // The queue fetched checker.png, the last segment of ../../maps/checker.png; the
+    // loader asks for ..%2F..%2Fmaps%2Fchecker.png, which maps to it by that name
+    expect(withMap.error).toBeUndefined()
+    expect(withMap.colours).toBeGreaterThan(withoutMap.colours ?? 0)
+    expect(notHanded).toMatchObject({ ok: false, errorName: 'ThumbnailRefusedError' })
+    expect(requested.filter(reqPath => reqPath.includes('checker'))).toEqual([])
     expect(elsewhere).toEqual([])
   })
 

@@ -35,6 +35,17 @@ describe('requestedFileNames', () => {
 		expect(requestedFileNames('textures/what?.png')).toEqual(['what?.png'])
 	})
 
+	it('takes the last segment of a reference whose separators are encoded, as it was fetched by', () => {
+		expect(requestedFileNames('..%2F..%2Fmaps%2Fwood.png')).toEqual(['..%2F..%2Fmaps%2Fwood.png', '../../maps/wood.png', 'wood.png'])
+		expect(requestedFileNames('%2Fhome%2Fanna%2Fwood.png')).toContain('wood.png')
+		expect(requestedFileNames('C:%5Cx%5Cwood.png')).toContain('wood.png')
+		expect(requestedFileNames('https://cloud.example.com/apps/..%2F..%2Fmaps%2Fwood%20grain.png')).toContain('wood grain.png')
+	})
+
+	it('does not split a file: URL\'s name on an encoded separator, as no file name holds one', () => {
+		expect(requestedFileNames('file:///C:/x/a%2Fwood.png')).toEqual(['a/wood.png', 'a%2Fwood.png'])
+	})
+
 	it('keeps a malformed escape as written', () => {
 		expect(requestedFileNames('file:///C:/x/100%.png')).toEqual(['100%.png'])
 	})
