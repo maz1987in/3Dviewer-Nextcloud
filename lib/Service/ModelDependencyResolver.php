@@ -530,8 +530,8 @@ class ModelDependencyResolver
      * other than `.` and `..` (see onlyDotsAndSpaces()). One that climbs above the model's
      * folder at any point — `../wood.jpg`, `..\..\textures\wood.jpg`, as 3ds Max writes
      * paths relative to the project, or `textures/../../wood.jpg` — falls back to its bare
-     * file name exactly as an absolute path does (see nameOnly()). Only the ASCII blanks
-     * are trimmed (see BLANKS).
+     * file name, with the checks an absolute path's name gets (see lastSegmentName()).
+     * Only the ASCII blanks are trimmed (see BLANKS).
      */
     private function normalise(string $rawPath, string $directory = '.'): ?string
     {
@@ -575,11 +575,29 @@ class ModelDependencyResolver
 
         if ($climbed) {
             // Above the model's folder lie files the share never covered, so the folders
-            // the path names are not followed; only its name is, beside the model.
-            return self::nameOnly($path);
+            // the path names are not followed; only its name is, beside the model. Taken
+            // straight from the joined path: its start is $directory, not the reference,
+            // so it is not read again for a scheme, a drive letter or a file: URL.
+            return self::lastSegmentName($path);
         }
 
         return $segments === [] ? null : implode('/', $segments);
+    }
+
+    /**
+     * The last segment of a relative path normalise() has walked, as a bare file name, or
+     * null when it names none: empty, or made only of dots and spaces (`.` and `..`
+     * included). Mirrors lastSegmentName() in src/loaders/textureReferences.js.
+     */
+    private static function lastSegmentName(string $path): ?string
+    {
+        $slash = strrpos($path, '/');
+        $name = $slash === false ? $path : substr($path, $slash + 1);
+        if ($name === '' || self::onlyDotsAndSpaces($name) || str_contains($name, "\0")) {
+            return null;
+        }
+
+        return $name;
     }
 
     /**
@@ -605,16 +623,14 @@ class ModelDependencyResolver
     }
 
     /**
-     * The file name an absolute path, a `file:` URL or a relative path that climbs above
-     * the model's folder falls back to, or null when it names none: empty, `.`, `..`, or
-     * holding a separator once decoded. The name is the last segment as written, so
-     * `../wood.jpg/` and `../textures/..` name none.
+     * The file name an absolute path or `file:` URL falls back to, or null when it names
+     * none: empty, `.`, `..`, or holding a separator once decoded. A relative path that
+     * climbs out has its name taken by lastSegmentName() instead.
      *
      * A `file:` URL loses its query and fragment, and its name is percent-decoded once.
      * Mirrors nameOnlyRef() in src/loaders/textureReferences.js.
      *
-     * @param string $path trimmed, with `/` separators; absolute, or relative and already
-     *                     walked by normalise()
+     * @param string $path trimmed, with `/` separators, and absolute
      */
     private static function nameOnly(string $path): ?string
     {

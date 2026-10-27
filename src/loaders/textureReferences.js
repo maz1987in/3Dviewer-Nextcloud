@@ -247,11 +247,26 @@ export function normaliseRef(raw, directory = '.') {
 	}
 	if (climbed) {
 		// Above the model's folder lie files the share never covered, so the folders the
-		// path names are not followed; only its name is, beside the model.
-		return nameOnlyRef(joined)
+		// path names are not followed; only its name is, beside the model. Taken straight
+		// from the joined path: its start is the material's folder, not the reference, so
+		// it is not read again for a scheme, a drive letter or a file: URL.
+		return lastSegmentName(joined)
 	}
 
 	return segments.length === 0 ? null : segments.join('/')
+}
+
+/**
+ * The last segment of a relative path already walked, as a bare file name, or null when
+ * it names none: empty, or made only of dots and spaces (`.` and `..` included). Mirrors
+ * lastSegmentName() in lib/Service/ModelDependencyResolver.php.
+ *
+ * @param {string} path - with `/` separators, every segment checked by walkRelative()
+ * @return {string|null} the name
+ */
+function lastSegmentName(path) {
+	const name = path.slice(path.lastIndexOf('/') + 1)
+	return name === '' || DOTS_AND_SPACES.test(name) || name.includes('\0') ? null : name
 }
 
 /**

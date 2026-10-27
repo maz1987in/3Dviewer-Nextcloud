@@ -147,6 +147,9 @@
 		{ "material": "mats/chair.mtl", "materialAt": "mats/chair.mtl", "map": "../.../wood.png", "expected": null, "why": "a segment of three dots after a climb" },
 		{ "material": "mats/chair.mtl", "materialAt": "mats/chair.mtl", "map": ".../wood.png", "expected": null, "why": "a segment of three dots below the material" },
 		{ "material": "mats/chair.mtl", "materialAt": "mats/chair.mtl", "map": "../..", "expected": null, "why": "climbs out to a name of .." },
-		{ "material": "mats/chair.mtl", "materialAt": "mats/chair.mtl", "map": "..", "expected": null, "why": "the model's folder itself" }
+		{ "material": "mats/chair.mtl", "materialAt": "mats/chair.mtl", "map": "..", "expected": null, "why": "the model's folder itself" },
+		{ "material": "./http:x/chair.mtl", "materialAt": "http:x/chair.mtl", "map": "../../wood.png", "expected": "wood.png", "why": "a climb out of a folder named like a scheme: the folder's name is not read as one" },
+		{ "material": "./\tfile:x/chair.mtl", "materialAt": "\tfile:x/chair.mtl", "map": "../../wood%20grain.png", "expected": "wood%20grain.png", "why": "a climb out of a folder named like a file: URL once trimmed: the name is not decoded as a file: URL's is" },
+		{ "material": "./C:x/chair.mtl", "materialAt": "C:x/chair.mtl", "map": "../../wood.png", "expected": "wood.png", "why": "a climb out of a folder named like a drive letter" }
 	]
 }
