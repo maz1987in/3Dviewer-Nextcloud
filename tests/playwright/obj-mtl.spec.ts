@@ -439,6 +439,48 @@ test.describe('Viewer smoke', () => {
   })
 
   /*
+   * In a short landscape window the bar is shorter, and everything placed below it has to
+   * follow. The bar's height is one variable, so the loading overlay, the tools panel and
+   * the toasts move with it; a literal in any of them leaves a gap or an overlap of the
+   * difference between the two heights.
+   */
+  test('a short landscape window shortens the bar and everything below it follows', async ({ page }) => {
+    await page.setViewportSize({ width: 900, height: 450 })
+    let release: () => void = () => {}
+    const held = new Promise<void>((resolve) => { release = resolve })
+    await page.addInitScript(() => {
+      window.history.replaceState({}, '', '?fileId=4242&filename=triangle.gltf')
+    })
+    await page.route('**/apps/threedviewer/api/file/4242**', async (route) => {
+      await held
+      await route.fulfill({
+        status: 200,
+        body: fs.readFileSync(path.join(PROJECT_ROOT, 'tests/fixtures/triangle.gltf')),
+        headers: { 'Content-Type': 'model/gltf+json', 'Content-Disposition': 'inline; filename="triangle.gltf"' },
+      })
+    })
+    await page.goto(server.url)
+    await expect(page.locator('.three-viewer .loading')).toBeVisible({ timeout: 20000 })
+
+    const top = (selector: string) => page.evaluate((s) => {
+      const r = document.querySelector(s)!.getBoundingClientRect()
+      return { top: r.top, bottom: r.bottom, height: r.height }
+    }, selector)
+    const bar = await top('.minimal-top-bar')
+    expect(bar.height).toBe(44)
+    // The overlay starts where the bar ends, not 12px lower.
+    expect((await top('.three-viewer .loading')).top).toBe(bar.bottom)
+    // Toasts are positioned in viewport coordinates, so they clear Nextcloud's header too.
+    expect((await top('.toast-container')).top).toBeGreaterThanOrEqual(bar.bottom)
+
+    release()
+    await expect(page.locator('.three-viewer .loading')).toBeHidden({ timeout: 20000 })
+    await page.click('[aria-label="Toggle tools panel"]')
+    await page.waitForSelector('.slide-out-panel', { timeout: 5000 })
+    expect((await top('.slide-out-panel')).top).toBeGreaterThanOrEqual(bar.bottom)
+  })
+
+  /*
    * Every word in a floating panel has to be legible against what is behind it.
    *
    * The statistics panel was a dark overlay and became a light one, and three rules kept

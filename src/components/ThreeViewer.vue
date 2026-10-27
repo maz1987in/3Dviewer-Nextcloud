@@ -4150,13 +4150,6 @@ export default {
 	z-index: 1000;
 }
 
-/* The bar is shorter in a short landscape window (see MinimalTopBar). */
-@media (height <= 500px) and (orientation: landscape) {
-	.loading {
-		top: 44px;
-	}
-}
-
 .loading-content {
 	text-align: center;
 	color: white;
