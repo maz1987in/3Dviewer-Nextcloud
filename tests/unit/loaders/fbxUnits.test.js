@@ -7,6 +7,7 @@
  */
 import * as THREE from 'three'
 import FbxLoader from '../../../src/loaders/types/fbx.js'
+import { useMeasurement } from '../../../src/composables/useMeasurement.js'
 import { asciiFbx } from './fixtures/unitFixtures.js'
 import { fbxUnit, millimetresPerFileUnit, millimetresPerUnit, viewerScale } from '../../../src/utils/sourceUnits.js'
 
@@ -52,6 +53,25 @@ describe('FBX units', () => {
 		const object = await load(asciiFbx(10, null))
 		expect(object.userData.unitScaleFactor).toBeUndefined()
 		expect(millimetresPerUnit('model.fbx', object)).toBe(10)
+	})
+})
+
+describe('a crafted UnitScaleFactor', () => {
+	it.each([['1e308'], ['-1'], ['0'], ['1e400']])('%s loads, and reads as centimetres', async (factor) => {
+		const object = await load(asciiFbx(10, factor))
+		const scale = millimetresPerUnit('model.fbx', object)
+		expect(scale).toBe(10)
+		// What the viewer does with it next must not throw
+		expect(() => useMeasurement().setModelScale(scale, millimetresPerFileUnit('model.fbx', object))).not.toThrow()
+	})
+
+	it('falls back to the format default when the rescale divided out is not a length', () => {
+		const root = new THREE.Group()
+		root.userData.unitScaleFactor = 1e307 // 1e308 mm, finite
+		root.userData.viewerScale = 1e-10 // and 1e318 per scene unit, not
+		expect(millimetresPerFileUnit('model.fbx', root)).toBe(1e308)
+		expect(millimetresPerUnit('model.fbx', root)).toBe(10)
+		expect(Number.isFinite(millimetresPerUnit('part.obj', Object.assign(new THREE.Group(), { userData: { viewerScale: 1e-320 } })))).toBe(true)
 	})
 })
 

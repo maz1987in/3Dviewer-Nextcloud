@@ -133,6 +133,14 @@ const THREE_MF_UNITS = {
 }
 
 /**
+ * @param {number} value - A scale read from a file, or worked out from one
+ * @return {boolean} Whether it is a usable length: finite and greater than zero
+ */
+function isLength(value) {
+	return Number.isFinite(value) && value > 0
+}
+
+/**
  * Look for a value the loader recorded in some object's userData: the model may be
  * wrapped in a group of the viewer's (the comparison model is).
  *
@@ -172,7 +180,9 @@ export function threeMFUnit(root) {
  */
 export function fbxUnit(root) {
 	const factor = Number(recorded(root, (data) => data.unitScaleFactor))
-	return Number.isFinite(factor) && factor > 0 ? factor * CENTIMETRE : null
+	const millimetres = factor * CENTIMETRE
+	// A crafted 1e308 is finite, and ten times it is not
+	return isLength(factor) && isLength(millimetres) ? millimetres : null
 }
 
 /**
@@ -185,7 +195,7 @@ export function fbxUnit(root) {
  */
 export function viewerScale(root) {
 	const scale = Number(recorded(root, (data) => data.viewerScale))
-	return Number.isFinite(scale) && scale > 0 ? scale : 1
+	return isLength(scale) ? scale : 1
 }
 
 /**
@@ -218,7 +228,13 @@ export function millimetresPerFileUnit(filename, root = null) {
  * @return {number} Millimetres per unit
  */
 export function millimetresPerUnit(filename, root = null) {
-	return millimetresPerFileUnit(filename, root) / viewerScale(root)
+	const millimetres = millimetresPerFileUnit(filename, root) / viewerScale(root)
+	if (isLength(millimetres)) {
+		return millimetres
+	}
+	// Only crafted values get here (a vanishing rescale, say): the format's own default
+	const extension = String(filename ?? '').split('/').pop().split('.').pop().toLowerCase()
+	return SOURCE_UNITS[extension] ?? MILLIMETRE
 }
 
 /**
