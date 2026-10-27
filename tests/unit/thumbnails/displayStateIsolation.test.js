@@ -13,6 +13,7 @@ import { applyGcodeColorScheme } from '../../../src/utils/gcodeColorScheme.js'
 import GCodeLoader from '../../../src/loaders/types/gcode.js'
 import { useExplodedView } from '../../../src/composables/useExplodedView.js'
 import { useTransformGizmo } from '../../../src/composables/useTransformGizmo.js'
+import { useAnimation } from '../../../src/composables/useAnimation.js'
 
 // What each render saw, read at the moment it happened
 const rendered = []
@@ -42,6 +43,7 @@ jest.mock('three', () => {
 						color: materials.map((m) => m.color?.getHex()),
 						vertexColors: materials.map((m) => m.vertexColors),
 						world: child.matrixWorld.clone(),
+						influences: child.morphTargetInfluences?.slice(),
 					})
 				})
 				rendered.push({ objects, camera: camera.position.clone() })
@@ -361,5 +363,59 @@ describe('the transform gizmo', () => {
 		gizmo.resetTransform()
 		expect(root.rotation.x).toBeCloseTo(-Math.PI / 2, 9)
 		expect(root.position.toArray()).toEqual([1, 0, -1])
+	})
+})
+
+describe('an animation playing', () => {
+	/**
+	 * A model whose first part slides along X and turns, and whose second part's morph
+	 * target swells, over a one-second clip.
+	 *
+	 * @return {object} From `model()`, with the clip
+	 */
+	function animatedModel() {
+		const parts = model()
+		parts.a.name = 'slider'
+		parts.b.name = 'morpher'
+		parts.b.morphTargetInfluences = [0]
+		parts.b.morphTargetDictionary = { swell: 0 }
+		const clip = new THREE.AnimationClip('move', 1, [
+			new THREE.VectorKeyframeTrack('slider.position', [0, 1], [0, 0, 0, 10, 0, 0]),
+			new THREE.QuaternionKeyframeTrack('slider.quaternion', [0, 1], [0, 0, 0, 1, 0, 0.7071068, 0, 0.7071068]),
+			new THREE.NumberKeyframeTrack('morpher.morphTargetInfluences[swell]', [0, 1], [0, 1]),
+		])
+		return { ...parts, clip }
+	}
+
+	it('draws the pose the file loads in, not the frame the clip has reached', async () => {
+		const plain = await capture(animatedModel().root)
+		const parts = animatedModel()
+		const animation = useAnimation()
+		animation.initAnimations(parts.root, [parts.clip])
+		animation.update(0.5)
+		expect(parts.a.position.x).toBeCloseTo(5, 6)
+		expect(parts.b.morphTargetInfluences[0]).toBeCloseTo(0.5, 6)
+
+		const seen = await capture(parts.root)
+
+		expect(seen.objects.get(parts.a).world.equals([...plain.objects.values()][0].world)).toBe(true)
+		expect(seen.objects.get(parts.b).influences).toEqual([0])
+		expect(seen.camera.distanceTo(plain.camera)).toBeLessThan(1e-9)
+		animation.dispose()
+	})
+
+	it('goes on from the same frame afterwards', async () => {
+		const parts = animatedModel()
+		const animation = useAnimation()
+		animation.initAnimations(parts.root, [parts.clip])
+		animation.update(0.5)
+
+		await capture(parts.root)
+
+		expect(parts.a.position.x).toBeCloseTo(5, 6)
+		expect(parts.b.morphTargetInfluences[0]).toBeCloseTo(0.5, 6)
+		animation.update(0.25)
+		expect(parts.a.position.x).toBeCloseTo(7.5, 6)
+		animation.dispose()
 	})
 })
