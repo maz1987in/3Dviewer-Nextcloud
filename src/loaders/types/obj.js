@@ -591,7 +591,6 @@ class ObjLoader extends BaseLoader {
 				// Try to find texture with original path first (preserves directory structure)
 				// Fall back to basename only if not found (handles flat file storage)
 				const normalizedUrl = url.replace(/\\/g, '/') // Convert backslashes
-				const basename = normalizedUrl.split('/').pop()
 
 				// Try exact match first (case-insensitive)
 				let textureFile = additionalFiles.find(file => {
@@ -599,10 +598,12 @@ class ObjLoader extends BaseLoader {
 					return filePath.toLowerCase() === normalizedUrl.toLowerCase()
 				})
 
-				// Fall back to basename match if full path not found. Also decoded: a
-				// file: URL encodes the name, and the texture was fetched by its decoded one
+				// Fall back to the basename if the full path is not found, also decoded: a
+				// file: URL encodes the name, and the texture was fetched by its decoded one.
+				// Taken from the whole URL, as a file: URL's query goes only while the
+				// scheme is still there to say it is one
 				if (!textureFile) {
-					const wanted = requestedFileNames(basename).map(name => name.toLowerCase())
+					const wanted = requestedFileNames(url).map(name => name.toLowerCase())
 					textureFile = additionalFiles.find(file => {
 						const fileName = file.name.split('/').pop()
 						return wanted.includes(fileName.toLowerCase())
