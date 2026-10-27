@@ -408,7 +408,7 @@
 							{{ diffLength(diffStats.comparison.bbox.x).toFixed(2) }} {{ statsUnitConfig.suffix }}
 						</td>
 						<td class="diff-col-delta" :class="diffDeltaClass(diffStats.delta.bbox.x)">
-							{{ formatDeltaFloat(diffLength(diffStats.delta.bbox.x)) }}
+							{{ formatDeltaFloat(diffLength(diffStats.delta.bbox.x)) }} {{ statsUnitConfig.suffix }}
 						</td>
 					</tr>
 					<tr>
@@ -420,7 +420,7 @@
 							{{ diffLength(diffStats.comparison.bbox.y).toFixed(2) }} {{ statsUnitConfig.suffix }}
 						</td>
 						<td class="diff-col-delta" :class="diffDeltaClass(diffStats.delta.bbox.y)">
-							{{ formatDeltaFloat(diffLength(diffStats.delta.bbox.y)) }}
+							{{ formatDeltaFloat(diffLength(diffStats.delta.bbox.y)) }} {{ statsUnitConfig.suffix }}
 						</td>
 					</tr>
 					<tr>
@@ -432,7 +432,7 @@
 							{{ diffLength(diffStats.comparison.bbox.z).toFixed(2) }} {{ statsUnitConfig.suffix }}
 						</td>
 						<td class="diff-col-delta" :class="diffDeltaClass(diffStats.delta.bbox.z)">
-							{{ formatDeltaFloat(diffLength(diffStats.delta.bbox.z)) }}
+							{{ formatDeltaFloat(diffLength(diffStats.delta.bbox.z)) }} {{ statsUnitConfig.suffix }}
 						</td>
 					</tr>
 					<tr>
@@ -444,7 +444,7 @@
 							{{ diffLength(diffStats.comparison.bboxDiagonal).toFixed(2) }} {{ statsUnitConfig.suffix }}
 						</td>
 						<td class="diff-col-delta" :class="diffDeltaClass(diffStats.delta.bboxDiagonal)">
-							{{ formatDeltaFloat(diffLength(diffStats.delta.bboxDiagonal)) }}
+							{{ formatDeltaFloat(diffLength(diffStats.delta.bboxDiagonal)) }} {{ statsUnitConfig.suffix }}
 						</td>
 					</tr>
 				</tbody>
