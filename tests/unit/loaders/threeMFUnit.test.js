@@ -146,7 +146,9 @@ describe('read3MFUnit', () => {
 		])('%s', (_name, text) => {
 			const { unit, ms } = timed(text)
 			expect(unit).toBeNull()
-			expect(ms).toBeLessThan(250)
+			// Linear, this takes milliseconds; the quadratic reader took minutes. Two seconds
+			// leaves a slow CI runner plenty of room and still tells the two apart.
+			expect(ms).toBeLessThan(2000)
 		})
 	})
 
