@@ -1343,9 +1343,6 @@ export function useComparison() {
 				original: origStats,
 				comparison: compStats,
 				delta,
-				// bbox and bboxDiagonal are in millimetres; this turns them back into the
-				// original's scene units, for the "units" display unit
-				originalMillimetresPerUnit,
 				computedAt: Date.now(),
 			}
 

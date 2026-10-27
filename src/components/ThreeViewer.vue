@@ -804,7 +804,7 @@ import { createNotesApi } from '../utils/notesApi.js'
 import { getPublicShareContext } from '../composables/usePublicShare.js'
 import { awaitStatusBeforeDownload, scheduleCapture } from '../thumbnails/captureFromViewer.js'
 import { measurementsFromJson, measurementsToJson } from '../utils/measurementJson.js'
-import { millimetresPerUnit, defaultDisplayUnit, displayLengthFactor } from '../utils/sourceUnits.js'
+import { millimetresPerUnit, millimetresPerFileUnit, defaultDisplayUnit } from '../utils/sourceUnits.js'
 import { usePerformance } from '../composables/usePerformance.js'
 import { useExport, getGeometryStats } from '../composables/useExport.js'
 import { useModelStats } from '../composables/useModelStats.js'
@@ -886,8 +886,10 @@ export default {
 		const grid = shallowRef(null)
 		const axes = shallowRef(null)
 		const modelRoot = shallowRef(null)
-		// Millimetres per scene unit of the open model, from its format (utils/sourceUnits.js)
+		// Millimetres per scene unit of the open model, from its format (utils/sourceUnits.js),
+		// and per unit of its file (differs only when the loader rescaled the model)
 		const modelMillimetresPerUnit = ref(1)
+		const modelMillimetresPerFileUnit = ref(1)
 		const modelSourceFiles = shallowRef(null) // File[] for ZIP export
 		const aborting = ref(false)
 		const initializing = ref(true) // Show loading during initial setup
@@ -985,9 +987,11 @@ export default {
 		 */
 		const applySourceUnits = (filename, root) => {
 			const scale = millimetresPerUnit(filename, root)
+			const perFileUnit = millimetresPerFileUnit(filename, root)
 			modelMillimetresPerUnit.value = scale
-			measurement.setModelScale(scale)
-			modelStatsComposable.setModelScale(scale)
+			modelMillimetresPerFileUnit.value = perFileUnit
+			measurement.setModelScale(scale, perFileUnit)
+			modelStatsComposable.setModelScale(scale, perFileUnit)
 			if (filename) {
 				const unit = defaultDisplayUnit(filename, root)
 				measurement.suggestUnit(unit)
@@ -2475,14 +2479,13 @@ export default {
 
 		/**
 		 * A comparison length, kept in millimetres, in the stats panel's display unit;
-		 * "units" are the original model's scene units.
+		 * "units" are the original model's file units.
 		 * @param {number} millimetres - Length in millimetres
 		 * @return {number} The same length in the display unit
 		 */
 		const diffLength = (millimetres) => {
 			const unit = modelStatsComposable.unitConfig.value
-			const perUnit = comparison.diffStats.value?.originalMillimetresPerUnit || 1
-			return millimetres / perUnit * displayLengthFactor(unit, perUnit)
+			return millimetres / (unit.fileUnits ? modelMillimetresPerFileUnit.value : unit.factor)
 		}
 
 		/**

@@ -100,8 +100,10 @@ export function useMeasurement() {
 	const currentUnit = ref(DEFAULT_UNIT) // Use configured default unit
 	// Whether the user picked the unit; until then each model starts in its own
 	const unitChosen = ref(false)
-	// Millimetres per scene unit, from the format the model came in (utils/sourceUnits.js)
+	// Millimetres per scene unit, from the format the model came in (utils/sourceUnits.js),
+	// and per unit of the file itself (differs only when the loader rescaled the model)
 	const modelScale = ref(1)
+	const fileScale = ref(1)
 	const visualScale = ref(1) // Visual scale for markers based on model size
 
 	// Scene reference
@@ -179,8 +181,8 @@ export function useMeasurement() {
 	// Convert distance to real-world units
 	const convertDistance = (threeJsDistance) => {
 		const unitConfig = UNIT_SCALES[currentUnit.value] || UNIT_SCALES.units
-		// One scene unit is modelScale millimetres; "units" shows the scene's own numbers
-		const realDistance = threeJsDistance * displayLengthFactor(unitConfig, modelScale.value)
+		// One scene unit is modelScale millimetres; "units" shows the file's own numbers
+		const realDistance = threeJsDistance * displayLengthFactor(unitConfig, modelScale.value, fileScale.value)
 		return {
 			value: realDistance,
 			formatted: `${realDistance.toFixed(3)} ${unitConfig.suffix}`,
@@ -233,8 +235,13 @@ export function useMeasurement() {
 		return true
 	}
 
-	// Set the model scale: how many millimetres one scene unit is (utils/sourceUnits.js)
-	const setModelScale = (scale) => {
+	/**
+	 * Set the model scale: how many millimetres one scene unit is (utils/sourceUnits.js).
+	 * @param {number} scale - Millimetres per scene unit
+	 * @param {number} [perFileUnit] - Millimetres per unit of the file, for "units";
+	 *   the same as `scale` unless the loader rescaled the model
+	 */
+	const setModelScale = (scale, perFileUnit = scale) => {
 		if (typeof scale !== 'number') {
 			logger.error('useMeasurement', 'Scale must be a number')
 			throw new Error('Scale must be a number')
@@ -249,6 +256,7 @@ export function useMeasurement() {
 		}
 
 		modelScale.value = scale
+		fileScale.value = Number.isFinite(perFileUnit) && perFileUnit > 0 ? perFileUnit : scale
 		// Recalculate all existing measurements
 		measurements.value = measurements.value.map(m => (m.type === 'angle'
 			? m

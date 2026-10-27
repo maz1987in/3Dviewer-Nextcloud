@@ -912,8 +912,9 @@ export const MEASUREMENT_SETTINGS = {
 		meters: { factor: 1000, suffix: 'm', label: 'Meters' },
 		inches: { factor: 25.4, suffix: 'in', label: 'Inches' },
 		feet: { factor: 304.8, suffix: 'ft', label: 'Feet' },
-		// The scene's own numbers, unconverted: whatever unit the model came in
-		units: { factor: 1, suffix: 'units', label: 'Generic Units', sceneUnits: true },
+		// The file's own numbers, unconverted: whatever unit the model came in, with any
+		// rescale of the viewer's undone
+		units: { factor: 1, suffix: 'units', label: 'Generic Units', fileUnits: true },
 	},
 	markerSize: 0.05,
 	lineWidth: 2,

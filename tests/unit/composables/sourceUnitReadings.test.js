@@ -8,7 +8,7 @@ import * as THREE from 'three'
 import { useMeasurement } from '../../../src/composables/useMeasurement.js'
 import { useModelStats } from '../../../src/composables/useModelStats.js'
 import { useComparison } from '../../../src/composables/useComparison.js'
-import { defaultDisplayUnit, displayLengthFactor, millimetresPerUnit } from '../../../src/utils/sourceUnits.js'
+import { defaultDisplayUnit, displayLengthFactor, millimetresPerFileUnit, millimetresPerUnit } from '../../../src/utils/sourceUnits.js'
 import { VIEWER_CONFIG } from '../../../src/config/viewer-config.js'
 
 jest.mock('@nextcloud/dialogs', () => ({ getFilePickerBuilder: jest.fn() }), { virtual: true })
@@ -77,11 +77,25 @@ describe('distance measurements', () => {
 		expect(after.measurements.value[0].formatted).toBe('5.000 units')
 	})
 
-	it('show the scene\'s own numbers in "units", whatever the source', () => {
+	it('show the file\'s own numbers in "units", whatever the source', () => {
 		const measurement = measuring()
 		measurement.setModelScale(1000)
 		measurement.setUnit('units')
 		expect(measurement.addMeasurement('distance', [v(0, 0, 0), v(0, 1.8, 0)]).formatted).toBe('1.800 units')
+	})
+
+	it('undo the viewer\'s rescale in "units": a shrunk FBX reads its file\'s numbers', () => {
+		// 180 cm in the file, shrunk to 5 scene units by the loader
+		const root = new THREE.Group()
+		root.userData.unitScaleFactor = 1
+		root.userData.viewerScale = 5 / 180
+		const measurement = measuring()
+		measurement.setModelScale(millimetresPerUnit('model.fbx', root), millimetresPerFileUnit('model.fbx', root))
+		measurement.setUnit('units')
+		const m = measurement.addMeasurement('distance', [v(0, 0, 0), v(0, 5, 0)])
+		expect(m.formatted).toBe('180.000 units')
+		measurement.setUnit('centimeters')
+		expect(measurement.measurements.value[0].formatted).toBe('180.000 cm')
 	})
 
 	it('re-read a measurement drawn before the model\'s unit was known, as a shared note can be', () => {
@@ -184,6 +198,11 @@ describe('model statistics', () => {
 		expect(stats.volumeScale.value).toBeCloseTo(1e6, 3)
 		stats.setUnit('units')
 		expect(stats.lengthScale.value).toBe(1)
+		// A model the loader shrank to a fifth: "units" are its file's units
+		stats.setModelScale(50, 10)
+		expect(stats.lengthScale.value).toBe(5)
+		expect(stats.areaScale.value).toBe(25)
+		expect(stats.volumeScale.value).toBe(125)
 	})
 
 	it('report a 1 m glTF cube as 1 m across, 6 m² and 1 m³', () => {
@@ -230,7 +249,6 @@ describe('the comparison table', () => {
 		expect(diff.comparison.bbox.x).toBeCloseTo(1000, 6)
 		expect(diff.delta.bbox.x).toBeCloseTo(0, 6)
 		expect(diff.delta.bboxDiagonal).toBeCloseTo(0, 6)
-		expect(diff.originalMillimetresPerUnit).toBe(1)
 	})
 })
 
@@ -243,8 +261,10 @@ describe('displayLengthFactor', () => {
 		expect(displayLengthFactor(unitScales.meters, 1)).toBe(0.001)
 	})
 
-	it('leaves "units" as the scene\'s own numbers', () => {
+	it('leaves "units" as the file\'s own numbers', () => {
 		expect(displayLengthFactor(unitScales.units, 1000)).toBe(1)
 		expect(displayLengthFactor(unitScales.units, 1)).toBe(1)
+		// A scene unit of 20 mm in a file of 10 mm units is two file units
+		expect(displayLengthFactor(unitScales.units, 20, 10)).toBe(2)
 	})
 })

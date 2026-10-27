@@ -233,7 +233,7 @@ export function millimetresPerUnit(filename, root = null) {
 export function defaultDisplayUnit(filename, root = null) {
 	const fileUnit = millimetresPerFileUnit(filename, root)
 	const match = Object.entries(VIEWER_CONFIG.measurement.unitScales)
-		.find(([, unit]) => !unit.sceneUnits && Math.abs(unit.factor - fileUnit) < 1e-9 * fileUnit)
+		.find(([, unit]) => !unit.fileUnits && Math.abs(unit.factor - fileUnit) < 1e-9 * fileUnit)
 	if (match) {
 		return match[0]
 	}
@@ -244,11 +244,14 @@ export function defaultDisplayUnit(filename, root = null) {
 /**
  * What to multiply a length in scene units by to show it in a display unit.
  *
- * @param {{ factor: number, sceneUnits?: boolean }} unit - An entry of
+ * @param {{ factor: number, fileUnits?: boolean }} unit - An entry of
  *   VIEWER_CONFIG.measurement.unitScales (`factor` is millimetres per display unit)
  * @param {number} sceneMillimetres - Millimetres per scene unit, from millimetresPerUnit
- * @return {number} Display units per scene unit; 1 for "units", the scene's own numbers
+ * @param {number} [fileMillimetres] - Millimetres per file unit, from
+ *   millimetresPerFileUnit; the same as a scene unit unless the viewer rescaled the model
+ * @return {number} Display units per scene unit. For "units", file units: the file's own
+ *   numbers, with the viewer's rescale divided out.
  */
-export function displayLengthFactor(unit, sceneMillimetres) {
-	return unit.sceneUnits ? 1 : sceneMillimetres / unit.factor
+export function displayLengthFactor(unit, sceneMillimetres, fileMillimetres = sceneMillimetres) {
+	return unit.fileUnits ? sceneMillimetres / fileMillimetres : sceneMillimetres / unit.factor
 }

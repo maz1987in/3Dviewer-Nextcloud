@@ -25,8 +25,10 @@ export function useModelStats() {
 	const currentUnit = ref(DEFAULT_UNIT)
 	// Whether the user picked the unit; until then each model starts in its own
 	const unitChosen = ref(false)
-	// Millimetres per scene unit, from the format the model came in
+	// Millimetres per scene unit, from the format the model came in, and per unit of the
+	// file itself (differs only when the loader rescaled the model)
 	const modelScale = ref(1)
+	const fileScale = ref(1)
 	const selectedMeshUuid = ref(null)
 
 	/**
@@ -502,13 +504,16 @@ export function useModelStats() {
 	/**
 	 * How many millimetres one scene unit is, for the model being analysed.
 	 * @param {number} scale - Millimetres per scene unit (utils/sourceUnits.js)
+	 * @param {number} [perFileUnit] - Millimetres per unit of the file, for "units"; the
+	 *   same as `scale` unless the loader rescaled the model
 	 */
-	const setModelScale = (scale) => {
+	const setModelScale = (scale, perFileUnit = scale) => {
 		if (!(typeof scale === 'number' && isFinite(scale) && scale > 0)) {
 			logger.warn('useModelStats', 'Invalid model scale, ignoring', { scale })
 			return
 		}
 		modelScale.value = scale
+		fileScale.value = Number.isFinite(perFileUnit) && perFileUnit > 0 ? perFileUnit : scale
 	}
 
 	/**
@@ -524,7 +529,7 @@ export function useModelStats() {
 	 * lengths by the factor, areas by its square and volumes by its cube.
 	 */
 	const unitConfig = computed(() => UNIT_SCALES[currentUnit.value] || UNIT_SCALES.units)
-	const lengthScale = computed(() => displayLengthFactor(unitConfig.value, modelScale.value))
+	const lengthScale = computed(() => displayLengthFactor(unitConfig.value, modelScale.value, fileScale.value))
 	const areaScale = computed(() => lengthScale.value * lengthScale.value)
 	const volumeScale = computed(() => lengthScale.value * lengthScale.value * lengthScale.value)
 
