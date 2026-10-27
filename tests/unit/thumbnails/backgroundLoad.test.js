@@ -372,6 +372,20 @@ describe('loadModelForBackground', () => {
 		])
 	})
 
+	it('reads an MTL map\'s path after its options', async () => {
+		serve({
+			'parts/chair.obj': { id: 30, body: 'mtllib chair.mtl\nf 1 2 3\n' },
+			'parts/chair.mtl': { id: 31, body: 'newmtl seat\nmap_Kd -bm 0.3 file:///C:/T/wood%20grain.png\nbump -bm 1 maps/normal.png\n' },
+			'parts/wood grain.png': { id: 32, body: 'PNG' },
+			'parts/maps/normal.png': { id: 33, body: 'PNG' },
+		})
+
+		const result = await loadModelForBackground(30, 'chair.obj', 'obj', '/parts', { budgetBytes: MB })
+
+		expect(result.dependencies.map((file) => file.name)).toEqual(['chair.mtl', 'wood grain.png', 'normal.png'])
+		expect(result.missingFiles).toEqual([])
+	})
+
 	it('passes the one signal to every request', async () => {
 		const gltf = JSON.stringify({ buffers: [{ uri: 'scene.bin' }] })
 		const server = serve({

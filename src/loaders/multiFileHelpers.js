@@ -376,6 +376,25 @@ export function parseObjMaterialFiles(objContent) {
 }
 
 /**
+ * The path one MTL map statement names, from what follows its keyword.
+ *
+ * Options always begin with a dash and come before the path, `map_Kd -bm 0.3 wood.png`,
+ * so a value starting with one names the path as its final token; otherwise the whole
+ * value is the path, since file names may hold spaces. Mirrors candidatePaths() in
+ * lib/Service/ModelDependencyResolver.php.
+ *
+ * @param {string} value - the statement after its keyword
+ * @return {string} the path as written, trimmed
+ */
+export function mtlMapPath(value) {
+	const trimmed = asciiTrim(value)
+	if (!trimmed.startsWith('-')) {
+		return trimmed
+	}
+	return trimmed.split(/[ \t\n\r\v\f]+/).pop()
+}
+
+/**
  * Parse MTL file content to find referenced texture files
  * @param {string} mtlContent - Text content of MTL file
  * @return {string[]} - Array of texture filenames
@@ -388,7 +407,7 @@ export function parseMtlTextureFiles(mtlContent) {
 	// OBJ/MTL files often reference textures in subdirectories (e.g., 'images\texture.jpg')
 	// but Nextcloud stores all files flat in the same directory
 	const filenames = matches.map(capture => {
-		const fullPath = asciiTrim(capture[1])
+		const fullPath = mtlMapPath(capture[1])
 		// An absolute or file: path goes through the same reduction the server applies,
 		// which decodes a file: URL's name and refuses one that is no file name at all
 		if (isLocalAbsoluteRef(fullPath)) {

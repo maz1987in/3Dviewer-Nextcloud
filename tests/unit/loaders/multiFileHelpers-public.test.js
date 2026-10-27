@@ -330,6 +330,17 @@ describe('textures named by an absolute path on a public share', () => {
 		])
 	})
 
+	it('reads the path after a map\'s options, as the server does', async () => {
+		const mtl = 'newmtl seat\nmap_Kd -bm 0.3 -s 1 1 1 file:///C:/T/wood%20grain.png\nbump -bm 1 normal.png\n'
+		serve({ '/dep/chair.mtl': mtl, '/dep/wood grain.png': 'PNG', '/dep/normal.png': 'PNG' })
+		const { fetchObjDependencies } = await loadHelpers(PUBLIC)
+
+		const result = await fetchObjDependencies(OBJ, 'chair.obj', 42, '')
+
+		expect(result.found.map((f) => f.name).sort()).toEqual(['chair.mtl', 'normal.png', 'wood grain.png'])
+		expect(result.missing).toEqual([])
+	})
+
 	it('asks for an absolute mtllib by its bare name', async () => {
 		serve({ '/dep/chair.mtl': MTL, '/dep/wood.png': 'PNG', '/dep/normal.png': 'PNG' })
 		const { fetchObjDependencies } = await loadHelpers(PUBLIC)

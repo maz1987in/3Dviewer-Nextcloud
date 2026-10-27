@@ -946,6 +946,20 @@ class ModelDependencyResolverTest extends TestCase
         $this->resolver->resolve($model, 'wood.png');
     }
 
+    public function testReadsAnAbsoluteMapAfterItsOptions(): void
+    {
+        $texture = $this->fileNamed('wood grain.png');
+        $model = $this->objModel(
+            "mtllib chair.mtl\n",
+            [
+                'chair.mtl' => $this->fileNamed('chair.mtl', "map_Kd -bm 0.3 -s 1 1 1 file:///C:/T/wood%20grain.png\n"),
+                'wood grain.png' => $texture,
+            ],
+        );
+
+        $this->assertSame($texture, $this->resolver->resolve($model, 'wood grain.png'));
+    }
+
     public function testServesAnAbsoluteMtllibByItsNameBesideTheModel(): void
     {
         $texture = $this->fileNamed('wood.png');
