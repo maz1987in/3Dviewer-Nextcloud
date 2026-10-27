@@ -120,6 +120,27 @@ describe('useRenderMode', () => {
 		expect(a.material.transparent).toBe(true)
 	})
 
+	it('waits for every export that set the mode aside before showing it again', () => {
+		const { group, a, red } = model()
+		const rm = useRenderMode()
+		rm.init(group)
+		rm.setMode('clay')
+		rm.suspend() // a GLB export
+		rm.suspend() // a USDZ export started before the GLB finished
+		rm.resume() // the GLB is done
+		expect(a.material).toBe(red)
+		rm.setMode('xray') // the user switches while the USDZ is still writing
+		expect(a.material).toBe(red)
+		rm.resume() // the USDZ is done
+		expect(a.material.type).toBe('MeshStandardMaterial')
+		expect(a.material).not.toBe(red)
+		expect(a.material.transparent).toBe(true)
+		// A resume with nothing set aside changes nothing
+		const shown = a.material
+		rm.resume()
+		expect(a.material).toBe(shown)
+	})
+
 	it('keeps the mode for the next model and releases the last one', () => {
 		const first = model()
 		const second = model()

@@ -6,6 +6,7 @@
 import { ref, readonly } from 'vue'
 import { Group } from 'three'
 import { NothingToExportError } from '../utils/exportErrors.js'
+import { withOwnMaterials } from '../utils/materialStandIns.js'
 import { logger } from '../utils/logger.js'
 
 /**
@@ -260,7 +261,8 @@ export function useExport() {
 			await new Promise(resolve => setTimeout(resolve, 150))
 
 			// Parse with binary option for smaller file size
-			const result = exporter.parse(object, { binary: true })
+			// A render mode's stand-ins come off for exactly this synchronous call
+			const result = withOwnMaterials(object, () => exporter.parse(object, { binary: true }))
 
 			exportProgress.value = { stage: 'Creating binary STL file...', percentage: 70 }
 			await new Promise(resolve => setTimeout(resolve, 100))
@@ -314,7 +316,8 @@ export function useExport() {
 			await new Promise(resolve => setTimeout(resolve, 150))
 
 			// Parse returns a string
-			const result = exporter.parse(object)
+			// OBJ names each part's material; write the model's own, not a stand-in's
+			const result = withOwnMaterials(object, () => exporter.parse(object))
 
 			exportProgress.value = { stage: 'Creating text file...', percentage: 70 }
 			await new Promise(resolve => setTimeout(resolve, 100))
@@ -431,7 +434,7 @@ export function useExport() {
 		produce: async (obj) => {
 			const { PLYExporter } = await import('three/examples/jsm/exporters/PLYExporter.js')
 			// parse(object, onDone, options): the options are the third argument
-			return new PLYExporter().parse(obj, null, { binary: true, littleEndian: true })
+			return withOwnMaterials(obj, () => new PLYExporter().parse(obj, null, { binary: true, littleEndian: true }))
 		},
 	})
 

@@ -312,3 +312,34 @@ describe('useExport — blob creation', () => {
 		await expect(exp.exportAsUSDZ(null, 'x')).rejects.toThrow(/No object/)
 	})
 })
+
+/*
+ * STL, OBJ and PLY are written in one synchronous call, so a render mode's stand-ins come
+ * off for exactly that call and the viewer never shows the model without its shading.
+ */
+describe('useExport under a render mode', () => {
+	const THREE = require('three')
+	const { useRenderMode } = require('../../../src/composables/useRenderMode.js')
+
+	it.each([
+		['exportAsSTL', mockStlParse],
+		['exportAsOBJ', mockObjParse],
+		['exportAsPLY', mockPlyParse],
+	])('%s writes the model\'s own materials and leaves the shading showing', async (method, parse) => {
+		const own = new THREE.MeshStandardMaterial({ name: 'Steel' })
+		const mesh = new THREE.Mesh(new THREE.BoxGeometry(), own)
+		const group = new THREE.Group()
+		group.add(mesh)
+		const rm = useRenderMode()
+		rm.init(group)
+		rm.setMode('clay')
+		const standIn = mesh.material
+
+		let seen = null
+		parse.mockImplementationOnce(() => { seen = mesh.material; return method === 'exportAsOBJ' ? '' : new ArrayBuffer(8) })
+		await run(useExport()[method](group, 'part'))
+
+		expect(seen).toBe(own)
+		expect(mesh.material).toBe(standIn)
+	})
+})

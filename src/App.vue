@@ -131,6 +131,7 @@
 					:gcode-layer-z="gcodeLayerZ"
 					:gcode-single-layer="gcodeSingleLayer"
 					:render-mode="renderMode"
+					:exporting="exporting"
 					:is-mobile="isMobile"
 					:cache-stats="cacheStats"
 					:custom-palette="customPalette"
@@ -389,6 +390,8 @@ export default {
 			gcodeSingleLayer: false,
 			// Inspection shading: standard, clay, normals, xray
 			renderMode: 'standard',
+			// An export is running; the panel's format menu waits for it
+			exporting: false,
 			// WebXR
 			webxrSupported: false,
 			webxrActive: false,
@@ -807,9 +810,16 @@ export default {
 			this.$refs.viewer?.toggleModelStats?.()
 		},
 
-		onExportModel(format) {
-		// Trigger export on the viewer
-			this.$refs.viewer?.handleExport?.(format)
+		async onExportModel(format) {
+			// Trigger export on the viewer. The format menu is disabled until it is done, so a
+			// second export cannot start under the first.
+			if (this.exporting) return
+			this.exporting = true
+			try {
+				await this.$refs.viewer?.handleExport?.(format)
+			} finally {
+				this.exporting = false
+			}
 		},
 
 		onSendToSlicer() {

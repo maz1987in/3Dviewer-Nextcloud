@@ -2620,6 +2620,17 @@ export default {
 				return
 			}
 
+			// Export the model's own materials, not a render mode standing in for them.
+			// GLB and USDZ are written asynchronously, so the mode is set aside for the
+			// export (counted, so two exports at once both finish first). STL, OBJ and PLY
+			// are written in one synchronous call inside withOwnMaterials, and 3MF and ZIP
+			// write no materials, so the viewer keeps its shading for those.
+			const setsModeAside = ['glb', 'usdz'].includes(format.toLowerCase())
+			// Outside the try, so a resume in `finally` always has its own suspend to undo
+			if (setsModeAside) {
+				clippingPlane.aroundMaterialSwap(() => renderMode.suspend())
+			}
+
 			try {
 				logger.info('ThreeViewer', 'Starting export', { format })
 
@@ -2645,9 +2656,6 @@ export default {
 				const baseFilename = props.filename
 					? props.filename.split('/').pop().split('.')[0]
 					: 'model'
-
-				// Export the model's own materials, not a render mode standing in for them
-				clippingPlane.aroundMaterialSwap(() => renderMode.suspend())
 
 				// Export based on format
 				switch (format.toLowerCase()) {
@@ -2728,7 +2736,9 @@ export default {
 						: (error.message || t('threedviewer', 'Failed to export model')),
 				})
 			} finally {
-				clippingPlane.aroundMaterialSwap(() => renderMode.resume())
+				if (setsModeAside) {
+					clippingPlane.aroundMaterialSwap(() => renderMode.resume())
+				}
 			}
 		}
 

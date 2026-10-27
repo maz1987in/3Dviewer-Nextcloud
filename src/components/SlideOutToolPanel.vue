@@ -472,7 +472,8 @@
 									<ViewerIcon class="tool-icon" name="exportModel" :size="17" />
 									<span class="tool-label">{{ t('threedviewer', 'Export Model') }}</span>
 									<select ref="exportSelect"
-										:disabled="!modelLoaded"
+										:disabled="!modelLoaded || exporting"
+										:aria-busy="exporting ? 'true' : 'false'"
 										class="export-select"
 										:aria-label="t('threedviewer', 'Export model format')"
 										@change="handleExportChange($event.target.value)">
@@ -691,6 +692,8 @@ export default {
 		gcodeSingleLayer: { type: Boolean, default: false },
 		// Render mode
 		renderMode: { type: String, default: 'standard' },
+		// An export is running
+		exporting: { type: Boolean, default: false },
 
 		// Mobile detection
 		isMobile: { type: Boolean, default: false },

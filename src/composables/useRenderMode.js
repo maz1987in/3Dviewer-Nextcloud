@@ -59,7 +59,9 @@ export function useRenderMode() {
 
 	// Scene objects, kept out of reactive state
 	let root = null
-	let suspended = false
+	// How many exports have the mode set aside: two at once must both finish before it
+	// comes back, or the second would write the stand-ins
+	let suspended = 0
 	const originals = new Map() // mesh -> its own material (or array of them)
 	const overrides = new Map() // own material -> what stands in for it
 	let clayMatcap = null
@@ -147,7 +149,7 @@ export function useRenderMode() {
 		if (newMode === mode.value) return
 		restore()
 		mode.value = newMode
-		if (!suspended) apply()
+		if (suspended === 0) apply()
 		logger.info('useRenderMode', 'Mode changed', { mode: newMode })
 	}
 
@@ -158,7 +160,8 @@ export function useRenderMode() {
 	const init = (model) => {
 		restore()
 		root = model || null
-		suspended = false
+		// An export still running holds the model it started with; this one shows the mode
+		suspended = 0
 		apply()
 	}
 
@@ -167,19 +170,18 @@ export function useRenderMode() {
 	 * leaving the mode; `resume` shows the mode again.
 	 */
 	const suspend = () => {
-		restore()
-		suspended = true
+		if (suspended++ === 0) restore()
 	}
 
 	const resume = () => {
-		suspended = false
-		apply()
+		if (suspended === 0) return
+		if (--suspended === 0) apply()
 	}
 
 	const dispose = () => {
 		restore()
 		root = null
-		suspended = false
+		suspended = 0
 		clayMatcap?.dispose()
 		clayMatcap = null
 	}
