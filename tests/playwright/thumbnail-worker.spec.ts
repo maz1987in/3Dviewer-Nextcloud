@@ -116,6 +116,8 @@ async function buildGeneratedSamples() {
   generated.set('textured.dae', Buffer.from(texturedQuadDae('checker.png')))
   generated.set('quad.dae', Buffer.from(texturedQuadDae(null)))
   generated.set('remote-texture.dae', Buffer.from(texturedQuadDae('https://example.invalid/checker.png')))
+  // A path on the exporting machine, as SketchUp and 3ds Max write one
+  generated.set('absolute-texture.dae', Buffer.from(texturedQuadDae('file:///C:/x/checker.png')))
   for (const [name, text] of Object.entries(HOSTILE_XML)) {
     generated.set(name, Buffer.from(text))
   }
@@ -854,6 +856,29 @@ test.describe('thumbnail worker', () => {
     expect(remote.error).toContain('https://example.invalid/checker.png')
     expect(elsewhere).toEqual([])
     expect(requested.filter(reqPath => reqPath.endsWith('checker.png'))).toEqual([])
+  })
+
+  test('a dae whose image is a file: URL renders with the handed file of that name, and fails without it', async ({ page }) => {
+    const appRoot = APP_ROOTS[0]
+    const elsewhere: string[] = []
+    await page.context().route(url => url.origin !== server.origin, (route) => {
+      elsewhere.push(route.request().url())
+      return route.abort()
+    })
+    await openHarness(page, server.origin, appRoot)
+
+    const withMap = await renderSample(page, appRoot, { name: 'dae', extension: 'dae', files: [`${GENERATED}absolute-texture.dae`, `${FIXTURES}checker.png`] })
+    const withoutMap = await renderSample(page, appRoot, { name: 'dae', extension: 'dae', files: [`${GENERATED}quad.dae`] })
+    const notHanded = await renderSample(page, appRoot, { name: 'dae', extension: 'dae', files: [`${GENERATED}absolute-texture.dae`] })
+
+    // The queue fetched checker.png by its name beside the model; the loader asks for
+    // file:///C:/x/checker.png, which maps to it by that name
+    expect(withMap.error).toBeUndefined()
+    expect(withMap.colours).toBeGreaterThan(withoutMap.colours ?? 0)
+    // Not handed, the path is refused like any other, and nothing is requested for it
+    expect(notHanded).toMatchObject({ ok: false, errorName: 'ThumbnailRefusedError' })
+    expect(notHanded.error).toContain('file:///C:/x/checker.png')
+    expect(elsewhere).toEqual([])
   })
 
   test('an x3d texture that was not handed is not requested', async ({ page }) => {
