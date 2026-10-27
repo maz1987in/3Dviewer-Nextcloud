@@ -21,6 +21,9 @@ export function useExplodedView() {
 	// How many exports have the parts put back together: two at once must both finish
 	// before the model explodes again
 	let suspended = 0
+	// Which model the count is for: a new one starts a count of its own, and an export
+	// still running on the last one must not use it up
+	let generation = 0
 
 	const hasMeshes = computed(() => meshData.value.length > 1)
 
@@ -33,6 +36,7 @@ export function useExplodedView() {
 		modelRef.value = model
 		// An export still running holds the model it started with; this one is shown
 		suspended = 0
+		generation++
 
 		// Collect all meshes
 		const meshes = []
@@ -152,15 +156,22 @@ export function useExplodedView() {
 	 * without leaving exploded view; `resume` explodes them again by the current amount.
 	 * Counted whether or not the parts are apart, so the slider stays still until the
 	 * last export is done.
+	 * @return {number} The token to hand `resume`
 	 */
 	const suspend = () => {
 		if (suspended++ === 0 && isApart()) {
 			moveForExport()
 		}
+		return generation
 	}
 
-	const resume = () => {
-		if (suspended === 0) {
+	/**
+	 * End one suspension. A token from before the current model was loaded does
+	 * nothing: its export held the last model, whose count was dropped.
+	 * @param {number} token - What `suspend` returned
+	 */
+	const resume = (token) => {
+		if (token !== generation || suspended === 0) {
 			return
 		}
 		if (--suspended === 0 && isApart()) {

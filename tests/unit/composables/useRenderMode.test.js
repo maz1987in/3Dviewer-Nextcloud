@@ -130,10 +130,10 @@ describe('useRenderMode', () => {
 		const rm = useRenderMode()
 		rm.init(group)
 		rm.setMode('xray')
-		rm.suspend()
+		const token = rm.suspend()
 		expect(a.material).toBe(red)
 		expect(rm.mode.value).toBe('xray')
-		rm.resume()
+		rm.resume(token)
 		expect(a.material).not.toBe(red)
 		expect(a.material.transparent).toBe(true)
 	})
@@ -143,20 +143,39 @@ describe('useRenderMode', () => {
 		const rm = useRenderMode()
 		rm.init(group)
 		rm.setMode('clay')
-		rm.suspend() // a GLB export
-		rm.suspend() // a USDZ export started before the GLB finished
-		rm.resume() // the GLB is done
+		const glb = rm.suspend() // a GLB export
+		const usdz = rm.suspend() // a USDZ export started before the GLB finished
+		rm.resume(glb) // the GLB is done
 		expect(a.material).toBe(red)
 		rm.setMode('xray') // the user switches while the USDZ is still writing
 		expect(a.material).toBe(red)
-		rm.resume() // the USDZ is done
+		rm.resume(usdz) // the USDZ is done
 		expect(a.material.type).toBe('MeshStandardMaterial')
 		expect(a.material).not.toBe(red)
 		expect(a.material.transparent).toBe(true)
 		// A resume with nothing set aside changes nothing
 		const shown = a.material
-		rm.resume()
+		rm.resume(usdz)
 		expect(a.material).toBe(shown)
+	})
+
+	it('does not let an export on the last model end one on the next', () => {
+		const first = model()
+		const second = model()
+		const rm = useRenderMode()
+		rm.init(first.group)
+		rm.setMode('xray')
+		const onFirst = rm.suspend() // an export of the first model, still writing
+		rm.init(second.group) // the next model opens
+		const onSecond = rm.suspend() // and an export of it starts
+		expect(second.a.material).toBe(second.red)
+
+		rm.resume(onFirst) // the first model's export finishes
+		expect(second.a.material).toBe(second.red)
+
+		rm.resume(onSecond)
+		expect(second.a.material).not.toBe(second.red)
+		expect(second.a.material.transparent).toBe(true)
 	})
 
 	it('keeps the mode for the next model and releases the last one', () => {

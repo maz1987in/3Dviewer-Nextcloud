@@ -127,9 +127,9 @@ describe('a 3MF of an exploded model, written while the view is suspended', () =
 		const apart = root.children.map((child) => child.position.x)
 		expect(xml(root)).not.toBe(together)
 
-		view.suspend()
+		const token = view.suspend()
 		expect(xml(root)).toBe(together)
-		view.resume()
+		view.resume(token)
 
 		expect(root.children.map((child) => child.position.x)).toEqual(apart)
 	})
@@ -139,14 +139,14 @@ describe('suspending Exploded view', () => {
 	it('waits for every export to finish, and resumes at the amount set meanwhile', () => {
 		const { root, view } = exploded()
 		const xs = () => root.children.map((child) => child.position.x)
-		view.suspend()
-		view.suspend()
+		const first = view.suspend()
+		const second = view.suspend()
 		view.setFactor(0.5)
 		expect(xs()).toEqual([0, 2, 4])
-		view.resume()
+		view.resume(first)
 		expect(xs()).toEqual([0, 2, 4])
-		view.resume()
-		view.resume() // one too many does nothing
+		view.resume(second)
+		view.resume(second) // one too many does nothing
 		expect(xs()).not.toEqual([0, 2, 4])
 		expect(view.factor.value).toBe(0.5)
 		expect(view.isActive.value).toBe(true)
@@ -169,9 +169,9 @@ describe('an export written while an animation is paused', () => {
 		expect(root.children[0].position.y).toBeCloseTo(2.5, 6)
 
 		// A GLB, USDZ or 3MF export
-		view.suspend()
+		const token = view.suspend()
 		expect(root.children[0].position.y).toBeCloseTo(2.5, 6)
-		view.resume()
+		view.resume(token)
 
 		// The mixer only re-poses while playing, so nothing would put the pose back
 		animation.update(0.1)
@@ -183,10 +183,26 @@ describe('an export written while an animation is paused', () => {
 		const root = model()
 		const view = useExplodedView()
 		view.init(root)
-		view.suspend()
+		const token = view.suspend()
 		view.toggle() // switched on during the export
 		expect(root.children.map((child) => child.position.x)).toEqual([0, 2, 4])
-		view.resume()
+		view.resume(token)
 		expect(root.children.map((child) => child.position.x)).not.toEqual([0, 2, 4])
+	})
+
+	it('does not let an export on the last model end one on the next', () => {
+		const xs = (root) => root.children.map((child) => child.position.x)
+		const { view } = exploded()
+		const onFirst = view.suspend() // an export of the first model, still writing
+		const next = model()
+		view.init(next) // the next model opens, exploded
+		const onSecond = view.suspend() // and an export of it starts
+		expect(xs(next)).toEqual([0, 2, 4])
+
+		view.resume(onFirst) // the first model's export finishes
+		expect(xs(next)).toEqual([0, 2, 4])
+
+		view.resume(onSecond)
+		expect(xs(next)).not.toEqual([0, 2, 4])
 	})
 })

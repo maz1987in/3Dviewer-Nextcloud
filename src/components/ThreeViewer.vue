@@ -2675,13 +2675,13 @@ export default {
 			// viewer keeps its shading for those.
 			const setsModeAside = ['glb', 'usdz'].includes(format.toLowerCase())
 			const setsExplosionAside = ['glb', 'usdz', '3mf'].includes(format.toLowerCase())
-			// Outside the try, so a resume in `finally` always has its own suspend to undo
-			if (setsModeAside) {
-				clippingPlane.aroundMaterialSwap(() => renderMode.suspend())
-			}
-			if (setsExplosionAside) {
-				explodedView.suspend()
-			}
+			// Outside the try, so a resume in `finally` always has its own suspend to undo.
+			// The tokens tie each resume to the model this export started on: if another
+			// one opens meanwhile, this export's resume leaves its count alone.
+			const modeToken = setsModeAside
+				? clippingPlane.aroundMaterialSwap(() => renderMode.suspend())
+				: null
+			const explosionToken = setsExplosionAside ? explodedView.suspend() : null
 
 			try {
 				logger.info('ThreeViewer', 'Starting export', { format })
@@ -2789,10 +2789,10 @@ export default {
 				})
 			} finally {
 				if (setsModeAside) {
-					clippingPlane.aroundMaterialSwap(() => renderMode.resume())
+					clippingPlane.aroundMaterialSwap(() => renderMode.resume(modeToken))
 				}
 				if (setsExplosionAside) {
-					explodedView.resume()
+					explodedView.resume(explosionToken)
 				}
 			}
 		}

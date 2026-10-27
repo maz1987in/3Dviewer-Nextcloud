@@ -46,9 +46,9 @@ it('writes the parts together, and the matrices follow them back out', async () 
 	root.updateMatrixWorld(true)
 	expect(await usda(root)).not.toEqual(together)
 
-	view.suspend()
+	const token = view.suspend()
 	const written = await usda(root)
-	view.resume()
+	view.resume(token)
 
 	expect(written).toEqual(together)
 	root.children.forEach((child) => {
