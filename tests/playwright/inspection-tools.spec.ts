@@ -32,6 +32,18 @@ const CUBE_OBJ = [
 	'f 1 4 3 2', 'f 5 6 7 8', 'f 1 2 6 5', 'f 2 3 7 6', 'f 3 4 8 7', 'f 4 1 5 8',
 ].join('\n')
 
+// Two cubes side by side, as two objects: two meshes, which Exploded view can take apart
+const TWO_CUBES_OBJ = [
+	'o left',
+	'v 0 0 0', 'v 10 0 0', 'v 10 10 0', 'v 0 10 0',
+	'v 0 0 10', 'v 10 0 10', 'v 10 10 10', 'v 0 10 10',
+	'f 1 4 3 2', 'f 5 6 7 8', 'f 1 2 6 5', 'f 2 3 7 6', 'f 3 4 8 7', 'f 4 1 5 8',
+	'o right',
+	'v 12 0 0', 'v 22 0 0', 'v 22 10 0', 'v 12 10 0',
+	'v 12 0 10', 'v 22 0 10', 'v 22 10 10', 'v 12 10 10',
+	'f 9 12 11 10', 'f 13 14 15 16', 'f 9 10 14 13', 'f 10 11 15 14', 'f 11 12 16 15', 'f 12 9 13 16',
+].join('\n')
+
 // A unit cube's faces, each a quad wound counter-clockwise seen from outside
 const CUBE_QUADS = [
 	[[1, 0, 0], [1, 1, 0], [1, 1, 1], [1, 0, 1]],
@@ -79,6 +91,9 @@ const MODELS = {
 	gltf: { id: 4545, name: 'triangle.gltf', body: fs.readFileSync(path.join(PROJECT_ROOT, 'tests/fixtures/triangle.gltf'), 'utf8') },
 	metreCube: { id: 4646, name: 'cube.gltf', body: cubeGltf() },
 	stlCube: { id: 4747, name: 'cube.stl', body: cubeStl() },
+	// Two parts, and a second copy opened after the first in the same viewer
+	twoCubes: { id: 4848, name: 'parts.obj', body: TWO_CUBES_OBJ },
+	twoCubes2: { id: 4949, name: 'parts2.obj', body: TWO_CUBES_OBJ },
 }
 type Model = keyof typeof MODELS
 
@@ -310,6 +325,83 @@ async function measureAcrossTheCube(page: Page) {
 	const text = (await overlay.locator('.measurement-distance').textContent())!.trim()
 	const [, value, unit] = text.match(/^(-?[\d.]+) (\S+)$/)!
 	return { overlay, value: Number(value), unit, sceneDistance, text }
+}
+
+/**
+ * Answer the thumbnail routes as the server does: `needed` are the files without a
+ * thumbnail for their version, every other one has one. Each upload is recorded.
+ * @param page - the page
+ * @param needed - ids of the files that get a thumbnail
+ * @return the uploaded PNGs, in order
+ */
+async function recordThumbnails(page: Page, needed: number[]) {
+	const uploads: Buffer[] = []
+	await page.route('**/apps/threedviewer/api/thumbnails/status**', (route) => {
+		const ids = (new URL(route.request().url()).searchParams.get('ids') ?? '').split(',').map(Number)
+		const files = Object.fromEntries(ids.map((id) => [id, { canEdit: true, hasThumbnail: !needed.includes(id), etag: 'v1' }]))
+		return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ files }) })
+	})
+	await page.route('**/apps/threedviewer/api/thumbnail/**', (route) => {
+		uploads.push(route.request().postDataBuffer()!)
+		return route.fulfill({ status: 201, body: '' })
+	})
+	return uploads
+}
+
+/**
+ * Open another model in the same viewer, as the file browser does (its URL update left
+ * out: generateUrl has no Nextcloud host here), and wait for it to load.
+ * @param page - the page, with a model loaded
+ * @param model - the model to open
+ */
+async function openNext(page: Page, model: Model) {
+	await page.evaluate(({ id, name }) => {
+		(window as any).__LOAD_COMPLETE = false
+		// The mounted root renders App; App is its only child
+		const app = (window as any).__THREEDVIEWER_APP.$.subTree.component.proxy
+		app.currentFilename = name
+		app.currentFileId = id
+	}, MODELS[model])
+	await page.waitForFunction(() => (window as any).__LOAD_COMPLETE === true, null, { timeout: 30000 })
+}
+
+/**
+ * How many of a PNG's pixels the model covers (alpha above zero), and its middle
+ * pixel's alpha.
+ * @param page - any page, to decode the image in
+ * @param png - the image
+ */
+async function coverage(page: Page, png: Buffer): Promise<{ covered: number, centreAlpha: number }> {
+	return await page.evaluate(async (base64) => {
+		const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))
+		const bitmap = await createImageBitmap(new Blob([bytes], { type: 'image/png' }))
+		const canvas = document.createElement('canvas')
+		canvas.width = bitmap.width
+		canvas.height = bitmap.height
+		const context = canvas.getContext('2d')!
+		context.drawImage(bitmap, 0, 0)
+		const { data } = context.getImageData(0, 0, bitmap.width, bitmap.height)
+		let covered = 0
+		for (let i = 3; i < data.length; i += 4) {
+			if (data[i] > 0) covered++
+		}
+		const centre = (Math.floor(bitmap.height / 2) * bitmap.width + Math.floor(bitmap.width / 2)) * 4
+		return { covered, centreAlpha: data[centre + 3] }
+	}, png.toString('base64'))
+}
+
+/**
+ * The thumbnail a model gets when it is the first one opened, with every tool as it
+ * starts: what a capture made under any viewer state must match.
+ * @param page - a fresh page
+ * @param url - the test server
+ * @param model - the model
+ */
+async function plainThumbnail(page: Page, url: string, model: Model) {
+	const uploads = await recordThumbnails(page, [MODELS[model].id])
+	await openLoadedViewer(page, url, model)
+	await expect.poll(() => uploads.length, { timeout: 15000 }).toBe(1)
+	return await coverage(page, uploads[0])
 }
 
 test.describe('Inspection tools', () => {
@@ -582,6 +674,76 @@ test.describe('Inspection tools', () => {
 			return data[3]
 		}, uploads[0].toString('base64'))
 		expect(alpha).toBe(255)
+		expect(errors).toEqual([])
+	})
+	/*
+	 * Wireframe stays on for the next model, as the toggle shows, and the next model's
+	 * thumbnail, captured half a second after it opens, must still be solid: the same
+	 * picture a model gets with nothing switched on.
+	 */
+	test('a thumbnail captured with Wireframe on is solid', async ({ page, browser }) => {
+		const plainPage = await browser.newPage()
+		const plain = await plainThumbnail(plainPage, server.url, 'cube2')
+		await plainPage.close()
+
+		const uploads = await recordThumbnails(page, [MODELS.cube2.id])
+		const { errors } = await openLoadedViewer(page, server.url, 'cube')
+		const wireframe = page.locator('.slide-out-panel .toggle-row', { hasText: 'Wireframe' })
+		await wireframe.click()
+		await expect(wireframe.locator('.toggle-switch')).toHaveClass(/on/)
+
+		await openNext(page, 'cube2')
+		await expect.poll(() => uploads.length, { timeout: 15000 }).toBe(1)
+
+		// The new model is drawn in wireframe, as the toggle says
+		await expect(wireframe.locator('.toggle-switch')).toHaveClass(/on/)
+		expect(await page.evaluate(() => {
+			const viewer = (window as any).__THREEDVIEWER_APP.$.subTree.component.proxy.$refs.viewer
+			const materials: any[] = []
+			viewer.modelRoot.traverse((child: any) => { if (child.isMesh) materials.push(...[child.material].flat()) })
+			return materials.length > 0 && materials.every((m) => m.wireframe === true)
+		})).toBe(true)
+
+		// A wireframe covers a fraction of what the solid cube does; the thumbnail is solid
+		const captured = await coverage(page, uploads[0])
+		expect(captured.centreAlpha).toBe(255)
+		expect(Math.abs(captured.covered - plain.covered)).toBeLessThanOrEqual(plain.covered * 0.01)
+		expect(errors).toEqual([])
+	})
+
+	/*
+	 * Exploded view stays on for the next model it can take apart, by the same amount,
+	 * and that model's thumbnail must show its parts together, framed as they are when
+	 * nothing is exploded.
+	 */
+	test('a thumbnail captured in Exploded view has the parts together', async ({ page, browser }) => {
+		const plainPage = await browser.newPage()
+		const plain = await plainThumbnail(plainPage, server.url, 'twoCubes2')
+		await plainPage.close()
+
+		const uploads = await recordThumbnails(page, [MODELS.twoCubes2.id])
+		const { errors } = await openLoadedViewer(page, server.url, 'twoCubes')
+		const explode = page.locator('.slide-out-panel .tool-btn', { hasText: 'Exploded View' })
+		await explode.click()
+		await expect(explode).toContainText('Active')
+
+		await openNext(page, 'twoCubes2')
+		await expect.poll(() => uploads.length, { timeout: 15000 }).toBe(1)
+
+		// The new model is exploded, as the panel says
+		await expect(explode).toContainText('Active')
+		const gap = await page.evaluate(() => {
+			const viewer = (window as any).__THREEDVIEWER_APP.$.subTree.component.proxy.$refs.viewer
+			const meshes: any[] = []
+			viewer.modelRoot.traverse((child: any) => { if (child.isMesh) meshes.push(child) })
+			return meshes.map((mesh) => mesh.position.length())
+		})
+		expect(Math.max(...gap)).toBeGreaterThan(1)
+
+		// Flung apart, the parts would be framed smaller, with a gap between them
+		const captured = await coverage(page, uploads[0])
+		expect(Math.abs(captured.covered - plain.covered)).toBeLessThanOrEqual(plain.covered * 0.01)
+		expect(captured.centreAlpha).toBe(plain.centreAlpha)
 		expect(errors).toEqual([])
 	})
 })
