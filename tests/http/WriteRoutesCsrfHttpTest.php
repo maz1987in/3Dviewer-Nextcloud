@@ -24,14 +24,14 @@ use OCP\Server;
  */
 class WriteRoutesCsrfHttpTest extends HttpTestCase
 {
-    private const CONFIG_KEY = 'csrf_probe';
+    private const CONFIG_KEY = 'file_sort';
 
     public function testSavingViewerSettingsNeedsTheRequestToken(): void
     {
         $uid = $this->newUser();
         [$client, $token] = $this->session($uid);
         $url = '/index.php/apps/threedviewer/config';
-        $body = ['json' => ['values' => [self::CONFIG_KEY => 'set']]];
+        $body = ['json' => ['values' => [self::CONFIG_KEY => 'type']]];
 
         $without = $client->put($url, $body);
 
@@ -41,7 +41,19 @@ class WriteRoutesCsrfHttpTest extends HttpTestCase
         $with = $client->put($url, $body + ['headers' => ['requesttoken' => $token]]);
 
         $this->assertNotSame(412, $with->getStatusCode(), 'the same session with its token is accepted');
-        $this->assertSame('set', $this->storedConfig($uid));
+        $this->assertSame('type', $this->storedConfig($uid));
+    }
+
+    public function testOnlyTheSettingsTheViewerStoresAreAccepted(): void
+    {
+        $uid = $this->newUser();
+        [$client, $token] = $this->session($uid);
+        $options = ['headers' => ['requesttoken' => $token], 'json' => ['values' => [self::CONFIG_KEY => 'type', 'user_preferences' => '{}']]];
+
+        $response = $client->put('/index.php/apps/threedviewer/config', $options);
+
+        $this->assertSame(400, $response->getStatusCode());
+        $this->assertSame('', $this->storedConfig($uid), 'a refused request stores none of its values');
     }
 
     public function testReindexingNeedsTheRequestToken(): void

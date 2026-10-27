@@ -984,6 +984,14 @@
       <code><![CDATA[ApiTest]]></code>
     </UnusedClass>
   </file>
+  <file src="tests/unit/Controller/ConfigControllerTest.php">
+    <UndefinedClass>
+      <code><![CDATA[TestCase]]></code>
+    </UndefinedClass>
+    <UnusedClass>
+      <code><![CDATA[ConfigControllerTest]]></code>
+    </UnusedClass>
+  </file>
   <file src="tests/unit/Controller/FileControllerTest.php">
     <UndefinedClass>
       <code><![CDATA[TestCase]]></code>
