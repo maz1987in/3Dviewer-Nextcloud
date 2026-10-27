@@ -141,14 +141,14 @@ test.describe('Inspection tools', () => {
 		const { errors } = await openLoadedViewer(page, server.url)
 		const panel = page.locator('.gcode-layers')
 		await expect(panel).toContainText('Layer 3 of 3')
-		await expect(panel).toContainText('Z 0.60')
+		await expect(panel).toContainText('Height 0.60 mm')
 
 		await panel.locator('input[type="range"]').fill('1')
 		await expect(panel).toContainText('Layer 1 of 3')
-		await expect(panel).toContainText('Z 0.20')
+		await expect(panel).toContainText('Height 0.20 mm')
 
 		const slider = panel.getByRole('slider')
-		await expect(slider).toHaveAttribute('aria-valuetext', 'Layer 1 of 3, Z 0.20')
+		await expect(slider).toHaveAttribute('aria-valuetext', 'Layer 1 of 3, Height 0.20 mm')
 
 		// A switch reached and worked from the keyboard, not only by pointer
 		const onlyThisLayer = panel.getByRole('switch', { name: 'Only this layer' })

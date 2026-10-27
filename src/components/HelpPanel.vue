@@ -154,7 +154,8 @@
 								<ViewerIcon class="help-icon" name="measurement" :size="18" />
 								<div class="help-text">
 									<h4>{{ t('threedviewer', 'Measurement') }}</h4>
-									<p>{{ t('threedviewer', 'Click on two points to measure distance, or switch to Angle and click three points, the second being the corner. Switch units between mm, cm, m, inches, and feet.') }}</p>
+									<!-- The first sentence is the one translations already have; angles are a second -->
+									<p>{{ t('threedviewer', 'Click on two points to measure distance. Switch units between mm, cm, m, inches, and feet.') }} {{ t('threedviewer', 'To measure an angle, switch to Angle and click three points; the second is the corner.') }}</p>
 								</div>
 							</div>
 							<div class="help-item">
@@ -196,7 +197,7 @@
 								<ViewerIcon class="help-icon" name="palette" :size="18" />
 								<div class="help-text">
 									<h4>{{ t('threedviewer', 'Shading') }}</h4>
-									<p>{{ t('threedviewer', 'Clay shows surface form, Normals shows surface direction as colour, and X-ray makes parts see-through. Exports always keep the model\'s own materials.') }}</p>
+									<p>{{ t('threedviewer', 'Clay shows surface form, Normals shows surface direction as color, and X-ray makes parts see-through. Exports always keep the model\'s own materials.') }}</p>
 								</div>
 							</div>
 						</div>

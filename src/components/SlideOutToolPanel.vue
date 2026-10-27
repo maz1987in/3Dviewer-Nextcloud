@@ -313,7 +313,7 @@
 								<div v-if="gcodeLayerCount > 1" class="tool-group gcode-layers">
 									<label class="tool-label-small" for="gcode-layer-slider">
 										{{ t('threedviewer', 'Layer {current} of {total}', { current: gcodeLayer, total: gcodeLayerCount }) }}
-										<span v-if="gcodeLayerZ !== null" class="gcode-layer-z">Z {{ Number(gcodeLayerZ).toFixed(2) }}</span>
+										<span v-if="gcodeLayerZ !== null" class="gcode-layer-z">{{ gcodeLayerHeight }}</span>
 									</label>
 									<input id="gcode-layer-slider"
 										type="range"
@@ -920,16 +920,21 @@ export default {
 			return !!(p.background || p.gridColor)
 		})
 
+		// G-code heights are printer coordinates, in millimetres
+		const gcodeLayerHeight = computed(() => (props.gcodeLayerZ === null
+			? ''
+			: t('threedviewer', 'Height {height} mm', { height: Number(props.gcodeLayerZ).toFixed(2) })))
+
 		// What a screen reader says for the slider: the layer and its height, not "3"
 		const gcodeLayerValueText = computed(() => {
 			const layer = t('threedviewer', 'Layer {current} of {total}', { current: props.gcodeLayer, total: props.gcodeLayerCount })
-			return props.gcodeLayerZ === null ? layer : `${layer}, Z ${Number(props.gcodeLayerZ).toFixed(2)}`
+			return props.gcodeLayerZ === null ? layer : `${layer}, ${gcodeLayerHeight.value}`
 		})
 
 		const renderModeOptions = [
 			{ value: 'standard', label: t('threedviewer', 'Standard'), title: t('threedviewer', 'The model\'s own materials') },
 			{ value: 'clay', label: t('threedviewer', 'Clay'), title: t('threedviewer', 'Even clay shading that shows surface form') },
-			{ value: 'normals', label: t('threedviewer', 'Normals'), title: t('threedviewer', 'Surface direction as colour, to spot dents and flipped faces') },
+			{ value: 'normals', label: t('threedviewer', 'Normals'), title: t('threedviewer', 'Surface direction as color, to spot dents and flipped faces') },
 			{ value: 'xray', label: t('threedviewer', 'X-ray'), title: t('threedviewer', 'See-through parts, to look inside assemblies') },
 		]
 
@@ -937,6 +942,7 @@ export default {
 			t,
 			renderModeOptions,
 			gcodeLayerValueText,
+			gcodeLayerHeight,
 			// The rows print their hints from the shared table, so the template needs it.
 			shortcutKey,
 			isOpen,
