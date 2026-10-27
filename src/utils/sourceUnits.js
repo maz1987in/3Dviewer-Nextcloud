@@ -28,13 +28,18 @@
  *                    OCCT and FreeCAD shapes are millimetres.
  *   gcode and the other toolpath extensions
  *                    printer coordinates are millimetres (nothing to export anyway).
- *   fbx              the FBX loader shrinks any model larger than 50 units to 5 units
- *                    for lighting, so its real size is lost; it is taken as millimetres
- *                    like the rest.
  *
  * the file's own unit
  *   3dm              Rhino3dmLoader keeps the model's unit system and records it in the
  *                    root's userData.settings.modelUnitSystem; see `rhinoUnit`.
+ *   fbx              GlobalSettings' UnitScaleFactor, in centimetres per unit, which
+ *                    FBXLoader records (binary and ASCII alike) in the root's
+ *                    userData.unitScaleFactor and does not apply. A file without one is
+ *                    centimetres, FBX's own default (UnitScaleFactor 1), rather than the
+ *                    millimetres of a format with no unit at all. The app's loader then
+ *                    shrinks a model larger than 50 units to 5, for lighting, and records
+ *                    that factor in userData.viewerScale, which is divided back out; see
+ *                    `fbxUnit` and `viewerScale`.
  *   3mf              the `unit` attribute of the file's <model> (micron, millimeter,
  *                    centimeter, inch, foot or meter; millimeter when absent). three's
  *                    ThreeMFLoader reads it but never applies it, so the scene keeps the
@@ -45,9 +50,10 @@
  */
 
 const METRE = 1000
+const CENTIMETRE = 10
 const MILLIMETRE = 1
 
-/** Millimetres per scene unit, by lower-case extension. */
+/** Millimetres per unit, by lower-case extension, for a file that records none of its own. */
 export const SOURCE_UNITS = Object.freeze({
 	gltf: METRE,
 	glb: METRE,
@@ -76,7 +82,7 @@ export const SOURCE_UNITS = Object.freeze({
 	brep: MILLIMETRE,
 	brp: MILLIMETRE,
 	fcstd: MILLIMETRE,
-	fbx: MILLIMETRE,
+	fbx: CENTIMETRE,
 	gcode: MILLIMETRE,
 })
 
@@ -153,13 +159,39 @@ export function threeMFUnit(root) {
 }
 
 /**
- * Millimetres per scene unit for a model.
+ * The unit an FBX file is written in, from GlobalSettings' UnitScaleFactor (centimetres
+ * per unit), which FBXLoader records as the root's `userData.unitScaleFactor`.
+ *
+ * @param {?THREE.Object3D} root - The loaded model
+ * @return {?number} Millimetres per file unit, or null when not recorded or not a length
+ */
+export function fbxUnit(root) {
+	const factor = Number(recorded(root, (data) => data.unitScaleFactor))
+	return Number.isFinite(factor) && factor > 0 ? factor * CENTIMETRE : null
+}
+
+/**
+ * The uniform scale the viewer's loader applied to a model to fit it to its lighting (the
+ * FBX loader does, to a model larger than 50 units): `userData.viewerScale`. A scene unit
+ * is then 1/viewerScale of a file unit.
+ *
+ * @param {?THREE.Object3D} root - The loaded model
+ * @return {number} The scale, 1 when none was applied
+ */
+export function viewerScale(root) {
+	const scale = Number(recorded(root, (data) => data.viewerScale))
+	return Number.isFinite(scale) && scale > 0 ? scale : 1
+}
+
+/**
+ * Millimetres per unit of the file a model was loaded from: the unit it was written in,
+ * before any rescale of the viewer's.
  *
  * @param {?string} filename - The file the model was loaded from (a path is fine)
  * @param {?THREE.Object3D} [root] - The loaded model, read for formats that record a unit
- * @return {number} Millimetres per unit
+ * @return {number} Millimetres per file unit
  */
-export function millimetresPerUnit(filename, root = null) {
+export function millimetresPerFileUnit(filename, root = null) {
 	const extension = String(filename ?? '').split('/').pop().split('.').pop().toLowerCase()
 	if (extension === '3dm') {
 		return rhinoUnit(root) ?? MILLIMETRE
@@ -167,5 +199,19 @@ export function millimetresPerUnit(filename, root = null) {
 	if (extension === '3mf') {
 		return threeMFUnit(root) ?? MILLIMETRE
 	}
+	if (extension === 'fbx') {
+		return fbxUnit(root) ?? CENTIMETRE
+	}
 	return SOURCE_UNITS[extension] ?? MILLIMETRE
+}
+
+/**
+ * Millimetres per scene unit for a model.
+ *
+ * @param {?string} filename - The file the model was loaded from (a path is fine)
+ * @param {?THREE.Object3D} [root] - The loaded model, read for formats that record a unit
+ * @return {number} Millimetres per unit
+ */
+export function millimetresPerUnit(filename, root = null) {
+	return millimetresPerFileUnit(filename, root) / viewerScale(root)
 }

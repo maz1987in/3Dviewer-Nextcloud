@@ -552,6 +552,10 @@ class FbxLoader extends BaseLoader {
 			const targetSize = 5
 			const scaleFactor = targetSize / maxDim
 			object3D.scale.multiplyScalar(scaleFactor)
+			// Recorded so the model's true size can be read back: measurements and export
+			// divide it out again (utils/sourceUnits.js). FBXLoader has already recorded
+			// the file's own unit, GlobalSettings' UnitScaleFactor, as userData.unitScaleFactor.
+			object3D.userData.viewerScale = (object3D.userData.viewerScale ?? 1) * scaleFactor
 			logger.info('FBXLoader', `Normalized scale: ${maxDim.toFixed(1)} → ${targetSize} (factor: ${scaleFactor.toFixed(4)})`)
 		}
 
