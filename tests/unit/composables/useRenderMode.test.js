@@ -49,6 +49,23 @@ describe('useRenderMode', () => {
 		expect(red.opacity).toBe(0.8)
 	})
 
+	it.each(['clay', 'normals', 'xray'])('%s keeps what the part is called, its faceting, and a hidden material hidden', (m) => {
+		const group = new THREE.Group()
+		const own = new THREE.MeshPhongMaterial({ name: 'Bracket_Steel', flatShading: true, polygonOffset: true, polygonOffsetFactor: -1 })
+		const hidden = new THREE.MeshPhongMaterial({ visible: false })
+		const mesh = new THREE.Mesh(new THREE.BoxGeometry(), [own, hidden])
+		group.add(mesh)
+		const rm = useRenderMode()
+		rm.init(group)
+		rm.setMode(m)
+		const [standIn, hiddenStandIn] = mesh.material
+		expect(standIn.name).toBe('Bracket_Steel')
+		expect(standIn.flatShading).toBe(true)
+		expect(standIn.polygonOffset).toBe(true)
+		expect(standIn.polygonOffsetFactor).toBe(-1)
+		expect(hiddenStandIn.visible).toBe(false)
+	})
+
 	it('keeps each part its colour in clay', () => {
 		const { group, a } = model()
 		const rm = useRenderMode()

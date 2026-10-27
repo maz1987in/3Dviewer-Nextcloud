@@ -66,8 +66,17 @@ export function useRenderMode() {
 
 	const makeOverride = (original, m) => {
 		const shared = {
+			// The name is what an OBJ export (Send to Slicer's among them) writes for each
+			// part's `usemtl`, and the slicer path does not set the mode aside
+			name: original.name,
 			side: original.side,
 			wireframe: original.wireframe,
+			flatShading: Boolean(original.flatShading),
+			visible: original.visible,
+			// Coplanar decals and overlays keep the offset that stops them flickering
+			polygonOffset: original.polygonOffset,
+			polygonOffsetFactor: original.polygonOffsetFactor,
+			polygonOffsetUnits: original.polygonOffsetUnits,
 		}
 		if (m === 'clay') {
 			if (!clayMatcap) clayMatcap = createClayMatcap()
