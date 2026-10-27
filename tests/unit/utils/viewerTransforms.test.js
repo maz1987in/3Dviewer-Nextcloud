@@ -3,15 +3,15 @@
  * before the first move, and withOwnTransforms puts it back for one call only.
  */
 import * as THREE from 'three'
-import { ownTransformOf, rememberOwnTransform, withOwnTransforms } from '../../../src/utils/viewerTransforms.js'
+import { MOVED_BY, ownTransformOf, rememberOwnTransform, withOwnTransforms, withPartsTogether } from '../../../src/utils/viewerTransforms.js'
 
 describe('rememberOwnTransform', () => {
 	it('keeps the first transform, not one taken after a tool moved the object', () => {
 		const object = new THREE.Object3D()
 		object.position.set(1, 2, 3)
-		rememberOwnTransform(object)
+		rememberOwnTransform(object, MOVED_BY.exploded)
 		object.position.set(9, 9, 9)
-		rememberOwnTransform(object)
+		rememberOwnTransform(object, MOVED_BY.animation)
 		expect(ownTransformOf(object).position.toArray()).toEqual([1, 2, 3])
 	})
 
@@ -26,8 +26,8 @@ describe('withOwnTransforms', () => {
 		const part = new THREE.Mesh(new THREE.BoxGeometry())
 		part.morphTargetInfluences = [0.25]
 		root.add(part)
-		rememberOwnTransform(root)
-		rememberOwnTransform(part)
+		rememberOwnTransform(root, MOVED_BY.gizmo)
+		rememberOwnTransform(part, MOVED_BY.exploded)
 		root.rotation.set(0, 1, 0)
 		root.scale.set(2, 2, 2)
 		part.position.set(5, 0, 0)
@@ -50,10 +50,18 @@ describe('withOwnTransforms', () => {
 		expect(part.morphTargetInfluences[0]).toBe(1)
 	})
 
-	it('can leave the root where the viewer has it', () => {
+	it('can undo only what some tools moved', () => {
 		const { root, part } = moved()
-		const seen = withOwnTransforms(root, () => [root.scale.x, part.position.x], { keepRoot: true })
+		const seen = withOwnTransforms(root, () => [root.scale.x, part.position.x], { movedBy: [MOVED_BY.exploded] })
 		expect(seen).toEqual([2, 0])
+		expect(withPartsTogether(root, () => [root.scale.x, part.position.x])).toEqual([2, 0])
+	})
+
+	it('undoes an object any of the named tools recorded', () => {
+		const { root, part } = moved()
+		rememberOwnTransform(part, MOVED_BY.animation)
+		expect(withOwnTransforms(root, () => part.position.x, { movedBy: [MOVED_BY.animation] })).toBe(0)
+		expect(withOwnTransforms(root, () => part.position.x, { movedBy: [MOVED_BY.gizmo] })).toBe(5)
 	})
 
 	it('gives the viewer\'s transforms back when the call throws', () => {

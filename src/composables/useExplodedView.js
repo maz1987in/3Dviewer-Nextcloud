@@ -10,7 +10,7 @@
 import { ref, shallowRef, computed } from 'vue'
 import { Vector3, Box3 } from 'three'
 import { logger } from '../utils/logger.js'
-import { ownTransformOf, rememberOwnTransform } from '../utils/viewerTransforms.js'
+import { MOVED_BY, ownTransformOf, rememberOwnTransform } from '../utils/viewerTransforms.js'
 
 export function useExplodedView() {
 	const isActive = ref(false)
@@ -58,7 +58,7 @@ export function useExplodedView() {
 
 		const entries = meshes.map((mesh) => {
 			// Where the model puts the part, whatever moved it since
-			rememberOwnTransform(mesh)
+			rememberOwnTransform(mesh, MOVED_BY.exploded)
 			const originalPos = ownTransformOf(mesh).position.clone()
 			box.setFromObject(mesh)
 			box.getCenter(meshCenter)

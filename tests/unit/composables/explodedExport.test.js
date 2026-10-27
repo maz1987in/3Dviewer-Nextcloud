@@ -2,9 +2,10 @@
  * An export is a file of the model, not of the view: a model exported while Exploded
  * view had its parts apart must come out with them together. STL, OBJ and PLY (and Send
  * to Slicer's copies of them) are written in one synchronous call inside
- * withOwnDisplayState; GLB, USDZ and 3MF are written asynchronously, so the viewer
- * puts the parts together for the export with `suspend`. Either way, the transform the
- * gizmo gave the model is exported, as the user placed it.
+ * withExportState; GLB, USDZ and 3MF are written asynchronously, so the viewer puts
+ * the parts together for the export with `suspend`. Either way, the transform the gizmo
+ * gave the model and the pose its animation is in are exported, as the user has them;
+ * a thumbnail, drawn inside withOwnDisplayState, undoes both.
  */
 import * as THREE from 'three'
 import { OBJExporter } from 'three/examples/jsm/exporters/OBJExporter.js'
@@ -12,7 +13,7 @@ import { STLExporter } from 'three/examples/jsm/exporters/STLExporter.js'
 import { useExplodedView } from '../../../src/composables/useExplodedView.js'
 import { useTransformGizmo } from '../../../src/composables/useTransformGizmo.js'
 import { useAnimation } from '../../../src/composables/useAnimation.js'
-import { withOwnDisplayState } from '../../../src/utils/ownDisplayState.js'
+import { withExportState, withOwnDisplayState } from '../../../src/utils/ownDisplayState.js'
 import { build3MFModelXml } from '../../../src/utils/threeMFWriter.js'
 
 jest.mock('../../../src/utils/logger.js', () => ({
@@ -33,8 +34,6 @@ jest.mock('three/examples/jsm/controls/TransformControls.js', () => {
 	}
 })
 
-// The way useExport and SlicerModal call it
-const OWN_STATE = { keepRootTransform: true }
 
 function model() {
 	const root = new THREE.Group()
@@ -67,13 +66,13 @@ describe.each([
 		const { root } = exploded()
 		expect(write(root)).not.toBe(together)
 
-		expect(withOwnDisplayState(root, () => write(root), OWN_STATE)).toBe(together)
+		expect(withExportState(root, () => write(root))).toBe(together)
 	})
 
 	it('leaves the viewer exploded', () => {
 		const { root } = exploded()
 		const apart = root.children.map((child) => child.position.x)
-		withOwnDisplayState(root, () => write(root), OWN_STATE)
+		withExportState(root, () => write(root))
 		expect(root.children.map((child) => child.position.x)).toEqual(apart)
 	})
 
@@ -91,7 +90,32 @@ describe.each([
 		root.scale.set(2, 2, 2)
 		root.updateMatrixWorld(true)
 
-		expect(withOwnDisplayState(root, () => write(root), OWN_STATE)).toBe(expected)
+		expect(withExportState(root, () => write(root))).toBe(expected)
+	})
+
+	it('writes the pose a paused animation holds, which a thumbnail does not draw', () => {
+		const named = () => {
+			const root = model()
+			root.children[0].name = 'lift'
+			return root
+		}
+		const posed = named()
+		posed.children[0].position.y = 2.5
+		posed.updateMatrixWorld(true)
+		const expected = write(posed)
+
+		const root = named()
+		const animation = useAnimation()
+		animation.initAnimations(root, [new THREE.AnimationClip('lift', 1, [
+			new THREE.VectorKeyframeTrack('lift.position', [0, 1], [0, 0, 0, 0, 5, 0]),
+		])])
+		animation.update(0.5)
+		animation.pause()
+		root.updateMatrixWorld(true)
+
+		expect(withExportState(root, () => write(root))).toBe(expected)
+		expect(withOwnDisplayState(root, () => write(root))).toBe(write(named()))
+		animation.dispose()
 	})
 })
 

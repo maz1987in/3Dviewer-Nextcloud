@@ -8,7 +8,7 @@
 
 import { ref } from 'vue'
 import { logger } from '../utils/logger.js'
-import { ownTransformOf, rememberOwnTransform } from '../utils/viewerTransforms.js'
+import { MOVED_BY, ownTransformOf, rememberOwnTransform } from '../utils/viewerTransforms.js'
 
 export function useTransformGizmo() {
 	const isActive = ref(false)
@@ -30,7 +30,7 @@ export function useTransformGizmo() {
 	 * @param {THREE.Object3D} object - The model root
 	 */
 	const rememberTransform = (object) => {
-		rememberOwnTransform(object)
+		rememberOwnTransform(object, MOVED_BY.gizmo)
 	}
 
 	/**

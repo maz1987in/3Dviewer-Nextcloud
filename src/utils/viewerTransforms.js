@@ -15,8 +15,21 @@
  * Web Worker.
  */
 
+/**
+ * The tools that move objects, as they record themselves. A thumbnail undoes every one;
+ * an export undoes only Exploded view, and keeps where the user placed the model and
+ * the pose its animation is in (see `withExportState` in ownDisplayState.js).
+ */
+export const MOVED_BY = Object.freeze({
+	exploded: 'exploded',
+	gizmo: 'gizmo',
+	animation: 'animation',
+})
+
 // object -> { position, quaternion, scale, influences }
 const ownTransforms = new WeakMap()
+// object -> Set of the MOVED_BY tools that recorded it
+const recordedBy = new WeakMap()
 
 /**
  * An object's transform as it is now.
@@ -51,14 +64,20 @@ function applyTransform(object, transform) {
 /**
  * Remember an object's transform as the model's own, before a tool first moves it. Only
  * the first call for an object counts, so a later one, made after a tool has moved it,
- * cannot take the moved transform for the model's.
+ * cannot take the moved transform for the model's; every tool that calls is noted.
  *
  * @param {THREE.Object3D} object - The object
+ * @param {string} tool - Which tool moves it, one of MOVED_BY
  */
-export function rememberOwnTransform(object) {
-	if (object?.position && !ownTransforms.has(object)) {
-		ownTransforms.set(object, transformOf(object))
+export function rememberOwnTransform(object, tool) {
+	if (!object?.position) {
+		return
 	}
+	if (!ownTransforms.has(object)) {
+		ownTransforms.set(object, transformOf(object))
+		recordedBy.set(object, new Set())
+	}
+	recordedBy.get(object).add(tool)
 }
 
 /**
@@ -81,15 +100,15 @@ export function ownTransformOf(object) {
  * @param {THREE.Object3D} root - The model
  * @param {Function} fn - Typically a single `renderer.render()`
  * @param {object} [options] - Options
- * @param {boolean} [options.keepRoot] - Leave `root` itself where the viewer has it (an
- *   export keeps the transform the gizmo gave the model)
+ * @param {?string[]} [options.movedBy] - Undo only what these MOVED_BY tools moved;
+ *   every tool's when omitted
  * @return {*} What `fn` returns
  */
-export function withOwnTransforms(root, fn, { keepRoot = false } = {}) {
+export function withOwnTransforms(root, fn, { movedBy = null } = {}) {
 	const moved = []
 	root.traverse((child) => {
 		const own = ownTransforms.get(child)
-		if (own && !(keepRoot && child === root)) {
+		if (own && (!movedBy || movedBy.some((tool) => recordedBy.get(child).has(tool)))) {
 			moved.push([child, transformOf(child)])
 			applyTransform(child, own)
 		}
@@ -106,4 +125,16 @@ export function withOwnTransforms(root, fn, { keepRoot = false } = {}) {
 		}
 		root.updateWorldMatrix(true, true)
 	}
+}
+
+/**
+ * Run `fn` with a model's exploded parts together, and nothing else a tool moved
+ * undone: what the model is, as placed and posed, for an export or a measurement.
+ *
+ * @param {THREE.Object3D} root - The model
+ * @param {Function} fn - The call
+ * @return {*} What `fn` returns
+ */
+export function withPartsTogether(root, fn) {
+	return withOwnTransforms(root, fn, { movedBy: [MOVED_BY.exploded] })
 }
