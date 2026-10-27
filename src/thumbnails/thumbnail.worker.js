@@ -22,6 +22,7 @@
 import * as THREE from 'three'
 import { setAppWebRoot } from '../loaders/appAssetPath.js'
 import { loadModelByExtension } from '../loaders/registry.js'
+import { describeError } from './errors.js'
 import { EmptyModelError, renderThumbnail } from './renderThumbnail.js'
 import { createWorkerResources, guardWorkerRequests, RefusedResourceError } from './workerResources.js'
 
@@ -111,7 +112,7 @@ function answerProbe() {
 			? { probe: true, ok: true }
 			: { probe: true, ok: false, error: 'No WebGL 2 context on an OffscreenCanvas' })
 	} catch (error) {
-		self.postMessage({ probe: true, ok: false, error: error?.message || String(error) })
+		self.postMessage({ probe: true, ok: false, error: describeError(error) })
 	}
 }
 
@@ -129,7 +130,7 @@ function failedStage(stage, error) {
 		// Whatever the loader made of the refusal, it is the model's doing
 		return 'load'
 	}
-	const text = String(error?.message ?? error)
+	const text = describeError(error)
 	if (stage === 'load' && /dynamically imported module|Importing a module script failed|Failed to fetch|NetworkError/i.test(text)) {
 		return 'environment'
 	}
@@ -188,7 +189,7 @@ self.onmessage = async ({ data }) => {
 		const reason = resources.refused.length > 0
 			? new RefusedResourceError(resources.refused[0])
 			: (xmlTooLarge ?? error)
-		const message = { ok: false, error: reason?.message || String(reason), stage: failedStage(stage, error) }
+		const message = { ok: false, error: describeError(reason), stage: failedStage(stage, error) }
 		if (error instanceof EmptyModelError) {
 			message.empty = true
 		}
