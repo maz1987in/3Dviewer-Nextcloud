@@ -99,25 +99,6 @@ class AssetController extends Controller
         return new FileDisplayResponse($filePath, $mimeType);
     }
 
-    /**
-     * Serve decoder files directly from root.
-     * @NoCSRFRequired
-     * @PublicPage
-     */
-    public function serveDecoder(string $filename): FileDisplayResponse
-    {
-        $appRoot = dirname(__DIR__, 2);
-        $filePath = $appRoot . '/' . $filename;
-
-        if (!file_exists($filePath)) {
-            throw new \InvalidArgumentException('Asset not found');
-        }
-
-        $mimeType = $this->getMimeType($filename);
-
-        return new FileDisplayResponse($filePath, $mimeType);
-    }
-
     private function getMimeType(string $filename): string
     {
         $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
