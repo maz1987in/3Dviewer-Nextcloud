@@ -688,7 +688,7 @@ describe('loadModelForBackground in the queue', () => {
 			const dae = `<?xml version="1.0" encoding="utf-8"?>
 <COLLADA xmlns="http://www.collada.org/2005/11/COLLADASchema" version="1.4.1">
 <asset><up_axis>Y_UP</up_axis></asset>
-<library_images><image id="img"><init_from>${QUERY_URL.replace('&', '&amp;')}</init_from></image></library_images>
+<library_images><image id="img"><init_from>${QUERY_URL.replaceAll('&', '&amp;')}</init_from></image></library_images>
 <library_effects><effect id="fx"><profile_COMMON><newparam sid="surf"><surface type="2D"><init_from>img</init_from></surface></newparam><newparam sid="samp"><sampler2D><source>surf</source></sampler2D></newparam><technique sid="common"><lambert><diffuse><texture texture="samp" texcoord="UV"/></diffuse></lambert></technique></profile_COMMON></effect></library_effects>
 <library_materials><material id="mat"><instance_effect url="#fx"/></material></library_materials>
 <library_geometries><geometry id="quad"><mesh>
