@@ -9,6 +9,7 @@ use OCA\ThreeDViewer\Service\PathLocator;
 use OCP\Files\File;
 use OCP\Files\Folder;
 use OCP\Files\NotFoundException;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -407,6 +408,38 @@ class ModelDependencyResolverTest extends TestCase
         $this->assertSame($texture, $this->resolver->resolve($model, 'wood.png'));
     }
 
+    public function testFindsEachImagesFileWhenOnlySomeImagesHaveOne(): void
+    {
+        $model = $this->modelNamed(
+            'chair.dae',
+            '<COLLADA><image id="a"></image><image id="b"><init_from>b.png</init_from></image><image id="c"/>'
+            . '<image id="d"></image><image id="e"><init_from><ref>e.png</ref></init_from></image></COLLADA>',
+            ['b.png' => $this->fileNamed('b.png'), 'e.png' => $this->fileNamed('e.png')],
+        );
+
+        $this->assertSame('b.png', $this->resolver->resolve($model, 'b.png')->getName());
+        $this->assertSame('e.png', $this->resolver->resolve($model, 'e.png')->getName());
+    }
+
+    public function testDoesNotTakeAnEffectSurfaceImageIdForAFile(): void
+    {
+        // Blender, SketchUp and OpenCOLLADA write 1.4 like this: the effect's surface names
+        // the <image> by id, and only the <image> names the file. An id that happens to look
+        // like an image file sits beside the model here, so only the rule keeps it private.
+        $model = $this->modelNamed(
+            'chair.dae',
+            '<COLLADA><library_images><image id="wood.png"><init_from>checker.png</init_from></image>'
+            . '</library_images><library_effects><effect id="fx"><profile_COMMON>'
+            . '<newparam sid="surf"><surface type="2D"><init_from>wood.png</init_from></surface></newparam>'
+            . '</profile_COMMON></effect></library_effects></COLLADA>',
+            ['checker.png' => $this->fileNamed('checker.png'), 'wood.png' => $this->fileNamed('wood.png')],
+        );
+
+        $this->assertSame('checker.png', $this->resolver->resolve($model, 'checker.png')->getName());
+        $this->expectException(NotFoundException::class);
+        $this->resolver->resolve($model, 'wood.png');
+    }
+
     public function testServesATextureAnX3dFileDeclares(): void
     {
         $texture = $this->fileNamed('wood.png');
@@ -433,6 +466,94 @@ class ModelDependencyResolverTest extends TestCase
         );
 
         $this->assertSame($texture, $this->resolver->resolve($model, 'local.png'));
+    }
+
+    public function testServesOnlyWhatAnX3dImageTextureNames(): void
+    {
+        // An Anchor, Inline, AudioClip or Script url names no texture, so it is no
+        // dependency, even when a file of that name sits beside the model
+        $texture = $this->fileNamed('wood grain.png');
+        $model = $this->modelNamed(
+            'chair.x3d',
+            '<X3D><Scene><Inline url=\'"room.png"\'/><AudioClip url=\'"hum.png"\'/>'
+            . '<ImageTexture3D url=\'"volume.png"\'/>'
+            . '<ImageTexture DEF="W" url="&quot;wood grain.png&quot;"/></Scene></X3D>',
+            [
+                'wood grain.png' => $texture,
+                'room.png' => $this->fileNamed('room.png'),
+                'hum.png' => $this->fileNamed('hum.png'),
+                'volume.png' => $this->fileNamed('volume.png'),
+            ],
+        );
+
+        $this->assertSame($texture, $this->resolver->resolve($model, 'wood grain.png'));
+        foreach (['room.png', 'hum.png', 'volume.png'] as $name) {
+            try {
+                $this->resolver->resolve($model, $name);
+                $this->fail("{$name} should not be servable");
+            } catch (NotFoundException) {
+                // Not declared by an ImageTexture
+            }
+        }
+    }
+
+    /**
+     * Uploads crafted so that a pattern running from each tag start to the end of the
+     * document would be quadratic. Each is scanned once, forward; mirrors the linear-time
+     * tests in tests/unit/loaders/xmlModelDependencies.test.js.
+     *
+     * @return array<string, array{string, string}>
+     */
+    public static function craftedXmlDocuments(): array
+    {
+        return [
+            'unclosed <ImageTexture starts' => ['chair.x3d', str_repeat('<ImageTexture ', 200000)],
+            'one huge unterminated quoted value' => ['chair.x3d', '<ImageTexture url="' . str_repeat('<ImageTexture ', 200000)],
+            'unterminated values in one closed tag' => ['chair.x3d', '<ImageTexture ' . str_repeat('a="', 300000) . '>'],
+            '<init_from without >' => ['chair.dae', '<image>' . str_repeat('<init_from ', 200000) . '</image>'],
+            '<image without >' => ['chair.dae', str_repeat('<image ', 300000)],
+            'unclosed <image> blocks' => ['chair.dae', str_repeat('<image><init_from>a.png</init_from>', 60000)],
+            'a million empty <image> blocks' => ['chair.dae', str_repeat('<image></image>', 1000000)],
+        ];
+    }
+
+    #[DataProvider('craftedXmlDocuments')]
+    public function testScansACraftedXmlDocumentInLinearTime(string $name, string $content): void
+    {
+        $model = $this->modelNamed($name, $content, ['a.png' => $this->fileNamed('a.png')]);
+
+        $started = microtime(true);
+
+        try {
+            $this->resolver->resolve($model, 'wood.png');
+            $this->fail('Nothing named wood.png is declared');
+        } catch (NotFoundException) {
+            // Expected: the point is how long it took
+        }
+
+        $this->assertLessThan(1.0, microtime(true) - $started);
+    }
+
+    public function testReadsAnMtllibLineWithALongRunOfBlanksInLinearTime(): void
+    {
+        // A lazy value followed by optional trailing blanks retried the blank run once per
+        // character of the value
+        $material = $this->fileNamed('chair.mtl', "newmtl seat\nmap_Kd wood.png\n");
+        $model = $this->modelNamed(
+            'chair.obj',
+            'mtllib chair.mtl' . str_repeat(' ', 500000) . "x\nf 1 2 3\n",
+            ['chair.mtl' => $material, 'wood.png' => $this->fileNamed('wood.png')],
+        );
+
+        $started = microtime(true);
+
+        try {
+            $this->resolver->resolve($model, 'wood.png');
+        } catch (NotFoundException) {
+            // The odd line names "chair.mtl   …   x"; only the timing is under test
+        }
+
+        $this->assertLessThan(1.0, microtime(true) - $started);
     }
 
     public function testRefusesAnUndeclaredSiblingOfAColladaFile(): void

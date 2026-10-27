@@ -162,9 +162,11 @@ describe('readRows', () => {
 			{ id: 3, name: 'part.STL' },
 			{ id: 4, name: 'scene.dae' },
 			{ id: 5, name: 'mesh.glb' },
+			{ id: 6, name: 'climate.nc' },
 		])
 
-		expect(readRows(document).ids).toEqual([3, 5])
+		// .nc may be NetCDF as well as G-code, so it is left to the viewer
+		expect(readRows(document).ids).toEqual([3, 4, 5])
 	})
 
 	test('ignores rows without a usable id', () => {

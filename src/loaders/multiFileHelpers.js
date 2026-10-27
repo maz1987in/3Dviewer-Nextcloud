@@ -390,9 +390,229 @@ export function parseMtlTextureFiles(mtlContent) {
 }
 
 /**
+ * The image files a COLLADA document names: the `<init_from>` of each `<image>`, as
+ * COLLADA 1.4 writes it, or the `<ref>` inside it, as 1.5 does.
+ *
+ * Only inside `<image>`: a 1.4 effect also has `<surface><init_from>img</init_from>`,
+ * which holds the *id* of an `<image>`, not a file. Blender, SketchUp and OpenCOLLADA
+ * all write it, and taking it for a file made every textured model they export look like
+ * it was missing a companion.
+ *
+ * A forward scan with indexOf rather than a regular expression: a pattern that skips to
+ * the next `>` from every `<init_from` is quadratic on a document without one, and this
+ * runs on the Files page for every COLLADA file in a folder.
+ *
+ * @param {string} content - Raw document text
+ * @return {string[]} The values as written, in document order
+ */
+function colladaImageFiles(content) {
+	const lower = content.toLowerCase()
+	const values = []
+	// The first <init_from at or after the last search, kept across <image> blocks: a
+	// search per block would run to the end of the document each time, which is
+	// quadratic in a document of many images without one. -1 once there is none left.
+	let nextInit = -2
+	let at = 0
+	for (;;) {
+		const start = lower.indexOf('<image', at)
+		if (start === -1) {
+			break
+		}
+		// <image>, <image id=…>, not <imager> or <image_…>
+		if (!/[\s/>]/.test(lower.charAt(start + 6))) {
+			at = start + 6
+			continue
+		}
+		const openEnd = lower.indexOf('>', start)
+		if (openEnd === -1) {
+			break
+		}
+		if (lower.charAt(openEnd - 1) === '/') {
+			// <image …/>: no file
+			at = openEnd + 1
+			continue
+		}
+		const close = lower.indexOf('</image', openEnd)
+		if (close === -1) {
+			break
+		}
+		// Each <init_from> of this image: its text (1.4), or the text of its <ref> (1.5)
+		let p = openEnd + 1
+		for (;;) {
+			if (nextInit !== -1 && nextInit < p) {
+				nextInit = lower.indexOf('<init_from', p)
+			}
+			const init = nextInit
+			if (init === -1 || init >= close) {
+				break
+			}
+			const tagEnd = lower.indexOf('>', init)
+			if (tagEnd === -1 || tagEnd >= close) {
+				break
+			}
+			let textStart = tagEnd + 1
+			let textEnd = lower.indexOf('<', textStart)
+			if (textEnd !== -1 && textEnd < close && content.slice(textStart, textEnd).trim() === ''
+				&& lower.startsWith('<ref', textEnd) && /[\s/>]/.test(lower.charAt(textEnd + 4))) {
+				const refEnd = lower.indexOf('>', textEnd)
+				if (refEnd === -1 || refEnd >= close) {
+					break
+				}
+				textStart = refEnd + 1
+				textEnd = lower.indexOf('<', textStart)
+			}
+			if (textEnd === -1 || textEnd > close) {
+				break
+			}
+			values.push(content.slice(textStart, textEnd))
+			p = textEnd
+		}
+		at = close + 7
+	}
+	return values
+}
+
+/**
+ * Decode XML's predefined entities and character references, as a value may hold them.
+ *
+ * @param {string} text - As written in the document
+ * @return {string} The text it stands for
+ */
+function decodeXmlEntities(text) {
+	return text.replace(/&(?:#x([0-9a-f]+)|#(\d+)|(quot|apos|amp|lt|gt));/gi, (whole, hex, dec, name) => {
+		if (name) {
+			return { quot: '"', apos: "'", amp: '&', lt: '<', gt: '>' }[name.toLowerCase()]
+		}
+		const code = hex ? parseInt(hex, 16) : parseInt(dec, 10)
+		return code > 0 && code <= 0x10FFFF ? String.fromCodePoint(code) : whole
+	})
+}
+
+/**
+ * The value of one attribute in the inside of a start tag, read attribute by attribute,
+ * so a name inside another attribute's value is never taken for one. Linear in the tag.
+ * Mirrors attributeValue() in lib/Service/ModelDependencyResolver.php.
+ *
+ * @param {string} tag - What follows the element name, up to its closing `>`
+ * @param {string} wanted - Attribute name, lower case
+ * @return {?string} Its raw value, or null when the tag has none
+ */
+function attributeValue(tag, wanted) {
+	const isBlank = char => char === ' ' || char === '\t' || char === '\r' || char === '\n' || char === '\f'
+	let i = 0
+	while (i < tag.length) {
+		while (i < tag.length && (isBlank(tag[i]) || tag[i] === '/')) {
+			i++
+		}
+		if (i >= tag.length) {
+			break
+		}
+		const nameStart = i
+		while (i < tag.length && !isBlank(tag[i]) && !'=/>'.includes(tag[i])) {
+			i++
+		}
+		const name = tag.slice(nameStart, i)
+		while (i < tag.length && isBlank(tag[i])) {
+			i++
+		}
+		if (i >= tag.length || tag[i] !== '=') {
+			if (i === nameStart) {
+				i++
+			}
+			continue
+		}
+		i++
+		while (i < tag.length && isBlank(tag[i])) {
+			i++
+		}
+		if (i >= tag.length) {
+			break
+		}
+		let value
+		const quote = tag[i]
+		if (quote === '"' || quote === "'") {
+			const close = tag.indexOf(quote, i + 1)
+			if (close === -1) {
+				return null
+			}
+			value = tag.slice(i + 1, close)
+			i = close + 1
+		} else {
+			const valueStart = i
+			while (i < tag.length && !isBlank(tag[i])) {
+				i++
+			}
+			value = tag.slice(valueStart, i)
+		}
+		if (name.toLowerCase() === wanted) {
+			return value
+		}
+	}
+	return null
+}
+
+/**
+ * The image paths each X3D `<ImageTexture>` names in its `url`, the only texture node
+ * the X3D loader reads. Not every `url`: an Anchor's `#Top`, an Inline's scene, an
+ * AudioClip or a Script are no textures, and declaring them made a model that names any
+ * of them look like it was missing a companion.
+ *
+ * `url` is an MFString, written `url='"a.png" "b.png"'` or, entity-encoded,
+ * `url="&quot;a.png&quot;"`, a list of alternatives in order; some exporters write a
+ * bare `url="a.png"`. A forward scan, linear in the document.
+ *
+ * @param {string} content - Raw document text
+ * @return {string[]} The paths as written, in document order
+ */
+function x3dTextureUrls(content) {
+	const lower = content.toLowerCase()
+	const values = []
+	let at = 0
+	for (;;) {
+		const start = lower.indexOf('<imagetexture', at)
+		if (start === -1) {
+			break
+		}
+		at = start + 13
+		if (!/[\s/>]/.test(lower.charAt(at))) {
+			// <ImageTexture3D>, <ImageTextureAtlas>: not what the loader reads
+			continue
+		}
+		// The start tag, up to the first > outside a quoted value
+		let quote = null
+		let end = at
+		for (; end < content.length; end++) {
+			const char = content[end]
+			if (quote) {
+				if (char === quote) {
+					quote = null
+				}
+			} else if (char === '"' || char === "'") {
+				quote = char
+			} else if (char === '>') {
+				break
+			}
+		}
+		if (end >= content.length) {
+			// A start tag that never closes: nothing after it is a tag either
+			break
+		}
+		const url = attributeValue(content.slice(at, end), 'url')
+		at = end + 1
+		if (url === null) {
+			continue
+		}
+		const list = decodeXmlEntities(url).trim()
+		const quoted = [...list.matchAll(/"([^"]*)"/g)].map(match => match[1])
+		values.push(...(quoted.length > 0 || list.includes('"') ? quoted : list.split(/\s+/)))
+	}
+	return values
+}
+
+/**
  * Texture paths a COLLADA or X3D document declares, in document order.
  *
- * Matched with patterns rather than parsed with DOMParser: only the paths are needed,
+ * Matched by scanning rather than parsed with DOMParser: only the paths are needed,
  * and the document comes from whoever uploaded it. The server applies the same rules in
  * ModelDependencyResolver, which is what actually gates the public route — this is the
  * client half, so it knows which names to ask for.
@@ -406,7 +626,7 @@ export function parseXmlModelDependencies(content, extension) {
 		return []
 	}
 
-	const found = []
+	const found = new Set()
 	const push = (raw) => {
 		const value = String(raw).trim()
 		// A scheme means it is not a file beside the model: data:, http:, https:, file:.
@@ -419,30 +639,16 @@ export function parseXmlModelDependencies(content, extension) {
 		} catch {
 			// Leave a malformed escape sequence as written.
 		}
-		if (!found.includes(decoded)) {
-			found.push(decoded)
-		}
+		found.add(decoded)
 	}
 
 	if (extension === 'dae') {
-		// COLLADA 1.4 writes <init_from>path</init_from>; 1.5 wraps it in <ref>.
-		const pattern = /<init_from\b[^>]*>\s*(?:<ref\b[^>]*>\s*)?([^<]+?)\s*(?:<\/ref>\s*)?<\/init_from>/gi
-		let match
-		while ((match = pattern.exec(content)) !== null) {
-			push(match[1])
-		}
+		colladaImageFiles(content).map(decodeXmlEntities).forEach(push)
 	} else if (extension === 'x3d') {
-		// url is an MFString: whitespace-separated, quoted alternatives.
-		const pattern = /\burl\s*=\s*(["'])([\s\S]*?)\1/gi
-		let match
-		while ((match = pattern.exec(content)) !== null) {
-			for (const entry of match[2].trim().split(/\s+/)) {
-				push(entry.replace(/^["']|["']$/g, ''))
-			}
-		}
+		x3dTextureUrls(content).forEach(push)
 	}
 
-	return found
+	return [...found]
 }
 
 /**

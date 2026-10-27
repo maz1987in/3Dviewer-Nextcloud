@@ -9,7 +9,8 @@ import { fileURLToPath } from 'url'
  * OffscreenCanvas and WebGL under SwiftShader. Every model format the viewer opens is
  * rendered through renderInWorker() — from tests/fixtures where there is one, from a
  * sample built below where there is not — and the PNG is read back pixel by pixel.
- * The formats in WORKER_UNSAFE_FORMATS are checked to still fail, and to be kept out.
+ * The XML formats (3MF, AMF, COLLADA, X3D) run on the worker's own DOMParser, which is
+ * checked against hostile XML as well.
  *
  * Needs `npm run build` first. The server mounts the project root where Nextcloud serves
  * an app — custom_apps/ for an App Store install, apps/ for a bundled one — so a URL that
@@ -68,7 +69,8 @@ END-ISO-10303-21;
  *
  * The FCStd: occt-import-js's cube.FCStd stores its body as PartShape.brp, as FreeCAD
  * does, and is rendered as it is. The same body under a `.brep` name, which some
- * exporters write, is built here so that path stays covered too.
+ * exporters write, is built here so that path stays covered too, and so is a PartDesign
+ * document whose earlier features are saved but hidden (see partDesignFcstd).
  */
 async function buildGeneratedSamples() {
   // @ts-ignore plain ES module without types
@@ -78,6 +80,10 @@ async function buildGeneratedSamples() {
     'Document.xml': cube['Document.xml'],
     'PartShape.brep': cube['PartShape.brp'],
   })))
+  const assembly = fs.readFileSync(path.join(PROJECT_ROOT, OCCT_SAMPLES, 'cax-if-brep/as1_pe_203.brep'))
+  generated.set('part-design.FCStd', partDesignFcstd(zipSync, cube['PartShape.brp'], assembly, true))
+  generated.set('part-design-no-gui.FCStd', partDesignFcstd(zipSync, cube['PartShape.brp'], assembly, false))
+  generated.set('tip-only.FCStd', Buffer.from(zipSync({ 'Pocket.Shape.brp': cube['PartShape.brp'] })))
   generated.set('box.ifc', Buffer.from(BOX_IFC))
   generated.set('triangle.glb', gltfToGlb(fs.readFileSync(path.join(PROJECT_ROOT, FIXTURES, 'triangle.gltf'), 'utf8')))
   generated.set('outside.gltf', Buffer.from(JSON.stringify(gltfNamingOutsideFiles())))
@@ -88,11 +94,143 @@ async function buildGeneratedSamples() {
     generated.set(name, Buffer.from(text))
   }
   generated.set('triangle.vrml', Buffer.from(TEXT_SAMPLES['triangle.wrl']))
-  generated.set('triangle.3mf', Buffer.from(zipSync({
+  const threeMf = (model: string, extra: Record<string, Uint8Array> = {}) => Buffer.from(zipSync({
     '[Content_Types].xml': new TextEncoder().encode(TEXT_SAMPLES['3mf-content-types.xml']),
     '_rels/.rels': new TextEncoder().encode(TEXT_SAMPLES['3mf-rels.xml']),
-    '3D/3dmodel.model': new TextEncoder().encode(TEXT_SAMPLES['3mf-model.xml']),
-  })))
+    '3D/3dmodel.model': new TextEncoder().encode(model),
+    ...extra,
+  }))
+  generated.set('triangle.3mf', threeMf(TEXT_SAMPLES['3mf-model.xml']))
+  // The texture travels inside the archive, and the loader hands it over as a blob: URL
+  // of its own making, which the worker allows
+  generated.set('textured.3mf', threeMf(texturedQuad3mf(true), {
+    '3D/_rels/3dmodel.model.rels': new TextEncoder().encode(TEXT_SAMPLES['3mf-model-rels.xml']),
+    '3D/Texture/checker.png': new Uint8Array(fs.readFileSync(path.join(PROJECT_ROOT, FIXTURES, 'checker.png'))),
+  }))
+  generated.set('quad.3mf', threeMf(texturedQuad3mf(false)))
+  // Over the worker parser's 16 Mi characters once inflated, from a zip of a few kilobytes
+  generated.set('huge.3mf', threeMf(TEXT_SAMPLES['3mf-model.xml'].replace('<vertices>', `<vertices>${OVERSIZED_PADDING}`)))
+  generated.set('huge.x3d', Buffer.from(TEXT_SAMPLES['triangle.x3d'].replace('<Scene>', `<Scene>${OVERSIZED_PADDING}`)))
+  generated.set('textured.x3d', Buffer.from(texturedQuadX3d(true)))
+  generated.set('quad.x3d', Buffer.from(texturedQuadX3d(false)))
+  generated.set('textured.dae', Buffer.from(texturedQuadDae('checker.png')))
+  generated.set('quad.dae', Buffer.from(texturedQuadDae(null)))
+  generated.set('remote-texture.dae', Buffer.from(texturedQuadDae('https://example.invalid/checker.png')))
+  for (const [name, text] of Object.entries(HOSTILE_XML)) {
+    generated.set(name, Buffer.from(text))
+  }
+}
+
+/**
+ * A unit quad as a 3MF model, mapped with /3D/Texture/checker.png from its own archive,
+ * which the model's relationships (3mf-model-rels.xml) name.
+ *
+ * @param withMap - False for the same quad without the texture
+ */
+function texturedQuad3mf(withMap: boolean): string {
+  const material = withMap
+    ? `<m:texture2d id="2" path="/3D/Texture/checker.png" contenttype="image/png"/>
+<m:texture2dgroup id="3" texid="2"><m:tex2coord u="0" v="0"/><m:tex2coord u="1" v="0"/><m:tex2coord u="1" v="1"/><m:tex2coord u="0" v="1"/></m:texture2dgroup>`
+    : ''
+  const props = (a: number, b: number, c: number) => (withMap ? ` p1="${a}" p2="${b}" p3="${c}"` : '')
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<model unit="millimeter" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" xmlns:m="http://schemas.microsoft.com/3dmanufacturing/material/2015/02"><resources>${material}
+<object id="1" type="model"${withMap ? ' pid="3" pindex="0"' : ''}><mesh>
+<vertices><vertex x="0" y="0" z="0"/><vertex x="1" y="0" z="0"/><vertex x="1" y="1" z="0"/><vertex x="0" y="1" z="0"/></vertices>
+<triangles><triangle v1="0" v2="1" v3="2"${props(0, 1, 2)}/><triangle v1="0" v2="2" v3="3"${props(0, 2, 3)}/></triangles>
+</mesh></object></resources><build><item objectid="1"/></build></model>
+`
+}
+
+/**
+ * A unit quad as X3D, mapped with checker.png.
+ *
+ * @param withMap - False for the same quad without the texture
+ */
+function texturedQuadX3d(withMap: boolean): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<X3D profile="Interchange" version="3.3"><Scene><Shape>
+<Appearance><Material diffuseColor="0.8 0.8 0.8"/>${withMap ? '<ImageTexture url=\'"checker.png"\'/>' : ''}</Appearance>
+<IndexedFaceSet coordIndex="0 1 2 3 -1" texCoordIndex="0 1 2 3 -1" solid="false"><Coordinate point="0 0 0 1 0 0 1 1 0 0 1 0"/><TextureCoordinate point="0 0 1 0 1 1 0 1"/></IndexedFaceSet>
+</Shape></Scene></X3D>
+`
+}
+
+/**
+ * A unit quad as COLLADA, mapped with the image at `texture`.
+ *
+ * @param texture - What <init_from> names, or null for the quad with a plain colour
+ */
+function texturedQuadDae(texture: string | null): string {
+  const images = texture ? `<library_images><image id="img"><init_from>${texture}</init_from></image></library_images>` : ''
+  const diffuse = texture ? '<texture texture="samp" texcoord="UV"/>' : '<color>0.8 0.8 0.8 1</color>'
+  const params = texture
+    ? '<newparam sid="surf"><surface type="2D"><init_from>img</init_from></surface></newparam><newparam sid="samp"><sampler2D><source>surf</source></sampler2D></newparam>'
+    : ''
+  return `<?xml version="1.0" encoding="utf-8"?>
+<COLLADA xmlns="http://www.collada.org/2005/11/COLLADASchema" version="1.4.1">
+<asset><up_axis>Y_UP</up_axis></asset>
+${images}
+<library_effects><effect id="fx"><profile_COMMON>${params}<technique sid="common"><lambert><diffuse>${diffuse}</diffuse></lambert></technique></profile_COMMON></effect></library_effects>
+<library_materials><material id="mat"><instance_effect url="#fx"/></material></library_materials>
+<library_geometries><geometry id="quad"><mesh>
+<source id="pos"><float_array id="pos-a" count="12">0 0 0 1 0 0 1 1 0 0 1 0</float_array><technique_common><accessor source="#pos-a" count="4" stride="3"><param name="X" type="float"/><param name="Y" type="float"/><param name="Z" type="float"/></accessor></technique_common></source>
+<source id="uv"><float_array id="uv-a" count="8">0 0 1 0 1 1 0 1</float_array><technique_common><accessor source="#uv-a" count="4" stride="2"><param name="S" type="float"/><param name="T" type="float"/></accessor></technique_common></source>
+<vertices id="v"><input semantic="POSITION" source="#pos"/></vertices>
+<triangles count="2" material="m"><input semantic="VERTEX" source="#v" offset="0"/><input semantic="TEXCOORD" source="#uv" offset="0" set="0"/><p>0 1 2 0 2 3</p></triangles>
+</mesh></geometry></library_geometries>
+<library_visual_scenes><visual_scene id="s"><node id="n"><instance_geometry url="#quad"><bind_material><technique_common><instance_material symbol="m" target="#mat"><bind_vertex_input semantic="UV" input_semantic="TEXCOORD" input_set="0"/></instance_material></technique_common></bind_material></instance_geometry></node></visual_scene></library_visual_scenes>
+<scene><instance_visual_scene url="#s"/></scene>
+</COLLADA>
+`
+}
+
+/**
+ * The X3D triangle of TEXT_SAMPLES with a document type declaration before its root.
+ *
+ * @param doctype - The declaration
+ */
+function x3dWithDoctype(doctype: string): string {
+  return TEXT_SAMPLES['triangle.x3d'].replace('<X3D ', `${doctype}\n<X3D `)
+}
+
+/**
+ * A FreeCAD PartDesign document laid out as FreeCAD saves one: every feature keeps its
+ * shape in the archive, and GuiDocument.xml shows only the Body and its tip. Here the tip
+ * (Pocket) is the cube, and the hidden Pad, the Pocket's cutting tool and the Body's own
+ * copy are a much larger assembly, so drawing any of them changes the picture.
+ *
+ * @param zipSync - fflate's zipSync
+ * @param tip - B-Rep of the visible result
+ * @param superseded - B-Rep standing in for every hidden shape
+ * @param withGui - False to leave GuiDocument.xml out, as FreeCADCmd does
+ */
+function partDesignFcstd(zipSync, tip: Uint8Array, superseded: Uint8Array, withGui: boolean): Buffer {
+  const objects = [
+    ['Body', 'PartDesign::Body', { Shape: 'Body.Shape.brp' }],
+    ['Pad', 'PartDesign::Pad', { AddSubShape: 'Pad.AddSubShape.brp', Shape: 'Pad.Shape.brp' }],
+    ['Pocket', 'PartDesign::Pocket', { AddSubShape: 'Pocket.AddSubShape.brp', Shape: 'Pocket.Shape.brp' }],
+  ] as const
+  const documentXml = `<?xml version='1.0' encoding='utf-8'?>
+<Document SchemaVersion="4" FileVersion="1"><Properties Count="0"/>
+<Objects Count="3">${objects.map(([name, type]) => `<Object type="${type}" name="${name}" id="1"/>`).join('')}</Objects>
+<ObjectData Count="3">${objects.map(([name, , shapes]) => `<Object name="${name}"><Properties Count="${Object.keys(shapes).length}">${
+    Object.entries(shapes).map(([property, file]) => `<Property name="${property}" type="Part::PropertyPartShape"><Part file="${file}"/></Property>`).join('')
+  }</Properties></Object>`).join('')}</ObjectData></Document>`
+  const view = (name: string, visible: boolean, extra = '') => `<ViewProvider name="${name}" expanded="0"><Properties Count="1">${extra}<Property name="Visibility" type="App::PropertyBool" status="1"><Bool value="${visible}"/></Property></Properties></ViewProvider>`
+  const guiXml = `<?xml version='1.0' encoding='utf-8'?>
+<Document SchemaVersion="1"><ViewProviderData Count="3">${
+    view('Body', true, '<Property name="DisplayModeBody" type="App::PropertyEnumeration" status="1"><Integer value="0"/></Property>')
+  }${view('Pad', false)}${view('Pocket', true)}</ViewProviderData></Document>`
+  return Buffer.from(zipSync({
+    'Document.xml': new TextEncoder().encode(documentXml),
+    ...(withGui ? { 'GuiDocument.xml': new TextEncoder().encode(guiXml) } : {}),
+    'Body.Shape.brp': superseded,
+    'Pad.AddSubShape.brp': superseded,
+    'Pad.Shape.brp': superseded,
+    'Pocket.AddSubShape.brp': superseded,
+    'Pocket.Shape.brp': tip,
+  }))
 }
 
 /**
@@ -270,6 +408,9 @@ Connections:  {
   '3mf-rels.xml': `<?xml version="1.0" encoding="UTF-8"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/></Relationships>
 `,
+  '3mf-model-rels.xml': `<?xml version="1.0" encoding="UTF-8"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Target="/3D/Texture/checker.png" Id="rel1" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dtexture"/></Relationships>
+`,
   '3mf-model.xml': `<?xml version="1.0" encoding="UTF-8"?>
 <model unit="millimeter" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02"><resources><object id="1" type="model"><mesh>
 <vertices><vertex x="0" y="0" z="0"/><vertex x="1" y="0" z="0"/><vertex x="0" y="1" z="0"/></vertices>
@@ -278,11 +419,35 @@ Connections:  {
 `,
 }
 
+/** 17 Mi characters of XML comment, past the worker parser's limit of 16 Mi. */
+const OVERSIZED_PADDING = `<!--${' '.repeat(17 * 1024 * 1024)}-->`
+
+/** Ten levels of ten: a billion `lol`s, if a parser expanded the entities it declares. */
+const BILLION_LAUGHS_DTD = `<!DOCTYPE X3D [
+<!ENTITY lol "lol">
+${Array.from({ length: 9 }, (_, i) => `<!ENTITY lol${i + 1} "${`&lol${i || ''};`.repeat(10)}">`).join('\n')}
+]>`
+
 /**
- * Formats that must never be handed to the worker. Mirrors WORKER_UNSAFE_FORMATS in
- * src/thumbnails/formats.js, where each one's reason is written down.
+ * XML a model in a shared folder could carry against the worker's parser. None of it may
+ * make a request, and none may run past the time limit.
  */
-const EXPECTED_UNSAFE = ['3mf', 'amf', 'dae', 'x3d']
+const HOSTILE_XML: Record<string, string> = {
+  // Entities that would expand to a gigabyte of text
+  'billion-laughs.x3d': x3dWithDoctype(BILLION_LAUGHS_DTD)
+    .replace('<Material diffuseColor="0.8 0.4 0.2"/>', '<Material DEF="&lol9;" diffuseColor="0.8 0.4 0.2"/>'),
+  'billion-laughs.dae': TEXT_SAMPLES['triangle.dae']
+    .replace('<COLLADA ', `${BILLION_LAUGHS_DTD.replace('X3D', 'COLLADA')}\n<COLLADA `)
+    .replace('<up_axis>Y_UP</up_axis>', '<up_axis>Y_UP</up_axis><contributor><author>&lol9;</author></contributor>'),
+  // An entity whose text is at another host, and one read from the local disk
+  'external-entity.x3d': x3dWithDoctype('<!DOCTYPE X3D [<!ENTITY ext SYSTEM "https://example.invalid/entity.xml">]>')
+    .replace('<Scene>', '<Scene><WorldInfo title="&ext;"/>'),
+  'file-entity.dae': TEXT_SAMPLES['triangle.dae']
+    .replace('<COLLADA ', '<!DOCTYPE COLLADA [<!ENTITY ext SYSTEM "file:///etc/passwd">]>\n<COLLADA ')
+    .replace('<up_axis>Y_UP</up_axis>', '<up_axis>Y_UP</up_axis><contributor><author>&ext;</author></contributor>'),
+  // The DTD every X3D exporter names, which a validating parser would download
+  'external-dtd.x3d': x3dWithDoctype('<!DOCTYPE X3D PUBLIC "ISO//Web3D//DTD X3D 3.3//EN" "https://example.invalid/x3d-3.3.dtd">'),
+}
 
 const CONTENT_TYPES: Record<string, string> = {
   '.mjs': 'text/javascript',
@@ -330,10 +495,7 @@ const SAMPLES: Sample[] = [
   { name: 'gcode', extension: 'gcode', files: [`${GENERATED}square.gcode`] },
   { name: 'wrl', extension: 'wrl', files: [`${GENERATED}triangle.wrl`] },
   { name: 'vrml', extension: 'vrml', files: [`${GENERATED}triangle.vrml`] },
-]
-
-/** Samples of the formats in WORKER_UNSAFE_FORMATS, which must fail in a worker. */
-const UNSAFE_SAMPLES: Sample[] = [
+  // The XML formats, parsed with the worker's own DOMParser
   { name: 'x3d', extension: 'x3d', files: [`${GENERATED}triangle.x3d`] },
   { name: 'dae', extension: 'dae', files: [`${GENERATED}triangle.dae`] },
   { name: 'amf', extension: 'amf', files: [`${GENERATED}triangle.amf`] },
@@ -651,35 +813,121 @@ test.describe('thumbnail worker', () => {
     }
   })
 
-  test('formats that cannot run in a worker are kept out of the background', async ({ page }) => {
-    await openHarness(page, server.origin, APP_ROOTS[0])
+  test('3mf, x3d and dae keep their textures', async ({ page }) => {
+    const appRoot = APP_ROOTS[0]
+    await openHarness(page, server.origin, appRoot)
+    const checker = `${FIXTURES}checker.png`
 
-    const gate = await page.evaluate((expected) => {
-      // @ts-ignore test hook
-      const api = window.__threedviewerThumbnails
-      return {
-        listed: [...api.WORKER_UNSAFE_FORMATS].sort(),
-        allowed: expected.filter(ext => api.canRenderInBackground(ext)),
-        known: expected.filter(ext => api.isThumbnailFormat(ext)),
-      }
-    }, EXPECTED_UNSAFE)
+    for (const [extension, textured, plain] of [
+      // The 3MF carries its texture; the others are handed it, as the queue would
+      ['3mf', [`${GENERATED}textured.3mf`], [`${GENERATED}quad.3mf`]],
+      ['x3d', [`${GENERATED}textured.x3d`, checker], [`${GENERATED}quad.x3d`]],
+      ['dae', [`${GENERATED}textured.dae`, checker], [`${GENERATED}quad.dae`]],
+    ]) {
+      const withMap = await renderSample(page, appRoot, { name: `textured ${extension}`, extension, files: textured })
+      const withoutMap = await renderSample(page, appRoot, { name: `plain ${extension}`, extension, files: plain })
 
-    expect(gate.listed).toEqual([...EXPECTED_UNSAFE].sort())
-    expect(gate.allowed).toEqual([])
-    // Still model formats: the viewer makes their thumbnails when they are opened
-    expect(gate.known).toEqual(EXPECTED_UNSAFE)
+      expect(withMap.error, extension).toBeUndefined()
+      expect(withoutMap.error, extension).toBeUndefined()
+      expect(withMap.colours, extension).toBeGreaterThan(withoutMap.colours)
+    }
   })
 
-  test('the formats kept out still cannot run in a worker', async ({ page }) => {
-    await openHarness(page, server.origin, APP_ROOTS[0])
+  test('a dae texture goes through the URL guard, and one not handed fails the job', async ({ page }) => {
+    const appRoot = APP_ROOTS[0]
+    const elsewhere: string[] = []
+    await page.context().route(url => url.origin !== server.origin, (route) => {
+      elsewhere.push(route.request().url())
+      return route.abort()
+    })
+    await openHarness(page, server.origin, appRoot)
+    requested.length = 0
 
-    // If one of these starts to pass, its loader no longer needs the DOM: take it out of
-    // WORKER_UNSAFE_FORMATS and move its sample up to SAMPLES
-    for (const sample of UNSAFE_SAMPLES) {
-      const outcome = await renderSample(page, APP_ROOTS[0], sample)
-      expect(outcome, sample.name).toMatchObject({ ok: false })
-      expect(outcome.error, sample.name).toMatch(/DOMParser/)
+    const notHanded = await renderSample(page, appRoot, { name: 'dae', extension: 'dae', files: [`${GENERATED}textured.dae`] })
+    const remote = await renderSample(page, appRoot, { name: 'dae', extension: 'dae', files: [`${GENERATED}remote-texture.dae`] })
+
+    // COLLADA loads its images through three's TextureLoader, which the worker decodes
+    // with the guard in the way: neither is fetched, and both fail as refusals
+    expect(notHanded).toMatchObject({ ok: false, errorName: 'ThumbnailRefusedError', error: "Refused to load checker.png: not one of the model's files" })
+    expect(remote).toMatchObject({ ok: false, errorName: 'ThumbnailRefusedError' })
+    expect(remote.error).toContain('https://example.invalid/checker.png')
+    expect(elsewhere).toEqual([])
+    expect(requested.filter(reqPath => reqPath.endsWith('checker.png'))).toEqual([])
+  })
+
+  test('an x3d texture that was not handed is not requested', async ({ page }) => {
+    const appRoot = APP_ROOTS[0]
+    await openHarness(page, server.origin, appRoot)
+    requested.length = 0
+
+    const outcome = await renderSample(page, appRoot, { name: 'x3d', extension: 'x3d', files: [`${GENERATED}textured.x3d`] })
+
+    // The X3D loader maps only the images it was handed. The queue never gets this far
+    // without one the model names: a declared companion it could not fetch skips the file
+    expect(outcome.error).toBeUndefined()
+    expect(requested.filter(reqPath => reqPath.endsWith('checker.png'))).toEqual([])
+  })
+
+  test('hostile XML neither makes a request nor runs to the time limit', async ({ page }) => {
+    const appRoot = APP_ROOTS[0]
+    const elsewhere: string[] = []
+    await page.context().route(url => url.origin !== server.origin, (route) => {
+      elsewhere.push(route.request().url())
+      return route.abort()
+    })
+    await openHarness(page, server.origin, appRoot)
+    requested.length = 0
+
+    for (const name of ['billion-laughs.x3d', 'billion-laughs.dae', 'external-entity.x3d', 'file-entity.dae']) {
+      const started = Date.now()
+      const outcome = await renderSample(page, appRoot, { name, extension: name.split('.').pop(), files: [`${GENERATED}${name}`] })
+
+      // The parser expands no entity a document declares and loads none from elsewhere,
+      // so each one is a parse error, reported at once rather than at the limit
+      expect(outcome.ok, name).toBe(false)
+      expect(outcome.errorName, name).not.toBe('ThumbnailTimeoutError')
+      expect(Date.now() - started, name).toBeLessThan(10000)
     }
+    // A document type naming an external DTD is fine, as long as nothing fetches it
+    const withDtd = await renderSample(page, appRoot, { name: 'x3d', extension: 'x3d', files: [`${GENERATED}external-dtd.x3d`] })
+    expect(withDtd.error).toBeUndefined()
+    expect(withDtd.covered).toBeGreaterThan(0)
+    expect(elsewhere).toEqual([])
+    expect(requested.filter(reqPath => !reqPath.startsWith(`${appRoot}js/`) && !reqPath.startsWith(`${appRoot}${GENERATED}`))).toEqual([])
+  })
+
+  test('XML longer than the worker parses is skipped as too large, not as a broken browser', async ({ page }) => {
+    const appRoot = APP_ROOTS[0]
+    await openHarness(page, server.origin, appRoot)
+
+    for (const [name, extension] of [['huge.3mf', '3mf'], ['huge.x3d', 'x3d']]) {
+      const outcome = await renderSample(page, appRoot, { name, extension, files: [`${GENERATED}${name}`] })
+
+      // The 3MF wraps the parser's error in its own; the worker reports the refusal anyway.
+      // The queue skips such a file for its version without counting it against the browser
+      expect(outcome, name).toMatchObject({ ok: false, errorName: 'ThumbnailTooLargeError' })
+      expect(outcome.error, name).toMatch(/^XML document too large for a background thumbnail/)
+    }
+  })
+
+  test('fcstd draws only what FreeCAD shows', async ({ page }) => {
+    const appRoot = APP_ROOTS[0]
+    await openHarness(page, server.origin, appRoot)
+    const render = (file: string) => renderSample(page, appRoot, { name: file, extension: 'fcstd', files: [`${GENERATED}${file}`] })
+
+    const shown = await render('part-design.FCStd')
+    const tipOnly = await render('tip-only.FCStd')
+    const everything = await render('part-design-no-gui.FCStd')
+
+    // Read with the worker's own XML parser: the hidden features, the Pocket's tool and
+    // the Body's copy are left out, so the picture is the tip's alone
+    expect(shown.error).toBeUndefined()
+    expect(tipOnly.error).toBeUndefined()
+    expect(shown.covered).toBeGreaterThan(0)
+    expect(shown.covered).toBe(tipOnly.covered)
+    // Without GuiDocument.xml nothing says what is hidden, and every shape is drawn
+    expect(everything.error).toBeUndefined()
+    expect(everything.covered).not.toBe(tipOnly.covered)
   })
 
   test('a render past its time limit is stopped', async ({ page }) => {

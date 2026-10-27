@@ -34,12 +34,14 @@ import {
 	ThumbnailEnvironmentError,
 	ThumbnailRefusedError,
 	ThumbnailTimeoutError,
+	ThumbnailTooLargeError,
 } from './errors.js'
 // From formats.js rather than workerRenderer.js, which would pull in the worker factory
 import { canRenderInBackground } from './formats.js'
 
 const BYTES_PER_MB = 1048576
-// Consecutive failures that are neither a timeout, an empty model nor a refusal, after which the
+// Consecutive failures that are neither a timeout, a model too large to parse, an empty model nor
+// a refusal, after which the
 // browser is assumed unable to make thumbnails and the page stops trying
 const BREAKER_LIMIT = 3
 
@@ -310,6 +312,9 @@ export function createBackgroundQueue(deps) {
 			}
 			if (error instanceof ThumbnailTimeoutError) {
 				logger.info('backgroundQueue', 'Render ran out of time', { fileId: id })
+			} else if (error instanceof ThumbnailTooLargeError) {
+				// Like a timeout: a limit of this work, not a fault of the browser
+				logger.info('backgroundQueue', 'Model too large to parse in the background', { fileId: id })
 			} else if (error instanceof EmptyModelError) {
 				// The worker ran fine; the model just has nothing to draw
 				failureStreak = 0

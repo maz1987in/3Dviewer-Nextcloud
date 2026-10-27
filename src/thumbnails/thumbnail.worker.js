@@ -7,8 +7,9 @@
  * terminates it when the job is over, so nothing here needs to clean up after itself.
  *
  * In:  { extension, buffer, additionalFiles, appWebRoot }, with `buffer` transferred
- * Out: { ok: true, blob } or { ok: false, error, stage, empty? }, where `stage` is 'load'
- *      when the loader could not read the model and 'render' when drawing it failed
+ * Out: { ok: true, blob } or { ok: false, error, stage, empty?, refused?, tooLarge? },
+ *      where `stage` is 'load' when the loader could not read the model and 'render'
+ *      when drawing it failed; `tooLarge` when its XML was longer than the parser takes
  *
  * The job loads nothing but the files it was handed, its own data: and blob: URLs and the
  * app's decoder assets (see workerResources.js). A model that names anything else fails
@@ -26,6 +27,13 @@ import { createWorkerResources, guardWorkerRequests, RefusedResourceError } from
 
 const SIZE = 512
 
+/**
+ * Formats whose loader parses XML with `new DOMParser()`, which a worker does not have.
+ * The parser is loaded for these only, so no other job downloads it. A format missing
+ * here fails in tests/playwright/thumbnail-worker.spec.ts with "DOMParser is not defined".
+ */
+const XML_FORMATS = new Set(['3mf', 'amf', 'dae', 'x3d', 'fcstd'])
+
 // The running job's resources. Until a job names its files and the app root, nothing
 // but data: URLs may be loaded.
 let resources = createWorkerResources({ baseUrl: self.location.href })
@@ -37,6 +45,10 @@ guardWorkerRequests(self, () => resources)
 // Loaders that set up no loading manager of their own use the default one, and the glTF
 // and 3DS loaders hand it every URL they could not map to a file themselves
 THREE.DefaultLoadingManager.setURLModifier((url) => resources.resolve(url))
+
+// A document the XML parser refused for its size, during the running job. Loaders may
+// wrap the error in their own, so the parser reports it here as well.
+let xmlTooLarge = null
 
 // Image decodes still running. Loaders hand back their model before its textures have
 // arrived, which the viewer's render loop never notices; a single render would.
@@ -136,6 +148,10 @@ self.onmessage = async ({ data }) => {
 			setAppWebRoot(appWebRoot)
 		}
 		resources = createWorkerResources({ files: additionalFiles, appWebRoot, baseUrl: self.location.href })
+		if (XML_FORMATS.has(String(extension).toLowerCase())) {
+			const { installWorkerDomParser } = await import('./workerDomParser.js')
+			installWorkerDomParser(self, { onTooLarge: (error) => { xmlTooLarge = error } })
+		}
 
 		// No scene: the loader hands the model back without adding it anywhere. No
 		// renderer either, so KTX2 textures are left untranscoded (the loader logs it).
@@ -151,6 +167,11 @@ self.onmessage = async ({ data }) => {
 			throw new Error('No valid 3D object returned from loader')
 		}
 		await imagesDecoded()
+		// A loader may carry on without a document it could not parse (FreeCAD's
+		// GuiDocument.xml, say); the thumbnail must not
+		if (xmlTooLarge) {
+			throw xmlTooLarge
+		}
 		// A loader may carry on without a texture it could not load; the thumbnail must not
 		if (resources.refused.length > 0) {
 			throw new RefusedResourceError(resources.refused[0])
@@ -164,7 +185,9 @@ self.onmessage = async ({ data }) => {
 		self.postMessage({ ok: true, blob })
 	} catch (error) {
 		// Name the refusal rather than what the loader made of it
-		const reason = resources.refused.length > 0 ? new RefusedResourceError(resources.refused[0]) : error
+		const reason = resources.refused.length > 0
+			? new RefusedResourceError(resources.refused[0])
+			: (xmlTooLarge ?? error)
 		const message = { ok: false, error: reason?.message || String(reason), stage: failedStage(stage, error) }
 		if (error instanceof EmptyModelError) {
 			message.empty = true
@@ -172,6 +195,9 @@ self.onmessage = async ({ data }) => {
 		if (resources.refused.length > 0) {
 			// Told apart from a load that failed on its own, which the host counts
 			message.refused = true
+		} else if (xmlTooLarge) {
+			// The file's size, which the host skips without counting it against the browser
+			message.tooLarge = true
 		}
 		self.postMessage(message)
 	}

@@ -4,9 +4,9 @@ import {
 	ThumbnailEnvironmentError,
 	ThumbnailRefusedError,
 	ThumbnailTimeoutError,
+	ThumbnailTooLargeError,
 	canRenderInBackground,
 	isThumbnailFormat,
-	WORKER_UNSAFE_FORMATS,
 	AMBIGUOUS_FORMATS,
 } from '../../../src/thumbnails/workerRenderer.js'
 import { EmptyModelError } from '../../../src/thumbnails/renderThumbnail.js'
@@ -206,6 +206,24 @@ describe('renderInWorker', () => {
 		expect(worker.terminated).toBe(1)
 	})
 
+	it('a model whose XML is longer than the worker parses rejects with ThumbnailTooLargeError', async () => {
+		const promise = renderInWorker(job(), { timeoutMs: 30000 })
+		const [worker] = workers
+
+		worker.emit({
+			ok: false,
+			error: 'XML document too large for a background thumbnail: 20000000 characters, limit 16777216',
+			stage: 'load',
+			tooLarge: true,
+		})
+
+		const error = await promise.catch(e => e)
+		expect(error).toBeInstanceOf(ThumbnailTooLargeError)
+		expect(error.message).toMatch(/too large/)
+		// The file's size, not the browser: not an environment failure
+		expect(error).not.toBeInstanceOf(ThumbnailEnvironmentError)
+	})
+
 	it('a failure while drawing, or a loader chunk that would not load, is the environment\'s', async () => {
 		for (const stage of ['render', 'environment']) {
 			const promise = renderInWorker(job(), { timeoutMs: 30000 })
@@ -338,16 +356,21 @@ describe('format gates', () => {
 		expect(isThumbnailFormat(undefined)).toBe(false)
 	})
 
-	it('canRenderInBackground excludes WORKER_UNSAFE_FORMATS and non-model extensions', () => {
-		for (const ext of WORKER_UNSAFE_FORMATS) {
-			expect(isThumbnailFormat(ext)).toBe(true)
-			expect(canRenderInBackground(ext)).toBe(false)
-			expect(canRenderInBackground(ext.toUpperCase())).toBe(false)
-		}
+	it('canRenderInBackground takes every model format, and no companion', () => {
 		expect(canRenderInBackground('stl')).toBe(true)
 		expect(canRenderInBackground('STL')).toBe(true)
 		expect(canRenderInBackground('mtl')).toBe(false)
 		expect(canRenderInBackground('png')).toBe(false)
+		expect(canRenderInBackground('')).toBe(false)
+	})
+
+	it('canRenderInBackground takes the XML formats, which the worker now parses', () => {
+		// 3MF, AMF, COLLADA and X3D were left to the viewer while the worker had no
+		// DOMParser; it loads one for them (workerDomParser.js)
+		for (const ext of ['3mf', 'amf', 'dae', 'x3d', '3MF', 'DAE']) {
+			expect(isThumbnailFormat(ext)).toBe(true)
+			expect(canRenderInBackground(ext)).toBe(true)
+		}
 	})
 
 	it('canRenderInBackground leaves the ambiguous G-code extensions nc and g to the viewer', () => {
@@ -356,9 +379,6 @@ describe('format gates', () => {
 			expect(canRenderInBackground(ext)).toBe(false)
 		}
 		expect([...AMBIGUOUS_FORMATS].sort()).toEqual(['g', 'nc'])
-		// Kept apart: their loader runs in a worker, so they are not worker-unsafe
-		expect(WORKER_UNSAFE_FORMATS.has('nc')).toBe(false)
-		expect(WORKER_UNSAFE_FORMATS.has('g')).toBe(false)
 		// The unambiguous G-code extensions still render in the background
 		expect(canRenderInBackground('gcode')).toBe(true)
 		expect(canRenderInBackground('gco')).toBe(true)

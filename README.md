@@ -182,7 +182,7 @@ The UI will also call `POST /apps/threedviewer/api/files/index` the first time i
 | STEP   | `.step`, `.stp` | No | CAD NURBS (OCCT WASM ~7 MB, shared across STEP/IGES/BREP/FCSTD) |
 | IGES   | `.iges`, `.igs` | No | Legacy CAD NURBS (shared OCCT WASM) |
 | BREP   | `.brep`, `.brp` | No | OpenCascade native B-Rep (shared OCCT WASM) |
-| FCSTD  | `.fcstd`  | No | FreeCAD document (ZIP containing BREP bodies, shared OCCT WASM) |
+| FCSTD  | `.fcstd`  | No | FreeCAD document (ZIP containing BREP bodies, shared OCCT WASM); draws the objects FreeCAD shows |
 
 > WASM loaders are lazy-chunked — the 3–7 MB runtime only downloads when a user opens a file of that format.
 

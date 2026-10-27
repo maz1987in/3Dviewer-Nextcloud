@@ -14,10 +14,10 @@
 
 import { generateFilePath } from '@nextcloud/router'
 import { createThumbnailWorker } from './createThumbnailWorker.js'
-import { EmptyModelError, ThumbnailEnvironmentError, ThumbnailRefusedError, ThumbnailTimeoutError } from './errors.js'
+import { EmptyModelError, ThumbnailEnvironmentError, ThumbnailRefusedError, ThumbnailTimeoutError, ThumbnailTooLargeError } from './errors.js'
 
-export { ThumbnailEnvironmentError, ThumbnailRefusedError, ThumbnailTimeoutError }
-export { AMBIGUOUS_FORMATS, canRenderInBackground, isThumbnailFormat, WORKER_UNSAFE_FORMATS } from './formats.js'
+export { ThumbnailEnvironmentError, ThumbnailRefusedError, ThumbnailTimeoutError, ThumbnailTooLargeError }
+export { AMBIGUOUS_FORMATS, canRenderInBackground, isThumbnailFormat } from './formats.js'
 
 /**
  * The rejection an aborted render ends in, matching what fetch() throws.
@@ -94,6 +94,9 @@ export function renderInWorker(job, { timeoutMs, signal } = {}) {
 			} else if (data?.refused) {
 				// The model named a file outside those it was handed: its doing, not the browser's
 				settle(reject, new ThumbnailRefusedError(data.error || 'The model named a file it was not given'))
+			} else if (data?.tooLarge) {
+				// Its XML is longer than the worker parses: the file's size, not the browser
+				settle(reject, new ThumbnailTooLargeError(data.error || 'Model too large for a background thumbnail'))
 			} else if (data?.stage === 'render' || data?.stage === 'environment') {
 				// The model loaded and drawing it failed (WebGL in this browser), or a loader
 				// chunk could not be fetched: either way not the file's fault
