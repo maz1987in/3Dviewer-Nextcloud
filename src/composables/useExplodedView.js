@@ -18,6 +18,9 @@ export function useExplodedView() {
 	const meshData = ref([]) // { mesh, originalPos, direction }
 	const modelRef = shallowRef(null)
 	const centroid = new Vector3()
+	// How many exports have the parts put back together: two at once must both finish
+	// before the model explodes again
+	let suspended = 0
 
 	const hasMeshes = computed(() => meshData.value.length > 1)
 
@@ -28,6 +31,8 @@ export function useExplodedView() {
 	const init = (model) => {
 		if (!model) return
 		modelRef.value = model
+		// An export still running holds the model it started with; this one is shown
+		suspended = 0
 
 		// Collect all meshes
 		const meshes = []
@@ -113,13 +118,34 @@ export function useExplodedView() {
 	 * Apply current factor to mesh positions
 	 */
 	const applyExplosion = () => {
+		// While an export has the parts together, the slider moves nothing until it ends
+		const amount = suspended > 0 ? 0 : factor.value
 		meshData.value.forEach(({ mesh, originalPos, direction }) => {
 			mesh.position.set(
-				originalPos.x + direction.x * factor.value,
-				originalPos.y + direction.y * factor.value,
-				originalPos.z + direction.z * factor.value,
+				originalPos.x + direction.x * amount,
+				originalPos.y + direction.y * amount,
+				originalPos.z + direction.z * amount,
 			)
 		})
+	}
+
+	/**
+	 * Put the parts back together for a while (an export written asynchronously, say)
+	 * without leaving exploded view; `resume` explodes them again by the current amount.
+	 */
+	const suspend = () => {
+		if (suspended++ === 0) {
+			applyExplosion()
+		}
+	}
+
+	const resume = () => {
+		if (suspended === 0) {
+			return
+		}
+		if (--suspended === 0) {
+			applyExplosion()
+		}
 	}
 
 	/**
@@ -162,6 +188,8 @@ export function useExplodedView() {
 		init,
 		setFactor,
 		toggle,
+		suspend,
+		resume,
 		dispose,
 	}
 }

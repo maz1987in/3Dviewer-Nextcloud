@@ -2665,15 +2665,22 @@ export default {
 				return
 			}
 
-			// Export the model's own materials, not a render mode standing in for them.
-			// GLB and USDZ are written asynchronously, so the mode is set aside for the
-			// export (counted, so two exports at once both finish first). STL, OBJ and PLY
-			// are written in one synchronous call inside withOwnMaterials, and 3MF and ZIP
-			// write no materials, so the viewer keeps its shading for those.
+			// Export the model's own materials, not a render mode standing in for them,
+			// and its parts together, not where Exploded view moved them. STL, OBJ and PLY
+			// are written in one synchronous call inside withOwnDisplayState, which takes
+			// care of both. GLB, USDZ and 3MF are written asynchronously, so the
+			// explosion is set aside for the export, and for GLB and USDZ the mode too
+			// (each counted, so two exports at once both finish first); 3MF and ZIP write
+			// no materials, so the viewer keeps its shading for those. The transform the
+			// gizmo gave the model is exported, as the user placed it.
 			const setsModeAside = ['glb', 'usdz'].includes(format.toLowerCase())
+			const setsExplosionAside = ['glb', 'usdz', '3mf'].includes(format.toLowerCase())
 			// Outside the try, so a resume in `finally` always has its own suspend to undo
 			if (setsModeAside) {
 				clippingPlane.aroundMaterialSwap(() => renderMode.suspend())
+			}
+			if (setsExplosionAside) {
+				explodedView.suspend()
 			}
 
 			try {
@@ -2783,6 +2790,9 @@ export default {
 			} finally {
 				if (setsModeAside) {
 					clippingPlane.aroundMaterialSwap(() => renderMode.resume())
+				}
+				if (setsExplosionAside) {
+					explodedView.resume()
 				}
 			}
 		}

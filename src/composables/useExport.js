@@ -6,7 +6,7 @@
 import { ref, readonly } from 'vue'
 import { Group } from 'three'
 import { NothingToExportError } from '../utils/exportErrors.js'
-import { withOwnMaterials } from '../utils/materialStandIns.js'
+import { withOwnDisplayState } from '../utils/ownDisplayState.js'
 import { logger } from '../utils/logger.js'
 
 /**
@@ -261,8 +261,10 @@ export function useExport() {
 			await new Promise(resolve => setTimeout(resolve, 150))
 
 			// Parse with binary option for smaller file size
-			// A render mode's stand-ins come off for exactly this synchronous call
-			const result = withOwnMaterials(object, () => exporter.parse(object, { binary: true }))
+			// The model as it is, for exactly this synchronous call: a render mode's
+			// stand-ins come off and exploded parts go back together; the transform the
+			// gizmo gave the model is kept
+			const result = withOwnDisplayState(object, () => exporter.parse(object, { binary: true }), { keepRootTransform: true })
 
 			exportProgress.value = { stage: 'Creating binary STL file...', percentage: 70 }
 			await new Promise(resolve => setTimeout(resolve, 100))
@@ -316,8 +318,9 @@ export function useExport() {
 			await new Promise(resolve => setTimeout(resolve, 150))
 
 			// Parse returns a string
-			// OBJ names each part's material; write the model's own, not a stand-in's
-			const result = withOwnMaterials(object, () => exporter.parse(object))
+			// OBJ names each part's material; write the model's own, not a stand-in's, and
+			// its parts together, not where Exploded view moved them
+			const result = withOwnDisplayState(object, () => exporter.parse(object), { keepRootTransform: true })
 
 			exportProgress.value = { stage: 'Creating text file...', percentage: 70 }
 			await new Promise(resolve => setTimeout(resolve, 100))
@@ -441,7 +444,7 @@ export function useExport() {
 			const walk = typeof obj.traverseVisible === 'function' ? 'traverseVisible' : 'traverse'
 			obj[walk]((child) => { if (child.isMesh || child.isPoints) shown.push(child) })
 			const visibleOnly = { traverse: (callback) => shown.forEach(callback) }
-			return withOwnMaterials(obj, () => new PLYExporter().parse(visibleOnly, null, { binary: true, littleEndian: true }))
+			return withOwnDisplayState(obj, () => new PLYExporter().parse(visibleOnly, null, { binary: true, littleEndian: true }), { keepRootTransform: true })
 		},
 	})
 
