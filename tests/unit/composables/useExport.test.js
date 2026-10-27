@@ -218,7 +218,10 @@ describe('useExport — blob creation', () => {
 		await run(exp.exportAsPLY(mesh, 'scan'))
 
 		// parse(object, onDone, options) — options second would be taken for onDone
-		expect(mockPlyParse).toHaveBeenCalledWith(mesh, null, { binary: true, littleEndian: true })
+		expect(mockPlyParse).toHaveBeenCalledWith(expect.any(Object), null, { binary: true, littleEndian: true })
+		const walked = []
+		mockPlyParse.mock.calls[0][0].traverse((child) => walked.push(child))
+		expect(walked).toEqual([mesh])
 		expect(blobCapture).toHaveLength(1)
 		expect(blobCapture[0].type).toBe('model/ply')
 		expect(blobCapture[0].size).toBe(mockPlyBytes.byteLength)
@@ -341,5 +344,34 @@ describe('useExport under a render mode', () => {
 
 		expect(seen).toBe(own)
 		expect(mesh.material).toBe(standIn)
+	})
+})
+
+describe('exportAsPLY', () => {
+	const THREE = require('three')
+	const { PLYExporter: RealPLYExporter } = jest.requireActual('three/examples/jsm/exporters/PLYExporter.js')
+
+	it('writes only what the viewer shows, like 3MF and USDZ', async () => {
+		const group = new THREE.Group()
+		const shownMesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1))
+		const hiddenMesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1))
+		hiddenMesh.visible = false
+		const hiddenGroup = new THREE.Group()
+		hiddenGroup.visible = false
+		hiddenGroup.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1)))
+		group.add(shownMesh, hiddenMesh, hiddenGroup)
+		group.updateMatrixWorld(true)
+
+		let header = ''
+		mockPlyParse.mockImplementationOnce((object, onDone, options) => {
+			const ply = new RealPLYExporter().parse(object, null, { ...options, binary: false })
+			header = ply.slice(0, ply.indexOf('end_header'))
+			return ply
+		})
+		await run(useExport().exportAsPLY(group, 'scan'))
+
+		// One box: 24 vertices, 12 faces
+		expect(header).toContain('element vertex 24')
+		expect(header).toContain('element face 12')
 	})
 })

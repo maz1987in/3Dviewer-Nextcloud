@@ -434,7 +434,14 @@ export function useExport() {
 		produce: async (obj) => {
 			const { PLYExporter } = await import('three/examples/jsm/exporters/PLYExporter.js')
 			// parse(object, onDone, options): the options are the third argument
-			return withOwnMaterials(obj, () => new PLYExporter().parse(obj, null, { binary: true, littleEndian: true }))
+			// PLYExporter writes every mesh and point cloud it walks to, hidden or not; it
+			// reads only traverse() and each object's own matrixWorld, so hand it just the
+			// ones the viewer shows, as 3MF, USDZ and the surface check take
+			const shown = []
+			const walk = typeof obj.traverseVisible === 'function' ? 'traverseVisible' : 'traverse'
+			obj[walk]((child) => { if (child.isMesh || child.isPoints) shown.push(child) })
+			const visibleOnly = { traverse: (callback) => shown.forEach(callback) }
+			return withOwnMaterials(obj, () => new PLYExporter().parse(visibleOnly, null, { binary: true, littleEndian: true }))
 		},
 	})
 
