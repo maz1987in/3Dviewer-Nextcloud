@@ -798,6 +798,7 @@ import { useSharedNotes } from '../composables/useSharedNotes.js'
 import { createNotesApi } from '../utils/notesApi.js'
 import { getPublicShareContext } from '../composables/usePublicShare.js'
 import { awaitStatusBeforeDownload, scheduleCapture } from '../thumbnails/captureFromViewer.js'
+import { measurementsFromJson, measurementsToJson } from '../utils/measurementJson.js'
 import { usePerformance } from '../composables/usePerformance.js'
 import { useExport, getGeometryStats } from '../composables/useExport.js'
 import { useModelStats } from '../composables/useModelStats.js'
@@ -2773,18 +2774,8 @@ export default {
 				const doc = {
 					...annotation.exportAsJSON(props.filename || ''),
 					version: 2,
-					// An angle also carries its corner; a file without `type` holds distances
-					measurements: measurement.measurements.value.map(m => (m.type === 'angle'
-						? {
-							type: 'angle',
-							point1: { x: m.point1.x, y: m.point1.y, z: m.point1.z },
-							vertex: { x: m.vertex.x, y: m.vertex.y, z: m.vertex.z },
-							point2: { x: m.point2.x, y: m.point2.y, z: m.point2.z },
-						}
-						: {
-							point1: { x: m.point1.x, y: m.point1.y, z: m.point1.z },
-							point2: { x: m.point2.x, y: m.point2.y, z: m.point2.z },
-						})),
+					// Distances under `measurements`, angles under `angles` (see measurementJson.js)
+					...measurementsToJson(measurement.measurements.value),
 				}
 				const blob = new Blob([JSON.stringify(doc, null, 2)], { type: 'application/json' })
 				const url = URL.createObjectURL(blob)
@@ -2801,7 +2792,7 @@ export default {
 				emit('push-toast', {
 					type: 'success',
 					title: t('threedviewer', 'Annotations exported'),
-					message: t('threedviewer', '{count} note(s) saved to JSON', { count: doc.annotations.length + doc.measurements.length }),
+					message: t('threedviewer', '{count} note(s) saved to JSON', { count: doc.annotations.length + doc.measurements.length + doc.angles.length }),
 				})
 			} catch (error) {
 				logger.error('ThreeViewer', 'Failed to export annotations', error)
@@ -2828,14 +2819,12 @@ export default {
 				// Each measurement is added whole, not click by click: the panel's Distance /
 				// Angle switch must not decide how many of the file's points make one, and a
 				// half-taken measurement is dropped rather than paired with them.
-				for (const m of Array.isArray(parsed.measurements) ? parsed.measurements : []) {
-					const type = m?.type === 'angle' ? 'angle' : 'distance'
-					const stored = type === 'angle' ? [m?.point1, m?.vertex, m?.point2] : [m?.point1, m?.point2]
-					const valid = stored.every(p => p && [p.x, p.y, p.z].every(Number.isFinite))
-					if (!valid) continue
-					measurement.addMeasurement(type, stored.map(p => new THREE.Vector3(p.x, p.y, p.z)))
+				const { items, skipped } = measurementsFromJson(parsed)
+				for (const { type, points } of items) {
+					measurement.addMeasurement(type, points.map(p => new THREE.Vector3(p.x, p.y, p.z)))
 					result.added++
 				}
+				result.skipped += skipped
 				emit('push-toast', {
 					type: 'success',
 					title: t('threedviewer', 'Annotations imported'),
