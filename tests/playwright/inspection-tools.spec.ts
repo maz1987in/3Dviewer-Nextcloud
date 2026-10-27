@@ -726,6 +726,8 @@ test.describe('Inspection tools', () => {
 		const explode = page.locator('.slide-out-panel .tool-btn', { hasText: 'Exploded View' })
 		await explode.click()
 		await expect(explode).toContainText('Active')
+		// All the way apart, where a camera fitted to the parts together loses them
+		await page.locator('.slide-out-panel .tool-group', { hasText: 'Explosion' }).locator('input[type="range"]').fill('1')
 
 		await openNext(page, 'twoCubes2')
 		await expect.poll(() => uploads.length, { timeout: 15000 }).toBe(1)
@@ -739,6 +741,26 @@ test.describe('Inspection tools', () => {
 			return meshes.map((mesh) => mesh.position.length())
 		})
 		expect(Math.max(...gap)).toBeGreaterThan(1)
+
+		// The camera is fitted to the parts as they are shown, so none has left the view
+		const outside = await page.evaluate(() => {
+			const viewer = (window as any).__THREEDVIEWER_APP.$.subTree.component.proxy.$refs.viewer
+			const root = viewer.modelRoot
+			const camera = viewer.camera.camera.value
+			const Vector3 = root.position.constructor
+			root.updateMatrixWorld(true)
+			camera.updateMatrixWorld(true)
+			let worst = 0
+			root.traverse((child: any) => {
+				const position = child.isMesh && child.geometry.attributes.position
+				for (let i = 0; position && i < position.count; i++) {
+					const ndc = new Vector3().fromBufferAttribute(position, i).applyMatrix4(child.matrixWorld).project(camera)
+					worst = Math.max(worst, Math.abs(ndc.x), Math.abs(ndc.y))
+				}
+			})
+			return worst
+		})
+		expect(outside).toBeLessThanOrEqual(1)
 
 		// Flung apart, the parts would be framed smaller, with a gap between them
 		const captured = await coverage(page, uploads[0])

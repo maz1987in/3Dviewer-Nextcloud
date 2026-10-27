@@ -1547,9 +1547,10 @@ export default {
 					// read on the first successful load — navigating to a different
 					// file clears the URL before reaching this branch.
 					const sharedState = readCameraStateFromUrl()
+					let cameraFromUrl = false
 					if (sharedState && camera.camera?.value && camera.controls?.value) {
-						const ok = applyCameraState(camera.camera.value, camera.controls.value, sharedState)
-						if (ok) {
+						cameraFromUrl = applyCameraState(camera.camera.value, camera.controls.value, sharedState)
+						if (cameraFromUrl) {
 							logger.info('ThreeViewer', 'Restored camera view from cam URL parameter')
 						}
 					}
@@ -1568,6 +1569,15 @@ export default {
 					// Initialize exploded view (collects meshes and computes directions); an
 					// exploded view stays on, by the same amount, for a model it can explode
 					explodedView.init(modelRoot.value)
+					// The camera was fitted to the parts together, and spread they can leave
+					// the view: fit it again to what is shown, unless a shared link chose the
+					// view. Grid, cut bounds and statistics stay those of the assembled model,
+					// as when Exploded view is switched on by hand, and a thumbnail makes a fit
+					// of its own.
+					if (!cameraFromUrl && explodedView.isActive.value && explodedView.factor.value > 0) {
+						modelRoot.value.updateMatrixWorld(true)
+						camera.fitCameraToObject(modelRoot.value)
+					}
 
 					// Collect G-code layers for the layer slider (none for other formats)
 					gcodeLayers.init(modelRoot.value)
