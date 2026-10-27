@@ -476,3 +476,52 @@ describe('textures named above the model\'s folder', () => {
 		}
 	})
 })
+
+describe('the maps of an MTL in a subfolder', () => {
+	// A map is relative to the MTL that names it, as the server's resolver reads it:
+	// mats/chair.mtl naming ../textures/wood.png means textures/wood.png
+
+	it('on a share, asks for each map by the name the server serves it under', async () => {
+		const mtl = 'newmtl seat\nmap_Kd ../textures/wood.png\nbump normal.png\n'
+		serve({ '/dep/chair.mtl': mtl, '/dep/wood.png': 'PNG', '/dep/normal.png': 'PNG' })
+		const { fetchObjDependencies } = await loadHelpers(PUBLIC)
+
+		const result = await fetchObjDependencies('mtllib mats/chair.mtl\nf 1 2 3\n', 'chair.obj', 42, '')
+
+		expect(result.found.map((f) => f.name).sort()).toEqual(['mats/chair.mtl', 'normal.png', 'wood.png'])
+		expect(requested.sort()).toEqual([`${DEP}/chair.mtl`, `${DEP}/normal.png`, `${DEP}/wood.png`])
+	})
+
+	it('signed in, looks a map up where the MTL says first, and keeps that path on the file', async () => {
+		requested = []
+		const found = {
+			'scenes/mats/chair.mtl': 7,
+			'scenes/textures/wood.png': 8,
+			'scenes/mats/normal.png': 9,
+		}
+		global.fetch = jest.fn(async (url) => {
+			requested.push(url)
+			if (url.includes('/api/files/find')) {
+				const path = new URL(url, 'https://cloud.example.com').searchParams.get('path')
+				return found[path]
+					? { ok: true, status: 200, json: async () => ({ id: found[path] }) }
+					: { ok: false, status: 404, json: async () => ({}) }
+			}
+			const body = url.endsWith('/7') ? 'newmtl seat\nmap_Kd ../textures/wood.png\nbump normal.png\n' : 'PNG'
+			const buffer = toArrayBuffer(body)
+			return { ok: true, status: 200, statusText: 'OK', headers: { get: () => 'application/octet-stream' }, arrayBuffer: async () => buffer }
+		})
+		const { fetchObjDependencies } = await loadHelpers(null)
+
+		const result = await fetchObjDependencies('mtllib mats/chair.mtl\nf 1 2 3\n', 'chair.obj', 42, '/scenes')
+
+		const wood = result.found.find((f) => f.name === 'wood.png')
+		const normal = result.found.find((f) => f.name === 'normal.png')
+		expect(result.missing).toEqual([])
+		expect(wood._relativePath).toBe('textures/wood.png')
+		expect(normal._relativePath).toBe('mats/normal.png')
+		const finds = requested.filter((u) => u.includes('/api/files/find')).map((u) => new URL(u, 'https://cloud.example.com').searchParams.get('path'))
+		expect(finds).toEqual(expect.arrayContaining(['scenes/textures/wood.png', 'scenes/mats/normal.png']))
+		expect(finds.some((path) => path.includes('..'))).toBe(false)
+	})
+})

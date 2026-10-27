@@ -582,6 +582,57 @@ describe('loadModelForBackground in the queue', () => {
 		expect(deps.skips.markSkipped.mock.calls).toEqual([[30, 'e30']])
 	})
 
+	it('an OBJ whose MTL in a subfolder names ../textures/wood.png fetches textures/wood.png, renders and uploads', async () => {
+		// The map is relative to the MTL, as the server's resolver reads it
+		const server = serve({
+			'parts/chair.obj': { id: 140, body: 'mtllib mats/chair.mtl\nf 1 2 3\n' },
+			'parts/mats/chair.mtl': { id: 141, body: 'newmtl seat\nmap_Kd ../textures/wood.png\n' },
+			'parts/textures/wood.png': { id: 142, body: 'PNG' },
+			// Where a map read relative to the model would lead, or by its name alone
+			'parts/wood.png': { id: 143, body: 'PNG' },
+		})
+		const statuses = { 140: { name: 'chair.obj', dir: '/parts', size: 64, etag: 'e140', canEdit: true, hasThumbnail: false } }
+		const { queue, deps } = queueOn(statuses, 10)
+
+		queue.setFolder('/parts', [140], new Set())
+		await queue.idle()
+
+		expect(server.urls().filter((url) => url.includes('/api/files/find'))).toEqual([
+			`/index.php/apps/threedviewer/api/files/find?path=${encodeURIComponent('parts/mats/chair.mtl')}`,
+			`/index.php/apps/threedviewer/api/files/find?path=${encodeURIComponent('parts/textures/wood.png')}`,
+		])
+		expect(server.urls()).toContain('/index.php/apps/threedviewer/api/file/142')
+		expect(server.urls()).not.toContain('/index.php/apps/threedviewer/api/file/143')
+		expect(deps.render.mock.calls.map(([job]) => job.additionalFiles.map((file) => file.name))).toEqual([['chair.mtl', 'wood.png']])
+		expect(deps.api.uploadThumbnail.mock.calls.map(([id]) => id)).toEqual([140])
+		expect(deps.skips.markSkipped).not.toHaveBeenCalled()
+	})
+
+	it('an OBJ whose MTL in a subfolder names a map above the model\'s folder fetches it by name beside the model, renders and uploads', async () => {
+		const server = serve({
+			'parts/chair.obj': { id: 150, body: 'mtllib mats/chair.mtl\nf 1 2 3\n' },
+			'parts/mats/chair.mtl': { id: 151, body: 'newmtl seat\nmap_Kd ..\\..\\textures\\wood.png\n' },
+			'parts/wood.png': { id: 152, body: 'PNG' },
+			// Where the path's own folders would lead, were they followed
+			'textures/wood.png': { id: 153, body: 'PNG' },
+			'parts/textures/wood.png': { id: 154, body: 'PNG' },
+		})
+		const statuses = { 150: { name: 'chair.obj', dir: '/parts', size: 64, etag: 'e150', canEdit: true, hasThumbnail: false } }
+		const { queue, deps } = queueOn(statuses, 10)
+
+		queue.setFolder('/parts', [150], new Set())
+		await queue.idle()
+
+		expect(server.urls().filter((url) => url.includes('/api/files/find'))).toEqual([
+			`/index.php/apps/threedviewer/api/files/find?path=${encodeURIComponent('parts/mats/chair.mtl')}`,
+			`/index.php/apps/threedviewer/api/files/find?path=${encodeURIComponent('parts/wood.png')}`,
+		])
+		expect(server.urls()).toContain('/index.php/apps/threedviewer/api/file/152')
+		expect(deps.render.mock.calls.map(([job]) => job.additionalFiles.map((file) => file.name))).toEqual([['chair.mtl', 'wood.png']])
+		expect(deps.api.uploadThumbnail.mock.calls.map(([id]) => id)).toEqual([150])
+		expect(deps.skips.markSkipped).not.toHaveBeenCalled()
+	})
+
 	it('a Blender-style DAE declares only its image file, and is rendered with it', async () => {
 		// The effect's <surface><init_from> holds the image's id, not a file; taken for
 		// one, it was always missing and every textured export was skipped

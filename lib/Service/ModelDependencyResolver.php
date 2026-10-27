@@ -154,7 +154,9 @@ class ModelDependencyResolver
         }
 
         // Textures are named by the material, not by the OBJ, and relative to wherever
-        // that material lives. Capped: see MAX_MATERIALS.
+        // that material lives. parseMtlTexturePaths() in src/loaders/multiFileHelpers.js
+        // joins them to the material's folder the same way, so the client asks for what
+        // this serves. Capped: see MAX_MATERIALS.
         foreach (array_slice(array_unique($materialPaths), 0, self::MAX_MATERIALS) as $materialPath) {
             $material = $this->readableSibling($parent, $materialPath, 'mtl');
             if ($material === null) {

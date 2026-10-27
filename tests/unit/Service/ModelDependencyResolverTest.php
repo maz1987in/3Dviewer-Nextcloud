@@ -868,6 +868,58 @@ class ModelDependencyResolverTest extends TestCase
     }
 
     /**
+     * An MTL's maps, relative to the MTL's own folder; the rows the client's
+     * parseMtlTexturePaths() is held to.
+     *
+     * @return array<string, array{string, string, string, ?string}>
+     */
+    public static function sharedMtlTable(): array
+    {
+        /** @var array{mtl: list<array{material: string, materialAt: string, map: string, expected: ?string, why: string}>} $table */
+        $table = json_decode(
+            (string) file_get_contents(__DIR__ . '/../../fixtures/texture-references.json'),
+            true,
+            flags: JSON_THROW_ON_ERROR,
+        );
+
+        $cases = [];
+        foreach ($table['mtl'] as $case) {
+            $cases[$case['why'] . ': ' . json_encode([$case['material'], $case['map']])] = [$case['material'], $case['materialAt'], $case['map'], $case['expected']];
+        }
+
+        return $cases;
+    }
+
+    #[DataProvider('sharedMtlTable')]
+    public function testResolvesAMaterialsMapAsTheClientDoes(string $material, string $materialAt, string $map, ?string $expected): void
+    {
+        $directory = dirname($materialAt);
+        $siblings = [$materialAt => $this->fileNamed(basename($materialAt), "newmtl seat\nmap_Kd {$map}\n")];
+
+        if ($expected !== null) {
+            $texture = $this->fileNamed(basename($expected));
+            $siblings[$expected] = $texture;
+            // The same name beside the model and beside the material, so serving either
+            // instead would fail the assertion rather than pass by accident
+            foreach ([basename($expected), $directory . '/' . basename($expected)] as $decoy) {
+                $siblings[$decoy] ??= $this->fileNamed(basename($expected));
+            }
+            $model = $this->objModel("mtllib {$material}\n", $siblings);
+
+            $this->assertSame($texture, $this->resolver->resolve($model, basename($expected)));
+
+            return;
+        }
+
+        $siblings['wood.png'] = $this->fileNamed('wood.png');
+        $siblings[$directory . '/wood.png'] = $this->fileNamed('wood.png');
+        $model = $this->objModel("mtllib {$material}\n", $siblings);
+
+        $this->expectException(NotFoundException::class);
+        $this->resolver->resolve($model, 'wood.png');
+    }
+
+    /**
      * A reference is a string the uploader chose. Every check on it is a fixed-length
      * test at its start or a single forward scan; mirrors the linear-time cases in
      * tests/unit/loaders/textureReferences.test.js.

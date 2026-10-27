@@ -32,8 +32,7 @@
 import { generateUrl } from '@nextcloud/router'
 import { buildFileUrl } from '../composables/usePublicShare.js'
 import { parse3dsDependencies, parseFbxDependencies } from '../loaders/binaryModelDependencies.js'
-import { mtlMapPath, parseGltfDependencies, parseObjMaterialFiles, parseXmlModelDependencies } from '../loaders/multiFileHelpers.js'
-import { fallsBackToName, nameOnlyRef } from '../loaders/textureReferences.js'
+import { parseGltfDependencies, parseMtlTexturePaths, parseObjMaterialFiles, parseXmlModelDependencies } from '../loaders/multiFileHelpers.js'
 import { logger } from '../utils/logger.js'
 import { ThumbnailBudgetError, ThumbnailEnvironmentError } from './errors.js'
 
@@ -165,26 +164,6 @@ function joinPath(dirPath, ref) {
 }
 
 /**
- * The texture paths an MTL names, as written. parseMtlTextureFiles keeps only the
- * basenames, because the viewer then searches subfolders for them; here the declared
- * path is the first place to look, so it is kept. An absolute or `file:` path is the
- * exception: its directories are on the author's machine, so only its name is kept, to
- * be looked for beside the model. So is a relative path that climbs above the model's
- * folder, `..\..\textures\wood.png`, whose folders are not followed.
- *
- * @param {string} mtlContent - Text of the MTL
- * @return {string[]} Declared paths, with forward slashes, deduplicated
- */
-function parseMtlTexturePaths(mtlContent) {
-	const matches = [...mtlContent.matchAll(/^\s*(?:map_[A-Za-z0-9_]+|bump|refl)[^\S\r\n]+(.*?)$/gm)]
-	const paths = matches.map((match) => {
-		const path = mtlMapPath(match[1])
-		return fallsBackToName(path) ? nameOnlyRef(path) : path.replace(/\\/g, '/')
-	}).filter(Boolean)
-	return [...new Set(paths)]
-}
-
-/**
  * Download one model for a background thumbnail, with only the companions it declares and
  * only as many as the budget allows. See the module comment for how this differs from the
  * viewer's loader.
@@ -283,7 +262,8 @@ export async function loadModelForBackground(fileId, filename, extension, dirPat
 		for (const mtl of parseObjMaterialFiles(await mainFile.text())) {
 			const material = await fetchCompanion(mtl, 'model/mtl')
 			if (material) {
-				for (const texture of parseMtlTexturePaths(await material.text())) {
+				// Relative to the MTL's own folder, as the server's resolver reads them
+				for (const texture of parseMtlTexturePaths(await material.text(), mtl)) {
 					await fetchCompanion(texture, 'application/octet-stream')
 				}
 			}

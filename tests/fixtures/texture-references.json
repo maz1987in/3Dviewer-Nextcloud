@@ -122,5 +122,31 @@
 		{ "ref": "../maps/checker%20map.png", "expected": "checker map.png", "why": "climbs out to an encoded space" },
 		{ "ref": "../%2E%2E%20/remote.png", "expected": null, "why": "climbs out, then decodes to a segment of dots and a space" },
 		{ "ref": "../remote.png%00", "expected": null, "why": "climbs out to a name that decodes to hold NUL" }
+	],
+	"mtlDescription": "An MTL's maps, relative to the MTL's own folder: the map is joined to it before it is normalised, and climbing is measured from the model's folder. material is the OBJ's mtllib as written, materialAt where that normalises to. No map here holds a blank: the server also registers each blank-separated token of a map that looks like a file of its own, which the client does not. Read by tests/unit/loaders/mtlTexturePaths.test.js and tests/unit/Service/ModelDependencyResolverTest.php.",
+	"mtl": [
+		{ "material": "mats/chair.mtl", "materialAt": "mats/chair.mtl", "map": "../textures/wood.png", "expected": "textures/wood.png", "why": "up out of the material's folder into a sibling of it" },
+		{ "material": "mats/chair.mtl", "materialAt": "mats/chair.mtl", "map": "wood.png", "expected": "mats/wood.png", "why": "a bare name is beside the material" },
+		{ "material": "mats/chair.mtl", "materialAt": "mats/chair.mtl", "map": "textures\\wood.png", "expected": "mats/textures/wood.png", "why": "below the material, Windows separators" },
+		{ "material": "mats/chair.mtl", "materialAt": "mats/chair.mtl", "map": "../wood.png", "expected": "wood.png", "why": "up to the model's folder, by collapsing" },
+		{ "material": "mats/chair.mtl", "materialAt": "mats/chair.mtl", "map": "-bm 0.3 ../textures/wood.png", "expected": "textures/wood.png", "why": "the path after the map's options" },
+		{ "material": "mats/chair.mtl", "materialAt": "mats/chair.mtl", "map": "../../wood.png", "expected": "wood.png", "why": "climbs above the model's folder: its name beside the model" },
+		{ "material": "mats/chair.mtl", "materialAt": "mats/chair.mtl", "map": "..\\..\\textures\\wood.png", "expected": "wood.png", "why": "climbs above the model's folder: the folders it names are not followed" },
+		{ "material": "a/b/chair.mtl", "materialAt": "a/b/chair.mtl", "map": "../../textures/wood.png", "expected": "textures/wood.png", "why": "two folders up from a deeper material stays inside" },
+		{ "material": "a/b/chair.mtl", "materialAt": "a/b/chair.mtl", "map": "../wood.png", "expected": "a/wood.png", "why": "one folder up from a deeper material" },
+		{ "material": "a/b/chair.mtl", "materialAt": "a/b/chair.mtl", "map": "../../../wood.png", "expected": "wood.png", "why": "climbs above the model's folder from a deeper material" },
+		{ "material": "Materials\\chair.mtl", "materialAt": "Materials/chair.mtl", "map": "wood.png", "expected": "Materials/wood.png", "why": "an mtllib with Windows separators" },
+		{ "material": "./mats//chair.mtl", "materialAt": "mats/chair.mtl", "map": "wood.png", "expected": "mats/wood.png", "why": "the material's folder as normalised, not as written" },
+		{ "material": "chair.mtl", "materialAt": "chair.mtl", "map": "textures/wood.png", "expected": "textures/wood.png", "why": "a material beside the model" },
+		{ "material": "chair.mtl", "materialAt": "chair.mtl", "map": "../wood.png", "expected": "wood.png", "why": "a material beside the model naming a map above it" },
+		{ "material": "..\\materials\\chair.mtl", "materialAt": "chair.mtl", "map": "textures/wood.png", "expected": "textures/wood.png", "why": "a material named above the model is beside it, and its maps relative to it there" },
+		{ "material": "D:\\exports\\chair.mtl", "materialAt": "chair.mtl", "map": "wood.png", "expected": "wood.png", "why": "an absolute mtllib is beside the model" },
+		{ "material": "mats/chair.mtl", "materialAt": "mats/chair.mtl", "map": "C:\\textures\\wood.png", "expected": "wood.png", "why": "an absolute map ignores the material's folder" },
+		{ "material": "mats/chair.mtl", "materialAt": "mats/chair.mtl", "map": "file:///C:/x/wood%20grain.png", "expected": "wood grain.png", "why": "a file: URL map ignores the material's folder" },
+		{ "material": "mats/chair.mtl", "materialAt": "mats/chair.mtl", "map": "https://example.invalid/wood.png", "expected": null, "why": "a remote map, not read as a folder below the material" },
+		{ "material": "mats/chair.mtl", "materialAt": "mats/chair.mtl", "map": "../.../wood.png", "expected": null, "why": "a segment of three dots after a climb" },
+		{ "material": "mats/chair.mtl", "materialAt": "mats/chair.mtl", "map": ".../wood.png", "expected": null, "why": "a segment of three dots below the material" },
+		{ "material": "mats/chair.mtl", "materialAt": "mats/chair.mtl", "map": "../..", "expected": null, "why": "climbs out to a name of .." },
+		{ "material": "mats/chair.mtl", "materialAt": "mats/chair.mtl", "map": "..", "expected": null, "why": "the model's folder itself" }
 	]
 }

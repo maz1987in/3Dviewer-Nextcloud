@@ -215,10 +215,18 @@ export function nameOnlyRef(ref) {
  * it names are never followed, and the name is looked for in the model's folder alone.
  * Only the ASCII blanks are trimmed (see BLANKS).
  *
+ * A relative path is relative to `directory`, a folder inside the model's own: an MTL's
+ * maps are relative to the MTL (see materialDirectory()). It is joined before `..` is
+ * collapsed, so `mats` and `../textures/wood.png` give `textures/wood.png`, and climbing is
+ * always measured from the model's folder: `mats` and `../../wood.png` give `wood.png`
+ * beside the model. An absolute path ignores it, as it names no folder here.
+ *
  * @param {string} raw - reference exactly as the document wrote it
+ * @param {string} [directory] - folder a relative path is relative to, inside the
+ *   model's own and normalised; `.` for the model's folder itself
  * @return {string|null} normalised relative path, or null if it is not one
  */
-export function normaliseRef(raw) {
+export function normaliseRef(raw, directory = '.') {
 	// Exporters on Windows write backslashes; every path here uses forward slashes.
 	const path = asciiTrim(String(raw).replace(/\\/g, '/'))
 	if (path === '') {
@@ -231,16 +239,30 @@ export function normaliseRef(raw) {
 	if (SCHEME.test(path)) {
 		return null
 	}
+	const joined = directory !== '.' ? `${directory}/${path}` : path
 
-	const { segments, climbed, valid } = walkRelative(path)
+	const { segments, climbed, valid } = walkRelative(joined)
 	if (!valid) {
 		return null
 	}
 	if (climbed) {
 		// Above the model's folder lie files the share never covered, so the folders the
 		// path names are not followed; only its name is, beside the model.
-		return nameOnlyRef(path)
+		return nameOnlyRef(joined)
 	}
 
 	return segments.length === 0 ? null : segments.join('/')
+}
+
+/**
+ * The folder an MTL's maps are relative to: that of the MTL itself, as its normalised
+ * path gives it, or `.` for the model's own folder. Mirrors the `dirname()` that
+ * objDependencies() in lib/Service/ModelDependencyResolver.php hands to normalise().
+ *
+ * @param {string|null} materialPath - the MTL's path as normaliseRef() gave it
+ * @return {string} the folder, inside the model's own, for normaliseRef()'s `directory`
+ */
+export function materialDirectory(materialPath) {
+	const at = typeof materialPath === 'string' ? materialPath.lastIndexOf('/') : -1
+	return at === -1 ? '.' : materialPath.slice(0, at)
 }
