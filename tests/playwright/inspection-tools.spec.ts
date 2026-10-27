@@ -37,6 +37,8 @@ const MODELS = {
 	cube: { id: 4343, name: 'cube.obj', body: CUBE_OBJ },
 	// A second cube, opened after the first in the same viewer
 	cube2: { id: 4444, name: 'cube2.obj', body: CUBE_OBJ },
+	// A glTF, which is in metres: a triangle 1 m on a side
+	gltf: { id: 4545, name: 'triangle.gltf', body: fs.readFileSync(path.join(PROJECT_ROOT, 'tests/fixtures/triangle.gltf'), 'utf8') },
 }
 type Model = keyof typeof MODELS
 
@@ -226,6 +228,33 @@ test.describe('Inspection tools', () => {
 			expect(errors).toEqual([])
 		})
 	}
+
+	/*
+	 * 3MF is written in millimetres and USDZ in metres. The cube above is an OBJ, taken as
+	 * millimetres; a glTF is in metres, so its 3MF is scaled up a thousandfold and its USDZ
+	 * goes out unscaled.
+	 */
+	test('a glTF, in metres, exports at its real size', async ({ page }) => {
+		const { errors } = await openLoadedViewer(page, server.url, 'gltf')
+		await page.locator('.slide-out-panel').getByText('Export', { exact: true }).first().click()
+		const save = async (format: string) => {
+			const [download] = await Promise.all([
+				page.waitForEvent('download', { timeout: 20000 }),
+				page.selectOption('.export-select', format),
+			])
+			return fs.readFileSync((await download.path())!)
+		}
+
+		const model = strFromU8(unzipSync(new Uint8Array(await save('3mf')))['3D/3dmodel.model'])
+		const coordinates = [...model.matchAll(/ [xyz]="(-?[\d.e+-]+)"/g)].map((m) => Math.abs(Number(m[1])))
+		expect(Math.max(...coordinates)).toBeCloseTo(1000, 3)
+
+		const usdz = unzipSync(new Uint8Array(await save('usdz')))
+		const layer = strFromU8(usdz[Object.keys(usdz)[0]])
+		expect(layer).toContain('metersPerUnit = 1')
+		expect(layer).not.toContain('(0.001, 0, 0, 0)')
+		expect(errors).toEqual([])
+	})
 
 	test('says why a toolpath cannot be exported as 3MF, instead of saving an empty file', async ({ page }) => {
 		let downloaded = false

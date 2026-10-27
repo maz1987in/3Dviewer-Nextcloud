@@ -9,7 +9,9 @@
  * their back on the way out: (x, y, z) → (x, −z, y). That is a rotation, not a mirror,
  * so triangle winding (which way a face points) is preserved.
  *
- * One scene unit is written as one millimetre, the unit the viewer's measurements read.
+ * The file is in millimetres. A scene unit is however many millimetres the caller says
+ * (utils/sourceUnits.js decides from the format the model was loaded from): 1 for an STL,
+ * 1000 for a glTF, which is in metres.
  *
  * Vertices are welded: three.js keeps a separate copy of a vertex for every face that
  * meets at it (a box has 24 for its 8 corners, an STL three per triangle), and a 3MF
@@ -130,15 +132,19 @@ function meshObject(mesh, placement, id, name) {
  * The 3D model XML for every mesh under `object` that the viewer shows: a mesh inside a
  * hidden group is left out with it, and every copy an InstancedMesh draws is written.
  * @param {THREE.Object3D} object - the model
+ * @param {object} [options] - options
+ * @param {number} [options.millimetresPerUnit] - how many millimetres one scene unit is
  * @return {{ xml: string, objectCount: number }}
  */
-export function build3MFModelXml(object) {
+export function build3MFModelXml(object, { millimetresPerUnit = 1 } = {}) {
 	object.updateMatrixWorld(true)
+	// Into the file's space: millimetres, Z up
+	const toFile = new Matrix4().makeScale(millimetresPerUnit, millimetresPerUnit, millimetresPerUnit).premultiply(Y_UP_TO_Z_UP)
 
 	const objects = []
 	const instance = new Matrix4()
 	const add = (mesh, world, name) => {
-		const placement = new Matrix4().multiplyMatrices(Y_UP_TO_Z_UP, world)
+		const placement = new Matrix4().multiplyMatrices(toFile, world)
 		const xml = meshObject(mesh, placement, objects.length + 1, name.replace(NOT_XML, ''))
 		if (xml) objects.push(xml)
 	}
@@ -173,8 +179,8 @@ export function build3MFModelXml(object) {
  * @param {THREE.Object3D} object
  * @return {?Uint8Array} the zipped package, or null when no mesh has a triangle to write
  */
-export function build3MF(object) {
-	const { xml, objectCount } = build3MFModelXml(object)
+export function build3MF(object, options = {}) {
+	const { xml, objectCount } = build3MFModelXml(object, options)
 	if (objectCount === 0) {
 		return null
 	}

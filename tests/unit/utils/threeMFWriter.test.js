@@ -183,3 +183,20 @@ describe('read back by a 3MF reader', () => {
 		expect(size.z).toBeCloseTo(20, 4)
 	})
 })
+
+describe('units', () => {
+	it('writes a model loaded in metres (a glTF) in millimetres', () => {
+		// A 2 m tall box, as a glTF holds it
+		const mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1).translate(0, 1, 0))
+		const zs = vertices(parse(build3MFModelXml(mesh, { millimetresPerUnit: 1000 }).xml)).map((v) => v[2])
+		expect(Math.min(...zs)).toBeCloseTo(0, 6)
+		expect(Math.max(...zs)).toBeCloseTo(2000, 6)
+		expect(build3MFModelXml(mesh, { millimetresPerUnit: 1000 }).xml).toContain('unit="millimeter"')
+	})
+
+	it('writes a model in millimetres as it is', () => {
+		const mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1).translate(0, 1, 0))
+		const zs = vertices(parse(build3MFModelXml(mesh).xml)).map((v) => v[2])
+		expect(Math.max(...zs)).toBeCloseTo(2, 6)
+	})
+})

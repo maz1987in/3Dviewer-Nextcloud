@@ -436,9 +436,12 @@ export function useExport() {
 	 * Export model as 3MF (the slicers' native format; Z-up, millimetres)
 	 * @param {THREE.Object3D} object - 3D object to export
 	 * @param {string} filename - Base filename (without extension)
+	 * @param {object} [options] - Options
+	 * @param {number} [options.millimetresPerUnit] - Millimetres per scene unit, from the
+	 *   format the model was loaded from (utils/sourceUnits.js)
 	 * @return {Promise<void>}
 	 */
-	const exportAs3MF = (object, filename = 'model') => runExport({
+	const exportAs3MF = (object, filename = 'model', { millimetresPerUnit = 1 } = {}) => runExport({
 		label: '3MF',
 		object,
 		filename,
@@ -447,7 +450,7 @@ export function useExport() {
 		produce: async (obj) => {
 			const { build3MF } = await import('../utils/threeMFWriter.js')
 			// Null when welding left no triangle that the surface check could not foresee
-			const file = build3MF(obj)
+			const file = build3MF(obj, { millimetresPerUnit })
 			if (!file) {
 				throw new NothingToExportError('3MF')
 			}
@@ -459,14 +462,17 @@ export function useExport() {
 	 * Export model as USDZ (opens in AR Quick Look on iPhone and iPad).
 	 *
 	 * AR Quick Look shows a model at its real size, and three's exporter declares one
-	 * unit a metre (`metersPerUnit = 1`). The viewer reads one unit as a millimetre, as
-	 * its measurements and the 3MF export do, so the model goes in under a 1/1000 scale:
-	 * a 100 mm part is 100 mm on the table, not 100 m.
+	 * unit a metre (`metersPerUnit = 1`). A model in millimetres (an STL, say) goes in
+	 * under a 1/1000 scale, so a 100 mm part is 100 mm on the table, not 100 m; a glTF,
+	 * already in metres, goes in as it is.
 	 * @param {THREE.Object3D} object - 3D object to export
 	 * @param {string} filename - Base filename (without extension)
+	 * @param {object} [options] - Options
+	 * @param {number} [options.millimetresPerUnit] - Millimetres per scene unit, from the
+	 *   format the model was loaded from (utils/sourceUnits.js)
 	 * @return {Promise<void>}
 	 */
-	const exportAsUSDZ = (object, filename = 'model') => runExport({
+	const exportAsUSDZ = (object, filename = 'model', { millimetresPerUnit = 1 } = {}) => runExport({
 		label: 'USDZ',
 		object,
 		filename,
@@ -474,9 +480,13 @@ export function useExport() {
 		mimeType: 'model/vnd.usdz+zip',
 		produce: async (obj) => {
 			const { USDZExporter } = await import('three/examples/jsm/exporters/USDZExporter.js')
+			const metresPerUnit = millimetresPerUnit / 1000
+			if (metresPerUnit === 1) {
+				return new USDZExporter().parseAsync(obj)
+			}
 			const inMetres = new Group()
 			inMetres.name = 'Model'
-			inMetres.scale.setScalar(0.001)
+			inMetres.scale.setScalar(metresPerUnit)
 			inMetres.updateMatrix()
 			// Listed as its child for the exporter only, which reads each object's local
 			// matrix and its children; the model is not moved out of the scene.

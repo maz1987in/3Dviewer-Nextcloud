@@ -230,7 +230,8 @@ describe('useExport — blob creation', () => {
 
 		await run(exp.exportAs3MF(mesh, 'part'))
 
-		expect(mockBuild3MF).toHaveBeenCalledWith(mesh)
+		// An STL-like model by default: a scene unit is a millimetre
+		expect(mockBuild3MF).toHaveBeenCalledWith(mesh, { millimetresPerUnit: 1 })
 		expect(blobCapture[0].type).toBe('model/3mf')
 		expect(blobCapture[0].size).toBe(mock3mfBytes.byteLength)
 	})
@@ -261,6 +262,20 @@ describe('useExport — blob creation', () => {
 		expect(exp.exporting.value).toBe(false)
 		expect(exp.exportError.value).toMatch(/no triangle meshes/)
 		expect(blobCapture).toHaveLength(0)
+	})
+
+	it('exportAs3MF passes on what a scene unit is', async () => {
+		const exp = useExport()
+		const mesh = fakeMesh({ positions: TRIANGLE })
+		await run(exp.exportAs3MF(mesh, 'robot', { millimetresPerUnit: 1000 }))
+		expect(mockBuild3MF).toHaveBeenCalledWith(mesh, { millimetresPerUnit: 1000 })
+	})
+
+	it('exportAsUSDZ hands a model already in metres to the exporter as it is', async () => {
+		const exp = useExport()
+		const mesh = fakeMesh({ positions: TRIANGLE })
+		await run(exp.exportAsUSDZ(mesh, 'robot', { millimetresPerUnit: 1000 }))
+		expect(mockUsdzParseAsync).toHaveBeenCalledWith(mesh)
 	})
 
 	it.each([

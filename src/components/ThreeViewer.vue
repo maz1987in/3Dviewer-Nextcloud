@@ -799,6 +799,7 @@ import { createNotesApi } from '../utils/notesApi.js'
 import { getPublicShareContext } from '../composables/usePublicShare.js'
 import { awaitStatusBeforeDownload, scheduleCapture } from '../thumbnails/captureFromViewer.js'
 import { measurementsFromJson, measurementsToJson } from '../utils/measurementJson.js'
+import { millimetresPerUnit } from '../utils/sourceUnits.js'
 import { usePerformance } from '../composables/usePerformance.js'
 import { useExport, getGeometryStats } from '../composables/useExport.js'
 import { useModelStats } from '../composables/useModelStats.js'
@@ -2683,7 +2684,10 @@ export default {
 						'3mf': exportComposable.exportAs3MF,
 						usdz: exportComposable.exportAsUSDZ,
 					}
-					await exporters[ext](modelRoot.value, baseFilename)
+					// 3MF and USDZ carry a real size: a glTF is in metres, an STL in millimetres
+					await exporters[ext](modelRoot.value, baseFilename, {
+						millimetresPerUnit: millimetresPerUnit(props.filename, modelRoot.value),
+					})
 					emit('push-toast', {
 						type: 'success',
 						title: t('threedviewer', 'Export Successful'),
