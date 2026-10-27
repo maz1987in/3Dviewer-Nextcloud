@@ -77,17 +77,6 @@
      * }, array{}>]]></code>
     </MoreSpecificReturnType>
   </file>
-  <file src="lib/Controller/AssetController.php">
-    <InvalidArgument>
-      <code><![CDATA[$filePath]]></code>
-      <code><![CDATA[$filePath]]></code>
-      <code><![CDATA[$mimeType]]></code>
-      <code><![CDATA[$mimeType]]></code>
-    </InvalidArgument>
-    <UnusedClass>
-      <code><![CDATA[AssetController]]></code>
-    </UnusedClass>
-  </file>
   <file src="lib/Controller/BaseController.php">
     <InvalidArrayOffset>
       <code><![CDATA[$units[$unitIndex]]]></code>
@@ -921,6 +910,14 @@
       <code><![CDATA[NotesHttpTest]]></code>
     </UnusedClass>
   </file>
+  <file src="tests/http/WriteRoutesCsrfHttpTest.php">
+    <MissingDependency>
+      <code><![CDATA[HttpTestCase]]></code>
+    </MissingDependency>
+    <UnusedClass>
+      <code><![CDATA[WriteRoutesCsrfHttpTest]]></code>
+    </UnusedClass>
+  </file>
   <file src="tests/integration/FileControllerLookupTest.php">
     <UndefinedClass>
       <code><![CDATA[TestCase]]></code>
@@ -987,6 +984,14 @@
       <code><![CDATA[ApiTest]]></code>
     </UnusedClass>
   </file>
+  <file src="tests/unit/Controller/ConfigControllerTest.php">
+    <UndefinedClass>
+      <code><![CDATA[TestCase]]></code>
+    </UndefinedClass>
+    <UnusedClass>
+      <code><![CDATA[ConfigControllerTest]]></code>
+    </UnusedClass>
+  </file>
   <file src="tests/unit/Controller/FileControllerTest.php">
     <UndefinedClass>
       <code><![CDATA[TestCase]]></code>
@@ -1025,6 +1030,14 @@
     </UndefinedClass>
     <UnusedClass>
       <code><![CDATA[PublicNotesControllerTest]]></code>
+    </UnusedClass>
+  </file>
+  <file src="tests/unit/Controller/PublicRouteGuardTest.php">
+    <UndefinedClass>
+      <code><![CDATA[TestCase]]></code>
+    </UndefinedClass>
+    <UnusedClass>
+      <code><![CDATA[PublicRouteGuardTest]]></code>
     </UnusedClass>
   </file>
   <file src="tests/unit/Controller/SettingsControllerTest.php">

@@ -85,8 +85,8 @@ class PageController extends Controller
         $user = $this->userSession?->getUser();
         $userId = $user?->getUID();
 
-        // Save selected file ID preference
-        if ($userId) {
+        // Save selected file ID preference; only a file id, as ConfigController accepts it
+        if ($userId && preg_match('/^\d{1,18}$/D', $fileId) === 1) {
             $this->config->setUserValue($userId, Application::APP_ID, 'selected_file_id', $fileId);
         }
 

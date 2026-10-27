@@ -340,7 +340,6 @@ lib/
 │   ├── ApiController.php          # OCS endpoints: /api, /api/files, /api/file/{id}
 │   ├── FileController.php         # App routes: /file/{id}, /files
 │   ├── PublicFileController.php   # Public share routes: /public/file/...
-│   ├── AssetController.php        # Decoder/assets serving
 │   └── BaseController.php
 ├── Service/
 │   ├── ModelFileSupport.php       # Supported extensions/MIME mapping
