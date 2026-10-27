@@ -524,8 +524,9 @@ class ModelDependencyResolver
      * directory, and resolve() looks for it in the model's folder alone; the directories
      * the path named are never followed. Any other scheme is not a file beside the model.
      * A relative path is relative to $directory, has `..` collapsed, and is rejected if it
-     * climbs out of the model's folder or holds a NUL, which no file name does. Only the
-     * ASCII blanks are trimmed (see BLANKS).
+     * climbs out of the model's folder, holds a NUL, which no file name does, or has a
+     * segment made only of dots and spaces other than `.` and `..` (see
+     * onlyDotsAndSpaces()). Only the ASCII blanks are trimmed (see BLANKS).
      */
     private function normalise(string $rawPath, string $directory = '.'): ?string
     {
@@ -552,6 +553,9 @@ class ModelDependencyResolver
                 continue;
             }
             if (str_contains($segment, "\0")) {
+                return null;
+            }
+            if ($segment !== '..' && self::onlyDotsAndSpaces($segment)) {
                 return null;
             }
             if ($segment === '..') {
@@ -614,11 +618,22 @@ class ModelDependencyResolver
         if ($url) {
             $name = self::percentDecoded($name);
         }
-        if ($name === '' || $name === '.' || $name === '..' || strpbrk($name, "/\\\0") !== false) {
+        if ($name === '' || self::onlyDotsAndSpaces($name) || strpbrk($name, "/\\\0") !== false) {
             return null;
         }
 
         return $name;
+    }
+
+    /**
+     * A segment made only of dots and spaces, `...`, `.. ` or `. .`. Windows drops trailing
+     * dots and spaces from a name, so storage on a Windows share can read such a segment
+     * as `.` or `..`; none is a real folder or file name, so none is followed. Mirrors
+     * DOTS_AND_SPACES in src/loaders/textureReferences.js.
+     */
+    private static function onlyDotsAndSpaces(string $segment): bool
+    {
+        return $segment !== '' && strspn($segment, '. ') === strlen($segment);
     }
 
     /**

@@ -36,6 +36,13 @@ const SCHEME = /^[a-z][a-z0-9+.-]*:/i
 const BLANKS = ' \t\n\r\v\f'
 
 /**
+ * A path segment made only of dots and spaces, `...`, `.. ` or `. .`. Windows drops
+ * trailing dots and spaces from a name, so storage on a Windows share can read such a
+ * segment as `.` or `..`; none is a real folder or file name, so none is followed.
+ */
+const DOTS_AND_SPACES = /^[. ]+$/
+
+/**
  * Trim the ASCII blanks off both ends. An index scan, linear in the text; a pattern
  * anchored at the end, such as /\s+$/, retries from every blank in V8.
  *
@@ -99,9 +106,9 @@ export function isLocalAbsoluteRef(ref) {
 /**
  * The file name an absolute or `file:` reference falls back to.
  *
- * A `file:` URL loses its query and fragment, and its name is percent-decoded once. A
- * name of `.` or `..`, an empty one, or one that decodes to something holding a separator
- * names no file beside the model and is refused.
+ * A `file:` URL loses its query and fragment, and its name is percent-decoded once. An
+ * empty name, one made only of dots and spaces, or one that decodes to something holding
+ * a separator or NUL names no file beside the model and is refused.
  *
  * @param {string} ref - a reference as declared
  * @return {string|null} the bare file name, or null when there is none to use
@@ -125,7 +132,7 @@ export function nameOnlyRef(ref) {
 	if (url) {
 		name = percentDecoded(name)
 	}
-	if (name === '' || name === '.' || name === '..' || /[/\\\0]/.test(name)) {
+	if (name === '' || DOTS_AND_SPACES.test(name) || /[/\\\0]/.test(name)) {
 		return null
 	}
 	return name
@@ -136,8 +143,9 @@ export function nameOnlyRef(ref) {
  *
  * An absolute or `file:` reference becomes its bare file name. Any other scheme is
  * rejected. A relative path has its separators folded and `..` collapsed, and is rejected
- * if it climbs out of the model's folder or holds a NUL, which no file name does. Only
- * the ASCII blanks are trimmed (see BLANKS).
+ * if it climbs out of the model's folder, holds a NUL, which no file name does, or has a
+ * segment made only of dots and spaces other than `.` and `..` (see DOTS_AND_SPACES).
+ * Only the ASCII blanks are trimmed (see BLANKS).
  *
  * @param {string} raw - reference exactly as the document wrote it
  * @return {string|null} normalised relative path, or null if it is not one
@@ -162,6 +170,9 @@ export function normaliseRef(raw) {
 			continue
 		}
 		if (segment.includes('\0')) {
+			return null
+		}
+		if (segment !== '..' && DOTS_AND_SPACES.test(segment)) {
 			return null
 		}
 		if (segment === '..') {
