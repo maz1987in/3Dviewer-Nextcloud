@@ -5,6 +5,7 @@
  * on a public share.
  */
 import { parseXmlModelDependencies } from '../../../src/loaders/multiFileHelpers.js'
+import table from '../../fixtures/texture-references.json'
 
 describe('parseXmlModelDependencies', () => {
 	it('reads a COLLADA 1.4 init_from path', () => {
@@ -204,6 +205,15 @@ describe('parseXmlModelDependencies', () => {
 		</library_images></COLLADA>`
 
 		expect(parseXmlModelDependencies(dae, 'dae')).toEqual(['textures/wood grain.png', '../shared/metal.png'])
+	})
+
+	// The same rows the server's resolver is held to
+	it.each(table.xml.map(({ ref, expected, why }) => [why, ref, expected]))('decodes as the server does: %s: %j', (_, ref, expected) => {
+		const dae = `<COLLADA><library_images><image><init_from>${ref}</init_from></image></library_images></COLLADA>`
+		const x3d = `<X3D><Scene><ImageTexture url='"${ref}"'/></Scene></X3D>`
+
+		expect(parseXmlModelDependencies(dae, 'dae')).toEqual(expected === null ? [] : [expected])
+		expect(parseXmlModelDependencies(x3d, 'x3d')).toEqual(expected === null ? [] : [expected])
 	})
 
 	it('deduplicates a texture shared by several materials', () => {

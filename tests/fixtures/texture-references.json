@@ -64,5 +64,17 @@
 		{ "ref": "", "expected": null, "why": "empty" },
 		{ "ref": "   ", "expected": null, "why": "blank" },
 		{ "ref": ".", "expected": null, "why": "the folder itself" }
+	],
+	"xmlDescription": "Values as a COLLADA <init_from> or an X3D url writes them, which are percent-decoded before they are normalised, except a file: URL, whose name is decoded once by the normaliser. Read by tests/unit/loaders/xmlModelDependencies.test.js and tests/unit/Service/ModelDependencyResolverTest.php.",
+	"xml": [
+		{ "ref": "wood%20grain.png", "expected": "wood grain.png", "why": "an encoded space" },
+		{ "ref": "textures/oak%20floor.png", "expected": "textures/oak floor.png", "why": "an encoded space below a folder" },
+		{ "ref": "b%C3%A4r.png", "expected": "bär.png", "why": "encoded UTF-8" },
+		{ "ref": "a%41%.png", "expected": "a%41%.png", "why": "a stray % keeps the whole value as written, as decodeURIComponent does" },
+		{ "ref": "%FF.png", "expected": "%FF.png", "why": "an escape that is not UTF-8 keeps the value as written" },
+		{ "ref": "file:///C:/x/100%2520.png", "expected": "100%20.png", "why": "a file: URL's name is decoded once, not twice" },
+		{ "ref": "C:%5Cx%5Cwood.png", "expected": "wood.png", "why": "decodes to a drive-letter path" },
+		{ "ref": "%2Fhome%2Fanna%2Fwood.png", "expected": "wood.png", "why": "decodes to a leading slash" },
+		{ "ref": "https%3A//example.invalid/remote.png", "expected": null, "why": "decodes to a remote URL" }
 	]
 }

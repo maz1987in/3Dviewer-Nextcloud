@@ -643,12 +643,14 @@ class ModelDependencyResolver
 
     /**
      * A URI-encoded reference decoded before it is normalised, as glTF, COLLADA and X3D
-     * write theirs. A `file:` URL is left as it is: normalise() decodes its name, and
-     * decoding twice would turn a literal `%20` in a file name into a space.
+     * write theirs, the way the client's decodeURIComponent() decodes it: a stray `%` or
+     * bytes that are not UTF-8 keep the value as written. A `file:` URL is left as it is:
+     * normalise() decodes its name, and decoding twice would turn a literal `%20` in a
+     * file name into a space.
      */
     private static function uriDecoded(string $value): string
     {
-        return self::isFileUrl(ltrim($value, self::BLANKS)) ? $value : rawurldecode($value);
+        return self::isFileUrl(ltrim($value, self::BLANKS)) ? $value : self::percentDecoded($value);
     }
 
     /**

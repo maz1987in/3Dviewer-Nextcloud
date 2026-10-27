@@ -777,6 +777,47 @@ class ModelDependencyResolverTest extends TestCase
     }
 
     /**
+     * COLLADA and X3D values, decoded before they are normalised; the rows the client's
+     * parseXmlModelDependencies() is held to.
+     *
+     * @return array<string, array{string, string, ?string}>
+     */
+    public static function sharedXmlTable(): array
+    {
+        /** @var array{xml: list<array{ref: string, expected: ?string, why: string}>} $table */
+        $table = json_decode(
+            (string) file_get_contents(__DIR__ . '/../../fixtures/texture-references.json'),
+            true,
+            flags: JSON_THROW_ON_ERROR,
+        );
+
+        $cases = [];
+        foreach ($table['xml'] as $case) {
+            $cases['dae: ' . $case['why']] = ['chair.dae', '<COLLADA><library_images><image><init_from>' . $case['ref'] . '</init_from></image></library_images></COLLADA>', $case['expected']];
+            $cases['x3d: ' . $case['why']] = ['wall.x3d', '<X3D><Scene><ImageTexture url=\'"' . $case['ref'] . '"\'/></Scene></X3D>', $case['expected']];
+        }
+
+        return $cases;
+    }
+
+    #[DataProvider('sharedXmlTable')]
+    public function testDecodesAnXmlReferenceAsTheClientDoes(string $name, string $document, ?string $expected): void
+    {
+        if ($expected === null) {
+            $model = $this->modelNamed($name, $document, ['remote.png' => $this->fileNamed('remote.png')]);
+            $this->expectException(NotFoundException::class);
+            $this->resolver->resolve($model, 'remote.png');
+
+            return;
+        }
+
+        $texture = $this->fileNamed($expected);
+        $model = $this->modelNamed($name, $document, [$expected => $texture]);
+
+        $this->assertSame($texture, $this->resolver->resolve($model, basename($expected)));
+    }
+
+    /**
      * A reference is a string the uploader chose. Every check on it is a fixed-length
      * test at its start or a single forward scan; mirrors the linear-time cases in
      * tests/unit/loaders/textureReferences.test.js.
