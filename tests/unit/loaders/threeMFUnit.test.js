@@ -5,7 +5,8 @@
  * unit on the model, without rescaling the scene, and utils/sourceUnits.js converts.
  */
 import * as THREE from 'three'
-import { zipSync, strToU8, unzipSync, strFromU8 } from 'three/examples/jsm/libs/fflate.module.js'
+import { zipSync, unzipSync, strFromU8 } from 'three/examples/jsm/libs/fflate.module.js'
+import { bytes, RELS, threeMF } from './fixtures/unitFixtures.js'
 import { ThreeMfLoader, read3MFUnit } from '../../../src/loaders/types/threeMF.js'
 import { millimetresPerUnit, threeMFUnit } from '../../../src/utils/sourceUnits.js'
 import { build3MF } from '../../../src/utils/threeMFWriter.js'
@@ -15,50 +16,7 @@ jest.mock('@nextcloud/router', () => ({
 	imagePath: (app, p) => `/custom_apps/${app}/img/${p}`,
 }))
 
-const CONTENT_TYPES = '<?xml version="1.0" encoding="UTF-8"?>'
-	+ '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
-	+ '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
-	+ '<Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/>'
-	+ '</Types>'
-const RELS = '<?xml version="1.0" encoding="UTF-8"?>'
-	+ '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-	+ '<Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/>'
-	+ '</Relationships>'
-
-// fflate tells a file from a folder with `instanceof Uint8Array`; the test realm's
-// TextEncoder returns another realm's (see threeMFWriter.js)
-const bytes = (text) => {
-	const encoded = strToU8(text)
-	return new Uint8Array(encoded.buffer, encoded.byteOffset, encoded.byteLength)
-}
-
-/**
- * A 3MF holding one tetrahedron with legs 2 long, in the given unit.
- * @param {?string} unit - the `unit` attribute, or null to leave it out
- * @param {object} [options]
- * @param {string} [options.prefix] - a namespace prefix for the elements
- * @param {number} [options.level] - deflate level; 0 stores the parts uncompressed
- * @param {string} [options.padding] - text between the XML declaration and <model>
- * @return {Uint8Array} the archive
- */
-function fixture(unit, { prefix = '', level = 6, padding = '' } = {}) {
-	const p = prefix ? `${prefix}:` : ''
-	const ns = prefix ? `xmlns:${prefix}` : 'xmlns'
-	const unitAttribute = unit === null ? '' : ` unit="${unit}"`
-	const model = '<?xml version="1.0" encoding="UTF-8"?>' + padding
-		+ `<${p}model${unitAttribute} xml:lang="en-US" ${ns}="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">`
-		+ `<${p}resources><${p}object id="1" type="model"><${p}mesh><${p}vertices>`
-		+ `<${p}vertex x="0" y="0" z="0"/><${p}vertex x="2" y="0" z="0"/><${p}vertex x="0" y="2" z="0"/><${p}vertex x="0" y="0" z="2"/>`
-		+ `</${p}vertices><${p}triangles>`
-		+ `<${p}triangle v1="0" v2="2" v3="1"/><${p}triangle v1="0" v2="1" v3="3"/><${p}triangle v1="0" v2="3" v3="2"/><${p}triangle v1="1" v2="2" v3="3"/>`
-		+ `</${p}triangles></${p}mesh></${p}object></${p}resources>`
-		+ `<${p}build><${p}item objectid="1"/></${p}build></${p}model>`
-	return zipSync({
-		'[Content_Types].xml': bytes(CONTENT_TYPES),
-		'_rels/.rels': bytes(RELS),
-		'3D/3dmodel.model': bytes(model),
-	}, { level })
-}
+const fixture = threeMF
 
 const UNITS = [
 	['micron', 0.001],

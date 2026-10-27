@@ -7,38 +7,12 @@
  */
 import * as THREE from 'three'
 import FbxLoader from '../../../src/loaders/types/fbx.js'
+import { asciiFbx } from './fixtures/unitFixtures.js'
 import { fbxUnit, millimetresPerFileUnit, millimetresPerUnit, viewerScale } from '../../../src/utils/sourceUnits.js'
 
 jest.mock('../../../src/utils/logger.js', () => ({
 	logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() },
 }))
-
-/**
- * An ASCII FBX holding one tetrahedron, its legs `leg` file units long.
- * @param {number} leg - leg length, in file units
- * @param {?number} unitScaleFactor - centimetres per unit, or null to leave it out
- * @return {ArrayBuffer} the file
- */
-function asciiFbx(leg, unitScaleFactor) {
-	const unit = unitScaleFactor === null ? '' : `\t\tP: "UnitScaleFactor", "double", "Number", "",${unitScaleFactor}\n`
-	const text = '; FBX 7.4.0 project file\n'
-		+ 'FBXHeaderExtension:  {\n\tFBXHeaderVersion: 1003\n\tFBXVersion: 7400\n}\n'
-		+ 'GlobalSettings:  {\n\tVersion: 1000\n\tProperties70:  {\n'
-		+ '\t\tP: "UpAxis", "int", "Integer", "",1\n'
-		+ unit
-		+ '\t}\n}\n'
-		+ 'Objects:  {\n'
-		+ '\tGeometry: 1000, "Geometry::tetra", "Mesh" {\n'
-		+ `\t\tVertices: *12 {\n\t\t\ta: 0,0,0,${leg},0,0,0,${leg},0,0,0,${leg}\n\t\t}\n`
-		+ '\t\tPolygonVertexIndex: *12 {\n\t\t\ta: 0,2,-2,0,1,-4,0,3,-3,1,2,-4\n\t\t}\n'
-		+ '\t\tGeometryVersion: 124\n'
-		+ '\t}\n'
-		+ '\tModel: 2000, "Model::tetra", "Mesh" {\n\t\tVersion: 232\n\t}\n'
-		+ '}\n'
-		+ 'Connections:  {\n\tC: "OO",2000,0\n\tC: "OO",1000,2000\n}\n'
-	const bytes = new TextEncoder().encode(text)
-	return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
-}
 
 const load = async (buffer) => (await new FbxLoader().loadModel(buffer, { THREE, filename: 'model.fbx' })).object3D
 

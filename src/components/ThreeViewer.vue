@@ -1525,6 +1525,9 @@ export default {
 						}
 					}
 
+					// Where the model now sits is where the gizmo's Reset returns it to
+					transformGizmo.rememberTransform(modelRoot.value)
+
 					// Fit camera to object (wait for next tick to ensure scene graph is settled)
 					await nextTick()
 

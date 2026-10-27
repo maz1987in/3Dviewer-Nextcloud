@@ -19,6 +19,25 @@ export function useTransformGizmo() {
 	let scene = null
 	let orbitControls = null
 	let attachedObject = null
+	// Each model's transform as it was loaded: the loader's own rotation (3MF is turned
+	// Z-up to Y-up) and rescale (FBX and OBJ shrink a large model to fit), and the
+	// viewer's centring. Reset goes back to this, not to identity.
+	const loadedTransforms = new WeakMap()
+
+	/**
+	 * Remember an object's transform as the one Reset returns it to. Called when a model
+	 * has been placed after loading; an object attached without one is remembered as it
+	 * is when first attached.
+	 * @param {THREE.Object3D} object - The model root
+	 */
+	const rememberTransform = (object) => {
+		if (!object?.position) return
+		loadedTransforms.set(object, {
+			position: object.position.clone(),
+			quaternion: object.quaternion.clone(),
+			scale: object.scale.clone(),
+		})
+	}
 
 	/**
 	 * Initialize transform controls.
@@ -70,6 +89,7 @@ export function useTransformGizmo() {
 		isActive.value = !isActive.value
 
 		if (isActive.value && modelRoot) {
+			if (!loadedTransforms.has(modelRoot)) rememberTransform(modelRoot)
 			controls.attach(modelRoot)
 			attachedObject = modelRoot
 			logger.info('useTransformGizmo', 'Attached', { mode: mode.value })
@@ -95,13 +115,23 @@ export function useTransformGizmo() {
 	}
 
 	/**
-	 * Reset the attached object's transform to identity.
+	 * Return the attached object to its transform as loaded. Identity would undo what the
+	 * loader set: the FBX and OBJ rescale, whose factor sourceUnits.js still divides out,
+	 * so readings came out 1/viewerScale too large, and the 3MF Z-up turn.
 	 */
 	const resetTransform = () => {
 		if (!attachedObject) return
-		attachedObject.position.set(0, 0, 0)
-		attachedObject.rotation.set(0, 0, 0)
-		attachedObject.scale.set(1, 1, 1)
+		const loaded = loadedTransforms.get(attachedObject)
+		if (loaded) {
+			attachedObject.position.copy(loaded.position)
+			attachedObject.quaternion.copy(loaded.quaternion)
+			attachedObject.scale.copy(loaded.scale)
+		} else {
+			attachedObject.position.set(0, 0, 0)
+			attachedObject.rotation.set(0, 0, 0)
+			attachedObject.scale.set(1, 1, 1)
+		}
+		attachedObject.updateMatrixWorld?.(true)
 		logger.info('useTransformGizmo', 'Transform reset')
 	}
 
@@ -130,6 +160,7 @@ export function useTransformGizmo() {
 		init,
 		toggle,
 		setMode,
+		rememberTransform,
 		resetTransform,
 		dispose,
 	}
