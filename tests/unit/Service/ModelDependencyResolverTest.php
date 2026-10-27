@@ -711,6 +711,23 @@ class ModelDependencyResolverTest extends TestCase
      */
     public function testServesAnAbsoluteFbxTexturePathOnlyByItsNameBesideTheModel(): void
     {
+        $beside = $this->fileNamed('wood.png');
+        $model = $this->modelNamed(
+            'scene.fbx',
+            $this->fbxDocumentWith(['C:\\Users\\someone\\wood.png']),
+            [
+                'wood.png' => $beside,
+                'C:/Users/someone/wood.png' => $this->fileNamed('wood.png'),
+            ],
+        );
+
+        $this->assertSame($beside, $this->resolver->resolve($model, 'wood.png'));
+    }
+
+    public function testNeverFollowsTheDirectoriesOfAnAbsoluteFbxTexturePath(): void
+    {
+        // Nothing beside the model: the file the path's directories lead to is the only
+        // one of that name, and it is not served
         $model = $this->modelNamed(
             'scene.fbx',
             $this->fbxDocumentWith(['C:\\Users\\someone\\wood.png']),
@@ -890,14 +907,19 @@ class ModelDependencyResolverTest extends TestCase
      */
     public function testNeverServesANameOnlyEntryFromASubfolder(): void
     {
-        $model = $this->modelNamed(
-            'room.dae',
-            '<COLLADA><library_images><image><init_from>/home/anna/textures/wood.jpg</init_from></image></library_images></COLLADA>',
-            [
-                'textures/wood.jpg' => $this->fileNamed('wood.jpg'),
-                'home/anna/textures/wood.jpg' => $this->fileNamed('wood.jpg'),
-            ],
-        );
+        $document = '<COLLADA><library_images><image><init_from>/home/anna/textures/wood.jpg</init_from></image></library_images></COLLADA>';
+        $below = [
+            'textures/wood.jpg' => $this->fileNamed('wood.jpg'),
+            'home/anna/textures/wood.jpg' => $this->fileNamed('wood.jpg'),
+        ];
+
+        // Asserted first, so the refusal below cannot pass merely because the
+        // declaration was dropped: with the name beside the model, that file is served
+        $beside = $this->fileNamed('wood.jpg');
+        $withBeside = $this->modelNamed('room.dae', $document, ['wood.jpg' => $beside] + $below);
+        $this->assertSame($beside, $this->resolver->resolve($withBeside, 'wood.jpg'));
+
+        $model = $this->modelNamed('room.dae', $document, $below);
 
         $this->expectException(NotFoundException::class);
         $this->resolver->resolve($model, 'wood.jpg');
