@@ -309,3 +309,45 @@ describe('glTF dependencies on a public share', () => {
 		expect(image._relativePath).toBe('textures/diffuse.png')
 	})
 })
+
+describe('textures named by an absolute path on a public share', () => {
+	// Windows exporters write the path on the author's machine. The server's resolver
+	// serves such a texture by its bare name from the model's folder, so that is the
+	// name to ask for, decoded where the path was a file: URL.
+
+	it('asks for an OBJ material map by its bare name', async () => {
+		const mtl = 'newmtl seat\nmap_Kd file:///C:/My%20Textures/wood%20grain.png\nbump C:\\Users\\anna\\normal.png\n'
+		serve({ '/dep/chair.mtl': mtl, '/dep/wood grain.png': 'PNG', '/dep/normal.png': 'PNG' })
+		const { fetchObjDependencies } = await loadHelpers(PUBLIC)
+
+		const result = await fetchObjDependencies(OBJ, 'chair.obj', 42, '')
+
+		expect(result.found.map((f) => f.name).sort()).toEqual(['chair.mtl', 'normal.png', 'wood grain.png'])
+		expect(requested.filter((u) => u.includes('/dep/')).sort()).toEqual([
+			`${DEP}/chair.mtl`,
+			`${DEP}/normal.png`,
+			`${DEP}/wood grain.png`,
+		])
+	})
+
+	it('asks for an absolute mtllib by its bare name', async () => {
+		serve({ '/dep/chair.mtl': MTL, '/dep/wood.png': 'PNG', '/dep/normal.png': 'PNG' })
+		const { fetchObjDependencies } = await loadHelpers(PUBLIC)
+
+		const result = await fetchObjDependencies('mtllib D:\\exports\\chair.mtl\nf 1 2 3\n', 'chair.obj', 42, '')
+
+		expect(result.found.map((f) => f.name).sort()).toEqual(['chair.mtl', 'normal.png', 'wood.png'])
+	})
+
+	it('asks for a COLLADA image by its bare name, with no directory to keep', async () => {
+		const dae = '<COLLADA><library_images><image id="a"><init_from>C:\\textures\\wood.png</init_from></image></library_images></COLLADA>'
+		serve({ '/dep/wood.png': 'PNG' })
+		const { fetchXmlDependencies } = await loadHelpers(PUBLIC)
+
+		const result = await fetchXmlDependencies(dae, 'dae', 42, '')
+
+		expect(result.found.map((f) => f.name)).toEqual(['wood.png'])
+		expect(result.found[0]._relativePath).toBeUndefined()
+		expect(requested).toEqual([`${DEP}/wood.png`])
+	})
+})

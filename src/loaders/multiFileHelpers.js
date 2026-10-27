@@ -9,6 +9,7 @@
 import { generateUrl } from '@nextcloud/router'
 import { buildFileUrl, buildPublicDepUrl, isPublicShare } from '../composables/usePublicShare.js'
 import { parse3dsDependencies, parseFbxTextures } from './binaryModelDependencies.js'
+import { hasScheme, isFileUrl, isLocalAbsoluteRef, nameOnlyRef, percentDecoded } from './textureReferences.js'
 import { logger } from '../utils/logger.js'
 import { getFulfilledValues } from '../utils/arrayHelpers.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
@@ -357,13 +358,21 @@ async function locateDependency(modelFileId, refPath, dirPath) {
 
 /**
  * Parse OBJ file content to find referenced MTL files
+ *
+ * An absolute or `file:` path falls back to the material's bare name beside the model,
+ * which is what the server's resolver serves for it.
+ *
  * @param {string} objContent - Text content of OBJ file
  * @return {string[]} - Array of MTL filenames
  */
 export function parseObjMaterialFiles(objContent) {
 	// Match lines like: mtllib material.mtl
 	const matches = [...objContent.matchAll(/^\s*mtllib[^\S\r\n]+(.*?)$/gm)]
-	return [...new Set(matches.map(capture => capture[1].trim()))]
+	const names = matches.map((capture) => {
+		const value = capture[1].trim()
+		return isLocalAbsoluteRef(value) ? nameOnlyRef(value) : value
+	})
+	return [...new Set(names.filter(Boolean))]
 }
 
 /**
@@ -380,6 +389,11 @@ export function parseMtlTextureFiles(mtlContent) {
 	// but Nextcloud stores all files flat in the same directory
 	const filenames = matches.map(capture => {
 		const fullPath = capture[1].trim()
+		// An absolute or file: path goes through the same reduction the server applies,
+		// which decodes a file: URL's name and refuses one that is no file name at all
+		if (isLocalAbsoluteRef(fullPath)) {
+			return nameOnlyRef(fullPath)
+		}
 		// Normalize both forward and backward slashes, then get basename
 		const normalized = fullPath.replace(/\\/g, '/')
 		const basename = normalized.split('/').pop()
@@ -629,15 +643,22 @@ export function parseXmlModelDependencies(content, extension) {
 	const found = new Set()
 	const push = (raw) => {
 		const value = String(raw).trim()
-		// A scheme means it is not a file beside the model: data:, http:, https:, file:.
-		if (value === '' || /^[a-z][a-z0-9+.-]*:/i.test(value) || value.startsWith('/')) {
+		// Decoded first, as the server decodes before it normalises. A file: URL is the
+		// exception: nameOnlyRef decodes its name, and decoding twice would turn a
+		// literal %20 in a file name into a space.
+		const decoded = isFileUrl(value) ? value : percentDecoded(value)
+		// C:\textures\wood.png, /home/anna/wood.png, file:///C:/wood.png: by name, beside
+		// the model, as the server's resolver serves it
+		if (isLocalAbsoluteRef(decoded)) {
+			const name = nameOnlyRef(decoded)
+			if (name !== null) {
+				found.add(name)
+			}
 			return
 		}
-		let decoded = value
-		try {
-			decoded = decodeURIComponent(value)
-		} catch {
-			// Leave a malformed escape sequence as written.
+		// Any other scheme means it is not a file beside the model: data:, http:, https:.
+		if (decoded === '' || hasScheme(decoded)) {
+			return
 		}
 		found.add(decoded)
 	}

@@ -14,6 +14,8 @@
  * half, so it knows which names to ask for.
  */
 
+import { normaliseRef } from './textureReferences.js'
+
 /**
  * How many textures one model may declare.
  *
@@ -126,44 +128,6 @@ const utf8 = new TextDecoder('utf-8')
 const decodeText = (bytes) => utf8.decode(bytes)
 
 /**
- * Reduce a declared reference to a path inside the model's own folder, or reject it.
- *
- * Mirrors ModelDependencyResolver::normalise() — the client must ask for the same names
- * the server is willing to serve.
- *
- * @param {string} raw - reference exactly as the document wrote it
- * @return {string|null} normalised relative path, or null if it is not one
- */
-function normaliseRef(raw) {
-	// Exporters on Windows write backslashes; every path here uses forward slashes.
-	const path = String(raw).replace(/\\/g, '/').trim()
-
-	// A leading slash is absolute, and a scheme — data:, https:, and Windows' "C:" —
-	// means it is not a file beside the model.
-	if (path === '' || path.startsWith('/') || /^[a-z][a-z0-9+.-]*:/i.test(path)) {
-		return null
-	}
-
-	const segments = []
-	for (const segment of path.split('/')) {
-		if (segment === '' || segment === '.') {
-			continue
-		}
-		if (segment === '..') {
-			if (segments.length === 0) {
-				// Climbing out of the model's folder reaches files the share never covered.
-				return null
-			}
-			segments.pop()
-			continue
-		}
-		segments.push(segment)
-	}
-
-	return segments.length === 0 ? null : segments.join('/')
-}
-
-/**
  * @param {string[]} out - accumulator, deduplicated
  * @param {string} raw - reference as declared
  */
@@ -189,9 +153,10 @@ const keepWalking = (out, budget) => budget.nodes > 0 && out.length < MAX_DECLAR
 /**
  * Texture paths an FBX document declares, in document order.
  *
- * Only `RelativeFilename` is read. FBX also carries an absolute `FileName`, but an
- * absolute path is rejected by normalisation anyway, and guessing at its basename would
- * declare names the document never pointed at beside the model.
+ * Only `RelativeFilename` is read, which is the name three's FBXLoader asks for. An
+ * absolute one, as Windows exporters write, falls back to its bare file name beside the
+ * model (see normaliseRef). FBX also carries a `FileName`, but the loader does not ask
+ * for it while `RelativeFilename` is set, so it is not read.
  *
  * A texture whose image is embedded is not a dependency. Its `Video` node carries the
  * bytes as non-empty `Content`, and three's FBXLoader keys those bytes by the video's

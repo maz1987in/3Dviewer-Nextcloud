@@ -8,6 +8,15 @@
  * inside it is not a declaration — the tests below plant exactly that.
  */
 import { parse3dsDependencies, parseFbxDependencies } from '../../../src/loaders/binaryModelDependencies.js'
+import table from '../../fixtures/texture-references.json'
+
+/**
+ * The shared reference table (also read by the server's tests), as the builders below
+ * can write it: they encode a byte per character, so only its ASCII entries.
+ */
+const ASCII_REFERENCES = table.cases
+	.filter(({ ref }) => /^[\x20-\x7e]*$/.test(ref))
+	.map(({ ref, expected, why }) => [why, ref, expected])
 
 const ascii = (s) => Uint8Array.from(Array.from(s, (c) => c.charCodeAt(0) & 0xff))
 
@@ -234,15 +243,41 @@ describe('parseFbxDependencies', () => {
 		expect(parseFbxDependencies(doc)).toEqual(['wood.png'])
 	})
 
-	it('drops absolute and remote references', () => {
+	it('declares an absolute path by its name, and drops a remote reference', () => {
+		// Windows exporters write the path on the author's machine; that directory does
+		// not exist here, so the name is looked for beside the model
 		const doc = fbxWithTextures([
 			'C:\\Users\\someone\\wood.png',
-			'/var/data/wood.png',
-			'https://example.invalid/wood.png',
+			'/var/data/metal.png',
+			'file:///C:/My%20Textures/stone%20wall.png',
+			'https://example.invalid/remote.png',
 			'local.png',
 		])
 
-		expect(parseFbxDependencies(doc)).toEqual(['local.png'])
+		expect(parseFbxDependencies(doc)).toEqual(['wood.png', 'metal.png', 'stone wall.png', 'local.png'])
+	})
+
+	it('declares a texture named by an absolute path and by a relative one once, first come', () => {
+		expect(parseFbxDependencies(fbxWithTextures(['C:\\export\\wood.png', 'wood.png', 'textures/wood.png'])))
+			.toEqual(['wood.png', 'textures/wood.png'])
+	})
+
+	it.each(ASCII_REFERENCES)('binary: %s: %j', (_, ref, expected) => {
+		expect(parseFbxDependencies(fbxWithTextures([ref]))).toEqual(expected === null ? [] : [expected])
+	})
+
+	it.each(ASCII_REFERENCES)('ASCII: %s: %j', (_, ref, expected) => {
+		const text = `Objects:  {\n\tTexture: 1, "Texture::map", "" {\n\t\tRelativeFilename: "${ref}"\n\t}\n}\n`
+
+		expect(parseFbxDependencies(ascii(text).buffer)).toEqual(expected === null ? [] : [expected])
+	})
+
+	it('keeps an embedded texture named by an absolute path out of the declarations', () => {
+		// The Video's Content carries the image, keyed by the name three reads, so
+		// nothing beside the model is needed for it
+		const doc = fbxBinary([fbxNode('Objects', [], videoAndTexture('C:\\export\\wood.png', PNG_BYTES))])
+
+		expect(parseFbxDependencies(doc)).toEqual([])
 	})
 
 	it('deduplicates a texture shared by several materials', () => {
@@ -389,6 +424,22 @@ describe('parse3dsDependencies', () => {
 		])
 
 		expect(parse3dsDependencies(doc)).toEqual(['diffuse.jpg', 'bump.jpg', 'opacity.jpg'])
+	})
+
+	it('declares an absolute map name by its name beside the model', () => {
+		const doc = threeDs([
+			chunk(0xa200, new Uint8Array(0), [MAPNAME('C:\\3DSMAX\\MAPS\\WOOD.JPG')]),
+			chunk(0xa230, new Uint8Array(0), [MAPNAME('file:///C:/maps/bump%20map.jpg')]),
+			chunk(0xa210, new Uint8Array(0), [MAPNAME('https://example.invalid/opacity.jpg')]),
+		])
+
+		expect(parse3dsDependencies(doc)).toEqual(['WOOD.JPG', 'bump map.jpg'])
+	})
+
+	it.each(ASCII_REFERENCES)('%s: %j', (_, ref, expected) => {
+		const doc = threeDs([chunk(0xa200, new Uint8Array(0), [MAPNAME(ref)])])
+
+		expect(parse3dsDependencies(doc)).toEqual(expected === null ? [] : [expected])
 	})
 
 	it('stops the name at its terminator', () => {

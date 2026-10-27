@@ -279,10 +279,13 @@ describe('loadModelForBackground', () => {
 		const fromDae = await loadModelForBackground(40, 'chair.dae', 'dae', '/models', { budgetBytes: MB })
 		const fromX3d = await loadModelForBackground(43, 'wall.x3d', 'x3d', '/models', { budgetBytes: MB })
 
-		// A drive-letter path reads as a URL scheme and is not declared, here as in the
-		// viewer and the server's resolver; the worker then refuses it, which skips the file
-		expect(fromDae.dependencies.map((file) => file.name)).toEqual(['wood.png'])
+		// A drive-letter path is from the author's machine, so it is looked for by its name
+		// beside the model, and only there
+		expect(fromDae.dependencies.map((file) => file.name)).toEqual(['wood.png', 'metal.png'])
 		expect(fromDae.missingFiles).toEqual([])
+		expect(server.urls().filter((url) => url.includes('metal.png'))).toEqual([
+			`/index.php/apps/threedviewer/api/files/find?path=${encodeURIComponent('models/metal.png')}`,
+		])
 		// Not at maps/stone.png, so by its name beside the model; the remote one is not a companion
 		expect(fromX3d.dependencies.map((file) => file.name)).toEqual(['stone.png'])
 		expect(fromX3d.missingFiles).toEqual([])
@@ -343,6 +346,27 @@ describe('loadModelForBackground', () => {
 		expect(result.dependencies.map((file) => file.name)).toEqual(['chair.mtl', 'wood.png', 'normal.png'])
 		expect(server.urls()).not.toContain('/index.php/apps/threedviewer/api/file/34')
 		expect(server.urls().some((url) => url.includes('/api/files/list'))).toBe(false)
+	})
+
+	it('looks for an MTL map named by an absolute path or a file: URL by its name beside the model only', async () => {
+		const server = serve({
+			'parts/chair.obj': { id: 30, body: 'mtllib chair.mtl\nf 1 2 3\n' },
+			'parts/chair.mtl': { id: 31, body: 'newmtl seat\nmap_Kd file:///C:/My%20Textures/wood%20grain.png\nbump /home/anna/maps/normal.png\n' },
+			'parts/wood grain.png': { id: 32, body: 'PNG' },
+			'parts/normal.png': { id: 33, body: 'PNG' },
+			// Where the absolute path's own directories would lead, were they followed
+			'parts/home/anna/maps/normal.png': { id: 34, body: 'PNG' },
+		})
+
+		const result = await loadModelForBackground(30, 'chair.obj', 'obj', '/parts', { budgetBytes: MB })
+
+		expect(result.dependencies.map((file) => file.name)).toEqual(['chair.mtl', 'wood grain.png', 'normal.png'])
+		expect(result.missingFiles).toEqual([])
+		expect(server.urls().filter((url) => url.includes('/api/files/find'))).toEqual([
+			`/index.php/apps/threedviewer/api/files/find?path=${encodeURIComponent('parts/chair.mtl')}`,
+			`/index.php/apps/threedviewer/api/files/find?path=${encodeURIComponent('parts/wood grain.png')}`,
+			`/index.php/apps/threedviewer/api/files/find?path=${encodeURIComponent('parts/normal.png')}`,
+		])
 	})
 
 	it('passes the one signal to every request', async () => {
@@ -544,6 +568,45 @@ describe('loadModelForBackground in the queue', () => {
 		expect(deps.render.mock.calls.map(([job]) => job.additionalFiles.map((file) => file.name))).toEqual([['checker.png']])
 		expect(deps.api.uploadThumbnail.mock.calls.map(([id]) => id)).toEqual([70])
 		expect(deps.skips.markSkipped).not.toHaveBeenCalled()
+	})
+
+	it('a DAE naming its image by a Windows path fetches it by name beside the model, renders and uploads', async () => {
+		const dae = '<COLLADA><library_images><image id="img"><init_from>C:\\textures\\wood.png</init_from></image></library_images></COLLADA>'
+		const server = serve({
+			'scenes/room.dae': { id: 80, body: dae },
+			'scenes/wood.png': { id: 81, body: 'PNG' },
+		})
+		const statuses = { 80: { name: 'room.dae', dir: '/scenes', size: dae.length, etag: 'e80', canEdit: true, hasThumbnail: false } }
+		const { queue, deps } = queueOn(statuses, 10)
+
+		queue.setFolder('/scenes', [80], new Set())
+		await queue.idle()
+
+		expect(server.urls().filter((url) => url.includes('/api/files/find'))).toEqual([
+			`/index.php/apps/threedviewer/api/files/find?path=${encodeURIComponent('scenes/wood.png')}`,
+		])
+		expect(server.urls()).toContain('/index.php/apps/threedviewer/api/file/81')
+		expect(deps.render.mock.calls.map(([job]) => job.additionalFiles.map((file) => file.name))).toEqual([['wood.png']])
+		expect(deps.api.uploadThumbnail.mock.calls.map(([id]) => id)).toEqual([80])
+		expect(deps.skips.markSkipped).not.toHaveBeenCalled()
+	})
+
+	it('a DAE naming its image by a Windows path that is not beside it is skipped, even when the path exists below', async () => {
+		serve({
+			'scenes/room.dae': { id: 90, body: '<COLLADA><library_images><image id="img"><init_from>file:///C:/textures/wood.png</init_from></image></library_images></COLLADA>' },
+			// The directories of an absolute path are never followed
+			'scenes/C:/textures/wood.png': { id: 91, body: 'PNG' },
+			'scenes/textures/wood.png': { id: 92, body: 'PNG' },
+		})
+		const statuses = { 90: { name: 'room.dae', dir: '/scenes', size: 128, etag: 'e90', canEdit: true, hasThumbnail: false } }
+		const { queue, deps } = queueOn(statuses, 10)
+
+		queue.setFolder('/scenes', [90], new Set())
+		await queue.idle()
+
+		expect(deps.render).not.toHaveBeenCalled()
+		expect(deps.api.uploadThumbnail).not.toHaveBeenCalled()
+		expect(deps.skips.markSkipped.mock.calls).toEqual([[90, 'e90']])
 	})
 
 	it('a DAE or X3D whose texture is not beside it is skipped, not rendered untextured', async () => {
