@@ -1182,7 +1182,9 @@ export default {
 }
 
 /* Toggle switch rows */
-.toggle-row {
+/* Doubled: "Only this layer" is a <button> with this class, and a single class loses to
+   Nextcloud's rules for every button (see buttonSpecificity.test.js) */
+.toggle-row.toggle-row {
 	display: flex;
 	align-items: center;
 	gap: 12px;
@@ -1193,7 +1195,7 @@ export default {
 	margin-bottom: 4px;
 }
 
-.toggle-row:hover {
+.toggle-row.toggle-row:hover {
 	background: var(--tdv-color-hover-bg);
 }
 
@@ -1256,7 +1258,7 @@ export default {
 }
 
 /* The switch is a button, so it takes focus; it keeps the look of the rows above */
-.toggle-row--button {
+.toggle-row.toggle-row--button {
 	width: 100%;
 	border: none;
 	background: none;
@@ -1265,9 +1267,21 @@ export default {
 	text-align: start;
 }
 
-.toggle-row--button:focus-visible {
+.toggle-row.toggle-row--button:hover,
+.toggle-row.toggle-row--button:focus-visible {
+	background: var(--tdv-color-hover-bg);
+	color: inherit;
+}
+
+.toggle-row.toggle-row--button:focus-visible {
 	outline: 2px solid var(--tdv-color-primary);
 	outline-offset: 2px;
+}
+
+/* Nextcloud's pressed-button rule scores (0,4,1); a row has no pressed look of its own */
+.toggle-row.toggle-row--button:active {
+	background: var(--tdv-color-hover-bg) !important;
+	color: inherit !important;
 }
 
 /* The layer number on the left, its height on the right */
