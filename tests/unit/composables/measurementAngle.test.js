@@ -112,6 +112,28 @@ describe('angle mode', () => {
 		expect(angle.formatted).toBe('90.00°')
 	})
 
+	it('does not take a second click on the point just picked, which would leave a leg with no length', () => {
+		const { measurement, count } = setup()
+		measurement.setMode('angle')
+		measurement.addMeasurementPoint(v(1, 0, 0))
+		measurement.addMeasurementPoint(v(1, 0, 0)) // double click
+		measurement.addMeasurementPoint(v(0, 0, 0))
+		measurement.addMeasurementPoint(v(0, 0, 0)) // and on the corner
+		expect(measurement.points.value).toHaveLength(2)
+		expect(count('measurementPoint')).toBe(2)
+
+		measurement.addMeasurementPoint(v(0, 1, 0))
+		const [m] = measurement.measurements.value
+		expect(m.angle).toBeCloseTo(90, 6)
+	})
+
+	it('still measures a closed angle, whose outer points coincide', () => {
+		const { measurement } = setup()
+		measurement.setMode('angle')
+		;[v(1, 0, 0), v(0, 0, 0), v(1, 0, 0)].forEach((p) => measurement.addMeasurementPoint(p))
+		expect(measurement.measurements.value[0].angle).toBeCloseTo(0, 6)
+	})
+
 	it('drops half-picked points, and their markers, when the mode changes', () => {
 		const { measurement, count } = setup()
 		measurement.setMode('angle')

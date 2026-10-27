@@ -289,6 +289,14 @@ export function useMeasurement() {
 
 	// Add a measurement point
 	const addMeasurementPoint = (point) => {
+		// An angle's legs need length. A second click on the point just picked (usually a
+		// double click) would leave the angle undefined and read 0°, so it is not taken.
+		const previous = points.value[points.value.length - 1]
+		if (mode.value === 'angle' && previous && previous.distanceTo(point) <= coincidentTolerance()) {
+			logger.info('useMeasurement', 'Ignored a click on the point just picked')
+			return
+		}
+
 		points.value.push(point.clone())
 
 		// Create visual indicator for the point
@@ -354,6 +362,9 @@ export function useMeasurement() {
 			raw.material.dispose()
 		}
 	}
+
+	// Two clicks closer than a millionth of the model are the same point
+	const coincidentTolerance = () => getModelMaxDimension(sceneRef.value, visualScale.value / 0.005) * 1e-6
 
 	// Size of a marker, as a percentage of the model, clamped to a band around it
 	const markerSize = (percent, fallback, minFactor, maxFactor) => {
