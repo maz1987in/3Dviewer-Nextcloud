@@ -14,6 +14,9 @@
 const mockStlBytes = new ArrayBuffer(84)
 const mockObjText = 'v 0 0 0\nv 1 0 0\nv 0 1 0\nusemtl red\nf 1 2 3\nusemtl blue\nf 1 2 3\n'
 const mockGlbBytes = new ArrayBuffer(128)
+const mockPlyBytes = new ArrayBuffer(96)
+const mockUsdzBytes = new Uint8Array(64)
+const mock3mfBytes = new Uint8Array(48)
 
 const mockStlParse = jest.fn(() => mockStlBytes)
 const mockObjParse = jest.fn(() => mockObjText)
@@ -28,6 +31,22 @@ jest.mock('three/examples/jsm/exporters/STLExporter.js', () => ({
 jest.mock('three/examples/jsm/exporters/OBJExporter.js', () => ({
 	OBJExporter: jest.fn().mockImplementation(() => ({ parse: mockObjParse })),
 }), { virtual: true })
+
+const mockPlyParse = jest.fn(() => mockPlyBytes)
+const mockUsdzParseAsync = jest.fn(async () => mockUsdzBytes)
+const mockBuild3MF = jest.fn(() => mock3mfBytes)
+
+jest.mock('three/examples/jsm/exporters/PLYExporter.js', () => ({
+	PLYExporter: jest.fn().mockImplementation(() => ({ parse: mockPlyParse })),
+}), { virtual: true })
+
+jest.mock('three/examples/jsm/exporters/USDZExporter.js', () => ({
+	USDZExporter: jest.fn().mockImplementation(() => ({ parseAsync: mockUsdzParseAsync })),
+}), { virtual: true })
+
+jest.mock('../../../src/utils/threeMFWriter.js', () => ({
+	build3MF: mockBuild3MF,
+}))
 
 jest.mock('three/examples/jsm/exporters/GLTFExporter.js', () => ({
 	GLTFExporter: jest.fn().mockImplementation(() => ({ parse: mockGltfParse })),
@@ -67,6 +86,9 @@ function fakeGroup(children) {
 	}
 }
 
+// One triangle's worth of vertices: the least a surface export will take
+const TRIANGLE = [0, 0, 0, 1, 0, 0, 0, 1, 0]
+
 // Capture blobs handed to URL.createObjectURL.
 const blobCapture = []
 beforeEach(() => {
@@ -79,6 +101,9 @@ beforeEach(() => {
 	mockStlParse.mockClear()
 	mockObjParse.mockClear()
 	mockGltfParse.mockClear()
+	mockPlyParse.mockClear()
+	mockUsdzParseAsync.mockClear()
+	mockBuild3MF.mockClear()
 })
 
 // Tight loop that advances timers and flushes microtasks so the exporter's
@@ -186,10 +211,167 @@ describe('useExport — blob creation', () => {
 		expect(blob.size).toBe(mockGlbBytes.byteLength)
 	})
 
+	it('exportAsPLY asks for binary PLY, passing the options where parse reads them', async () => {
+		const exp = useExport()
+		const mesh = fakeMesh({ positions: TRIANGLE })
+
+		await run(exp.exportAsPLY(mesh, 'scan'))
+
+		// parse(object, onDone, options) — options second would be taken for onDone
+		expect(mockPlyParse).toHaveBeenCalledWith(expect.any(Object), null, { binary: true, littleEndian: true })
+		const walked = []
+		mockPlyParse.mock.calls[0][0].traverse((child) => walked.push(child))
+		expect(walked).toEqual([mesh])
+		expect(blobCapture).toHaveLength(1)
+		expect(blobCapture[0].type).toBe('model/ply')
+		expect(blobCapture[0].size).toBe(mockPlyBytes.byteLength)
+	})
+
+	it('exportAs3MF packages the model as model/3mf', async () => {
+		const exp = useExport()
+		const mesh = fakeMesh({ positions: TRIANGLE })
+
+		await run(exp.exportAs3MF(mesh, 'part'))
+
+		// An STL-like model by default: a scene unit is a millimetre
+		expect(mockBuild3MF).toHaveBeenCalledWith(mesh, { millimetresPerUnit: 1, onProgress: expect.any(Function) })
+		expect(blobCapture[0].type).toBe('model/3mf')
+		expect(blobCapture[0].size).toBe(mock3mfBytes.byteLength)
+	})
+
+	it('exportAsUSDZ wraps the async result in a USDZ blob', async () => {
+		const exp = useExport()
+		const mesh = fakeMesh({ positions: TRIANGLE })
+
+		await run(exp.exportAsUSDZ(mesh, 'ar'))
+
+		// One viewer unit is a millimetre; three's USDZ declares a unit a metre
+		const [[exported]] = mockUsdzParseAsync.mock.calls
+		expect(exported.children).toEqual([mesh])
+		expect(exported.scale.toArray()).toEqual([0.001, 0.001, 0.001])
+		expect(exported.matrix.elements[0]).toBeCloseTo(0.001, 9)
+		// The model itself is not moved out of the scene
+		expect(mesh.parent).toBeUndefined()
+		expect(blobCapture[0].type).toBe('model/vnd.usdz+zip')
+		expect(blobCapture[0].size).toBe(mockUsdzBytes.byteLength)
+	})
+
+	it('reports a failed export and leaves the exporting flag down', async () => {
+		const exp = useExport()
+		// A mesh whose every triangle welding collapses passes the surface check
+		mockBuild3MF.mockImplementationOnce(() => null)
+
+		await expect(exp.exportAs3MF(fakeMesh({ positions: TRIANGLE }), 'x')).rejects.toMatchObject({ name: 'NothingToExportError', format: '3MF' })
+		expect(exp.exporting.value).toBe(false)
+		expect(exp.exportError.value).toMatch(/no triangle meshes/)
+		expect(blobCapture).toHaveLength(0)
+	})
+
+	it('exportAs3MF passes on what a scene unit is', async () => {
+		const exp = useExport()
+		const mesh = fakeMesh({ positions: TRIANGLE })
+		await run(exp.exportAs3MF(mesh, 'robot', { millimetresPerUnit: 1000 }))
+		expect(mockBuild3MF).toHaveBeenCalledWith(mesh, { millimetresPerUnit: 1000, onProgress: expect.any(Function) })
+	})
+
+	it('exportAsUSDZ hands a model already in metres to the exporter as it is', async () => {
+		const exp = useExport()
+		const mesh = fakeMesh({ positions: TRIANGLE })
+		await run(exp.exportAsUSDZ(mesh, 'robot', { millimetresPerUnit: 1000 }))
+		expect(mockUsdzParseAsync).toHaveBeenCalledWith(mesh)
+	})
+
+	it.each([
+		['exportAs3MF', '3MF'],
+		['exportAsPLY', 'PLY'],
+		['exportAsUSDZ', 'USDZ'],
+	])('%s refuses a model with no surface before making a file', async (method, format) => {
+		const exp = useExport()
+		// A G-code toolpath: lines only
+		const toolpath = fakeGroup([{ isLine: true, geometry: { attributes: { position: { count: 8 } } }, traverse(cb) { cb(this) } }])
+
+		await expect(exp[method](toolpath, 'print')).rejects.toMatchObject({ name: 'NothingToExportError', format })
+		expect(mockBuild3MF).not.toHaveBeenCalled()
+		expect(mockPlyParse).not.toHaveBeenCalled()
+		expect(mockUsdzParseAsync).not.toHaveBeenCalled()
+		expect(blobCapture).toHaveLength(0)
+		expect(exp.exporting.value).toBe(false)
+	})
+
+	it('exportAsPLY takes a point cloud, which PLY can hold', async () => {
+		const exp = useExport()
+		const cloud = { isPoints: true, geometry: { attributes: { position: { count: 1 } } }, traverse(cb) { cb(this) } }
+		await run(exp.exportAsPLY(cloud, 'scan'))
+		expect(mockPlyParse).toHaveBeenCalled()
+	})
+
 	it('rejects each export when no object is provided', async () => {
 		const exp = useExport()
 		await expect(exp.exportAsSTL(null, 'x')).rejects.toThrow(/No object/)
 		await expect(exp.exportAsOBJ(null, 'x')).rejects.toThrow(/No object/)
 		await expect(exp.exportAsGLB(null, 'x')).rejects.toThrow(/No object/)
+		await expect(exp.exportAsPLY(null, 'x')).rejects.toThrow(/No object/)
+		await expect(exp.exportAs3MF(null, 'x')).rejects.toThrow(/No object/)
+		await expect(exp.exportAsUSDZ(null, 'x')).rejects.toThrow(/No object/)
+	})
+})
+
+/*
+ * STL, OBJ and PLY are written in one synchronous call, so a render mode's stand-ins come
+ * off for exactly that call and the viewer never shows the model without its shading.
+ */
+describe('useExport under a render mode', () => {
+	const THREE = require('three')
+	const { useRenderMode } = require('../../../src/composables/useRenderMode.js')
+
+	it.each([
+		['exportAsSTL', mockStlParse],
+		['exportAsOBJ', mockObjParse],
+		['exportAsPLY', mockPlyParse],
+	])('%s writes the model\'s own materials and leaves the shading showing', async (method, parse) => {
+		const own = new THREE.MeshStandardMaterial({ name: 'Steel' })
+		const mesh = new THREE.Mesh(new THREE.BoxGeometry(), own)
+		const group = new THREE.Group()
+		group.add(mesh)
+		const rm = useRenderMode()
+		rm.init(group)
+		rm.setMode('clay')
+		const standIn = mesh.material
+
+		let seen = null
+		parse.mockImplementationOnce(() => { seen = mesh.material; return method === 'exportAsOBJ' ? '' : new ArrayBuffer(8) })
+		await run(useExport()[method](group, 'part'))
+
+		expect(seen).toBe(own)
+		expect(mesh.material).toBe(standIn)
+	})
+})
+
+describe('exportAsPLY', () => {
+	const THREE = require('three')
+	const { PLYExporter: RealPLYExporter } = jest.requireActual('three/examples/jsm/exporters/PLYExporter.js')
+
+	it('writes only what the viewer shows, like 3MF and USDZ', async () => {
+		const group = new THREE.Group()
+		const shownMesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1))
+		const hiddenMesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1))
+		hiddenMesh.visible = false
+		const hiddenGroup = new THREE.Group()
+		hiddenGroup.visible = false
+		hiddenGroup.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1)))
+		group.add(shownMesh, hiddenMesh, hiddenGroup)
+		group.updateMatrixWorld(true)
+
+		let header = ''
+		mockPlyParse.mockImplementationOnce((object, onDone, options) => {
+			const ply = new RealPLYExporter().parse(object, null, { ...options, binary: false })
+			header = ply.slice(0, ply.indexOf('end_header'))
+			return ply
+		})
+		await run(useExport().exportAsPLY(group, 'scan'))
+
+		// One box: 24 vertices, 12 faces
+		expect(header).toContain('element vertex 24')
+		expect(header).toContain('element face 12')
 	})
 })

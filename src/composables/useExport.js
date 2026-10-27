@@ -1,9 +1,12 @@
 /**
  * Export composable for 3D model export functionality
- * Supports GLB, STL, and OBJ formats
+ * Supports GLB, STL, OBJ, PLY, 3MF and USDZ formats
  */
 
 import { ref, readonly } from 'vue'
+import { Group } from 'three'
+import { NothingToExportError } from '../utils/exportErrors.js'
+import { withOwnMaterials } from '../utils/materialStandIns.js'
 import { logger } from '../utils/logger.js'
 
 /**
@@ -258,7 +261,8 @@ export function useExport() {
 			await new Promise(resolve => setTimeout(resolve, 150))
 
 			// Parse with binary option for smaller file size
-			const result = exporter.parse(object, { binary: true })
+			// A render mode's stand-ins come off for exactly this synchronous call
+			const result = withOwnMaterials(object, () => exporter.parse(object, { binary: true }))
 
 			exportProgress.value = { stage: 'Creating binary STL file...', percentage: 70 }
 			await new Promise(resolve => setTimeout(resolve, 100))
@@ -312,7 +316,8 @@ export function useExport() {
 			await new Promise(resolve => setTimeout(resolve, 150))
 
 			// Parse returns a string
-			const result = exporter.parse(object)
+			// OBJ names each part's material; write the model's own, not a stand-in's
+			const result = withOwnMaterials(object, () => exporter.parse(object))
 
 			exportProgress.value = { stage: 'Creating text file...', percentage: 70 }
 			await new Promise(resolve => setTimeout(resolve, 100))
@@ -338,6 +343,170 @@ export function useExport() {
 			throw error
 		}
 	}
+
+	/**
+	 * Whether anything under `object` that the viewer shows can go into a file of
+	 * surfaces: a mesh with at least one triangle's worth of vertices, or, for formats
+	 * that hold point clouds, a point.
+	 * @param {THREE.Object3D} object - The model
+	 * @param {object} [options] - Options
+	 * @param {boolean} [options.points] - Count point clouds too
+	 * @return {boolean}
+	 */
+	const hasSurfaces = (object, { points = false } = {}) => {
+		let found = false
+		// What the viewer shows: a mesh inside a hidden group does not count
+		const walk = typeof object.traverseVisible === 'function' ? 'traverseVisible' : 'traverse'
+		object[walk]((child) => {
+			const count = child.geometry?.attributes?.position?.count ?? 0
+			if ((child.isMesh && count >= 3) || (points && child.isPoints && count > 0)) found = true
+		})
+		return found
+	}
+
+	/**
+	 * Run one export: produce the file's bytes, then hand them to the browser as a
+	 * download, tracking progress and errors the same way for every format.
+	 * @param {object} spec
+	 * @param {string} spec.label - format name for progress and logs
+	 * @param {THREE.Object3D} spec.object - what to export
+	 * @param {string} spec.filename - base filename, without extension
+	 * @param {string} spec.extension - file extension, without the dot
+	 * @param {string} spec.mimeType - MIME type of the file
+	 * @param {Function} spec.produce - async (object, progress) => file contents; may call
+	 *   progress(0..1) as it goes
+	 * @param {boolean} [spec.points] - The format holds point clouds as well as meshes
+	 * @return {Promise<void>}
+	 * @throws {NothingToExportError} When the model has nothing the format can hold
+	 */
+	const runExport = async ({ label, object, filename, extension, mimeType, produce, points = false }) => {
+		if (!object) {
+			throw new Error('No object provided for export')
+		}
+		if (!hasSurfaces(object, { points })) {
+			const error = new NothingToExportError(label)
+			exportError.value = error.message
+			throw error
+		}
+
+		exporting.value = true
+		exportError.value = null
+		exportProgress.value = { stage: `Preparing ${label} export...`, percentage: 0 }
+
+		try {
+			logger.info('useExport', `Starting ${label} export`, { filename })
+
+			exportProgress.value = { stage: `Exporting geometry to ${label}...`, percentage: 40 }
+			const result = await produce(object, (fraction) => {
+				exportProgress.value = { stage: `Exporting geometry to ${label}...`, percentage: 40 + Math.round(fraction * 50) }
+			})
+
+			const blob = new Blob([result], { type: mimeType })
+			const sizeMB = (blob.size / 1024 / 1024).toFixed(2)
+			logger.info('useExport', `${label} export complete`, { filename, sizeMB: `${sizeMB}MB` })
+
+			exportProgress.value = { stage: 'Triggering download...', percentage: 95 }
+			triggerDownload(blob, `${filename}.${extension}`)
+
+			exportProgress.value = { stage: 'Export complete!', percentage: 100 }
+			exporting.value = false
+		} catch (error) {
+			logger.error('useExport', `${label} export error`, error)
+			exportError.value = error.message
+			exporting.value = false
+			throw error
+		}
+	}
+
+	/**
+	 * Export model as binary PLY (meshes with vertex colours; common for scans)
+	 * @param {THREE.Object3D} object - 3D object to export
+	 * @param {string} filename - Base filename (without extension)
+	 * @return {Promise<void>}
+	 */
+	const exportAsPLY = (object, filename = 'model') => runExport({
+		label: 'PLY',
+		object,
+		filename,
+		extension: 'ply',
+		mimeType: 'model/ply',
+		points: true,
+		produce: async (obj) => {
+			const { PLYExporter } = await import('three/examples/jsm/exporters/PLYExporter.js')
+			// parse(object, onDone, options): the options are the third argument
+			// PLYExporter writes every mesh and point cloud it walks to, hidden or not; it
+			// reads only traverse() and each object's own matrixWorld, so hand it just the
+			// ones the viewer shows, as 3MF, USDZ and the surface check take
+			const shown = []
+			const walk = typeof obj.traverseVisible === 'function' ? 'traverseVisible' : 'traverse'
+			obj[walk]((child) => { if (child.isMesh || child.isPoints) shown.push(child) })
+			const visibleOnly = { traverse: (callback) => shown.forEach(callback) }
+			return withOwnMaterials(obj, () => new PLYExporter().parse(visibleOnly, null, { binary: true, littleEndian: true }))
+		},
+	})
+
+	/**
+	 * Export model as 3MF (the slicers' native format; Z-up, millimetres)
+	 * @param {THREE.Object3D} object - 3D object to export
+	 * @param {string} filename - Base filename (without extension)
+	 * @param {object} [options] - Options
+	 * @param {number} [options.millimetresPerUnit] - Millimetres per scene unit, from the
+	 *   format the model was loaded from (utils/sourceUnits.js)
+	 * @return {Promise<void>}
+	 */
+	const exportAs3MF = (object, filename = 'model', { millimetresPerUnit = 1 } = {}) => runExport({
+		label: '3MF',
+		object,
+		filename,
+		extension: '3mf',
+		mimeType: 'model/3mf',
+		produce: async (obj, progress) => {
+			const { build3MF } = await import('../utils/threeMFWriter.js')
+			// Null when welding left no triangle that the surface check could not foresee
+			const file = await build3MF(obj, { millimetresPerUnit, onProgress: progress })
+			if (!file) {
+				throw new NothingToExportError('3MF')
+			}
+			return file
+		},
+	})
+
+	/**
+	 * Export model as USDZ (opens in AR Quick Look on iPhone and iPad).
+	 *
+	 * AR Quick Look shows a model at its real size, and three's exporter declares one
+	 * unit a metre (`metersPerUnit = 1`). A model in millimetres (an STL, say) goes in
+	 * under a 1/1000 scale, so a 100 mm part is 100 mm on the table, not 100 m; a glTF,
+	 * already in metres, goes in as it is.
+	 * @param {THREE.Object3D} object - 3D object to export
+	 * @param {string} filename - Base filename (without extension)
+	 * @param {object} [options] - Options
+	 * @param {number} [options.millimetresPerUnit] - Millimetres per scene unit, from the
+	 *   format the model was loaded from (utils/sourceUnits.js)
+	 * @return {Promise<void>}
+	 */
+	const exportAsUSDZ = (object, filename = 'model', { millimetresPerUnit = 1 } = {}) => runExport({
+		label: 'USDZ',
+		object,
+		filename,
+		extension: 'usdz',
+		mimeType: 'model/vnd.usdz+zip',
+		produce: async (obj) => {
+			const { USDZExporter } = await import('three/examples/jsm/exporters/USDZExporter.js')
+			const metresPerUnit = millimetresPerUnit / 1000
+			if (metresPerUnit === 1) {
+				return new USDZExporter().parseAsync(obj)
+			}
+			const inMetres = new Group()
+			inMetres.name = 'Model'
+			inMetres.scale.setScalar(metresPerUnit)
+			inMetres.updateMatrix()
+			// Listed as its child for the exporter only, which reads each object's local
+			// matrix and its children; the model is not moved out of the scene.
+			inMetres.children = [obj]
+			return new USDZExporter().parseAsync(inMetres)
+		},
+	})
 
 	/**
 	 * Export source files as a ZIP archive (model + textures + materials)
@@ -426,6 +595,9 @@ export function useExport() {
 		exportAsGLTF,
 		exportAsSTL,
 		exportAsOBJ,
+		exportAsPLY,
+		exportAs3MF,
+		exportAsUSDZ,
 		exportAsZIP,
 		clearError,
 	}

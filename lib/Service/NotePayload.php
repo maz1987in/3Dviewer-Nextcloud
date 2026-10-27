@@ -14,7 +14,12 @@ use OCA\ThreeDViewer\Service\Exception\InvalidNoteException;
  */
 final class NotePayload
 {
-    public const TYPES = ['annotation', 'measurement'];
+    /**
+     * An angle is a type of its own rather than a measurement with a third point: a viewer
+     * that predates angles skips a type it does not know, where it would have drawn a
+     * three-point measurement as a distance between the first two.
+     */
+    public const TYPES = ['annotation', 'measurement', 'angle'];
 
     public const MAX_TEXT_CHARS = 2000;
 
@@ -60,12 +65,16 @@ final class NotePayload
             }
             $normalized = ['space' => $space, 'point' => self::point($payload['point'] ?? null), 'text' => $text];
         } else {
+            // A distance is two points; an angle is point, corner, point
+            $count = $type === 'angle' ? 3 : 2;
             self::onlyKeys($payload, ['space', 'points']);
             $points = $payload['points'] ?? null;
-            if (!is_array($points) || !array_is_list($points) || count($points) !== 2) {
-                throw new InvalidNoteException('A measurement needs exactly two points');
+            if (!is_array($points) || !array_is_list($points) || count($points) !== $count) {
+                throw new InvalidNoteException($type === 'angle'
+                    ? 'An angle needs exactly three points'
+                    : 'A measurement needs exactly two points');
             }
-            $normalized = ['space' => $space, 'points' => [self::point($points[0]), self::point($points[1])]];
+            $normalized = ['space' => $space, 'points' => array_map(self::point(...), $points)];
         }
 
         if (strlen(self::encode($normalized)) > self::MAX_BYTES) {

@@ -56,6 +56,35 @@
 		forced-color-adjust: none;
 	}
 
+	/* -------- Pressed buttons and switches --------
+	   The measurement panel's Distance / Angle switch, the Shading buttons and the
+	   tool switches show which is on by filling it with the primary colour. Forced
+	   colours repaint every button ButtonFace, so on and off look the same; mark the
+	   one that is on with Highlight. The repeated classes outweigh the components' own
+	   scoped `.active` / `.on` rules, which would otherwise keep their primary fill once
+	   adjust is off. */
+	.tdv-segmented.tdv-segmented button[aria-pressed="true"],
+	.preset-buttons .preset-btn.preset-btn[aria-pressed="true"] {
+		border: 1px solid Highlight;
+		background: Highlight;
+		color: HighlightText;
+		forced-color-adjust: none;
+	}
+
+	.toggle-switch {
+		border: 1px solid ButtonText;
+	}
+
+	.toggle-row .toggle-switch.toggle-switch.on {
+		background: Highlight;
+		forced-color-adjust: none;
+	}
+
+	.toggle-row--button:focus-visible {
+		outline: 2px solid Highlight;
+		outline-offset: 2px;
+	}
+
 	/* -------- Focus rings --------
 	   Anywhere we suppressed the default outline and relied on a box-shadow
 	   or colored border for the focus ring, re-enable a system-color

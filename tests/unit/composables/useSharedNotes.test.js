@@ -27,7 +27,8 @@ function fakeTool(kind) {
 		setCanAdd(v) { this.canAdd = v },
 		setNoteHooks: (h) => { hooks = h },
 		addAnnotationFromNote: (point, text, meta) => make({ point, text }, meta),
-		addMeasurementFromNote: (p1, p2, meta) => make({ point1: p1, point2: p2 }, meta),
+		addMeasurementFromNote: (p1, p2, meta) => make({ type: 'distance', point1: p1, point2: p2 }, meta),
+		addAngleFromNote: (p1, vertex, p2, meta) => make({ type: 'angle', point1: p1, vertex, point2: p2 }, meta),
 		userAdd: (fields) => { const item = make(fields); hooks.added?.(item); return item },
 		userEditText: (item, text) => { item.text = text; hooks.changed?.(item) },
 		deleteAnnotation: remove,
@@ -406,4 +407,84 @@ test('a stale list() resolving after a newer load() draws nothing and leaves can
 	expect(annotation.items[0].meta.noteId).toBe(9)
 	expect(notes.canEdit.value).toBe(false)
 	expect(notes.status.value).toBe('readonly')
+})
+
+/*
+ * An angle is stored as a note type of its own, point / corner / point, so a viewer that
+ * predates angles skips it instead of drawing its first two points as a distance.
+ */
+describe('angles', () => {
+	test('an angle is saved as an angle note, in model space, corner in the middle', async () => {
+		const { measurement, notes } = setup()
+		const api = fakeApi()
+		await notes.load(api)
+
+		const item = measurement.userAdd({
+			type: 'angle',
+			point1: new THREE.Vector3(11, 0, 0),
+			vertex: new THREE.Vector3(10, 0, 0),
+			point2: new THREE.Vector3(10, 1, 0),
+		})
+		await flushPromises()
+
+		expect(api.create).toHaveBeenCalledWith('angle', {
+			space: 'model',
+			points: [{ x: 1, y: 0, z: 0 }, { x: 0, y: 0, z: 0 }, { x: 0, y: 1, z: 0 }],
+		})
+		expect(item.meta.noteId).toBe(100)
+		expect(item.meta.saveState).toBe('saved')
+	})
+
+	test('a distance is still saved as a measurement note', async () => {
+		const { measurement, notes } = setup()
+		const api = fakeApi()
+		await notes.load(api)
+		measurement.userAdd({ type: 'distance', point1: new THREE.Vector3(10, 0, 0), point2: new THREE.Vector3(10, 1, 0) })
+		await flushPromises()
+		expect(api.create).toHaveBeenCalledWith('measurement', expect.objectContaining({ points: expect.any(Array) }))
+		expect(api.create.mock.calls[0][1].points).toHaveLength(2)
+	})
+
+	test('a stored angle is drawn back in scene space, with its author', async () => {
+		const { measurement, notes } = setup()
+		const api = fakeApi({
+			list: jest.fn().mockResolvedValue({
+				canEdit: false,
+				notes: [{
+					id: 7,
+					type: 'angle',
+					payload: { space: 'model', points: [{ x: 1, y: 0, z: 0 }, { x: 0, y: 0, z: 0 }, { x: 0, y: 1, z: 0 }] },
+					author: { uid: 'bob', displayName: 'Bob' },
+				}],
+				private: [],
+			}),
+		})
+		await notes.load(api)
+
+		expect(measurement.items).toHaveLength(1)
+		const [angle] = measurement.items
+		expect(angle.type).toBe('angle')
+		expect(angle.vertex.x).toBeCloseTo(10)
+		expect(angle.point1.x).toBeCloseTo(11)
+		expect(angle.point2.y).toBeCloseTo(1)
+		expect(angle.meta).toEqual({ noteId: 7, author: { uid: 'bob', displayName: 'Bob' }, saveState: 'shared' })
+	})
+
+	test('a failed angle save retries as an angle', async () => {
+		const { measurement, notes } = setup()
+		const api = fakeApi({ create: jest.fn().mockRejectedValueOnce(new Error('down')).mockResolvedValue({ id: 5, author: null }) })
+		await notes.load(api)
+		const item = measurement.userAdd({
+			type: 'angle',
+			point1: new THREE.Vector3(11, 0, 0),
+			vertex: new THREE.Vector3(10, 0, 0),
+			point2: new THREE.Vector3(10, 1, 0),
+		})
+		await flushPromises()
+		expect(item.meta.saveState).toBe('failed')
+
+		await notes.retry('measurement', item)
+		expect(api.create).toHaveBeenLastCalledWith('angle', expect.objectContaining({ space: 'model' }))
+		expect(item.meta.saveState).toBe('saved')
+	})
 })

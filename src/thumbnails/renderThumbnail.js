@@ -7,7 +7,8 @@
  * background, the default lighting preset and the viewer's default camera framing.
  *
  * Runs in a Web Worker as well as on the main thread, so it must not touch `document`
- * or `window`, and imports only plain-data config modules (not viewer-config.js).
+ * or `window`, and imports only plain-data config modules (not viewer-config.js) and
+ * the plain registries of what viewer tools changed (materialStandIns, viewerHidden).
  */
 
 import {
@@ -21,6 +22,8 @@ import {
 } from 'three'
 import { DEFAULT_CAMERA_FOV } from '../config/cameraDefaults.js'
 import { LIGHT_LAYOUT, LIGHTING_PRESETS } from '../config/lightingPresets.js'
+import { withOwnMaterials } from '../utils/materialStandIns.js'
+import { withViewerHiddenShown } from '../utils/viewerHidden.js'
 import { computeCameraFit } from './cameraFit.js'
 import { EmptyModelError } from './errors.js'
 
@@ -74,7 +77,10 @@ function encodePng(canvas) {
  * Render a model to a transparent PNG.
  *
  * The model is placed in a temporary scene for the render and put back under its
- * original parent afterwards; its materials and transforms are not modified.
+ * original parent afterwards; its materials and transforms are not modified. A mesh the
+ * viewer is drawing with a render mode's stand-in (Clay, Normals, X-ray) is rendered
+ * with its own material, and a G-code layer the layer slider hid is drawn; both go back
+ * before this returns.
  *
  * @param {THREE.Object3D} object3D - Model to render
  * @param {object} options - Render options
@@ -140,7 +146,8 @@ export async function renderThumbnail(object3D, { canvas, size = DEFAULT_SIZE, f
 		camera.updateMatrixWorld()
 
 		addDefaultLights(scene)
-		renderer.render(scene, camera)
+		// The model as it is: its own materials, and every G-code layer the slider hid
+		withOwnMaterials(object3D, () => withViewerHiddenShown(object3D, () => renderer.render(scene, camera)))
 
 		// The render is synchronous and the encode snapshots the bitmap when it is
 		// called, so give a live model back to its parent before awaiting the encode:

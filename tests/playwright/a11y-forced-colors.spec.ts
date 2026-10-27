@@ -161,6 +161,42 @@ test.describe('Forced-colors (Windows HC) accessibility', () => {
 		}
 	})
 
+	test('the pressed choice of a switch or button group stays distinct in HC mode', async ({ page }) => {
+		// Distance / Angle, the Shading buttons, and the G-code "Only this layer" switch:
+		// each shows what is on with a fill that forced colours would repaint away
+		await page.setContent(buildFixture(`
+			<div class="row tdv-segmented" role="group">
+				<button id="seg-off" type="button" aria-pressed="false">Distance</button>
+				<button id="seg-on" type="button" aria-pressed="true">Angle</button>
+			</div>
+			<div class="row preset-buttons" role="group">
+				<button id="shade-off" class="preset-btn" type="button" aria-pressed="false">Standard</button>
+				<button id="shade-on" class="preset-btn active" type="button" aria-pressed="true">Clay</button>
+			</div>
+			<button id="switch-off" class="toggle-row toggle-row--button" type="button" role="switch" aria-checked="false">
+				<span id="track-off" class="toggle-switch"></span><span>Only this layer</span>
+			</button>
+			<button id="switch-on" class="toggle-row toggle-row--button" type="button" role="switch" aria-checked="true">
+				<span id="track-on" class="toggle-switch on"></span><span>Only this layer</span>
+			</button>
+		`))
+
+		const bg = (id: string) => page.locator(`#${id}`).evaluate(el => getComputedStyle(el).backgroundColor)
+		for (const [off, on] of [['seg-off', 'seg-on'], ['shade-off', 'shade-on'], ['track-off', 'track-on']]) {
+			expect(await bg(on), `${on} against ${off}`).not.toBe(await bg(off))
+		}
+
+		// The switch track has an outline of its own, on or off
+		const border = await page.locator('#track-off').evaluate(el => parseFloat(getComputedStyle(el).borderTopWidth))
+		expect(border).toBeGreaterThan(0)
+
+		// and the switch, a button, shows keyboard focus
+		await page.keyboard.press('Tab')
+		await page.locator('#switch-on').focus()
+		const outline = await page.locator('#switch-on').evaluate(el => parseFloat(getComputedStyle(el).outlineWidth))
+		expect(outline).toBeGreaterThan(0)
+	})
+
 	test('skip link keeps a focus outline and readable surface in HC mode', async ({ page }) => {
 		await page.setContent(buildFixture(`
 			<a id="skip" class="skip-to-viewer" href="#x">Skip to 3D viewer</a>

@@ -131,6 +131,23 @@
 									<span class="toggle-switch" :class="{ on: wireframe }" />
 									<span class="toggle-text">{{ t('threedviewer', 'Wireframe') }}</span>
 								</label>
+								<!-- Render mode: inspection shading in place of the model's materials -->
+								<div class="tool-group">
+									<!-- A heading for the group, not a <label>: there is no one control it names -->
+									<span id="render-mode-label" class="tool-label-small">{{ t('threedviewer', 'Shading') }}</span>
+									<div class="preset-buttons" role="group" aria-labelledby="render-mode-label">
+										<button v-for="option in renderModeOptions"
+											:key="option.value"
+											class="preset-btn"
+											:class="{ 'active': renderMode === option.value }"
+											:aria-pressed="renderMode === option.value ? 'true' : 'false'"
+											:title="option.title"
+											:disabled="!modelLoaded"
+											@click="emit('set-render-mode', option.value)">
+											{{ option.label }}
+										</button>
+									</div>
+								</div>
 								<!-- Lighting Presets -->
 								<div v-if="lightingPresets.length > 0" class="tool-group">
 									<label class="tool-label-small">{{ t('threedviewer', 'Lighting') }}</label>
@@ -292,6 +309,31 @@
 										:value="explodedViewFactor"
 										@input="emit('set-exploded-factor', parseFloat($event.target.value))">
 								</div>
+								<!-- G-code layers: step through a print the way a slicer preview does -->
+								<div v-if="gcodeLayerCount > 1" class="tool-group gcode-layers">
+									<label class="tool-label-small" for="gcode-layer-slider">
+										{{ t('threedviewer', 'Layer {current} of {total}', { current: gcodeLayer, total: gcodeLayerCount }) }}
+										<span v-if="gcodeLayerZ !== null" class="gcode-layer-z">{{ gcodeLayerHeight }}</span>
+									</label>
+									<input id="gcode-layer-slider"
+										type="range"
+										class="clipping-slider"
+										min="1"
+										:max="gcodeLayerCount"
+										step="1"
+										:value="gcodeLayer"
+										:aria-valuetext="gcodeLayerValueText"
+										@input="emit('set-gcode-layer', parseInt($event.target.value, 10))">
+									<!-- A real switch: the label-and-span toggles above take no keyboard focus -->
+									<button type="button"
+										class="toggle-row toggle-row--button"
+										role="switch"
+										:aria-checked="gcodeSingleLayer ? 'true' : 'false'"
+										@click="emit('toggle-gcode-single-layer')">
+										<span class="toggle-switch" :class="{ on: gcodeSingleLayer }" aria-hidden="true" />
+										<span class="toggle-text">{{ t('threedviewer', 'Only this layer') }}</span>
+									</button>
+								</div>
 								<!-- Transform Gizmo -->
 								<button class="tool-btn feature-btn"
 									:class="{ 'active': transformGizmoActive }"
@@ -430,7 +472,8 @@
 									<ViewerIcon class="tool-icon" name="exportModel" :size="17" />
 									<span class="tool-label">{{ t('threedviewer', 'Export Model') }}</span>
 									<select ref="exportSelect"
-										:disabled="!modelLoaded"
+										:disabled="!modelLoaded || exporting"
+										:aria-busy="exporting ? 'true' : 'false'"
 										class="export-select"
 										:aria-label="t('threedviewer', 'Export model format')"
 										@change="handleExportChange($event.target.value)">
@@ -445,6 +488,15 @@
 										</option>
 										<option value="obj">
 											{{ t('threedviewer', 'OBJ (Universal)') }}
+										</option>
+										<option value="3mf">
+											{{ t('threedviewer', '3MF (Slicers)') }}
+										</option>
+										<option value="ply">
+											{{ t('threedviewer', 'PLY (Scans, vertex colors)') }}
+										</option>
+										<option value="usdz">
+											{{ t('threedviewer', 'USDZ (Apple AR)') }}
 										</option>
 										<option v-if="hasMultipleSourceFiles" value="zip">
 											{{ t('threedviewer', 'ZIP (All Files)') }}
@@ -633,6 +685,15 @@ export default {
 		explodedViewActive: { type: Boolean, default: false },
 		explodedViewAvailable: { type: Boolean, default: false },
 		explodedViewFactor: { type: Number, default: 0 },
+		// G-code layer slider
+		gcodeLayerCount: { type: Number, default: 0 },
+		gcodeLayer: { type: Number, default: 0 },
+		gcodeLayerZ: { type: Number, default: null },
+		gcodeSingleLayer: { type: Boolean, default: false },
+		// Render mode
+		renderMode: { type: String, default: 'standard' },
+		// An export is running
+		exporting: { type: Boolean, default: false },
 
 		// Mobile detection
 		isMobile: { type: Boolean, default: false },
@@ -696,6 +757,9 @@ export default {
 		'remove-bookmark',
 		'toggle-exploded-view',
 		'set-exploded-factor',
+		'set-gcode-layer',
+		'toggle-gcode-single-layer',
+		'set-render-mode',
 	],
 
 	setup(props, { emit }) {
@@ -856,8 +920,29 @@ export default {
 			return !!(p.background || p.gridColor)
 		})
 
+		// G-code heights are printer coordinates, in millimetres
+		const gcodeLayerHeight = computed(() => (props.gcodeLayerZ === null
+			? ''
+			: t('threedviewer', 'Height {height} mm', { height: Number(props.gcodeLayerZ).toFixed(2) })))
+
+		// What a screen reader says for the slider: the layer and its height, not "3"
+		const gcodeLayerValueText = computed(() => {
+			const layer = t('threedviewer', 'Layer {current} of {total}', { current: props.gcodeLayer, total: props.gcodeLayerCount })
+			return props.gcodeLayerZ === null ? layer : `${layer}, ${gcodeLayerHeight.value}`
+		})
+
+		const renderModeOptions = [
+			{ value: 'standard', label: t('threedviewer', 'Standard'), title: t('threedviewer', 'The model\'s own materials') },
+			{ value: 'clay', label: t('threedviewer', 'Clay'), title: t('threedviewer', 'Even clay shading that shows surface form') },
+			{ value: 'normals', label: t('threedviewer', 'Normals'), title: t('threedviewer', 'Surface direction as color, to spot dents and flipped faces') },
+			{ value: 'xray', label: t('threedviewer', 'X-ray'), title: t('threedviewer', 'See-through parts, to look inside assemblies') },
+		]
+
 		return {
 			t,
+			renderModeOptions,
+			gcodeLayerValueText,
+			gcodeLayerHeight,
 			// The rows print their hints from the shared table, so the template needs it.
 			shortcutKey,
 			isOpen,
@@ -1105,8 +1190,9 @@ export default {
 	text-transform: uppercase;
 }
 
-/* Toggle switch rows */
-.toggle-row {
+/* Toggle switch rows. The class is doubled: "Only this layer" is a <button> with it, and
+   a single class loses to Nextcloud's rules for every button (buttonSpecificity.test.js) */
+.toggle-row.toggle-row {
 	display: flex;
 	align-items: center;
 	gap: 12px;
@@ -1117,7 +1203,7 @@ export default {
 	margin-bottom: 4px;
 }
 
-.toggle-row:hover {
+.toggle-row.toggle-row:hover {
 	background: var(--tdv-color-hover-bg);
 }
 
@@ -1177,6 +1263,43 @@ export default {
 	font-size: 12px;
 	font-weight: 400;
 	color: var(--tdv-color-text-secondary);
+}
+
+/* The switch is a button, so it takes focus; it keeps the look of the rows above */
+.toggle-row.toggle-row--button {
+	width: 100%;
+	border: none;
+	background: none;
+	color: inherit;
+	font: inherit;
+	text-align: start;
+}
+
+.toggle-row.toggle-row--button:hover,
+.toggle-row.toggle-row--button:focus-visible {
+	background: var(--tdv-color-hover-bg);
+	color: inherit;
+}
+
+.toggle-row.toggle-row--button:focus-visible {
+	outline: 2px solid var(--tdv-color-primary);
+	outline-offset: 2px;
+}
+
+/* Nextcloud's pressed-button rule scores (0,4,1); a row has no pressed look of its own */
+.toggle-row.toggle-row--button:active {
+	background: var(--tdv-color-hover-bg) !important;
+	color: inherit !important;
+}
+
+/* The layer number on the left, its height on the right */
+.gcode-layers .tool-label-small {
+	display: flex;
+	justify-content: space-between;
+}
+
+.gcode-layer-z {
+	font-family: var(--tdv-font-mono);
 }
 
 /* Clip selector */

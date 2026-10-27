@@ -126,6 +126,12 @@
 					:exploded-view-active="explodedViewActive"
 					:exploded-view-available="explodedViewAvailable"
 					:exploded-view-factor="explodedViewFactor"
+					:gcode-layer-count="gcodeLayerCount"
+					:gcode-layer="gcodeLayer"
+					:gcode-layer-z="gcodeLayerZ"
+					:gcode-single-layer="gcodeSingleLayer"
+					:render-mode="renderMode"
+					:exporting="exporting"
 					:is-mobile="isMobile"
 					:cache-stats="cacheStats"
 					:custom-palette="customPalette"
@@ -175,6 +181,9 @@
 					@apply-lighting-preset="onApplyLightingPreset"
 					@toggle-exploded-view="onToggleExplodedView"
 					@set-exploded-factor="onSetExplodedFactor"
+					@set-gcode-layer="onSetGcodeLayer"
+					@toggle-gcode-single-layer="onToggleGcodeSingleLayer"
+					@set-render-mode="onSetRenderMode"
 					@add-bookmark="onAddBookmark"
 					@load-bookmark="onLoadBookmark"
 					@remove-bookmark="onRemoveBookmark" />
@@ -374,6 +383,15 @@ export default {
 			explodedViewActive: false,
 			explodedViewAvailable: false,
 			explodedViewFactor: 0,
+			// G-code layer slider
+			gcodeLayerCount: 0,
+			gcodeLayer: 0,
+			gcodeLayerZ: null,
+			gcodeSingleLayer: false,
+			// Inspection shading: standard, clay, normals, xray
+			renderMode: 'standard',
+			// An export is running; the panel's format menu waits for it
+			exporting: false,
 			// WebXR
 			webxrSupported: false,
 			webxrActive: false,
@@ -792,9 +810,16 @@ export default {
 			this.$refs.viewer?.toggleModelStats?.()
 		},
 
-		onExportModel(format) {
-		// Trigger export on the viewer
-			this.$refs.viewer?.handleExport?.(format)
+		async onExportModel(format) {
+			// Trigger export on the viewer. The format menu is disabled until it is done, so a
+			// second export cannot start under the first.
+			if (this.exporting) return
+			this.exporting = true
+			try {
+				await this.$refs.viewer?.handleExport?.(format)
+			} finally {
+				this.exporting = false
+			}
 		},
 
 		onSendToSlicer() {
@@ -1326,6 +1351,9 @@ export default {
 					this.explodedViewActive = ev.isActive?.value ?? ev.isActive ?? false
 					this.explodedViewFactor = ev.factor?.value ?? ev.factor ?? 0
 				}
+				if (viewer.gcodeLayers) {
+					this.syncGcodeLayers()
+				}
 				// Transform gizmo state (synced from composable, same pattern as clipping)
 				if (viewer.transformGizmo) {
 					this.transformGizmoActive = viewer.transformGizmo.isActive?.value ?? viewer.transformGizmo.isActive ?? false
@@ -1426,6 +1454,31 @@ export default {
 				this.$refs.viewer.explodedView.setFactor(factor)
 				this.explodedViewFactor = factor
 			}
+		},
+		onSetRenderMode(mode) {
+			const viewer = this.$refs.viewer
+			if (!viewer?.setRenderMode) return
+			viewer.setRenderMode(mode)
+			this.renderMode = viewer.renderMode.mode.value
+		},
+		// G-code layer slider
+		syncGcodeLayers() {
+			const gl = this.$refs.viewer?.gcodeLayers
+			if (!gl) return
+			this.gcodeLayerCount = gl.layerCount.value
+			this.gcodeLayer = gl.currentLayer.value
+			this.gcodeLayerZ = gl.currentZ.value
+			this.gcodeSingleLayer = gl.singleLayer.value
+		},
+		onSetGcodeLayer(layer) {
+			this.$refs.viewer?.gcodeLayers?.setLayer(layer)
+			this.syncGcodeLayers()
+		},
+		onToggleGcodeSingleLayer() {
+			const gl = this.$refs.viewer?.gcodeLayers
+			if (!gl) return
+			gl.setSingleLayer(!gl.singleLayer.value)
+			this.syncGcodeLayers()
 		},
 		// Bookmarks
 		onAddBookmark() {

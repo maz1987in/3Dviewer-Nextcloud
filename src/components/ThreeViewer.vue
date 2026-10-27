@@ -557,6 +557,20 @@
 				</button>
 			</div>
 			<div class="canvas-panel-content">
+				<div class="tdv-segmented measurement-mode"
+					role="group"
+					:aria-label="t('threedviewer', 'Measurement type')">
+					<button type="button"
+						:aria-pressed="measurementMode === 'distance' ? 'true' : 'false'"
+						@click="measurement.setMode('distance')">
+						{{ t('threedviewer', 'Distance') }}
+					</button>
+					<button type="button"
+						:aria-pressed="measurementMode === 'angle' ? 'true' : 'false'"
+						@click="measurement.setMode('angle')">
+						{{ t('threedviewer', 'Angle') }}
+					</button>
+				</div>
 				<div class="canvas-panel-actions">
 					<select v-model="currentUnitModel"
 						class="canvas-panel-select"
@@ -577,19 +591,26 @@
 					</button>
 				</div>
 				<p class="canvas-panel-hint">
-					{{ t('threedviewer', 'Click two points on the model to measure.') }}
+					{{ measurementMode === 'angle'
+						? t('threedviewer', 'Click three points on the model; the second is the corner.')
+						: t('threedviewer', 'Click two points on the model to measure.') }}
 				</p>
 				<p v-if="notesReadOnly" class="canvas-panel-hint">
 					{{ t('threedviewer', 'Measurements you take here aren’t saved.') }}
 				</p>
 				<div class="measurement-list">
-					<div v-for="(m, index) in measurements" :key="m.id" class="canvas-panel-card measurement-item">
+					<div v-for="m in measurements" :key="m.id" class="canvas-panel-card measurement-item">
 						<div class="canvas-panel-card-header">
-							<span class="canvas-panel-card-title">{{ t('threedviewer', 'Measurement') }} {{ index + 1 }}</span>
+							<!-- Distances and angles are numbered separately -->
+							<span class="canvas-panel-card-title">{{ m.type === 'angle'
+								? t('threedviewer', 'Angle {number}', { number: measurementNumber.get(m.id) })
+								: `${t('threedviewer', 'Measurement')} ${measurementNumber.get(m.id)}` }}</span>
 							<button v-if="canChangeNote(m)"
 								type="button"
 								class="tdv-btn tdv-btn--icon canvas-panel-delete"
-								:aria-label="t('threedviewer', 'Delete measurement {number}', { number: index + 1 })"
+								:aria-label="m.type === 'angle'
+									? t('threedviewer', 'Delete angle {number}', { number: measurementNumber.get(m.id) })
+									: t('threedviewer', 'Delete measurement {number}', { number: measurementNumber.get(m.id) })"
 								:title="t('threedviewer', 'Delete')"
 								@click="deleteMeasurement(m.id)">
 								<ViewerIcon name="delete" :size="16" />
@@ -617,6 +638,10 @@
 						<div class="canvas-panel-row">
 							<span>{{ t('threedviewer', 'Point 1') }}</span>
 							<span class="point-coords">({{ m.point1.x.toFixed(2) }}, {{ m.point1.y.toFixed(2) }}, {{ m.point1.z.toFixed(2) }})</span>
+						</div>
+						<div v-if="m.vertex" class="canvas-panel-row">
+							<span>{{ t('threedviewer', 'Corner') }}</span>
+							<span class="point-coords">({{ m.vertex.x.toFixed(2) }}, {{ m.vertex.y.toFixed(2) }}, {{ m.vertex.z.toFixed(2) }})</span>
 						</div>
 						<div class="canvas-panel-row">
 							<span>{{ t('threedviewer', 'Point 2') }}</span>
@@ -772,12 +797,14 @@ import CircularController from './CircularController.vue'
 import { useCamera } from '../composables/useCamera.js'
 import { useModelLoading } from '../composables/useModelLoading.js'
 import { useComparison } from '../composables/useComparison.js'
-import { useMeasurement } from '../composables/useMeasurement.js'
+import { measurementNumbers, useMeasurement } from '../composables/useMeasurement.js'
 import { useAnnotation } from '../composables/useAnnotation.js'
 import { useSharedNotes } from '../composables/useSharedNotes.js'
 import { createNotesApi } from '../utils/notesApi.js'
 import { getPublicShareContext } from '../composables/usePublicShare.js'
 import { awaitStatusBeforeDownload, scheduleCapture } from '../thumbnails/captureFromViewer.js'
+import { measurementsFromJson, measurementsToJson } from '../utils/measurementJson.js'
+import { millimetresPerUnit } from '../utils/sourceUnits.js'
 import { usePerformance } from '../composables/usePerformance.js'
 import { useExport, getGeometryStats } from '../composables/useExport.js'
 import { useModelStats } from '../composables/useModelStats.js'
@@ -797,6 +824,8 @@ import {
 import { useLightingPresets } from '../composables/useLightingPresets.js'
 import { useBookmarks } from '../composables/useBookmarks.js'
 import { useExplodedView } from '../composables/useExplodedView.js'
+import { useGcodeLayers } from '../composables/useGcodeLayers.js'
+import { useRenderMode } from '../composables/useRenderMode.js'
 import { useTransformGizmo } from '../composables/useTransformGizmo.js'
 import { useWebXR } from '../composables/useWebXR.js'
 import { logger } from '../utils/logger.js'
@@ -897,6 +926,8 @@ export default {
 		const lightingPresets = useLightingPresets()
 		const bookmarksComposable = useBookmarks()
 		const explodedView = useExplodedView()
+		const gcodeLayers = useGcodeLayers()
+		const renderMode = useRenderMode()
 		const transformGizmo = useTransformGizmo()
 		const webxr = useWebXR()
 
@@ -1506,6 +1537,12 @@ export default {
 
 					// Initialize exploded view (collects meshes and computes directions)
 					explodedView.init(modelRoot.value)
+
+					// Collect G-code layers for the layer slider (none for other formats)
+					gcodeLayers.init(modelRoot.value)
+
+					// Keep the render mode the viewer was in for the new model
+					clippingPlane.aroundMaterialSwap(() => renderMode.init(modelRoot.value))
 
 					// Initialize animations if present
 					if (loadedModel.animations && loadedModel.animations.length > 0) {
@@ -2466,6 +2503,9 @@ export default {
 		 * note made here and never sent ('local') is theirs to change without them; a
 		 * 'private' note is a legacy annotation nothing would save a change to.
 		 */
+		// Each measurement's number in the panel, distances and angles counted apart
+		const measurementNumber = computed(() => measurementNumbers(measurement.measurements.value))
+
 		const canChangeNote = (item) => notesCanEdit.value || item.meta?.saveState === 'local'
 
 		const noteStateLabel = (item) => {
@@ -2575,7 +2615,7 @@ export default {
 
 		/**
 		 * Handle model export
-		 * @param {string} format - Export format (glb, stl, obj)
+		 * @param {string} format - Export format (glb, stl, obj, ply, 3mf, usdz, zip)
 		 */
 		const handleExport = async (format) => {
 			if (!modelRoot.value) {
@@ -2586,6 +2626,17 @@ export default {
 					message: t('threedviewer', 'No model loaded to export'),
 				})
 				return
+			}
+
+			// Export the model's own materials, not a render mode standing in for them.
+			// GLB and USDZ are written asynchronously, so the mode is set aside for the
+			// export (counted, so two exports at once both finish first). STL, OBJ and PLY
+			// are written in one synchronous call inside withOwnMaterials, and 3MF and ZIP
+			// write no materials, so the viewer keeps its shading for those.
+			const setsModeAside = ['glb', 'usdz'].includes(format.toLowerCase())
+			// Outside the try, so a resume in `finally` always has its own suspend to undo
+			if (setsModeAside) {
+				clippingPlane.aroundMaterialSwap(() => renderMode.suspend())
 			}
 
 			try {
@@ -2640,6 +2691,26 @@ export default {
 						message: t('threedviewer', 'Model exported as {name}', { name: `${baseFilename}.obj` }),
 					})
 					break
+				case 'ply':
+				case '3mf':
+				case 'usdz': {
+					const ext = format.toLowerCase()
+					const exporters = {
+						ply: exportComposable.exportAsPLY,
+						'3mf': exportComposable.exportAs3MF,
+						usdz: exportComposable.exportAsUSDZ,
+					}
+					// 3MF and USDZ carry a real size: a glTF is in metres, an STL in millimetres
+					await exporters[ext](modelRoot.value, baseFilename, {
+						millimetresPerUnit: millimetresPerUnit(props.filename, modelRoot.value),
+					})
+					emit('push-toast', {
+						type: 'success',
+						title: t('threedviewer', 'Export Successful'),
+						message: t('threedviewer', 'Model exported as {name}', { name: `${baseFilename}.${ext}` }),
+					})
+					break
+				}
 				case 'zip':
 					if (!modelSourceFiles.value || modelSourceFiles.value.length <= 1) {
 						emit('push-toast', {
@@ -2666,9 +2737,25 @@ export default {
 				emit('push-toast', {
 					type: 'error',
 					title: t('threedviewer', 'Export Failed'),
-					message: error.message || t('threedviewer', 'Failed to export model'),
+					// A toolpath is lines: say so, in the user's language, rather than save
+					// an empty file
+					message: error?.name === 'NothingToExportError'
+						? t('threedviewer', 'This model has no surfaces to save as {format}.', { format: error.format })
+						: (error.message || t('threedviewer', 'Failed to export model')),
 				})
+			} finally {
+				if (setsModeAside) {
+					clippingPlane.aroundMaterialSwap(() => renderMode.resume())
+				}
 			}
+		}
+
+		/**
+		 * Draw the model in an inspection shading (standard, clay, normals, xray)
+		 * @param {string} mode - one of RENDER_MODES
+		 */
+		const setRenderMode = (mode) => {
+			clippingPlane.aroundMaterialSwap(() => renderMode.setMode(mode))
 		}
 
 		/**
@@ -2709,10 +2796,8 @@ export default {
 				const doc = {
 					...annotation.exportAsJSON(props.filename || ''),
 					version: 2,
-					measurements: measurement.measurements.value.map(m => ({
-						point1: { x: m.point1.x, y: m.point1.y, z: m.point1.z },
-						point2: { x: m.point2.x, y: m.point2.y, z: m.point2.z },
-					})),
+					// Distances under `measurements`, angles under `angles` (see measurementJson.js)
+					...measurementsToJson(measurement.measurements.value),
 				}
 				const blob = new Blob([JSON.stringify(doc, null, 2)], { type: 'application/json' })
 				const url = URL.createObjectURL(blob)
@@ -2729,7 +2814,7 @@ export default {
 				emit('push-toast', {
 					type: 'success',
 					title: t('threedviewer', 'Annotations exported'),
-					message: t('threedviewer', '{count} note(s) saved to JSON', { count: doc.annotations.length + doc.measurements.length }),
+					message: t('threedviewer', '{count} note(s) saved to JSON', { count: doc.annotations.length + doc.measurements.length + doc.angles.length }),
 				})
 			} catch (error) {
 				logger.error('ThreeViewer', 'Failed to export annotations', error)
@@ -2753,15 +2838,15 @@ export default {
 				const text = await file.text()
 				const result = annotation.importFromJSON(text)
 				const parsed = JSON.parse(text)
-				// A half-taken measurement would pair with the first imported point.
-				measurement.cancelPendingPoint()
-				for (const m of Array.isArray(parsed.measurements) ? parsed.measurements : []) {
-					const valid = [m?.point1, m?.point2].every(p => p && [p.x, p.y, p.z].every(Number.isFinite))
-					if (!valid) continue
-					measurement.addMeasurementPoint(new THREE.Vector3(m.point1.x, m.point1.y, m.point1.z))
-					measurement.addMeasurementPoint(new THREE.Vector3(m.point2.x, m.point2.y, m.point2.z))
+				// Each measurement is added whole, not click by click: the panel's Distance /
+				// Angle switch must not decide how many of the file's points make one, and a
+				// half-taken measurement is dropped rather than paired with them.
+				const { items, skipped } = measurementsFromJson(parsed)
+				for (const { type, points } of items) {
+					measurement.addMeasurement(type, points.map(p => new THREE.Vector3(p.x, p.y, p.z)))
 					result.added++
 				}
+				result.skipped += skipped
 				emit('push-toast', {
 					type: 'success',
 					title: t('threedviewer', 'Annotations imported'),
@@ -3755,6 +3840,8 @@ export default {
 			lightingPresets.dispose()
 			bookmarksComposable.dispose()
 			explodedView.dispose()
+			gcodeLayers.dispose()
+			renderMode.dispose()
 			transformGizmo.dispose()
 
 			// Dispose performance monitoring
@@ -3794,6 +3881,8 @@ export default {
 			measurementPoints: measurement.points,
 			measurementCount: measurement.measurementCount,
 			measurements: measurement.measurements,
+			measurementMode: measurement.mode,
+			measurementNumber,
 
 			// Annotation
 			annotation,
@@ -3852,6 +3941,9 @@ export default {
 
 			// Exploded view
 			explodedView,
+			gcodeLayers,
+			renderMode,
+			setRenderMode,
 
 			// Camera
 			cameraType: camera.cameraType,
@@ -5285,6 +5377,17 @@ export default {
 	font-family: var(--tdv-font-mono);
 	font-size: 20px;
 	font-weight: var(--tdv-font-weight-bold);
+}
+
+/* Distance or angle: the panel is narrow, so the two halves share its width. */
+.measurement-mode {
+	width: 100%;
+}
+
+.measurement-mode button {
+	flex: 1;
+	height: 32px;
+	padding: 0 12px;
 }
 
 .annotation-text-input {

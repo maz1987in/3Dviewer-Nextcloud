@@ -1,0 +1,197 @@
+/**
+ * Render mode composable
+ * Draws the model in an inspection shading instead of its own materials:
+ *
+ * - clay:    a lit clay look (matcap) that shows surface form, keeping each part's colour
+ * - normals: surface direction as colour, which makes dents, seams and flipped faces obvious
+ * - xray:    the model's own materials made see-through, to look inside assemblies
+ *
+ * The model's materials are set aside, never changed, and put back when the mode
+ * returns to standard, when the model is exported, and when the next model loads.
+ */
+
+import { ref, readonly } from 'vue'
+import {
+	CanvasTexture,
+	Color,
+	DoubleSide,
+	MeshMatcapMaterial,
+	MeshNormalMaterial,
+	SRGBColorSpace,
+} from 'three'
+import { logger } from '../utils/logger.js'
+import { restoreOwnMaterial, showStandIn } from '../utils/materialStandIns.js'
+
+export const RENDER_MODES = ['standard', 'clay', 'normals', 'xray']
+
+// How much of a part an x-ray lets through
+const XRAY_OPACITY = 0.25
+
+/**
+ * A clay matcap drawn on a canvas, so no image has to ship with the app: a warm
+ * highlight up and to the left, falling off to a cool shadow at the rim.
+ * @return {CanvasTexture|null} null where there is no 2D canvas (tests, workers)
+ */
+function createClayMatcap() {
+	if (typeof document === 'undefined') return null
+	const size = 256
+	const canvas = document.createElement('canvas')
+	canvas.width = size
+	canvas.height = size
+	const ctx = canvas.getContext('2d')
+	if (!ctx) return null
+
+	const gradient = ctx.createRadialGradient(size * 0.38, size * 0.32, size * 0.02, size / 2, size / 2, size / 2)
+	gradient.addColorStop(0, '#ffffff')
+	gradient.addColorStop(0.35, '#d9d4cc')
+	gradient.addColorStop(0.75, '#8a8580')
+	gradient.addColorStop(1, '#3a3d44')
+	ctx.fillStyle = gradient
+	ctx.fillRect(0, 0, size, size)
+
+	const texture = new CanvasTexture(canvas)
+	texture.colorSpace = SRGBColorSpace
+	return texture
+}
+
+export function useRenderMode() {
+	const mode = ref('standard')
+
+	// Scene objects, kept out of reactive state
+	let root = null
+	// How many exports have the mode set aside: two at once must both finish before it
+	// comes back, or the second would write the stand-ins
+	let suspended = 0
+	const originals = new Map() // mesh -> its own material (or array of them)
+	const overrides = new Map() // own material -> what stands in for it
+	let clayMatcap = null
+
+	const makeOverride = (original, m) => {
+		const shared = {
+			// The name is what an OBJ export (Send to Slicer's among them) writes for each
+			// part's `usemtl`, and the slicer path does not set the mode aside
+			name: original.name,
+			side: original.side,
+			wireframe: original.wireframe,
+			flatShading: Boolean(original.flatShading),
+			visible: original.visible,
+			// Coplanar decals and overlays keep the offset that stops them flickering
+			polygonOffset: original.polygonOffset,
+			polygonOffsetFactor: original.polygonOffsetFactor,
+			polygonOffsetUnits: original.polygonOffsetUnits,
+		}
+		if (m === 'clay') {
+			if (!clayMatcap) clayMatcap = createClayMatcap()
+			return new MeshMatcapMaterial({
+				...shared,
+				matcap: clayMatcap,
+				color: original.color ? original.color.clone() : new Color(0xffffff),
+				vertexColors: Boolean(original.vertexColors),
+			})
+		}
+		if (m === 'normals') {
+			return new MeshNormalMaterial(shared)
+		}
+		// X-ray: the part's own look, see-through, with nothing hiding what is behind it
+		const xray = original.clone()
+		xray.transparent = true
+		xray.opacity = XRAY_OPACITY * (original.opacity ?? 1)
+		xray.depthWrite = false
+		xray.side = DoubleSide
+		return xray
+	}
+
+	const overrideFor = (original) => {
+		if (!original) return original
+		if (!overrides.has(original)) {
+			overrides.set(original, makeOverride(original, mode.value))
+		}
+		return overrides.get(original)
+	}
+
+	// Put the current mode's materials on every mesh of the model
+	const apply = () => {
+		if (!root || mode.value === 'standard') return
+		root.traverse((child) => {
+			if (!child.isMesh || !child.material) return
+			if (!originals.has(child)) originals.set(child, child.material)
+			const own = originals.get(child)
+			// Through the shared registry, so the thumbnail can draw the real ones
+			showStandIn(child, Array.isArray(own) ? own.map(overrideFor) : overrideFor(own))
+		})
+	}
+
+	// Give every mesh its own material back
+	const restore = () => {
+		originals.forEach((own, mesh) => {
+			// Wireframe is switched on whatever material is showing; carry it back
+			const shown = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+			const ownList = Array.isArray(own) ? own : [own]
+			ownList.forEach((material, i) => {
+				if (material && shown[i]) material.wireframe = shown[i].wireframe
+			})
+			restoreOwnMaterial(mesh)
+			mesh.material = own
+		})
+		originals.clear()
+		overrides.forEach((material) => material.dispose())
+		overrides.clear()
+	}
+
+	/**
+	 * Switch the whole model to a render mode.
+	 * @param {string} newMode - one of RENDER_MODES
+	 */
+	const setMode = (newMode) => {
+		if (!RENDER_MODES.includes(newMode)) {
+			throw new Error(`Invalid render mode: ${newMode}. Available modes: ${RENDER_MODES.join(', ')}`)
+		}
+		if (newMode === mode.value) return
+		restore()
+		mode.value = newMode
+		if (suspended === 0) apply()
+		logger.info('useRenderMode', 'Mode changed', { mode: newMode })
+	}
+
+	/**
+	 * Take over a newly loaded model, keeping the mode the viewer was in.
+	 * @param {THREE.Object3D} model
+	 */
+	const init = (model) => {
+		restore()
+		root = model || null
+		// An export still running holds the model it started with; this one shows the mode
+		suspended = 0
+		apply()
+	}
+
+	/**
+	 * Put the model's own materials back for a while (an export, say) without
+	 * leaving the mode; `resume` shows the mode again.
+	 */
+	const suspend = () => {
+		if (suspended++ === 0) restore()
+	}
+
+	const resume = () => {
+		if (suspended === 0) return
+		if (--suspended === 0) apply()
+	}
+
+	const dispose = () => {
+		restore()
+		root = null
+		suspended = 0
+		clayMatcap?.dispose()
+		clayMatcap = null
+	}
+
+	return {
+		mode: readonly(mode),
+		setMode,
+		init,
+		suspend,
+		resume,
+		dispose,
+	}
+}
