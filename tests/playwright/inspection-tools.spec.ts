@@ -32,6 +32,44 @@ const CUBE_OBJ = [
 	'f 1 4 3 2', 'f 5 6 7 8', 'f 1 2 6 5', 'f 2 3 7 6', 'f 3 4 8 7', 'f 4 1 5 8',
 ].join('\n')
 
+// A unit cube's faces, each a quad wound counter-clockwise seen from outside
+const CUBE_QUADS = [
+	[[1, 0, 0], [1, 1, 0], [1, 1, 1], [1, 0, 1]],
+	[[0, 0, 0], [0, 0, 1], [0, 1, 1], [0, 1, 0]],
+	[[0, 1, 0], [0, 1, 1], [1, 1, 1], [1, 1, 0]],
+	[[0, 0, 0], [1, 0, 0], [1, 0, 1], [0, 0, 1]],
+	[[0, 0, 1], [1, 0, 1], [1, 1, 1], [0, 1, 1]],
+	[[0, 0, 0], [0, 1, 0], [1, 1, 0], [1, 0, 0]],
+]
+const CUBE_TRIANGLES = CUBE_QUADS.flatMap(([a, b, c, d]) => [[a, b, c], [a, c, d]])
+
+// A glTF cube 1 m on a side: glTF is in metres
+function cubeGltf() {
+	const positions = new Float32Array(CUBE_TRIANGLES.flat(2))
+	const buffer = Buffer.from(positions.buffer)
+	return JSON.stringify({
+		asset: { version: '2.0' },
+		buffers: [{ uri: `data:application/octet-stream;base64,${buffer.toString('base64')}`, byteLength: buffer.length }],
+		bufferViews: [{ buffer: 0, byteOffset: 0, byteLength: buffer.length, target: 34962 }],
+		accessors: [{ bufferView: 0, componentType: 5126, count: positions.length / 3, type: 'VEC3', min: [0, 0, 0], max: [1, 1, 1] }],
+		materials: [{ doubleSided: true }],
+		meshes: [{ primitives: [{ attributes: { POSITION: 0 }, material: 0, mode: 4 }] }],
+		nodes: [{ mesh: 0 }],
+		scenes: [{ nodes: [0] }],
+		scene: 0,
+	})
+}
+
+// An ASCII STL cube 10 mm on a side: an STL carries no unit and is read as millimetres
+function cubeStl() {
+	const facets = CUBE_TRIANGLES.map((triangle) => [
+		'facet normal 0 0 0', 'outer loop',
+		...triangle.map(([x, y, z]) => `vertex ${x * 10} ${y * 10} ${z * 10}`),
+		'endloop', 'endfacet',
+	].join('\n'))
+	return ['solid cube', ...facets, 'endsolid cube'].join('\n')
+}
+
 const MODELS = {
 	gcode: { id: 4242, name: 'print.gcode', body: GCODE },
 	cube: { id: 4343, name: 'cube.obj', body: CUBE_OBJ },
@@ -39,6 +77,8 @@ const MODELS = {
 	cube2: { id: 4444, name: 'cube2.obj', body: CUBE_OBJ },
 	// A glTF, which is in metres: a triangle 1 m on a side
 	gltf: { id: 4545, name: 'triangle.gltf', body: fs.readFileSync(path.join(PROJECT_ROOT, 'tests/fixtures/triangle.gltf'), 'utf8') },
+	metreCube: { id: 4646, name: 'cube.gltf', body: cubeGltf() },
+	stlCube: { id: 4747, name: 'cube.stl', body: cubeStl() },
 }
 type Model = keyof typeof MODELS
 
@@ -189,6 +229,87 @@ async function pointsOnTheCube(page: Page): Promise<number[][]> {
 		}
 		throw new Error(`Only ${found.length} clear points on the model`)
 	})
+}
+
+/**
+ * Two page positions on the loaded model's face that most faces the camera, a fixed
+ * fraction of the model apart, and how far apart they are in scene units. Projected
+ * through the viewer's own camera, as pointsOnTheCube is.
+ * @param page - the page, with a model loaded
+ */
+async function twoPointsOnTheCube(page: Page): Promise<{ points: number[][], sceneDistance: number }> {
+	return await page.evaluate(() => {
+		const viewer = (window as any).__THREEDVIEWER_APP.$.subTree.component.proxy.$refs.viewer
+		const root = viewer.modelRoot
+		const camera = viewer.camera.camera.value
+		const canvas = viewer.renderer.domElement
+		const Vector3 = root.position.constructor
+		root.updateMatrixWorld(true)
+		const min = new Vector3(Infinity, Infinity, Infinity)
+		const max = new Vector3(-Infinity, -Infinity, -Infinity)
+		root.traverse((child: any) => {
+			const position = child.isMesh && child.geometry.attributes.position
+			for (let i = 0; position && i < position.count; i++) {
+				const p = new Vector3().fromBufferAttribute(position, i).applyMatrix4(child.matrixWorld)
+				min.min(p)
+				max.max(p)
+			}
+		})
+		const centre = min.clone().add(max).multiplyScalar(0.5)
+		let best = { axis: 0, side: 1, score: -Infinity }
+		for (let axis = 0; axis < 3; axis++) {
+			for (const side of [-1, 1]) {
+				const normal = new Vector3().setComponent(axis, side)
+				const faceCentre = centre.clone().setComponent(axis, side > 0 ? max.getComponent(axis) : min.getComponent(axis))
+				const score = normal.dot(camera.position.clone().sub(faceCentre).normalize())
+				if (score > best.score) best = { axis, side, score }
+			}
+		}
+		const rect = canvas.getBoundingClientRect()
+		const onFace = (u: number, fu: number, v: number, fv: number) => {
+			const p = centre.clone()
+			p.setComponent(best.axis, best.side > 0 ? max.getComponent(best.axis) : min.getComponent(best.axis))
+			p.setComponent(u, min.getComponent(u) + fu * (max.getComponent(u) - min.getComponent(u)))
+			p.setComponent(v, min.getComponent(v) + fv * (max.getComponent(v) - min.getComponent(v)))
+			return p
+		}
+		const toPage = (p: any) => {
+			const ndc = p.clone().project(camera)
+			return [rect.left + (ndc.x + 1) / 2 * rect.width, rect.top + (1 - ndc.y) / 2 * rect.height]
+		}
+		const clear = ([x, y]: number[]) => document.elementFromPoint(x, y) === canvas
+		const [a, b] = [0, 1, 2].filter((axis) => axis !== best.axis)
+		// Across the face one way, then the other, at a few heights, until both ends are clear
+		for (const [u, v] of [[a, b], [b, a]]) {
+			for (const fv of [0.5, 0.4, 0.6, 0.3, 0.7]) {
+				const ends = [onFace(u, 0.2, v, fv), onFace(u, 0.8, v, fv)]
+				const points = ends.map(toPage)
+				if (points.every(clear)) {
+					return { points, sceneDistance: ends[0].distanceTo(ends[1]) }
+				}
+			}
+		}
+		throw new Error('No two clear points on the model')
+	})
+}
+
+/**
+ * Take a distance measurement between two points on the cube, and read it.
+ * @param page - the page, with a model loaded and the tools panel open
+ * @return the reading's number and unit, and the distance in scene units
+ */
+async function measureAcrossTheCube(page: Page) {
+	await page.locator('.slide-out-panel').getByText('Measurement', { exact: true }).click()
+	const overlay = page.locator('.measurement-overlay')
+	await expect(overlay).toBeVisible()
+	const { points, sceneDistance } = await twoPointsOnTheCube(page)
+	for (const [x, y] of points) {
+		await page.mouse.click(x, y)
+	}
+	await expect(overlay.locator('.measurement-item')).toHaveCount(1)
+	const text = (await overlay.locator('.measurement-distance').textContent())!.trim()
+	const [, value, unit] = text.match(/^(-?[\d.]+) (\S+)$/)!
+	return { overlay, value: Number(value), unit, sceneDistance, text }
 }
 
 test.describe('Inspection tools', () => {
@@ -346,6 +467,43 @@ test.describe('Inspection tools', () => {
 		expect(writes[0].body.payload.space).toBe('model')
 		expect(writes[0].body.payload.points).toHaveLength(3)
 		await expect(overlay).toContainText('Alice')
+		expect(errors).toEqual([])
+	})
+
+	/*
+	 * A distance reads in the model's own unit: a glTF is in metres, so a cube 1 m on a
+	 * side measures about 0.6 m between points 20% and 80% of the way across a face,
+	 * where it used to read 0.6 mm. An STL is read exactly as before, in millimetres.
+	 */
+	test('a glTF in metres measures in metres', async ({ page }) => {
+		const { errors } = await openLoadedViewer(page, server.url, 'metreCube')
+		const { overlay, value, unit, sceneDistance } = await measureAcrossTheCube(page)
+		expect(sceneDistance).toBeCloseTo(0.6, 6)
+		expect(unit).toBe('m')
+		expect(value).toBeCloseTo(0.6, 1)
+		expect(Math.abs(value - 0.6)).toBeLessThan(0.6 * 0.03)
+		await expect(overlay.locator('select')).toHaveValue('meters')
+
+		// The same reading in millimetres is a thousand times the number, not the same one
+		await overlay.locator('select').selectOption('millimeters')
+		const millimetres = Number((await overlay.locator('.measurement-distance').textContent())!.trim().split(' ')[0])
+		expect(millimetres).toBeCloseTo(value * 1000, 0)
+		expect(errors).toEqual([])
+	})
+
+	test('an STL measures in millimetres, as it always has', async ({ page }) => {
+		const { errors } = await openLoadedViewer(page, server.url, 'stlCube')
+		const { overlay, value, unit, sceneDistance, text } = await measureAcrossTheCube(page)
+		expect(sceneDistance).toBeCloseTo(6, 6)
+		expect(unit).toBe('mm')
+		expect(Math.abs(value - 6)).toBeLessThan(6 * 0.03)
+		await expect(overlay.locator('select')).toHaveValue('millimeters')
+		// A scene unit is a millimetre: the reading is the scene distance itself
+		const picked = await page.evaluate(() => {
+			const viewer = (window as any).__THREEDVIEWER_APP.$.subTree.component.proxy.$refs.viewer
+			return viewer.measurements[0].distance
+		})
+		expect(text).toBe(`${picked.toFixed(3)} mm`)
 		expect(errors).toEqual([])
 	})
 

@@ -11,6 +11,7 @@ import {
 	raycastIntersection,
 	updateTextMesh,
 } from '../utils/modelScaleUtils.js'
+import { displayLengthFactor, formatLength } from '../utils/sourceUnits.js'
 
 // Unit conversion factors from config
 const UNIT_SCALES = VIEWER_CONFIG.measurement.unitScales
@@ -97,7 +98,12 @@ export function useMeasurement() {
 
 	// Unit configuration
 	const currentUnit = ref(DEFAULT_UNIT) // Use configured default unit
-	const modelScale = ref(1) // Scale factor: 1 Three.js unit = modelScale real units
+	// Whether the user picked the unit; until then each model starts in its own
+	const unitChosen = ref(false)
+	// Millimetres per scene unit, from the format the model came in (utils/sourceUnits.js),
+	// and per unit of the file itself (differs only when the loader rescaled the model)
+	const modelScale = ref(1)
+	const fileScale = ref(1)
 	const visualScale = ref(1) // Visual scale for markers based on model size
 
 	// Scene reference
@@ -175,29 +181,18 @@ export function useMeasurement() {
 	// Convert distance to real-world units
 	const convertDistance = (threeJsDistance) => {
 		const unitConfig = UNIT_SCALES[currentUnit.value] || UNIT_SCALES.units
-		// Assume 1 Three.js unit = modelScale millimeters (default 1mm)
-		// Then convert from millimeters to target unit by dividing by the factor
-		const distanceInMM = threeJsDistance * modelScale.value
-		const realDistance = distanceInMM / unitConfig.factor
+		// One scene unit is modelScale millimetres; "units" shows the file's own numbers
+		const realDistance = threeJsDistance * displayLengthFactor(unitConfig, modelScale.value, fileScale.value)
 		return {
 			value: realDistance,
-			formatted: `${realDistance.toFixed(3)} ${unitConfig.suffix}`,
+			formatted: `${formatLength(realDistance)} ${unitConfig.suffix}`,
 			unit: currentUnit.value,
 			suffix: unitConfig.suffix,
 		}
 	}
 
-	// Set measurement unit
-	const setUnit = (unit) => {
-		if (!unit) {
-			logger.error('useMeasurement', 'Unit parameter is required')
-			throw new Error('Unit is required')
-		}
-		if (!UNIT_SCALES[unit]) {
-			logger.error('useMeasurement', 'Invalid unit specified', { unit })
-			throw new Error(`Invalid unit: ${unit}. Available units: ${Object.keys(UNIT_SCALES).join(', ')}`)
-		}
-
+	// Show every reading in a unit, without saying who chose it
+	const applyUnit = (unit) => {
 		const oldUnit = currentUnit.value
 		currentUnit.value = unit
 		// Recalculate all existing measurements
@@ -209,8 +204,44 @@ export function useMeasurement() {
 		logger.info('useMeasurement', 'Unit changed', { unit, oldUnit, measurementCount: measurements.value.length })
 	}
 
-	// Set model scale (how many real units = 1 Three.js unit)
-	const setModelScale = (scale) => {
+	// Set the measurement unit: the user's choice, kept from one model to the next
+	const setUnit = (unit) => {
+		if (!unit) {
+			logger.error('useMeasurement', 'Unit parameter is required')
+			throw new Error('Unit is required')
+		}
+		if (!UNIT_SCALES[unit]) {
+			logger.error('useMeasurement', 'Invalid unit specified', { unit })
+			throw new Error(`Invalid unit: ${unit}. Available units: ${Object.keys(UNIT_SCALES).join(', ')}`)
+		}
+
+		unitChosen.value = true
+		applyUnit(unit)
+	}
+
+	/**
+	 * The unit a newly opened model reads best in (its own: m for a glTF, mm for an STL),
+	 * taken only while the user has not picked one.
+	 * @param {string} unit - A key of VIEWER_CONFIG.measurement.unitScales
+	 * @return {boolean} Whether it was taken
+	 */
+	const suggestUnit = (unit) => {
+		if (unitChosen.value || !UNIT_SCALES[unit]) {
+			return false
+		}
+		if (unit !== currentUnit.value) {
+			applyUnit(unit)
+		}
+		return true
+	}
+
+	/**
+	 * Set the model scale: how many millimetres one scene unit is (utils/sourceUnits.js).
+	 * @param {number} scale - Millimetres per scene unit
+	 * @param {number} [perFileUnit] - Millimetres per unit of the file, for "units";
+	 *   the same as `scale` unless the loader rescaled the model
+	 */
+	const setModelScale = (scale, perFileUnit = scale) => {
 		if (typeof scale !== 'number') {
 			logger.error('useMeasurement', 'Scale must be a number')
 			throw new Error('Scale must be a number')
@@ -225,6 +256,7 @@ export function useMeasurement() {
 		}
 
 		modelScale.value = scale
+		fileScale.value = Number.isFinite(perFileUnit) && perFileUnit > 0 ? perFileUnit : scale
 		// Recalculate all existing measurements
 		measurements.value = measurements.value.map(m => (m.type === 'angle'
 			? m
@@ -668,6 +700,7 @@ export function useMeasurement() {
 		measurements: readonly(measurements),
 		currentMeasurement: readonly(currentMeasurement),
 		currentUnit: readonly(currentUnit),
+		unitChosen: readonly(unitChosen),
 		mode: readonly(mode),
 		modelScale: readonly(modelScale),
 		visualScale: readonly(visualScale),
@@ -697,6 +730,7 @@ export function useMeasurement() {
 		getMeasurementSummary,
 		convertDistance,
 		setUnit,
+		suggestUnit,
 		setModelScale,
 		getAvailableUnits,
 		dispose,

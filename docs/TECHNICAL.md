@@ -177,6 +177,12 @@ const loaders = {
 }
 ```
 
+#### Model Units
+
+A scene unit is not always a millimetre. `src/utils/sourceUnits.js` says what it is for each format: metres for glTF, USD, COLLADA, IFC, X3D, VRML and dotbim, millimetres for STL, OBJ, PLY, OFF, 3DS, AMF, the OCCT CAD formats and G-code, and the file's own unit for Rhino (`modelUnitSystem`), 3MF (the `unit` attribute of `<model>`) and FBX (`UnitScaleFactor`, centimetres per unit; centimetres when absent). Loaders record a file's unit on the model (`userData.threeMFUnit`, `userData.unitScaleFactor`) and never rescale the scene for it, so framing and thumbnails are unaffected. Two loaders do rescale a model to fit the viewer: the FBX loader shrinks one larger than 50 units to 5, and the OBJ loader one larger than 1000 units to 1000. Each records its factor as `userData.viewerScale`, which is divided back out; a loader that adds such a rescale must record it the same way.
+
+`ThreeViewer` calls `millimetresPerUnit(filename, root)` once per model load and hands the result to `useMeasurement.setModelScale`, `useModelStats.setModelScale` (with `millimetresPerFileUnit` too), the comparison table and the 3MF and USDZ exporters. Lengths scale by the factor, areas by its square and volumes by its cube; angles have no unit. Both unit pickers start in `defaultDisplayUnit(filename, root)`, the model's own unit, until the user picks one (`suggestUnit` versus `setUnit`); the pick lives in the composables, so it lasts as long as the `ThreeViewer` instance. In the 3D Viewer app that is until the page is reloaded: `App.vue` mounts one `ThreeViewer` (`key="three-viewer"`) and changes its `fileId` prop to open another model. It is not saved anywhere. The Files viewer (`ViewerComponent.vue`, via `ViewerWrapper.js`) has no measurement or statistics panels. "Generic Units" (`fileUnits: true` in `VIEWER_CONFIG.measurement.unitScales`) shows the file's own numbers: scene units with any `viewerScale` divided out. Shared notes and the annotations JSON store model-space points only, so they carry no unit and need no conversion.
+
 ### Data Flow
 
 #### Model Loading Flow

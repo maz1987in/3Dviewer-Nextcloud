@@ -80,7 +80,10 @@ class ObjLoader extends BaseLoader {
 		// If the model is too large, scale it down
 		if (maxDimension > 1000) {
 			const scaleFactor = 1000 / maxDimension
-			object3D.scale.setScalar(scaleFactor)
+			object3D.scale.multiplyScalar(scaleFactor)
+			// Recorded so the model's true size can be read back: measurements, statistics
+			// and export divide it out again (utils/sourceUnits.js, viewerScale)
+			object3D.userData.viewerScale = (object3D.userData.viewerScale ?? 1) * scaleFactor
 			logger.info('OBJLoader', ' Model scaled down by factor:', scaleFactor)
 		}
 

@@ -1,6 +1,214 @@
 import { ThreeMFLoader } from 'three/examples/jsm/loaders/3MFLoader.js'
 import { BaseLoader } from '../BaseLoader.js'
-import { unzip } from 'three/examples/jsm/libs/fflate.module.js'
+import { unzip, unzipSync, Unzip, UnzipInflate, DecodeUTF8, strFromU8 } from 'three/examples/jsm/libs/fflate.module.js'
+
+// A top-level model part: three's loader takes the last of these as the root model when
+// the package names none
+const ROOT_MODEL = /^3D\/[^/]*\.model$/
+// The package relationships, which name the 3D model part (the StartPart)
+const PACKAGE_RELS = '_rels/.rels'
+const RELATIONSHIP = /^(?:[\w.-]{1,64}:)?Relationship[\s/>]/
+const MODEL_RELATIONSHIP_TYPE = /\/3dmodel$/
+const TARGET_ATTRIBUTE = /\sTarget\s{0,64}=\s{0,64}(["'])([^"']{0,1024})\1/
+const TYPE_ATTRIBUTE = /\sType\s{0,64}=\s{0,64}(["'])([^"']{0,1024})\1/
+// The root element, when it is <model>, with or without a namespace prefix; tested on
+// one start tag of at most MAX_TAG characters, never on the text around it
+const MODEL_START = /^<(?:[\w.-]{1,64}:)?model[\s/>]/
+const UNIT_ATTRIBUTE = /\sunit\s{0,64}=\s{0,64}(["'])([^"']{0,64})\1/
+// The longest start tag read. <model> carries a unit, a language and a handful of
+// namespace declarations, well under this.
+const MAX_TAG = 4096
+// The most of the model part read before giving up: its root element comes after an XML
+// declaration and perhaps a comment or two
+const HEAD_LIMIT = 64 * 1024
+// Bytes of the archive fed to the reader at a time
+const SLICE = 16 * 1024
+
+/**
+ * Reads the root element of an XML text as it arrives, a piece at a time, and settles on
+ * the unit once it has seen the root's start tag. The work is linear in the text read:
+ * every search resumes where the last one stopped, and a start tag is matched only once
+ * its closing `>` is in, on that tag alone, so no piece of text is scanned twice however
+ * the file is crafted.
+ *
+ * @return {{ push: function(string): boolean, finish: function(): void, unit: function(): ?string }}
+ *   push a piece of text (true once settled), finish at the end of the text, and the
+ *   unit settled on: as written, "millimeter" for a <model> without one, null when the
+ *   root is not <model> or was not found
+ */
+function rootUnitScanner() {
+	let head = ''
+	let pos = 0 // where the next markup is looked for
+	let settled = false
+	let unit = null
+
+	// indexOf that never searches a stretch of `head` twice for the same needle
+	const finder = (needle) => {
+		let at = -1
+		let searched = 0
+		return (from) => {
+			if (at >= from) { return at }
+			at = head.indexOf(needle, Math.max(from, searched - needle.length + 1))
+			searched = at === -1 ? head.length : at
+			return at
+		}
+	}
+	const nextOpen = finder('<')
+	const nextClose = finder('>')
+	const nextCommentEnd = finder('-->')
+
+	const settle = (value) => {
+		settled = true
+		unit = value
+		return true
+	}
+
+	// Skip the prolog (declaration, comments, doctype) and read the root's start tag
+	const scan = () => {
+		for (;;) {
+			const open = nextOpen(pos)
+			if (open === -1 || head.length < open + 4) { return false }
+			if (head.startsWith('<!--', open)) {
+				const end = nextCommentEnd(open + 4)
+				if (end === -1) { return false }
+				pos = end + 3
+				continue
+			}
+			if (head[open + 1] === '?' || head[open + 1] === '!') {
+				const end = nextClose(open + 2)
+				if (end === -1) { return false }
+				pos = end + 1
+				continue
+			}
+			// The root element's start tag
+			const close = nextClose(open + 1)
+			if (close === -1) {
+				return head.length - open > MAX_TAG ? settle(null) : false
+			}
+			if (close - open > MAX_TAG) { return settle(null) }
+			const tag = head.slice(open, close + 1)
+			if (!MODEL_START.test(tag)) { return settle(null) }
+			return settle(tag.match(UNIT_ATTRIBUTE)?.[2].trim() || 'millimeter')
+		}
+	}
+
+	return {
+		push(text) {
+			if (settled) { return true }
+			head += text.slice(0, HEAD_LIMIT - head.length)
+			return scan() || (head.length >= HEAD_LIMIT && settle(null))
+		},
+		finish() {
+			if (!settled) { settle(null) }
+		},
+		unit: () => unit,
+	}
+}
+
+/**
+ * The model part whose unit counts: the one the package relationships name as the 3D
+ * model, as three's loader builds the scene from, or failing that the part three takes
+ * as its root model, the last .model directly under 3D/. Only the entry list and the
+ * small relationships part are read.
+ *
+ * @param {Uint8Array} bytes - The 3MF archive
+ * @return {?string} The part's name in the archive, or null when there is none
+ */
+function rootModelPart(bytes) {
+	const names = []
+	let relsSize = 0
+	const parts = unzipSync(bytes, {
+		filter: (file) => {
+			names.push(file.name)
+			if (file.name !== PACKAGE_RELS || file.originalSize > HEAD_LIMIT) { return false }
+			relsSize = file.originalSize
+			return true
+		},
+	})
+	if (relsSize > 0 && parts[PACKAGE_RELS]) {
+		let first = null
+		let typed = null
+		// Split at each '<': every piece is looked at once, with bounded patterns
+		for (const piece of strFromU8(parts[PACKAGE_RELS]).split('<')) {
+			if (typed || !RELATIONSHIP.test(piece)) { continue }
+			const end = piece.indexOf('>')
+			const tag = ' ' + piece.slice(0, end === -1 ? MAX_TAG : Math.min(end, MAX_TAG))
+			let target = tag.match(TARGET_ATTRIBUTE)?.[2]
+			if (!target || !/\.model$/i.test(target)) { continue }
+			try {
+				target = decodeURIComponent(target)
+			} catch {
+				// Not percent-encoded after all; taken as written
+			}
+			target = target.replace(/^\//, '')
+			if (!names.includes(target)) { continue }
+			first ??= target
+			if (MODEL_RELATIONSHIP_TYPE.test(tag.match(TYPE_ATTRIBUTE)?.[2] ?? '')) { typed = target }
+		}
+		if (typed || first) { return typed || first }
+	}
+	return names.filter((name) => ROOT_MODEL.test(name)).pop() ?? null
+}
+
+/**
+ * The unit a 3MF file is written in: the `unit` attribute of its root model's <model>
+ * element. three's ThreeMFLoader reads it and then never applies it, so a file in
+ * metres comes out a thousandth of its size; the loader records it on the model for
+ * utils/sourceUnits.js instead of rescaling the scene.
+ *
+ * Only the start of the root model part is inflated: the attribute is on the root
+ * element, and the part can be hundreds of megabytes of mesh after it.
+ *
+ * @param {ArrayBuffer|Uint8Array} data - The 3MF archive
+ * @return {?string} The unit as written ("millimeter" when the attribute is absent, as
+ *   the spec says), or null when there is no root model to read
+ */
+export function read3MFUnit(data) {
+	const bytes = data instanceof Uint8Array ? data : new Uint8Array(data)
+	const scanner = rootUnitScanner()
+	let done = false
+	try {
+		const root = rootModelPart(bytes)
+		if (!root) {
+			return null
+		}
+		const archive = new Unzip()
+		archive.register(UnzipInflate)
+		archive.onfile = (file) => {
+			if (done || file.name !== root) {
+				return
+			}
+			let fed = 0
+			const decoder = new DecodeUTF8((text) => {
+				done = scanner.push(text) || done
+			})
+			file.ondata = (error, chunk, final) => {
+				if (done) {
+					return
+				}
+				if (error) {
+					done = true
+					return
+				}
+				// No more of the part is decoded than the scanner will read
+				const piece = chunk.subarray(0, Math.max(0, HEAD_LIMIT * 4 - fed))
+				fed += piece.length
+				decoder.push(piece, final)
+				if (final || piece.length < chunk.length) {
+					done = true
+				}
+			}
+			file.start()
+		}
+		for (let offset = 0; offset < bytes.length && !done; offset += SLICE) {
+			archive.push(bytes.subarray(offset, offset + SLICE), offset + SLICE >= bytes.length)
+		}
+	} catch {
+		// A damaged archive: three's loader reports it; the unit falls back to millimetres
+	}
+	scanner.finish()
+	return scanner.unit()
+}
 
 class ThreeMfLoader extends BaseLoader {
 
@@ -81,8 +289,17 @@ class ThreeMfLoader extends BaseLoader {
 			// Rotate to Y-up (Three.js standard) by rotating -90° around X-axis
 			object.rotation.x = -Math.PI / 2
 
+			// The file's unit, recorded rather than applied: the scene keeps the file's
+			// numbers, so framing and thumbnails are as before, and measurements and export
+			// convert (utils/sourceUnits.js)
+			const unit = read3MFUnit(uint8Array)
+			if (unit) {
+				object.userData.threeMFUnit = unit
+			}
+
 			this.logInfo('3MF model loaded successfully', {
 				children: object.children.length,
+				unit,
 			})
 
 			return this.processModel(object, { fileId, filename })

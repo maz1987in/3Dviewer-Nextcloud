@@ -903,6 +903,8 @@ export const LIGHTING_SETTINGS = {
  * Unit conversion factors (1 Three.js unit = ? real units)
  */
 export const MEASUREMENT_SETTINGS = {
+	// The unit shown before a model is open. Once one is, the panels start in the model's
+	// own unit (utils/sourceUnits.js, defaultDisplayUnit) until the user picks one.
 	defaultUnit: 'millimeters',
 	unitScales: {
 		millimeters: { factor: 1, suffix: 'mm', label: 'Millimeters' },
@@ -910,7 +912,9 @@ export const MEASUREMENT_SETTINGS = {
 		meters: { factor: 1000, suffix: 'm', label: 'Meters' },
 		inches: { factor: 25.4, suffix: 'in', label: 'Inches' },
 		feet: { factor: 304.8, suffix: 'ft', label: 'Feet' },
-		units: { factor: 1, suffix: 'units', label: 'Generic Units' },
+		// The file's own numbers, unconverted: whatever unit the model came in, with any
+		// rescale of the viewer's undone
+		units: { factor: 1, suffix: 'units', label: 'Generic Units', fileUnits: true },
 	},
 	markerSize: 0.05,
 	lineWidth: 2,

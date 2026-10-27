@@ -8,11 +8,13 @@ import * as THREE from 'three'
 import { logger } from '../utils/logger.js'
 import { getBoundingInfo } from '../utils/three-utils.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
+import { displayLengthFactor, formatLength } from '../utils/sourceUnits.js'
 
 // Skip watertightness detection above this triangle count per mesh (edge map is O(n))
 const WATERTIGHT_MAX_TRIANGLES = 500000
 
-// Unit scales from measurement config — 1 three.js unit = 1 mm by convention
+// Unit scales from measurement config. A scene unit is however many millimetres the
+// model's format says (setModelScale, from utils/sourceUnits.js).
 const UNIT_SCALES = VIEWER_CONFIG.measurement.unitScales
 const DEFAULT_UNIT = VIEWER_CONFIG.measurement.defaultUnit
 
@@ -21,6 +23,12 @@ export function useModelStats() {
 	const modelStats = ref(null)
 	const showStats = ref(false)
 	const currentUnit = ref(DEFAULT_UNIT)
+	// Whether the user picked the unit; until then each model starts in its own
+	const unitChosen = ref(false)
+	// Millimetres per scene unit, from the format the model came in, and per unit of the
+	// file itself (differs only when the loader rescaled the model)
+	const modelScale = ref(1)
+	const fileScale = ref(1)
 	const selectedMeshUuid = ref(null)
 
 	/**
@@ -466,7 +474,8 @@ export function useModelStats() {
 	}
 
 	/**
-	 * Set the display unit (mm / cm / m / in / ft / units).
+	 * Set the display unit (mm / cm / m / in / ft / units): the user's choice, kept from
+	 * one model to the next.
 	 * @param {string} unit - Unit key from VIEWER_CONFIG.measurement.unitScales
 	 */
 	const setUnit = (unit) => {
@@ -474,7 +483,37 @@ export function useModelStats() {
 			logger.warn('useModelStats', 'Unknown unit, ignoring', { unit })
 			return
 		}
+		unitChosen.value = true
 		currentUnit.value = unit
+	}
+
+	/**
+	 * The unit a newly opened model reads best in, taken only while the user has not
+	 * picked one.
+	 * @param {string} unit - Unit key from VIEWER_CONFIG.measurement.unitScales
+	 * @return {boolean} Whether it was taken
+	 */
+	const suggestUnit = (unit) => {
+		if (unitChosen.value || !UNIT_SCALES[unit]) {
+			return false
+		}
+		currentUnit.value = unit
+		return true
+	}
+
+	/**
+	 * How many millimetres one scene unit is, for the model being analysed.
+	 * @param {number} scale - Millimetres per scene unit (utils/sourceUnits.js)
+	 * @param {number} [perFileUnit] - Millimetres per unit of the file, for "units"; the
+	 *   same as `scale` unless the loader rescaled the model
+	 */
+	const setModelScale = (scale, perFileUnit = scale) => {
+		if (!(typeof scale === 'number' && isFinite(scale) && scale > 0)) {
+			logger.warn('useModelStats', 'Invalid model scale, ignoring', { scale })
+			return
+		}
+		modelScale.value = scale
+		fileScale.value = Number.isFinite(perFileUnit) && perFileUnit > 0 ? perFileUnit : scale
 	}
 
 	/**
@@ -486,11 +525,11 @@ export function useModelStats() {
 	}
 
 	/**
-	 * Active unit config and its scaling factors.
-	 * 1 three.js unit = 1 mm (matches useMeasurement convention).
+	 * Active unit config and its scaling factors, from scene units to the display unit:
+	 * lengths by the factor, areas by its square and volumes by its cube.
 	 */
 	const unitConfig = computed(() => UNIT_SCALES[currentUnit.value] || UNIT_SCALES.units)
-	const lengthScale = computed(() => 1 / unitConfig.value.factor) // three.js → target unit
+	const lengthScale = computed(() => displayLengthFactor(unitConfig.value, modelScale.value, fileScale.value))
 	const areaScale = computed(() => lengthScale.value * lengthScale.value)
 	const volumeScale = computed(() => lengthScale.value * lengthScale.value * lengthScale.value)
 
@@ -519,7 +558,8 @@ export function useModelStats() {
 			if (n === 0) return '0'
 			const abs = Math.abs(n)
 			if (abs >= 1000 || abs < 0.01) return n.toExponential(3)
-			return n.toFixed(3)
+			// Three significant figures at least: 0.05 m is 0.0500, not 0.050
+			return formatLength(n, 3)
 		}
 		const lines = []
 		lines.push(`# Model measurements (${u.label})`)
@@ -552,6 +592,8 @@ export function useModelStats() {
 		modelStats: readonly(modelStats),
 		showStats: readonly(showStats),
 		currentUnit: readonly(currentUnit),
+		unitChosen: readonly(unitChosen),
+		modelScale: readonly(modelScale),
 		selectedMeshUuid: readonly(selectedMeshUuid),
 
 		// Computed
@@ -570,6 +612,8 @@ export function useModelStats() {
 		toggleStatsPanel,
 		clearStats,
 		setUnit,
+		suggestUnit,
+		setModelScale,
 		selectMesh,
 		getAvailableUnits,
 		buildMeasurementReport,
