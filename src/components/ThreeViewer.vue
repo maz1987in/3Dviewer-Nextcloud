@@ -992,11 +992,10 @@ export default {
 			modelMillimetresPerFileUnit.value = perFileUnit
 			measurement.setModelScale(scale, perFileUnit)
 			modelStatsComposable.setModelScale(scale, perFileUnit)
-			if (filename) {
-				const unit = defaultDisplayUnit(filename, root)
-				measurement.suggestUnit(unit)
-				modelStatsComposable.suggestUnit(unit)
-			}
+			// With no file, back to the configured default; a unit the user picked stays
+			const unit = defaultDisplayUnit(filename, root)
+			measurement.suggestUnit(unit)
+			modelStatsComposable.suggestUnit(unit)
 			logger.info('ThreeViewer', 'Source units', { filename, millimetresPerUnit: scale })
 		}
 

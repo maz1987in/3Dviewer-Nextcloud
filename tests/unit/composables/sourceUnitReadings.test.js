@@ -146,6 +146,21 @@ describe('the display unit a model starts in', () => {
 		expect(measurement.currentUnit.value).toBe('millimeters')
 	})
 
+	it('goes back to the configured default when the model is cleared or the demo scene shown', () => {
+		const measurement = measuring()
+		const stats = useModelStats()
+		for (const panel of [measurement, stats]) panel.suggestUnit(defaultDisplayUnit('figure.glb'))
+		expect(measurement.currentUnit.value).toBe('meters')
+		// No file
+		for (const panel of [measurement, stats]) panel.suggestUnit(defaultDisplayUnit(null, null))
+		expect(measurement.currentUnit.value).toBe(VIEWER_CONFIG.measurement.defaultUnit)
+		expect(stats.currentUnit.value).toBe(VIEWER_CONFIG.measurement.defaultUnit)
+		// But a unit the user picked stays
+		measurement.setUnit('feet')
+		measurement.suggestUnit(defaultDisplayUnit(null, null))
+		expect(measurement.currentUnit.value).toBe('feet')
+	})
+
 	it('is kept in the statistics panel the same way, separately', () => {
 		const stats = useModelStats()
 		expect(stats.suggestUnit('meters')).toBe(true)
@@ -172,7 +187,8 @@ describe('the display unit a model starts in', () => {
 		['part.3mf', { threeMFUnit: 'micron' }, 'millimeters'],
 		['tower.3dm', { settings: { modelUnitSystem: { value: 8 } } }, 'inches'],
 		['map.3dm', { settings: { modelUnitSystem: { value: 5 } } }, 'meters'],
-		[null, null, 'millimeters'],
+		[null, null, VIEWER_CONFIG.measurement.defaultUnit],
+		['', null, VIEWER_CONFIG.measurement.defaultUnit],
 	])('%s %j starts in %s', (filename, userData, expected) => {
 		const root = new THREE.Group()
 		Object.assign(root.userData, userData)

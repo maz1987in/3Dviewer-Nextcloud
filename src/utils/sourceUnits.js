@@ -240,13 +240,17 @@ export function millimetresPerUnit(filename, root = null) {
 /**
  * The display unit a model's readings start in, until the user picks one: the unit its
  * file is written in (m for a glTF, mm for an STL, cm for most FBX files, a Rhino or 3MF
- * file's own), or millimetres for a unit the picker does not offer.
+ * file's own), or millimetres for a unit the picker does not offer. With no file (the
+ * model cleared, or the demo scene), the configured default.
  *
  * @param {?string} filename - The file the model was loaded from (a path is fine)
  * @param {?THREE.Object3D} [root] - The loaded model, read for formats that record a unit
  * @return {string} A key of VIEWER_CONFIG.measurement.unitScales
  */
 export function defaultDisplayUnit(filename, root = null) {
+	if (!filename) {
+		return VIEWER_CONFIG.measurement.defaultUnit
+	}
 	const fileUnit = millimetresPerFileUnit(filename, root)
 	const match = Object.entries(VIEWER_CONFIG.measurement.unitScales)
 		.find(([, unit]) => !unit.fileUnits && Math.abs(unit.factor - fileUnit) < 1e-9 * fileUnit)
