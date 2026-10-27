@@ -12,14 +12,14 @@
 
 const { readFileSync } = require('fs')
 const { join } = require('path')
+const { stripHtmlComments } = require('./helpers/stripHtmlComments.js')
 
 const PANEL = readFileSync(
 	join(__dirname, '..', '..', 'src', 'components', 'SlideOutToolPanel.vue'),
 	'utf8',
 )
 
-const template = PANEL.slice(PANEL.indexOf('<template>'), PANEL.indexOf('</template>\n\n<script>'))
-	.replace(/<!--[\s\S]*?-->/g, '')
+const template = stripHtmlComments(PANEL.slice(PANEL.indexOf('<template>'), PANEL.indexOf('</template>\n\n<script>')))
 const select = /<select\b[^>]*class="export-select"[\s\S]*?<\/select>/.exec(template)[0]
 const button = /<button\b[^>]*class="export-btn"[^>]*>[\s\S]*?<\/button>/.exec(template)[0]
 
@@ -65,7 +65,7 @@ describe('the Export button', () => {
 	})
 
 	it('shows no hover or pressed look while an export runs', () => {
-		expect(PANEL).toMatch(/\.export-btn\.export-btn:hover:not\(:disabled\):not\(\[aria-disabled="true"\]\)\s*\{/)
+		expect(PANEL).toMatch(/\.export-btn\.export-btn:hover:not\(:disabled, \[aria-disabled="true"\]\)\s*\{/)
 		expect(PANEL).toMatch(/\.export-btn\.export-btn:active:not\(\[aria-disabled="true"\]\)\s*\{/)
 	})
 })

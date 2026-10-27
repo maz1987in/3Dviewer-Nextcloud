@@ -1564,7 +1564,7 @@ export default {
 	transition: background 0.15s ease-out;
 }
 
-.export-btn.export-btn:hover:not(:disabled):not([aria-disabled="true"]) {
+.export-btn.export-btn:hover:not(:disabled, [aria-disabled="true"]) {
 	background: var(--tdv-color-primary-hover);
 	color: var(--tdv-color-on-primary);
 }
