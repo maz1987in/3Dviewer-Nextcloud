@@ -1,5 +1,5 @@
 import { TDSLoader } from 'three/examples/jsm/loaders/TDSLoader.js'
-import { BaseLoader, requestedFileNames } from '../BaseLoader.js'
+import { BaseLoader, companionLoadingManager, requestedFileNames } from '../BaseLoader.js'
 
 /**
  * 3DS loader class
@@ -20,8 +20,6 @@ class ThreeDSLoader extends BaseLoader {
 	async loadModel(arrayBuffer, context) {
 		const { THREE, additionalFiles } = context
 
-		// Create a custom LoadingManager for texture loading
-		let loadingManager = THREE.DefaultLoadingManager
 		const missingTextures = []
 
 		// Pre-create data URIs for textures (blob: URLs are blocked by Nextcloud CSP)
@@ -46,32 +44,27 @@ class ThreeDSLoader extends BaseLoader {
 				}
 			}
 
-			loadingManager = new THREE.LoadingManager()
-
-			// Override URL modifier to use data URIs
-			loadingManager.setURLModifier((url) => {
-				// By name, raw and percent-decoded, whatever path the material wrote
-				const names = requestedFileNames(url)
-				for (const textureName of names) {
-					const dataUri = dataUriMap.get(textureName.toLowerCase())
-					if (dataUri) {
-						this.logInfo('Loading 3DS texture from dependencies', { textureName })
-						return dataUri
-					}
-				}
-
-				const textureName = names[0]
-				missingTextures.push(textureName)
-				this.logWarning('3DS texture not found in dependencies', { textureName, url })
-				// The default manager decides: as written on a page, refused in the
-				// thumbnail worker unless it is one of the job's files
-				return THREE.DefaultLoadingManager.resolveURL(url)
-			})
-
 			this.logInfo('3DS loader configured with external texture support', {
 				textureCount: dataUriMap.size,
 			})
 		}
+
+		// By name, raw and percent-decoded, whatever path the material wrote. A map that is
+		// none of the companions is not requested on the page, and refused in the worker
+		// unless it is one of the job's files (see unmatchedResourceUrl)
+		const loadingManager = companionLoadingManager((url) => {
+			const names = requestedFileNames(url)
+			for (const textureName of names) {
+				const dataUri = dataUriMap.get(textureName.toLowerCase())
+				if (dataUri) {
+					this.logInfo('Loading 3DS texture from dependencies', { textureName })
+					return dataUri
+				}
+			}
+			missingTextures.push(names[0])
+			this.logWarning('3DS texture not found in dependencies', { textureName: names[0], url })
+			return null
+		})
 
 		// Create 3DS loader with custom manager
 		this.loader = new TDSLoader(loadingManager)

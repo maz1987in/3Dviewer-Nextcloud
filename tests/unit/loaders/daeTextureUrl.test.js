@@ -4,12 +4,13 @@
  * An `<init_from>` exported on Windows names a path on the author's machine, or a
  * percent-encoded file: URL. The companion was fetched by its bare, decoded name, so the
  * loading manager maps a request to it by that name. Anything it was not given goes back
- * unchanged: on a page nothing loads it, and in the thumbnail worker the worker's
- * resolver refuses it.
+ * to three's default manager: in the thumbnail worker the worker's resolver refuses it,
+ * and on a page it becomes a placeholder that requests nothing.
  */
 
 import * as THREE from 'three'
 import DaeLoader from '../../../src/loaders/types/dae.js'
+import { NO_TEXTURE_URL } from '../../../src/loaders/BaseLoader.js'
 
 let colladaManager = null
 
@@ -59,8 +60,9 @@ describe('DAE loader texture URLs', () => {
 		expect(colladaManager.resolveURL(url)).toMatch(/^data:image\/png;base64,/)
 	})
 
-	it('hands back a request for a file it was not given, unchanged', () => {
-		expect(colladaManager.resolveURL('C:\\textures\\other.png')).toBe('C:\\textures\\other.png')
-		expect(colladaManager.resolveURL('file:///C:/x/other.png')).toBe('file:///C:/x/other.png')
+	it('requests nothing for a file it was not given, on the page', () => {
+		expect(colladaManager.resolveURL('C:\\textures\\other.png')).toBe(NO_TEXTURE_URL)
+		expect(colladaManager.resolveURL('file:///C:/x/other.png')).toBe(NO_TEXTURE_URL)
+		expect(colladaManager.resolveURL('https://example.invalid/other.png')).toBe(NO_TEXTURE_URL)
 	})
 })

@@ -1,5 +1,5 @@
 import { ColladaLoader } from 'three/examples/jsm/loaders/ColladaLoader.js'
-import { BaseLoader, requestedFileNames } from '../BaseLoader.js'
+import { BaseLoader, companionLoadingManager, requestedFileNames } from '../BaseLoader.js'
 import { decodeTextFromBuffer } from '../../utils/fileHelpers.js'
 
 /**
@@ -19,15 +19,14 @@ class DaeLoader extends BaseLoader {
 	 * @return {Promise<object>} Load result
 	 */
 	async loadModel(arrayBuffer, context) {
-		const { THREE, additionalFiles = [] } = context
+		const { additionalFiles = [] } = context
 
 		// Convert ArrayBuffer to text for XML parsing
 		const text = decodeTextFromBuffer(arrayBuffer)
 
 		// Set up texture loading from dependencies (data URIs for CSP)
-		let loadingManager
-		if (additionalFiles.length > 0 && THREE) {
-			const dataUriMap = new Map()
+		const dataUriMap = new Map()
+		if (additionalFiles.length > 0) {
 			for (const file of additionalFiles) {
 				const fileName = file.name.split(/[/\\]/).pop().toLowerCase()
 				if (/\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(fileName)) {
@@ -44,22 +43,22 @@ class DaeLoader extends BaseLoader {
 					}
 				}
 			}
-			if (dataUriMap.size > 0) {
-				loadingManager = new THREE.LoadingManager()
-				// By name: an <init_from> may be C:\textures\wood.png or a percent-encoded
-				// file: URL, and its companion was fetched by its bare, decoded name
-				loadingManager.setURLModifier((url) => {
-					for (const textureName of requestedFileNames(url)) {
-						const dataUri = dataUriMap.get(textureName.toLowerCase())
-						if (dataUri) {
-							this.logInfo('Loading DAE texture from dependencies', { textureName })
-							return dataUri
-						}
-					}
-					return url
-				})
-			}
 		}
+
+		// By name: an <init_from> may be C:\textures\wood.png or a percent-encoded file:
+		// URL, and its companion was fetched by its bare, decoded name. An image that is
+		// none of the companions is not requested (see unmatchedResourceUrl), so a model
+		// cannot make the viewer's browser contact a host of its choosing
+		const loadingManager = companionLoadingManager((url) => {
+			for (const textureName of requestedFileNames(url)) {
+				const dataUri = dataUriMap.get(textureName.toLowerCase())
+				if (dataUri) {
+					this.logInfo('Loading DAE texture from dependencies', { textureName })
+					return dataUri
+				}
+			}
+			return null
+		})
 
 		// Create Collada loader
 		this.loader = new ColladaLoader(loadingManager)

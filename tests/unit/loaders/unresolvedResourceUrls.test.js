@@ -6,13 +6,14 @@
  * manager, and handed anything else back as the URL the model wrote, which the loader
  * then fetched. In the background thumbnail worker that let a crafted model in a shared
  * folder make a browsing editor's browser request any URL. They now hand an unknown URL
- * to three's default loading manager instead: on a page it has no URL modifier, so the
- * URL comes back unchanged and the viewer behaves as before; in the worker the modifier
- * is the worker's resolver, which refuses it.
+ * to three's default loading manager instead: in the worker its modifier is the worker's
+ * resolver, which refuses it; on a page it has none, and the URL becomes a placeholder
+ * that requests nothing (see noRemoteTextureRequests.test.js).
  */
 
 import * as THREE from 'three'
 import { GltfLoader } from '../../../src/loaders/types/gltf.js'
+import { NO_TEXTURE_URL } from '../../../src/loaders/BaseLoader.js'
 import ThreeDSLoader from '../../../src/loaders/types/threeDS.js'
 
 let tdsManager = null
@@ -81,7 +82,7 @@ describe('glTF', () => {
 		expect(manager.resolveURL('scene.bin?v=2')).toBe('blob:test/2')
 	})
 
-	it('on a page, where the default manager has no modifier, the URL is unchanged', async () => {
+	it('on a page, where the default manager has no modifier, nothing is requested', async () => {
 		THREE.DefaultLoadingManager.setURLModifier(undefined)
 		const loader = new GltfLoader()
 		const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js')
@@ -89,7 +90,7 @@ describe('glTF', () => {
 
 		await loader.setupResourceManager([new File(['bin'], 'scene.bin', { type: 'application/octet-stream' })])
 
-		expect(loader.loader.manager.resolveURL('textures/wood.png')).toBe('textures/wood.png')
+		expect(loader.loader.manager.resolveURL('textures/wood.png')).toBe(NO_TEXTURE_URL)
 	})
 })
 

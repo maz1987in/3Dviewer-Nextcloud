@@ -1,6 +1,6 @@
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js'
 import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js'
-import { BaseLoader, requestedFileNames } from '../BaseLoader.js'
+import { BaseLoader, companionLoadingManager, requestedFileNames } from '../BaseLoader.js'
 import { logger } from '../../utils/logger.js'
 import { decodeTextFromBuffer } from '../../utils/fileHelpers.js'
 import { getBoundingInfo } from '../../utils/three-utils.js'
@@ -352,7 +352,10 @@ class ObjLoader extends BaseLoader {
 
 				if (mtlText && mtlText.trim().length > 0) {
 					try {
-						this.mtlLoader = new MTLLoader()
+						// Its textures are loaded from the companions by createTextureLoader;
+						// should three's own loader ever request one, it gets nothing from
+						// the network (see unmatchedResourceUrl)
+						this.mtlLoader = new MTLLoader(companionLoadingManager())
 						this.mtlLoader.setPath('')
 
 						// Try native Three.js MTLLoader first

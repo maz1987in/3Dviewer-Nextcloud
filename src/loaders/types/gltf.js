@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { appAssetPath } from '../appAssetPath.js'
-import { BaseLoader, requestedFileNames } from '../BaseLoader.js'
+import { BaseLoader, requestedFileNames, unmatchedResourceUrl } from '../BaseLoader.js'
 
 /**
  * GLTF/GLB loader class
@@ -40,10 +40,9 @@ class GltfLoader extends BaseLoader {
 		// Configure decoders
 		await this.configureDecoders(renderer, hasDraco, hasKtx2, hasMeshopt)
 
-		// Set up resource manager for multi-file loading
-		if (additionalFiles && additionalFiles.length > 0) {
-			await this.setupResourceManager(additionalFiles, isModalContext)
-		}
+		// Set up resource manager for multi-file loading. Also without companions: it is
+		// what keeps an external URI the model names from being requested
+		await this.setupResourceManager(additionalFiles ?? [], isModalContext)
 
 		try {
 			// Parse the model (pass extension for format detection)
@@ -721,6 +720,11 @@ class GltfLoader extends BaseLoader {
 			const manager = new THREE.LoadingManager()
 
 			manager.setURLModifier((url) => {
+				// The loader's own: embedded data, a GLB's images
+				if (/^(data|blob):/i.test(String(url))) {
+					return url
+				}
+
 				// By name: as written and percent-decoded (the companion was fetched by its
 				// decoded name), and without a query, as glTF URIs sometimes carry one
 				const names = [...new Set([
@@ -736,15 +740,28 @@ class GltfLoader extends BaseLoader {
 					return resourceUrl
 				}
 
-				// Not one of the files: the default manager decides. On a page it has no
-				// URL modifier and the URL is used as written; in the thumbnail worker its
-				// modifier refuses anything the job was not handed
+				// Not one of the files: nothing is requested on the page, and the worker's
+				// resolver refuses anything the job was not handed (see unmatchedResourceUrl)
 				this.logWarning('Resource not found in map:', filename)
-				return THREE.DefaultLoadingManager.resolveURL(url)
+				return unmatchedResourceUrl(url)
 			})
 
 			// Set the custom manager on the loader
 			this.loader.manager = manager
+
+			// A KTX2 image (KHR_texture_basisu) is loaded through the KTX2 loader's own
+			// manager, which also loads the Basis transcoder from the app. Its transcoder
+			// stays as it is; any other URL goes through the manager above, so a KTX2
+			// image URI is mapped or not requested like any other
+			const ktx2Loader = this.loader.ktx2Loader
+			if (ktx2Loader) {
+				const transcoderPath = ktx2Loader.transcoderPath || null
+				const ktx2Manager = new THREE.LoadingManager()
+				ktx2Manager.setURLModifier((url) => (transcoderPath && String(url).startsWith(transcoderPath)
+					? url
+					: manager.resolveURL(url)))
+				ktx2Loader.manager = ktx2Manager
+			}
 
 			this.logInfo('Resource manager setup complete', {
 				resources: additionalFiles.length,

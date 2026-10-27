@@ -67,6 +67,62 @@ export function requestedFileNames(url) {
 }
 
 /**
+ * An opaque white pixel: a texture that requests nothing and leaves the material's own
+ * colour as it is.
+ */
+export const NO_TEXTURE_URL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mP4DwQACfsD/Wj6HMwAAAAASUVORK5CYII='
+
+/**
+ * What a loader's URL modifier hands back for a URL that matches none of the model's
+ * companions, so that the browser never requests it.
+ *
+ * A model names its textures with any URL it likes, `https://elsewhere/x.png` or a UNC
+ * path that a browser reads as `https://host/x.png`; requested as written, the viewer's
+ * browser would contact a host of the model author's choosing, with only the page's
+ * Content Security Policy in the way. So:
+ *
+ * - `data:` and `blob:` URLs are the loader's own (an embedded image, a GLB's images) and
+ *   are kept: a `blob:` URL can only name an object made by this origin
+ * - in the thumbnail worker, three's default manager carries the worker's resolver, which
+ *   maps a handed file to an object URL or records a refusal that fails the job; its
+ *   answer is used
+ * - anywhere else, on the page, the URL becomes NO_TEXTURE_URL, and nothing is requested
+ *
+ * The app's decoder assets never come here: DRACO, KTX2 and the other decoders load them
+ * through their own loaders and managers.
+ *
+ * @param {string} url - what the loader asked for, matched to no companion
+ * @return {string} the URL to load instead
+ */
+export function unmatchedResourceUrl(url) {
+	const text = String(url)
+	if (/^(data|blob):/i.test(text)) {
+		return text
+	}
+	const resolved = THREE.DefaultLoadingManager.resolveURL(text)
+	return resolved !== text ? resolved : NO_TEXTURE_URL
+}
+
+/**
+ * A loading manager whose URL modifier maps a request to a companion with `match`, and
+ * anything it does not match to unmatchedResourceUrl(), so that nothing a model names
+ * is requested from the network.
+ *
+ * @param {(url: string) => ?string} [match] - a companion's URL for a request, or null
+ * @return {THREE.LoadingManager} the manager
+ */
+export function companionLoadingManager(match = () => null) {
+	const manager = new THREE.LoadingManager()
+	manager.setURLModifier((url) => {
+		if (/^(data|blob):/i.test(String(url))) {
+			return url
+		}
+		return match(url) ?? unmatchedResourceUrl(url)
+	})
+	return manager
+}
+
+/**
  * Base loader class with common functionality
  */
 export class BaseLoader {
