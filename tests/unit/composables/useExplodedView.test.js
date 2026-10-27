@@ -5,6 +5,7 @@
  */
 import * as THREE from 'three'
 import { useExplodedView } from '../../../src/composables/useExplodedView.js'
+import { useModelStats } from '../../../src/composables/useModelStats.js'
 
 jest.mock('../../../src/utils/logger.js', () => ({
 	logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() },
@@ -57,5 +58,26 @@ describe('useExplodedView', () => {
 		expect(exploded.isActive.value).toBe(false)
 		expect(exploded.factor.value).toBe(0)
 		expect(exploded.hasMeshes.value).toBe(false)
+	})
+})
+
+describe('the model statistics of a model opened in Exploded view', () => {
+	it('measure the parts together, as for a model opened without it', () => {
+		const plain = useModelStats().analyzeModel(parts(3), 'parts.obj', 0)
+
+		const exploded = useExplodedView()
+		exploded.init(parts(3))
+		exploded.toggle()
+		const next = parts(3)
+		exploded.init(next) // opens exploded
+		expect(xs(next)).not.toEqual([0, 2, 4])
+		const apart = xs(next)
+
+		const stats = useModelStats().analyzeModel(next, 'parts.obj', 0)
+
+		expect(stats.boundingBox).toEqual(plain.boundingBox)
+		expect(stats.center).toEqual(plain.center)
+		// and the view stays exploded
+		expect(xs(next)).toEqual(apart)
 	})
 })

@@ -9,6 +9,7 @@ import { logger } from '../utils/logger.js'
 import { getBoundingInfo } from '../utils/three-utils.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
 import { displayLengthFactor, formatLength } from '../utils/sourceUnits.js'
+import { withPartsTogether } from '../utils/viewerTransforms.js'
 
 // Skip watertightness detection above this triangle count per mesh (edge map is O(n))
 const WATERTIGHT_MAX_TRIANGLES = 500000
@@ -336,7 +337,9 @@ export function useModelStats() {
 	}
 
 	/**
-	 * Analyze a 3D model and calculate all statistics
+	 * Analyze a 3D model and calculate all statistics. Measured with its parts together
+	 * (viewerTransforms): Exploded view, which a new model can open in, spreads the parts
+	 * for viewing only, and the bounding box and the per-part sizes are the model's.
 	 * @param {THREE.Object3D} object3D - Object to analyze
 	 * @param {string} filename - Model filename
 	 * @param {number} fileSize - File size in bytes
@@ -347,6 +350,17 @@ export function useModelStats() {
 			logger.warn('useModelStats', 'No object provided for analysis')
 			return null
 		}
+		return withPartsTogether(object3D, () => analyzeAssembled(object3D, filename, fileSize))
+	}
+
+	/**
+	 * `analyzeModel`, on a model whose parts are where the model puts them.
+	 * @param {THREE.Object3D} object3D - Object to analyze
+	 * @param {string} filename - Model filename
+	 * @param {number} fileSize - File size in bytes
+	 * @return {object} Complete statistics
+	 */
+	const analyzeAssembled = (object3D, filename, fileSize) => {
 
 		try {
 			logger.info('useModelStats', 'Starting model analysis', { filename })
