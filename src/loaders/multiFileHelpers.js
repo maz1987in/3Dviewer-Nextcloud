@@ -644,6 +644,33 @@ function x3dTextureUrls(content) {
 }
 
 /**
+ * A URI-encoded reference, as COLLADA, X3D and glTF write theirs, as the name to ask for.
+ *
+ * Decoded first, as the server decodes before it normalises. A file: URL is the
+ * exception: nameOnlyRef decodes its name, and decoding twice would turn a literal %20
+ * in a file name into a space. An absolute path or file: URL is then its bare name, any
+ * other scheme is no companion, and a relative path is kept as decoded: signed in, it is
+ * looked up as written, and the server collapses it.
+ *
+ * @param {string} raw - the reference as the document wrote it, entities decoded
+ * @return {string|null} the name or relative path to ask for, or null when there is none
+ */
+function uriReference(raw) {
+	const value = asciiTrim(raw)
+	const decoded = isFileUrl(value) ? value : percentDecoded(value)
+	// C:\textures\wood.png, /home/anna/wood.png, file:///C:/wood.png: by name, beside
+	// the model, as the server's resolver serves it
+	if (isLocalAbsoluteRef(decoded)) {
+		return nameOnlyRef(decoded)
+	}
+	// Any other scheme means it is not a file beside the model: data:, http:, https:.
+	if (decoded === '' || hasScheme(decoded)) {
+		return null
+	}
+	return decoded
+}
+
+/**
  * Texture paths a COLLADA or X3D document declares, in document order.
  *
  * Matched by scanning rather than parsed with DOMParser: only the paths are needed,
@@ -662,25 +689,10 @@ export function parseXmlModelDependencies(content, extension) {
 
 	const found = new Set()
 	const push = (raw) => {
-		const value = asciiTrim(raw)
-		// Decoded first, as the server decodes before it normalises. A file: URL is the
-		// exception: nameOnlyRef decodes its name, and decoding twice would turn a
-		// literal %20 in a file name into a space.
-		const decoded = isFileUrl(value) ? value : percentDecoded(value)
-		// C:\textures\wood.png, /home/anna/wood.png, file:///C:/wood.png: by name, beside
-		// the model, as the server's resolver serves it
-		if (isLocalAbsoluteRef(decoded)) {
-			const name = nameOnlyRef(decoded)
-			if (name !== null) {
-				found.add(name)
-			}
-			return
+		const ref = uriReference(raw)
+		if (ref !== null) {
+			found.add(ref)
 		}
-		// Any other scheme means it is not a file beside the model: data:, http:, https:.
-		if (decoded === '' || hasScheme(decoded)) {
-			return
-		}
-		found.add(decoded)
 	}
 
 	if (extension === 'dae') {
@@ -694,6 +706,12 @@ export function parseXmlModelDependencies(content, extension) {
 
 /**
  * Parse GLTF JSON to find referenced binary buffers and textures
+ *
+ * glTF percent-encodes its URIs, and they go through the same rule as COLLADA's and
+ * X3D's (uriReference): decoded, an absolute path or file: URL reduced to its bare name,
+ * embedded data: and remote URIs dropped. So the client asks for the names the server's
+ * resolver serves.
+ *
  * @param {object} gltfJson - Parsed GLTF JSON
  * @return {object} - Object with buffers and images arrays
  */
@@ -703,20 +721,17 @@ export function parseGltfDependencies(gltfJson) {
 		images: [],
 	}
 
-	// Extract buffer URIs (skip embedded data URIs)
-	if (gltfJson.buffers) {
-		for (const buffer of gltfJson.buffers) {
-			if (buffer.uri && !buffer.uri.startsWith('data:')) {
-				dependencies.buffers.push(buffer.uri)
-			}
+	for (const [section, out] of [[gltfJson?.buffers, dependencies.buffers], [gltfJson?.images, dependencies.images]]) {
+		if (!Array.isArray(section)) {
+			continue
 		}
-	}
-
-	// Extract image URIs (skip embedded data URIs)
-	if (gltfJson.images) {
-		for (const image of gltfJson.images) {
-			if (image.uri && !image.uri.startsWith('data:')) {
-				dependencies.images.push(image.uri)
+		for (const entry of section) {
+			if (typeof entry?.uri !== 'string') {
+				continue
+			}
+			const ref = uriReference(entry.uri)
+			if (ref !== null) {
+				out.push(ref)
 			}
 		}
 	}

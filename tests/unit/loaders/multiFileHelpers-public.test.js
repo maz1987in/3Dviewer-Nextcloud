@@ -299,6 +299,25 @@ describe('glTF dependencies on a public share', () => {
 		expect(requested).toEqual(expect.arrayContaining([`${DEP}/scene.bin`, `${DEP}/diffuse.png`]))
 	})
 
+	it('asks for an image named by an absolute path or file: URL by its decoded bare name', async () => {
+		const gltf = JSON.stringify({
+			buffers: [{ uri: 'C:\\export\\scene.bin' }, { uri: 'data:application/octet-stream;base64,AAAA' }],
+			images: [
+				{ uri: 'file:///C:/My%20Textures/wood%20grain.png' },
+				{ uri: 'oak%20floor.png' },
+				{ uri: 'https://example.invalid/remote.png' },
+			],
+		})
+		serve({ '/dep/scene.bin': 'BIN', '/dep/wood grain.png': 'PNG', '/dep/oak floor.png': 'PNG' })
+		const { fetchGltfDependencies } = await loadHelpers(PUBLIC)
+
+		const result = await fetchGltfDependencies(gltf, 'scene.gltf', 42, '')
+
+		expect(result.found.map((f) => f.name).sort()).toEqual(['oak floor.png', 'scene.bin', 'wood grain.png'])
+		expect(result.missing).toEqual([])
+		expect(requested.sort()).toEqual([`${DEP}/oak floor.png`, `${DEP}/scene.bin`, `${DEP}/wood grain.png`])
+	})
+
 	it('keeps the declared subdirectory on the file so the loader can match its URI', async () => {
 		serve({ '/dep/scene.bin': 'BIN', '/dep/diffuse.png': 'PNG' })
 		const { fetchGltfDependencies } = await loadHelpers(PUBLIC)

@@ -64,6 +64,23 @@ describe('glTF', () => {
 		expect(manager.resolveURL('../../other.bin')).toBe('refused:../../other.bin')
 	})
 
+	it('maps an absolute or encoded URI to the companion fetched by its decoded name', async () => {
+		const loader = new GltfLoader()
+		const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js')
+		loader.loader = new GLTFLoader()
+
+		await loader.setupResourceManager([
+			new File(['png'], 'wood grain.png', { type: 'image/png' }),
+			new File(['bin'], 'scene.bin', { type: 'application/octet-stream' }),
+		])
+		const { manager } = loader.loader
+
+		expect(manager.resolveURL('file:///C:/My%20Textures/wood%20grain.png')).toBe('blob:test/1')
+		expect(manager.resolveURL('wood%20grain.png')).toBe('blob:test/1')
+		expect(manager.resolveURL('C:\\export\\scene.bin')).toBe('blob:test/2')
+		expect(manager.resolveURL('scene.bin?v=2')).toBe('blob:test/2')
+	})
+
 	it('on a page, where the default manager has no modifier, the URL is unchanged', async () => {
 		THREE.DefaultLoadingManager.setURLModifier(undefined)
 		const loader = new GltfLoader()

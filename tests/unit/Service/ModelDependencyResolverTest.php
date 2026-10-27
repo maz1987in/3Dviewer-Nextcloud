@@ -255,6 +255,28 @@ class ModelDependencyResolverTest extends TestCase
         $this->resolver->resolve($model, 'leak.png');
     }
 
+    public function testServesAGltfUriNamedByAnAbsolutePathFromBesideTheModel(): void
+    {
+        $image = $this->fileNamed('wood grain.png');
+        $buffer = $this->fileNamed('scene.bin');
+        $model = $this->gltfModel(
+            json_encode([
+                'buffers' => [['uri' => 'C:\\export\\scene.bin']],
+                'images' => [['uri' => 'file:///C:/My%20Textures/wood%20grain.png']],
+            ], JSON_THROW_ON_ERROR),
+            [
+                'wood grain.png' => $image,
+                'scene.bin' => $buffer,
+                // Where the paths' own directories would lead, were they followed
+                'C:/export/scene.bin' => $this->fileNamed('scene.bin'),
+                'My Textures/wood grain.png' => $this->fileNamed('wood grain.png'),
+            ],
+        );
+
+        $this->assertSame($image, $this->resolver->resolve($model, 'wood grain.png'));
+        $this->assertSame($buffer, $this->resolver->resolve($model, 'scene.bin'));
+    }
+
     public function testSurvivesUnparseableGltf(): void
     {
         $model = $this->gltfModel('{ this is not json', ['scene.bin' => $this->fileNamed('scene.bin')]);

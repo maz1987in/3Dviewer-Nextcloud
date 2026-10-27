@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { appAssetPath } from '../appAssetPath.js'
-import { BaseLoader } from '../BaseLoader.js'
+import { BaseLoader, requestedFileNames } from '../BaseLoader.js'
 
 /**
  * GLTF/GLB loader class
@@ -721,8 +721,13 @@ class GltfLoader extends BaseLoader {
 			const manager = new THREE.LoadingManager()
 
 			manager.setURLModifier((url) => {
-				// Extract filename from URL
-				const filename = url.split('/').pop().split('?')[0]
+				// By name: as written and percent-decoded (the companion was fetched by its
+				// decoded name), and without a query, as glTF URIs sometimes carry one
+				const names = [...new Set([
+					...requestedFileNames(url),
+					...requestedFileNames(String(url).split('?')[0]),
+				])]
+				const filename = names.find((name) => resourceMap.has(name)) ?? names[0]
 
 				// Check if we have this file
 				if (resourceMap.has(filename)) {
