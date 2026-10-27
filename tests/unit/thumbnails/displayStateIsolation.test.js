@@ -8,6 +8,7 @@
 import * as THREE from 'three'
 import { renderThumbnail } from '../../../src/thumbnails/renderThumbnail.js'
 import { setViewerWireframe } from '../../../src/utils/viewerMaterialProps.js'
+import { useClippingPlane } from '../../../src/composables/useClippingPlane.js'
 
 // What each render saw, read at the moment it happened
 const rendered = []
@@ -33,6 +34,7 @@ jest.mock('three', () => {
 					const materials = Array.isArray(child.material) ? child.material : [child.material]
 					objects.set(child, {
 						wireframe: materials.map((m) => m.wireframe),
+						side: materials.map((m) => m.side),
 						world: child.matrixWorld.clone(),
 					})
 				})
@@ -118,5 +120,49 @@ describe('Wireframe', () => {
 		const multi = root.children[2]
 		expect(rendered[0].objects.get(multi).wireframe).toEqual([false, true])
 		expect(b.material).toBe(shared)
+	})
+})
+
+describe('the clipping plane', () => {
+	/**
+	 * Open the cut on a model, as the viewer does: the viewer's renderer clips, and the
+	 * materials are made double-sided so the inside shows at the cut.
+	 *
+	 * @param {THREE.Scene} scene - The viewer's scene
+	 * @return {object} The clipping composable, open
+	 */
+	function openCut(scene) {
+		const clipping = useClippingPlane()
+		clipping.init({}, scene)
+		clipping.toggle()
+		return clipping
+	}
+
+	it('leaves each material its own side in the thumbnail', async () => {
+		const { scene, root, a, multi, other } = model()
+		other.side = THREE.BackSide // as the file has it
+		openCut(scene)
+		expect(a.material.side).toBe(THREE.DoubleSide)
+
+		await renderThumbnail(root, { canvas: canvas() })
+
+		expect(rendered[0].objects.get(a).side).toEqual([THREE.FrontSide])
+		expect(rendered[0].objects.get(multi).side).toEqual([THREE.FrontSide, THREE.BackSide])
+	})
+
+	it('keeps the viewer double-sided afterwards, and the cut still closes cleanly', async () => {
+		const { scene, root, shared, other } = model()
+		other.side = THREE.BackSide
+		const clipping = openCut(scene)
+		mockState.fail = true
+
+		await expect(renderThumbnail(root, { canvas: canvas() })).rejects.toThrow('context lost')
+		expect(shared.side).toBe(THREE.DoubleSide)
+		await renderThumbnail(root, { canvas: canvas() })
+		expect(other.side).toBe(THREE.DoubleSide)
+
+		clipping.toggle()
+		expect(shared.side).toBe(THREE.FrontSide)
+		expect(other.side).toBe(THREE.BackSide)
 	})
 })
