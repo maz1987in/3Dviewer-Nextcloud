@@ -118,14 +118,28 @@ test.describe('Inspection tools', () => {
 		await expect(panel).toContainText('Layer 1 of 3')
 		await expect(panel).toContainText('Z 0.20')
 
-		await panel.getByText('Only this layer').click()
+		const slider = panel.getByRole('slider')
+		await expect(slider).toHaveAttribute('aria-valuetext', 'Layer 1 of 3, Z 0.20')
+
+		// A switch reached and worked from the keyboard, not only by pointer
+		const onlyThisLayer = panel.getByRole('switch', { name: 'Only this layer' })
+		await expect(onlyThisLayer).toHaveAttribute('aria-checked', 'false')
+		await onlyThisLayer.focus()
+		await page.keyboard.press('Space')
+		await expect(onlyThisLayer).toHaveAttribute('aria-checked', 'true')
 		await expect(panel.locator('.toggle-switch')).toHaveClass(/on/)
+
+		// The slider steps from the keyboard as well
+		await slider.focus()
+		await page.keyboard.press('ArrowRight')
+		await expect(panel).toContainText('Layer 2 of 3')
 		expect(errors).toEqual([])
 	})
 
 	test('shading switches mode and back', async ({ page }) => {
 		const errors = await openLoadedViewer(page, server.url)
 		const button = (name: string) => page.locator('.preset-btn', { hasText: new RegExp(`^\\s*${name}\\s*$`) })
+		await expect(page.getByRole('group', { name: 'Shading' })).toBeVisible()
 
 		await expect(button('Standard')).toHaveAttribute('aria-pressed', 'true')
 		for (const mode of ['Clay', 'Normals', 'X-ray', 'Standard']) {

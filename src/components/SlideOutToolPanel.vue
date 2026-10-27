@@ -133,8 +133,9 @@
 								</label>
 								<!-- Render mode: inspection shading in place of the model's materials -->
 								<div class="tool-group">
-									<label class="tool-label-small">{{ t('threedviewer', 'Shading') }}</label>
-									<div class="preset-buttons" role="group" :aria-label="t('threedviewer', 'Shading')">
+									<!-- A heading for the group, not a <label>: there is no one control it names -->
+									<span id="render-mode-label" class="tool-label-small">{{ t('threedviewer', 'Shading') }}</span>
+									<div class="preset-buttons" role="group" aria-labelledby="render-mode-label">
 										<button v-for="option in renderModeOptions"
 											:key="option.value"
 											class="preset-btn"
@@ -321,11 +322,17 @@
 										:max="gcodeLayerCount"
 										step="1"
 										:value="gcodeLayer"
+										:aria-valuetext="gcodeLayerValueText"
 										@input="emit('set-gcode-layer', parseInt($event.target.value, 10))">
-									<label class="toggle-row" @click.prevent="emit('toggle-gcode-single-layer')">
-										<span class="toggle-switch" :class="{ on: gcodeSingleLayer }" />
+									<!-- A real switch: the label-and-span toggles above take no keyboard focus -->
+									<button type="button"
+										class="toggle-row toggle-row--button"
+										role="switch"
+										:aria-checked="gcodeSingleLayer ? 'true' : 'false'"
+										@click="emit('toggle-gcode-single-layer')">
+										<span class="toggle-switch" :class="{ on: gcodeSingleLayer }" aria-hidden="true" />
 										<span class="toggle-text">{{ t('threedviewer', 'Only this layer') }}</span>
-									</label>
+									</button>
 								</div>
 								<!-- Transform Gizmo -->
 								<button class="tool-btn feature-btn"
@@ -910,6 +917,12 @@ export default {
 			return !!(p.background || p.gridColor)
 		})
 
+		// What a screen reader says for the slider: the layer and its height, not "3"
+		const gcodeLayerValueText = computed(() => {
+			const layer = t('threedviewer', 'Layer {current} of {total}', { current: props.gcodeLayer, total: props.gcodeLayerCount })
+			return props.gcodeLayerZ === null ? layer : `${layer}, Z ${Number(props.gcodeLayerZ).toFixed(2)}`
+		})
+
 		const renderModeOptions = [
 			{ value: 'standard', label: t('threedviewer', 'Standard'), title: t('threedviewer', 'The model\'s own materials') },
 			{ value: 'clay', label: t('threedviewer', 'Clay'), title: t('threedviewer', 'Even clay shading that shows surface form') },
@@ -920,6 +933,7 @@ export default {
 		return {
 			t,
 			renderModeOptions,
+			gcodeLayerValueText,
 			// The rows print their hints from the shared table, so the template needs it.
 			shortcutKey,
 			isOpen,
@@ -1239,6 +1253,21 @@ export default {
 	font-size: 12px;
 	font-weight: 400;
 	color: var(--tdv-color-text-secondary);
+}
+
+/* The switch is a button, so it takes focus; it keeps the look of the rows above */
+.toggle-row--button {
+	width: 100%;
+	border: none;
+	background: none;
+	color: inherit;
+	font: inherit;
+	text-align: start;
+}
+
+.toggle-row--button:focus-visible {
+	outline: 2px solid var(--tdv-color-primary);
+	outline-offset: 2px;
 }
 
 /* The layer number on the left, its height on the right */
