@@ -186,6 +186,27 @@ describe('angles as notes', () => {
 		expect(deleted).toHaveBeenCalledTimes(1)
 	})
 
+	it('draws a stored angle whatever mode the panel is in, without saving it back', () => {
+		const { measurement, count } = setup()
+		const added = jest.fn()
+		measurement.setNoteHooks({ added })
+		// Distance mode, with a point already picked
+		measurement.addMeasurementPoint(v(5, 5, 5))
+
+		const meta = { noteId: 3, author: null, saveState: 'saved' }
+		const m = measurement.addAngleFromNote(v(1, 0, 0), v(0, 0, 0), v(0, 1, 0), meta)
+
+		expect(added).not.toHaveBeenCalled()
+		expect(m.type).toBe('angle')
+		expect(m.angle).toBeCloseTo(90, 6)
+		expect(m.meta.noteId).toBe(3)
+		expect(measurement.mode.value).toBe('distance')
+		// The half-picked point is gone with its marker; the angle drew its own three
+		expect(measurement.points.value).toHaveLength(0)
+		expect(count('measurementPoint')).toBe(3)
+		expect(count('measurementLine')).toBe(2)
+	})
+
 	it('deletes nothing on the server when the viewer is disposed', () => {
 		const { measurement, group } = setup()
 		const deleted = jest.fn()

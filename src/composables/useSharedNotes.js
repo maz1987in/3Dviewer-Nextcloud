@@ -47,6 +47,17 @@ export function useSharedNotes({ annotation, measurement, getModelRoot, notify =
 	const isCurrent = (gen) => gen === generation
 
 	/**
+	 * The server's type for an item: the measurement tool keeps distances and angles, and
+	 * an angle is stored as a type of its own. A viewer from before angles lists only the
+	 * types it knows, so it skips an angle rather than draw it as a distance between its
+	 * first two points.
+	 * @param {'annotation'|'measurement'} kind - the tool the item belongs to
+	 * @param {object} item - the reactive list entry
+	 * @return {'annotation'|'measurement'|'angle'} the note type
+	 */
+	const noteType = (kind, item) => (kind === 'measurement' && item.type === 'angle' ? 'angle' : kind)
+
+	/**
 	 * @param {'annotation'|'measurement'} kind - the note kind
 	 * @param {object} item - the reactive list entry
 	 * @param {?THREE.Object3D} [root] - the model root to convert through; defaults to the
@@ -58,6 +69,10 @@ export function useSharedNotes({ annotation, measurement, getModelRoot, notify =
 		const toModel = (p) => (root ? sceneToModel(p, root) : toPlain(p))
 		if (kind === 'annotation') {
 			return { space: 'model', point: toModel(item.point), text: item.text }
+		}
+		if (item.type === 'angle') {
+			// Point, corner, point: the corner is the middle one
+			return { space: 'model', points: [toModel(item.point1), toModel(item.vertex), toModel(item.point2)] }
 		}
 		return { space: 'model', points: [toModel(item.point1), toModel(item.point2)] }
 	}
@@ -141,7 +156,7 @@ export function useSharedNotes({ annotation, measurement, getModelRoot, notify =
 		if (isCurrent(gen)) status.value = 'saving'
 		const sent = kind === 'annotation' ? item.text : null
 		try {
-			const note = await opApi.create(kind, payloadFor(kind, item, root))
+			const note = await opApi.create(noteType(kind, item), payloadFor(kind, item, root))
 			item.meta.noteId = note.id
 			item.meta.author = note.author ?? null
 			item.meta.saveState = 'saved'
@@ -154,7 +169,7 @@ export function useSharedNotes({ annotation, measurement, getModelRoot, notify =
 				scheduleText(item)
 			}
 		} catch (error) {
-			logger.warn('useSharedNotes', 'Note save failed', { kind, error: error?.message })
+			logger.warn('useSharedNotes', 'Note save failed', { type: noteType(kind, item), error: error?.message })
 			if (item.meta.deleted) {
 				return
 			}
@@ -213,6 +228,14 @@ export function useSharedNotes({ annotation, measurement, getModelRoot, notify =
 			const item = measurement.addMeasurementFromNote(
 				pointToScene(payload.points[0], payload.space, root),
 				pointToScene(payload.points[1], payload.space, root),
+				meta,
+			)
+			itemApi.set(item, { api: notesApi, gen, root })
+		} else if (note.type === 'angle') {
+			const item = measurement.addAngleFromNote(
+				pointToScene(payload.points[0], payload.space, root),
+				pointToScene(payload.points[1], payload.space, root),
+				pointToScene(payload.points[2], payload.space, root),
 				meta,
 			)
 			itemApi.set(item, { api: notesApi, gen, root })

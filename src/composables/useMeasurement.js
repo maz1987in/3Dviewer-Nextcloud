@@ -301,17 +301,47 @@ export function useMeasurement() {
 	}
 
 	/**
-	 * Draw a measurement that came from the server. Fires no hooks, so loading notes never
-	 * saves them back.
-	 *
-	 * A point the user had already clicked is dropped with its marker first, so a
-	 * half-picked measurement never takes a stored point as its next one.
+	 * Record a finished measurement from its points, whatever mode the panel is in: an
+	 * import, or a stored note. A point the user had already clicked is dropped with its
+	 * marker first, so a half-picked measurement never takes these points as its next.
+	 * @param {'distance'|'angle'} type
+	 * @param {THREE.Vector3[]} measured - two points, or point, corner, point
+	 * @param {object} [options]
+	 * @param {boolean} [options.silent] - true for a stored note: no hook fires, so
+	 *   loading notes never saves them back
+	 * @param {?object} [options.meta] - the note's id, author and save state
+	 * @return {object} the measurement as listed
 	 */
-	const addMeasurementFromNote = (point1, point2, meta) => {
+	const addMeasurement = (type, measured, { silent = false, meta = null } = {}) => {
+		if (!MEASUREMENT_MODES.includes(type)) {
+			throw new Error(`Invalid measurement type: ${type}`)
+		}
+		if (measured.length !== (type === 'angle' ? 3 : 2)) {
+			throw new Error(`A ${type} measurement needs ${type === 'angle' ? 3 : 2} points`)
+		}
 		cancelPendingPoint()
-		const markers = [point1, point2].map(createPointIndicator)
-		return finishMeasurement('distance', [point1.clone(), point2.clone()], markers, { silent: true, meta })
+		const markers = measured.map(createPointIndicator)
+		return finishMeasurement(type, measured.map(p => p.clone()), markers, { silent, meta })
 	}
+
+	/**
+	 * Draw a distance that came from the server.
+	 * @param {THREE.Vector3} point1
+	 * @param {THREE.Vector3} point2
+	 * @param {object} meta - the note's id, author and save state
+	 * @return {object} the measurement as listed
+	 */
+	const addMeasurementFromNote = (point1, point2, meta) => addMeasurement('distance', [point1, point2], { silent: true, meta })
+
+	/**
+	 * Draw an angle that came from the server.
+	 * @param {THREE.Vector3} point1
+	 * @param {THREE.Vector3} vertex - the corner
+	 * @param {THREE.Vector3} point2
+	 * @param {object} meta - the note's id, author and save state
+	 * @return {object} the measurement as listed
+	 */
+	const addAngleFromNote = (point1, vertex, point2, meta) => addMeasurement('angle', [point1, vertex, point2], { silent: true, meta })
 
 	// Remove a scene object and free what it holds on the GPU
 	const disposeObject = (object) => {
@@ -628,7 +658,9 @@ export function useMeasurement() {
 		handleClick,
 		setNoteHooks,
 		addMeasurementPoint,
+		addMeasurement,
 		addMeasurementFromNote,
+		addAngleFromNote,
 		createMeasurement,
 		clearCurrentMeasurement,
 		cancelPendingPoint,

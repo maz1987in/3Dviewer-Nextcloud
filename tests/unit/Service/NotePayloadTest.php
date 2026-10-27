@@ -28,6 +28,14 @@ class NotePayloadTest extends TestCase
         $this->assertSame(-3.0, $out['points'][1]['z']);
     }
 
+    public function testNormalizesAnAngle(): void
+    {
+        $out = NotePayload::validate('angle', ['space' => 'model', 'points' => [self::POINT, ['x' => 0, 'y' => 0, 'z' => 0], self::POINT]]);
+
+        $this->assertCount(3, $out['points']);
+        $this->assertSame(['x' => 0.0, 'y' => 0.0, 'z' => 0.0], $out['points'][1]);
+    }
+
     public function testSceneSpaceIsOnlyAcceptedWhenAllowed(): void
     {
         $payload = ['space' => 'scene', 'point' => self::POINT, 'text' => ''];
@@ -58,6 +66,11 @@ class NotePayloadTest extends TestCase
             'measurement one point' => ['measurement', ['space' => 'model', 'points' => [$point]]],
             'measurement three points' => ['measurement', ['space' => 'model', 'points' => [$point, $point, $point]]],
             'measurement with text' => ['measurement', ['space' => 'model', 'points' => [$point, $point], 'text' => '']],
+            'angle two points' => ['angle', ['space' => 'model', 'points' => [$point, $point]]],
+            'angle four points' => ['angle', ['space' => 'model', 'points' => [$point, $point, $point, $point]]],
+            'angle points not a list' => ['angle', ['space' => 'model', 'points' => ['a' => $point, 'b' => $point, 'c' => $point]]],
+            'angle bad corner' => ['angle', ['space' => 'model', 'points' => [$point, ['x' => 0, 'y' => 0], $point]]],
+            'angle scene space' => ['angle', ['space' => 'scene', 'points' => [$point, $point, $point]]],
         ];
     }
 
