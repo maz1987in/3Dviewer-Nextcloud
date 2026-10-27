@@ -15,13 +15,13 @@
 const { readFileSync, readdirSync, statSync } = require('fs')
 const { join } = require('path')
 const { createApp, reactive, nextTick } = require('vue')
+const { stripHtmlComments } = require('./helpers/stripHtmlComments.js')
 
 const COMPONENTS = join(__dirname, '..', '..', 'src', 'components')
 const SOURCE = readFileSync(join(COMPONENTS, 'ToggleSwitchRow.vue'), 'utf8')
 const PANEL = readFileSync(join(COMPONENTS, 'SlideOutToolPanel.vue'), 'utf8')
 
-const TEMPLATE = /<template>([\s\S]*?)<\/template>\s*<script>/.exec(SOURCE)[1]
-	.replace(/<!--[\s\S]*?-->/g, '')
+const TEMPLATE = stripHtmlComments(/<template>([\s\S]*?)<\/template>\s*<script>/.exec(SOURCE)[1])
 // The script is a plain `export default {…}` with no imports, so it can be read as a value
 const OPTIONS = new Function(`return ${/export default (\{[\s\S]*?\n\})\n<\/script>/.exec(SOURCE)[1]}`)()
 
@@ -164,7 +164,7 @@ describe('the pattern that failed', () => {
 		// A label with no control inside takes no keyboard focus; whatever it does with a
 		// pointer, a keyboard user cannot do
 		const offenders = vueFiles(join(COMPONENTS, '..'))
-			.filter((file) => /<label\b[^>]*@click/.test(readFileSync(file, 'utf8').replace(/<!--[\s\S]*?-->/g, '')))
+			.filter((file) => /<label\b[^>]*@click/.test(stripHtmlComments(readFileSync(file, 'utf8'))))
 		expect(offenders).toEqual([])
 	})
 })
