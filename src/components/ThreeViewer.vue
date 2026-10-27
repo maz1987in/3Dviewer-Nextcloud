@@ -4131,9 +4131,16 @@ export default {
 }
 /* stylelint-enable selector-pseudo-class-no-unknown */
 
+/*
+ * Covers the canvas, not the bar. The top bar floats over the top edge of this same box,
+ * so an overlay laid out as the whole of it sat on top of every control in the bar for as
+ * long as a load lasted — Help and the Tools button were unreachable while a large model
+ * arrived. Starting below the bar leaves the bar clickable; its own opaque background
+ * means nothing of the canvas shows through behind it.
+ */
 .loading {
 	position: absolute;
-	top: 0;
+	top: var(--tdv-topbar-height);
 	inset-inline: 0;
 	bottom: 0;
 	background: rgb(0 0 0 / 80%);
@@ -4141,6 +4148,13 @@ export default {
 	align-items: center;
 	justify-content: center;
 	z-index: 1000;
+}
+
+/* The bar is shorter in a short landscape window (see MinimalTopBar). */
+@media (height <= 500px) and (orientation: landscape) {
+	.loading {
+		top: 44px;
+	}
 }
 
 .loading-content {
