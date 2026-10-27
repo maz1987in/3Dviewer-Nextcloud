@@ -106,3 +106,21 @@ export class ThumbnailBudgetError extends Error {
 	}
 
 }
+
+/**
+ * The text of something a load or render failed with. Not every rejection is an Error:
+ * three's DRACOLoader rejects with its decoder worker's message, `{ type, id, error }`,
+ * which would otherwise read as "[object Object]".
+ *
+ * @param {unknown} error - What was thrown or rejected with
+ * @return {string} Its message
+ */
+export function describeError(error) {
+	if (typeof error?.message === 'string' && error.message !== '') {
+		return error.message
+	}
+	if (typeof error?.error === 'string' && error.error !== '') {
+		return error.error
+	}
+	return String(error)
+}
