@@ -472,24 +472,20 @@
 									<span class="tool-hint">{{ shortcutKey('take-screenshot') }}</span>
 								</button>
 								<!--
-									A row like the ones above it, not a labelled block. The label was a
-									bare `<label>` with no `for`, so it named nothing — the control it
-									sat over was announced as an unlabelled combo box, and the stack of
-									the two took twice the height of every neighbouring row while
-									saying the same thing.
+									Choosing a format does not start an export: a change of setting must not
+									have an effect the user was not told of (WCAG 3.2.2). Arrowing through the
+									list in a closed select fires `change` on every step in Chrome and Firefox
+									on Windows and Linux, so the first ArrowDown used to start a GLB download.
+									The select only chooses; the button exports. The row is a group named
+									"Export Model", which is the context the two controls share.
 								-->
-								<div class="tool-row">
+								<div class="tool-row" role="group" :aria-label="t('threedviewer', 'Export Model')">
 									<ViewerIcon class="tool-icon" name="exportModel" :size="17" />
-									<span class="tool-label">{{ t('threedviewer', 'Export Model') }}</span>
-									<select ref="exportSelect"
+									<select v-model="exportFormat"
 										:disabled="!modelLoaded || exporting"
 										:aria-busy="exporting ? 'true' : 'false'"
 										class="export-select"
-										:aria-label="t('threedviewer', 'Export model format')"
-										@change="handleExportChange($event.target.value)">
-										<option value="">
-											{{ t('threedviewer', 'Select format...') }}
-										</option>
+										:aria-label="t('threedviewer', 'Export model format')">
 										<option value="glb">
 											{{ t('threedviewer', 'GLB (Recommended)') }}
 										</option>
@@ -512,6 +508,19 @@
 											{{ t('threedviewer', 'ZIP (All Files)') }}
 										</option>
 									</select>
+									<!--
+										while an export runs the button is aria-disabled rather than disabled: a
+										disabled button drops focus, and the keyboard user who pressed it would
+										be put back at the top of the page.
+									-->
+									<button type="button"
+										class="export-btn"
+										:disabled="!modelLoaded"
+										:aria-disabled="exporting ? 'true' : null"
+										:aria-busy="exporting ? 'true' : 'false'"
+										@click="startExport">
+										{{ t('threedviewer', 'Export') }}
+									</button>
 								</div>
 								<button class="tool-btn"
 									:disabled="!modelLoaded"
@@ -778,7 +787,8 @@ export default {
 
 	setup(props, { emit }) {
 		const isOpen = ref(false)
-		const exportSelect = ref(null)
+		// The format the Export button writes. Kept while the panel is mounted, not saved.
+		const exportFormat = ref('glb')
 
 		// Section collapse states
 		const sections = ref({
@@ -864,12 +874,16 @@ export default {
 			window.removeEventListener('keydown', handleKeyPress)
 		})
 
-		const handleExportChange = (format) => {
-			if (format) {
-				emit('export-model', format)
-				if (exportSelect.value) exportSelect.value.value = ''
-			}
+		const startExport = () => {
+			// aria-disabled does not stop a click, so an export already running does
+			if (props.exporting || !props.modelLoaded) return
+			emit('export-model', exportFormat.value)
 		}
+
+		// The ZIP entry is there only while the model has more than one source file
+		watch(() => props.hasMultipleSourceFiles, (multiple) => {
+			if (!multiple && exportFormat.value === 'zip') exportFormat.value = 'glb'
+		})
 
 		const cyclePerformanceMode = () => {
 			const modes = ['auto', 'low', 'balanced', 'high', 'ultra']
@@ -963,11 +977,11 @@ export default {
 			shortcutKey,
 			isOpen,
 			sections,
-			exportSelect,
+			exportFormat,
 			togglePanel,
 			closePanel,
 			toggleSection,
-			handleExportChange,
+			startExport,
 			cyclePerformanceMode,
 			getPerformanceModeText,
 			cycleTheme,
@@ -1497,8 +1511,8 @@ export default {
 }
 
 .export-select {
-	margin-inline-start: auto;
-	max-width: 55%;
+	flex: 1;
+	min-width: 0;
 	padding: 4px 8px;
 	background: var(--tdv-color-surface-sunken);
 	border: 1px solid var(--tdv-color-border);
@@ -1528,6 +1542,47 @@ export default {
 .export-select option {
 	background: var(--tdv-color-surface);
 	color: var(--tdv-color-text);
+}
+
+/*
+ * The button that writes the file. Doubled class, for the reason every button here is:
+ * Nextcloud's rules for a button score (0,1,1), its hover and focus (0,2,1) and its pressed
+ * state (0,4,1), which only `!important` outranks (buttonSpecificity.test.js).
+ */
+.export-btn.export-btn {
+	flex-shrink: 0;
+	margin: 0;
+	padding: 4px 14px;
+	border: 1px solid var(--tdv-color-primary);
+	border-radius: 8px;
+	background: var(--tdv-color-primary);
+	color: var(--tdv-color-on-primary);
+	font-family: inherit;
+	font-size: 13px;
+	font-weight: var(--tdv-font-weight-medium);
+	cursor: pointer;
+	transition: background 0.15s ease-out;
+}
+
+.export-btn.export-btn:hover:not(:disabled) {
+	background: var(--tdv-color-primary-hover);
+	color: var(--tdv-color-on-primary);
+}
+
+.export-btn.export-btn:focus-visible {
+	outline: 2px solid var(--tdv-color-primary);
+	outline-offset: 2px;
+}
+
+.export-btn.export-btn:active {
+	background: var(--tdv-color-primary-hover) !important;
+	color: var(--tdv-color-on-primary) !important;
+}
+
+.export-btn.export-btn:disabled,
+.export-btn.export-btn[aria-disabled="true"] {
+	opacity: 0.5;
+	cursor: not-allowed;
 }
 
 /* Color Picker */

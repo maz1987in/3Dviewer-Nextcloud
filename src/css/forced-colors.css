@@ -92,6 +92,7 @@
 	   outline so keyboard focus stays visible. */
 	.export-select:focus,
 	.export-select:focus-visible,
+	.export-btn:focus-visible,
 	.annotation-text-input:focus,
 	.annotation-text-input:focus-visible,
 	.skip-to-viewer:focus,

@@ -400,6 +400,82 @@ test.describe('Tools panel from the keyboard', () => {
 		await expect(panel).toBeHidden()
 	})
 
+	/*
+	 * Choosing a format must not start an export (WCAG 3.2.2, On Input). In Chrome and
+	 * Firefox on Windows and Linux ArrowDown on a closed select changes its value and fires
+	 * `change`, so with the export on `change` the first arrow press wrote a GLB file.
+	 */
+	test('arrowing through the export formats chooses one without exporting; the button exports', async ({ page }) => {
+		const { errors } = await openPanel(page, server.url, 'cube')
+		const panel = page.locator('.slide-out-panel')
+		const downloads: string[] = []
+		page.on('download', (download) => downloads.push(download.suggestedFilename()))
+		// Count what reaches the viewer's exporter, and with which format
+		await page.evaluate(() => {
+			const w = window as any
+			const viewer = w.__THREEDVIEWER_APP.$.subTree.component.proxy.$refs.viewer
+			const original = viewer.handleExport
+			w.__exports = []
+			viewer.handleExport = (format: string) => { w.__exports.push(format); return original(format) }
+		})
+
+		await panel.getByRole('button', { name: 'Export', exact: true }).first().focus()
+		await page.keyboard.press('Enter')
+		const select = panel.getByRole('combobox', { name: 'Export model format' })
+		await expect(select).toBeVisible()
+		// GLB is chosen to begin with: there is no "Select format..." entry to pass through
+		await expect(select).toHaveValue('glb')
+		expect(await select.locator('option').evaluateAll((els) => els.map((el) => (el as HTMLOptionElement).value))).not.toContain('')
+
+		// ArrowDown changes the value of a closed select, and fires `change`, on Windows and
+		// Linux; on macOS it opens the list instead and headless Chromium has no list to
+		// drive. So the keys are pressed, and a choice is then made outright: a `change`
+		// event is the same whichever way it arrives.
+		await select.focus()
+		await page.keyboard.press('ArrowDown')
+		await page.keyboard.press('ArrowDown')
+		await select.selectOption('stl')
+		const chosen = 'stl'
+		await expect(select).toHaveValue(chosen)
+
+		// Give an export, had one started, time to show: no call, no file, no progress
+		await page.waitForTimeout(1000)
+		expect(await page.evaluate(() => (window as any).__exports)).toEqual([])
+		expect(downloads).toEqual([])
+		await expect(page.locator('.export-progress-overlay')).toHaveCount(0)
+
+		// The button is a named button, reached by Tab from the select
+		const exportButton = panel.locator('.export-btn')
+		await select.focus()
+		await page.keyboard.press('Tab')
+		await expect(exportButton).toBeFocused()
+		await expect(exportButton).toHaveText('Export')
+		expect(await exportButton.getAttribute('type')).toBe('button')
+
+		// Enter starts it, in the format chosen
+		const [first] = await Promise.all([
+			page.waitForEvent('download', { timeout: 20000 }),
+			page.keyboard.press('Enter'),
+		])
+		expect(first.suggestedFilename()).toBe(`cube.${chosen}`)
+		expect(await page.evaluate(() => (window as any).__exports)).toEqual([chosen])
+
+		// The choice is remembered, and focus stays on the button for the next press
+		await expect(select).toHaveValue(chosen)
+		await expect(exportButton).toBeFocused()
+
+		// and Space does the same
+		await select.selectOption('ply')
+		await exportButton.focus()
+		const [second] = await Promise.all([
+			page.waitForEvent('download', { timeout: 20000 }),
+			page.keyboard.press('Space'),
+		])
+		expect(second.suggestedFilename()).toBe('cube.ply')
+		expect(await page.evaluate(() => (window as any).__exports)).toEqual([chosen, 'ply'])
+		expect(errors).toEqual([])
+	})
+
 	for (const model of ['gcode', 'animated'] as const) {
 		test(`nothing in the panel that a pointer can operate is skipped by Tab (${model})`, async ({ page }) => {
 			const { errors } = await openPanel(page, server.url, model)
