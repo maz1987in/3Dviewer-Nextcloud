@@ -1,9 +1,16 @@
 import { ThreeMFLoader } from 'three/examples/jsm/loaders/3MFLoader.js'
 import { BaseLoader } from '../BaseLoader.js'
-import { unzip, Unzip, UnzipInflate, DecodeUTF8 } from 'three/examples/jsm/libs/fflate.module.js'
+import { unzip, unzipSync, Unzip, UnzipInflate, DecodeUTF8, strFromU8 } from 'three/examples/jsm/libs/fflate.module.js'
 
-// The root model part, as three's loader finds it: a .model directly under 3D/
+// A top-level model part: three's loader takes the last of these as the root model when
+// the package names none
 const ROOT_MODEL = /^3D\/[^/]*\.model$/
+// The package relationships, which name the 3D model part (the StartPart)
+const PACKAGE_RELS = '_rels/.rels'
+const RELATIONSHIP = /^(?:[\w.-]{1,64}:)?Relationship[\s/>]/
+const MODEL_RELATIONSHIP_TYPE = /\/3dmodel$/
+const TARGET_ATTRIBUTE = /\sTarget\s{0,64}=\s{0,64}(["'])([^"']{0,1024})\1/
+const TYPE_ATTRIBUTE = /\sType\s{0,64}=\s{0,64}(["'])([^"']{0,1024})\1/
 // The root element, when it is <model>, with or without a namespace prefix; tested on
 // one start tag of at most MAX_TAG characters, never on the text around it
 const MODEL_START = /^<(?:[\w.-]{1,64}:)?model[\s/>]/
@@ -99,6 +106,51 @@ function rootUnitScanner() {
 }
 
 /**
+ * The model part whose unit counts: the one the package relationships name as the 3D
+ * model, as three's loader builds the scene from, or failing that the part three takes
+ * as its root model, the last .model directly under 3D/. Only the entry list and the
+ * small relationships part are read.
+ *
+ * @param {Uint8Array} bytes - The 3MF archive
+ * @return {?string} The part's name in the archive, or null when there is none
+ */
+function rootModelPart(bytes) {
+	const names = []
+	let relsSize = 0
+	const parts = unzipSync(bytes, {
+		filter: (file) => {
+			names.push(file.name)
+			if (file.name !== PACKAGE_RELS || file.originalSize > HEAD_LIMIT) { return false }
+			relsSize = file.originalSize
+			return true
+		},
+	})
+	if (relsSize > 0 && parts[PACKAGE_RELS]) {
+		let first = null
+		let typed = null
+		// Split at each '<': every piece is looked at once, with bounded patterns
+		for (const piece of strFromU8(parts[PACKAGE_RELS]).split('<')) {
+			if (typed || !RELATIONSHIP.test(piece)) { continue }
+			const end = piece.indexOf('>')
+			const tag = ' ' + piece.slice(0, end === -1 ? MAX_TAG : Math.min(end, MAX_TAG))
+			let target = tag.match(TARGET_ATTRIBUTE)?.[2]
+			if (!target || !/\.model$/i.test(target)) { continue }
+			try {
+				target = decodeURIComponent(target)
+			} catch {
+				// Not percent-encoded after all; taken as written
+			}
+			target = target.replace(/^\//, '')
+			if (!names.includes(target)) { continue }
+			first ??= target
+			if (MODEL_RELATIONSHIP_TYPE.test(tag.match(TYPE_ATTRIBUTE)?.[2] ?? '')) { typed = target }
+		}
+		if (typed || first) { return typed || first }
+	}
+	return names.filter((name) => ROOT_MODEL.test(name)).pop() ?? null
+}
+
+/**
  * The unit a 3MF file is written in: the `unit` attribute of its root model's <model>
  * element. three's ThreeMFLoader reads it and then never applies it, so a file in
  * metres comes out a thousandth of its size; the loader records it on the model for
@@ -116,10 +168,14 @@ export function read3MFUnit(data) {
 	const scanner = rootUnitScanner()
 	let done = false
 	try {
+		const root = rootModelPart(bytes)
+		if (!root) {
+			return null
+		}
 		const archive = new Unzip()
 		archive.register(UnzipInflate)
 		archive.onfile = (file) => {
-			if (done || !ROOT_MODEL.test(file.name)) {
+			if (done || file.name !== root) {
 				return
 			}
 			let fed = 0

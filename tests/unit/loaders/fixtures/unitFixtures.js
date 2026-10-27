@@ -36,20 +36,21 @@ export const RELS = rels()
  * @param {string} [options.prefix] - a namespace prefix for the elements
  * @param {string} [options.padding] - text between the XML declaration and <model>
  * @param {number} [options.leg] - leg length
+ * @param {number} [options.id] - the object's id
  * @return {string} the model XML
  */
-export function modelXml(unit, { prefix = '', padding = '', leg = 2 } = {}) {
+export function modelXml(unit, { prefix = '', padding = '', leg = 2, id = 1 } = {}) {
 	const p = prefix ? `${prefix}:` : ''
 	const ns = prefix ? `xmlns:${prefix}` : 'xmlns'
 	const unitAttribute = unit === null ? '' : ` unit="${unit}"`
 	return '<?xml version="1.0" encoding="UTF-8"?>' + padding
 		+ `<${p}model${unitAttribute} xml:lang="en-US" ${ns}="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">`
-		+ `<${p}resources><${p}object id="1" type="model"><${p}mesh><${p}vertices>`
+		+ `<${p}resources><${p}object id="${id}" type="model"><${p}mesh><${p}vertices>`
 		+ `<${p}vertex x="0" y="0" z="0"/><${p}vertex x="${leg}" y="0" z="0"/><${p}vertex x="0" y="${leg}" z="0"/><${p}vertex x="0" y="0" z="${leg}"/>`
 		+ `</${p}vertices><${p}triangles>`
 		+ `<${p}triangle v1="0" v2="2" v3="1"/><${p}triangle v1="0" v2="1" v3="3"/><${p}triangle v1="0" v2="3" v3="2"/><${p}triangle v1="1" v2="2" v3="3"/>`
 		+ `</${p}triangles></${p}mesh></${p}object></${p}resources>`
-		+ `<${p}build><${p}item objectid="1"/></${p}build></${p}model>`
+		+ `<${p}build><${p}item objectid="${id}"/></${p}build></${p}model>`
 }
 
 /**

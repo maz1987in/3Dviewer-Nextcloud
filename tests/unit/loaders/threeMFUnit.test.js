@@ -6,7 +6,7 @@
  */
 import * as THREE from 'three'
 import { zipSync, unzipSync, strFromU8 } from 'three/examples/jsm/libs/fflate.module.js'
-import { bytes, RELS, threeMF } from './fixtures/unitFixtures.js'
+import { bytes, CONTENT_TYPES, RELS, modelXml, rels, threeMF } from './fixtures/unitFixtures.js'
 import { ThreeMfLoader, read3MFUnit } from '../../../src/loaders/types/threeMF.js'
 import { millimetresPerUnit, threeMFUnit } from '../../../src/utils/sourceUnits.js'
 import { build3MF } from '../../../src/utils/threeMFWriter.js'
@@ -69,6 +69,54 @@ describe('read3MFUnit', () => {
 	it('reads a file whose parts are streamed with data descriptors, as the 3MF export writes them', async () => {
 		const mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1))
 		expect(read3MFUnit(await build3MF(mesh))).toBe('millimeter')
+	})
+
+	describe('in a package with more than one model part', () => {
+		// Two top-level parts, in metres and in inches, the metre one first in the archive
+		const twoModels = (relsXml) => {
+			const files = {
+				'[Content_Types].xml': bytes(CONTENT_TYPES),
+				'3D/a.model': bytes(modelXml('meter')),
+				'3D/z.model': bytes(modelXml('inch')),
+			}
+			if (relsXml) files['_rels/.rels'] = bytes(relsXml)
+			return zipSync(files)
+		}
+
+		it('reads the part the package relationships name, which three builds the scene from', () => {
+			expect(read3MFUnit(twoModels(rels('/3D/a.model')))).toBe('meter')
+			expect(read3MFUnit(twoModels(rels('/3D/z.model')))).toBe('inch')
+		})
+
+		it('records the unit of the part three built the model from', async () => {
+			expect((await load(twoModels(rels('/3D/z.model')))).userData.threeMFUnit).toBe('inch')
+			// three parses only the last top-level part and those in folders under 3D/; a
+			// package that names one in a folder is built from it
+			const nested = zipSync({
+				'[Content_Types].xml': bytes(CONTENT_TYPES),
+				'_rels/.rels': bytes(rels('/3D/Objects/part.model')),
+				'3D/3dmodel.model': bytes(modelXml('inch')),
+				'3D/Objects/part.model': bytes(modelXml('meter', { leg: 5, id: 2 })),
+			})
+			const object = await load(nested)
+			expect(object.userData.threeMFUnit).toBe('meter')
+			object.updateMatrixWorld(true)
+			const size = new THREE.Box3().setFromObject(object).getSize(new THREE.Vector3())
+			expect(Math.max(size.x, size.y, size.z)).toBeCloseTo(5, 6)
+		})
+
+		it('reads the part three takes as its root, the last, when the relationships name none there', () => {
+			expect(read3MFUnit(twoModels(rels('/3D/missing.model')))).toBe('inch')
+			expect(read3MFUnit(twoModels(null))).toBe('inch')
+		})
+
+		it('prefers the 3D model relationship to another that names a .model', () => {
+			const relsXml = '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+				+ '<Relationship Target="/3D/a.model" Id="r1" Type="http://example.com/other"/>'
+				+ '<Relationship Target="/3D/z.model" Id="r2" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/>'
+				+ '</Relationships>'
+			expect(read3MFUnit(twoModels(relsXml))).toBe('inch')
+		})
 	})
 
 	it('gives null when the root element is not <model>', () => {
