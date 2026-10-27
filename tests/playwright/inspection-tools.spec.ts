@@ -404,6 +404,40 @@ async function plainThumbnail(page: Page, url: string, model: Model) {
 	return await coverage(page, uploads[0])
 }
 
+/**
+ * Switch a tool on the moment the first model has loaded, inside the half second before
+ * the viewer captures its thumbnail, as a quick user would. The switch is made from the
+ * page, in the next task after the load sets `__LOAD_COMPLETE`, and both times are kept
+ * so the test can check it came before the capture. Call before the page loads.
+ * @param page - the page, not yet loaded
+ * @param tool - which tool to switch on
+ */
+async function switchOnAtLoad(page: Page, tool: 'wireframe' | 'exploded') {
+	await page.addInitScript((which) => {
+		const w = window as any
+		let loaded = false
+		Object.defineProperty(w, '__LOAD_COMPLETE', {
+			configurable: true,
+			get: () => loaded,
+			set: (value) => {
+				loaded = value
+				if (!value || w.__loadedAt !== undefined) return
+				w.__loadedAt = performance.now()
+				setTimeout(() => {
+					const app = w.__THREEDVIEWER_APP.$.subTree.component.proxy
+					if (which === 'wireframe') {
+						app.wireframe = true
+					} else {
+						app.onToggleExplodedView()
+						app.onSetExplodedFactor(1)
+					}
+					w.__switchedAt = performance.now()
+				}, 0)
+			},
+		})
+	}, tool)
+}
+
 test.describe('Inspection tools', () => {
 	let server: { url: string, close: () => Promise<void> }
 	test.beforeAll(async () => { server = await startServer() })
@@ -680,6 +714,12 @@ test.describe('Inspection tools', () => {
 	 * Wireframe stays on for the next model, as the toggle shows, and the next model's
 	 * thumbnail, captured half a second after it opens, must still be solid: the same
 	 * picture a model gets with nothing switched on.
+	 *
+	 * This reaches the thumbnail fix through the carry-over to the next model (9c0d60c).
+	 * Without the carry-over the next model would not be in wireframe and the thumbnail
+	 * comparison would pass with nothing to check; the check that the model is drawn in
+	 * wireframe fails instead. The capture-window test further down does not depend on
+	 * the carry-over.
 	 */
 	test('a thumbnail captured with Wireframe on is solid', async ({ page, browser }) => {
 		const plainPage = await browser.newPage()
@@ -715,6 +755,10 @@ test.describe('Inspection tools', () => {
 	 * Exploded view stays on for the next model it can take apart, by the same amount,
 	 * and that model's thumbnail must show its parts together, framed as they are when
 	 * nothing is exploded.
+	 *
+	 * Like the Wireframe test above, this reaches the thumbnail fix through the carry-over
+	 * (9c0d60c), and checks that the next model really is exploded so it cannot pass
+	 * empty; the capture-window test below does not depend on the carry-over.
 	 */
 	test('a thumbnail captured in Exploded view has the parts together', async ({ page, browser }) => {
 		const plainPage = await browser.newPage()
@@ -768,4 +812,50 @@ test.describe('Inspection tools', () => {
 		expect(captured.centreAlpha).toBe(plain.centreAlpha)
 		expect(errors).toEqual([])
 	})
+	/*
+	 * The same two fixes without the carry-over to the next model: the tool is switched
+	 * on in the half second between the model opening and the viewer capturing it.
+	 */
+	for (const [tool, model] of [['wireframe', 'cube2'], ['exploded', 'twoCubes2']] as const) {
+		test(`a thumbnail captured just after ${tool === 'wireframe' ? 'Wireframe' : 'Exploded view'} is switched on matches a plain one`, async ({ page, browser }) => {
+			const plainPage = await browser.newPage()
+			const plain = await plainThumbnail(plainPage, server.url, model)
+			await plainPage.close()
+
+			const shownAtCapture: boolean[] = []
+			const uploads: Buffer[] = []
+			await page.route('**/apps/threedviewer/api/thumbnails/status**', (route) => route.fulfill({
+				status: 200,
+				contentType: 'application/json',
+				body: JSON.stringify({ files: { [MODELS[model].id]: { canEdit: true, hasThumbnail: false, etag: 'v1' } } }),
+			}))
+			await page.route('**/apps/threedviewer/api/thumbnail/**', async (route) => {
+				uploads.push(route.request().postDataBuffer()!)
+				// What the viewer shows as the upload arrives, just after the capture
+				shownAtCapture.push(await page.evaluate((which) => {
+					const viewer = (window as any).__THREEDVIEWER_APP.$.subTree.component.proxy.$refs.viewer
+					const meshes: any[] = []
+					viewer.modelRoot.traverse((child: any) => { if (child.isMesh) meshes.push(child) })
+					return which === 'wireframe'
+						? meshes.every((mesh) => [mesh.material].flat().every((m: any) => m.wireframe))
+						: Math.max(...meshes.map((mesh) => mesh.position.length())) > 1
+				}, tool))
+				return route.fulfill({ status: 201, body: '' })
+			})
+			await switchOnAtLoad(page, tool)
+
+			const { errors } = await openLoadedViewer(page, server.url, model)
+			await expect.poll(() => uploads.length, { timeout: 15000 }).toBe(1)
+
+			// Switched on well inside the half second the capture waits, and on when it ran
+			const { loadedAt, switchedAt } = await page.evaluate(() => ({ loadedAt: (window as any).__loadedAt, switchedAt: (window as any).__switchedAt }))
+			expect(switchedAt - loadedAt).toBeLessThan(250)
+			expect(shownAtCapture).toEqual([true])
+
+			const captured = await coverage(page, uploads[0])
+			expect(Math.abs(captured.covered - plain.covered)).toBeLessThanOrEqual(plain.covered * 0.01)
+			expect(captured.centreAlpha).toBe(plain.centreAlpha)
+			expect(errors).toEqual([])
+		})
+	}
 })
