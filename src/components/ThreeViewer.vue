@@ -1565,7 +1565,8 @@ export default {
 						faceLabels.addFaceLabels(modelRoot.value, scene.value)
 					}
 
-					// Initialize exploded view (collects meshes and computes directions)
+					// Initialize exploded view (collects meshes and computes directions); an
+					// exploded view stays on, by the same amount, for a model it can explode
 					explodedView.init(modelRoot.value)
 
 					// Collect G-code layers for the layer slider (none for other formats)
@@ -1573,6 +1574,12 @@ export default {
 
 					// Keep the render mode the viewer was in for the new model
 					clippingPlane.aroundMaterialSwap(() => renderMode.init(modelRoot.value))
+
+					// And Wireframe, which the toggle still shows as on; the watcher only
+					// sees a change
+					if (props.wireframe) {
+						setViewerWireframe(modelRoot.value, true)
+					}
 
 					// Initialize animations if present
 					if (loadedModel.animations && loadedModel.animations.length > 0) {

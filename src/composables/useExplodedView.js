@@ -40,6 +40,9 @@ export function useExplodedView() {
 		if (meshes.length < 2) {
 			logger.info('useExplodedView', 'Model has fewer than 2 meshes, exploded view not useful')
 			meshData.value = []
+			// Nothing to take apart: the tool goes off rather than stay on with no effect
+			isActive.value = false
+			factor.value = 0
 			return
 		}
 
@@ -87,6 +90,12 @@ export function useExplodedView() {
 				direction,
 			}
 		})
+
+		// A view left exploded stays exploded for the next model, by the same amount, as
+		// the panel shows it
+		if (isActive.value) {
+			applyExplosion()
+		}
 
 		logger.info('useExplodedView', 'Initialized', { meshCount: meshData.value.length })
 	}
