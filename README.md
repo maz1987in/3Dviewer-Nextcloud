@@ -244,6 +244,10 @@ This project is licensed under the **AGPL-3.0 License**. See [LICENSE](LICENSE) 
 - Measurements, model statistics and exports use each model's own unit, so a glTF figure measures in metres and an STL part in millimetres
 - FBX readings follow the file's `UnitScaleFactor`, centimetres by default, so most FBX models read 10× larger than in 3.7.x, which is their correct size
 
+**Textures:**
+- Textures a model names by a full path from the machine that exported it (`C:\…\wood.jpg`, `file:///C:/…`, `\\server\share\…`) are found by their file name beside the model, in the viewer, in thumbnails and on public shares
+- A texture that is not one of the model's own files is never requested, so opening a shared model cannot make the browser contact another server
+
 ### Recent releases
 
 - **3.7.1:** background thumbnails for 3MF, AMF, DAE and X3D, and FreeCAD files drawn as FreeCAD shows them
