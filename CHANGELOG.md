@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Angle measurement. The measurement panel has a Distance / Angle switch; in angle mode the second of three clicks is the corner, and the reading is in degrees.
+- A layer slider for G-code in the tools panel's Analyze section: show the print up to a layer, with its height, or turn on *Only this layer* to see it alone. A Z-hop no longer counts as a layer of its own.
+- Export as 3MF, PLY (binary) and USDZ. Three.js has no 3MF exporter, so a small writer packages each visible mesh, turned from Y-up to the Z-up slicers expect.
+- Clay, Normals and X-ray shading, in the Scene section of the tools panel. The model's own materials are put back for exports and when the mode returns to Standard.
+
+### Fixed
+- G-code toolpaths drew the travel moves the parser filters out: each layer was a `Line` through start/end pairs, which joined every move to the next. Layers are now `LineSegments`.
+- Deleting a measurement could remove another measurement's markers. Markers were matched to measurements by position in a list that assumed two points each and ignored a point picked but not yet used; each measurement now owns what it drew.
+- Send to Slicer's PLY option always sent ASCII PLY: `{ binary: true }` was passed where `PLYExporter.parse` takes its callback. It now sends binary PLY.
+
 ## [3.7.1] - 2026-10-27
 
 3MF, AMF, DAE and X3D files now get thumbnails while folders are browsed, like every other model. FreeCAD files show only the part FreeCAD itself shows, instead of every step of its history on top of each other.

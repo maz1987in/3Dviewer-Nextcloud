@@ -61,7 +61,7 @@ A comprehensive 3D model viewer application for Nextcloud that supports multiple
 
 - **Automatic Thumbnails** - Smart thumbnail generation for 3D files with content-aware cropping (configurable in settings)
 - **Multi-Format Support** - 33 extensions across 22 formats: GLB, GLTF, OBJ (+MTL), STL, PLY, FBX, 3MF, 3DS, DAE, X3D, VRML, OFF, AMF, 3DM (Rhino), BIM (dotbim), IFC, STEP, IGES, BREP, FCSTD (FreeCAD), G-code (`.gcode`, `.gco`, `.nc`, `.acode`, `.g`, `.gx`, `.g3drem`, `.makerbot`, `.thing`)
-- **G-code Toolpath Visualization** - View 3D printer and CNC toolpaths with smooth rainbow gradient coloring, intelligent travel/retraction filtering, and automatic layer detection
+- **G-code Toolpath Visualization** - View 3D printer and CNC toolpaths with smooth rainbow gradient coloring, intelligent travel/retraction filtering, and a layer slider to step through the print
 - **Enhanced File Loaders** - Significantly improved FBX, VRML, and DAE loaders with better material and texture support
 - **Multi-File Models** - Full support for OBJ+MTL+textures and GLTF+bins+images
 - **Personal Settings** - User-specific preferences and settings page integrated with Nextcloud personal settings
@@ -79,11 +79,12 @@ A comprehensive 3D model viewer application for Nextcloud that supports multiple
 - **Smart File Browser** - Toggle between Viewer, Folders, Type, Date, and Favorites modes with breadcrumbs, Nextcloud-style navigation, lazy loading, and customizable default view (Grid/List)
 - **Dynamic Grid System** - Automatically adapts to model size and position
 - **Model Comparison** - Side-by-side model viewing with synchronized controls
-- **Advanced Tooling** - Annotations and measurements with customizable visual sizing controls (point size, line thickness, label width)
+- **Advanced Tooling** - Annotations, distance and angle measurements with customizable visual sizing controls (point size, line thickness, label width)
 - **3D Camera Controller** - Enhanced intuitive circular controller for precise camera navigation with improved controls
 - **Face Labels** - Orientation markers (TOP, BOTTOM, FRONT, BACK, LEFT, RIGHT) on model faces
 - **Screenshot Capture** - Take high-quality PNG/JPEG screenshots of 3D models
-- **Export Functionality** - Export models to GLB, STL, and OBJ formats
+- **Export Functionality** - Export models to GLB, STL, OBJ, 3MF, PLY and USDZ formats
+- **Render Modes** - Clay, Normals and X-ray shading to inspect surface form, flipped faces and assembly interiors
 - **Slicer Integration** - Send models directly to PrusaSlicer, Cura, BambuStudio, OrcaSlicer, Simplify3D, Eufy Studio, and AnycubicSlicer with enhanced security (file size limits, MIME validation, rolling expiration)
 - **Camera Projection Toggle** - Switch between perspective and orthographic views
 - **Enhanced Camera Controls** - Improved camera composable with additional functionality and better user experience
