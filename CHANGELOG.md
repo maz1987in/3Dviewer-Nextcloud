@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.8.0] - 2026-10-27
+
+New inspection tools: angle measurement, a layer slider for G-code, Clay, Normals and X-ray shading, and export to 3MF, PLY and USDZ. Measurements, statistics and exports now use each model's real unit, so a glTF figure measures in metres and an STL part in millimetres. FBX readings change: they follow the file's own unit, centimetres by default, so most FBX models read 10× larger than in 3.7.x, which is their correct size.
+
 Four inspection tools: angle measurement, a layer slider for G-code, Clay, Normals and X-ray shading, and export to 3MF, PLY and USDZ.
 
 ### Added
