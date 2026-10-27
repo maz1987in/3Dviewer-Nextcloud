@@ -124,12 +124,8 @@ export function useRenderMode() {
 	// Give every mesh its own material back
 	const restore = () => {
 		originals.forEach((own, mesh) => {
-			// Wireframe is switched on whatever material is showing; carry it back
-			const shown = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
-			const ownList = Array.isArray(own) ? own : [own]
-			ownList.forEach((material, i) => {
-				if (material && shown[i]) material.wireframe = shown[i].wireframe
-			})
+			// Wireframe is switched on the own materials (viewerMaterialProps), which the
+			// stand-ins only follow, so there is nothing to carry back
 			restoreOwnMaterial(mesh)
 			mesh.material = own
 		})

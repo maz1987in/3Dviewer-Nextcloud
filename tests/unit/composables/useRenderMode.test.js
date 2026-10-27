@@ -6,6 +6,7 @@
 
 const THREE = require('three')
 const { useRenderMode, RENDER_MODES } = require('../../../src/composables/useRenderMode.js')
+const { setViewerWireframe } = require('../../../src/utils/viewerMaterialProps.js')
 
 function model() {
 	const group = new THREE.Group()
@@ -97,14 +98,31 @@ describe('useRenderMode', () => {
 		expect(multi.material).toBe(own)
 	})
 
-	it('carries wireframe, switched while a mode was showing, back to the model', () => {
-		const { group, a, red } = model()
+	it('keeps wireframe, switched while a mode was showing, when the mode comes off', () => {
+		const { group, a, multi, red } = model()
 		const rm = useRenderMode()
 		rm.init(group)
 		rm.setMode('clay')
-		a.material.wireframe = true
+		setViewerWireframe(group, true)
+		// The stand-ins showing follow the model's own materials
+		expect(a.material.wireframe).toBe(true)
+		expect(multi.material.every((m) => m.wireframe)).toBe(true)
 		rm.setMode('standard')
 		expect(red.wireframe).toBe(true)
+		setViewerWireframe(group, false)
+		expect(red.wireframe).toBe(false)
+	})
+
+	it('makes a new mode\'s stand-ins with the wireframe the viewer shows', () => {
+		const { group, a, red } = model()
+		const rm = useRenderMode()
+		rm.init(group)
+		setViewerWireframe(group, true)
+		rm.setMode('normals')
+		expect(a.material).not.toBe(red)
+		expect(a.material.wireframe).toBe(true)
+		setViewerWireframe(group, false)
+		expect(a.material.wireframe).toBe(false)
 	})
 
 	it('suspends for an export and resumes the same mode', () => {

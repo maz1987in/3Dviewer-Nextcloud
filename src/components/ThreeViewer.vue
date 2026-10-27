@@ -829,6 +829,7 @@ import { useRenderMode } from '../composables/useRenderMode.js'
 import { useTransformGizmo } from '../composables/useTransformGizmo.js'
 import { useWebXR } from '../composables/useWebXR.js'
 import { logger } from '../utils/logger.js'
+import { setViewerWireframe } from '../utils/viewerMaterialProps.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
 import { initCache, clearExpired, clearAll, getCacheStats } from '../utils/dependencyCache.js'
 
@@ -3504,13 +3505,10 @@ export default {
 		})
 
 		watch(() => props.wireframe, (val) => {
-			// Apply wireframe to all meshes
+			// Through the registry, so a thumbnail draws each material's own value and
+			// off gives back a wireframe the file itself set
 			if (modelRoot.value) {
-				modelRoot.value.traverse((child) => {
-					if (child.isMesh) {
-						child.material.wireframe = val
-					}
-				})
+				setViewerWireframe(modelRoot.value, val)
 			}
 		})
 
