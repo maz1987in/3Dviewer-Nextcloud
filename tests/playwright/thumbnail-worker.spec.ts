@@ -755,11 +755,12 @@ test.describe('thumbnail worker', () => {
       files: [`${FIXTURES}triangle-draco.gltf`],
     })
 
-    // Fetched by the worker itself, so this also shows the app root reached it
+    // The fixture's scene uses its Draco mesh, so the loader waits for the decoder before
+    // it can decode anything; fetched by the worker itself, from the app root
     expect(served).toContain(`${appRoot}draco/draco_decoder.wasm`)
-    // The fixture declares no scene and carries a 4-byte payload, so no loader makes a
-    // model of it, on the page or in a worker; it can only show the decoder is reachable
-    expect(outcome.error).toBe('Invalid 3D object loaded')
+    // Its payload is four zero bytes, so the decoder itself rejects it, which shows the
+    // decoder ran: no loader makes a model of it, on the page or in a worker
+    expect(outcome).toMatchObject({ ok: false, error: 'THREE.DRACOLoader: Unexpected geometry type.' })
   })
 
   test('a model naming files it was not handed makes no request for them, and fails to load', async ({ page }) => {
