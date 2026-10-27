@@ -35,6 +35,8 @@ const CUBE_OBJ = [
 const MODELS = {
 	gcode: { id: 4242, name: 'print.gcode', body: GCODE },
 	cube: { id: 4343, name: 'cube.obj', body: CUBE_OBJ },
+	// A second cube, opened after the first in the same viewer
+	cube2: { id: 4444, name: 'cube2.obj', body: CUBE_OBJ },
 }
 type Model = keyof typeof MODELS
 
@@ -85,22 +87,47 @@ function html(model: { id: number, name: string }) {
 	</body></html>`
 }
 
-async function openLoadedViewer(page: Page, url: string, model: Model = 'gcode') {
-	const { id, body } = MODELS[model]
+type NotesBody = { canEdit: boolean, notes: object[], private: object[] }
+type NoteWrite = { method: string, body: any }
+
+/**
+ * Answer the shared-notes routes the way the server does, and record every write.
+ * @param page - the page
+ * @param notes - what a read returns
+ */
+async function mockNotes(page: Page, notes: NotesBody = { canEdit: true, notes: [], private: [] }) {
+	const writes: NoteWrite[] = []
+	let nextId = 500
+	await page.route('**/apps/threedviewer/api/notes/**', (route) => {
+		const request = route.request()
+		if (request.method() === 'GET') {
+			return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(notes) })
+		}
+		writes.push({ method: request.method(), body: request.postDataJSON() })
+		return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ id: nextId++, author: { uid: 'alice', displayName: 'Alice' } }) })
+	})
+	return writes
+}
+
+async function openLoadedViewer(page: Page, url: string, model: Model = 'gcode', notes?: NotesBody) {
 	const errors: string[] = []
 	page.on('pageerror', (err) => errors.push(err.message))
 	// Without Nextcloud's page globals, generateUrl puts the file URL on a host that does
 	// not resolve (http://index.php/…); answering it here serves it wherever it points.
-	await page.route(`**/apps/threedviewer/api/file/${id}`, (route) => route.fulfill({
-		status: 200,
-		contentType: 'application/octet-stream',
-		body,
-	}))
+	for (const { id, body } of Object.values(MODELS)) {
+		await page.route(`**/apps/threedviewer/api/file/${id}`, (route) => route.fulfill({
+			status: 200,
+			contentType: 'application/octet-stream',
+			body,
+		}))
+	}
+	// Every model has shared notes; unanswered, the viewer would say "Notes not loaded"
+	const writes = await mockNotes(page, notes)
 	await page.goto(`${url}?model=${model}`)
 	await page.waitForFunction(() => (window as any).__LOAD_COMPLETE === true, null, { timeout: 30000 })
 	await page.click('[aria-label="Toggle tools panel"]')
 	await page.waitForSelector('.slide-out-panel', { timeout: 5000 })
-	return errors
+	return { errors, writes }
 }
 
 test.describe('Inspection tools', () => {
@@ -109,7 +136,7 @@ test.describe('Inspection tools', () => {
 	test.afterAll(async () => { await server.close() })
 
 	test('the G-code layer slider steps through the print', async ({ page }) => {
-		const errors = await openLoadedViewer(page, server.url)
+		const { errors } = await openLoadedViewer(page, server.url)
 		const panel = page.locator('.gcode-layers')
 		await expect(panel).toContainText('Layer 3 of 3')
 		await expect(panel).toContainText('Z 0.60')
@@ -137,7 +164,7 @@ test.describe('Inspection tools', () => {
 	})
 
 	test('shading switches mode and back', async ({ page }) => {
-		const errors = await openLoadedViewer(page, server.url)
+		const { errors } = await openLoadedViewer(page, server.url)
 		const button = (name: string) => page.locator('.preset-btn', { hasText: new RegExp(`^\\s*${name}\\s*$`) })
 		await expect(page.getByRole('group', { name: 'Shading' })).toBeVisible()
 
@@ -150,7 +177,7 @@ test.describe('Inspection tools', () => {
 	})
 
 	test('the measurement panel switches to angles', async ({ page }) => {
-		const errors = await openLoadedViewer(page, server.url)
+		const { errors } = await openLoadedViewer(page, server.url)
 		await page.locator('.slide-out-panel').getByText('Measurement', { exact: true }).click()
 		const overlay = page.locator('.measurement-overlay')
 		await expect(overlay).toBeVisible()
@@ -187,7 +214,7 @@ test.describe('Inspection tools', () => {
 		}],
 	] as const) {
 		test(`exports the model as ${format}`, async ({ page }) => {
-			const errors = await openLoadedViewer(page, server.url, 'cube')
+			const { errors } = await openLoadedViewer(page, server.url, 'cube')
 			await page.locator('.slide-out-panel').getByText('Export', { exact: true }).first().click()
 			const [download] = await Promise.all([
 				page.waitForEvent('download', { timeout: 20000 }),
@@ -206,7 +233,109 @@ test.describe('Inspection tools', () => {
 		await openLoadedViewer(page, server.url)
 		await page.locator('.slide-out-panel').getByText('Export', { exact: true }).first().click()
 		await page.selectOption('.export-select', '3mf')
-		await expect(page.locator('.toast.error')).toContainText('This model has no surfaces to save as 3MF.')
+		await expect(page.getByLabel('Export Failed')).toContainText('This model has no surfaces to save as 3MF.')
 		expect(downloaded).toBe(false)
+	})
+
+	test('an angle taken with three clicks is saved as a shared angle note', async ({ page }) => {
+		const { errors, writes } = await openLoadedViewer(page, server.url, 'cube')
+		await page.locator('.slide-out-panel').getByText('Measurement', { exact: true }).click()
+		const overlay = page.locator('.measurement-overlay')
+		await overlay.getByRole('button', { name: 'Angle' }).click()
+
+		// Three points on the cube's front, below the measurement panel and left of the
+		// tools panel at this viewport
+		for (const [x, y] of [[720, 340], [780, 370], [740, 400]]) {
+			await page.mouse.click(x, y)
+		}
+
+		await expect(overlay.locator('.measurement-item')).toHaveCount(1)
+		await expect(overlay.locator('.measurement-item')).toContainText('Angle 1')
+		await expect(overlay.locator('.measurement-distance')).toContainText('°')
+		await expect.poll(() => writes.length).toBe(1)
+		expect(writes[0].method).toBe('POST')
+		expect(writes[0].body.type).toBe('angle')
+		expect(writes[0].body.payload.space).toBe('model')
+		expect(writes[0].body.payload.points).toHaveLength(3)
+		await expect(overlay).toContainText('Alice')
+		expect(errors).toEqual([])
+	})
+
+	test('a stored angle is drawn when the model opens, with its author', async ({ page }) => {
+		const { errors, writes } = await openLoadedViewer(page, server.url, 'cube', {
+			canEdit: false,
+			notes: [{
+				id: 9,
+				type: 'angle',
+				payload: { space: 'model', points: [{ x: 10, y: 0, z: 0 }, { x: 0, y: 0, z: 0 }, { x: 0, y: 10, z: 0 }] },
+				author: { uid: 'bob', displayName: 'Bob' },
+				createdAt: 1,
+				updatedAt: 1,
+			}],
+			private: [],
+		})
+		await page.locator('.slide-out-panel').getByText('Measurement', { exact: true }).click()
+		const overlay = page.locator('.measurement-overlay')
+		await expect(overlay.locator('.measurement-item')).toContainText('Angle 1')
+		await expect(overlay.locator('.measurement-distance')).toHaveText('90.00°')
+		await expect(overlay).toContainText('Bob')
+		expect(writes).toEqual([])
+		expect(errors).toEqual([])
+	})
+
+	/*
+	 * A thumbnail is shared with everyone who can see the file. The viewer keeps its
+	 * shading from one model to the next and captures the next model half a second after
+	 * it opens: in X-ray that capture must still show the model's own, opaque materials.
+	 */
+	test('a thumbnail captured in X-ray shows the model\'s own materials', async ({ page }) => {
+		const uploads: Buffer[] = []
+		await page.route('**/apps/threedviewer/api/thumbnails/status**', (route) => {
+			const ids = new URL(route.request().url()).searchParams.get('ids')
+			const files = ids === String(MODELS.cube2.id)
+				? { [MODELS.cube2.id]: { canEdit: true, hasThumbnail: false, etag: 'v1' } }
+				: { [MODELS.cube.id]: { canEdit: true, hasThumbnail: true, etag: 'v1' } }
+			return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ files }) })
+		})
+		await page.route(`**/apps/threedviewer/api/thumbnail/${MODELS.cube2.id}**`, (route) => {
+			uploads.push(route.request().postDataBuffer()!)
+			return route.fulfill({ status: 201, body: '' })
+		})
+
+		const { errors } = await openLoadedViewer(page, server.url, 'cube')
+		const xray = page.locator('.preset-btn', { hasText: /^\s*X-ray\s*$/ })
+		await xray.click()
+		await expect(xray).toHaveAttribute('aria-pressed', 'true')
+
+		// Open the next model in the same viewer, as the file browser does (its URL update
+		// left out: generateUrl has no Nextcloud host here)
+		await page.evaluate(({ id, name }) => {
+			(window as any).__LOAD_COMPLETE = false
+			// The mounted root renders App; App is its only child
+			const app = (window as any).__THREEDVIEWER_APP.$.subTree.component.proxy
+			app.currentFilename = name
+			app.currentFileId = id
+		}, MODELS.cube2)
+		await page.waitForFunction(() => (window as any).__LOAD_COMPLETE === true, null, { timeout: 30000 })
+		await expect.poll(() => uploads.length, { timeout: 15000 }).toBe(1)
+
+		// The viewer is still in X-ray
+		await expect(xray).toHaveAttribute('aria-pressed', 'true')
+
+		// The cube covers the middle of the thumbnail. X-ray draws it at a quarter opacity,
+		// so the pixel there would be translucent; the model's own material is opaque.
+		const alpha = await page.evaluate(async (base64) => {
+			const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))
+			const bitmap = await createImageBitmap(new Blob([bytes], { type: 'image/png' }))
+			const canvas = document.createElement('canvas')
+			canvas.width = bitmap.width
+			canvas.height = bitmap.height
+			const context = canvas.getContext('2d')!
+			context.drawImage(bitmap, 0, 0)
+			const { data } = context.getImageData(bitmap.width / 2, bitmap.height / 2, 1, 1)
+			return data[3]
+		}, uploads[0].toString('base64'))
+		expect(alpha).toBe(255)
+		expect(errors).toEqual([])
 	})
 })
