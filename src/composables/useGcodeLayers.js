@@ -48,12 +48,33 @@ export function useGcodeLayers() {
 	const isAvailable = computed(() => layerCount.value > 1)
 	const currentZ = computed(() => layers[currentLayer.value - 1]?.z ?? null)
 
+	/*
+	 * The layers shown are always one run, from `shownFrom` to `shownTo` (1-based, and
+	 * empty when `shownFrom > shownTo`). A step changes only the layers that enter or
+	 * leave that run, rather than every layer of the print: a slider dragged across a
+	 * toolpath of tens of thousands of layers (a vase-mode print changes height on every
+	 * move) sends an input event per layer it passes.
+	 */
+	let shownFrom = 1
+	let shownTo = 0
+
+	const setLayerVisible = (n, visible) => {
+		layers[n - 1].objects.forEach((object) => { object.visible = visible })
+	}
+
+	// Set `visible` on the layers in [a, b] that are not in [c, d]
+	const outside = (a, b, c, d, visible) => {
+		for (let n = a; n <= Math.min(b, c - 1); n++) setLayerVisible(n, visible)
+		for (let n = Math.max(a, d + 1); n <= b; n++) setLayerVisible(n, visible)
+	}
+
 	const apply = () => {
-		layers.forEach((layer, index) => {
-			const n = index + 1
-			const visible = singleLayer.value ? n === currentLayer.value : n <= currentLayer.value
-			layer.objects.forEach((object) => { object.visible = visible })
-		})
+		const to = currentLayer.value
+		const from = singleLayer.value ? to : 1
+		outside(shownFrom, shownTo, from, to, false)
+		outside(from, to, shownFrom, shownTo, true)
+		shownFrom = from
+		shownTo = to
 	}
 
 	/**
@@ -65,6 +86,9 @@ export function useGcodeLayers() {
 		layers = collectGcodeLayers(model)
 		layerCount.value = layers.length
 		currentLayer.value = layers.length
+		// The loader draws every layer
+		shownFrom = 1
+		shownTo = layers.length
 		if (layers.length > 0) {
 			logger.info('useGcodeLayers', 'Initialized', { layers: layers.length })
 		}
@@ -99,6 +123,8 @@ export function useGcodeLayers() {
 	const dispose = () => {
 		layers.forEach((layer) => layer.objects.forEach((object) => { object.visible = true }))
 		layers = []
+		shownFrom = 1
+		shownTo = 0
 		layerCount.value = 0
 		currentLayer.value = 0
 		singleLayer.value = false

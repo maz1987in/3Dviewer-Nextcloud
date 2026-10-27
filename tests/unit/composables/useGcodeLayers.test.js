@@ -99,3 +99,68 @@ describe('useGcodeLayers', () => {
 		expect(layers.isAvailable.value).toBe(false)
 	})
 })
+
+/*
+ * A vase-mode print changes height on every move, so its toolpath can have tens of
+ * thousands of layers, and a dragged slider sends an input for each layer it passes.
+ * A step must change the layers it moves past, not every layer of the print.
+ */
+describe('a toolpath with many layers', () => {
+	const LAYERS = 20000
+
+	function countingToolpath(n) {
+		const writes = { count: 0 }
+		const objects = Array.from({ length: n }, (_, i) => {
+			let visible = true
+			return {
+				isLine: true,
+				userData: { gcodeLayerZ: 0.2 * (i + 1) },
+				get visible() { return visible },
+				set visible(v) { writes.count++; visible = v },
+			}
+		})
+		const model = { traverse: (cb) => objects.forEach(cb) }
+		return { model, objects, writes }
+	}
+
+	it('touches one layer per step of the slider', () => {
+		const { model, objects, writes } = countingToolpath(LAYERS)
+		const layers = useGcodeLayers()
+		layers.init(model)
+		expect(writes.count).toBe(0)
+
+		layers.setLayer(LAYERS - 1)
+		expect(writes.count).toBe(1)
+		layers.step(-1)
+		expect(writes.count).toBe(2)
+		layers.step(1)
+		expect(writes.count).toBe(3)
+		expect(objects[LAYERS - 2].visible).toBe(true)
+		expect(objects[LAYERS - 1].visible).toBe(false)
+	})
+
+	it('touches two layers to jump anywhere when only one layer is shown', () => {
+		const { model, objects, writes } = countingToolpath(LAYERS)
+		const layers = useGcodeLayers()
+		layers.init(model)
+		layers.setSingleLayer(true)
+		writes.count = 0
+
+		layers.setLayer(1)
+		expect(writes.count).toBe(2)
+		expect(objects.filter((o) => o.visible)).toEqual([objects[0]])
+	})
+
+	it('shows the same layers as stepping one by one would, whatever the path', () => {
+		const { model, objects } = countingToolpath(50)
+		const layers = useGcodeLayers()
+		layers.init(model)
+		const moves = [[10, false], [40, false], [3, true], [45, true], [45, false], [1, false], [50, true], [7, false]]
+		for (const [n, single] of moves) {
+			layers.setSingleLayer(single)
+			layers.setLayer(n)
+			const expected = objects.map((_, i) => (single ? i + 1 === n : i + 1 <= n))
+			expect(objects.map((o) => o.visible)).toEqual(expected)
+		}
+	})
+})
