@@ -109,6 +109,13 @@ describe('the row', () => {
 		expect(button.classList.contains('toggle-row--compact')).toBe(true)
 	})
 
+	it('is as wide as its content when it sits beside a button in a flex row', () => {
+		// At the full width of a panel row it takes the whole flex row and squeezes Play
+		const rule = /\.toggle-row\.toggle-row\.toggle-row--compact\s*\{([^}]*)\}/.exec(SOURCE)[1]
+		expect(rule).toMatch(/width:\s*auto/)
+		expect(rule).toMatch(/flex-shrink:\s*0/)
+	})
+
 	it('shows a focus ring, and does not leave it to the browser', () => {
 		expect(SOURCE).toMatch(/\.toggle-row\.toggle-row:focus-visible\s*\{[^}]*outline:/)
 	})

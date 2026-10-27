@@ -58,8 +58,14 @@ export default {
 	transition: background 0.15s ease;
 }
 
-/* Beside a button, as the animation controls lay it out */
+/*
+ * Beside a button, as the animation controls lay it out. That row is a flex row, where the
+ * full width of an ordinary row would be the switch's basis: it would take the whole row and
+ * squeeze Play to its minimum. The switch is as wide as its content and keeps that width.
+ */
 .toggle-row.toggle-row.toggle-row--compact {
+	flex-shrink: 0;
+	width: auto;
 	margin-bottom: 0;
 	padding: 6px 12px;
 }

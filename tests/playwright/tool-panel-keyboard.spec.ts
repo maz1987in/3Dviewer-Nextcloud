@@ -307,6 +307,40 @@ test.describe('Tools panel from the keyboard', () => {
 		expect(errors).toEqual([])
 	})
 
+	/*
+	 * Play and Loop share a flex row. Loop was given the full width of a panel row, which
+	 * became its flex basis and squeezed Play to its minimum, and Loop jumped sideways
+	 * whenever Play changed to Pause. Measured in the real app, on a model with an animation.
+	 */
+	test('Loop is as wide as its content, and Play fills the rest of the row and stays put', async ({ page }) => {
+		await openPanel(page, server.url, 'animated')
+		const panel = page.locator('.slide-out-panel')
+		const play = panel.getByRole('button', { name: /^(Play|Pause)$/ })
+		const loop = panel.getByRole('switch', { name: 'Loop' })
+		const row = panel.locator('.animation-controls')
+
+		const measure = async () => ({
+			play: (await play.boundingBox())!,
+			loop: (await loop.boundingBox())!,
+			row: (await row.boundingBox())!,
+		})
+		const before = await measure()
+		// Loop is its switch, its gap and its word, not the width of the row
+		expect(before.loop.width).toBeLessThan(before.row.width / 2)
+		expect(before.play.width).toBeGreaterThan(before.loop.width)
+		// Together they fill the row, with the gap between
+		expect(before.play.width + before.loop.width).toBeGreaterThan(before.row.width - 12)
+		expect(before.loop.x).toBeGreaterThan(before.play.x + before.play.width)
+
+		const name = await play.textContent()
+		await play.click()
+		await expect(play).not.toHaveText(name!.trim())
+		const after = await measure()
+		expect(after.loop.x).toBeCloseTo(before.loop.x, 0)
+		expect(after.loop.width).toBeCloseTo(before.loop.width, 0)
+		expect(after.play.width).toBeCloseTo(before.play.width, 0)
+	})
+
 	test('section headers are buttons that say whether they are open, and open on Enter and Space', async ({ page }) => {
 		await openPanel(page, server.url, 'gcode')
 		const panel = page.locator('.slide-out-panel')
