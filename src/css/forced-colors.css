@@ -64,7 +64,8 @@
 	   scoped `.active` / `.on` rules, which would otherwise keep their primary fill once
 	   adjust is off. */
 	.tdv-segmented.tdv-segmented button[aria-pressed="true"],
-	.preset-buttons .preset-btn.preset-btn[aria-pressed="true"] {
+	.preset-buttons .preset-btn.preset-btn[aria-pressed="true"],
+	.axis-buttons .axis-btn.axis-btn[aria-pressed="true"] {
 		border: 1px solid Highlight;
 		background: Highlight;
 		color: HighlightText;
