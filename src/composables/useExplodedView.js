@@ -1,11 +1,16 @@
 /**
  * Exploded view composable
  * Animates multi-mesh models outward from their common centroid
+ *
+ * Each part's own position is recorded in the registry of what viewer tools move
+ * (viewerTransforms) before it is first moved, so a thumbnail, and an export, can put
+ * the parts back together.
  */
 
 import { ref, shallowRef, computed } from 'vue'
 import { Vector3, Box3 } from 'three'
 import { logger } from '../utils/logger.js'
+import { ownTransformOf, rememberOwnTransform } from '../utils/viewerTransforms.js'
 
 export function useExplodedView() {
 	const isActive = ref(false)
@@ -44,12 +49,15 @@ export function useExplodedView() {
 		const meshCenter = new Vector3()
 
 		const entries = meshes.map((mesh) => {
+			// Where the model puts the part, whatever moved it since
+			rememberOwnTransform(mesh)
+			const originalPos = ownTransformOf(mesh).position.clone()
 			box.setFromObject(mesh)
 			box.getCenter(meshCenter)
 			return {
 				mesh,
 				center: meshCenter.clone(),
-				originalPos: mesh.position.clone(),
+				originalPos,
 			}
 		})
 

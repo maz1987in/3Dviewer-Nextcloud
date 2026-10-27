@@ -11,6 +11,7 @@ import { setViewerWireframe } from '../../../src/utils/viewerMaterialProps.js'
 import { useClippingPlane } from '../../../src/composables/useClippingPlane.js'
 import { applyGcodeColorScheme } from '../../../src/utils/gcodeColorScheme.js'
 import GCodeLoader from '../../../src/loaders/types/gcode.js'
+import { useExplodedView } from '../../../src/composables/useExplodedView.js'
 
 // What each render saw, read at the moment it happened
 const rendered = []
@@ -51,6 +52,19 @@ jest.mock('three', () => {
 })
 
 const canvas = () => ({ toBlob: (cb) => cb({ type: 'image/png' }) })
+
+/**
+ * Render a thumbnail of a model and return what the render saw.
+ *
+ * @param {THREE.Object3D} root - The model
+ * @return {Promise<object>} The parts' materials and world matrices, and the camera
+ */
+async function capture(root) {
+	await renderThumbnail(root, { canvas: canvas() })
+	return rendered[rendered.length - 1]
+}
+
+const positions = (root) => root.children.map((child) => child.position.toArray())
 
 /**
  * A model of three boxes in a scene, the first two sharing a material and the third
@@ -213,5 +227,57 @@ describe('the G-code colour setting', () => {
 			expect(child.material.vertexColors).toBe(true)
 			expect(child.material.color.getHex()).toBe(0xffffff)
 		}
+	})
+})
+
+describe('Exploded view', () => {
+	it('draws the parts together, framed as a plain capture frames them', async () => {
+		const plain = await capture(model().root)
+		const { root, a, b, multi } = model()
+		const exploded = useExplodedView()
+		exploded.init(root)
+		exploded.toggle()
+		expect(a.position.length()).toBeGreaterThan(0)
+
+		const seen = await capture(root)
+
+		for (const [part, index] of [[a, 0], [b, 1], [multi, 2]]) {
+			const together = [...plain.objects.values()][index].world
+			expect(seen.objects.get(part).world.equals(together)).toBe(true)
+		}
+		expect(seen.camera.distanceTo(plain.camera)).toBeLessThan(1e-9)
+	})
+
+	it('leaves the viewer exploded afterwards, by the same amount', async () => {
+		const { scene, root } = model()
+		const exploded = useExplodedView()
+		exploded.init(root)
+		exploded.setFactor(0.8)
+		const apart = positions(root)
+
+		await capture(root)
+
+		expect(positions(root)).toEqual(apart)
+		expect(root.parent).toBe(scene)
+		// and the slider carries on from there
+		exploded.setFactor(0)
+		expect(positions(root)).toEqual([[0, 0, 0], [2, 0, 0], [4, 0, 0]])
+	})
+
+	it('leaves the viewer exploded when the render throws', async () => {
+		const { root } = model()
+		const exploded = useExplodedView()
+		exploded.init(root)
+		exploded.toggle()
+		const apart = positions(root)
+		mockState.fail = true
+
+		await expect(renderThumbnail(root, { canvas: canvas() })).rejects.toThrow('context lost')
+
+		expect(positions(root)).toEqual(apart)
+		// World matrices follow, so the viewer's next frame and its picking agree
+		root.children.forEach((child) => {
+			expect(new THREE.Vector3().setFromMatrixPosition(child.matrixWorld).toArray()).toEqual(child.position.toArray())
+		})
 	})
 })
