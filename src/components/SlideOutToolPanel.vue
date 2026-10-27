@@ -633,7 +633,7 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import ViewerIcon from './ViewerIcon.vue'
 import ToggleSwitchRow from './ToggleSwitchRow.vue'
-import { shortcutFor, shortcutKey } from '../utils/toolShortcuts.js'
+import { isShortcutBlocked, shortcutFor, shortcutKey } from '../utils/toolShortcuts.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
 // eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
 import { translate as t } from '@nextcloud/l10n'
@@ -819,7 +819,9 @@ export default {
 
 		const handleKeyPress = (event) => {
 			if (event.key === 't' || event.key === 'T') {
-				if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA' || event.target.tagName === 'SELECT') return
+				// The same test the other shortcuts pass: not a key typed into a field, not
+				// one held with a modifier
+				if (isShortcutBlocked(event)) return
 				togglePanel()
 				return
 			}
