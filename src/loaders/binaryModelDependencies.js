@@ -14,6 +14,8 @@
  * half, so it knows which names to ask for.
  */
 
+import { normaliseRef } from './textureReferences.js'
+
 /**
  * How many textures one model may declare.
  *
@@ -57,6 +59,9 @@ const FBX_ASCII_VIDEO_OPEN = /^[^\S\r\n]*Video\s*:[^{]*\{\s*$/
 
 /** A `RelativeFilename` line on its own, for reading one inside a `Video` node. */
 const FBX_ASCII_RELATIVE_LINE = /^[^\S\r\n]*RelativeFilename\s*:\s*"([^"]*)"/
+
+/** A `Filename` line on its own: a `Video` node's other name for its image. */
+const FBX_ASCII_FILENAME_LINE = /^[^\S\r\n]*Filename\s*:\s*"([^"]*)"/
 
 /** A `Content` line: the image data itself, or a lone comma with the data on the next line. */
 const FBX_ASCII_CONTENT_LINE = /^[^\S\r\n]*Content\s*:(.*)$/
@@ -126,44 +131,6 @@ const utf8 = new TextDecoder('utf-8')
 const decodeText = (bytes) => utf8.decode(bytes)
 
 /**
- * Reduce a declared reference to a path inside the model's own folder, or reject it.
- *
- * Mirrors ModelDependencyResolver::normalise() — the client must ask for the same names
- * the server is willing to serve.
- *
- * @param {string} raw - reference exactly as the document wrote it
- * @return {string|null} normalised relative path, or null if it is not one
- */
-function normaliseRef(raw) {
-	// Exporters on Windows write backslashes; every path here uses forward slashes.
-	const path = String(raw).replace(/\\/g, '/').trim()
-
-	// A leading slash is absolute, and a scheme — data:, https:, and Windows' "C:" —
-	// means it is not a file beside the model.
-	if (path === '' || path.startsWith('/') || /^[a-z][a-z0-9+.-]*:/i.test(path)) {
-		return null
-	}
-
-	const segments = []
-	for (const segment of path.split('/')) {
-		if (segment === '' || segment === '.') {
-			continue
-		}
-		if (segment === '..') {
-			if (segments.length === 0) {
-				// Climbing out of the model's folder reaches files the share never covered.
-				return null
-			}
-			segments.pop()
-			continue
-		}
-		segments.push(segment)
-	}
-
-	return segments.length === 0 ? null : segments.join('/')
-}
-
-/**
  * @param {string[]} out - accumulator, deduplicated
  * @param {string} raw - reference as declared
  */
@@ -189,9 +156,12 @@ const keepWalking = (out, budget) => budget.nodes > 0 && out.length < MAX_DECLAR
 /**
  * Texture paths an FBX document declares, in document order.
  *
- * Only `RelativeFilename` is read. FBX also carries an absolute `FileName`, but an
- * absolute path is rejected by normalisation anyway, and guessing at its basename would
- * declare names the document never pointed at beside the model.
+ * `RelativeFilename` names the file. three's FBXLoader asks for a `Video` node's
+ * `RelativeFilename || Filename`, so where a video's `RelativeFilename` is empty or
+ * missing, its `Filename` is read instead. An absolute name, as Windows exporters write
+ * in `Filename` and often in `RelativeFilename` too, falls back to its bare file name
+ * beside the model (see normaliseRef). A `Texture` node's `FileName` is never asked for,
+ * so it is not read.
  *
  * A texture whose image is embedded is not a dependency. Its `Video` node carries the
  * bytes as non-empty `Content`, and three's FBXLoader keys those bytes by the video's
@@ -227,7 +197,7 @@ export function parseFbxTextures(data) {
 	if (decodeText(bytes.subarray(0, FBX_MAGIC.length)) !== FBX_MAGIC) {
 		// ASCII FBX, or not an FBX at all — either way the pattern is the whole parser.
 		const text = decodeText(bytes)
-		const embedded = asciiEmbeddedNames(text)
+		const { embedded, filenames } = asciiVideos(text)
 		for (const match of text.matchAll(FBX_ASCII_RELATIVE)) {
 			if (out.length >= MAX_DECLARED_TEXTURES) {
 				break
@@ -235,6 +205,12 @@ export function parseFbxTextures(data) {
 			if (!embedded.has(normaliseRef(match[1]))) {
 				collect(out, match[1])
 			}
+		}
+		for (const filename of filenames) {
+			if (out.length >= MAX_DECLARED_TEXTURES) {
+				break
+			}
+			collect(out, filename)
 		}
 		return { declared: out, embedded: [...embedded] }
 	}
@@ -255,24 +231,31 @@ export function parseFbxTextures(data) {
 }
 
 /**
- * Names of the `Video` nodes in an ASCII document that carry their image as content.
+ * What the `Video` nodes of an ASCII document say beyond their `RelativeFilename` lines:
+ * which names they carry the image of as content, and the `Filename` of each video whose
+ * `RelativeFilename` is empty or missing and that carries no image, which three's
+ * FBXLoader then asks for instead.
  *
- * Read the way three's text parser reads it: `Content: ,` puts the data on the next
- * line, any other value is the data itself, and either counts once it is not empty.
+ * Content is read the way three's text parser reads it: `Content: ,` puts the data on
+ * the next line, any other value is the data itself, and either counts once it is not
+ * empty. One pass over the lines.
  *
  * @param {string} text - the document
- * @return {Set<string>} normalised names whose image is embedded
+ * @return {{embedded: Set<string>, filenames: string[]}} normalised names whose image is
+ *   embedded, and the `Filename` values to declare, as written
  */
-function asciiEmbeddedNames(text) {
+function asciiVideos(text) {
 	const embedded = new Set()
-	if (!text.includes('Content')) {
-		return embedded
+	const filenames = []
+	if (!text.includes('Video')) {
+		return { embedded, filenames }
 	}
 
 	const lines = text.split(/\r\n|\r|\n/)
 	// Nesting below the Video node's opening line; 0 while outside one.
 	let depth = 0
 	let relative = null
+	let filename = null
 	let hasContent = false
 
 	for (let i = 0; i < lines.length; i++) {
@@ -281,6 +264,7 @@ function asciiEmbeddedNames(text) {
 			if (FBX_ASCII_VIDEO_OPEN.test(line)) {
 				depth = 1
 				relative = null
+				filename = null
 				hasContent = false
 			}
 			continue
@@ -291,6 +275,10 @@ function asciiEmbeddedNames(text) {
 			const rel = FBX_ASCII_RELATIVE_LINE.exec(line)
 			if (rel) {
 				relative = rel[1]
+			}
+			const file = FBX_ASCII_FILENAME_LINE.exec(line)
+			if (file) {
+				filename = file[1]
 			}
 			const content = FBX_ASCII_CONTENT_LINE.exec(line)
 			if (content) {
@@ -306,15 +294,19 @@ function asciiEmbeddedNames(text) {
 		const bare = line.replace(/"[^"]*"/g, '')
 		depth += (bare.match(/\{/g) ?? []).length - (bare.match(/\}/g) ?? []).length
 		if (depth <= 0) {
-			const path = hasContent && relative !== null ? normaliseRef(relative) : null
-			if (path !== null && FBX_EMBEDDABLE.test(path)) {
+			// The name three keys the video by: RelativeFilename || Filename
+			const name = relative || filename
+			const path = name ? normaliseRef(name) : null
+			if (hasContent && path !== null && FBX_EMBEDDABLE.test(path)) {
 				embedded.add(path)
+			} else if (!relative && filename) {
+				filenames.push(filename)
 			}
 			depth = 0
 		}
 	}
 
-	return embedded
+	return { embedded, filenames }
 }
 
 /**
@@ -384,7 +376,8 @@ function readFbxNodeList(view, start, end, wide, depth, budget, out, embedded) {
 }
 
 /**
- * A `Video` node's children: its `RelativeFilename`, and whether `Content` embeds the image.
+ * A `Video` node's children: its `RelativeFilename` (or `Filename`, where that is empty),
+ * and whether `Content` embeds the image.
  *
  * Only the direct children are read. Both properties sit there, and the order between
  * them is not fixed, so the decision waits until the whole list has been seen.
@@ -403,6 +396,7 @@ function readFbxVideo(view, start, end, wide, budget, out, embedded) {
 	const readField = (at) => (wide ? Number(view.getBigUint64(at, true)) : view.getUint32(at, true))
 	let cursor = start
 	let relative = null
+	let filename = null
 	let hasContent = false
 
 	while (cursor + headerSize <= end && budget.nodes > 0) {
@@ -425,6 +419,8 @@ function readFbxVideo(view, start, end, wide, budget, out, embedded) {
 		const name = decodeText(new Uint8Array(view.buffer, view.byteOffset + cursor + headerSize, nameLength))
 		if (name === 'RelativeFilename' && propCount > 0 && propsEnd <= end) {
 			relative = readFbxStringProperty(view, nameEnd, propsEnd) ?? relative
+		} else if (name === 'Filename' && propCount > 0 && propsEnd <= end) {
+			filename = readFbxStringProperty(view, nameEnd, propsEnd) ?? filename
 		} else if (name === 'Content' && propCount > 0 && propsEnd <= end) {
 			hasContent = hasContent || fbxPropertyHasBytes(view, nameEnd, propsEnd)
 		}
@@ -432,14 +428,16 @@ function readFbxVideo(view, start, end, wide, budget, out, embedded) {
 		cursor = endOffset
 	}
 
-	if (relative === null) {
+	// The name three's FBXLoader asks for: RelativeFilename || Filename
+	const chosen = relative || filename
+	if (!chosen) {
 		return
 	}
-	const path = normaliseRef(relative)
+	const path = normaliseRef(chosen)
 	if (hasContent && path !== null && FBX_EMBEDDABLE.test(path)) {
 		embedded.add(path)
 	} else if (out.length < MAX_DECLARED_TEXTURES) {
-		collect(out, relative)
+		collect(out, chosen)
 	}
 }
 

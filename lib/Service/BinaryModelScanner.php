@@ -52,6 +52,15 @@ final class BinaryModelScanner
     /** `RelativeFilename: "textures/wood.png"` in an ASCII document. */
     private const FBX_ASCII_RELATIVE = '/^[^\S\r\n]*RelativeFilename\s*:\s*"([^"]*)"/m';
 
+    /** The opening line of an ASCII `Video` node. */
+    private const FBX_ASCII_VIDEO_OPEN = '/^[^\S\r\n]*Video\s*:[^{]*\{\s*$/';
+
+    /** A `RelativeFilename` line on its own, for reading one inside a `Video` node. */
+    private const FBX_ASCII_RELATIVE_LINE = '/^[^\S\r\n]*RelativeFilename\s*:\s*"([^"]*)"/';
+
+    /** A `Filename` line on its own: a `Video` node's other name for its image. */
+    private const FBX_ASCII_FILENAME_LINE = '/^[^\S\r\n]*Filename\s*:\s*"([^"]*)"/';
+
     private const THREE_DS_MAIN = 0x4d4d;
 
     private const THREE_DS_MAPNAME = 0xa300;
@@ -126,9 +135,12 @@ final class BinaryModelScanner
     /**
      * Texture paths an FBX declares, in document order.
      *
-     * Only `RelativeFilename` is read. FBX also carries an absolute `FileName`, but an
-     * absolute path is rejected downstream anyway, and guessing at its basename would
-     * authorise names the document never pointed at.
+     * `RelativeFilename` names the file. three's FBXLoader asks for a `Video` node's
+     * `RelativeFilename || Filename`, so where a video's `RelativeFilename` is empty or
+     * missing, its `Filename` is read instead. An absolute name falls back to its bare
+     * file name downstream, in ModelDependencyResolver::normalise(). A `Texture` node's
+     * `FileName` is never asked for, so it authorises nothing. Mirrors
+     * parseFbxTextures() in src/loaders/binaryModelDependencies.js.
      *
      * @param resource $handle
      *
@@ -178,11 +190,60 @@ final class BinaryModelScanner
 
         /** @var array<int, array<int, string>> $matches */
         $matches = [];
-        if (preg_match_all(self::FBX_ASCII_RELATIVE, $text, $matches) < 1) {
+        $relative = preg_match_all(self::FBX_ASCII_RELATIVE, $text, $matches) > 0 ? $matches[1] : [];
+
+        return array_slice([...$relative, ...self::asciiVideoFilenames($text)], 0, self::MAX_TEXTURES);
+    }
+
+    /**
+     * The `Filename` of each ASCII `Video` node whose `RelativeFilename` is empty or
+     * missing: the name three's FBXLoader asks for then. One pass over the lines, the
+     * node's extent followed by its braces, which inside a quoted name are not structure.
+     *
+     * @return list<string>
+     */
+    private static function asciiVideoFilenames(string $text): array
+    {
+        if (!str_contains($text, 'Video') || !str_contains($text, 'Filename')) {
             return [];
         }
 
-        return array_slice($matches[1], 0, self::MAX_TEXTURES);
+        $names = [];
+        // Nesting below the Video node's opening line; 0 while outside one.
+        $depth = 0;
+        $relative = null;
+        $filename = null;
+        foreach (preg_split('/\r\n|\r|\n/', $text) ?: [] as $line) {
+            if ($depth === 0) {
+                if (preg_match(self::FBX_ASCII_VIDEO_OPEN, $line) === 1) {
+                    $depth = 1;
+                    $relative = null;
+                    $filename = null;
+                }
+                continue;
+            }
+
+            // Only the Video node's own properties; Properties70 and the like sit deeper.
+            if ($depth === 1) {
+                if (preg_match(self::FBX_ASCII_RELATIVE_LINE, $line, $match) === 1) {
+                    $relative = $match[1];
+                }
+                if (preg_match(self::FBX_ASCII_FILENAME_LINE, $line, $match) === 1) {
+                    $filename = $match[1];
+                }
+            }
+
+            $bare = preg_replace('/"[^"]*"/', '', $line) ?? $line;
+            $depth += substr_count($bare, '{') - substr_count($bare, '}');
+            if ($depth <= 0) {
+                if (($relative === null || $relative === '') && $filename !== null && $filename !== '') {
+                    $names[] = $filename;
+                }
+                $depth = 0;
+            }
+        }
+
+        return $names;
     }
 
     /** @return list<string> */
@@ -280,12 +341,75 @@ final class BinaryModelScanner
                 if ($value !== null) {
                     $this->found[] = $value;
                 }
+            } elseif ($name === 'Video' && $propertiesEnd < $endOffset) {
+                $this->readFbxVideo($propertiesEnd, $endOffset, $wide, $depth + 1);
             } elseif ($propertiesEnd < $endOffset) {
                 // Stepping over the property list is what keeps a large mesh cheap.
                 $this->readFbxNodeList($propertiesEnd, $endOffset, $wide, $depth + 1);
             }
 
             $cursor = $endOffset;
+        }
+    }
+
+    /**
+     * A `Video` node's children. Its `RelativeFilename` is declared as anywhere else; where
+     * that is empty or missing, its `Filename` is, the name three's FBXLoader then asks
+     * for. Other children are walked as any node's are.
+     */
+    private function readFbxVideo(int $start, int $end, bool $wide, int $depth): void
+    {
+        if ($depth > self::MAX_DEPTH) {
+            return;
+        }
+
+        $fieldSize = $wide ? 8 : 4;
+        $headerSize = $fieldSize * 3 + 1;
+        $format = $wide ? 'Pend/Pcount/Pbytes' : 'Vend/Vcount/Vbytes';
+        $cursor = $start;
+        $relative = null;
+        $filename = null;
+
+        while ($cursor + $headerSize <= $end && !$this->exhausted()) {
+            $this->budget--;
+
+            $header = $this->read($cursor, $headerSize);
+            if (strlen($header) < $headerSize) {
+                break;
+            }
+            $fields = unpack($format, substr($header, 0, $fieldSize * 3));
+            if (!is_array($fields)) {
+                break;
+            }
+            $endOffset = (int) $fields['end'];
+            $propertyCount = (int) $fields['count'];
+            $propertyBytes = (int) $fields['bytes'];
+            $nameLength = ord($header[$fieldSize * 3]);
+            if ($endOffset === 0 || $endOffset <= $cursor || $endOffset > $end) {
+                break;
+            }
+            $nameEnd = $cursor + $headerSize + $nameLength;
+            if ($nameEnd > $end) {
+                break;
+            }
+            $name = $this->read($cursor + $headerSize, $nameLength);
+            $propertiesEnd = $nameEnd + $propertyBytes;
+
+            if ($name === 'RelativeFilename' && $propertyCount > 0 && $propertiesEnd <= $end) {
+                // readFbxStringProperty() reads an empty string as none
+                $relative = $this->readFbxStringProperty($nameEnd, $propertiesEnd) ?? $relative;
+            } elseif ($name === 'Filename' && $propertyCount > 0 && $propertiesEnd <= $end) {
+                $filename = $this->readFbxStringProperty($nameEnd, $propertiesEnd) ?? $filename;
+            } elseif ($propertiesEnd < $endOffset) {
+                $this->readFbxNodeList($propertiesEnd, $endOffset, $wide, $depth + 1);
+            }
+
+            $cursor = $endOffset;
+        }
+
+        $chosen = $relative ?? $filename;
+        if ($chosen !== null && count($this->found) < self::MAX_TEXTURES) {
+            $this->found[] = $chosen;
         }
     }
 

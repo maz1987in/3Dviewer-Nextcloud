@@ -10,6 +10,9 @@ import { loadModelForBackground } from '../../../src/thumbnails/backgroundLoad.j
 import { createBackgroundQueue } from '../../../src/thumbnails/backgroundQueue.js'
 import { ThumbnailBudgetError, ThumbnailEnvironmentError } from '../../../src/thumbnails/errors.js'
 import { loadModelWithDependencies } from '../../../src/loaders/multiFileHelpers.js'
+import * as THREE from 'three'
+import X3dLoader from '../../../src/loaders/types/x3d.js'
+import DaeLoader from '../../../src/loaders/types/dae.js'
 
 jest.mock('@nextcloud/router', () => ({
 	generateUrl: (p) => `/index.php${p}`,
@@ -279,10 +282,13 @@ describe('loadModelForBackground', () => {
 		const fromDae = await loadModelForBackground(40, 'chair.dae', 'dae', '/models', { budgetBytes: MB })
 		const fromX3d = await loadModelForBackground(43, 'wall.x3d', 'x3d', '/models', { budgetBytes: MB })
 
-		// A drive-letter path reads as a URL scheme and is not declared, here as in the
-		// viewer and the server's resolver; the worker then refuses it, which skips the file
-		expect(fromDae.dependencies.map((file) => file.name)).toEqual(['wood.png'])
+		// A drive-letter path is from the author's machine, so it is looked for by its name
+		// beside the model, and only there
+		expect(fromDae.dependencies.map((file) => file.name)).toEqual(['wood.png', 'metal.png'])
 		expect(fromDae.missingFiles).toEqual([])
+		expect(server.urls().filter((url) => url.includes('metal.png'))).toEqual([
+			`/index.php/apps/threedviewer/api/files/find?path=${encodeURIComponent('models/metal.png')}`,
+		])
 		// Not at maps/stone.png, so by its name beside the model; the remote one is not a companion
 		expect(fromX3d.dependencies.map((file) => file.name)).toEqual(['stone.png'])
 		expect(fromX3d.missingFiles).toEqual([])
@@ -343,6 +349,41 @@ describe('loadModelForBackground', () => {
 		expect(result.dependencies.map((file) => file.name)).toEqual(['chair.mtl', 'wood.png', 'normal.png'])
 		expect(server.urls()).not.toContain('/index.php/apps/threedviewer/api/file/34')
 		expect(server.urls().some((url) => url.includes('/api/files/list'))).toBe(false)
+	})
+
+	it('looks for an MTL map named by an absolute path or a file: URL by its name beside the model only', async () => {
+		const server = serve({
+			'parts/chair.obj': { id: 30, body: 'mtllib chair.mtl\nf 1 2 3\n' },
+			'parts/chair.mtl': { id: 31, body: 'newmtl seat\nmap_Kd file:///C:/My%20Textures/wood%20grain.png\nbump /home/anna/maps/normal.png\n' },
+			'parts/wood grain.png': { id: 32, body: 'PNG' },
+			'parts/normal.png': { id: 33, body: 'PNG' },
+			// Where the absolute path's own directories would lead, were they followed
+			'parts/home/anna/maps/normal.png': { id: 34, body: 'PNG' },
+		})
+
+		const result = await loadModelForBackground(30, 'chair.obj', 'obj', '/parts', { budgetBytes: MB })
+
+		expect(result.dependencies.map((file) => file.name)).toEqual(['chair.mtl', 'wood grain.png', 'normal.png'])
+		expect(result.missingFiles).toEqual([])
+		expect(server.urls().filter((url) => url.includes('/api/files/find'))).toEqual([
+			`/index.php/apps/threedviewer/api/files/find?path=${encodeURIComponent('parts/chair.mtl')}`,
+			`/index.php/apps/threedviewer/api/files/find?path=${encodeURIComponent('parts/wood grain.png')}`,
+			`/index.php/apps/threedviewer/api/files/find?path=${encodeURIComponent('parts/normal.png')}`,
+		])
+	})
+
+	it('reads an MTL map\'s path after its options', async () => {
+		serve({
+			'parts/chair.obj': { id: 30, body: 'mtllib chair.mtl\nf 1 2 3\n' },
+			'parts/chair.mtl': { id: 31, body: 'newmtl seat\nmap_Kd -bm 0.3 file:///C:/T/wood%20grain.png\nbump -bm 1 maps/normal.png\n' },
+			'parts/wood grain.png': { id: 32, body: 'PNG' },
+			'parts/maps/normal.png': { id: 33, body: 'PNG' },
+		})
+
+		const result = await loadModelForBackground(30, 'chair.obj', 'obj', '/parts', { budgetBytes: MB })
+
+		expect(result.dependencies.map((file) => file.name)).toEqual(['chair.mtl', 'wood grain.png', 'normal.png'])
+		expect(result.missingFiles).toEqual([])
 	})
 
 	it('passes the one signal to every request', async () => {
@@ -440,9 +481,10 @@ describe('loadModelForBackground in the queue', () => {
 	 *
 	 * @param {object} statuses - Status by file id
 	 * @param {number} folderBudgetMB - Budget per visit
+	 * @param {Function} [render] - Stands in for the worker, instead of the default stub
 	 * @return {object} The queue and the fakes to inspect
 	 */
-	function queueOn(statuses, folderBudgetMB) {
+	function queueOn(statuses, folderBudgetMB, render = null) {
 		const skipped = new Set()
 		const deps = {
 			settings: { background: true, maxFileSizeMB: 100, timeoutSeconds: 60, folderBudgetMB },
@@ -451,7 +493,7 @@ describe('loadModelForBackground in the queue', () => {
 				uploadThumbnail: jest.fn(async () => 'stored'),
 			},
 			load: loadModelForBackground,
-			render: jest.fn(async (job) => {
+			render: render ? jest.fn(render) : jest.fn(async (job) => {
 				if (job.extension === 'gltf' && !job.additionalFiles.some((file) => file.name === 'scene.bin')) {
 					throw new Error('THREE.GLTFLoader: Failed to load buffer "scene.bin".')
 				}
@@ -544,6 +586,141 @@ describe('loadModelForBackground in the queue', () => {
 		expect(deps.render.mock.calls.map(([job]) => job.additionalFiles.map((file) => file.name))).toEqual([['checker.png']])
 		expect(deps.api.uploadThumbnail.mock.calls.map(([id]) => id)).toEqual([70])
 		expect(deps.skips.markSkipped).not.toHaveBeenCalled()
+	})
+
+	it('a DAE naming its image by a Windows path fetches it by name beside the model, renders and uploads', async () => {
+		const dae = '<COLLADA><library_images><image id="img"><init_from>C:\\textures\\wood.png</init_from></image></library_images></COLLADA>'
+		const server = serve({
+			'scenes/room.dae': { id: 80, body: dae },
+			'scenes/wood.png': { id: 81, body: 'PNG' },
+		})
+		const statuses = { 80: { name: 'room.dae', dir: '/scenes', size: dae.length, etag: 'e80', canEdit: true, hasThumbnail: false } }
+		const { queue, deps } = queueOn(statuses, 10)
+
+		queue.setFolder('/scenes', [80], new Set())
+		await queue.idle()
+
+		expect(server.urls().filter((url) => url.includes('/api/files/find'))).toEqual([
+			`/index.php/apps/threedviewer/api/files/find?path=${encodeURIComponent('scenes/wood.png')}`,
+		])
+		expect(server.urls()).toContain('/index.php/apps/threedviewer/api/file/81')
+		expect(deps.render.mock.calls.map(([job]) => job.additionalFiles.map((file) => file.name))).toEqual([['wood.png']])
+		expect(deps.api.uploadThumbnail.mock.calls.map(([id]) => id)).toEqual([80])
+		expect(deps.skips.markSkipped).not.toHaveBeenCalled()
+	})
+
+	it('a DAE naming its image by a Windows path that is not beside it is skipped, even when the path exists below', async () => {
+		serve({
+			'scenes/room.dae': { id: 90, body: '<COLLADA><library_images><image id="img"><init_from>file:///C:/textures/wood.png</init_from></image></library_images></COLLADA>' },
+			// The directories of an absolute path are never followed
+			'scenes/C:/textures/wood.png': { id: 91, body: 'PNG' },
+			'scenes/textures/wood.png': { id: 92, body: 'PNG' },
+		})
+		const statuses = { 90: { name: 'room.dae', dir: '/scenes', size: 128, etag: 'e90', canEdit: true, hasThumbnail: false } }
+		const { queue, deps } = queueOn(statuses, 10)
+
+		queue.setFolder('/scenes', [90], new Set())
+		await queue.idle()
+
+		expect(deps.render).not.toHaveBeenCalled()
+		expect(deps.api.uploadThumbnail).not.toHaveBeenCalled()
+		expect(deps.skips.markSkipped.mock.calls).toEqual([[90, 'e90']])
+	})
+
+	describe('with the real loader drawing the model', () => {
+		/** A 1×1 PNG. */
+		const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64')
+		const QUERY_URL = 'file:///C:/x/checker.png?v=2#top'
+
+		let imageLoads
+		beforeEach(() => {
+			imageLoads = []
+			// What the worker's image decoder would be asked to load, after the loader's
+			// own manager has had its say
+			jest.spyOn(THREE.ImageLoader.prototype, 'load').mockImplementation(function(url) {
+				imageLoads.push(this.manager.resolveURL(this.path === undefined ? url : this.path + url))
+				return null
+			})
+		})
+		afterEach(() => jest.restoreAllMocks())
+
+		/**
+		 * @param {object} object3D - Loaded model
+		 * @return {boolean} Whether any mesh got a texture
+		 */
+		const textured = (object3D) => {
+			let found = false
+			object3D.traverse((child) => {
+				if (child.isMesh && [].concat(child.material).some((material) => material?.map)) {
+					found = true
+				}
+			})
+			return found
+		}
+
+		it('an X3D naming its image by a file: URL with a query renders textured, or is not uploaded', async () => {
+			const x3d = `<X3D><Scene><Shape><Appearance><Material/><ImageTexture url='"${QUERY_URL}"'/></Appearance>
+<IndexedFaceSet coordIndex="0 1 2 3 -1" texCoordIndex="0 1 2 3 -1"><Coordinate point="0 0 0 1 0 0 1 1 0 0 1 0"/><TextureCoordinate point="0 0 1 0 1 1 0 1"/></IndexedFaceSet>
+</Shape></Scene></X3D>`
+			serve({
+				'scenes/wall.x3d': { id: 100, body: x3d },
+				'scenes/checker.png': { id: 101, body: PNG.toString('latin1') },
+			})
+			const statuses = { 100: { name: 'wall.x3d', dir: '/scenes', size: x3d.length, etag: 'e100', canEdit: true, hasThumbnail: false } }
+			const { queue, deps } = queueOn(statuses, 10, async (job) => {
+				const files = job.additionalFiles.map((file) => new File([file], file.name, { type: 'image/png' }))
+				const { object3D } = await new X3dLoader().loadModel(job.buffer, { THREE, additionalFiles: files })
+				if (!textured(object3D)) {
+					throw new Error('rendered untextured')
+				}
+				return { type: 'image/png', size: 4 }
+			})
+
+			queue.setFolder('/scenes', [100], new Set())
+			await queue.idle()
+
+			expect(deps.render).toHaveBeenCalledTimes(1)
+			await expect(deps.render.mock.results[0].value).resolves.toEqual({ type: 'image/png', size: 4 })
+			expect(deps.api.uploadThumbnail.mock.calls.map(([id]) => id)).toEqual([100])
+		})
+
+		it('a DAE naming its image by a file: URL with a query loads the fetched file, not the URL', async () => {
+			const dae = `<?xml version="1.0" encoding="utf-8"?>
+<COLLADA xmlns="http://www.collada.org/2005/11/COLLADASchema" version="1.4.1">
+<asset><up_axis>Y_UP</up_axis></asset>
+<library_images><image id="img"><init_from>${QUERY_URL.replaceAll('&', '&amp;')}</init_from></image></library_images>
+<library_effects><effect id="fx"><profile_COMMON><newparam sid="surf"><surface type="2D"><init_from>img</init_from></surface></newparam><newparam sid="samp"><sampler2D><source>surf</source></sampler2D></newparam><technique sid="common"><lambert><diffuse><texture texture="samp" texcoord="UV"/></diffuse></lambert></technique></profile_COMMON></effect></library_effects>
+<library_materials><material id="mat"><instance_effect url="#fx"/></material></library_materials>
+<library_geometries><geometry id="quad"><mesh>
+<source id="pos"><float_array id="pos-a" count="12">0 0 0 1 0 0 1 1 0 0 1 0</float_array><technique_common><accessor source="#pos-a" count="4" stride="3"><param name="X" type="float"/><param name="Y" type="float"/><param name="Z" type="float"/></accessor></technique_common></source>
+<source id="uv"><float_array id="uv-a" count="8">0 0 1 0 1 1 0 1</float_array><technique_common><accessor source="#uv-a" count="4" stride="2"><param name="S" type="float"/><param name="T" type="float"/></accessor></technique_common></source>
+<vertices id="v"><input semantic="POSITION" source="#pos"/></vertices>
+<triangles count="2" material="m"><input semantic="VERTEX" source="#v" offset="0"/><input semantic="TEXCOORD" source="#uv" offset="0" set="0"/><p>0 1 2 0 2 3</p></triangles>
+</mesh></geometry></library_geometries>
+<library_visual_scenes><visual_scene id="s"><node id="n"><instance_geometry url="#quad"><bind_material><technique_common><instance_material symbol="m" target="#mat"/></technique_common></bind_material></instance_geometry></node></visual_scene></library_visual_scenes>
+<scene><instance_visual_scene url="#s"/></scene>
+</COLLADA>`
+			serve({
+				'scenes/quad.dae': { id: 110, body: dae },
+				'scenes/checker.png': { id: 111, body: PNG.toString('latin1') },
+			})
+			const statuses = { 110: { name: 'quad.dae', dir: '/scenes', size: dae.length, etag: 'e110', canEdit: true, hasThumbnail: false } }
+			const { queue, deps } = queueOn(statuses, 10, async (job) => {
+				const files = job.additionalFiles.map((file) => new File([file], file.name, { type: 'image/png' }))
+				await new DaeLoader().loadModel(job.buffer, { THREE, additionalFiles: files })
+				if (!imageLoads.some((url) => url.startsWith('data:image/png;base64,'))) {
+					throw new Error(`rendered untextured: asked for ${imageLoads.join(', ')}`)
+				}
+				return { type: 'image/png', size: 4 }
+			})
+
+			queue.setFolder('/scenes', [110], new Set())
+			await queue.idle()
+
+			expect(deps.render.mock.calls.map(([job]) => job.additionalFiles.map((file) => file.name))).toEqual([['checker.png']])
+			await expect(deps.render.mock.results[0].value).resolves.toEqual({ type: 'image/png', size: 4 })
+			expect(deps.api.uploadThumbnail.mock.calls.map(([id]) => id)).toEqual([110])
+		})
 	})
 
 	it('a DAE or X3D whose texture is not beside it is skipped, not rendered untextured', async () => {

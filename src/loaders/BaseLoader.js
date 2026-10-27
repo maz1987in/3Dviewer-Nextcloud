@@ -26,6 +26,103 @@ import {
 import { logger } from '../utils/logger.js'
 
 /**
+ * The names a loader's request for a texture may match a fetched companion by.
+ *
+ * Loaders ask for the reference as the model wrote it, `C:\textures\wood.jpg` or
+ * `file:///C:/My%20Textures/wood%20grain.jpg?v=2`, while the companion was fetched under
+ * the bare, decoded name normaliseRef() in textureReferences.js gives it. So: the last
+ * segment after either separator, and that segment percent-decoded when it differs. A
+ * `file:` URL loses its query and fragment first, as normaliseRef drops them; any other
+ * reference keeps them, since `#` and `?` are legal in a file name on disk. A `file:`
+ * URL's decoded name comes first, since that is the name its companion was fetched by;
+ * for anything else the name as written does.
+ *
+ * Kept here rather than beside normaliseRef: every loader chunk already imports this
+ * module, and importing that one from them would split it into a chunk of its own, which
+ * the main entry then pays for in its preload list.
+ *
+ * @param {string} url - what the loader asked for
+ * @return {string[]} one or two candidate names, the likelier first
+ */
+export function requestedFileNames(url) {
+	let text = String(url)
+	const fileUrl = /^[ \t\n\r\v\f]*file:/i.test(text)
+	if (fileUrl) {
+		const end = text.search(/[?#]/)
+		if (end !== -1) {
+			text = text.slice(0, end)
+		}
+	}
+	const name = text.split(/[/\\]/).pop() || ''
+	let decoded = name
+	try {
+		decoded = decodeURIComponent(name)
+	} catch {
+		// A malformed escape is kept as written, as normaliseRef keeps it
+	}
+	if (decoded === name) {
+		return [name]
+	}
+	return fileUrl ? [decoded, name] : [name, decoded]
+}
+
+/**
+ * An opaque white pixel: a texture that requests nothing and leaves the material's own
+ * colour as it is.
+ */
+export const NO_TEXTURE_URL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mP4DwQACfsD/Wj6HMwAAAAASUVORK5CYII='
+
+/**
+ * What a loader's URL modifier hands back for a URL that matches none of the model's
+ * companions, so that the browser never requests it.
+ *
+ * A model names its textures with any URL it likes, `https://elsewhere/x.png` or a UNC
+ * path that a browser reads as `https://host/x.png`; requested as written, the viewer's
+ * browser would contact a host of the model author's choosing, with only the page's
+ * Content Security Policy in the way. So:
+ *
+ * - `data:` and `blob:` URLs are the loader's own (an embedded image, a GLB's images) and
+ *   are kept: a `blob:` URL can only name an object made by this origin
+ * - in the thumbnail worker, three's default manager carries the worker's resolver, which
+ *   maps a handed file to an object URL or records a refusal that fails the job; its
+ *   answer is used
+ * - anywhere else, on the page, the URL becomes NO_TEXTURE_URL, and nothing is requested
+ *
+ * The app's decoder assets never come here: DRACO, KTX2 and the other decoders load them
+ * through their own loaders and managers.
+ *
+ * @param {string} url - what the loader asked for, matched to no companion
+ * @return {string} the URL to load instead
+ */
+export function unmatchedResourceUrl(url) {
+	const text = String(url)
+	if (/^(data|blob):/i.test(text)) {
+		return text
+	}
+	const resolved = THREE.DefaultLoadingManager.resolveURL(text)
+	return resolved !== text ? resolved : NO_TEXTURE_URL
+}
+
+/**
+ * A loading manager whose URL modifier maps a request to a companion with `match`, and
+ * anything it does not match to unmatchedResourceUrl(), so that nothing a model names
+ * is requested from the network.
+ *
+ * @param {(url: string) => ?string} [match] - a companion's URL for a request, or null
+ * @return {THREE.LoadingManager} the manager
+ */
+export function companionLoadingManager(match = () => null) {
+	const manager = new THREE.LoadingManager()
+	manager.setURLModifier((url) => {
+		if (/^(data|blob):/i.test(String(url))) {
+			return url
+		}
+		return match(url) ?? unmatchedResourceUrl(url)
+	})
+	return manager
+}
+
+/**
  * Base loader class with common functionality
  */
 export class BaseLoader {

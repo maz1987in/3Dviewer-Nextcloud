@@ -72,6 +72,51 @@ describe('createWorkerResources', () => {
 		])
 	})
 
+	it('resolves a texture named by an absolute path or a file: URL to the handed file of that name', () => {
+		// The queue fetched these by their bare names, decoded, beside the model
+		const resources = resourcesFor([new File(['png'], 'wood.png'), new File(['png'], 'wood grain.png')])
+		const wood = resources.resolve('wood.png')
+
+		for (const url of [
+			'C:\\Users\\anna\\Desktop\\textures\\wood.png',
+			'C:/textures/wood.png',
+			'/home/anna/textures/WOOD.PNG',
+			'\\\\server\\share\\wood.png',
+			'file:///C:/textures/wood.png',
+			'file://server/share/wood.png',
+			'file:/home/anna/wood.png',
+		]) {
+			expect(resources.resolve(url)).toBe(wood)
+		}
+		expect(resources.resolve('file:///C:/My%20Textures/wood%20grain.png')).toBe(`blob:${ORIGIN}/2-wood grain.png`)
+		expect(resources.refused).toEqual([])
+	})
+
+	it('refuses an absolute path or a file: URL whose name it was not handed, without a request', async () => {
+		const resources = resourcesFor([new File(['png'], 'wood.png')])
+		const urls = [
+			'C:\\textures\\secret.png',
+			'/etc/passwd',
+			'\\\\server\\share\\secret.png',
+			'file:///C:/textures/secret.png',
+			'file:///C:/textures/wood.png/',
+			'file:///C:/textures/wood%2Epng%2F..',
+		]
+
+		for (const url of urls) {
+			expect(resources.resolve(url)).toBe(url)
+			expect(resources.isAllowed(url)).toBe(false)
+		}
+		expect(resources.refused).toEqual(urls)
+
+		// A loader that fetches the URL as written is stopped by the guard, before any request
+		const nativeFetch = jest.fn()
+		const scope = { fetch: nativeFetch, URL: {} }
+		guardWorkerRequests(scope, () => resources)
+		await expect(scope.fetch('file:///C:/textures/wood.png')).rejects.toBeInstanceOf(RefusedResourceError)
+		expect(nativeFetch).not.toHaveBeenCalled()
+	})
+
 	it('allows data: URLs and the blob: URLs the worker made, but no other blob:', () => {
 		const resources = resourcesFor()
 		resources.noteObjectUrl(`blob:${ORIGIN}/made-here`)

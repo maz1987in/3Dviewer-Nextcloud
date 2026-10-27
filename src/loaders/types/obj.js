@@ -1,6 +1,6 @@
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js'
 import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js'
-import { BaseLoader } from '../BaseLoader.js'
+import { BaseLoader, companionLoadingManager, requestedFileNames } from '../BaseLoader.js'
 import { logger } from '../../utils/logger.js'
 import { decodeTextFromBuffer } from '../../utils/fileHelpers.js'
 import { getBoundingInfo } from '../../utils/three-utils.js'
@@ -335,10 +335,12 @@ class ObjLoader extends BaseLoader {
 			// Search for MTL file in dependencies
 
 			// Find the MTL file in the pre-fetched dependencies
+			// An absolute mtllib was fetched by its bare name
+			const mtlNames = requestedFileNames(mtlName)
 			const mtlFile = additionalFiles.find(file => {
 				// Handle both relative and absolute paths
 				const fileName = file.name.split('/').pop()
-				return fileName === mtlName || file.name.endsWith(mtlName)
+				return fileName === mtlName || file.name.endsWith(mtlName) || mtlNames.includes(fileName)
 			})
 
 			// MTL file found
@@ -350,7 +352,10 @@ class ObjLoader extends BaseLoader {
 
 				if (mtlText && mtlText.trim().length > 0) {
 					try {
-						this.mtlLoader = new MTLLoader()
+						// Its textures are loaded from the companions by createTextureLoader;
+						// should three's own loader ever request one, it gets nothing from
+						// the network (see unmatchedResourceUrl)
+						this.mtlLoader = new MTLLoader(companionLoadingManager())
 						this.mtlLoader.setPath('')
 
 						// Try native Three.js MTLLoader first
@@ -589,7 +594,6 @@ class ObjLoader extends BaseLoader {
 				// Try to find texture with original path first (preserves directory structure)
 				// Fall back to basename only if not found (handles flat file storage)
 				const normalizedUrl = url.replace(/\\/g, '/') // Convert backslashes
-				const basename = normalizedUrl.split('/').pop()
 
 				// Try exact match first (case-insensitive)
 				let textureFile = additionalFiles.find(file => {
@@ -597,11 +601,15 @@ class ObjLoader extends BaseLoader {
 					return filePath.toLowerCase() === normalizedUrl.toLowerCase()
 				})
 
-				// Fall back to basename match if full path not found
+				// Fall back to the basename if the full path is not found, also decoded: a
+				// file: URL encodes the name, and the texture was fetched by its decoded one.
+				// Taken from the whole URL, as a file: URL's query goes only while the
+				// scheme is still there to say it is one
 				if (!textureFile) {
+					const wanted = requestedFileNames(url).map(name => name.toLowerCase())
 					textureFile = additionalFiles.find(file => {
 						const fileName = file.name.split('/').pop()
-						return fileName.toLowerCase() === basename.toLowerCase()
+						return wanted.includes(fileName.toLowerCase())
 					})
 				}
 

@@ -255,6 +255,28 @@ class ModelDependencyResolverTest extends TestCase
         $this->resolver->resolve($model, 'leak.png');
     }
 
+    public function testServesAGltfUriNamedByAnAbsolutePathFromBesideTheModel(): void
+    {
+        $image = $this->fileNamed('wood grain.png');
+        $buffer = $this->fileNamed('scene.bin');
+        $model = $this->gltfModel(
+            json_encode([
+                'buffers' => [['uri' => 'C:\\export\\scene.bin']],
+                'images' => [['uri' => 'file:///C:/My%20Textures/wood%20grain.png']],
+            ], JSON_THROW_ON_ERROR),
+            [
+                'wood grain.png' => $image,
+                'scene.bin' => $buffer,
+                // Where the paths' own directories would lead, were they followed
+                'C:/export/scene.bin' => $this->fileNamed('scene.bin'),
+                'My Textures/wood grain.png' => $this->fileNamed('wood grain.png'),
+            ],
+        );
+
+        $this->assertSame($image, $this->resolver->resolve($model, 'wood grain.png'));
+        $this->assertSame($buffer, $this->resolver->resolve($model, 'scene.bin'));
+    }
+
     public function testSurvivesUnparseableGltf(): void
     {
         $model = $this->gltfModel('{ this is not json', ['scene.bin' => $this->fileNamed('scene.bin')]);
@@ -682,8 +704,30 @@ class ModelDependencyResolverTest extends TestCase
         $this->assertSame($texture, $this->resolver->resolve($model, 'wood.png'));
     }
 
-    public function testRefusesAnAbsoluteFbxTexturePath(): void
+    /**
+     * The directories of an absolute path are on the author's machine. Followed inside
+     * the model's folder they would let a declaration pick any subfolder, so only the
+     * name is used, and only beside the model.
+     */
+    public function testServesAnAbsoluteFbxTexturePathOnlyByItsNameBesideTheModel(): void
     {
+        $beside = $this->fileNamed('wood.png');
+        $model = $this->modelNamed(
+            'scene.fbx',
+            $this->fbxDocumentWith(['C:\\Users\\someone\\wood.png']),
+            [
+                'wood.png' => $beside,
+                'C:/Users/someone/wood.png' => $this->fileNamed('wood.png'),
+            ],
+        );
+
+        $this->assertSame($beside, $this->resolver->resolve($model, 'wood.png'));
+    }
+
+    public function testNeverFollowsTheDirectoriesOfAnAbsoluteFbxTexturePath(): void
+    {
+        // Nothing beside the model: the file the path's directories lead to is the only
+        // one of that name, and it is not served
         $model = $this->modelNamed(
             'scene.fbx',
             $this->fbxDocumentWith(['C:\\Users\\someone\\wood.png']),
@@ -692,6 +736,421 @@ class ModelDependencyResolverTest extends TestCase
 
         $this->expectException(NotFoundException::class);
         $this->resolver->resolve($model, 'wood.png');
+    }
+
+    /**
+     * The table tests/unit/loaders/textureReferences.test.js holds the client to, read
+     * through both binary formats, whose declarations reach normalise() as written.
+     *
+     * @return array<string, array{string, string, ?string}>
+     */
+    public static function sharedReferenceTable(): array
+    {
+        /** @var array{cases: list<array{ref: string, expected: ?string, why: string}>} $table */
+        $table = json_decode(
+            (string) file_get_contents(__DIR__ . '/../../fixtures/texture-references.json'),
+            true,
+            flags: JSON_THROW_ON_ERROR,
+        );
+
+        $cases = [];
+        foreach ($table['cases'] as $case) {
+            foreach (['fbx', '3ds'] as $format) {
+                // A 3DS map name ends at its first NUL, so it cannot carry one
+                if ($format === '3ds' && str_contains($case['ref'], "\0")) {
+                    continue;
+                }
+                $cases[$format . ': ' . $case['why'] . ': ' . json_encode($case['ref'])] = [$format, $case['ref'], $case['expected']];
+            }
+        }
+
+        return $cases;
+    }
+
+    #[DataProvider('sharedReferenceTable')]
+    public function testNormalisesAReferenceAsTheClientDoes(string $format, string $ref, ?string $expected): void
+    {
+        $folded = ltrim(str_replace('\\', '/', trim($ref)), '/');
+        $document = $format === 'fbx' ? $this->fbxDocumentWith([$ref]) : $this->threeDsDocumentWith([$ref]);
+
+        if ($expected !== null) {
+            $texture = $this->fileNamed($expected);
+            // A different file where the reference's own directories lead, so serving
+            // that one instead would fail the assertion rather than pass by accident
+            $siblings = [$expected => $texture];
+            if ($folded !== $expected) {
+                $siblings[$folded] = $this->fileNamed(basename($expected));
+            }
+            $model = $this->modelNamed('scene.' . $format, $document, $siblings);
+
+            $this->assertSame($texture, $this->resolver->resolve($model, basename($expected)));
+
+            return;
+        }
+
+        // Rejected: whatever name a client might ask for is refused, even with a file of
+        // that name beside the model
+        $slash = strrpos($folded, '/');
+        $last = $slash === false ? $folded : substr($folded, $slash + 1);
+        $names = array_unique(array_filter(
+            ['wood.jpg', $last, rawurldecode($last)],
+            static fn (string $name): bool => $name !== '' && $name !== '.' && $name !== '..' && strpbrk($name, "/\\\0") === false,
+        ));
+        $siblings = [];
+        foreach ($names as $name) {
+            $siblings[$name] = $this->fileNamed($name);
+        }
+        if ($folded !== '') {
+            $siblings[$folded] = $this->fileNamed(basename($folded));
+        }
+        $model = $this->modelNamed('scene.' . $format, $document, $siblings);
+
+        foreach ($names as $name) {
+            try {
+                $this->resolver->resolve($model, $name);
+                $this->fail(sprintf('%s should not make %s servable', json_encode($ref), $name));
+            } catch (NotFoundException) {
+                $this->addToAssertionCount(1);
+            }
+        }
+    }
+
+    /**
+     * COLLADA and X3D values, decoded before they are normalised; the rows the client's
+     * parseXmlModelDependencies() is held to.
+     *
+     * @return array<string, array{string, string, ?string}>
+     */
+    public static function sharedXmlTable(): array
+    {
+        /** @var array{xml: list<array{ref: string, expected: ?string, why: string}>} $table */
+        $table = json_decode(
+            (string) file_get_contents(__DIR__ . '/../../fixtures/texture-references.json'),
+            true,
+            flags: JSON_THROW_ON_ERROR,
+        );
+
+        $cases = [];
+        foreach ($table['xml'] as $case) {
+            $cases['dae: ' . $case['why']] = ['chair.dae', '<COLLADA><library_images><image><init_from>' . $case['ref'] . '</init_from></image></library_images></COLLADA>', $case['expected']];
+            $cases['x3d: ' . $case['why']] = ['wall.x3d', '<X3D><Scene><ImageTexture url=\'"' . $case['ref'] . '"\'/></Scene></X3D>', $case['expected']];
+        }
+
+        return $cases;
+    }
+
+    #[DataProvider('sharedXmlTable')]
+    public function testDecodesAnXmlReferenceAsTheClientDoes(string $name, string $document, ?string $expected): void
+    {
+        if ($expected === null) {
+            $model = $this->modelNamed($name, $document, ['remote.png' => $this->fileNamed('remote.png')]);
+            $this->expectException(NotFoundException::class);
+            $this->resolver->resolve($model, 'remote.png');
+
+            return;
+        }
+
+        $texture = $this->fileNamed($expected);
+        $model = $this->modelNamed($name, $document, [$expected => $texture]);
+
+        $this->assertSame($texture, $this->resolver->resolve($model, basename($expected)));
+    }
+
+    /**
+     * A reference is a string the uploader chose. Every check on it is a fixed-length
+     * test at its start or a single forward scan; mirrors the linear-time cases in
+     * tests/unit/loaders/textureReferences.test.js.
+     *
+     * @return array<string, array{string, string}>
+     */
+    public static function craftedReferences(): array
+    {
+        return [
+            'a run of backslashes after a drive letter' => ['C:' . str_repeat('\\', 1000000) . 'wood.jpg', 'wood.jpg'],
+            'a run of slashes' => [str_repeat('/', 1000000) . 'wood.jpg', 'wood.jpg'],
+            'a file: URL of stray percent signs' => ['file:///' . str_repeat('%', 1000000) . '.png', str_repeat('%', 1000000) . '.png'],
+            'a file: URL of escapes' => ['file:///' . str_repeat('%41', 300000) . '.png', str_repeat('A', 300000) . '.png'],
+            'a file: URL of query marks' => ['file:///wood.jpg' . str_repeat('?', 1000000), 'wood.jpg'],
+        ];
+    }
+
+    #[DataProvider('craftedReferences')]
+    public function testReducesACraftedReferenceInLinearTime(string $ref, string $name): void
+    {
+        $texture = $this->fileNamed($name);
+        $model = $this->modelNamed('scene.fbx', $this->fbxDocumentWith([$ref]), [$name => $texture]);
+
+        $started = microtime(true);
+
+        $this->assertSame($texture, $this->resolver->resolve($model, $name));
+        $this->assertLessThan(1.0, microtime(true) - $started);
+    }
+
+    public function testServesAColladaImageNamedByAWindowsPathFromBesideTheModel(): void
+    {
+        $texture = $this->fileNamed('wood.jpg');
+        $model = $this->modelNamed(
+            'room.dae',
+            '<COLLADA><library_images>'
+            . '<image id="a"><init_from>C:\\Users\\anna\\Desktop\\textures\\wood.jpg</init_from></image>'
+            . '</library_images></COLLADA>',
+            ['wood.jpg' => $texture],
+        );
+
+        $this->assertSame($texture, $this->resolver->resolve($model, 'wood.jpg'));
+    }
+
+    /**
+     * A name an absolute path fell back to is served from the model's folder alone. The
+     * folder mock answers get() by whole path, so a subfolder holding the name would
+     * only be reached by a lookup that went looking in it.
+     */
+    public function testNeverServesANameOnlyEntryFromASubfolder(): void
+    {
+        $document = '<COLLADA><library_images><image><init_from>/home/anna/textures/wood.jpg</init_from></image></library_images></COLLADA>';
+        $below = [
+            'textures/wood.jpg' => $this->fileNamed('wood.jpg'),
+            'home/anna/textures/wood.jpg' => $this->fileNamed('wood.jpg'),
+        ];
+
+        // Asserted first, so the refusal below cannot pass merely because the
+        // declaration was dropped: with the name beside the model, that file is served
+        $beside = $this->fileNamed('wood.jpg');
+        $withBeside = $this->modelNamed('room.dae', $document, ['wood.jpg' => $beside] + $below);
+        $this->assertSame($beside, $this->resolver->resolve($withBeside, 'wood.jpg'));
+
+        $model = $this->modelNamed('room.dae', $document, $below);
+
+        $this->expectException(NotFoundException::class);
+        $this->resolver->resolve($model, 'wood.jpg');
+    }
+
+    public function testDecodesAPercentEncodedFileUrlOnce(): void
+    {
+        $grain = $this->fileNamed('wood grain.jpg');
+        $literal = $this->fileNamed('100%20.png');
+        $model = $this->modelNamed(
+            'room.dae',
+            '<COLLADA><library_images>'
+            . '<image><init_from>file:///C:/My%20Textures/wood%20grain.jpg</init_from></image>'
+            . '<image><init_from>file:///C:/x/100%2520.png</init_from></image>'
+            . '</library_images></COLLADA>',
+            ['wood grain.jpg' => $grain, '100%20.png' => $literal, '100 .png' => $this->fileNamed('100 .png')],
+        );
+
+        $this->assertSame($grain, $this->resolver->resolve($model, 'wood grain.jpg'));
+        $this->assertSame($literal, $this->resolver->resolve($model, '100%20.png'));
+    }
+
+    public function testServesAnX3dUrlNamedByAFileUrlFromBesideTheModel(): void
+    {
+        $texture = $this->fileNamed('checker.png');
+        $model = $this->modelNamed(
+            'wall.x3d',
+            '<X3D><Scene><ImageTexture url=\'"file:///C:/x/checker.png" "https://example.invalid/checker.png"\'/></Scene></X3D>',
+            ['checker.png' => $texture],
+        );
+
+        $this->assertSame($texture, $this->resolver->resolve($model, 'checker.png'));
+    }
+
+    /**
+     * An absolute map in a material that lives in a subfolder still names a place on
+     * the author's machine, not one below the material: by name, beside the model.
+     */
+    public function testServesAnAbsoluteMapOfASubfolderMaterialFromBesideTheModel(): void
+    {
+        $texture = $this->fileNamed('wood.png');
+        $model = $this->objModel(
+            "mtllib mats/chair.mtl\n",
+            [
+                'mats/chair.mtl' => $this->fileNamed('chair.mtl', "map_Kd C:\\textures\\wood.png\n"),
+                'wood.png' => $texture,
+                'mats/wood.png' => $this->fileNamed('wood.png'),
+                'mats/C:/textures/wood.png' => $this->fileNamed('wood.png'),
+            ],
+        );
+
+        $this->assertSame($texture, $this->resolver->resolve($model, 'wood.png'));
+    }
+
+    public function testRefusesARemoteMapOfASubfolderMaterial(): void
+    {
+        // Prefixed with the material's folder before the scheme was checked, this read as
+        // the relative path mats/https:/example.invalid/wood.png
+        $model = $this->objModel(
+            "mtllib mats/chair.mtl\n",
+            [
+                'mats/chair.mtl' => $this->fileNamed('chair.mtl', "map_Kd https://example.invalid/wood.png\n"),
+                'mats/https:/example.invalid/wood.png' => $this->fileNamed('wood.png'),
+            ],
+        );
+
+        $this->expectException(NotFoundException::class);
+        $this->resolver->resolve($model, 'wood.png');
+    }
+
+    public function testReadsAnAbsoluteMapAfterItsOptions(): void
+    {
+        $texture = $this->fileNamed('wood grain.png');
+        $model = $this->objModel(
+            "mtllib chair.mtl\n",
+            [
+                'chair.mtl' => $this->fileNamed('chair.mtl', "map_Kd -bm 0.3 -s 1 1 1 file:///C:/T/wood%20grain.png\n"),
+                'wood grain.png' => $texture,
+            ],
+        );
+
+        $this->assertSame($texture, $this->resolver->resolve($model, 'wood grain.png'));
+    }
+
+    public function testServesAnAbsoluteMtllibByItsNameBesideTheModel(): void
+    {
+        $texture = $this->fileNamed('wood.png');
+        $model = $this->objModel(
+            "mtllib D:\\exports\\chair.mtl\n",
+            [
+                'chair.mtl' => $this->fileNamed('chair.mtl', "map_Kd wood.png\n"),
+                'wood.png' => $texture,
+            ],
+        );
+
+        $this->assertSame($texture, $this->resolver->resolve($model, 'wood.png'));
+    }
+
+    /**
+     * Both declarations key the same name. Whichever comes first is what the name
+     * serves, so a later one, absolute or relative, cannot redirect it.
+     */
+    public function testTheFirstDeclarationOfANameWinsBetweenAbsoluteAndRelative(): void
+    {
+        $beside = $this->fileNamed('wood.png');
+        $below = $this->fileNamed('wood.png');
+        $siblings = ['wood.png' => $beside, 'textures/wood.png' => $below];
+
+        $relativeFirst = $this->modelNamed(
+            'scene.fbx',
+            $this->fbxDocumentWith(['textures/wood.png', 'C:\\export\\wood.png']),
+            $siblings,
+        );
+        $absoluteFirst = $this->modelNamed(
+            'scene.fbx',
+            $this->fbxDocumentWith(['C:\\export\\wood.png', 'textures/wood.png']),
+            $siblings,
+        );
+
+        $this->assertSame($below, $this->resolver->resolve($relativeFirst, 'wood.png'));
+        $this->assertSame($beside, $this->resolver->resolve($absoluteFirst, 'wood.png'));
+    }
+
+    /**
+     * three's FBXLoader asks for a Video's `RelativeFilename || Filename`, so a Video
+     * whose RelativeFilename is empty names its file by Filename, absolute as exporters
+     * write it.
+     *
+     * @param list<callable> $children the Video's child nodes
+     */
+    private function fbxWithVideo(array $children): string
+    {
+        return $this->fbxDocument([$this->fbxNode('Objects', [], [
+            $this->fbxNode('Video', [$this->fbxStringProperty('Video::map')], $children),
+        ])]);
+    }
+
+    public function testServesAVideosAbsoluteFilenameWhenItsRelativeFilenameIsEmpty(): void
+    {
+        $texture = $this->fileNamed('wood.png');
+        $model = $this->modelNamed('scene.fbx', $this->fbxWithVideo([
+            $this->fbxNode('Filename', [$this->fbxStringProperty('C:\\Users\\anna\\textures\\wood.png')], []),
+            $this->fbxNode('RelativeFilename', [$this->fbxStringProperty('')], []),
+        ]), ['wood.png' => $texture, 'C:/Users/anna/textures/wood.png' => $this->fileNamed('wood.png')]);
+
+        $this->assertSame($texture, $this->resolver->resolve($model, 'wood.png'));
+    }
+
+    public function testServesAVideosFilenameWhenItHasNoRelativeFilename(): void
+    {
+        $texture = $this->fileNamed('wood grain.png');
+        $model = $this->modelNamed('scene.fbx', $this->fbxWithVideo([
+            $this->fbxNode('Filename', [$this->fbxStringProperty('file:///C:/x/wood%20grain.png')], []),
+        ]), ['wood grain.png' => $texture]);
+
+        $this->assertSame($texture, $this->resolver->resolve($model, 'wood grain.png'));
+    }
+
+    public function testIgnoresAVideosFilenameWhileItsRelativeFilenameIsSet(): void
+    {
+        $model = $this->modelNamed('scene.fbx', $this->fbxWithVideo([
+            $this->fbxNode('Filename', [$this->fbxStringProperty('C:\\elsewhere\\other.png')], []),
+            $this->fbxNode('RelativeFilename', [$this->fbxStringProperty('wood.png')], []),
+        ]), ['wood.png' => $this->fileNamed('wood.png'), 'other.png' => $this->fileNamed('other.png')]);
+
+        $this->assertSame('wood.png', $this->resolver->resolve($model, 'wood.png')->getName());
+        $this->expectException(NotFoundException::class);
+        $this->resolver->resolve($model, 'other.png');
+    }
+
+    /**
+     * The ASCII Video walk reads each line with anchored patterns; mirrors the linear-time
+     * cases in tests/unit/loaders/binaryModelDependencies.test.js.
+     *
+     * @return array<string, array{string}>
+     */
+    public static function craftedAsciiVideos(): array
+    {
+        return [
+            'a long run of blanks after Filename' => ["\t\tFilename" . str_repeat(' ', 1000000) . 'x'],
+            'a long Video line without its brace' => ['Video: ' . str_repeat('a', 1000000)],
+            'many quoted names on one line' => [str_repeat('"a" ', 250000)],
+            'many Video blocks' => [str_repeat("\tVideo: 1, \"V\", \"C\" {\n\t\tFilename: \"C:\\x.png\"\n\t}\n", 50000)],
+        ];
+    }
+
+    #[DataProvider('craftedAsciiVideos')]
+    public function testReadsACraftedAsciiVideoInLinearTime(string $body): void
+    {
+        $model = $this->modelNamed(
+            'scene.fbx',
+            "Objects:  {\n\tVideo: 1, \"Video::a\", \"Clip\" {\n" . $body . "\n\t}\n}\n",
+            ['wood.png' => $this->fileNamed('wood.png')],
+        );
+
+        $started = microtime(true);
+
+        try {
+            $this->resolver->resolve($model, 'wood.png');
+        } catch (NotFoundException) {
+            // Only the timing is under test
+        }
+
+        $this->assertLessThan(1.5, microtime(true) - $started);
+    }
+
+    public function testServesAnAsciiVideosFilenameWhenItsRelativeFilenameIsEmpty(): void
+    {
+        $texture = $this->fileNamed('wood.png');
+        $model = $this->modelNamed(
+            'scene.fbx',
+            "; FBX 7.4.0 project file\nObjects:  {\n"
+            . "\tVideo: 1, \"Video::wood\", \"Clip\" {\n\t\tFilename: \"C:\\Users\\anna\\wood.png\"\n\t\tRelativeFilename: \"\"\n\t}\n"
+            . "\tVideo: 2, \"Video::metal\", \"Clip\" {\n\t\tFilename: \"C:\\other.png\"\n\t\tRelativeFilename: \"metal.png\"\n\t}\n"
+            . "\tTexture: 3, \"Texture::x\", \"\" {\n\t\tFileName: \"C:\\Users\\anna\\texture.png\"\n\t\tRelativeFilename: \"\"\n\t}\n}\n",
+            [
+                'wood.png' => $texture,
+                'other.png' => $this->fileNamed('other.png'),
+                'texture.png' => $this->fileNamed('texture.png'),
+            ],
+        );
+
+        $this->assertSame($texture, $this->resolver->resolve($model, 'wood.png'));
+        foreach (['other.png', 'texture.png'] as $name) {
+            try {
+                $this->resolver->resolve($model, $name);
+                $this->fail($name . ' is not what three asks for');
+            } catch (NotFoundException) {
+                $this->addToAssertionCount(1);
+            }
+        }
     }
 
     public function testServesATextureA3dsDeclares(): void

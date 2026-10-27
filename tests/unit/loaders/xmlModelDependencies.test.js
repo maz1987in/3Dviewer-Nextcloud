@@ -5,6 +5,7 @@
  * on a public share.
  */
 import { parseXmlModelDependencies } from '../../../src/loaders/multiFileHelpers.js'
+import table from '../../fixtures/texture-references.json'
 
 describe('parseXmlModelDependencies', () => {
 	it('reads a COLLADA 1.4 init_from path', () => {
@@ -136,10 +137,83 @@ describe('parseXmlModelDependencies', () => {
 		const dae = `<COLLADA><library_images>
 			<image><init_from>data:image/png;base64,AAAA</init_from></image>
 			<image><init_from>https://example.invalid/remote.png</init_from></image>
+			<image><init_from>http://example.invalid/remote.png</init_from></image>
+			<image><init_from>ftp://example.invalid/remote.png</init_from></image>
+			<image><init_from>blob:https://cloud.example.com/1234</init_from></image>
 			<image><init_from>local.png</init_from></image>
 		</library_images></COLLADA>`
 
 		expect(parseXmlModelDependencies(dae, 'dae')).toEqual(['local.png'])
+	})
+
+	it('declares a COLLADA image named by an absolute path by its bare name', () => {
+		// SketchUp and 3ds Max write the path on the author's machine
+		const dae = `<COLLADA><library_images>
+			<image id="a"><init_from>C:\\Users\\anna\\Desktop\\textures\\wood.jpg</init_from></image>
+			<image id="b"><init_from>C:/textures/metal.jpg</init_from></image>
+			<image id="c"><init_from>file:///C:/My%20Textures/wood%20grain.jpg</init_from></image>
+			<image id="d"><init_from>/home/anna/textures/stone.jpg</init_from></image>
+			<image id="e"><init_from>\\\\server\\share\\brick.jpg</init_from></image>
+			<image id="f"><init_from><ref>file://server/share/tile.jpg</ref></init_from></image>
+		</library_images></COLLADA>`
+
+		expect(parseXmlModelDependencies(dae, 'dae'))
+			.toEqual(['wood.jpg', 'metal.jpg', 'wood grain.jpg', 'stone.jpg', 'brick.jpg', 'tile.jpg'])
+	})
+
+	it('declares an X3D url named by an absolute path by its bare name', () => {
+		const x3d = `<X3D><Scene>
+			<ImageTexture url='"file:///C:/x/checker%20board.png" "C:\\x\\checker.png"'/>
+			<ImageTexture url="&quot;/home/anna/stone.png&quot; &quot;https://example.invalid/stone.png&quot;"/>
+		</Scene></X3D>`
+
+		expect(parseXmlModelDependencies(x3d, 'x3d')).toEqual(['checker board.png', 'checker.png', 'stone.png'])
+	})
+
+	it('decodes a file: URL\'s name once, not twice', () => {
+		// %2520 is an encoded %20: the file is called "100%20.png"
+		const dae = '<COLLADA><library_images><image><init_from>file:///C:/x/100%2520.png</init_from></image></library_images></COLLADA>'
+
+		expect(parseXmlModelDependencies(dae, 'dae')).toEqual(['100%20.png'])
+	})
+
+	it('refuses an absolute path whose name is no file name', () => {
+		const dae = `<COLLADA><library_images>
+			<image><init_from>C:\\textures\\</init_from></image>
+			<image><init_from>/home/anna/..</init_from></image>
+			<image><init_from>file:///C:/x/%2E%2E</init_from></image>
+			<image><init_from>file:///C:/x/a%2Fwood.png</init_from></image>
+		</library_images></COLLADA>`
+
+		expect(parseXmlModelDependencies(dae, 'dae')).toEqual([])
+	})
+
+	it('treats a reference that decodes to a scheme or a leading slash as the server does', () => {
+		// The server decodes before it normalises, so the client has to as well
+		const dae = `<COLLADA><library_images>
+			<image><init_from>https%3A//example.invalid/remote.png</init_from></image>
+			<image><init_from>%2Fhome%2Fanna%2Fwood.png</init_from></image>
+		</library_images></COLLADA>`
+
+		expect(parseXmlModelDependencies(dae, 'dae')).toEqual(['wood.png'])
+	})
+
+	it('keeps relative paths as they were', () => {
+		const dae = `<COLLADA><library_images>
+			<image><init_from>textures/wood%20grain.png</init_from></image>
+			<image><init_from>../shared/metal.png</init_from></image>
+		</library_images></COLLADA>`
+
+		expect(parseXmlModelDependencies(dae, 'dae')).toEqual(['textures/wood grain.png', '../shared/metal.png'])
+	})
+
+	// The same rows the server's resolver is held to
+	it.each(table.xml.map(({ ref, expected, why }) => [why, ref, expected]))('decodes as the server does: %s: %j', (_, ref, expected) => {
+		const dae = `<COLLADA><library_images><image><init_from>${ref}</init_from></image></library_images></COLLADA>`
+		const x3d = `<X3D><Scene><ImageTexture url='"${ref}"'/></Scene></X3D>`
+
+		expect(parseXmlModelDependencies(dae, 'dae')).toEqual(expected === null ? [] : [expected])
+		expect(parseXmlModelDependencies(x3d, 'x3d')).toEqual(expected === null ? [] : [expected])
 	})
 
 	it('deduplicates a texture shared by several materials', () => {

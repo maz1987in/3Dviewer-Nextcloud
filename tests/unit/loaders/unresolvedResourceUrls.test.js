@@ -6,13 +6,14 @@
  * manager, and handed anything else back as the URL the model wrote, which the loader
  * then fetched. In the background thumbnail worker that let a crafted model in a shared
  * folder make a browsing editor's browser request any URL. They now hand an unknown URL
- * to three's default loading manager instead: on a page it has no URL modifier, so the
- * URL comes back unchanged and the viewer behaves as before; in the worker the modifier
- * is the worker's resolver, which refuses it.
+ * to three's default loading manager instead: in the worker its modifier is the worker's
+ * resolver, which refuses it; on a page it has none, and the URL becomes a placeholder
+ * that requests nothing (see noRemoteTextureRequests.test.js).
  */
 
 import * as THREE from 'three'
 import { GltfLoader } from '../../../src/loaders/types/gltf.js'
+import { NO_TEXTURE_URL } from '../../../src/loaders/BaseLoader.js'
 import ThreeDSLoader from '../../../src/loaders/types/threeDS.js'
 
 let tdsManager = null
@@ -64,7 +65,24 @@ describe('glTF', () => {
 		expect(manager.resolveURL('../../other.bin')).toBe('refused:../../other.bin')
 	})
 
-	it('on a page, where the default manager has no modifier, the URL is unchanged', async () => {
+	it('maps an absolute or encoded URI to the companion fetched by its decoded name', async () => {
+		const loader = new GltfLoader()
+		const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js')
+		loader.loader = new GLTFLoader()
+
+		await loader.setupResourceManager([
+			new File(['png'], 'wood grain.png', { type: 'image/png' }),
+			new File(['bin'], 'scene.bin', { type: 'application/octet-stream' }),
+		])
+		const { manager } = loader.loader
+
+		expect(manager.resolveURL('file:///C:/My%20Textures/wood%20grain.png')).toBe('blob:test/1')
+		expect(manager.resolveURL('wood%20grain.png')).toBe('blob:test/1')
+		expect(manager.resolveURL('C:\\export\\scene.bin')).toBe('blob:test/2')
+		expect(manager.resolveURL('scene.bin?v=2')).toBe('blob:test/2')
+	})
+
+	it('on a page, where the default manager has no modifier, nothing is requested', async () => {
 		THREE.DefaultLoadingManager.setURLModifier(undefined)
 		const loader = new GltfLoader()
 		const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js')
@@ -72,7 +90,7 @@ describe('glTF', () => {
 
 		await loader.setupResourceManager([new File(['bin'], 'scene.bin', { type: 'application/octet-stream' })])
 
-		expect(loader.loader.manager.resolveURL('textures/wood.png')).toBe('textures/wood.png')
+		expect(loader.loader.manager.resolveURL('textures/wood.png')).toBe(NO_TEXTURE_URL)
 	})
 })
 
@@ -87,5 +105,22 @@ describe('3DS', () => {
 
 		expect(tdsManager.resolveURL('checker.png')).toMatch(/^data:image\/png;base64,/)
 		expect(tdsManager.resolveURL('https://example.invalid/x.png')).toBe('refused:https://example.invalid/x.png')
+	})
+
+	it('maps a texture named by an absolute path by its name, and refuses one it was not given', async () => {
+		const context = {
+			THREE,
+			additionalFiles: [
+				new File(['png'], 'checker.png', { type: 'image/png' }),
+				new File(['png'], 'bump map.png', { type: 'image/png' }),
+			],
+		}
+
+		await new ThreeDSLoader().loadModel(new ArrayBuffer(8), context)
+
+		expect(tdsManager.resolveURL('C:\\3DSMAX\\MAPS\\CHECKER.PNG')).toMatch(/^data:image\/png;base64,/)
+		expect(tdsManager.resolveURL('\\\\server\\share\\checker.png')).toMatch(/^data:image\/png;base64,/)
+		expect(tdsManager.resolveURL('file:///C:/maps/bump%20map.png')).toMatch(/^data:image\/png;base64,/)
+		expect(tdsManager.resolveURL('C:\\maps\\other.png')).toBe('refused:C:\\maps\\other.png')
 	})
 })

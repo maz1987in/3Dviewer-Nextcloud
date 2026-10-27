@@ -1,4 +1,4 @@
-import { BaseLoader } from '../BaseLoader.js'
+import { BaseLoader, companionLoadingManager } from '../BaseLoader.js'
 import { decodeTextFromBuffer } from '../../utils/fileHelpers.js'
 
 /**
@@ -28,7 +28,9 @@ class VrmlLoader extends BaseLoader {
 
 		// Load VRML loader dynamically
 		const { VRMLLoader } = await import('three/examples/jsm/loaders/VRMLLoader.js')
-		this.loader = new VRMLLoader()
+		// VRML is a single file: an ImageTexture url names nothing the viewer fetched, so
+		// none is requested (see unmatchedResourceUrl)
+		this.loader = new VRMLLoader(companionLoadingManager())
 
 		// Try parsing first without preprocessing
 		// Only apply preprocessing if initial parse fails
