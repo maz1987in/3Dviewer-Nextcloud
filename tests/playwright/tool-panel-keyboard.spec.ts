@@ -311,34 +311,71 @@ test.describe('Tools panel from the keyboard', () => {
 	 * Play and Loop share a flex row. Loop was given the full width of a panel row, which
 	 * became its flex basis and squeezed Play to its minimum, and Loop jumped sideways
 	 * whenever Play changed to Pause. Measured in the real app, on a model with an animation.
+	 *
+	 * Every figure is taken from one layout, in one evaluation, and positions are relative to
+	 * the row. An earlier version read each element's position with a call of its own while
+	 * the panel was still sliding in: on a slower machine the two reads were of different
+	 * frames, and Loop appeared to start beyond the end of Play.
 	 */
 	test('Loop is as wide as its content, and Play fills the rest of the row and stays put', async ({ page }) => {
 		await openPanel(page, server.url, 'animated')
 		const panel = page.locator('.slide-out-panel')
 		const play = panel.getByRole('button', { name: /^(Play|Pause)$/ })
-		const loop = panel.getByRole('switch', { name: 'Loop' })
-		const row = panel.locator('.animation-controls')
+		await expect(panel.getByRole('switch', { name: 'Loop' })).toBeVisible()
 
-		const measure = async () => ({
-			play: (await play.boundingBox())!,
-			loop: (await loop.boundingBox())!,
-			row: (await row.boundingBox())!,
+		// The panel slides in; measure it where it rests
+		await panel.evaluate((el) => Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished)))
+
+		const measure = () => panel.evaluate((el) => {
+			const row = el.querySelector('.animation-controls') as HTMLElement
+			const playButton = row.querySelector('.tool-btn') as HTMLElement
+			const loopButton = row.querySelector('[role="switch"]') as HTMLElement
+			const rect = (node: Element) => node.getBoundingClientRect()
+			const r = rect(row)
+			const p = rect(playButton)
+			const l = rect(loopButton)
+			// What Loop needs: its padding, its track, the gap, and its word
+			const style = getComputedStyle(loopButton)
+			const track = rect(loopButton.querySelector('.toggle-switch')!).width
+			const word = rect(loopButton.querySelector('.toggle-text')!).width
+			const content = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight)
+				+ track + parseFloat(style.columnGap) + word
+			return {
+				rowWidth: r.width,
+				playWidth: p.width,
+				loopWidth: l.width,
+				loopContent: content,
+				// positions along the row, from its own left edge
+				playStart: p.left - r.left,
+				playEnd: p.right - r.left,
+				loopStart: l.left - r.left,
+				loopEnd: l.right - r.left,
+				overflows: row.scrollWidth > row.clientWidth,
+			}
 		})
-		const before = await measure()
-		// Loop is its switch, its gap and its word, not the width of the row
-		expect(before.loop.width).toBeLessThan(before.row.width / 2)
-		expect(before.play.width).toBeGreaterThan(before.loop.width)
-		// Together they fill the row, with the gap between
-		expect(before.play.width + before.loop.width).toBeGreaterThan(before.row.width - 12)
-		expect(before.loop.x).toBeGreaterThan(before.play.x + before.play.width)
 
-		const name = await play.textContent()
+		const before = await measure()
+		// Loop is as wide as its own content, give or take rounding
+		expect(Math.abs(before.loopWidth - before.loopContent)).toBeLessThanOrEqual(1)
+		// and Play, which has the rest of the row, is the wider of the two
+		expect(before.playWidth).toBeGreaterThan(before.loopWidth)
+		// They sit one after the other inside the row: no overlap, nothing past its end
+		expect(before.playEnd).toBeLessThanOrEqual(before.loopStart + 0.5)
+		expect(before.loopEnd).toBeLessThanOrEqual(before.rowWidth + 0.5)
+		expect(before.overflows).toBe(false)
+		// Play fills what Loop leaves: the two and the gap between them are the row
+		expect(before.playEnd - before.playStart + before.loopWidth).toBeGreaterThan(before.rowWidth * 0.9)
+
+		// Pause is a different word from Play, so the button's own content changes width;
+		// Loop must not move for it
+		const name = (await play.textContent())!.trim()
 		await play.click()
-		await expect(play).not.toHaveText(name!.trim())
+		await expect(play).not.toHaveText(name)
 		const after = await measure()
-		expect(after.loop.x).toBeCloseTo(before.loop.x, 0)
-		expect(after.loop.width).toBeCloseTo(before.loop.width, 0)
-		expect(after.play.width).toBeCloseTo(before.play.width, 0)
+		expect(Math.abs(after.loopStart - before.loopStart)).toBeLessThanOrEqual(0.5)
+		expect(Math.abs(after.loopWidth - before.loopWidth)).toBeLessThanOrEqual(0.5)
+		expect(Math.abs(after.playWidth - before.playWidth)).toBeLessThanOrEqual(0.5)
+		expect(after.overflows).toBe(false)
 	})
 
 	test('section headers are buttons that say whether they are open, and open on Enter and Space', async ({ page }) => {
