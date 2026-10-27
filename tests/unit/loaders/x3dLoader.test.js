@@ -85,6 +85,21 @@ describe('X3D loader textures', () => {
 		expect(load.mock.calls[0][0]).toMatch(/^data:image\/png;base64,/)
 	})
 
+	it('maps a file: URL with a query and fragment by its name', async () => {
+		const withQuery = QUAD.replace(
+			'"textures/checker.png" "https://example.invalid/checker.png"',
+			'"file:///C:/x/checker.png?v=2#top"',
+		)
+
+		const result = await new X3dLoader().loadModel(buffer(withQuery), {
+			THREE,
+			additionalFiles: [new File([PNG], 'checker.png', { type: 'image/png' })],
+		})
+
+		const [material] = materials(result.object3D)
+		expect(material.map).toBeInstanceOf(THREE.Texture)
+	})
+
 	it('leaves a texture it was not handed off, without loading anything', async () => {
 		const result = await new X3dLoader().loadModel(buffer(QUAD), { THREE, additionalFiles: [] })
 

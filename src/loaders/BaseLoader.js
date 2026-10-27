@@ -29,9 +29,11 @@ import { logger } from '../utils/logger.js'
  * The names a loader's request for a texture may match a fetched companion by.
  *
  * Loaders ask for the reference as the model wrote it, `C:\textures\wood.jpg` or
- * `file:///C:/My%20Textures/wood%20grain.jpg`, while the companion was fetched under the
- * bare, decoded name normaliseRef() in textureReferences.js gives it. So: the last segment
- * after either separator, and that segment percent-decoded when it differs.
+ * `file:///C:/My%20Textures/wood%20grain.jpg?v=2`, while the companion was fetched under
+ * the bare, decoded name normaliseRef() in textureReferences.js gives it. So: the last
+ * segment after either separator, and that segment percent-decoded when it differs. A
+ * `file:` URL loses its query and fragment first, as normaliseRef drops them; any other
+ * reference keeps them, since `#` and `?` are legal in a file name on disk.
  *
  * Kept here rather than beside normaliseRef: every loader chunk already imports this
  * module, and importing that one from them would split it into a chunk of its own, which
@@ -41,7 +43,14 @@ import { logger } from '../utils/logger.js'
  * @return {string[]} one or two candidate names, the name as written first
  */
 export function requestedFileNames(url) {
-	const name = String(url).split(/[/\\]/).pop() || ''
+	let text = String(url)
+	if (/^\s*file:/i.test(text)) {
+		const end = text.search(/[?#]/)
+		if (end !== -1) {
+			text = text.slice(0, end)
+		}
+	}
+	const name = text.split(/[/\\]/).pop() || ''
 	let decoded = name
 	try {
 		decoded = decodeURIComponent(name)

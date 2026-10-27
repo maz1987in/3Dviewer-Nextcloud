@@ -53,6 +53,8 @@ describe('DAE loader texture URLs', () => {
 		['UNC', '\\\\server\\share\\WOOD.PNG'],
 		['file: URL', 'file:///C:/textures/wood.png'],
 		['percent-encoded file: URL', 'file:///C:/My%20Textures/wood%20grain.png'],
+		['file: URL with a query and fragment', 'file:///C:/textures/wood.png?v=2#top'],
+		['encoded file: URL with a query', 'file:///C:/My%20Textures/wood%20grain.png?v=2'],
 	])('maps a %s request to the companion of that name', (_, url) => {
 		expect(colladaManager.resolveURL(url)).toMatch(/^data:image\/png;base64,/)
 	})

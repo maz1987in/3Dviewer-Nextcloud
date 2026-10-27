@@ -21,6 +21,16 @@ describe('requestedFileNames', () => {
 		expect(requestedFileNames('file:///C:/My%20Textures/wood%20grain.jpg')).toEqual(['wood%20grain.jpg', 'wood grain.jpg'])
 	})
 
+	it('drops a file: URL\'s query and fragment, as the declaration does', () => {
+		expect(requestedFileNames('file:///C:/x/wood.jpg?v=2#top')).toEqual(['wood.jpg'])
+		expect(requestedFileNames('file:///C:/x/wood%20grain.jpg#top')).toEqual(['wood%20grain.jpg', 'wood grain.jpg'])
+	})
+
+	it('keeps # and ? in any other reference, where they may be part of the name', () => {
+		expect(requestedFileNames('C:\\x\\wood#1.jpg')).toEqual(['wood#1.jpg'])
+		expect(requestedFileNames('textures/what?.png')).toEqual(['what?.png'])
+	})
+
 	it('keeps a malformed escape as written', () => {
 		expect(requestedFileNames('file:///C:/x/100%.png')).toEqual(['100%.png'])
 	})
