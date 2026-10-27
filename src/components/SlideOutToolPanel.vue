@@ -1564,7 +1564,7 @@ export default {
 	transition: background 0.15s ease-out;
 }
 
-.export-btn.export-btn:hover:not(:disabled) {
+.export-btn.export-btn:hover:not(:disabled):not([aria-disabled="true"]) {
 	background: var(--tdv-color-primary-hover);
 	color: var(--tdv-color-on-primary);
 }
@@ -1574,8 +1574,14 @@ export default {
 	outline-offset: 2px;
 }
 
-.export-btn.export-btn:active {
+.export-btn.export-btn:active:not([aria-disabled="true"]) {
 	background: var(--tdv-color-primary-hover) !important;
+	color: var(--tdv-color-on-primary) !important;
+}
+
+/* Running: a press shows nothing, and Nextcloud's pressed look does not take over */
+.export-btn.export-btn[aria-disabled="true"]:active {
+	background: var(--tdv-color-primary) !important;
 	color: var(--tdv-color-on-primary) !important;
 }
 

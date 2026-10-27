@@ -63,4 +63,9 @@ describe('the Export button', () => {
 		expect(button).toContain(':aria-disabled="exporting ?')
 		expect(PANEL).toMatch(/if \(props\.exporting \|\| !props\.modelLoaded\) return/)
 	})
+
+	it('shows no hover or pressed look while an export runs', () => {
+		expect(PANEL).toMatch(/\.export-btn\.export-btn:hover:not\(:disabled\):not\(\[aria-disabled="true"\]\)\s*\{/)
+		expect(PANEL).toMatch(/\.export-btn\.export-btn:active:not\(\[aria-disabled="true"\]\)\s*\{/)
+	})
 })
