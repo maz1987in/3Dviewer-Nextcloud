@@ -117,16 +117,26 @@ give (`normaliseRef()` in `src/loaders/textureReferences.js`; a table both test 
 `tests/fixtures/texture-references.json`, holds the two to the same answers):
 
 - **Relative paths** have `\` folded to `/` and `..` collapsed; one that climbs out of the
-  model's folder is rejected. A material's maps are relative to the material.
+  model's folder is rejected, and so is one holding a NUL or a segment made only of dots
+  and spaces (`...`, `.. `), which storage on a Windows share may read as `.` or `..`. A
+  material's maps are relative to the material.
 - **Absolute paths and `file:` URLs** — `C:\textures\wood.jpg`, `C:/…`, `/home/…`, a UNC path
   `\\server\share\…`, `file:///C:/…` with or without a host — name a place on the author's
   machine, as SketchUp, 3ds Max and some Blender exports write. They fall back to their
   bare file name, looked for in the model's own folder and nowhere else, whichever file
   declared them: the directories they name are never followed. A `file:` URL loses its
-  query and fragment and its name is percent-decoded once. A name that is empty, `.` or
-  `..`, or that holds a separator or NUL once decoded, is rejected.
+  query and fragment and its name is percent-decoded once. A name that is empty, made
+  only of dots and spaces, or that holds a separator or NUL once decoded, is rejected.
 - **Any other scheme** (`http:`, `https:`, `ftp:`, `data:`, `blob:`, …) is not a file
   beside the model and is rejected: it is never declared, looked up or served as a companion.
+
+Only the ASCII blanks (space, tab, CR, LF, VT, FF) are trimmed, on both sides; a no-break
+space or a byte-order mark is part of the name. COLLADA, X3D and glTF values are
+percent-decoded first, as `decodeURIComponent()` decodes them: a stray `%` or bytes that
+are not UTF-8 keep the value as written. An MTL map that starts with an option
+(`map_Kd -bm 0.3 file:///…`) names its path as its final token. An FBX `Video` whose
+`RelativeFilename` is empty names its file by `Filename`, which is what three's FBXLoader
+then asks for.
 
 Declarations are keyed by lower-cased basename and the first one wins, so a bare name an
 absolute path fell back to neither replaces nor is replaced by a relative declaration of
