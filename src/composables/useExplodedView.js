@@ -140,11 +140,21 @@ export function useExplodedView() {
 	}
 
 	/**
+	 * Whether the parts are apart. Only then has an export anything to put back: moving
+	 * them otherwise would put every mesh at its loaded position, out of the pose a
+	 * paused animation holds them in, which nothing would restore.
+	 * @return {boolean}
+	 */
+	const isApart = () => isActive.value && factor.value > 0
+
+	/**
 	 * Put the parts back together for a while (an export written asynchronously, say)
 	 * without leaving exploded view; `resume` explodes them again by the current amount.
+	 * Counted whether or not the parts are apart, so the slider stays still until the
+	 * last export is done.
 	 */
 	const suspend = () => {
-		if (suspended++ === 0) {
+		if (suspended++ === 0 && isApart()) {
 			moveForExport()
 		}
 	}
@@ -153,7 +163,7 @@ export function useExplodedView() {
 		if (suspended === 0) {
 			return
 		}
-		if (--suspended === 0) {
+		if (--suspended === 0 && isApart()) {
 			moveForExport()
 		}
 	}

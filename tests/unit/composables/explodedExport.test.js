@@ -11,6 +11,7 @@ import { OBJExporter } from 'three/examples/jsm/exporters/OBJExporter.js'
 import { STLExporter } from 'three/examples/jsm/exporters/STLExporter.js'
 import { useExplodedView } from '../../../src/composables/useExplodedView.js'
 import { useTransformGizmo } from '../../../src/composables/useTransformGizmo.js'
+import { useAnimation } from '../../../src/composables/useAnimation.js'
 import { withOwnDisplayState } from '../../../src/utils/ownDisplayState.js'
 import { build3MFModelXml } from '../../../src/utils/threeMFWriter.js'
 
@@ -125,5 +126,43 @@ describe('suspending Exploded view', () => {
 		expect(xs()).not.toEqual([0, 2, 4])
 		expect(view.factor.value).toBe(0.5)
 		expect(view.isActive.value).toBe(true)
+	})
+})
+
+describe('an export written while an animation is paused', () => {
+	it('leaves the paused pose alone when Exploded view is off', () => {
+		const root = model()
+		root.children[0].name = 'lift'
+		const clip = new THREE.AnimationClip('lift', 1, [
+			new THREE.VectorKeyframeTrack('lift.position', [0, 1], [0, 0, 0, 0, 5, 0]),
+		])
+		const view = useExplodedView()
+		view.init(root)
+		const animation = useAnimation()
+		animation.initAnimations(root, [clip])
+		animation.update(0.5)
+		animation.pause()
+		expect(root.children[0].position.y).toBeCloseTo(2.5, 6)
+
+		// A GLB, USDZ or 3MF export
+		view.suspend()
+		expect(root.children[0].position.y).toBeCloseTo(2.5, 6)
+		view.resume()
+
+		// The mixer only re-poses while playing, so nothing would put the pose back
+		animation.update(0.1)
+		expect(root.children[0].position.y).toBeCloseTo(2.5, 6)
+		animation.dispose()
+	})
+
+	it('still waits for every export before the slider moves the parts', () => {
+		const root = model()
+		const view = useExplodedView()
+		view.init(root)
+		view.suspend()
+		view.toggle() // switched on during the export
+		expect(root.children.map((child) => child.position.x)).toEqual([0, 2, 4])
+		view.resume()
+		expect(root.children.map((child) => child.position.x)).not.toEqual([0, 2, 4])
 	})
 })
