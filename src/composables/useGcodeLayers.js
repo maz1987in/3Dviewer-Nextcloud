@@ -6,6 +6,7 @@
 
 import { ref, computed } from 'vue'
 import { logger } from '../utils/logger.js'
+import { setHiddenByViewer } from '../utils/viewerHidden.js'
 
 // Heights closer than this are the same layer; slicers write Z to 3 decimals at most
 const Z_EPSILON = 1e-4
@@ -58,8 +59,9 @@ export function useGcodeLayers() {
 	let shownFrom = 1
 	let shownTo = 0
 
+	// Through the shared record, so a thumbnail captured meanwhile still shows every layer
 	const setLayerVisible = (n, visible) => {
-		layers[n - 1].objects.forEach((object) => { object.visible = visible })
+		layers[n - 1].objects.forEach((object) => setHiddenByViewer(object, !visible))
 	}
 
 	// Set `visible` on the layers in [a, b] that are not in [c, d]
@@ -121,7 +123,7 @@ export function useGcodeLayers() {
 	 * Show the whole toolpath again and forget it.
 	 */
 	const dispose = () => {
-		layers.forEach((layer) => layer.objects.forEach((object) => { object.visible = true }))
+		layers.forEach((layer) => layer.objects.forEach((object) => setHiddenByViewer(object, false)))
 		layers = []
 		shownFrom = 1
 		shownTo = 0
