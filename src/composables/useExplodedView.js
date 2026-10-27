@@ -130,12 +130,22 @@ export function useExplodedView() {
 	}
 
 	/**
+	 * Move the parts for an export and bring their matrices up to date at once: USDZ
+	 * reads each object's `matrix` as its export starts, and only microtasks run before
+	 * that, so no frame of the viewer would refresh them first.
+	 */
+	const moveForExport = () => {
+		applyExplosion()
+		modelRef.value?.updateMatrixWorld(true)
+	}
+
+	/**
 	 * Put the parts back together for a while (an export written asynchronously, say)
 	 * without leaving exploded view; `resume` explodes them again by the current amount.
 	 */
 	const suspend = () => {
 		if (suspended++ === 0) {
-			applyExplosion()
+			moveForExport()
 		}
 	}
 
@@ -144,7 +154,7 @@ export function useExplodedView() {
 			return
 		}
 		if (--suspended === 0) {
-			applyExplosion()
+			moveForExport()
 		}
 	}
 
