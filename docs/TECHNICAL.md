@@ -177,6 +177,12 @@ const loaders = {
 }
 ```
 
+#### Model Units
+
+A scene unit is not always a millimetre. `src/utils/sourceUnits.js` says what it is for each format: metres for glTF, USD, COLLADA, IFC, X3D, VRML and dotbim, millimetres for STL, OBJ, PLY, OFF, 3DS, AMF, the OCCT CAD formats and G-code, and the file's own unit for Rhino (`modelUnitSystem`), 3MF (the `unit` attribute of `<model>`) and FBX (`UnitScaleFactor`, centimetres per unit; centimetres when absent). Loaders record a file's unit on the model (`userData.threeMFUnit`, `userData.unitScaleFactor`) and never rescale the scene for it, so framing and thumbnails are unaffected. The one rescale a loader does apply, the FBX loader's shrinking of a model larger than 50 units to 5, is recorded as `userData.viewerScale` and divided back out.
+
+`ThreeViewer` calls `millimetresPerUnit(filename, root)` once per model load and hands the result to `useMeasurement.setModelScale`, `useModelStats.setModelScale`, the comparison table and the 3MF and USDZ exporters. Lengths scale by the factor, areas by its square and volumes by its cube; angles have no unit. Both unit pickers start in `defaultDisplayUnit(filename, root)`, the model's own unit, until the user picks one (`suggestUnit` versus `setUnit`); the pick is kept for the rest of the session. "Generic Units" (`sceneUnits: true` in `VIEWER_CONFIG.measurement.unitScales`) shows the scene's own numbers. Shared notes and the annotations JSON store model-space points only, so they carry no unit and need no conversion.
+
 ### Data Flow
 
 #### Model Loading Flow
