@@ -93,14 +93,55 @@ describe('read3MFUnit', () => {
 		expect(read3MFUnit(fixture('foot', { level: 0 }))).toBe('foot')
 	})
 
-	it('reads the start tag past a long preamble', () => {
-		const padding = `<!-- ${'x'.repeat(200000)} -->`
+	it('reads the start tag past a preamble of comments', () => {
+		const padding = `<!-- ${'x'.repeat(20000)} --><!-- a second one -->`
 		expect(read3MFUnit(fixture('centimeter', { padding }))).toBe('centimeter')
+	})
+
+	it('reads the root element, not a <model> written in a comment before it', () => {
+		const padding = '<!-- <model unit="meter"> -->'
+		expect(read3MFUnit(fixture('inch', { padding }))).toBe('inch')
+	})
+
+	it('gives up on a preamble longer than the head it reads', () => {
+		const padding = `<!-- ${'x'.repeat(100000)} -->`
+		expect(read3MFUnit(fixture('meter', { padding }))).toBeNull()
 	})
 
 	it('reads a file whose parts are streamed with data descriptors, as the 3MF export writes them', async () => {
 		const mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1))
 		expect(read3MFUnit(await build3MF(mesh))).toBe('millimeter')
+	})
+
+	it('gives null when the root element is not <model>', () => {
+		const archive = zipSync({ '3D/3dmodel.model': bytes('<?xml version="1.0"?><models unit="meter"/>') })
+		expect(read3MFUnit(archive)).toBeNull()
+	})
+
+	/*
+	 * A crafted file must not make the reader do more than linear work: a match rerun
+	 * over the whole text read so far, on every piece that arrives, is quadratic in it.
+	 */
+	describe('on a crafted file, finishes in linear time', () => {
+		const MEGABYTE = 1024 * 1024
+		const timed = (text) => {
+			const archive = zipSync({ '_rels/.rels': bytes(RELS), '3D/3dmodel.model': bytes(text) })
+			const started = performance.now()
+			const unit = read3MFUnit(archive)
+			return { unit, ms: performance.now() - started }
+		}
+
+		it.each([
+			['a megabyte of <model with no >', '<model'.repeat(MEGABYTE / 6)],
+			['a megabyte-long unterminated start tag', `<model unit="meter" ${'a'.repeat(MEGABYTE)}`],
+			['a megabyte of unterminated comment', `<!--${'<model '.repeat(MEGABYTE / 7)}`],
+			['a megabyte of declarations with no root', '<?x?>'.repeat(MEGABYTE / 5)],
+			['a megabyte of < with nothing after', '<'.repeat(MEGABYTE)],
+		])('%s', (_name, text) => {
+			const { unit, ms } = timed(text)
+			expect(unit).toBeNull()
+			expect(ms).toBeLessThan(250)
+		})
 	})
 
 	it('gives null for something that is not a 3MF archive', () => {
