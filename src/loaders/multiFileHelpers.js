@@ -9,7 +9,7 @@
 import { generateUrl } from '@nextcloud/router'
 import { buildFileUrl, buildPublicDepUrl, isPublicShare } from '../composables/usePublicShare.js'
 import { parse3dsDependencies, parseFbxTextures } from './binaryModelDependencies.js'
-import { asciiTrim, hasScheme, isFileUrl, isLocalAbsoluteRef, nameOnlyRef, percentDecoded } from './textureReferences.js'
+import { asciiTrim, hasScheme, isFileUrl, fallsBackToName, materialDirectory, nameOnlyRef, normaliseRef, percentDecoded } from './textureReferences.js'
 import { logger } from '../utils/logger.js'
 import { getFulfilledValues } from '../utils/arrayHelpers.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
@@ -359,18 +359,19 @@ async function locateDependency(modelFileId, refPath, dirPath) {
 /**
  * Parse OBJ file content to find referenced MTL files
  *
- * An absolute or `file:` path falls back to the material's bare name beside the model,
- * which is what the server's resolver serves for it.
+ * An absolute or `file:` path, or a relative one that climbs above the model's folder,
+ * falls back to the material's bare name beside the model, which is what the server's
+ * resolver serves for it.
  *
  * @param {string} objContent - Text content of OBJ file
  * @return {string[]} - Array of MTL filenames
  */
 export function parseObjMaterialFiles(objContent) {
 	// Match lines like: mtllib material.mtl
-	const matches = [...objContent.matchAll(/^\s*mtllib[^\S\r\n]+(.*?)$/gm)]
+	const matches = [...objContent.matchAll(/^[^\S\r\n]*mtllib[^\S\r\n]+(.*?)$/gm)]
 	const names = matches.map((capture) => {
 		const value = asciiTrim(capture[1])
-		return isLocalAbsoluteRef(value) ? nameOnlyRef(value) : value
+		return fallsBackToName(value) ? nameOnlyRef(value) : value
 	})
 	return [...new Set(names.filter(Boolean))]
 }
@@ -395,31 +396,54 @@ export function mtlMapPath(value) {
 }
 
 /**
- * Parse MTL file content to find referenced texture files
- * @param {string} mtlContent - Text content of MTL file
- * @return {string[]} - Array of texture filenames
+ * The texture paths an MTL's maps name, each relative to the model's folder.
+ *
+ * A map is relative to the MTL that names it, so its path is joined to the MTL's folder
+ * before it is normalised, exactly as objDependencies() in
+ * lib/Service/ModelDependencyResolver.php does: `mats/chair.mtl` naming
+ * `../textures/wood.png` is `textures/wood.png`, and naming `wood.png` is
+ * `mats/wood.png`. An absolute or `file:` path, or one that climbs above the model's
+ * folder once joined, is its bare name beside the model; a remote one, or one that is no
+ * file name at all, is left out. So the client asks for the files the server serves.
+ *
+ * @param {string} mtlContent - Text content of the MTL
+ * @param {string} materialRef - What the OBJ's mtllib named the MTL by
+ * @return {string[]} Normalised paths, deduplicated, in the MTL's order
  */
-export function parseMtlTextureFiles(mtlContent) {
-	// Match lines like: map_Kd texture.jpg, map_Ka ambient.png, bump normal.jpg, refl env.jpg
-	const matches = [...mtlContent.matchAll(/^\s*(?:map_[A-Za-z0-9_]+|bump|refl)[^\S\r\n]+(.*?)$/gm)]
+export function parseMtlTexturePaths(mtlContent, materialRef) {
+	const directory = materialDirectory(normaliseRef(materialRef))
+	// map_Kd texture.jpg, map_Ka ambient.png, bump normal.jpg, refl env.jpg
+	const matches = [...mtlContent.matchAll(/^[^\S\r\n]*(?:map_[A-Za-z0-9_]+|bump|refl)[^\S\r\n]+(.*?)$/gm)]
+	const paths = matches
+		.map((capture) => normaliseRef(mtlMapPath(capture[1]), directory))
+		.filter((path) => path !== null)
+	return [...new Set(paths)]
+}
 
-	// Extract basenames only (strip directory paths and normalize separators)
-	// OBJ/MTL files often reference textures in subdirectories (e.g., 'images\texture.jpg')
-	// but Nextcloud stores all files flat in the same directory
-	const filenames = matches.map(capture => {
-		const fullPath = mtlMapPath(capture[1])
-		// An absolute or file: path goes through the same reduction the server applies,
-		// which decodes a file: URL's name and refuses one that is no file name at all
-		if (isLocalAbsoluteRef(fullPath)) {
-			return nameOnlyRef(fullPath)
+/**
+ * Find a file by its exact path below the model's folder, signed in. On a public share
+ * there is no lookup by path, and the share's route serves names only.
+ *
+ * @param {string} path - Path relative to the model's folder
+ * @param {string} dirPath - Directory holding the model
+ * @return {Promise<{url: string, cacheId: number, subdir: null}|null>} the file, or null
+ */
+async function locateExactPath(path, dirPath) {
+	if (isPublicShare()) {
+		return null
+	}
+	const dir = String(dirPath ?? '').replace(/^\/+|\/+$/g, '')
+	try {
+		const response = await fetch(generateUrl('/apps/threedviewer/api/files/find')
+			+ `?path=${encodeURIComponent(dir ? `${dir}/${path}` : path)}`)
+		if (!response.ok) {
+			return null
 		}
-		// Normalize both forward and backward slashes, then get basename
-		const normalized = fullPath.replace(/\\/g, '/')
-		const basename = normalized.split('/').pop()
-		return basename
-	}).filter(name => name && name.length > 0) // Filter out empty or undefined names
-
-	return [...new Set(filenames)]
+		const data = await response.json()
+		return data?.id ? { url: buildFileUrl(data.id), cacheId: data.id, subdir: null } : null
+	} catch {
+		return null
+	}
 }
 
 /**
@@ -648,9 +672,11 @@ function x3dTextureUrls(content) {
  *
  * Decoded first, as the server decodes before it normalises. A file: URL is the
  * exception: nameOnlyRef decodes its name, and decoding twice would turn a literal %20
- * in a file name into a space. An absolute path or file: URL is then its bare name, any
- * other scheme is no companion, and a relative path is kept as decoded: signed in, it is
- * looked up as written, and the server collapses it.
+ * in a file name into a space. An absolute path or file: URL is then its bare name, and
+ * so is a relative path that climbs above the model's folder, `../../maps/wood.png`, whose
+ * folders are not followed either; any other scheme is no companion, and any other
+ * relative path is kept as decoded: signed in, it is looked up as written, and the server
+ * collapses it.
  *
  * @param {string} raw - the reference as the document wrote it, entities decoded
  * @return {string|null} the name or relative path to ask for, or null when there is none
@@ -658,9 +684,9 @@ function x3dTextureUrls(content) {
 function uriReference(raw) {
 	const value = asciiTrim(raw)
 	const decoded = isFileUrl(value) ? value : percentDecoded(value)
-	// C:\textures\wood.png, /home/anna/wood.png, file:///C:/wood.png: by name, beside
-	// the model, as the server's resolver serves it
-	if (isLocalAbsoluteRef(decoded)) {
+	// C:\textures\wood.png, /home/anna/wood.png, file:///C:/wood.png, ../../wood.png: by
+	// name, beside the model, as the server's resolver serves it
+	if (fallsBackToName(decoded)) {
 		return nameOnlyRef(decoded)
 	}
 	// Any other scheme means it is not a file beside the model: data:, http:, https:.
@@ -782,11 +808,17 @@ export async function fetchObjDependencies(objContent, baseFilename, fileId, dir
 
 			// Textures are named by the material, not by the OBJ, so this chain only
 			// becomes visible once the MTL itself is in hand.
-			const textureFiles = parseMtlTextureFiles(await file.text())
+			// Each relative to the MTL's folder, as the server resolves them.
+			const texturePaths = parseMtlTexturePaths(await file.text(), mtlFilename)
 
-			const texturePromises = textureFiles.map(async (texFilename) => {
+			const texturePromises = texturePaths.map(async (texPath) => {
+				const texFilename = texPath.split('/').pop()
 				try {
-					const texLocation = await locateDependency(fileId, texFilename, dirPath)
+					// Signed in, where the MTL says first; then by name, beside the model or
+					// in its subfolders, as exporters often name a texture they moved. On a
+					// share the name is the handle, and the server resolves it the same way.
+					const exact = texPath.includes('/') ? await locateExactPath(texPath, dirPath) : null
+					const texLocation = exact ?? await locateDependency(fileId, texFilename, dirPath)
 
 					if (!texLocation) {
 						logger.warn('MultiFileHelpers', ' Could not find file ID for texture:', texFilename)
@@ -795,7 +827,9 @@ export async function fetchObjDependencies(objContent, baseFilename, fileId, dir
 					}
 
 					const texFile = await fetchFileFromUrl(texLocation.url, texFilename, 'application/octet-stream', { fileId: texLocation.cacheId })
-					if (texLocation.subdir) {
+					if (exact) {
+						texFile._relativePath = texPath
+					} else if (texLocation.subdir) {
 						texFile._relativePath = `${texLocation.subdir}/${texFilename}`
 					}
 					logger.info('MultiFileHelpers', ' Fetched texture:', texFilename, texLocation.subdir ? `(in ${texLocation.subdir}/)` : '')

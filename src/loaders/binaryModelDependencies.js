@@ -160,7 +160,8 @@ const keepWalking = (out, budget) => budget.nodes > 0 && out.length < MAX_DECLAR
  * `RelativeFilename || Filename`, so where a video's `RelativeFilename` is empty or
  * missing, its `Filename` is read instead. An absolute name, as Windows exporters write
  * in `Filename` and often in `RelativeFilename` too, falls back to its bare file name
- * beside the model (see normaliseRef). A `Texture` node's `FileName` is never asked for,
+ * beside the model (see normaliseRef), and so does a relative one that climbs above the
+ * model's folder, `..\..\textures\wood.jpg`, as 3ds Max writes. A `Texture` node's `FileName` is never asked for,
  * so it is not read.
  *
  * A texture whose image is embedded is not a dependency. Its `Video` node carries the

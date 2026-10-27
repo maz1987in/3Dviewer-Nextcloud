@@ -13,7 +13,10 @@
  * `C:\Users\anna\textures\wood.jpg`, `file:///C:/textures/wood.jpg`, a UNC path or
  * `/home/anna/wood.jpg`. None of those directories exist here, so such a reference falls
  * back to its file name alone, looked for beside the model. Only the name is used: the
- * directories it names are never followed. A reference with any other scheme (`http:`,
+ * directories it names are never followed. 3ds Max and others write paths relative to
+ * the project rather than the model, `..\..\textures\wood.jpg`, while the user uploads
+ * the texture beside the model; a relative path that climbs above the model's folder
+ * falls back to its file name the same way. A reference with any other scheme (`http:`,
  * `data:`, `blob:`) is not a file beside the model at all.
  *
  * Every check here is a fixed-length test at the start of the string or a single scan,
@@ -104,11 +107,67 @@ export function isLocalAbsoluteRef(ref) {
 }
 
 /**
- * The file name an absolute or `file:` reference falls back to.
+ * A relative path walked segment by segment, `..` collapsed. One pass, linear in the path.
+ *
+ * Every segment is checked, even after the walk has climbed out of the model's folder,
+ * so a NUL or a segment of dots and spaces anywhere rejects the path whether or not it
+ * climbs.
+ *
+ * @param {string} path - trimmed, with `/` separators, relative and without a scheme
+ * @return {{segments: string[], climbed: boolean, valid: boolean}} the segments left
+ *   inside the folder; whether a `..` went above it; whether every segment is one a
+ *   file or folder can have
+ */
+function walkRelative(path) {
+	const segments = []
+	let climbed = false
+	let valid = true
+	for (const segment of path.split('/')) {
+		if (segment === '' || segment === '.') {
+			continue
+		}
+		if (segment === '..') {
+			if (segments.length === 0) {
+				climbed = true
+			} else {
+				segments.pop()
+			}
+			continue
+		}
+		if (segment.includes('\0') || DOTS_AND_SPACES.test(segment)) {
+			valid = false
+		}
+		segments.push(segment)
+	}
+	return { segments, climbed, valid }
+}
+
+/**
+ * Whether a reference falls back to its bare file name beside the model: an absolute
+ * path or `file:` URL (see isLocalAbsoluteRef), or a relative path that climbs above the
+ * model's folder once `..` is collapsed, `../wood.jpg` or `textures/../../wood.jpg`.
+ *
+ * @param {string} ref - a reference as declared
+ * @return {boolean} true when nameOnlyRef() is what the reference reduces to
+ */
+export function fallsBackToName(ref) {
+	if (isLocalAbsoluteRef(ref)) {
+		return true
+	}
+	const path = asciiTrim(String(ref).replace(/\\/g, '/'))
+	return !SCHEME.test(path) && walkRelative(path).climbed
+}
+
+/**
+ * The file name an absolute, `file:` or climbing relative reference falls back to (see
+ * fallsBackToName()), or null for any other reference.
  *
  * A `file:` URL loses its query and fragment, and its name is percent-decoded once. An
  * empty name, one made only of dots and spaces, or one that decodes to something holding
- * a separator or NUL names no file beside the model and is refused.
+ * a separator or NUL names no file beside the model and is refused. So is a climbing
+ * relative path with a NUL or a segment of dots and spaces anywhere in it, as any other
+ * relative path is: `../ .. /wood.jpg`. The name is the last segment as written, so
+ * `../wood.jpg/` and `../textures/..` name none.
  *
  * @param {string} ref - a reference as declared
  * @return {string|null} the bare file name, or null when there is none to use
@@ -125,7 +184,13 @@ export function nameOnlyRef(ref) {
 	} else if (DRIVE_LETTER.test(path)) {
 		path = path.slice(2)
 	} else if (!path.startsWith('/')) {
-		return null
+		if (SCHEME.test(path)) {
+			return null
+		}
+		const walked = walkRelative(path)
+		if (!walked.climbed || !walked.valid) {
+			return null
+		}
 	}
 
 	let name = path.slice(path.lastIndexOf('/') + 1)
@@ -143,14 +208,25 @@ export function nameOnlyRef(ref) {
  *
  * An absolute or `file:` reference becomes its bare file name. Any other scheme is
  * rejected. A relative path has its separators folded and `..` collapsed, and is rejected
- * if it climbs out of the model's folder, holds a NUL, which no file name does, or has a
- * segment made only of dots and spaces other than `.` and `..` (see DOTS_AND_SPACES).
+ * if it holds a NUL, which no file name does, or has a segment made only of dots and
+ * spaces other than `.` and `..` (see DOTS_AND_SPACES). One that climbs above the model's
+ * folder at any point, `../wood.jpg`, `..\..\textures\wood.jpg` or
+ * `textures/../../wood.jpg`, becomes its bare file name like an absolute one: the folders
+ * it names are never followed, and the name is looked for in the model's folder alone.
  * Only the ASCII blanks are trimmed (see BLANKS).
  *
+ * A relative path is relative to `directory`, a folder inside the model's own: an MTL's
+ * maps are relative to the MTL (see materialDirectory()). It is joined before `..` is
+ * collapsed, so `mats` and `../textures/wood.png` give `textures/wood.png`, and climbing is
+ * always measured from the model's folder: `mats` and `../../wood.png` give `wood.png`
+ * beside the model. An absolute path ignores it, as it names no folder here.
+ *
  * @param {string} raw - reference exactly as the document wrote it
+ * @param {string} [directory] - folder a relative path is relative to, inside the
+ *   model's own and normalised; `.` for the model's folder itself
  * @return {string|null} normalised relative path, or null if it is not one
  */
-export function normaliseRef(raw) {
+export function normaliseRef(raw, directory = '.') {
 	// Exporters on Windows write backslashes; every path here uses forward slashes.
 	const path = asciiTrim(String(raw).replace(/\\/g, '/'))
 	if (path === '') {
@@ -163,28 +239,45 @@ export function normaliseRef(raw) {
 	if (SCHEME.test(path)) {
 		return null
 	}
+	const joined = directory !== '.' ? `${directory}/${path}` : path
 
-	const segments = []
-	for (const segment of path.split('/')) {
-		if (segment === '' || segment === '.') {
-			continue
-		}
-		if (segment.includes('\0')) {
-			return null
-		}
-		if (segment !== '..' && DOTS_AND_SPACES.test(segment)) {
-			return null
-		}
-		if (segment === '..') {
-			if (segments.length === 0) {
-				// Climbing out of the model's folder reaches files the share never covered.
-				return null
-			}
-			segments.pop()
-			continue
-		}
-		segments.push(segment)
+	const { segments, climbed, valid } = walkRelative(joined)
+	if (!valid) {
+		return null
+	}
+	if (climbed) {
+		// Above the model's folder lie files the share never covered, so the folders the
+		// path names are not followed; only its name is, beside the model. Taken straight
+		// from the joined path: its start is the material's folder, not the reference, so
+		// it is not read again for a scheme, a drive letter or a file: URL.
+		return lastSegmentName(joined)
 	}
 
 	return segments.length === 0 ? null : segments.join('/')
+}
+
+/**
+ * The last segment of a relative path already walked, as a bare file name, or null when
+ * it names none: empty, or made only of dots and spaces (`.` and `..` included). Mirrors
+ * lastSegmentName() in lib/Service/ModelDependencyResolver.php.
+ *
+ * @param {string} path - with `/` separators, every segment checked by walkRelative()
+ * @return {string|null} the name
+ */
+function lastSegmentName(path) {
+	const name = path.slice(path.lastIndexOf('/') + 1)
+	return name === '' || DOTS_AND_SPACES.test(name) || name.includes('\0') ? null : name
+}
+
+/**
+ * The folder an MTL's maps are relative to: that of the MTL itself, as its normalised
+ * path gives it, or `.` for the model's own folder. Mirrors the `dirname()` that
+ * objDependencies() in lib/Service/ModelDependencyResolver.php hands to normalise().
+ *
+ * @param {string|null} materialPath - the MTL's path as normaliseRef() gave it
+ * @return {string} the folder, inside the model's own, for normaliseRef()'s `directory`
+ */
+export function materialDirectory(materialPath) {
+	const at = typeof materialPath === 'string' ? materialPath.lastIndexOf('/') : -1
+	return at === -1 ? '.' : materialPath.slice(0, at)
 }

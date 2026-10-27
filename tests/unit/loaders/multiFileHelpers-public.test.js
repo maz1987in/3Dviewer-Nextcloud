@@ -381,3 +381,147 @@ describe('textures named by an absolute path on a public share', () => {
 		expect(requested).toEqual([`${DEP}/wood.png`])
 	})
 })
+
+describe('textures named above the model\'s folder', () => {
+	// 3ds Max and others write paths relative to the project, `..\..\textures\wood.png`,
+	// while the user uploads the texture beside the model. The server's resolver serves
+	// such a texture by its bare name from the model's folder, and the folders the path
+	// names are never followed, signed in or not.
+
+	it('asks a share for an FBX texture by its bare name, with no directory to keep', async () => {
+		const fbx = [
+			'; FBX 7.4.0 project file',
+			'Objects:  {',
+			'\tTexture: 1234, "Texture::map", "" {',
+			'\t\tRelativeFilename: "..\\..\\textures\\wood.png"',
+			'\t}',
+			'}',
+		].join('\n')
+		serve({ '/dep/wood.png': 'PNG' })
+		const { fetchBinaryDependencies } = await loadHelpers(PUBLIC)
+
+		const result = await fetchBinaryDependencies(new TextEncoder().encode(fbx).buffer, 'fbx', 42, '')
+
+		expect(result.found.map((f) => f.name)).toEqual(['wood.png'])
+		expect(result.found[0]._relativePath).toBeUndefined()
+		expect(requested).toEqual([`${DEP}/wood.png`])
+	})
+
+	it('asks a share for a COLLADA or X3D image by its bare name', async () => {
+		const dae = '<COLLADA><library_images><image id="a"><init_from>../../maps/checker.png</init_from></image></library_images></COLLADA>'
+		const x3d = '<X3D><Scene><ImageTexture url=\'"..\\..\\maps\\checker.png"\'/></Scene></X3D>'
+		serve({ '/dep/checker.png': 'PNG' })
+		const { fetchXmlDependencies } = await loadHelpers(PUBLIC)
+
+		for (const [content, extension] of [[dae, 'dae'], [x3d, 'x3d']]) {
+			requested.length = 0
+			const result = await fetchXmlDependencies(content, extension, 42, '')
+
+			expect(result.found.map((f) => f.name)).toEqual(['checker.png'])
+			expect(result.found[0]._relativePath).toBeUndefined()
+			expect(requested).toEqual([`${DEP}/checker.png`])
+		}
+	})
+
+	it('asks a share for a glTF image and buffer by their bare names', async () => {
+		const gltf = JSON.stringify({
+			buffers: [{ uri: '../buffers/scene.bin' }],
+			images: [{ uri: '../../textures/wood%20grain.png' }, { uri: '../..' }],
+		})
+		serve({ '/dep/scene.bin': 'BIN', '/dep/wood grain.png': 'PNG' })
+		const { fetchGltfDependencies } = await loadHelpers(PUBLIC)
+
+		const result = await fetchGltfDependencies(gltf, 'scene.gltf', 42, '')
+
+		expect(result.found.map((f) => f.name).sort()).toEqual(['scene.bin', 'wood grain.png'])
+		expect(result.found.map((f) => f._relativePath)).toEqual([undefined, undefined])
+		expect(result.missing).toEqual([])
+		expect(requested.sort()).toEqual([`${DEP}/scene.bin`, `${DEP}/wood grain.png`])
+	})
+
+	it('asks a share for an OBJ material and its maps by their bare names', async () => {
+		const mtl = 'newmtl seat\nmap_Kd ..\\..\\textures\\wood.png\nbump ../maps/normal.png\n'
+		serve({ '/dep/chair.mtl': mtl, '/dep/wood.png': 'PNG', '/dep/normal.png': 'PNG' })
+		const { fetchObjDependencies } = await loadHelpers(PUBLIC)
+
+		const result = await fetchObjDependencies('mtllib ../materials/chair.mtl\nf 1 2 3\n', 'chair.obj', 42, '')
+
+		expect(result.found.map((f) => f.name).sort()).toEqual(['chair.mtl', 'normal.png', 'wood.png'])
+		expect(requested.sort()).toEqual([`${DEP}/chair.mtl`, `${DEP}/normal.png`, `${DEP}/wood.png`])
+	})
+
+	it('signed in, looks the name up from the model\'s folder, never through the folders the path names', async () => {
+		requested = []
+		global.fetch = jest.fn(async (url) => {
+			requested.push(url)
+			if (url.includes('/api/files/find')) {
+				return { ok: true, status: 200, json: async () => ({ id: 7 }) }
+			}
+			if (url.includes('/api/files/list')) {
+				return { ok: true, status: 200, json: async () => ({ files: [{ id: 7, name: 'checker.png' }], folders: [] }) }
+			}
+			const buffer = toArrayBuffer('PNG')
+			return { ok: true, status: 200, statusText: 'OK', headers: { get: () => 'image/png' }, arrayBuffer: async () => buffer }
+		})
+		const dae = '<COLLADA><library_images><image id="a"><init_from>..\\..\\maps\\checker.png</init_from></image></library_images></COLLADA>'
+		const { fetchXmlDependencies } = await loadHelpers(null)
+
+		const result = await fetchXmlDependencies(dae, 'dae', 42, '/projects/house/scenes')
+
+		expect(result.found.map((f) => f.name)).toEqual(['checker.png'])
+		expect(requested.length).toBeGreaterThan(0)
+		for (const url of requested) {
+			expect(decodeURIComponent(url)).not.toContain('..')
+			expect(decodeURIComponent(url)).not.toContain('maps')
+		}
+	})
+})
+
+describe('the maps of an MTL in a subfolder', () => {
+	// A map is relative to the MTL that names it, as the server's resolver reads it:
+	// mats/chair.mtl naming ../textures/wood.png means textures/wood.png
+
+	it('on a share, asks for each map by the name the server serves it under', async () => {
+		const mtl = 'newmtl seat\nmap_Kd ../textures/wood.png\nbump normal.png\n'
+		serve({ '/dep/chair.mtl': mtl, '/dep/wood.png': 'PNG', '/dep/normal.png': 'PNG' })
+		const { fetchObjDependencies } = await loadHelpers(PUBLIC)
+
+		const result = await fetchObjDependencies('mtllib mats/chair.mtl\nf 1 2 3\n', 'chair.obj', 42, '')
+
+		expect(result.found.map((f) => f.name).sort()).toEqual(['mats/chair.mtl', 'normal.png', 'wood.png'])
+		expect(requested.sort()).toEqual([`${DEP}/chair.mtl`, `${DEP}/normal.png`, `${DEP}/wood.png`])
+	})
+
+	it('signed in, looks a map up where the MTL says first, and keeps that path on the file', async () => {
+		requested = []
+		const found = {
+			'scenes/mats/chair.mtl': 7,
+			'scenes/textures/wood.png': 8,
+			'scenes/mats/normal.png': 9,
+		}
+		global.fetch = jest.fn(async (url) => {
+			requested.push(url)
+			if (url.includes('/api/files/find')) {
+				const path = new URL(url, 'https://cloud.example.com').searchParams.get('path')
+				return found[path]
+					? { ok: true, status: 200, json: async () => ({ id: found[path] }) }
+					: { ok: false, status: 404, json: async () => ({}) }
+			}
+			const body = url.endsWith('/7') ? 'newmtl seat\nmap_Kd ../textures/wood.png\nbump normal.png\n' : 'PNG'
+			const buffer = toArrayBuffer(body)
+			return { ok: true, status: 200, statusText: 'OK', headers: { get: () => 'application/octet-stream' }, arrayBuffer: async () => buffer }
+		})
+		const { fetchObjDependencies } = await loadHelpers(null)
+
+		const result = await fetchObjDependencies('mtllib mats/chair.mtl\nf 1 2 3\n', 'chair.obj', 42, '/scenes')
+
+		const wood = result.found.find((f) => f.name === 'wood.png')
+		const normal = result.found.find((f) => f.name === 'normal.png')
+		expect(result.missing).toEqual([])
+		expect(wood._relativePath).toBe('textures/wood.png')
+		expect(normal._relativePath).toBe('mats/normal.png')
+		const finds = requested.filter((u) => u.includes('/api/files/find')).map((u) => new URL(u, 'https://cloud.example.com').searchParams.get('path'))
+		expect(finds).toEqual(expect.arrayContaining(['scenes/textures/wood.png', 'scenes/mats/normal.png']))
+		expect(finds.some((path) => path.includes('..'))).toBe(false)
+	})
+})

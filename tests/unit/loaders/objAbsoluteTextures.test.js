@@ -1,7 +1,8 @@
 /**
  * An OBJ exported on Windows may name its material, and the material its maps, by a path
- * on the author's machine. Those companions were fetched under their bare, decoded names,
- * so the OBJ loader matches the material and each map by that name.
+ * on the author's machine, or by one relative to the project that climbs above the
+ * model's folder. Those companions were fetched under their bare, decoded names, so the
+ * OBJ loader matches the material and each map by that name.
  */
 import * as THREE from 'three'
 import ObjLoader from '../../../src/loaders/types/obj.js'
@@ -94,6 +95,7 @@ describe('OBJ loader, companions named by absolute paths', () => {
 		['a drive-letter path', 'D:\\exports\\chair.mtl'],
 		['a file: URL', 'file:///D:/exports/chair.mtl'],
 		['a UNC path', '\\\\server\\share\\chair.mtl'],
+		['a path above the model\'s folder', '..\\..\\materials\\chair.mtl'],
 	])('finds an mtllib written as %s by its bare name', async (_, mtllib) => {
 		const found = await load(mtllib, 'wood.png', [mtl('wood.png'), png('wood.png')])
 
@@ -112,6 +114,8 @@ describe('OBJ loader, companions named by absolute paths', () => {
 		['a drive-letter path', 'C:\\Users\\anna\\textures\\wood grain.png'],
 		['a percent-encoded file: URL', 'file:///C:/My%20Textures/wood%20grain.png'],
 		['a file: URL with a query', 'file:///C:/My%20Textures/wood%20grain.png?v=2'],
+		['a path above the model\'s folder, as 3ds Max writes', '..\\..\\textures\\wood grain.png'],
+		['a path that collapses and climbs out', 'textures/../../wood grain.png'],
 	])('maps a map_Kd written as %s to the texture fetched by its name', async (_, map) => {
 		const found = await load('chair.mtl', map, [mtl(map), png('wood grain.png')])
 

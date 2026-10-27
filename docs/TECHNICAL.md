@@ -115,15 +115,41 @@ Each declared reference is reduced to a path inside the model's folder by
 give (`normaliseRef()` in `src/loaders/textureReferences.js`; a table both test suites read,
 `tests/fixtures/texture-references.json`, holds the two to the same answers):
 
-- **Relative paths** have `\` folded to `/` and `..` collapsed; one that climbs out of the
-  model's folder is rejected, and so is one holding a NUL or a segment made only of dots
-  and spaces (`...`, `.. `), which storage on a Windows share may read as `.` or `..`. A
-  material's maps are relative to the material.
+- **Relative paths** have `\` folded to `/` and `..` collapsed; one holding a NUL or a
+  segment made only of dots and spaces (`...`, `.. `), which storage on a Windows share may
+  read as `.` or `..`, is rejected, wherever that segment is. A material's maps are
+  relative to the material: the map is joined to the material's folder before it is
+  normalised (`mats/chair.mtl` naming `../textures/wood.png` is `textures/wood.png`, and
+  naming `wood.png` is `mats/wood.png`). The client does the same join
+  (`parseMtlTexturePaths()`, with `normaliseRef()`'s `directory`), in the background queue
+  and the viewer; the table's `mtl` rows hold both sides to it.
+- **Relative paths that climb above the model's folder** — `..\..\textures\wood.jpg`,
+  `../maps/wood.png`, or `textures/../../wood.jpg`, which climbs out once collapsed — are
+  how 3ds Max and other exporters write a path relative to the project rather than the
+  model, while the texture is usually uploaded beside the model. Such a path falls back to
+  its last segment as a bare file name, exactly as an absolute path does (below): the
+  server, public shares and background thumbnails look for it in the model's own folder
+  and nowhere else, and the folders it names are never followed. (The signed-in viewer
+  resolves every bare name it is given through `getFileIdByPath()`, which also searches
+  the model's subfolders and conventional texture folders such as `textures` and `maps`;
+  that is the viewer's search, not the path's folders.) A path counts as climbing if `..` goes above the model's folder at any
+  point, even if it comes back down (`../textures/wood.jpg` is `wood.jpg`, not
+  `textures/wood.jpg`). A path that stays inside is unchanged (`textures/../wood.jpg` is
+  `wood.jpg`, `maps/wood.jpg` is `maps/wood.jpg`). The name is rejected as an absolute
+  path's is: empty (`..\..\`, `../wood.jpg/`), `.` or `..` (`../..`), or made only of dots
+  and spaces; and the whole path is rejected for a NUL or a dots-and-spaces segment
+  anywhere in it (`../ .. /x.png`). For a material in a subfolder, climbing is measured
+  from the model's folder: `mats/chair.mtl` naming `../wood.png` means `wood.png` beside
+  the model by collapsing, and `../../wood.png` means it by falling back. A climbing
+  path's name is the last segment of the joined path, with only the name checks: the
+  start of that path is the material's folder, so it is not read for a scheme, a drive
+  letter or a `file:` URL.
 - **Absolute paths and `file:` URLs** — `C:\textures\wood.jpg`, `C:/…`, `/home/…`, a UNC path
   `\\server\share\…`, `file:///C:/…` with or without a host — name a place on the author's
   machine, as SketchUp, 3ds Max and some Blender exports write. They fall back to their
-  bare file name, looked for in the model's own folder and nowhere else, whichever file
-  declared them: the directories they name are never followed. A `file:` URL loses its
+  bare file name, looked for in the model's own folder (and, in the signed-in viewer,
+  its subfolders, as above), whichever file declared them: the directories they name are
+  never followed. A `file:` URL loses its
   query and fragment and its name is percent-decoded once. A name that is empty, made
   only of dots and spaces, or that holds a separator or NUL once decoded, is rejected.
 - **Any other scheme** (`http:`, `https:`, `ftp:`, `data:`, `blob:`, …) is not a file
@@ -132,14 +158,16 @@ give (`normaliseRef()` in `src/loaders/textureReferences.js`; a table both test 
 Only the ASCII blanks (space, tab, CR, LF, VT, FF) are trimmed, on both sides; a no-break
 space or a byte-order mark is part of the name. COLLADA, X3D and glTF values are
 percent-decoded first, as `decodeURIComponent()` decodes them: a stray `%` or bytes that
-are not UTF-8 keep the value as written. An MTL map that starts with an option
+are not UTF-8 keep the value as written. An encoded separator divides the value like any
+other once decoded, so `..%2F..%2Fmaps%2Fchecker.png` is a climb to `checker.png`, and the
+loaders match the request to the companion by the decoded value's last segment. An MTL map that starts with an option
 (`map_Kd -bm 0.3 file:///…`) names its path as its final token. An FBX `Video` whose
 `RelativeFilename` is empty names its file by `Filename`, which is what three's FBXLoader
 then asks for.
 
 Declarations are keyed by lower-cased basename and the first one wins, so a bare name an
-absolute path fell back to neither replaces nor is replaced by a relative declaration of
-the same name that came before it. Every check is a fixed-length test at the start of the
+absolute or climbing path fell back to neither replaces nor is replaced by a relative
+declaration of the same name that came before it. Every check is a fixed-length test at the start of the
 reference or a single forward scan, so each is linear in the reference.
 
 ### Frontend Architecture
@@ -1945,7 +1973,7 @@ Stored → the row's icon is replaced at once (swapRowIcon); after a reload the 
 - The thumbnail is put in the row as an extra `<img class="threedviewer-thumbnail">`; the Files app's own icon is hidden, not removed, since its list reuses row elements as it scrolls and patches the nodes it owns. Thumbnails made on the page are remembered (up to 200) and put back when their row is rendered again, and taken out of a row that now shows another file.
 - In views other than `files` (favorites, shares, tags), work starts only inside a folder, a `dir` other than the root: their top-level lists are flat and can span the whole library. In the tags view a `dir` whose first segment is a tag id is the flat list of that tag, so it does not count.
 - `backgroundQueue.js` does one file at a time. Before downloading anything it skips files it cannot render in a worker, files the user cannot edit, versions that already have a thumbnail, files on the skip list and files over "Skip files larger than". `.nc` and `.g` are never rendered in the background (`AMBIGUOUS_FORMATS` in `formats.js`): other software uses them too, NetCDF for `.nc`, so only opening one in the viewer says it is a model. A file larger than what is left of "Download at most, per folder visit" ends the visit without being skipped, so the next visit's fresh budget tries it; one larger than the whole budget can never fit, so it is skipped and the visit goes on with the next file. A new folder, or `stop()`, aborts the current job, its download included, without skipping its file, and starts a fresh budget.
-- Downloads use `loadModelForBackground` (`backgroundLoad.js`), not the viewer's `loadModelWithDependencies`. It fetches only the companions the model declares (the OBJ's `mtllib` and the maps its MTL names, glTF buffers and images, FBX and 3DS texture names, the file each COLLADA `<image>` names in its `<init_from>` (not an effect's `<surface><init_from>`, which holds an image's id), and the `url` of each X3D `<ImageTexture>` (not an Anchor, Inline, AudioClip or Script `url`), entity-decoded; an FBX texture whose image is embedded in its `Video` node's `Content` is not a companion and is not looked up, in the viewer either), each found through `/api/files/find` at the path the model declares or by its name beside the model, and never lists or scans a folder. A companion named by an absolute path or a `file:` URL is looked for by its name beside the model only (see the public share endpoints above for how a reference becomes a name), and the loaders map the URL they ask for, `C:\textures\wood.jpg` or a percent-encoded `file:` URL, to the fetched file by its bare, decoded name; one the job was not handed is still refused. The viewer's loader does both: an FBX or 3DS that declares no texture it can resolve makes it list the model's folder tree and download every image in it, which is fine for one model someone chose to open and not for every model in a folder, unattended. The lookup reports each companion's size, which is checked against what is left of the budget before the companion is fetched; one of unknown size is not fetched. Once one declared companion cannot be had, no more are fetched, and the load reports `missingFiles`, `budgetReached` and `bytesNeeded` (everything downloaded plus the companion that did not fit). The queue never renders such a load, because a thumbnail is written once per version and a degraded one would stay: when the budget was the reason, the visit ends with nothing rendered, uploaded or skipped, and the next visit's fresh budget tries again, unless `bytesNeeded` is more than a whole folder budget, in which case the file is skipped so it is not downloaded on every visit; when a companion was not found (or was refused with a 4xx), the file is skipped and the viewer, whose search also covers subfolders, makes the first thumbnail. So a glTF whose `.bin` did not fit never reaches the worker and does not count toward the breaker. A model that declares no companions, such as an FBX without textures, renders as it is, so a model whose textures are not declared gets an untextured thumbnail. One `AbortSignal` goes to every request of the load; it fires at "Give up on a file after", counted from the start of the download, and when the visit ends. Bytes are counted as they arrive, so a download stopped midway still counts against the budget. The dependency cache is not used.
+- Downloads use `loadModelForBackground` (`backgroundLoad.js`), not the viewer's `loadModelWithDependencies`. It fetches only the companions the model declares (the OBJ's `mtllib` and the maps its MTL names, each relative to the MTL's folder as the server reads it, glTF buffers and images, FBX and 3DS texture names, the file each COLLADA `<image>` names in its `<init_from>` (not an effect's `<surface><init_from>`, which holds an image's id), and the `url` of each X3D `<ImageTexture>` (not an Anchor, Inline, AudioClip or Script `url`), entity-decoded; an FBX texture whose image is embedded in its `Video` node's `Content` is not a companion and is not looked up, in the viewer either), each found through `/api/files/find` at the path the model declares or by its name beside the model, and never lists or scans a folder. A companion named by an absolute path, a `file:` URL or a relative path that climbs above the model's folder is looked for by its name beside the model only (see the public share endpoints above for how a reference becomes a name), and the loaders map the URL they ask for, `C:\textures\wood.jpg`, a percent-encoded `file:` URL, or `../../maps/wood.jpg` as written or resolved against the model's URL, to the fetched file by its bare, decoded name; one the job was not handed is still refused. The viewer's loader does both: an FBX or 3DS that declares no texture it can resolve makes it list the model's folder tree and download every image in it, which is fine for one model someone chose to open and not for every model in a folder, unattended. The lookup reports each companion's size, which is checked against what is left of the budget before the companion is fetched; one of unknown size is not fetched. Once one declared companion cannot be had, no more are fetched, and the load reports `missingFiles`, `budgetReached` and `bytesNeeded` (everything downloaded plus the companion that did not fit). The queue never renders such a load, because a thumbnail is written once per version and a degraded one would stay: when the budget was the reason, the visit ends with nothing rendered, uploaded or skipped, and the next visit's fresh budget tries again, unless `bytesNeeded` is more than a whole folder budget, in which case the file is skipped so it is not downloaded on every visit; when a companion was not found (or was refused with a 4xx), the file is skipped and the viewer, whose search also covers subfolders, makes the first thumbnail. So a glTF whose `.bin` did not fit never reaches the worker and does not count toward the breaker. A model that declares no companions, such as an FBX without textures, renders as it is, so a model whose textures are not declared gets an untextured thumbnail. One `AbortSignal` goes to every request of the load; it fires at "Give up on a file after", counted from the start of the download, and when the visit ends. Bytes are counted as they arrive, so a download stopped midway still counts against the budget. The dependency cache is not used.
 - A file goes on the skip list, `localStorage['threedviewer:thumbnailSkips']`, keyed by file id and ETag (at most 2000 entries), when:
   - it runs past "Give up on a file after", while downloading or rendering;
   - it has nothing to draw;
