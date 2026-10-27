@@ -158,6 +158,7 @@ import { showWarning } from '@nextcloud/dialogs'
 import { useSlicerIntegration } from '../composables/useSlicerIntegration.js'
 import { useFocusTrap } from '../composables/useFocusTrap.js'
 import { logger } from '../utils/logger.js'
+import { uploadTempFile, deleteTempFile } from '../utils/slicerApi.js'
 import { withExportState } from '../utils/ownDisplayState.js'
 
 export default {
@@ -384,39 +385,6 @@ export default {
 		}
 
 		/**
-		 * Upload blob to server with progress tracking via XMLHttpRequest
-		 * @param url
-		 * @param blob
-		 */
-		const uploadWithProgress = (url, blob) => {
-			return new Promise((resolve, reject) => {
-				const xhr = new XMLHttpRequest()
-				xhr.open('POST', url)
-				xhr.setRequestHeader('Content-Type', 'application/octet-stream')
-				xhr.timeout = 120000
-
-				xhr.upload.addEventListener('progress', (e) => {
-					if (e.lengthComputable) {
-						uploadProgress.value = Math.round((e.loaded / e.total) * 100)
-					}
-				})
-
-				xhr.addEventListener('load', () => {
-					uploadProgress.value = 100
-					if (xhr.status >= 200 && xhr.status < 300) {
-						try { resolve(JSON.parse(xhr.responseText)) } catch { reject(new Error('Invalid server response')) }
-					} else {
-						reject(new Error(`Server returned ${xhr.status}`))
-					}
-				})
-
-				xhr.addEventListener('error', () => reject(new Error('Network error')))
-				xhr.addEventListener('timeout', () => reject(new Error('Upload timed out (2 min)')))
-				xhr.send(blob)
-			})
-		}
-
-		/**
 		 * Copy last share link to clipboard
 		 */
 		const copyShareLink = async () => {
@@ -468,8 +436,7 @@ export default {
 					: t('threedviewer', 'Creating temporary share link...')
 
 				try {
-					const uploadUrl = generateUrl('/apps/threedviewer/api/slicer/temp') + `?filename=${encodeURIComponent(filename)}`
-					const data = await uploadWithProgress(uploadUrl, blob)
+					const data = await uploadTempFile(filename, blob, (percent) => { uploadProgress.value = percent })
 
 					if (!data.success || !data.downloadUrl) {
 						throw new Error('Server did not return download URL')
@@ -543,13 +510,8 @@ export default {
 
 					// Auto-cleanup after 2 minutes (share will auto-expire tomorrow anyway)
 					setTimeout(() => {
-						fetch(generateUrl(`/apps/threedviewer/api/slicer/temp/${data.fileId}`), {
-							method: 'DELETE',
-							credentials: 'include',
-							headers: {
-								'Content-Type': 'application/json',
-							},
-						}).catch(err => logger.warn('SlicerModal', 'Auto-cleanup failed', err))
+						deleteTempFile(data.fileId)
+							.catch(err => logger.warn('SlicerModal', 'Auto-cleanup failed', err))
 					}, 120000)
 
 				} catch (serverError) {

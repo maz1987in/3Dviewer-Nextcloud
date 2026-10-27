@@ -910,6 +910,14 @@
       <code><![CDATA[NotesHttpTest]]></code>
     </UnusedClass>
   </file>
+  <file src="tests/http/WriteRoutesCsrfHttpTest.php">
+    <MissingDependency>
+      <code><![CDATA[HttpTestCase]]></code>
+    </MissingDependency>
+    <UnusedClass>
+      <code><![CDATA[WriteRoutesCsrfHttpTest]]></code>
+    </UnusedClass>
+  </file>
   <file src="tests/integration/FileControllerLookupTest.php">
     <UndefinedClass>
       <code><![CDATA[TestCase]]></code>

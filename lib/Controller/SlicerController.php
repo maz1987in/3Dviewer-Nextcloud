@@ -77,7 +77,6 @@ class SlicerController extends Controller
      * @return JSONResponse
      */
     #[NoAdminRequired]
-    #[NoCSRFRequired]
     #[FrontpageRoute(verb: 'POST', url: '/api/slicer/temp')]
     public function saveTempFile(): JSONResponse
     {
@@ -368,12 +367,10 @@ class SlicerController extends Controller
      * Delete temporary file and its share.
      *
      * @NoAdminRequired
-     * @NoCSRFRequired
      * @param int $fileId File ID to delete
      * @return JSONResponse
      */
     #[NoAdminRequired]
-    #[NoCSRFRequired]
     #[FrontpageRoute(verb: 'DELETE', url: '/api/slicer/temp/{fileId}')]
     public function deleteTempFile(int $fileId): JSONResponse
     {

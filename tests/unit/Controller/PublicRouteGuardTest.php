@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OCA\ThreeDViewer\Tests\Unit\Controller;
 
+use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\Attribute\PublicPage;
 use OCP\AppFramework\Http\Attribute\Route;
 use OCP\AppFramework\PublicShareController;
@@ -45,11 +46,26 @@ class PublicRouteGuardTest extends TestCase
         // above it saying what the method serves and why no share is needed.
     ];
 
+    /**
+     * Routes that change data and may skip the CSRF check, and why. A write without the
+     * check can be triggered by any page the signed-in user visits, so the only honest
+     * reason is that there is no session to ride on: a share-authenticated endpoint
+     * (`#[PublicPage]` on a PublicShareController), which a share token and password
+     * protect instead. A listed method that is not that still fails Rule D.
+     *
+     * Empty on purpose: every write in the app is signed-in only and checks the token,
+     * and the public routes only read. Entries are `'ShortClassName::method' => 'why'`.
+     *
+     * @var array<string, string>
+     */
+    private const CSRF_EXEMPT_WRITES = [
+    ];
+
     private const REQUIRED_SHARE_METHODS = ['isValidToken', 'isPasswordProtected', 'getPasswordHash'];
 
     private const APP_NAMESPACE = 'OCA\\ThreeDViewer\\Controller\\';
 
-    /** @var list<array{class: class-string, method: string, public: bool, routes: list<string>, takesToken: bool, extendsShare: bool}>|null */
+    /** @var list<array{class: class-string, method: string, public: bool, noCsrf: bool, routes: list<string>, takesToken: bool, extendsShare: bool}>|null */
     private static ?array $methods = null;
 
     protected function setUp(): void
@@ -219,6 +235,62 @@ class PublicRouteGuardTest extends TestCase
         );
     }
 
+    /**
+     * Rule D. #[NoCSRFRequired] on a route that changes data lets any page the signed-in
+     * user visits trigger it: the browser sends the session cookie and nothing else is
+     * checked. Browser defaults (SameSite cookies, the preflight a PUT or DELETE needs)
+     * stop most of that, not all of it, so a write has to carry the token like the rest
+     * of Nextcloud. The one exception is a share-authenticated endpoint, which has no
+     * session to ride on and must be listed in CSRF_EXEMPT_WRITES with a reason.
+     */
+    public function testNoRouteThatChangesDataSkipsTheCsrfCheck(): void
+    {
+        $offenders = [];
+        foreach (self::methods() as $m) {
+            if (!$m['noCsrf']) {
+                continue;
+            }
+            foreach ($m['routes'] as $route) {
+                [$verb] = explode(' ', $route, 2);
+                if (in_array($verb, ['GET', 'HEAD', 'OPTIONS'], true)) {
+                    continue;
+                }
+                $exempt = isset(self::CSRF_EXEMPT_WRITES[$this->key($m)]) && $m['public'] && $m['extendsShare'];
+                if (!$exempt) {
+                    $offenders[] = $this->label($m) . ' [' . $route . ']';
+                }
+            }
+        }
+
+        $this->assertSame(
+            [],
+            $offenders,
+            'These routes change data but carry #[NoCSRFRequired], so another site can trigger them while '
+            . 'the user is signed in. Remove the attribute and send the request token from the caller '
+            . '(@nextcloud/axios does); only a #[PublicPage] route on a PublicShareController may be listed in '
+            . 'CSRF_EXEMPT_WRITES: ' . implode(', ', $offenders)
+        );
+    }
+
+    public function testTheCsrfAllowlistHasNoStaleEntries(): void
+    {
+        $live = [];
+        foreach (self::methods() as $m) {
+            if ($m['noCsrf'] && $m['public'] && $m['extendsShare']) {
+                $live[$this->key($m)] = true;
+            }
+        }
+
+        $stale = array_values(array_diff(array_keys(self::CSRF_EXEMPT_WRITES), array_keys($live)));
+
+        $this->assertSame(
+            [],
+            $stale,
+            'CSRF_EXEMPT_WRITES lists methods that are not share-authenticated and CSRF-exempt; remove them '
+            . 'so the list stays an exact record: ' . implode(', ', $stale)
+        );
+    }
+
     // ---------------------------------------------------------------------------------
     // Scanning
     // ---------------------------------------------------------------------------------
@@ -250,7 +322,7 @@ class PublicRouteGuardTest extends TestCase
     }
 
     /**
-     * @return list<array{class: class-string, method: string, public: bool, routes: list<string>, takesToken: bool, extendsShare: bool}>
+     * @return list<array{class: class-string, method: string, public: bool, noCsrf: bool, routes: list<string>, takesToken: bool, extendsShare: bool}>
      */
     private static function methods(): array
     {
@@ -301,6 +373,7 @@ class PublicRouteGuardTest extends TestCase
                     'class' => $class,
                     'method' => $method->getName(),
                     'public' => $classIsPublic || self::hasPublicPage($method),
+                    'noCsrf' => self::hasNoCsrfRequired($reflection) || self::hasNoCsrfRequired($method),
                     'routes' => array_values(array_unique($routes)),
                     // Both the route and the signature count, so renaming either one
                     // cannot hide a token from the guard. "Contains token" also catches
@@ -325,6 +398,18 @@ class PublicRouteGuardTest extends TestCase
         }
 
         return preg_match('/@PublicPage\b/', (string) $target->getDocComment()) === 1;
+    }
+
+    /**
+     * #[NoCSRFRequired] or the deprecated `@NoCSRFRequired` annotation.
+     */
+    private static function hasNoCsrfRequired(ReflectionClass|ReflectionMethod $target): bool
+    {
+        if ($target->getAttributes(NoCSRFRequired::class) !== []) {
+            return true;
+        }
+
+        return preg_match('/@NoCSRFRequired\b/', (string) $target->getDocComment()) === 1;
     }
 
     /**

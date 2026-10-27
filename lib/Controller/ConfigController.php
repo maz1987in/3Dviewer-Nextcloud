@@ -8,7 +8,6 @@ use OCA\ThreeDViewer\AppInfo\Application;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\Attribute\FrontpageRoute;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
-use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\IConfig;
 use OCP\IRequest;
@@ -28,7 +27,6 @@ class ConfigController extends Controller
      * Set user configuration values.
      */
     #[NoAdminRequired]
-    #[NoCSRFRequired]
     #[FrontpageRoute(verb: 'PUT', url: '/config')]
     public function setConfig(array $values): DataResponse
     {

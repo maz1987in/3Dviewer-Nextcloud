@@ -259,7 +259,6 @@ class FileController extends BaseController
      * Trigger indexing of all 3D files for the current user.
      */
     #[NoAdminRequired]
-    #[NoCSRFRequired]
     #[FrontpageRoute(verb: 'POST', url: '/api/files/index')]
     public function indexFiles(): JSONResponse
     {
