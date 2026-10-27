@@ -370,7 +370,8 @@ export function useExport() {
 	 * @param {string} spec.filename - base filename, without extension
 	 * @param {string} spec.extension - file extension, without the dot
 	 * @param {string} spec.mimeType - MIME type of the file
-	 * @param {Function} spec.produce - async (object) => file contents
+	 * @param {Function} spec.produce - async (object, progress) => file contents; may call
+	 *   progress(0..1) as it goes
 	 * @param {boolean} [spec.points] - The format holds point clouds as well as meshes
 	 * @return {Promise<void>}
 	 * @throws {NothingToExportError} When the model has nothing the format can hold
@@ -393,7 +394,9 @@ export function useExport() {
 			logger.info('useExport', `Starting ${label} export`, { filename })
 
 			exportProgress.value = { stage: `Exporting geometry to ${label}...`, percentage: 40 }
-			const result = await produce(object)
+			const result = await produce(object, (fraction) => {
+				exportProgress.value = { stage: `Exporting geometry to ${label}...`, percentage: 40 + Math.round(fraction * 50) }
+			})
 
 			const blob = new Blob([result], { type: mimeType })
 			const sizeMB = (blob.size / 1024 / 1024).toFixed(2)
@@ -447,10 +450,10 @@ export function useExport() {
 		filename,
 		extension: '3mf',
 		mimeType: 'model/3mf',
-		produce: async (obj) => {
+		produce: async (obj, progress) => {
 			const { build3MF } = await import('../utils/threeMFWriter.js')
 			// Null when welding left no triangle that the surface check could not foresee
-			const file = build3MF(obj, { millimetresPerUnit })
+			const file = await build3MF(obj, { millimetresPerUnit, onProgress: progress })
 			if (!file) {
 				throw new NothingToExportError('3MF')
 			}

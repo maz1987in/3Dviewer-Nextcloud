@@ -14,9 +14,9 @@ function vertices(doc) {
 }
 
 describe('build3MF', () => {
-	it('packages the three parts a 3MF reader requires', () => {
+	it('packages the three parts a 3MF reader requires', async () => {
 		const mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial())
-		const files = unzipSync(build3MF(mesh))
+		const files = unzipSync(await build3MF(mesh))
 		expect(Object.keys(files).sort()).toEqual(['3D/3dmodel.model', '[Content_Types].xml', '_rels/.rels'])
 
 		const doc = parse(strFromU8(files['3D/3dmodel.model']))
@@ -28,8 +28,8 @@ describe('build3MF', () => {
 		expect(doc.getElementsByTagName('item')).toHaveLength(1)
 	})
 
-	it('refuses a model with nothing to print', () => {
-		expect(build3MF(new THREE.Group())).toBeNull()
+	it('refuses a model with nothing to print', async () => {
+		expect(await build3MF(new THREE.Group())).toBeNull()
 	})
 })
 
@@ -127,11 +127,11 @@ describe('a closed model stays closed', () => {
 		expectClosed(doc)
 	})
 
-	it('drops a triangle that welding collapses', () => {
+	it('drops a triangle that welding collapses', async () => {
 		const g = new THREE.BufferGeometry()
 		// The third corner is the first one again, a hair away
 		g.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 1, 0, 0, 1e-9, 0, 0], 3))
-		expect(build3MF(new THREE.Mesh(g))).toBeNull()
+		expect(await build3MF(new THREE.Mesh(g))).toBeNull()
 	})
 })
 
@@ -166,10 +166,10 @@ describe('what is written', () => {
 })
 
 describe('read back by a 3MF reader', () => {
-	it('opens in three.js\'s 3MF loader with the shape it was written with', () => {
+	it('opens in three.js\'s 3MF loader with the shape it was written with', async () => {
 		// 10 × 20 × 30, standing 20 tall in three.js (Y)
 		const mesh = new THREE.Mesh(new THREE.BoxGeometry(10, 20, 30))
-		const bytes = build3MF(mesh)
+		const bytes = await build3MF(mesh)
 		const group = new ThreeMFLoader().parse(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength))
 
 		const meshes = []
@@ -198,5 +198,44 @@ describe('units', () => {
 		const mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1).translate(0, 1, 0))
 		const zs = vertices(parse(build3MFModelXml(mesh).xml)).map((v) => v[2])
 		expect(Math.max(...zs)).toBeCloseTo(2, 6)
+	})
+})
+
+/*
+ * A large mesh is written a piece at a time: the thread is handed back between pieces and
+ * progress is reported, so the page repaints and the bar moves during the export.
+ */
+describe('a large mesh', () => {
+	it('yields to the event loop and reports progress up to 1, with the same file', async () => {
+		const geometry = new THREE.SphereGeometry(50, 96, 96).toNonIndexed()
+		const mesh = new THREE.Mesh(geometry)
+		const reported = []
+		let yields = 0
+		const tick = setInterval(() => { yields++ }, 0)
+		try {
+			const bytes = await build3MF(mesh, { sliceMs: 0, onProgress: (p) => reported.push(p) })
+			const doc = parse(strFromU8(unzipSync(bytes)['3D/3dmodel.model']))
+			// The sphere has 96 × 95 + 2 distinct points, and 96 × 190 triangles once the poles' are not doubled
+			expect(doc.getElementsByTagName('vertex')).toHaveLength(96 * 95 + 2)
+			expect(doc.getElementsByTagName('triangle')).toHaveLength(96 * 190)
+			expect(doc.getElementsByTagName('vertex')[0].getAttribute('y')).not.toBeNull()
+			expect(build3MFModelXml(mesh).xml).toBe(strFromU8(unzipSync(bytes)['3D/3dmodel.model']))
+		} finally {
+			clearInterval(tick)
+		}
+		expect(reported.length).toBeGreaterThan(3)
+		expect(reported).toEqual([...reported].sort((a, b) => a - b))
+		expect(reported[reported.length - 1]).toBe(1)
+		expect(yields).toBeGreaterThan(0)
+	})
+
+	it('welds corners whose coordinates differ only past the sixth decimal', () => {
+		const g = new THREE.BufferGeometry()
+		g.setAttribute('position', new THREE.Float32BufferAttribute([
+			0, 0, 0, 1, 0, 0, 0, 1, 0,
+			1.0000000001, 0, 0, 0, 1, 0, 1, 1, 0,
+		], 3))
+		const doc = parse(build3MFModelXml(new THREE.Mesh(g)).xml)
+		expect(doc.getElementsByTagName('vertex')).toHaveLength(4)
 	})
 })
