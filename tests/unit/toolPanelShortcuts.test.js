@@ -14,7 +14,7 @@
 
 const { readFileSync } = require('fs')
 const { join } = require('path')
-const { TOOL_SHORTCUTS, shortcutFor, shortcutKey } = require('../../src/utils/toolShortcuts.js')
+const { TOOL_SHORTCUTS, isShortcutBlocked, shortcutFor, shortcutKey } = require('../../src/utils/toolShortcuts.js')
 
 const PANEL = readFileSync(
 	join(__dirname, '..', '..', 'src', 'components', 'SlideOutToolPanel.vue'),
@@ -72,6 +72,33 @@ describe('what a keypress resolves to', () => {
 		// Cmd-P prints the page, Ctrl-S saves it. A single-letter shortcut that fires on
 		// those takes the browser's own command away from the user.
 		expect(shortcutFor(keydown('p', { [modifier]: true }))).toBeNull()
+	})
+
+	it.each([' ', 'Enter'])('leaves %j alone on a button, so a focused switch gets its click', (key) => {
+		// Space and Enter are how a keyboard user operates the panel's own buttons and
+		// switches. If either resolved to a shortcut, pressing it on a focused row would
+		// operate the row and fire the shortcut as well.
+		const button = document.createElement('button')
+		button.setAttribute('role', 'switch')
+		expect(shortcutFor(keydown(key, { target: button }))).toBeNull()
+		expect(TOOL_SHORTCUTS.map((s) => s.key)).not.toContain(key)
+	})
+
+	it('still takes a letter pressed on a focused button, as it does anywhere outside a field', () => {
+		const button = document.createElement('button')
+		expect(shortcutFor(keydown('r', { target: button }))).toBe('reset-view')
+	})
+
+	it('leaves a key alone for the same reasons the panel\'s own T does', () => {
+		// One test, shared: T used to check three tag names of its own and ignore both
+		// modifiers and editable elements
+		const editable = document.createElement('div')
+		editable.setAttribute('contenteditable', 'true')
+		expect(isShortcutBlocked(keydown('t', { target: editable }))).toBe(true)
+		expect(isShortcutBlocked(keydown('t', { ctrlKey: true }))).toBe(true)
+		expect(isShortcutBlocked(keydown('t', { target: document.createElement('input') }))).toBe(true)
+		expect(isShortcutBlocked(keydown('t', { target: document.createElement('button') }))).toBe(false)
+		expect(PANEL).toContain('isShortcutBlocked(event)')
 	})
 
 	it('leaves a key it does not know alone', () => {

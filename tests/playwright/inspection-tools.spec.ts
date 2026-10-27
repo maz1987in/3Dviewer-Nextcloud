@@ -349,6 +349,16 @@ async function recordThumbnails(page: Page, needed: number[]) {
 }
 
 /**
+ * Choose an export format and press Export, as a user does: choosing alone starts nothing.
+ * @param page - the page, with the tools panel open and its Export section showing
+ * @param format - the format's value in the select
+ */
+async function exportAs(page: Page, format: string) {
+	await page.selectOption('.export-select', format)
+	await page.locator('.export-btn').click()
+}
+
+/**
  * Open another model in the same viewer, as the file browser does (its URL update left
  * out: generateUrl has no Nextcloud host here), and wait for it to load.
  * @param page - the page, with a model loaded
@@ -526,7 +536,7 @@ test.describe('Inspection tools', () => {
 			await page.locator('.slide-out-panel').getByText('Export', { exact: true }).first().click()
 			const [download] = await Promise.all([
 				page.waitForEvent('download', { timeout: 20000 }),
-				page.selectOption('.export-select', format),
+				exportAs(page, format),
 			])
 			expect(download.suggestedFilename()).toBe(`cube.${format}`)
 			const file = await download.path()
@@ -546,7 +556,7 @@ test.describe('Inspection tools', () => {
 		const save = async (format: string) => {
 			const [download] = await Promise.all([
 				page.waitForEvent('download', { timeout: 20000 }),
-				page.selectOption('.export-select', format),
+				exportAs(page, format),
 			])
 			return fs.readFileSync((await download.path())!)
 		}
@@ -567,7 +577,7 @@ test.describe('Inspection tools', () => {
 		page.on('download', () => { downloaded = true })
 		await openLoadedViewer(page, server.url)
 		await page.locator('.slide-out-panel').getByText('Export', { exact: true }).first().click()
-		await page.selectOption('.export-select', '3mf')
+		await exportAs(page, '3mf')
 		await expect(page.getByLabel('Export Failed')).toContainText('This model has no surfaces to save as 3MF.')
 		expect(downloaded).toBe(false)
 	})

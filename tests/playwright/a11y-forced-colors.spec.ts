@@ -162,7 +162,7 @@ test.describe('Forced-colors (Windows HC) accessibility', () => {
 	})
 
 	test('the pressed choice of a switch or button group stays distinct in HC mode', async ({ page }) => {
-		// Distance / Angle, the Shading buttons, and the G-code "Only this layer" switch:
+		// Distance / Angle, the Shading buttons, the cross-section axis buttons, and the tool switches:
 		// each shows what is on with a fill that forced colours would repaint away
 		await page.setContent(buildFixture(`
 			<div class="row tdv-segmented" role="group">
@@ -173,6 +173,10 @@ test.describe('Forced-colors (Windows HC) accessibility', () => {
 				<button id="shade-off" class="preset-btn" type="button" aria-pressed="false">Standard</button>
 				<button id="shade-on" class="preset-btn active" type="button" aria-pressed="true">Clay</button>
 			</div>
+			<div class="row axis-buttons" role="group">
+				<button id="axis-off" class="axis-btn" type="button" aria-pressed="false">X</button>
+				<button id="axis-on" class="axis-btn active" type="button" aria-pressed="true">Y</button>
+			</div>
 			<button id="switch-off" class="toggle-row toggle-row--button" type="button" role="switch" aria-checked="false">
 				<span id="track-off" class="toggle-switch"></span><span>Only this layer</span>
 			</button>
@@ -182,7 +186,7 @@ test.describe('Forced-colors (Windows HC) accessibility', () => {
 		`))
 
 		const bg = (id: string) => page.locator(`#${id}`).evaluate(el => getComputedStyle(el).backgroundColor)
-		for (const [off, on] of [['seg-off', 'seg-on'], ['shade-off', 'shade-on'], ['track-off', 'track-on']]) {
+		for (const [off, on] of [['seg-off', 'seg-on'], ['shade-off', 'shade-on'], ['axis-off', 'axis-on'], ['track-off', 'track-on']]) {
 			expect(await bg(on), `${on} against ${off}`).not.toBe(await bg(off))
 		}
 

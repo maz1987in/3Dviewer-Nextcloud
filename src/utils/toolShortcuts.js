@@ -21,21 +21,36 @@ export const TOOL_SHORTCUTS = [
 const TYPING = /^(INPUT|TEXTAREA|SELECT)$/
 
 /**
+ * Whether a keypress belongs to something other than the viewer's shortcuts: a key typed
+ * into a field, or one held with a modifier.
+ *
+ * A button is not a field. Enter and Space on a focused button or switch are not in the
+ * table, so they reach it as the click they are, and a letter pressed there still works as
+ * the shortcut it is.
+ *
+ * @param {KeyboardEvent} event - the keydown
+ * @return {boolean} true when the key is not the viewer's to take
+ */
+export function isShortcutBlocked(event) {
+	if (!event || event.ctrlKey || event.metaKey || event.altKey) {
+		// Cmd-P prints the page and Ctrl-S saves it. A single-letter shortcut that fires on
+		// those takes the browser's own command away from the user.
+		return true
+	}
+
+	const target = event.target
+	return !!target && (TYPING.test(target.tagName) || !!target.isContentEditable
+		|| target.getAttribute?.('contenteditable') === 'true')
+}
+
+/**
  * The event a keypress asks for, if any.
  *
  * @param {KeyboardEvent} event - the keydown
  * @return {?string} the event name to emit, or null to let the key through
  */
 export function shortcutFor(event) {
-	if (!event || event.ctrlKey || event.metaKey || event.altKey) {
-		// Cmd-P prints the page and Ctrl-S saves it. A single-letter shortcut that fires on
-		// those takes the browser's own command away from the user.
-		return null
-	}
-
-	const target = event.target
-	if (target && (TYPING.test(target.tagName) || target.isContentEditable
-		|| target.getAttribute?.('contenteditable') === 'true')) {
+	if (isShortcutBlocked(event)) {
 		return null
 	}
 

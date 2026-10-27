@@ -97,6 +97,7 @@
 											</button>
 											<button class="bookmark-delete"
 												:title="t('threedviewer', 'Remove')"
+												:aria-label="`${t('threedviewer', 'Remove')}: ${bm.name}`"
 												@click="emit('remove-bookmark', i)">
 												×
 											</button>
@@ -119,18 +120,15 @@
 									:size="15" />
 							</button>
 							<div v-show="sections.scene" id="panel-section-scene" class="section-content">
-								<label class="toggle-row" @click.prevent="emit('toggle-grid')">
-									<span class="toggle-switch" :class="{ on: grid }" />
-									<span class="toggle-text">{{ t('threedviewer', 'Grid') }}</span>
-								</label>
-								<label class="toggle-row" @click.prevent="emit('toggle-axes')">
-									<span class="toggle-switch" :class="{ on: axes }" />
-									<span class="toggle-text">{{ t('threedviewer', 'Axes') }}</span>
-								</label>
-								<label class="toggle-row" @click.prevent="emit('toggle-wireframe')">
-									<span class="toggle-switch" :class="{ on: wireframe }" />
-									<span class="toggle-text">{{ t('threedviewer', 'Wireframe') }}</span>
-								</label>
+								<ToggleSwitchRow :checked="grid"
+									:label="t('threedviewer', 'Grid')"
+									@toggle="emit('toggle-grid')" />
+								<ToggleSwitchRow :checked="axes"
+									:label="t('threedviewer', 'Axes')"
+									@toggle="emit('toggle-axes')" />
+								<ToggleSwitchRow :checked="wireframe"
+									:label="t('threedviewer', 'Wireframe')"
+									@toggle="emit('toggle-wireframe')" />
 								<!-- Render mode: inspection shading in place of the model's materials -->
 								<div class="tool-group">
 									<!-- A heading for the group, not a <label>: there is no one control it names -->
@@ -156,6 +154,7 @@
 											:key="preset.name"
 											class="preset-btn"
 											:class="{ 'active': lightingPreset === preset.name }"
+											:aria-pressed="lightingPreset === preset.name ? 'true' : 'false'"
 											@click="emit('apply-lighting-preset', preset.name)">
 											{{ preset.label }}
 										</button>
@@ -213,12 +212,14 @@
 									<div class="axis-buttons clipping-mode-switch">
 										<button class="axis-btn"
 											:class="{ 'active': clippingMode === 'plane' }"
+											:aria-pressed="clippingMode === 'plane' ? 'true' : 'false'"
 											:title="t('threedviewer', 'Single cross-section plane')"
 											@click="emit('set-clipping-mode', 'plane')">
 											{{ t('threedviewer', 'Plane') }}
 										</button>
 										<button class="axis-btn"
 											:class="{ 'active': clippingMode === 'box' }"
+											:aria-pressed="clippingMode === 'box' ? 'true' : 'false'"
 											:title="t('threedviewer', '6-plane clipping box')"
 											@click="emit('set-clipping-mode', 'box')">
 											{{ t('threedviewer', 'Box') }}
@@ -232,11 +233,13 @@
 												:key="a"
 												class="axis-btn"
 												:class="{ 'active': clippingAxis === a }"
+												:aria-pressed="clippingAxis === a ? 'true' : 'false'"
 												@click="emit('set-clipping-axis', a)">
 												{{ a.toUpperCase() }}
 											</button>
 											<button class="axis-btn"
 												:class="{ 'active': clippingFlipped }"
+												:aria-pressed="clippingFlipped ? 'true' : 'false'"
 												:title="t('threedviewer', 'Flip direction')"
 												@click="emit('toggle-clipping-flip')">
 												<ViewerIcon name="flipDirection" :size="16" />
@@ -247,6 +250,7 @@
 											min="-1"
 											max="1"
 											step="0.01"
+											:aria-label="t('threedviewer', 'Position')"
 											:value="clippingPosition"
 											@input="emit('set-clipping-position', parseFloat($event.target.value))">
 									</template>
@@ -300,8 +304,9 @@
 									<span v-if="explodedViewActive" class="active-badge">{{ t('threedviewer', 'Active') }}</span>
 								</button>
 								<div v-if="explodedViewActive" class="tool-group">
-									<label class="tool-label-small">{{ t('threedviewer', 'Explosion') }}</label>
-									<input type="range"
+									<label class="tool-label-small" for="exploded-factor-slider">{{ t('threedviewer', 'Explosion') }}</label>
+									<input id="exploded-factor-slider"
+										type="range"
 										class="clipping-slider"
 										min="0"
 										max="1"
@@ -324,15 +329,9 @@
 										:value="gcodeLayer"
 										:aria-valuetext="gcodeLayerValueText"
 										@input="emit('set-gcode-layer', parseInt($event.target.value, 10))">
-									<!-- A real switch: the label-and-span toggles above take no keyboard focus -->
-									<button type="button"
-										class="toggle-row toggle-row--button"
-										role="switch"
-										:aria-checked="gcodeSingleLayer ? 'true' : 'false'"
-										@click="emit('toggle-gcode-single-layer')">
-										<span class="toggle-switch" :class="{ on: gcodeSingleLayer }" aria-hidden="true" />
-										<span class="toggle-text">{{ t('threedviewer', 'Only this layer') }}</span>
-									</button>
+									<ToggleSwitchRow :checked="gcodeSingleLayer"
+										:label="t('threedviewer', 'Only this layer')"
+										@toggle="emit('toggle-gcode-single-layer')" />
 								</div>
 								<!-- Transform Gizmo -->
 								<button class="tool-btn feature-btn"
@@ -347,18 +346,21 @@
 									<div class="axis-buttons">
 										<button class="axis-btn"
 											:class="{ 'active': transformGizmoMode === 'translate' }"
+											:aria-pressed="transformGizmoMode === 'translate' ? 'true' : 'false'"
 											:title="t('threedviewer', 'Move')"
 											@click="emit('set-transform-mode', 'translate')">
 											{{ t('threedviewer', 'Move') }}
 										</button>
 										<button class="axis-btn"
 											:class="{ 'active': transformGizmoMode === 'rotate' }"
+											:aria-pressed="transformGizmoMode === 'rotate' ? 'true' : 'false'"
 											:title="t('threedviewer', 'Rotate')"
 											@click="emit('set-transform-mode', 'rotate')">
 											{{ t('threedviewer', 'Rotate') }}
 										</button>
 										<button class="axis-btn"
 											:class="{ 'active': transformGizmoMode === 'scale' }"
+											:aria-pressed="transformGizmoMode === 'scale' ? 'true' : 'false'"
 											:title="t('threedviewer', 'Scale')"
 											@click="emit('set-transform-mode', 'scale')">
 											{{ t('threedviewer', 'Scale') }}
@@ -396,8 +398,9 @@
 							<div v-show="sections.animation" id="panel-section-animation" class="section-content">
 								<!-- Clip selector -->
 								<div v-if="animationClipNames.length > 1" class="clip-selector">
-									<label class="clip-label">{{ t('threedviewer', 'Clip') }}</label>
-									<select class="clip-dropdown"
+									<label class="clip-label" for="animation-clip-select">{{ t('threedviewer', 'Clip') }}</label>
+									<select id="animation-clip-select"
+										class="clip-dropdown"
 										:value="animationActiveClipIndex"
 										@change="emit('animation-select-clip', parseInt($event.target.value))">
 										<option v-for="(name, idx) in animationClipNames"
@@ -414,25 +417,32 @@
 										<ViewerIcon class="tool-icon" :name="isAnimationPlaying ? 'animationPause' : 'animationPlay'" :size="17" />
 										<span class="tool-label">{{ isAnimationPlaying ? t('threedviewer', 'Pause') : t('threedviewer', 'Play') }}</span>
 									</button>
-									<label class="toggle-row" @click.prevent="emit('toggle-animation-loop')">
-										<span class="toggle-switch" :class="{ on: isAnimationLooping }" />
-										<span class="toggle-text">{{ t('threedviewer', 'Loop') }}</span>
-									</label>
+									<ToggleSwitchRow compact
+										:checked="isAnimationLooping"
+										:label="t('threedviewer', 'Loop')"
+										@toggle="emit('toggle-animation-loop')" />
 								</div>
 								<!-- Timeline scrubber -->
 								<div v-if="animationDuration > 0" class="timeline-scrubber">
 									<div class="timeline-row">
-										<button class="step-btn" :title="t('threedviewer', 'Step back')" @click="emit('animation-step-backward')">
+										<button class="step-btn"
+											:title="t('threedviewer', 'Step back')"
+											:aria-label="t('threedviewer', 'Step back')"
+											@click="emit('animation-step-backward')">
 											⏮
 										</button>
 										<input type="range"
 											class="timeline-slider"
+											:aria-label="t('threedviewer', 'Animation')"
 											:min="0"
 											:max="animationDuration"
 											:step="animationDuration / 100"
 											:value="animationCurrentTime"
 											@input="emit('animation-seek', parseFloat($event.target.value))">
-										<button class="step-btn" :title="t('threedviewer', 'Step forward')" @click="emit('animation-step-forward')">
+										<button class="step-btn"
+											:title="t('threedviewer', 'Step forward')"
+											:aria-label="t('threedviewer', 'Step forward')"
+											@click="emit('animation-step-forward')">
 											⏭
 										</button>
 									</div>
@@ -462,24 +472,20 @@
 									<span class="tool-hint">{{ shortcutKey('take-screenshot') }}</span>
 								</button>
 								<!--
-									A row like the ones above it, not a labelled block. The label was a
-									bare `<label>` with no `for`, so it named nothing — the control it
-									sat over was announced as an unlabelled combo box, and the stack of
-									the two took twice the height of every neighbouring row while
-									saying the same thing.
+									Choosing a format does not start an export: a change of setting must not
+									have an effect the user was not told of (WCAG 3.2.2). Arrowing through the
+									list in a closed select fires `change` on every step in Chrome and Firefox
+									on Windows and Linux, so the first ArrowDown used to start a GLB download.
+									The select only chooses; the button exports. The row is a group named
+									"Export Model", which is the context the two controls share.
 								-->
-								<div class="tool-row">
+								<div class="tool-row" role="group" :aria-label="t('threedviewer', 'Export Model')">
 									<ViewerIcon class="tool-icon" name="exportModel" :size="17" />
-									<span class="tool-label">{{ t('threedviewer', 'Export Model') }}</span>
-									<select ref="exportSelect"
+									<select v-model="exportFormat"
 										:disabled="!modelLoaded || exporting"
 										:aria-busy="exporting ? 'true' : 'false'"
 										class="export-select"
-										:aria-label="t('threedviewer', 'Export model format')"
-										@change="handleExportChange($event.target.value)">
-										<option value="">
-											{{ t('threedviewer', 'Select format...') }}
-										</option>
+										:aria-label="t('threedviewer', 'Export model format')">
 										<option value="glb">
 											{{ t('threedviewer', 'GLB (Recommended)') }}
 										</option>
@@ -502,6 +508,19 @@
 											{{ t('threedviewer', 'ZIP (All Files)') }}
 										</option>
 									</select>
+									<!--
+										while an export runs the button is aria-disabled rather than disabled: a
+										disabled button drops focus, and the keyboard user who pressed it would
+										be put back at the top of the page.
+									-->
+									<button type="button"
+										class="export-btn"
+										:disabled="!modelLoaded"
+										:aria-disabled="exporting ? 'true' : null"
+										:aria-busy="exporting ? 'true' : 'false'"
+										@click="startExport">
+										{{ t('threedviewer', 'Export') }}
+									</button>
 								</div>
 								<button class="tool-btn"
 									:disabled="!modelLoaded"
@@ -545,6 +564,7 @@
 										<button v-if="customPalette.background"
 											class="palette-clear"
 											:title="t('threedviewer', 'Reset to theme default')"
+											:aria-label="t('threedviewer', 'Reset to theme default')"
 											@click="emit('set-palette-color', { key: 'background', hex: null })">
 											×
 										</button>
@@ -559,6 +579,7 @@
 										<button v-if="customPalette.gridColor"
 											class="palette-clear"
 											:title="t('threedviewer', 'Reset to theme default')"
+											:aria-label="t('threedviewer', 'Reset to theme default')"
 											@click="emit('set-palette-color', { key: 'gridColor', hex: null })">
 											×
 										</button>
@@ -620,7 +641,8 @@
 <script>
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import ViewerIcon from './ViewerIcon.vue'
-import { shortcutFor, shortcutKey } from '../utils/toolShortcuts.js'
+import ToggleSwitchRow from './ToggleSwitchRow.vue'
+import { isShortcutBlocked, shortcutFor, shortcutKey } from '../utils/toolShortcuts.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
 // eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
 import { translate as t } from '@nextcloud/l10n'
@@ -630,6 +652,7 @@ export default {
 
 	components: {
 		ViewerIcon,
+		ToggleSwitchRow,
 	},
 
 	props: {
@@ -764,7 +787,8 @@ export default {
 
 	setup(props, { emit }) {
 		const isOpen = ref(false)
-		const exportSelect = ref(null)
+		// The format the Export button writes. Kept while the panel is mounted, not saved.
+		const exportFormat = ref('glb')
 
 		// Section collapse states
 		const sections = ref({
@@ -805,7 +829,9 @@ export default {
 
 		const handleKeyPress = (event) => {
 			if (event.key === 't' || event.key === 'T') {
-				if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA' || event.target.tagName === 'SELECT') return
+				// The same test the other shortcuts pass: not a key typed into a field, not
+				// one held with a modifier
+				if (isShortcutBlocked(event)) return
 				togglePanel()
 				return
 			}
@@ -848,12 +874,16 @@ export default {
 			window.removeEventListener('keydown', handleKeyPress)
 		})
 
-		const handleExportChange = (format) => {
-			if (format) {
-				emit('export-model', format)
-				if (exportSelect.value) exportSelect.value.value = ''
-			}
+		const startExport = () => {
+			// aria-disabled does not stop a click, so an export already running does
+			if (props.exporting || !props.modelLoaded) return
+			emit('export-model', exportFormat.value)
 		}
+
+		// The ZIP entry is there only while the model has more than one source file
+		watch(() => props.hasMultipleSourceFiles, (multiple) => {
+			if (!multiple && exportFormat.value === 'zip') exportFormat.value = 'glb'
+		})
 
 		const cyclePerformanceMode = () => {
 			const modes = ['auto', 'low', 'balanced', 'high', 'ultra']
@@ -947,11 +977,11 @@ export default {
 			shortcutKey,
 			isOpen,
 			sections,
-			exportSelect,
+			exportFormat,
 			togglePanel,
 			closePanel,
 			toggleSection,
-			handleExportChange,
+			startExport,
 			cyclePerformanceMode,
 			getPerformanceModeText,
 			cycleTheme,
@@ -1190,63 +1220,6 @@ export default {
 	text-transform: uppercase;
 }
 
-/* Toggle switch rows. The class is doubled: "Only this layer" is a <button> with it, and
-   a single class loses to Nextcloud's rules for every button (buttonSpecificity.test.js) */
-.toggle-row.toggle-row {
-	display: flex;
-	align-items: center;
-	gap: 12px;
-	padding: 10px 16px;
-	cursor: pointer;
-	border-radius: 6px;
-	transition: background 0.15s ease;
-	margin-bottom: 4px;
-}
-
-.toggle-row.toggle-row:hover {
-	background: var(--tdv-color-hover-bg);
-}
-
-.toggle-switch {
-	position: relative;
-	width: 36px;
-	height: 20px;
-	background: var(--tdv-color-border);
-	border-radius: 10px;
-	flex-shrink: 0;
-	transition: background 0.2s ease;
-}
-
-.toggle-switch::after {
-	content: '';
-	position: absolute;
-	top: 2px;
-	inset-inline-start: 2px;
-	width: 16px;
-	height: 16px;
-	background: var(--tdv-color-surface);
-	border-radius: 50%;
-	transition: transform 0.2s ease;
-	box-shadow: 0 1px 3px rgb(0 0 0 / 20%);
-}
-
-.toggle-switch.on {
-	background: var(--tdv-color-primary);
-}
-
-.toggle-switch.on::after {
-	transform: translateX(16px);
-}
-
-[dir="rtl"] .toggle-switch.on::after {
-	transform: translateX(-16px);
-}
-
-.toggle-text {
-	font-size: 14px;
-	color: var(--tdv-color-text);
-}
-
 /* Tool Groups */
 
 /* A labelled group of rows — "Bookmarks", "Lighting". The sheet gives it a quiet caption
@@ -1263,33 +1236,6 @@ export default {
 	font-size: 12px;
 	font-weight: 400;
 	color: var(--tdv-color-text-secondary);
-}
-
-/* The switch is a button, so it takes focus; it keeps the look of the rows above */
-.toggle-row.toggle-row--button {
-	width: 100%;
-	border: none;
-	background: none;
-	color: inherit;
-	font: inherit;
-	text-align: start;
-}
-
-.toggle-row.toggle-row--button:hover,
-.toggle-row.toggle-row--button:focus-visible {
-	background: var(--tdv-color-hover-bg);
-	color: inherit;
-}
-
-.toggle-row.toggle-row--button:focus-visible {
-	outline: 2px solid var(--tdv-color-primary);
-	outline-offset: 2px;
-}
-
-/* Nextcloud's pressed-button rule scores (0,4,1); a row has no pressed look of its own */
-.toggle-row.toggle-row--button:active {
-	background: var(--tdv-color-hover-bg) !important;
-	color: inherit !important;
 }
 
 /* The layer number on the left, its height on the right */
@@ -1341,11 +1287,6 @@ export default {
 
 .animation-controls .tool-btn {
 	flex: 1;
-	margin-bottom: 0;
-}
-
-.animation-controls .toggle-row {
-	padding: 6px 12px;
 	margin-bottom: 0;
 }
 
@@ -1570,8 +1511,8 @@ export default {
 }
 
 .export-select {
-	margin-inline-start: auto;
-	max-width: 55%;
+	flex: 1;
+	min-width: 0;
 	padding: 4px 8px;
 	background: var(--tdv-color-surface-sunken);
 	border: 1px solid var(--tdv-color-border);
@@ -1601,6 +1542,53 @@ export default {
 .export-select option {
 	background: var(--tdv-color-surface);
 	color: var(--tdv-color-text);
+}
+
+/*
+ * The button that writes the file. Doubled class, for the reason every button here is:
+ * Nextcloud's rules for a button score (0,1,1), its hover and focus (0,2,1) and its pressed
+ * state (0,4,1), which only `!important` outranks (buttonSpecificity.test.js).
+ */
+.export-btn.export-btn {
+	flex-shrink: 0;
+	margin: 0;
+	padding: 4px 14px;
+	border: 1px solid var(--tdv-color-primary);
+	border-radius: 8px;
+	background: var(--tdv-color-primary);
+	color: var(--tdv-color-on-primary);
+	font-family: inherit;
+	font-size: 13px;
+	font-weight: var(--tdv-font-weight-medium);
+	cursor: pointer;
+	transition: background 0.15s ease-out;
+}
+
+.export-btn.export-btn:hover:not(:disabled, [aria-disabled="true"]) {
+	background: var(--tdv-color-primary-hover);
+	color: var(--tdv-color-on-primary);
+}
+
+.export-btn.export-btn:focus-visible {
+	outline: 2px solid var(--tdv-color-primary);
+	outline-offset: 2px;
+}
+
+.export-btn.export-btn:active:not([aria-disabled="true"]) {
+	background: var(--tdv-color-primary-hover) !important;
+	color: var(--tdv-color-on-primary) !important;
+}
+
+/* Running: a press shows nothing, and Nextcloud's pressed look does not take over */
+.export-btn.export-btn[aria-disabled="true"]:active {
+	background: var(--tdv-color-primary) !important;
+	color: var(--tdv-color-on-primary) !important;
+}
+
+.export-btn.export-btn:disabled,
+.export-btn.export-btn[aria-disabled="true"] {
+	opacity: 0.5;
+	cursor: not-allowed;
 }
 
 /* Color Picker */
