@@ -165,6 +165,11 @@ test.describe('Inspection tools', () => {
 			// A USDZ is a zip whose first entry is the USD layer
 			const files = unzipSync(new Uint8Array(bytes))
 			expect(Object.keys(files)[0]).toMatch(/\.usda$/)
+			// One viewer unit is a millimetre and USD's unit here a metre: the model sits
+			// under a 1/1000 scale, so AR Quick Look shows the 10 mm cube 10 mm across
+			const layer = strFromU8(files[Object.keys(files)[0]])
+			expect(layer).toContain('metersPerUnit = 1')
+			expect(layer).toContain('matrix4d xformOp:transform = ( (0.001, 0, 0, 0), (0, 0.001, 0, 0), (0, 0, 0.001, 0), (0, 0, 0, 1) )')
 		}],
 	] as const) {
 		test(`exports the model as ${format}`, async ({ page }) => {

@@ -241,7 +241,13 @@ describe('useExport — blob creation', () => {
 
 		await run(exp.exportAsUSDZ(mesh, 'ar'))
 
-		expect(mockUsdzParseAsync).toHaveBeenCalledWith(mesh)
+		// One viewer unit is a millimetre; three's USDZ declares a unit a metre
+		const [[exported]] = mockUsdzParseAsync.mock.calls
+		expect(exported.children).toEqual([mesh])
+		expect(exported.scale.toArray()).toEqual([0.001, 0.001, 0.001])
+		expect(exported.matrix.elements[0]).toBeCloseTo(0.001, 9)
+		// The model itself is not moved out of the scene
+		expect(mesh.parent).toBeUndefined()
 		expect(blobCapture[0].type).toBe('model/vnd.usdz+zip')
 		expect(blobCapture[0].size).toBe(mockUsdzBytes.byteLength)
 	})

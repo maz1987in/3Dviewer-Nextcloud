@@ -4,6 +4,7 @@
  */
 
 import { ref, readonly } from 'vue'
+import { Group } from 'three'
 import { NothingToExportError } from '../utils/exportErrors.js'
 import { logger } from '../utils/logger.js'
 
@@ -450,7 +451,12 @@ export function useExport() {
 	})
 
 	/**
-	 * Export model as USDZ (opens in AR Quick Look on iPhone and iPad)
+	 * Export model as USDZ (opens in AR Quick Look on iPhone and iPad).
+	 *
+	 * AR Quick Look shows a model at its real size, and three's exporter declares one
+	 * unit a metre (`metersPerUnit = 1`). The viewer reads one unit as a millimetre, as
+	 * its measurements and the 3MF export do, so the model goes in under a 1/1000 scale:
+	 * a 100 mm part is 100 mm on the table, not 100 m.
 	 * @param {THREE.Object3D} object - 3D object to export
 	 * @param {string} filename - Base filename (without extension)
 	 * @return {Promise<void>}
@@ -463,7 +469,14 @@ export function useExport() {
 		mimeType: 'model/vnd.usdz+zip',
 		produce: async (obj) => {
 			const { USDZExporter } = await import('three/examples/jsm/exporters/USDZExporter.js')
-			return new USDZExporter().parseAsync(obj)
+			const inMetres = new Group()
+			inMetres.name = 'Model'
+			inMetres.scale.setScalar(0.001)
+			inMetres.updateMatrix()
+			// Listed as its child for the exporter only, which reads each object's local
+			// matrix and its children; the model is not moved out of the scene.
+			inMetres.children = [obj]
+			return new USDZExporter().parseAsync(inMetres)
 		},
 	})
 
