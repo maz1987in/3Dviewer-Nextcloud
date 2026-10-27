@@ -1,8 +1,8 @@
 # 3D Viewer for Nextcloud
 
-[![Version](https://img.shields.io/badge/version-3.4.0-blue)](https://github.com/maz1987in/3Dviewer-Nextcloud/releases)
+[![Version](https://img.shields.io/badge/version-3.8.0-blue)](https://github.com/maz1987in/3Dviewer-Nextcloud/releases)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-orange)](LICENSE)
-[![Nextcloud](https://img.shields.io/badge/Nextcloud-31--34-0082c9)](https://nextcloud.com)
+[![Nextcloud](https://img.shields.io/badge/Nextcloud-31--35-0082c9)](https://nextcloud.com)
 [![Update nextcloud/ocp](https://github.com/maz1987in/3Dviewer-Nextcloud/actions/workflows/update-nextcloud-ocp-matrix.yml/badge.svg)](https://github.com/maz1987in/3Dviewer-Nextcloud/actions/workflows/update-nextcloud-ocp-matrix.yml)
 [![Release](https://github.com/maz1987in/3Dviewer-Nextcloud/actions/workflows/release.yml/badge.svg)](https://github.com/maz1987in/3Dviewer-Nextcloud/actions/workflows/release.yml)
 
@@ -59,7 +59,7 @@ A comprehensive 3D model viewer application for Nextcloud that supports multiple
 
 ## ✨ Key Features
 
-- **Automatic Thumbnails** - Smart thumbnail generation for 3D files with content-aware cropping (configurable in settings)
+- **Thumbnails in Files** - Models get a thumbnail while you browse a folder, without being opened. Your browser renders them in the background, one file at a time, within per-user limits on file size, time and download per folder. A thumbnail is kept per file version and shown to everyone who can see the file, including share recipients and public links
 - **Multi-Format Support** - 33 extensions across 22 formats: GLB, GLTF, OBJ (+MTL), STL, PLY, FBX, 3MF, 3DS, DAE, X3D, VRML, OFF, AMF, 3DM (Rhino), BIM (dotbim), IFC, STEP, IGES, BREP, FCSTD (FreeCAD), G-code (`.gcode`, `.gco`, `.nc`, `.acode`, `.g`, `.gx`, `.g3drem`, `.makerbot`, `.thing`)
 - **G-code Toolpath Visualization** - View 3D printer and CNC toolpaths with smooth rainbow gradient coloring, intelligent travel/retraction filtering, and a layer slider to step through the print
 - **Enhanced File Loaders** - Significantly improved FBX, VRML, and DAE loaders with better material and texture support
@@ -79,7 +79,8 @@ A comprehensive 3D model viewer application for Nextcloud that supports multiple
 - **Smart File Browser** - Toggle between Viewer, Folders, Type, Date, and Favorites modes with breadcrumbs, Nextcloud-style navigation, lazy loading, and customizable default view (Grid/List)
 - **Dynamic Grid System** - Automatically adapts to model size and position
 - **Model Comparison** - Side-by-side model viewing with synchronized controls
-- **Advanced Tooling** - Annotations, distance and angle measurements with customizable visual sizing controls (point size, line thickness, label width)
+- **Shared Notes** - Annotations, distance and angle measurements are saved with the model and shown to everyone who can open it; anyone who can edit the model can add or change them
+- **Measurements in Real Units** - Distances, areas, volumes and exports use the unit of the format the model came from: metres for glTF, IFC and X3D, millimetres for STL, 3MF, OBJ and CAD formats, and the file's own unit for Rhino, 3MF and FBX
 - **3D Camera Controller** - Enhanced intuitive circular controller for precise camera navigation with improved controls
 - **Face Labels** - Orientation markers (TOP, BOTTOM, FRONT, BACK, LEFT, RIGHT) on model faces
 - **Screenshot Capture** - Take high-quality PNG/JPEG screenshots of 3D models
@@ -90,7 +91,7 @@ A comprehensive 3D model viewer application for Nextcloud that supports multiple
 - **Enhanced Camera Controls** - Improved camera composable with additional functionality and better user experience
 - **Progressive Texture Loading** - Background loading for improved performance
 - **Dependency Caching** - IndexedDB caching for faster multi-file model loading with live cache statistics (size, entries, hit rate)
-- **Model Statistics Panel** - Detailed information about loaded models
+- **Model Statistics Panel** - Size, surface area, volume, and mesh, vertex, face, material and texture counts for the loaded model, in its real unit
 - **Help Panel** - Comprehensive in-app documentation and controls guide
 - **Performance Optimized** - Code splitting, dynamic imports, quality modes with visual overlay, and automatic performance suggestions for large models
 - **Theme Integration** - Respects Nextcloud light/dark themes with RTL support
@@ -184,8 +185,11 @@ The UI will also call `POST /apps/threedviewer/api/files/index` the first time i
 | IGES   | `.iges`, `.igs` | No | Legacy CAD NURBS (shared OCCT WASM) |
 | BREP   | `.brep`, `.brp` | No | OpenCascade native B-Rep (shared OCCT WASM) |
 | FCSTD  | `.fcstd`  | No | FreeCAD document (ZIP containing BREP bodies, shared OCCT WASM); draws the objects FreeCAD shows |
+| G-code | `.gcode`, `.gco`, `.nc`, `.acode`, `.g`, `.gx`, `.g3drem`, `.makerbot`, `.thing` | No | 3D printer and CNC toolpaths, with a layer slider |
 
 > WASM loaders are lazy-chunked — the 3–7 MB runtime only downloads when a user opens a file of that format.
+
+> Every format gets a thumbnail in Files. The XML formats (3MF, AMF, DAE, X3D) and FreeCAD files are parsed in the background worker too; `.nc` and `.g`, whose extensions other software also uses, get theirs when opened in the viewer.
 
 ### Supporting File Types
 
@@ -224,29 +228,31 @@ This project is licensed under the **AGPL-3.0 License**. See [LICENSE](LICENSE) 
 
 ## 📊 Version
 
-**Current Version**: 3.0.0
-**Released**: April 2, 2026
+**Current Version**: 3.8.0
+**Released**: October 27, 2026
 **Requires**: Nextcloud 31 -- 35
 
-### What's New in 3.0.0
+### What's New in 3.8.0
 
-**Vue 3 Migration:**
-- Full migration from Vue 2 to Vue 3 with `@nextcloud/vue` 9.x
-- ViewerWrapper bridge pattern for compatibility with Nextcloud Viewer's Vue 2 runtime
-- Three.js + Vue 3 reactivity patterns (`shallowRef`, `toRaw()`) for stable 3D rendering
+**Inspection tools:**
+- Angle measurement: three clicks measure an angle, saved and shared like distances
+- A layer slider for G-code, to step through a print layer by layer
+- Clay, Normals and X-ray shading
+- Export to 3MF (closed solids, ready for slicers), PLY and USDZ (AR Quick Look at real size)
 
-**Bug Fixes:**
-- Animation loop toggle now works correctly (was silently broken)
-- Model loading errors are now properly shown to the user
-- Scene lights no longer leak on re-setup
-- Toast auto-dismiss works reliably
-- Settings page form controls (checkboxes, selects, text fields) are fully functional
-- Mobile touch event listeners are properly cleaned up
-- Loader and viewer registration errors are now logged
+**Real units:**
+- Measurements, model statistics and exports use each model's own unit, so a glTF figure measures in metres and an STL part in millimetres
+- FBX readings follow the file's `UnitScaleFactor`, centimetres by default, so most FBX models read 10× larger than in 3.7.x, which is their correct size
 
-**Compatibility:**
-- Nextcloud 31 -- 34 (NC 31+ required for `@nextcloud/vue` 9.x)
-- Security vulnerabilities reduced from 43 to 25
+**Textures:**
+- Textures a model names by a full path from the machine that exported it (`C:\…\wood.jpg`, `file:///C:/…`, `\\server\share\…`) are found by their file name beside the model, in the viewer, in thumbnails and on public shares
+- A texture that is not one of the model's own files is never requested, so opening a shared model cannot make the browser contact another server
+
+### Recent releases
+
+- **3.7.1:** background thumbnails for 3MF, AMF, DAE and X3D, and FreeCAD files drawn as FreeCAD shows them
+- **3.7.0:** thumbnails made while browsing Files, shared by everyone who can see the file
+- **3.6.0:** annotations and measurements become shared notes, and Nextcloud 35 support
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed release notes and complete version history.
 
