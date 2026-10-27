@@ -817,6 +817,7 @@ import {
 import { useLightingPresets } from '../composables/useLightingPresets.js'
 import { useBookmarks } from '../composables/useBookmarks.js'
 import { useExplodedView } from '../composables/useExplodedView.js'
+import { useGcodeLayers } from '../composables/useGcodeLayers.js'
 import { useTransformGizmo } from '../composables/useTransformGizmo.js'
 import { useWebXR } from '../composables/useWebXR.js'
 import { logger } from '../utils/logger.js'
@@ -917,6 +918,7 @@ export default {
 		const lightingPresets = useLightingPresets()
 		const bookmarksComposable = useBookmarks()
 		const explodedView = useExplodedView()
+		const gcodeLayers = useGcodeLayers()
 		const transformGizmo = useTransformGizmo()
 		const webxr = useWebXR()
 
@@ -1526,6 +1528,9 @@ export default {
 
 					// Initialize exploded view (collects meshes and computes directions)
 					explodedView.init(modelRoot.value)
+
+					// Collect G-code layers for the layer slider (none for other formats)
+					gcodeLayers.init(modelRoot.value)
 
 					// Initialize animations if present
 					if (loadedModel.animations && loadedModel.animations.length > 0) {
@@ -3775,6 +3780,7 @@ export default {
 			lightingPresets.dispose()
 			bookmarksComposable.dispose()
 			explodedView.dispose()
+			gcodeLayers.dispose()
 			transformGizmo.dispose()
 
 			// Dispose performance monitoring
@@ -3873,6 +3879,7 @@ export default {
 
 			// Exploded view
 			explodedView,
+			gcodeLayers,
 
 			// Camera
 			cameraType: camera.cameraType,
