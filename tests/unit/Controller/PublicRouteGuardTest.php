@@ -311,6 +311,15 @@ class PublicRouteGuardTest extends TestCase
             $relative = substr($file->getPathname(), strlen($root) + 1, -strlen('.php'));
             /** @var class-string $class */
             $class = self::APP_NAMESPACE . str_replace('/', '\\', $relative);
+            // Every .php file is looked at, which is a superset of what Nextcloud scans, so
+            // a controller in a subfolder or without the "Controller" suffix is not missed.
+            // A trait, interface or enum is no controller (its methods reach a route only
+            // through a class that uses it, which is scanned), so it is skipped rather
+            // than failing the whole guard; a file that declares none of them is a
+            // mistake the guard cannot see through, so that one still fails.
+            if (trait_exists($class) || interface_exists($class) || enum_exists($class)) {
+                continue;
+            }
             if (!class_exists($class)) {
                 throw new \LogicException("lib/Controller/{$relative}.php does not declare {$class}; the guard cannot inspect it");
             }
@@ -346,8 +355,11 @@ class PublicRouteGuardTest extends TestCase
                 if ($method->isConstructor() || $method->isStatic()) {
                     continue;
                 }
-                // Methods the framework base classes define are not this app's routes.
-                if (!str_starts_with($method->getDeclaringClass()->getName(), self::APP_NAMESPACE)) {
+                // Methods Nextcloud's own base classes define are not this app's routes. Only
+                // those are skipped: a base class the app keeps elsewhere (OCA\...\Base) is
+                // still scanned, since its public methods are routes on every subclass.
+                $declaring = $method->getDeclaringClass()->getName();
+                if (str_starts_with($declaring, 'OCP\\') || str_starts_with($declaring, 'OC\\')) {
                     continue;
                 }
 
@@ -389,7 +401,8 @@ class PublicRouteGuardTest extends TestCase
 
     /**
      * #[PublicPage] on the method or the class, or the deprecated `@PublicPage`
-     * annotation Nextcloud still honours on the servers this app supports.
+     * annotation Nextcloud still honours on the servers this app supports. Nextcloud
+     * lowercases annotation names, so `@Publicpage` and `@PUBLICPAGE` count too.
      */
     private static function hasPublicPage(ReflectionClass|ReflectionMethod $target): bool
     {
@@ -397,11 +410,12 @@ class PublicRouteGuardTest extends TestCase
             return true;
         }
 
-        return preg_match('/@PublicPage\b/', (string) $target->getDocComment()) === 1;
+        return preg_match('/@PublicPage\b/i', (string) $target->getDocComment()) === 1;
     }
 
     /**
-     * #[NoCSRFRequired] or the deprecated `@NoCSRFRequired` annotation.
+     * #[NoCSRFRequired] or the deprecated `@NoCSRFRequired` annotation, matched without
+     * regard to case for the reason given at hasPublicPage().
      */
     private static function hasNoCsrfRequired(ReflectionClass|ReflectionMethod $target): bool
     {
@@ -409,7 +423,7 @@ class PublicRouteGuardTest extends TestCase
             return true;
         }
 
-        return preg_match('/@NoCSRFRequired\b/', (string) $target->getDocComment()) === 1;
+        return preg_match('/@NoCSRFRequired\b/i', (string) $target->getDocComment()) === 1;
     }
 
     /**
@@ -423,28 +437,66 @@ class PublicRouteGuardTest extends TestCase
     }
 
     /**
-     * Entries of appinfo/routes.php, as [class => [method => [[verb, url], ...]]].
-     * Nextcloud turns `settings#get_settings` into SettingsController::getSettings.
+     * Entries of appinfo/routes.php, as [class => [method => [[verb, url], ...]]], read
+     * the way Nextcloud's RouteConfig does: `settings#get_settings` is
+     * SettingsController::getSettings, and a `resources` or `ocs-resources` entry
+     * expands to index (GET), show (GET), create (POST), update (PUT) and destroy
+     * (DELETE), the last three on `/{id}`.
      *
      * @return array<class-string, array<string, list<array{verb: string, url: string}>>>
      */
     private static function routesFromRoutesFile(): array
     {
-        /** @var array{routes?: list<array{name: string, url: string, verb?: string}>, ocs?: list<array{name: string, url: string, verb?: string}>} $config */
-        $config = require dirname(__DIR__, 3) . '/appinfo/routes.php';
+        $file = dirname(__DIR__, 3) . '/appinfo/routes.php';
+        $config = is_file($file) ? require $file : [];
+        if (!is_array($config)) {
+            return [];
+        }
 
         $byClass = [];
-        foreach (array_merge($config['routes'] ?? [], $config['ocs'] ?? []) as $route) {
-            [$controller, $action] = explode('#', $route['name'], 2);
-            $class = self::APP_NAMESPACE . str_replace(' ', '', ucwords(str_replace('_', ' ', $controller))) . 'Controller';
-            $method = lcfirst(str_replace(' ', '', ucwords(str_replace('_', ' ', $action))));
-            $byClass[$class][$method][] = [
-                'verb' => strtoupper($route['verb'] ?? 'GET'),
-                'url' => $route['url'],
-            ];
+        foreach (['routes', 'ocs'] as $section) {
+            foreach ((array) ($config[$section] ?? []) as $route) {
+                [$controller, $action] = explode('#', (string) $route['name'], 2);
+                $class = self::controllerClass($controller);
+                $method = lcfirst(str_replace(' ', '', ucwords(str_replace('_', ' ', $action))));
+                $byClass[$class][$method][] = [
+                    'verb' => strtoupper((string) ($route['verb'] ?? 'GET')),
+                    'url' => (string) $route['url'],
+                ];
+            }
+        }
+
+        $actions = [
+            'index' => ['GET', false],
+            'show' => ['GET', true],
+            'create' => ['POST', false],
+            'update' => ['PUT', true],
+            'destroy' => ['DELETE', true],
+        ];
+        foreach (['resources', 'ocs-resources'] as $section) {
+            foreach ((array) ($config[$section] ?? []) as $resource => $definition) {
+                $class = self::controllerClass((string) $resource);
+                foreach ($actions as $method => [$verb, $onItem]) {
+                    $byClass[$class][$method][] = [
+                        'verb' => $verb,
+                        'url' => (string) $definition['url'] . ($onItem ? '/{id}' : ''),
+                    ];
+                }
+            }
         }
 
         return $byClass;
+    }
+
+    /**
+     * @return class-string
+     */
+    private static function controllerClass(string $routeName): string
+    {
+        /** @var class-string $class */
+        $class = self::APP_NAMESPACE . str_replace(' ', '', ucwords(str_replace('_', ' ', $routeName))) . 'Controller';
+
+        return $class;
     }
 
     private static function isLiteralStub(ReflectionMethod $method): bool
