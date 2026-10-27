@@ -1,11 +1,16 @@
 /**
  * Exploded view composable
  * Animates multi-mesh models outward from their common centroid
+ *
+ * Each part's own position is recorded in the registry of what viewer tools move
+ * (viewerTransforms) before it is first moved, so a thumbnail, and an export, can put
+ * the parts back together.
  */
 
 import { ref, shallowRef, computed } from 'vue'
 import { Vector3, Box3 } from 'three'
 import { logger } from '../utils/logger.js'
+import { MOVED_BY, ownTransformOf, rememberOwnTransform } from '../utils/viewerTransforms.js'
 
 export function useExplodedView() {
 	const isActive = ref(false)
@@ -13,6 +18,12 @@ export function useExplodedView() {
 	const meshData = ref([]) // { mesh, originalPos, direction }
 	const modelRef = shallowRef(null)
 	const centroid = new Vector3()
+	// How many exports have the parts put back together: two at once must both finish
+	// before the model explodes again
+	let suspended = 0
+	// Which model the count is for: a new one starts a count of its own, and an export
+	// still running on the last one must not use it up
+	let generation = 0
 
 	const hasMeshes = computed(() => meshData.value.length > 1)
 
@@ -23,6 +34,9 @@ export function useExplodedView() {
 	const init = (model) => {
 		if (!model) return
 		modelRef.value = model
+		// An export still running holds the model it started with; this one is shown
+		suspended = 0
+		generation++
 
 		// Collect all meshes
 		const meshes = []
@@ -35,6 +49,9 @@ export function useExplodedView() {
 		if (meshes.length < 2) {
 			logger.info('useExplodedView', 'Model has fewer than 2 meshes, exploded view not useful')
 			meshData.value = []
+			// Nothing to take apart: the tool goes off rather than stay on with no effect
+			isActive.value = false
+			factor.value = 0
 			return
 		}
 
@@ -44,12 +61,15 @@ export function useExplodedView() {
 		const meshCenter = new Vector3()
 
 		const entries = meshes.map((mesh) => {
+			// Where the model puts the part, whatever moved it since
+			rememberOwnTransform(mesh, MOVED_BY.exploded)
+			const originalPos = ownTransformOf(mesh).position.clone()
 			box.setFromObject(mesh)
 			box.getCenter(meshCenter)
 			return {
 				mesh,
 				center: meshCenter.clone(),
-				originalPos: mesh.position.clone(),
+				originalPos,
 			}
 		})
 
@@ -80,6 +100,12 @@ export function useExplodedView() {
 			}
 		})
 
+		// A view left exploded stays exploded for the next model, by the same amount, as
+		// the panel shows it
+		if (isActive.value) {
+			applyExplosion()
+		}
+
 		logger.info('useExplodedView', 'Initialized', { meshCount: meshData.value.length })
 	}
 
@@ -96,13 +122,61 @@ export function useExplodedView() {
 	 * Apply current factor to mesh positions
 	 */
 	const applyExplosion = () => {
+		// While an export has the parts together, the slider moves nothing until it ends
+		const amount = suspended > 0 ? 0 : factor.value
 		meshData.value.forEach(({ mesh, originalPos, direction }) => {
 			mesh.position.set(
-				originalPos.x + direction.x * factor.value,
-				originalPos.y + direction.y * factor.value,
-				originalPos.z + direction.z * factor.value,
+				originalPos.x + direction.x * amount,
+				originalPos.y + direction.y * amount,
+				originalPos.z + direction.z * amount,
 			)
 		})
+	}
+
+	/**
+	 * Move the parts for an export and bring their matrices up to date at once: USDZ
+	 * reads each object's `matrix` as its export starts, and only microtasks run before
+	 * that, so no frame of the viewer would refresh them first.
+	 */
+	const moveForExport = () => {
+		applyExplosion()
+		modelRef.value?.updateMatrixWorld(true)
+	}
+
+	/**
+	 * Whether the parts are apart. Only then has an export anything to put back: moving
+	 * them otherwise would put every mesh at its loaded position, out of the pose a
+	 * paused animation holds them in, which nothing would restore.
+	 * @return {boolean}
+	 */
+	const isApart = () => isActive.value && factor.value > 0
+
+	/**
+	 * Put the parts back together for a while (an export written asynchronously, say)
+	 * without leaving exploded view; `resume` explodes them again by the current amount.
+	 * Counted whether or not the parts are apart, so the slider stays still until the
+	 * last export is done.
+	 * @return {number} The token to hand `resume`
+	 */
+	const suspend = () => {
+		if (suspended++ === 0 && isApart()) {
+			moveForExport()
+		}
+		return generation
+	}
+
+	/**
+	 * End one suspension. A token from before the current model was loaded does
+	 * nothing: its export held the last model, whose count was dropped.
+	 * @param {number} token - What `suspend` returned
+	 */
+	const resume = (token) => {
+		if (token !== generation || suspended === 0) {
+			return
+		}
+		if (--suspended === 0 && isApart()) {
+			moveForExport()
+		}
 	}
 
 	/**
@@ -145,6 +219,8 @@ export function useExplodedView() {
 		init,
 		setFactor,
 		toggle,
+		suspend,
+		resume,
 		dispose,
 	}
 }

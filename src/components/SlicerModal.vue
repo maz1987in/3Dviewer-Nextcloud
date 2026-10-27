@@ -158,7 +158,7 @@ import { showWarning } from '@nextcloud/dialogs'
 import { useSlicerIntegration } from '../composables/useSlicerIntegration.js'
 import { useFocusTrap } from '../composables/useFocusTrap.js'
 import { logger } from '../utils/logger.js'
-import { withOwnMaterials } from '../utils/materialStandIns.js'
+import { withExportState } from '../utils/ownDisplayState.js'
 
 export default {
 	name: 'SlicerModal',
@@ -316,7 +316,7 @@ export default {
 					const exporter = new STLExporter()
 					exportMessage.value = t('threedviewer', 'Converting to STL format...')
 					await new Promise(resolve => setTimeout(resolve, 100))
-					const result = withOwnMaterials(props.modelObject, () => exporter.parse(props.modelObject, { binary: true }))
+					const result = withExportState(props.modelObject, () => exporter.parse(props.modelObject, { binary: true }))
 					exportMessage.value = t('threedviewer', 'Creating file...')
 					await new Promise(resolve => setTimeout(resolve, 100))
 					// Match useExport.js: STL is a first-class format with a registered MIME.
@@ -326,7 +326,7 @@ export default {
 					const exporter = new OBJExporter()
 					exportMessage.value = t('threedviewer', 'Converting to OBJ format...')
 					await new Promise(resolve => setTimeout(resolve, 100))
-					const result = withOwnMaterials(props.modelObject, () => exporter.parse(props.modelObject))
+					const result = withExportState(props.modelObject, () => exporter.parse(props.modelObject))
 					exportMessage.value = t('threedviewer', 'Creating file...')
 					await new Promise(resolve => setTimeout(resolve, 100))
 					exportedBlob = new Blob([result], { type: 'model/obj' })
@@ -336,7 +336,7 @@ export default {
 					exportMessage.value = t('threedviewer', 'Converting to PLY format...')
 					await new Promise(resolve => setTimeout(resolve, 100))
 					// parse(object, onDone, options): passed second, the options were ignored
-					const result = withOwnMaterials(props.modelObject, () => exporter.parse(props.modelObject, null, { binary: true, littleEndian: true }))
+					const result = withExportState(props.modelObject, () => exporter.parse(props.modelObject, null, { binary: true, littleEndian: true }))
 					exportMessage.value = t('threedviewer', 'Creating file...')
 					await new Promise(resolve => setTimeout(resolve, 100))
 					exportedBlob = new Blob([result], { type: 'application/octet-stream' })

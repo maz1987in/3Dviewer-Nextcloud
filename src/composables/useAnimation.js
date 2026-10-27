@@ -1,6 +1,7 @@
 import { ref, shallowRef, computed } from 'vue'
 import { AnimationMixer, LoopRepeat, LoopOnce } from 'three'
 import { logger } from '../utils/logger.js'
+import { MOVED_BY, rememberOwnTransform } from '../utils/viewerTransforms.js'
 
 /**
  * Composable for managing 3D model animations
@@ -39,6 +40,11 @@ export function useAnimation() {
 		try {
 			// Dispose existing mixer if any
 			dispose()
+
+			// The pose the file loads in, before a clip moves anything: a thumbnail draws
+			// this one (viewerTransforms), as a background thumbnail, which plays no
+			// animation, does, rather than whatever frame the clip has reached
+			object3D.traverse((node) => rememberOwnTransform(node, MOVED_BY.animation))
 
 			// Create new AnimationMixer
 			mixer.value = new AnimationMixer(object3D)

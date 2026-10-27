@@ -62,6 +62,9 @@ export function useRenderMode() {
 	// How many exports have the mode set aside: two at once must both finish before it
 	// comes back, or the second would write the stand-ins
 	let suspended = 0
+	// Which model the count is for: a new one starts a count of its own, and an export
+	// still running on the last one must not use it up
+	let generation = 0
 	const originals = new Map() // mesh -> its own material (or array of them)
 	const overrides = new Map() // own material -> what stands in for it
 	let clayMatcap = null
@@ -124,12 +127,8 @@ export function useRenderMode() {
 	// Give every mesh its own material back
 	const restore = () => {
 		originals.forEach((own, mesh) => {
-			// Wireframe is switched on whatever material is showing; carry it back
-			const shown = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
-			const ownList = Array.isArray(own) ? own : [own]
-			ownList.forEach((material, i) => {
-				if (material && shown[i]) material.wireframe = shown[i].wireframe
-			})
+			// Wireframe is switched on the own materials (viewerMaterialProps), which the
+			// stand-ins only follow, so there is nothing to carry back
 			restoreOwnMaterial(mesh)
 			mesh.material = own
 		})
@@ -162,19 +161,27 @@ export function useRenderMode() {
 		root = model || null
 		// An export still running holds the model it started with; this one shows the mode
 		suspended = 0
+		generation++
 		apply()
 	}
 
 	/**
 	 * Put the model's own materials back for a while (an export, say) without
 	 * leaving the mode; `resume` shows the mode again.
+	 * @return {number} The token to hand `resume`
 	 */
 	const suspend = () => {
 		if (suspended++ === 0) restore()
+		return generation
 	}
 
-	const resume = () => {
-		if (suspended === 0) return
+	/**
+	 * End one suspension. A token from before the current model was loaded does
+	 * nothing: its export held the last model, whose count was dropped.
+	 * @param {number} token - What `suspend` returned
+	 */
+	const resume = (token) => {
+		if (token !== generation || suspended === 0) return
 		if (--suspended === 0) apply()
 	}
 
@@ -182,6 +189,7 @@ export function useRenderMode() {
 		restore()
 		root = null
 		suspended = 0
+		generation++
 		clayMatcap?.dispose()
 		clayMatcap = null
 	}

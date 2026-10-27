@@ -8,7 +8,7 @@
  *
  * Runs in a Web Worker as well as on the main thread, so it must not touch `document`
  * or `window`, and imports only plain-data config modules (not viewer-config.js) and
- * the plain registries of what viewer tools changed (materialStandIns, viewerHidden).
+ * the plain registries of what viewer tools changed (ownDisplayState and its parts).
  */
 
 import {
@@ -22,8 +22,7 @@ import {
 } from 'three'
 import { DEFAULT_CAMERA_FOV } from '../config/cameraDefaults.js'
 import { LIGHT_LAYOUT, LIGHTING_PRESETS } from '../config/lightingPresets.js'
-import { withOwnMaterials } from '../utils/materialStandIns.js'
-import { withViewerHiddenShown } from '../utils/viewerHidden.js'
+import { withOwnDisplayState } from '../utils/ownDisplayState.js'
 import { computeCameraFit } from './cameraFit.js'
 import { EmptyModelError } from './errors.js'
 
@@ -77,10 +76,11 @@ function encodePng(canvas) {
  * Render a model to a transparent PNG.
  *
  * The model is placed in a temporary scene for the render and put back under its
- * original parent afterwards; its materials and transforms are not modified. A mesh the
- * viewer is drawing with a render mode's stand-in (Clay, Normals, X-ray) is rendered
- * with its own material, and a G-code layer the layer slider hid is drawn; both go back
- * before this returns.
+ * original parent afterwards; its materials and transforms are not modified. It is
+ * framed and drawn as it is, whatever a viewer tool is showing of it (see
+ * ownDisplayState.js): a render mode's stand-ins (Clay, Normals, X-ray) come off and a
+ * G-code layer the layer slider hid is drawn. The viewer's state is back before the
+ * image is encoded.
  *
  * @param {THREE.Object3D} object3D - Model to render
  * @param {object} options - Render options
@@ -130,24 +130,28 @@ export async function renderThumbnail(object3D, { canvas, size = DEFAULT_SIZE, f
 		// relative to the scene, which is what both the fit and the render use.
 		scene.add(object3D)
 		moved = true
-		object3D.updateWorldMatrix(true, true)
-
-		const fov = fovDegrees ?? DEFAULT_CAMERA_FOV
-		const fit = computeCameraFit(new Box3().setFromObject(object3D), fov)
-		if (!fit) {
-			throw new EmptyModelError()
-		}
-
-		// Same near/far scaling the viewer applies after fitting
-		const distance = fit.position[2] - fit.target[2]
-		const camera = new PerspectiveCamera(fov, 1, distance / 100, distance * 100)
-		camera.position.set(...fit.position)
-		camera.lookAt(...fit.target)
-		camera.updateMatrixWorld()
-
 		addDefaultLights(scene)
-		// The model as it is: its own materials, and every G-code layer the slider hid
-		withOwnMaterials(object3D, () => withViewerHiddenShown(object3D, () => renderer.render(scene, camera)))
+
+		// The model as it is, whatever a viewer tool is showing of it, for the fit as well
+		// as the render: a part a tool moved is framed where the model puts it
+		withOwnDisplayState(object3D, () => {
+			object3D.updateWorldMatrix(true, true)
+
+			const fov = fovDegrees ?? DEFAULT_CAMERA_FOV
+			const fit = computeCameraFit(new Box3().setFromObject(object3D), fov)
+			if (!fit) {
+				throw new EmptyModelError()
+			}
+
+			// Same near/far scaling the viewer applies after fitting
+			const distance = fit.position[2] - fit.target[2]
+			const camera = new PerspectiveCamera(fov, 1, distance / 100, distance * 100)
+			camera.position.set(...fit.position)
+			camera.lookAt(...fit.target)
+			camera.updateMatrixWorld()
+
+			renderer.render(scene, camera)
+		})
 
 		// The render is synchronous and the encode snapshots the bitmap when it is
 		// called, so give a live model back to its parent before awaiting the encode:

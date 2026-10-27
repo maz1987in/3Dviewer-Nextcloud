@@ -6,6 +6,7 @@
 import { ref, shallowRef, computed } from 'vue'
 import { Plane, Vector3, DoubleSide } from 'three'
 import { logger } from '../utils/logger.js'
+import { restoreOwn, setForViewer } from '../utils/viewerMaterialProps.js'
 
 export function useClippingPlane() {
 	// State
@@ -19,7 +20,6 @@ export function useClippingPlane() {
 	const rendererRef = shallowRef(null)
 	const sceneRef = shallowRef(null)
 	const modelBounds = ref({ min: -1, max: 1 })
-	const originalSides = new WeakMap() // track original material.side values
 
 	// Box-mode state.
 	// Each face has an offset in [0, 1]:
@@ -122,19 +122,16 @@ export function useClippingPlane() {
 	}
 
 	/**
-	 * Set materials to DoubleSide so the interior is visible at the cut
+	 * Set materials to DoubleSide so the interior is visible at the cut. Through the
+	 * registry of what viewer tools change (viewerMaterialProps), which remembers each
+	 * material's own side and lets a thumbnail draw with it.
 	 */
 	const enableDoubleSide = () => {
 		if (!sceneRef.value) return
 		sceneRef.value.traverse((child) => {
 			if (child.isMesh && child.material) {
 				const mats = Array.isArray(child.material) ? child.material : [child.material]
-				mats.forEach((mat) => {
-					if (!originalSides.has(mat)) {
-						originalSides.set(mat, mat.side)
-					}
-					mat.side = DoubleSide
-				})
+				mats.forEach((mat) => setForViewer(mat, 'side', DoubleSide))
 			}
 		})
 	}
@@ -147,11 +144,7 @@ export function useClippingPlane() {
 		sceneRef.value.traverse((child) => {
 			if (child.isMesh && child.material) {
 				const mats = Array.isArray(child.material) ? child.material : [child.material]
-				mats.forEach((mat) => {
-					if (originalSides.has(mat)) {
-						mat.side = originalSides.get(mat)
-					}
-				})
+				mats.forEach((mat) => restoreOwn(mat, 'side'))
 			}
 		})
 	}

@@ -829,6 +829,8 @@ import { useRenderMode } from '../composables/useRenderMode.js'
 import { useTransformGizmo } from '../composables/useTransformGizmo.js'
 import { useWebXR } from '../composables/useWebXR.js'
 import { logger } from '../utils/logger.js'
+import { setViewerWireframe } from '../utils/viewerMaterialProps.js'
+import { applyGcodeColorScheme } from '../utils/gcodeColorScheme.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
 import { initCache, clearExpired, clearAll, getCacheStats } from '../utils/dependencyCache.js'
 
@@ -1434,10 +1436,10 @@ export default {
 					// it, KTX2 init throws "Cannot read properties of undefined
 					// (reading 'isWebGPURenderer')" on Three.js r182+.
 					renderer: renderer.value,
-					gcodeOptions: {
-						colorMode: props.gcodeColorMode,
-						singleColor: props.gcodeSingleColor,
-					},
+					// Always the gradient, the toolpath's own colouring and the one a
+					// background thumbnail draws; setGcodeColorScheme below shows the
+					// viewer's choice over it, through the registry a thumbnail reads
+					gcodeOptions: { colorMode: 'gradient' },
 				})
 
 				if (loadedModel && loadedModel.object3D) {
@@ -1545,9 +1547,10 @@ export default {
 					// read on the first successful load — navigating to a different
 					// file clears the URL before reaching this branch.
 					const sharedState = readCameraStateFromUrl()
+					let cameraFromUrl = false
 					if (sharedState && camera.camera?.value && camera.controls?.value) {
-						const ok = applyCameraState(camera.camera.value, camera.controls.value, sharedState)
-						if (ok) {
+						cameraFromUrl = applyCameraState(camera.camera.value, camera.controls.value, sharedState)
+						if (cameraFromUrl) {
 							logger.info('ThreeViewer', 'Restored camera view from cam URL parameter')
 						}
 					}
@@ -1563,14 +1566,30 @@ export default {
 						faceLabels.addFaceLabels(modelRoot.value, scene.value)
 					}
 
-					// Initialize exploded view (collects meshes and computes directions)
+					// Initialize exploded view (collects meshes and computes directions); an
+					// exploded view stays on, by the same amount, for a model it can explode
 					explodedView.init(modelRoot.value)
+					// The camera was fitted to the parts together, and spread they can leave
+					// the view: fit it again to what is shown, unless a shared link chose the
+					// view. Grid, cut bounds and statistics stay those of the assembled model,
+					// as when Exploded view is switched on by hand, and a thumbnail makes a fit
+					// of its own.
+					if (!cameraFromUrl && explodedView.isActive.value && explodedView.factor.value > 0) {
+						modelRoot.value.updateMatrixWorld(true)
+						camera.fitCameraToObject(modelRoot.value)
+					}
 
 					// Collect G-code layers for the layer slider (none for other formats)
 					gcodeLayers.init(modelRoot.value)
 
 					// Keep the render mode the viewer was in for the new model
 					clippingPlane.aroundMaterialSwap(() => renderMode.init(modelRoot.value))
+
+					// And Wireframe, which the toggle still shows as on; the watcher only
+					// sees a change
+					if (props.wireframe) {
+						setViewerWireframe(modelRoot.value, true)
+					}
 
 					// Initialize animations if present
 					if (loadedModel.animations && loadedModel.animations.length > 0) {
@@ -1721,23 +1740,7 @@ export default {
 				if (!scene.value) return
 				const group = scene.value.getObjectByName('GCodeToolpath')
 				if (!group) return
-				const children = group.children || []
-
-				children.forEach((child) => {
-					if (!child.material) return
-
-					if (mode === 'single') {
-						// Single color mode: disable vertex colors and use uniform material color
-						child.material.color.set(color)
-						child.material.vertexColors = false
-						child.material.needsUpdate = true
-					} else {
-						// Gradient mode: enable vertex colors (which were set during loading)
-						// The gradient colors are already in the geometry from GCodeLoader
-						child.material.vertexColors = true
-						child.material.needsUpdate = true
-					}
-				})
+				applyGcodeColorScheme(group, mode, color)
 			} catch (_) { /* ignore recolor errors */ }
 		}
 
@@ -2672,16 +2675,23 @@ export default {
 				return
 			}
 
-			// Export the model's own materials, not a render mode standing in for them.
-			// GLB and USDZ are written asynchronously, so the mode is set aside for the
-			// export (counted, so two exports at once both finish first). STL, OBJ and PLY
-			// are written in one synchronous call inside withOwnMaterials, and 3MF and ZIP
-			// write no materials, so the viewer keeps its shading for those.
+			// Export the model's own materials, not a render mode standing in for them,
+			// and its parts together, not where Exploded view moved them, but as placed
+			// with the gizmo and posed by its animation (withExportState says why). STL,
+			// OBJ and PLY are written in one synchronous call inside withExportState.
+			// GLB, USDZ and 3MF are written asynchronously, so the explosion is set aside
+			// for the export, and for GLB and USDZ the mode too (each counted, so two
+			// exports at once both finish first); 3MF and ZIP write no materials, so the
+			// viewer keeps its shading for those.
 			const setsModeAside = ['glb', 'usdz'].includes(format.toLowerCase())
-			// Outside the try, so a resume in `finally` always has its own suspend to undo
-			if (setsModeAside) {
-				clippingPlane.aroundMaterialSwap(() => renderMode.suspend())
-			}
+			const setsExplosionAside = ['glb', 'usdz', '3mf'].includes(format.toLowerCase())
+			// Outside the try, so a resume in `finally` always has its own suspend to undo.
+			// The tokens tie each resume to the model this export started on: if another
+			// one opens meanwhile, this export's resume leaves its count alone.
+			const modeToken = setsModeAside
+				? clippingPlane.aroundMaterialSwap(() => renderMode.suspend())
+				: null
+			const explosionToken = setsExplosionAside ? explodedView.suspend() : null
 
 			try {
 				logger.info('ThreeViewer', 'Starting export', { format })
@@ -2789,7 +2799,10 @@ export default {
 				})
 			} finally {
 				if (setsModeAside) {
-					clippingPlane.aroundMaterialSwap(() => renderMode.resume())
+					clippingPlane.aroundMaterialSwap(() => renderMode.resume(modeToken))
+				}
+				if (setsExplosionAside) {
+					explodedView.resume(explosionToken)
 				}
 			}
 		}
@@ -3504,13 +3517,10 @@ export default {
 		})
 
 		watch(() => props.wireframe, (val) => {
-			// Apply wireframe to all meshes
+			// Through the registry, so a thumbnail draws each material's own value and
+			// off gives back a wireframe the file itself set
 			if (modelRoot.value) {
-				modelRoot.value.traverse((child) => {
-					if (child.isMesh) {
-						child.material.wireframe = val
-					}
-				})
+				setViewerWireframe(modelRoot.value, val)
 			}
 		})
 

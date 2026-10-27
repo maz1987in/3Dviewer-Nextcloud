@@ -32,6 +32,18 @@ const CUBE_OBJ = [
 	'f 1 4 3 2', 'f 5 6 7 8', 'f 1 2 6 5', 'f 2 3 7 6', 'f 3 4 8 7', 'f 4 1 5 8',
 ].join('\n')
 
+// Two cubes side by side, as two objects: two meshes, which Exploded view can take apart
+const TWO_CUBES_OBJ = [
+	'o left',
+	'v 0 0 0', 'v 10 0 0', 'v 10 10 0', 'v 0 10 0',
+	'v 0 0 10', 'v 10 0 10', 'v 10 10 10', 'v 0 10 10',
+	'f 1 4 3 2', 'f 5 6 7 8', 'f 1 2 6 5', 'f 2 3 7 6', 'f 3 4 8 7', 'f 4 1 5 8',
+	'o right',
+	'v 12 0 0', 'v 22 0 0', 'v 22 10 0', 'v 12 10 0',
+	'v 12 0 10', 'v 22 0 10', 'v 22 10 10', 'v 12 10 10',
+	'f 9 12 11 10', 'f 13 14 15 16', 'f 9 10 14 13', 'f 10 11 15 14', 'f 11 12 16 15', 'f 12 9 13 16',
+].join('\n')
+
 // A unit cube's faces, each a quad wound counter-clockwise seen from outside
 const CUBE_QUADS = [
 	[[1, 0, 0], [1, 1, 0], [1, 1, 1], [1, 0, 1]],
@@ -79,6 +91,9 @@ const MODELS = {
 	gltf: { id: 4545, name: 'triangle.gltf', body: fs.readFileSync(path.join(PROJECT_ROOT, 'tests/fixtures/triangle.gltf'), 'utf8') },
 	metreCube: { id: 4646, name: 'cube.gltf', body: cubeGltf() },
 	stlCube: { id: 4747, name: 'cube.stl', body: cubeStl() },
+	// Two parts, and a second copy opened after the first in the same viewer
+	twoCubes: { id: 4848, name: 'parts.obj', body: TWO_CUBES_OBJ },
+	twoCubes2: { id: 4949, name: 'parts2.obj', body: TWO_CUBES_OBJ },
 }
 type Model = keyof typeof MODELS
 
@@ -310,6 +325,117 @@ async function measureAcrossTheCube(page: Page) {
 	const text = (await overlay.locator('.measurement-distance').textContent())!.trim()
 	const [, value, unit] = text.match(/^(-?[\d.]+) (\S+)$/)!
 	return { overlay, value: Number(value), unit, sceneDistance, text }
+}
+
+/**
+ * Answer the thumbnail routes as the server does: `needed` are the files without a
+ * thumbnail for their version, every other one has one. Each upload is recorded.
+ * @param page - the page
+ * @param needed - ids of the files that get a thumbnail
+ * @return the uploaded PNGs, in order
+ */
+async function recordThumbnails(page: Page, needed: number[]) {
+	const uploads: Buffer[] = []
+	await page.route('**/apps/threedviewer/api/thumbnails/status**', (route) => {
+		const ids = (new URL(route.request().url()).searchParams.get('ids') ?? '').split(',').map(Number)
+		const files = Object.fromEntries(ids.map((id) => [id, { canEdit: true, hasThumbnail: !needed.includes(id), etag: 'v1' }]))
+		return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ files }) })
+	})
+	await page.route('**/apps/threedviewer/api/thumbnail/**', (route) => {
+		uploads.push(route.request().postDataBuffer()!)
+		return route.fulfill({ status: 201, body: '' })
+	})
+	return uploads
+}
+
+/**
+ * Open another model in the same viewer, as the file browser does (its URL update left
+ * out: generateUrl has no Nextcloud host here), and wait for it to load.
+ * @param page - the page, with a model loaded
+ * @param model - the model to open
+ */
+async function openNext(page: Page, model: Model) {
+	await page.evaluate(({ id, name }) => {
+		(window as any).__LOAD_COMPLETE = false
+		// The mounted root renders App; App is its only child
+		const app = (window as any).__THREEDVIEWER_APP.$.subTree.component.proxy
+		app.currentFilename = name
+		app.currentFileId = id
+	}, MODELS[model])
+	await page.waitForFunction(() => (window as any).__LOAD_COMPLETE === true, null, { timeout: 30000 })
+}
+
+/**
+ * How many of a PNG's pixels the model covers (alpha above zero), and its middle
+ * pixel's alpha.
+ * @param page - any page, to decode the image in
+ * @param png - the image
+ */
+async function coverage(page: Page, png: Buffer): Promise<{ covered: number, centreAlpha: number }> {
+	return await page.evaluate(async (base64) => {
+		const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))
+		const bitmap = await createImageBitmap(new Blob([bytes], { type: 'image/png' }))
+		const canvas = document.createElement('canvas')
+		canvas.width = bitmap.width
+		canvas.height = bitmap.height
+		const context = canvas.getContext('2d')!
+		context.drawImage(bitmap, 0, 0)
+		const { data } = context.getImageData(0, 0, bitmap.width, bitmap.height)
+		let covered = 0
+		for (let i = 3; i < data.length; i += 4) {
+			if (data[i] > 0) covered++
+		}
+		const centre = (Math.floor(bitmap.height / 2) * bitmap.width + Math.floor(bitmap.width / 2)) * 4
+		return { covered, centreAlpha: data[centre + 3] }
+	}, png.toString('base64'))
+}
+
+/**
+ * The thumbnail a model gets when it is the first one opened, with every tool as it
+ * starts: what a capture made under any viewer state must match.
+ * @param page - a fresh page
+ * @param url - the test server
+ * @param model - the model
+ */
+async function plainThumbnail(page: Page, url: string, model: Model) {
+	const uploads = await recordThumbnails(page, [MODELS[model].id])
+	await openLoadedViewer(page, url, model)
+	await expect.poll(() => uploads.length, { timeout: 15000 }).toBe(1)
+	return await coverage(page, uploads[0])
+}
+
+/**
+ * Switch a tool on the moment the first model has loaded, inside the half second before
+ * the viewer captures its thumbnail, as a quick user would. The switch is made from the
+ * page, in the next task after the load sets `__LOAD_COMPLETE`, and both times are kept
+ * so the test can check it came before the capture. Call before the page loads.
+ * @param page - the page, not yet loaded
+ * @param tool - which tool to switch on
+ */
+async function switchOnAtLoad(page: Page, tool: 'wireframe' | 'exploded') {
+	await page.addInitScript((which) => {
+		const w = window as any
+		let loaded = false
+		Object.defineProperty(w, '__LOAD_COMPLETE', {
+			configurable: true,
+			get: () => loaded,
+			set: (value) => {
+				loaded = value
+				if (!value || w.__loadedAt !== undefined) return
+				w.__loadedAt = performance.now()
+				setTimeout(() => {
+					const app = w.__THREEDVIEWER_APP.$.subTree.component.proxy
+					if (which === 'wireframe') {
+						app.wireframe = true
+					} else {
+						app.onToggleExplodedView()
+						app.onSetExplodedFactor(1)
+					}
+					w.__switchedAt = performance.now()
+				}, 0)
+			},
+		})
+	}, tool)
 }
 
 test.describe('Inspection tools', () => {
@@ -584,4 +710,152 @@ test.describe('Inspection tools', () => {
 		expect(alpha).toBe(255)
 		expect(errors).toEqual([])
 	})
+	/*
+	 * Wireframe stays on for the next model, as the toggle shows, and the next model's
+	 * thumbnail, captured half a second after it opens, must still be solid: the same
+	 * picture a model gets with nothing switched on.
+	 *
+	 * This reaches the thumbnail fix through the carry-over to the next model (9c0d60c).
+	 * Without the carry-over the next model would not be in wireframe and the thumbnail
+	 * comparison would pass with nothing to check; the check that the model is drawn in
+	 * wireframe fails instead. The capture-window test further down does not depend on
+	 * the carry-over.
+	 */
+	test('a thumbnail captured with Wireframe on is solid', async ({ page, browser }) => {
+		const plainPage = await browser.newPage()
+		const plain = await plainThumbnail(plainPage, server.url, 'cube2')
+		await plainPage.close()
+
+		const uploads = await recordThumbnails(page, [MODELS.cube2.id])
+		const { errors } = await openLoadedViewer(page, server.url, 'cube')
+		const wireframe = page.locator('.slide-out-panel .toggle-row', { hasText: 'Wireframe' })
+		await wireframe.click()
+		await expect(wireframe.locator('.toggle-switch')).toHaveClass(/on/)
+
+		await openNext(page, 'cube2')
+		await expect.poll(() => uploads.length, { timeout: 15000 }).toBe(1)
+
+		// The new model is drawn in wireframe, as the toggle says
+		await expect(wireframe.locator('.toggle-switch')).toHaveClass(/on/)
+		expect(await page.evaluate(() => {
+			const viewer = (window as any).__THREEDVIEWER_APP.$.subTree.component.proxy.$refs.viewer
+			const materials: any[] = []
+			viewer.modelRoot.traverse((child: any) => { if (child.isMesh) materials.push(...[child.material].flat()) })
+			return materials.length > 0 && materials.every((m) => m.wireframe === true)
+		})).toBe(true)
+
+		// A wireframe covers a fraction of what the solid cube does; the thumbnail is solid
+		const captured = await coverage(page, uploads[0])
+		expect(captured.centreAlpha).toBe(255)
+		expect(Math.abs(captured.covered - plain.covered)).toBeLessThanOrEqual(plain.covered * 0.01)
+		expect(errors).toEqual([])
+	})
+
+	/*
+	 * Exploded view stays on for the next model it can take apart, by the same amount,
+	 * and that model's thumbnail must show its parts together, framed as they are when
+	 * nothing is exploded.
+	 *
+	 * Like the Wireframe test above, this reaches the thumbnail fix through the carry-over
+	 * (9c0d60c), and checks that the next model really is exploded so it cannot pass
+	 * empty; the capture-window test below does not depend on the carry-over.
+	 */
+	test('a thumbnail captured in Exploded view has the parts together', async ({ page, browser }) => {
+		const plainPage = await browser.newPage()
+		const plain = await plainThumbnail(plainPage, server.url, 'twoCubes2')
+		await plainPage.close()
+
+		const uploads = await recordThumbnails(page, [MODELS.twoCubes2.id])
+		const { errors } = await openLoadedViewer(page, server.url, 'twoCubes')
+		const explode = page.locator('.slide-out-panel .tool-btn', { hasText: 'Exploded View' })
+		await explode.click()
+		await expect(explode).toContainText('Active')
+		// All the way apart, where a camera fitted to the parts together loses them
+		await page.locator('.slide-out-panel .tool-group', { hasText: 'Explosion' }).locator('input[type="range"]').fill('1')
+
+		await openNext(page, 'twoCubes2')
+		await expect.poll(() => uploads.length, { timeout: 15000 }).toBe(1)
+
+		// The new model is exploded, as the panel says
+		await expect(explode).toContainText('Active')
+		const gap = await page.evaluate(() => {
+			const viewer = (window as any).__THREEDVIEWER_APP.$.subTree.component.proxy.$refs.viewer
+			const meshes: any[] = []
+			viewer.modelRoot.traverse((child: any) => { if (child.isMesh) meshes.push(child) })
+			return meshes.map((mesh) => mesh.position.length())
+		})
+		expect(Math.max(...gap)).toBeGreaterThan(1)
+
+		// The camera is fitted to the parts as they are shown, so none has left the view
+		const outside = await page.evaluate(() => {
+			const viewer = (window as any).__THREEDVIEWER_APP.$.subTree.component.proxy.$refs.viewer
+			const root = viewer.modelRoot
+			const camera = viewer.camera.camera.value
+			const Vector3 = root.position.constructor
+			root.updateMatrixWorld(true)
+			camera.updateMatrixWorld(true)
+			let worst = 0
+			root.traverse((child: any) => {
+				const position = child.isMesh && child.geometry.attributes.position
+				for (let i = 0; position && i < position.count; i++) {
+					const ndc = new Vector3().fromBufferAttribute(position, i).applyMatrix4(child.matrixWorld).project(camera)
+					worst = Math.max(worst, Math.abs(ndc.x), Math.abs(ndc.y))
+				}
+			})
+			return worst
+		})
+		expect(outside).toBeLessThanOrEqual(1)
+
+		// Flung apart, the parts would be framed smaller, with a gap between them
+		const captured = await coverage(page, uploads[0])
+		expect(Math.abs(captured.covered - plain.covered)).toBeLessThanOrEqual(plain.covered * 0.01)
+		expect(captured.centreAlpha).toBe(plain.centreAlpha)
+		expect(errors).toEqual([])
+	})
+	/*
+	 * The same two fixes without the carry-over to the next model: the tool is switched
+	 * on in the half second between the model opening and the viewer capturing it.
+	 */
+	for (const [tool, model] of [['wireframe', 'cube2'], ['exploded', 'twoCubes2']] as const) {
+		test(`a thumbnail captured just after ${tool === 'wireframe' ? 'Wireframe' : 'Exploded view'} is switched on matches a plain one`, async ({ page, browser }) => {
+			const plainPage = await browser.newPage()
+			const plain = await plainThumbnail(plainPage, server.url, model)
+			await plainPage.close()
+
+			const shownAtCapture: boolean[] = []
+			const uploads: Buffer[] = []
+			await page.route('**/apps/threedviewer/api/thumbnails/status**', (route) => route.fulfill({
+				status: 200,
+				contentType: 'application/json',
+				body: JSON.stringify({ files: { [MODELS[model].id]: { canEdit: true, hasThumbnail: false, etag: 'v1' } } }),
+			}))
+			await page.route('**/apps/threedviewer/api/thumbnail/**', async (route) => {
+				uploads.push(route.request().postDataBuffer()!)
+				// What the viewer shows as the upload arrives, just after the capture
+				shownAtCapture.push(await page.evaluate((which) => {
+					const viewer = (window as any).__THREEDVIEWER_APP.$.subTree.component.proxy.$refs.viewer
+					const meshes: any[] = []
+					viewer.modelRoot.traverse((child: any) => { if (child.isMesh) meshes.push(child) })
+					return which === 'wireframe'
+						? meshes.every((mesh) => [mesh.material].flat().every((m: any) => m.wireframe))
+						: Math.max(...meshes.map((mesh) => mesh.position.length())) > 1
+				}, tool))
+				return route.fulfill({ status: 201, body: '' })
+			})
+			await switchOnAtLoad(page, tool)
+
+			const { errors } = await openLoadedViewer(page, server.url, model)
+			await expect.poll(() => uploads.length, { timeout: 15000 }).toBe(1)
+
+			// Switched on well inside the half second the capture waits, and on when it ran
+			const { loadedAt, switchedAt } = await page.evaluate(() => ({ loadedAt: (window as any).__loadedAt, switchedAt: (window as any).__switchedAt }))
+			expect(switchedAt - loadedAt).toBeLessThan(250)
+			expect(shownAtCapture).toEqual([true])
+
+			const captured = await coverage(page, uploads[0])
+			expect(Math.abs(captured.covered - plain.covered)).toBeLessThanOrEqual(plain.covered * 0.01)
+			expect(captured.centreAlpha).toBe(plain.centreAlpha)
+			expect(errors).toEqual([])
+		})
+	}
 })
