@@ -1,6 +1,6 @@
 # 3D Viewer for Nextcloud
 
-[![Version](https://img.shields.io/badge/version-3.8.0-blue)](https://github.com/maz1987in/3Dviewer-Nextcloud/releases)
+[![Version](https://img.shields.io/badge/version-3.8.1-blue)](https://github.com/maz1987in/3Dviewer-Nextcloud/releases)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-orange)](LICENSE)
 [![Nextcloud](https://img.shields.io/badge/Nextcloud-31--35-0082c9)](https://nextcloud.com)
 [![Update nextcloud/ocp](https://github.com/maz1987in/3Dviewer-Nextcloud/actions/workflows/update-nextcloud-ocp-matrix.yml/badge.svg)](https://github.com/maz1987in/3Dviewer-Nextcloud/actions/workflows/update-nextcloud-ocp-matrix.yml)
@@ -74,7 +74,7 @@ A comprehensive 3D model viewer application for Nextcloud that supports multiple
 - **Exploded View** - Animate multi-mesh models outward from centroid with adjustable factor slider for assembly inspection
 - **Performance Scaling** - Automatic performance mode suggestions for large models with configurable triangle count thresholds
 - **Cache Insights** - Live dependency cache statistics (size, entries, hit rate) visible in viewer and tools panel
-- **Enhanced Security** - Hardened slicer temp file handling with file size limits, MIME validation, and rolling expiration
+- **Enhanced Security** - Every action that changes data checks Nextcloud's request token, password-protected shares stay protected (checked by a test over every public route), and slicer temp files have size limits, MIME validation and rolling expiration
 - **Bundle Budget Enforcement** - Automated bundle size checking with historical tracking and CI integration
 - **Smart File Browser** - Toggle between Viewer, Folders, Type, Date, and Favorites modes with breadcrumbs, Nextcloud-style navigation, lazy loading, and customizable default view (Grid/List)
 - **Dynamic Grid System** - Automatically adapts to model size and position
@@ -95,7 +95,7 @@ A comprehensive 3D model viewer application for Nextcloud that supports multiple
 - **Help Panel** - Comprehensive in-app documentation and controls guide
 - **Performance Optimized** - Code splitting, dynamic imports, quality modes with visual overlay, and automatic performance suggestions for large models
 - **Theme Integration** - Respects Nextcloud light/dark themes with RTL support
-- **Accessibility** - ARIA labels and keyboard navigation
+- **Accessibility** - Every control in the tools panel works from the keyboard and tells a screen reader its name and state, with High Contrast support
 - **Compression Support** - DRACO geometry and KTX2/Basis texture compression
 - **Live File Indexing** - Database-backed index updates automatically via filesystem events with CLI/REST helpers for bulk reindexing
 
@@ -203,7 +203,7 @@ The UI will also call `POST /apps/threedviewer/api/files/index` the first time i
 - `.bmp` - Bitmap format
 - `.webp` - Modern web format
 
-> **Note**: Supporting files (MTL, BIN, textures) are automatically loaded when present in the same directory as the main model file.
+> **Note**: Supporting files (MTL, BIN, textures) are automatically loaded when present in the same directory as the main model file. A texture named by a full path or a path above the model's folder (`C:\…\wood.jpg`, `..\..\textures\wood.jpg`) is found by its file name beside the model.
 
 ## 🤝 Contributing
 
@@ -228,28 +228,30 @@ This project is licensed under the **AGPL-3.0 License**. See [LICENSE](LICENSE) 
 
 ## 📊 Version
 
-**Current Version**: 3.8.0
+**Current Version**: 3.8.1
 **Released**: October 27, 2026
 **Requires**: Nextcloud 31 -- 35
 
-### What's New in 3.8.0
+### What's New in 3.8.1
 
-**Inspection tools:**
-- Angle measurement: three clicks measure an angle, saved and shared like distances
-- A layer slider for G-code, to step through a print layer by layer
-- Clay, Normals and X-ray shading
-- Export to 3MF (closed solids, ready for slicers), PLY and USDZ (AR Quick Look at real size)
+**Thumbnails and exports:**
+- A thumbnail made in the viewer shows the model as its file has it: no wireframe, parts together, the loaded transform and pose, and the G-code gradient, whatever you were viewing it with
+- Exports and Send to Slicer from Exploded view have the parts together
 
-**Real units:**
-- Measurements, model statistics and exports use each model's own unit, so a glTF figure measures in metres and an STL part in millimetres
-- FBX readings follow the file's `UnitScaleFactor`, centimetres by default, so most FBX models read 10× larger than in 3.7.x, which is their correct size
+**Viewer:**
+- The top bar stays usable while a model loads
+- Every control in the tools panel works from the keyboard and is announced to screen readers; choosing an export format no longer starts the export, the Export button does
 
 **Textures:**
-- Textures a model names by a full path from the machine that exported it (`C:\…\wood.jpg`, `file:///C:/…`, `\\server\share\…`) are found by their file name beside the model, in the viewer, in thumbnails and on public shares
-- A texture that is not one of the model's own files is never requested, so opening a shared model cannot make the browser contact another server
+- Textures named by a path above the model's folder (`..\..\textures\wood.jpg`) or with encoded slashes are found by their file name beside the model, in the viewer, in thumbnails and on public shares
+- An OBJ whose MTL sits in a subfolder gets its textures in its thumbnail
+
+**Security:**
+- Every route that changes data now checks Nextcloud's request token, and viewer settings accept only the values the viewer stores
 
 ### Recent releases
 
+- **3.8.0:** angle measurement, a G-code layer slider, Clay, Normals and X-ray shading, export to 3MF, PLY and USDZ, and measurements in each model's real unit
 - **3.7.1:** background thumbnails for 3MF, AMF, DAE and X3D, and FreeCAD files drawn as FreeCAD shows them
 - **3.7.0:** thumbnails made while browsing Files, shared by everyone who can see the file
 - **3.6.0:** annotations and measurements become shared notes, and Nextcloud 35 support
