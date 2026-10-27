@@ -830,6 +830,7 @@ import { useTransformGizmo } from '../composables/useTransformGizmo.js'
 import { useWebXR } from '../composables/useWebXR.js'
 import { logger } from '../utils/logger.js'
 import { setViewerWireframe } from '../utils/viewerMaterialProps.js'
+import { applyGcodeColorScheme } from '../utils/gcodeColorScheme.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
 import { initCache, clearExpired, clearAll, getCacheStats } from '../utils/dependencyCache.js'
 
@@ -1435,10 +1436,10 @@ export default {
 					// it, KTX2 init throws "Cannot read properties of undefined
 					// (reading 'isWebGPURenderer')" on Three.js r182+.
 					renderer: renderer.value,
-					gcodeOptions: {
-						colorMode: props.gcodeColorMode,
-						singleColor: props.gcodeSingleColor,
-					},
+					// Always the gradient, the toolpath's own colouring and the one a
+					// background thumbnail draws; setGcodeColorScheme below shows the
+					// viewer's choice over it, through the registry a thumbnail reads
+					gcodeOptions: { colorMode: 'gradient' },
 				})
 
 				if (loadedModel && loadedModel.object3D) {
@@ -1722,23 +1723,7 @@ export default {
 				if (!scene.value) return
 				const group = scene.value.getObjectByName('GCodeToolpath')
 				if (!group) return
-				const children = group.children || []
-
-				children.forEach((child) => {
-					if (!child.material) return
-
-					if (mode === 'single') {
-						// Single color mode: disable vertex colors and use uniform material color
-						child.material.color.set(color)
-						child.material.vertexColors = false
-						child.material.needsUpdate = true
-					} else {
-						// Gradient mode: enable vertex colors (which were set during loading)
-						// The gradient colors are already in the geometry from GCodeLoader
-						child.material.vertexColors = true
-						child.material.needsUpdate = true
-					}
-				})
+				applyGcodeColorScheme(group, mode, color)
 			} catch (_) { /* ignore recolor errors */ }
 		}
 

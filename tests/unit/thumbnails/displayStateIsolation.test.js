@@ -9,6 +9,8 @@ import * as THREE from 'three'
 import { renderThumbnail } from '../../../src/thumbnails/renderThumbnail.js'
 import { setViewerWireframe } from '../../../src/utils/viewerMaterialProps.js'
 import { useClippingPlane } from '../../../src/composables/useClippingPlane.js'
+import { applyGcodeColorScheme } from '../../../src/utils/gcodeColorScheme.js'
+import GCodeLoader from '../../../src/loaders/types/gcode.js'
 
 // What each render saw, read at the moment it happened
 const rendered = []
@@ -35,6 +37,8 @@ jest.mock('three', () => {
 					objects.set(child, {
 						wireframe: materials.map((m) => m.wireframe),
 						side: materials.map((m) => m.side),
+						color: materials.map((m) => m.color?.getHex()),
+						vertexColors: materials.map((m) => m.vertexColors),
 						world: child.matrixWorld.clone(),
 					})
 				})
@@ -164,5 +168,50 @@ describe('the clipping plane', () => {
 		clipping.toggle()
 		expect(shared.side).toBe(THREE.FrontSide)
 		expect(other.side).toBe(THREE.BackSide)
+	})
+})
+
+describe('the G-code colour setting', () => {
+	const GCODE = ['G1 Z0.2 F600', 'G1 X0 Y0 E0', 'G1 X10 Y0 E1', 'G1 Z0.4', 'G1 X10 Y10 E2', 'G1 X0 Y10 E3'].join('\n')
+
+	/**
+	 * Load a toolpath the way the viewer does: in its own gradient.
+	 *
+	 * @return {Promise<THREE.Object3D>} The toolpath, in a scene
+	 */
+	async function toolpath() {
+		const { object3D } = await new GCodeLoader().loadModel(new TextEncoder().encode(GCODE).buffer, { gcodeOptions: { colorMode: 'gradient' } })
+		new THREE.Scene().add(object3D)
+		return object3D
+	}
+
+	it('draws the toolpath\'s own gradient while the viewer shows one colour', async () => {
+		const group = await toolpath()
+		const [layer] = group.children
+		expect(layer.geometry.attributes.color).toBeDefined()
+		applyGcodeColorScheme(group, 'single', '#ff5722')
+		expect(layer.material.vertexColors).toBe(false)
+
+		await renderThumbnail(group, { canvas: canvas() })
+
+		for (const child of group.children) {
+			const seen = rendered[0].objects.get(child)
+			expect(seen.vertexColors).toEqual([true])
+			expect(seen.color).toEqual([0xffffff])
+			// The viewer keeps its colour
+			expect(child.material.vertexColors).toBe(false)
+			expect(child.material.color.getHex()).toBe(0xff5722)
+		}
+	})
+
+	it('gives the gradient back untinted when the viewer goes back to it', async () => {
+		const group = await toolpath()
+		applyGcodeColorScheme(group, 'single', '#00ff00')
+		applyGcodeColorScheme(group, 'single', '#ff5722')
+		applyGcodeColorScheme(group, 'gradient')
+		for (const child of group.children) {
+			expect(child.material.vertexColors).toBe(true)
+			expect(child.material.color.getHex()).toBe(0xffffff)
+		}
 	})
 })
