@@ -1181,9 +1181,8 @@ export default {
 	text-transform: uppercase;
 }
 
-/* Toggle switch rows */
-/* Doubled: "Only this layer" is a <button> with this class, and a single class loses to
-   Nextcloud's rules for every button (see buttonSpecificity.test.js) */
+/* Toggle switch rows. The class is doubled: "Only this layer" is a <button> with it, and
+   a single class loses to Nextcloud's rules for every button (buttonSpecificity.test.js) */
 .toggle-row.toggle-row {
 	display: flex;
 	align-items: center;

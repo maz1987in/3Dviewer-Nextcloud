@@ -60,9 +60,9 @@
 	   The measurement panel's Distance / Angle switch, the Shading buttons and the
 	   tool switches show which is on by filling it with the primary colour. Forced
 	   colours repaint every button ButtonFace, so on and off look the same; mark the
-	   one that is on with Highlight. */
-	/* Repeated classes outweigh the components' own scoped `.active` / `.on` rules,
-	   which would otherwise keep their primary fill once adjust is off */
+	   one that is on with Highlight. The repeated classes outweigh the components' own
+	   scoped `.active` / `.on` rules, which would otherwise keep their primary fill once
+	   adjust is off. */
 	.tdv-segmented.tdv-segmented button[aria-pressed="true"],
 	.preset-buttons .preset-btn.preset-btn[aria-pressed="true"] {
 		border: 1px solid Highlight;
