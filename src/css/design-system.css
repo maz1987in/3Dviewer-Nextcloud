@@ -143,6 +143,13 @@
 	--tdv-shadow-dialog: 0 8px 40px rgb(0, 0, 0, 0.12);
 }
 
+/* A short landscape window gets a shorter bar, and everything below it follows. */
+@media (height <= 500px) and (orientation: landscape) {
+	:root {
+		--tdv-topbar-height: 44px;
+	}
+}
+
 /* ======================= An explicit theme choice ======================= */
 
 /*

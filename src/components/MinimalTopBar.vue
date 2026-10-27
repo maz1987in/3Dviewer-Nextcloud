@@ -417,11 +417,4 @@ export default {
 		border: 2px solid #fff;
 	}
 }
-
-/* Landscape mobile optimization */
-@media (height <= 500px) and (orientation: landscape) {
-	.minimal-top-bar {
-		height: 44px;
-	}
-}
 </style>
