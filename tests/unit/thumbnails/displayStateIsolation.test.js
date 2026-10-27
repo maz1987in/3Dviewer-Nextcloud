@@ -12,6 +12,7 @@ import { useClippingPlane } from '../../../src/composables/useClippingPlane.js'
 import { applyGcodeColorScheme } from '../../../src/utils/gcodeColorScheme.js'
 import GCodeLoader from '../../../src/loaders/types/gcode.js'
 import { useExplodedView } from '../../../src/composables/useExplodedView.js'
+import { useTransformGizmo } from '../../../src/composables/useTransformGizmo.js'
 
 // What each render saw, read at the moment it happened
 const rendered = []
@@ -48,6 +49,21 @@ jest.mock('three', () => {
 			dispose: jest.fn(),
 			forceContextLoss: jest.fn(),
 		})),
+	}
+})
+
+jest.mock('three/examples/jsm/controls/TransformControls.js', () => {
+	const { Object3D } = jest.requireActual('three')
+	return {
+		TransformControls: class {
+			setMode() {}
+			setSize() {}
+			getHelper() { return new Object3D() }
+			addEventListener() {}
+			attach() {}
+			detach() {}
+			dispose() {}
+		},
 	}
 })
 
@@ -279,5 +295,71 @@ describe('Exploded view', () => {
 		root.children.forEach((child) => {
 			expect(new THREE.Vector3().setFromMatrixPosition(child.matrixWorld).toArray()).toEqual(child.position.toArray())
 		})
+	})
+})
+
+describe('the transform gizmo', () => {
+	/**
+	 * Load a model the way the viewer does, with a transform of its own, and turn, move
+	 * and stretch it with the gizmo.
+	 *
+	 * @param {object} parts - From `model()`
+	 * @return {Promise<object>} The gizmo, attached
+	 */
+	async function moveWithGizmo({ root, scene }) {
+		const gizmo = useTransformGizmo()
+		await gizmo.init(scene, new THREE.PerspectiveCamera(), { domElement: document.createElement('canvas') }, null)
+		gizmo.rememberTransform(root)
+		gizmo.toggle(root)
+		root.position.set(3, -2, 7)
+		root.rotation.set(0.3, 1.1, -0.4)
+		root.scale.set(2, 0.5, 3)
+		root.updateMatrixWorld(true)
+		return gizmo
+	}
+
+	/**
+	 * A model with a loader's own turn on its root, as a 3MF has.
+	 *
+	 * @return {object} From `model()`
+	 */
+	function turnedModel() {
+		const parts = model()
+		parts.root.rotation.x = -Math.PI / 2
+		parts.root.position.set(1, 0, -1) // the viewer's centring
+		parts.root.updateMatrixWorld(true)
+		return parts
+	}
+
+	it('draws the model at its loaded transform, framed as a plain capture frames it', async () => {
+		const plain = await capture(turnedModel().root)
+		const parts = turnedModel()
+		await moveWithGizmo(parts)
+
+		const seen = await capture(parts.root)
+
+		;[parts.a, parts.b, parts.multi].forEach((part, index) => {
+			const loaded = [...plain.objects.values()][index].world
+			expect(seen.objects.get(part).world.equals(loaded)).toBe(true)
+		})
+		expect(seen.camera.distanceTo(plain.camera)).toBeLessThan(1e-9)
+	})
+
+	it('leaves the model where the gizmo put it, also when the render throws, and Reset still works', async () => {
+		const parts = turnedModel()
+		const gizmo = await moveWithGizmo(parts)
+		const { root } = parts
+		const moved = root.matrix.clone()
+
+		await capture(root)
+		expect(root.matrix.equals(moved)).toBe(true)
+		mockState.fail = true
+		await expect(renderThumbnail(root, { canvas: canvas() })).rejects.toThrow('context lost')
+		expect(root.matrix.equals(moved)).toBe(true)
+		expect(root.parent).toBe(parts.scene)
+
+		gizmo.resetTransform()
+		expect(root.rotation.x).toBeCloseTo(-Math.PI / 2, 9)
+		expect(root.position.toArray()).toEqual([1, 0, -1])
 	})
 })

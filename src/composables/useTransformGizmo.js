@@ -8,6 +8,7 @@
 
 import { ref } from 'vue'
 import { logger } from '../utils/logger.js'
+import { ownTransformOf, rememberOwnTransform } from '../utils/viewerTransforms.js'
 
 export function useTransformGizmo() {
 	const isActive = ref(false)
@@ -19,24 +20,17 @@ export function useTransformGizmo() {
 	let scene = null
 	let orbitControls = null
 	let attachedObject = null
-	// Each model's transform as it was loaded: the loader's own rotation (3MF is turned
-	// Z-up to Y-up) and rescale (FBX and OBJ shrink a large model to fit), and the
-	// viewer's centring. Reset goes back to this, not to identity.
-	const loadedTransforms = new WeakMap()
-
 	/**
-	 * Remember an object's transform as the one Reset returns it to. Called when a model
-	 * has been placed after loading; an object attached without one is remembered as it
-	 * is when first attached.
+	 * Remember an object's transform as the one Reset returns it to: the loader's own
+	 * rotation (3MF is turned Z-up to Y-up) and rescale (FBX and OBJ shrink a large model
+	 * to fit), and the viewer's centring, not identity. Called when a model has been
+	 * placed after loading; an object attached without one is remembered as it is when
+	 * first attached. Kept in the registry of what viewer tools move (viewerTransforms),
+	 * so a thumbnail draws the model as loaded, however the gizmo has turned it.
 	 * @param {THREE.Object3D} object - The model root
 	 */
 	const rememberTransform = (object) => {
-		if (!object?.position) return
-		loadedTransforms.set(object, {
-			position: object.position.clone(),
-			quaternion: object.quaternion.clone(),
-			scale: object.scale.clone(),
-		})
+		rememberOwnTransform(object)
 	}
 
 	/**
@@ -89,7 +83,7 @@ export function useTransformGizmo() {
 		isActive.value = !isActive.value
 
 		if (isActive.value && modelRoot) {
-			if (!loadedTransforms.has(modelRoot)) rememberTransform(modelRoot)
+			rememberTransform(modelRoot)
 			controls.attach(modelRoot)
 			attachedObject = modelRoot
 			logger.info('useTransformGizmo', 'Attached', { mode: mode.value })
@@ -121,7 +115,7 @@ export function useTransformGizmo() {
 	 */
 	const resetTransform = () => {
 		if (!attachedObject) return
-		const loaded = loadedTransforms.get(attachedObject)
+		const loaded = ownTransformOf(attachedObject)
 		if (loaded) {
 			attachedObject.position.copy(loaded.position)
 			attachedObject.quaternion.copy(loaded.quaternion)

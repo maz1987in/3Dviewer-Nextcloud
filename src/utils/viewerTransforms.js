@@ -4,7 +4,8 @@
  *
  * Where the model puts each object a viewer tool moves.
  *
- * Exploded view moves a model's parts apart. A tool that moves an object records its
+ * Exploded view moves a model's parts apart, the transform gizmo moves, turns and
+ * stretches the whole model. A tool that moves an object records its
  * own transform (position, rotation and scale, and morph target weights) with
  * `rememberOwnTransform` before it first moves it, and anything that must see the model
  * as it is runs inside `withOwnTransforms`, which puts every recorded object back where

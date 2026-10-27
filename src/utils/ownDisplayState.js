@@ -6,7 +6,8 @@
  *
  * Viewer tools change the live model object: a render mode puts stand-in materials on
  * it, Wireframe, an open cut and the G-code colour change its materials, the G-code
- * layer slider hides layers, and Exploded view moves its parts. Each tool records what
+ * layer slider hides layers, Exploded view moves its parts and the transform gizmo the
+ * whole model. Each tool records what
  * it changed in a small registry beside it, and `withOwnDisplayState` puts the model's
  * own state back for one synchronous call, then the viewer's. A thumbnail is shared with
  * everyone who can see the file, so it is rendered inside this; so are the exports that
