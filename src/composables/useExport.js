@@ -446,7 +446,12 @@ export function useExport() {
 		mimeType: 'model/3mf',
 		produce: async (obj) => {
 			const { build3MF } = await import('../utils/threeMFWriter.js')
-			return build3MF(obj)
+			// Null when welding left no triangle that the surface check could not foresee
+			const file = build3MF(obj)
+			if (!file) {
+				throw new NothingToExportError('3MF')
+			}
+			return file
 		},
 	})
 

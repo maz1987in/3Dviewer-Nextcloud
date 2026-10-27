@@ -254,9 +254,10 @@ describe('useExport — blob creation', () => {
 
 	it('reports a failed export and leaves the exporting flag down', async () => {
 		const exp = useExport()
-		mockBuild3MF.mockImplementationOnce(() => { throw new Error('Model has no triangle meshes to export as 3MF') })
+		// A mesh whose every triangle welding collapses passes the surface check
+		mockBuild3MF.mockImplementationOnce(() => null)
 
-		await expect(exp.exportAs3MF(fakeMesh({ positions: TRIANGLE }), 'x')).rejects.toThrow(/no triangle meshes/)
+		await expect(exp.exportAs3MF(fakeMesh({ positions: TRIANGLE }), 'x')).rejects.toMatchObject({ name: 'NothingToExportError', format: '3MF' })
 		expect(exp.exporting.value).toBe(false)
 		expect(exp.exportError.value).toMatch(/no triangle meshes/)
 		expect(blobCapture).toHaveLength(0)

@@ -29,7 +29,7 @@ describe('build3MF', () => {
 	})
 
 	it('refuses a model with nothing to print', () => {
-		expect(() => build3MF(new THREE.Group())).toThrow(/no triangle meshes/)
+		expect(build3MF(new THREE.Group())).toBeNull()
 	})
 })
 
@@ -131,7 +131,7 @@ describe('a closed model stays closed', () => {
 		const g = new THREE.BufferGeometry()
 		// The third corner is the first one again, a hair away
 		g.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 1, 0, 0, 1e-9, 0, 0], 3))
-		expect(() => build3MF(new THREE.Mesh(g))).toThrow(/no triangle meshes/)
+		expect(build3MF(new THREE.Mesh(g))).toBeNull()
 	})
 })
 

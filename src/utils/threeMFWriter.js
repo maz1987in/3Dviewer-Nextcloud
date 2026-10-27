@@ -20,8 +20,6 @@
 
 import { Matrix4, Vector3 } from 'three'
 import { zipSync, strToU8 } from 'three/examples/jsm/libs/fflate.module.js'
-import { NothingToExportError } from './exportErrors.js'
-
 const CONTENT_TYPES = '<?xml version="1.0" encoding="UTF-8"?>\n'
 	+ '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
 	+ '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
@@ -168,14 +166,17 @@ export function build3MFModelXml(object) {
 
 /**
  * A complete 3MF package for every visible mesh under `object`.
+ *
+ * Says "nothing to write" by returning null rather than throwing the export's error: this
+ * module is loaded on demand, and importing that error from the viewer's chunk would make
+ * the chunk export it, which costs the app's entry bytes on every page.
  * @param {THREE.Object3D} object
- * @return {Uint8Array} the zipped package
- * @throws {NothingToExportError} when no mesh has a triangle left to write
+ * @return {?Uint8Array} the zipped package, or null when no mesh has a triangle to write
  */
 export function build3MF(object) {
 	const { xml, objectCount } = build3MFModelXml(object)
 	if (objectCount === 0) {
-		throw new NothingToExportError('3MF')
+		return null
 	}
 	return zipSync({
 		'[Content_Types].xml': bytes(CONTENT_TYPES),
