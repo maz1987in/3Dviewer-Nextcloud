@@ -155,7 +155,7 @@ class ModelDependencyResolver
             $directory = dirname($materialPath);
             foreach ($this->capture($material, self::MAP_LINE, self::DEPENDENCY_SCAN_BYTES) as $value) {
                 foreach ($this->candidatePaths($value) as $candidate) {
-                    $this->register($map, $directory === '.' ? $candidate : $directory . '/' . $candidate);
+                    $this->register($map, $candidate, $directory);
                 }
             }
         }
@@ -183,10 +183,10 @@ class ModelDependencyResolver
         // documents is an upload, and a pattern that runs from each `<image` or
         // `<ImageTexture` to the end of an unclosed tag is quadratic in the document.
         foreach (self::colladaImageFiles($document) as $value) {
-            $this->register($map, rawurldecode(trim(html_entity_decode($value, ENT_QUOTES | ENT_XML1, 'UTF-8'))));
+            $this->register($map, self::uriDecoded(trim(html_entity_decode($value, ENT_QUOTES | ENT_XML1, 'UTF-8'))));
         }
         foreach (self::x3dTextureUrls($document) as $value) {
-            $this->register($map, rawurldecode($value));
+            $this->register($map, self::uriDecoded($value));
         }
 
         return $map;
@@ -413,7 +413,8 @@ class ModelDependencyResolver
         $map = [];
         foreach ($paths as $path) {
             // normalise() applies the same rules the other formats get: Windows
-            // separators folded, absolute paths and schemes refused, `..` collapsed.
+            // separators folded, an absolute path reduced to its name, schemes refused,
+            // `..` collapsed.
             $this->register($map, $path);
         }
 
@@ -443,7 +444,7 @@ class ModelDependencyResolver
                 }
                 // glTF percent-encodes its URIs. `data:` payloads and remote URLs carry a
                 // scheme and are dropped by normalise().
-                $this->register($map, rawurldecode($entry['uri']));
+                $this->register($map, self::uriDecoded($entry['uri']));
             }
         }
 
@@ -479,18 +480,22 @@ class ModelDependencyResolver
 
     /**
      * @param array<string, string> $map
+     * @param string                $directory folder a relative path is relative to, inside
+     *                                         the model's own; `.` for the model's folder itself
      *
      * @return string|null the normalised path that was registered, or null if rejected
      */
-    private function register(array &$map, string $rawPath): ?string
+    private function register(array &$map, string $rawPath, string $directory = '.'): ?string
     {
-        $path = $this->normalise($rawPath);
+        $path = $this->normalise($rawPath, $directory);
         if ($path === null) {
             return null;
         }
 
         $key = mb_strtolower(basename($path));
-        // First declaration wins, so a later line cannot redirect an already-known name.
+        // First declaration wins, so a later line cannot redirect an already-known name:
+        // a bare name an absolute path fell back to does not replace `textures/wood.png`
+        // declared before it, nor the other way round.
         $map[$key] ??= $path;
 
         return $map[$key];
@@ -498,18 +503,35 @@ class ModelDependencyResolver
 
     /**
      * Reduce a declared reference to a path inside the model's own folder, or reject it.
+     *
+     * Mirrors normaliseRef() in src/loaders/textureReferences.js: the client must ask for
+     * exactly the names this serves. Change one, change both.
+     *
+     * An absolute path — a drive letter, a leading slash, a UNC path — or a `file:` URL
+     * names a place on the author's machine, so it falls back to its bare file name in
+     * the model's own folder, whichever file declared it. The value registered then has no
+     * directory, and resolve() looks for it in the model's folder alone; the directories
+     * the path named are never followed. Any other scheme is not a file beside the model.
+     * A relative path is relative to $directory, has `..` collapsed, and is rejected if it
+     * climbs out of the model's folder.
      */
-    private function normalise(string $rawPath): ?string
+    private function normalise(string $rawPath, string $directory = '.'): ?string
     {
         // Exporters on Windows write backslashes; Nextcloud paths use forward slashes.
         $path = str_replace('\\', '/', trim($rawPath));
 
-        if ($path === '' || str_starts_with($path, '/')) {
+        if ($path === '') {
             return null;
         }
-        // `data:`, `http:`, `file:` — anything with a scheme is not a file beside the model.
+        if (self::isLocalAbsolute($path)) {
+            return self::nameOnly($path);
+        }
+        // `data:`, `http:`, `blob:` — anything else with a scheme is not a file beside the model.
         if (preg_match('#^[a-z][a-z0-9+.\-]*:#i', $path) === 1) {
             return null;
+        }
+        if ($directory !== '.') {
+            $path = $directory . '/' . $path;
         }
 
         $segments = [];
@@ -530,6 +552,88 @@ class ModelDependencyResolver
         }
 
         return $segments === [] ? null : implode('/', $segments);
+    }
+
+    /**
+     * A drive letter (`C:`), a leading slash (UNC included, once `\` is folded), or a
+     * `file:` URL. Fixed-length tests at the start of the string.
+     *
+     * @param string $path trimmed, with `/` separators
+     */
+    private static function isLocalAbsolute(string $path): bool
+    {
+        return str_starts_with($path, '/') || self::isFileUrl($path) || self::hasDriveLetter($path);
+    }
+
+    private static function isFileUrl(string $path): bool
+    {
+        return strncasecmp($path, 'file:', 5) === 0;
+    }
+
+    /** `C:` and the like. A single letter is never a URL scheme anyone uses. */
+    private static function hasDriveLetter(string $path): bool
+    {
+        return strlen($path) >= 2 && ctype_alpha($path[0]) && $path[1] === ':';
+    }
+
+    /**
+     * The file name an absolute path or `file:` URL falls back to, or null when it names
+     * none: empty, `.`, `..`, or holding a separator once decoded.
+     *
+     * A `file:` URL loses its query and fragment, and its name is percent-decoded once.
+     *
+     * @param string $path trimmed, with `/` separators, and absolute
+     */
+    private static function nameOnly(string $path): ?string
+    {
+        $url = self::isFileUrl($path);
+        if ($url) {
+            $path = substr($path, 5);
+            $path = substr($path, 0, strcspn($path, '?#'));
+        } elseif (self::hasDriveLetter($path)) {
+            $path = substr($path, 2);
+        }
+
+        $slash = strrpos($path, '/');
+        $name = $slash === false ? $path : substr($path, $slash + 1);
+        if ($url) {
+            $name = self::percentDecoded($name);
+        }
+        if ($name === '' || $name === '.' || $name === '..' || strpbrk($name, "/\\\0") !== false) {
+            return null;
+        }
+
+        return $name;
+    }
+
+    /**
+     * Percent-decoded the way the client's decodeURIComponent() is, which refuses a `%`
+     * not followed by two hex digits, and bytes that are not UTF-8, by keeping the text as
+     * written. A scan with strpos, linear in the text.
+     */
+    private static function percentDecoded(string $text): string
+    {
+        $length = strlen($text);
+        $at = 0;
+        while (($at = strpos($text, '%', $at)) !== false) {
+            if ($at + 2 >= $length || !ctype_xdigit(substr($text, $at + 1, 2))) {
+                return $text;
+            }
+            $at += 3;
+        }
+        $decoded = rawurldecode($text);
+
+        return mb_check_encoding($decoded, 'UTF-8') ? $decoded : $text;
+    }
+
+    /**
+     * A URI-encoded reference decoded before it is normalised, as glTF, COLLADA and X3D
+     * write theirs. A `file:` URL is left as it is: normalise() decodes its name, and
+     * decoding twice would turn a literal `%20` in a file name into a space.
+     */
+    private static function uriDecoded(string $value): string
+    {
+        return self::isFileUrl(ltrim($value)) ? $value : rawurldecode($value);
     }
 
     /**

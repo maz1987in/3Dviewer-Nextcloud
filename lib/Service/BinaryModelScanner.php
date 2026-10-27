@@ -126,9 +126,10 @@ final class BinaryModelScanner
     /**
      * Texture paths an FBX declares, in document order.
      *
-     * Only `RelativeFilename` is read. FBX also carries an absolute `FileName`, but an
-     * absolute path is rejected downstream anyway, and guessing at its basename would
-     * authorise names the document never pointed at.
+     * Only `RelativeFilename` is read, the name three's FBXLoader asks for. An absolute one
+     * falls back to its bare file name downstream, in ModelDependencyResolver::normalise().
+     * FBX also carries a `FileName`, but the loader does not ask for it while
+     * `RelativeFilename` is set, so it authorises nothing here either.
      *
      * @param resource $handle
      *
