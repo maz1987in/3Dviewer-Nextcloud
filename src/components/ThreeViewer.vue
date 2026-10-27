@@ -2716,7 +2716,11 @@ export default {
 				emit('push-toast', {
 					type: 'error',
 					title: t('threedviewer', 'Export Failed'),
-					message: error.message || t('threedviewer', 'Failed to export model'),
+					// A toolpath is lines: say so, in the user's language, rather than save
+					// an empty file
+					message: error?.name === 'NothingToExportError'
+						? t('threedviewer', 'This model has no surfaces to save as {format}.', { format: error.format })
+						: (error.message || t('threedviewer', 'Failed to export model')),
 				})
 			} finally {
 				clippingPlane.aroundMaterialSwap(() => renderMode.resume())

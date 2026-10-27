@@ -4,6 +4,7 @@
  */
 
 import { ref, readonly } from 'vue'
+import { NothingToExportError } from '../utils/exportErrors.js'
 import { logger } from '../utils/logger.js'
 
 /**
@@ -340,6 +341,26 @@ export function useExport() {
 	}
 
 	/**
+	 * Whether anything under `object` that the viewer shows can go into a file of
+	 * surfaces: a mesh with at least one triangle's worth of vertices, or, for formats
+	 * that hold point clouds, a point.
+	 * @param {THREE.Object3D} object - The model
+	 * @param {object} [options] - Options
+	 * @param {boolean} [options.points] - Count point clouds too
+	 * @return {boolean}
+	 */
+	const hasSurfaces = (object, { points = false } = {}) => {
+		let found = false
+		// What the viewer shows: a mesh inside a hidden group does not count
+		const walk = typeof object.traverseVisible === 'function' ? 'traverseVisible' : 'traverse'
+		object[walk]((child) => {
+			const count = child.geometry?.attributes?.position?.count ?? 0
+			if ((child.isMesh && count >= 3) || (points && child.isPoints && count > 0)) found = true
+		})
+		return found
+	}
+
+	/**
 	 * Run one export: produce the file's bytes, then hand them to the browser as a
 	 * download, tracking progress and errors the same way for every format.
 	 * @param {object} spec
@@ -349,11 +370,18 @@ export function useExport() {
 	 * @param {string} spec.extension - file extension, without the dot
 	 * @param {string} spec.mimeType - MIME type of the file
 	 * @param {Function} spec.produce - async (object) => file contents
+	 * @param {boolean} [spec.points] - The format holds point clouds as well as meshes
 	 * @return {Promise<void>}
+	 * @throws {NothingToExportError} When the model has nothing the format can hold
 	 */
-	const runExport = async ({ label, object, filename, extension, mimeType, produce }) => {
+	const runExport = async ({ label, object, filename, extension, mimeType, produce, points = false }) => {
 		if (!object) {
 			throw new Error('No object provided for export')
+		}
+		if (!hasSurfaces(object, { points })) {
+			const error = new NothingToExportError(label)
+			exportError.value = error.message
+			throw error
 		}
 
 		exporting.value = true
@@ -395,6 +423,7 @@ export function useExport() {
 		filename,
 		extension: 'ply',
 		mimeType: 'model/ply',
+		points: true,
 		produce: async (obj) => {
 			const { PLYExporter } = await import('three/examples/jsm/exporters/PLYExporter.js')
 			// parse(object, onDone, options): the options are the third argument

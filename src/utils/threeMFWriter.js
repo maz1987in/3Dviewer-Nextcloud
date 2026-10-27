@@ -20,6 +20,7 @@
 
 import { Matrix4, Vector3 } from 'three'
 import { zipSync, strToU8 } from 'three/examples/jsm/libs/fflate.module.js'
+import { NothingToExportError } from './exportErrors.js'
 
 const CONTENT_TYPES = '<?xml version="1.0" encoding="UTF-8"?>\n'
 	+ '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
@@ -169,11 +170,12 @@ export function build3MFModelXml(object) {
  * A complete 3MF package for every visible mesh under `object`.
  * @param {THREE.Object3D} object
  * @return {Uint8Array} the zipped package
+ * @throws {NothingToExportError} when no mesh has a triangle left to write
  */
 export function build3MF(object) {
 	const { xml, objectCount } = build3MFModelXml(object)
 	if (objectCount === 0) {
-		throw new Error('Model has no triangle meshes to export as 3MF')
+		throw new NothingToExportError('3MF')
 	}
 	return zipSync({
 		'[Content_Types].xml': bytes(CONTENT_TYPES),

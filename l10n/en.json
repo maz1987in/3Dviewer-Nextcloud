@@ -525,6 +525,7 @@
     "Theme": "Theme",
     "Thickness of measurement lines as a percentage of model size.": "Thickness of measurement lines as a percentage of model size.",
     "This model has no additional files to package": "This model has no additional files to package",
+    "This model has no surfaces to save as {format}.": "This model has no surfaces to save as {format}.",
     "This model is view-only for you, so you can’t add annotations.": "This model is view-only for you, so you can’t add annotations.",
     "Thumbnails": "Thumbnails",
     "Tip:": "Tip:",

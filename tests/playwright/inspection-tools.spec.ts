@@ -187,7 +187,7 @@ test.describe('Inspection tools', () => {
 		await openLoadedViewer(page, server.url)
 		await page.locator('.slide-out-panel').getByText('Export', { exact: true }).first().click()
 		await page.selectOption('.export-select', '3mf')
-		await expect(page.locator('.toast.error')).toContainText('no triangle meshes')
+		await expect(page.locator('.toast.error')).toContainText('This model has no surfaces to save as 3MF.')
 		expect(downloaded).toBe(false)
 	})
 })

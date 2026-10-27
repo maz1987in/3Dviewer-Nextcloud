@@ -86,6 +86,9 @@ function fakeGroup(children) {
 	}
 }
 
+// One triangle's worth of vertices: the least a surface export will take
+const TRIANGLE = [0, 0, 0, 1, 0, 0, 0, 1, 0]
+
 // Capture blobs handed to URL.createObjectURL.
 const blobCapture = []
 beforeEach(() => {
@@ -210,7 +213,7 @@ describe('useExport — blob creation', () => {
 
 	it('exportAsPLY asks for binary PLY, passing the options where parse reads them', async () => {
 		const exp = useExport()
-		const mesh = fakeMesh({ positions: [0, 0, 0], index: [0] })
+		const mesh = fakeMesh({ positions: TRIANGLE })
 
 		await run(exp.exportAsPLY(mesh, 'scan'))
 
@@ -223,7 +226,7 @@ describe('useExport — blob creation', () => {
 
 	it('exportAs3MF packages the model as model/3mf', async () => {
 		const exp = useExport()
-		const mesh = fakeMesh({ positions: [0, 0, 0], index: [0] })
+		const mesh = fakeMesh({ positions: TRIANGLE })
 
 		await run(exp.exportAs3MF(mesh, 'part'))
 
@@ -234,7 +237,7 @@ describe('useExport — blob creation', () => {
 
 	it('exportAsUSDZ wraps the async result in a USDZ blob', async () => {
 		const exp = useExport()
-		const mesh = fakeMesh({ positions: [0, 0, 0], index: [0] })
+		const mesh = fakeMesh({ positions: TRIANGLE })
 
 		await run(exp.exportAsUSDZ(mesh, 'ar'))
 
@@ -247,10 +250,34 @@ describe('useExport — blob creation', () => {
 		const exp = useExport()
 		mockBuild3MF.mockImplementationOnce(() => { throw new Error('Model has no triangle meshes to export as 3MF') })
 
-		await expect(exp.exportAs3MF(fakeMesh({ positions: [0, 0, 0] }), 'x')).rejects.toThrow(/no triangle meshes/)
+		await expect(exp.exportAs3MF(fakeMesh({ positions: TRIANGLE }), 'x')).rejects.toThrow(/no triangle meshes/)
 		expect(exp.exporting.value).toBe(false)
 		expect(exp.exportError.value).toMatch(/no triangle meshes/)
 		expect(blobCapture).toHaveLength(0)
+	})
+
+	it.each([
+		['exportAs3MF', '3MF'],
+		['exportAsPLY', 'PLY'],
+		['exportAsUSDZ', 'USDZ'],
+	])('%s refuses a model with no surface before making a file', async (method, format) => {
+		const exp = useExport()
+		// A G-code toolpath: lines only
+		const toolpath = fakeGroup([{ isLine: true, geometry: { attributes: { position: { count: 8 } } }, traverse(cb) { cb(this) } }])
+
+		await expect(exp[method](toolpath, 'print')).rejects.toMatchObject({ name: 'NothingToExportError', format })
+		expect(mockBuild3MF).not.toHaveBeenCalled()
+		expect(mockPlyParse).not.toHaveBeenCalled()
+		expect(mockUsdzParseAsync).not.toHaveBeenCalled()
+		expect(blobCapture).toHaveLength(0)
+		expect(exp.exporting.value).toBe(false)
+	})
+
+	it('exportAsPLY takes a point cloud, which PLY can hold', async () => {
+		const exp = useExport()
+		const cloud = { isPoints: true, geometry: { attributes: { position: { count: 1 } } }, traverse(cb) { cb(this) } }
+		await run(exp.exportAsPLY(cloud, 'scan'))
+		expect(mockPlyParse).toHaveBeenCalled()
 	})
 
 	it('rejects each export when no object is provided', async () => {
