@@ -7,7 +7,7 @@
  * A model's vertex data is attacker-supplied bytes, and "RelativeFilename" appearing
  * inside it is not a declaration — the tests below plant exactly that.
  */
-import { parse3dsDependencies, parseFbxDependencies } from '../../../src/loaders/binaryModelDependencies.js'
+import { parse3dsDependencies, parseFbxDependencies, parseFbxTextures } from '../../../src/loaders/binaryModelDependencies.js'
 import table from '../../fixtures/texture-references.json'
 
 /**
@@ -270,6 +270,87 @@ describe('parseFbxDependencies', () => {
 		const text = `Objects:  {\n\tTexture: 1, "Texture::map", "" {\n\t\tRelativeFilename: "${ref}"\n\t}\n}\n`
 
 		expect(parseFbxDependencies(ascii(text).buffer)).toEqual(expected === null ? [] : [expected])
+	})
+
+	describe('a Video whose RelativeFilename is empty, where three asks for its Filename', () => {
+		/**
+		 * @param {Function[]} children - the Video's child nodes
+		 * @return {ArrayBuffer} a binary FBX with that Video and a Texture naming nothing
+		 */
+		const withVideo = (children) => fbxBinary([fbxNode('Objects', [], [
+			fbxNode('Video', [strProp('Video::map'), strProp('Clip')], [fbxNode('Type', [strProp('Clip')]), ...children]),
+			fbxNode('Texture', [strProp('Texture::map')], [fbxNode('RelativeFilename', [strProp('')])]),
+		])])
+
+		it('declares an absolute Filename by its bare name', () => {
+			const doc = withVideo([
+				fbxNode('Filename', [strProp('C:\\Users\\anna\\textures\\wood.png')]),
+				fbxNode('RelativeFilename', [strProp('')]),
+				fbxNode('Content', [rawProp(new Uint8Array(0))]),
+			])
+
+			expect(parseFbxDependencies(doc)).toEqual(['wood.png'])
+		})
+
+		it('declares it when RelativeFilename is missing altogether', () => {
+			expect(parseFbxDependencies(withVideo([fbxNode('Filename', [strProp('file:///C:/x/wood%20grain.png')])])))
+				.toEqual(['wood grain.png'])
+		})
+
+		it('reads RelativeFilename when it is set, and not Filename', () => {
+			const doc = withVideo([
+				fbxNode('Filename', [strProp('C:\\elsewhere\\other.png')]),
+				fbxNode('RelativeFilename', [strProp('textures\\wood.png')]),
+			])
+
+			expect(parseFbxDependencies(doc)).toEqual(['textures/wood.png'])
+		})
+
+		it('leaves out a Filename whose image is embedded', () => {
+			const doc = withVideo([
+				fbxNode('Filename', [strProp('C:\\x\\wood.png')]),
+				fbxNode('RelativeFilename', [strProp('')]),
+				fbxNode('Content', [rawProp(PNG_BYTES)]),
+			])
+
+			expect(parseFbxTextures(doc)).toEqual({ declared: [], embedded: ['wood.png'] })
+		})
+
+		it.each([
+			['a long run of blanks after Filename', `\t\tFilename${' '.repeat(1_000_000)}x`],
+			['a long Video line without its brace', `Video: ${'a'.repeat(1_000_000)}`],
+			['many quoted names on one line', '"a" '.repeat(250_000)],
+			['a hundred thousand Video blocks', '\tVideo: 1, "V", "C" {\n\t\tFilename: "C:\\x.png"\n\t}'.repeat(100_000)],
+		])('reads a crafted ASCII document in linear time: %s', (_, body) => {
+			const text = `Objects:  {\n\tVideo: 1, "Video::a", "Clip" {\n${body}\n\t}\n}\n`
+			const started = Date.now()
+
+			parseFbxDependencies(ascii(text).buffer)
+			expect(Date.now() - started).toBeLessThan(1500)
+		})
+
+		it('declares an ASCII Video\'s Filename the same way', () => {
+			const text = [
+				'; FBX 7.4.0 project file',
+				'Objects:  {',
+				'\tVideo: 1, "Video::wood", "Clip" {',
+				'\t\tType: "Clip"',
+				'\t\tFilename: "C:\\Users\\anna\\wood.png"',
+				'\t\tRelativeFilename: ""',
+				'\t}',
+				'\tVideo: 2, "Video::metal", "Clip" {',
+				'\t\tFilename: "C:\\Users\\anna\\other.png"',
+				'\t\tRelativeFilename: "metal.png"',
+				'\t}',
+				'\tTexture: 3, "Texture::wood", "" {',
+				'\t\tFileName: "C:\\Users\\anna\\wood.png"',
+				'\t\tRelativeFilename: ""',
+				'\t}',
+				'}',
+			].join('\n')
+
+			expect(parseFbxDependencies(ascii(text).buffer)).toEqual(['metal.png', 'wood.png'])
+		})
 	})
 
 	it('keeps an embedded texture named by an absolute path out of the declarations', () => {

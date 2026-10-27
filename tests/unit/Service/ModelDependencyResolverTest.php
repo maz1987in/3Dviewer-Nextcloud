@@ -1043,6 +1043,116 @@ class ModelDependencyResolverTest extends TestCase
         $this->assertSame($beside, $this->resolver->resolve($absoluteFirst, 'wood.png'));
     }
 
+    /**
+     * three's FBXLoader asks for a Video's `RelativeFilename || Filename`, so a Video
+     * whose RelativeFilename is empty names its file by Filename, absolute as exporters
+     * write it.
+     *
+     * @param list<callable> $children the Video's child nodes
+     */
+    private function fbxWithVideo(array $children): string
+    {
+        return $this->fbxDocument([$this->fbxNode('Objects', [], [
+            $this->fbxNode('Video', [$this->fbxStringProperty('Video::map')], $children),
+        ])]);
+    }
+
+    public function testServesAVideosAbsoluteFilenameWhenItsRelativeFilenameIsEmpty(): void
+    {
+        $texture = $this->fileNamed('wood.png');
+        $model = $this->modelNamed('scene.fbx', $this->fbxWithVideo([
+            $this->fbxNode('Filename', [$this->fbxStringProperty('C:\\Users\\anna\\textures\\wood.png')], []),
+            $this->fbxNode('RelativeFilename', [$this->fbxStringProperty('')], []),
+        ]), ['wood.png' => $texture, 'C:/Users/anna/textures/wood.png' => $this->fileNamed('wood.png')]);
+
+        $this->assertSame($texture, $this->resolver->resolve($model, 'wood.png'));
+    }
+
+    public function testServesAVideosFilenameWhenItHasNoRelativeFilename(): void
+    {
+        $texture = $this->fileNamed('wood grain.png');
+        $model = $this->modelNamed('scene.fbx', $this->fbxWithVideo([
+            $this->fbxNode('Filename', [$this->fbxStringProperty('file:///C:/x/wood%20grain.png')], []),
+        ]), ['wood grain.png' => $texture]);
+
+        $this->assertSame($texture, $this->resolver->resolve($model, 'wood grain.png'));
+    }
+
+    public function testIgnoresAVideosFilenameWhileItsRelativeFilenameIsSet(): void
+    {
+        $model = $this->modelNamed('scene.fbx', $this->fbxWithVideo([
+            $this->fbxNode('Filename', [$this->fbxStringProperty('C:\\elsewhere\\other.png')], []),
+            $this->fbxNode('RelativeFilename', [$this->fbxStringProperty('wood.png')], []),
+        ]), ['wood.png' => $this->fileNamed('wood.png'), 'other.png' => $this->fileNamed('other.png')]);
+
+        $this->assertSame('wood.png', $this->resolver->resolve($model, 'wood.png')->getName());
+        $this->expectException(NotFoundException::class);
+        $this->resolver->resolve($model, 'other.png');
+    }
+
+    /**
+     * The ASCII Video walk reads each line with anchored patterns; mirrors the linear-time
+     * cases in tests/unit/loaders/binaryModelDependencies.test.js.
+     *
+     * @return array<string, array{string}>
+     */
+    public static function craftedAsciiVideos(): array
+    {
+        return [
+            'a long run of blanks after Filename' => ["\t\tFilename" . str_repeat(' ', 1000000) . 'x'],
+            'a long Video line without its brace' => ['Video: ' . str_repeat('a', 1000000)],
+            'many quoted names on one line' => [str_repeat('"a" ', 250000)],
+            'many Video blocks' => [str_repeat("\tVideo: 1, \"V\", \"C\" {\n\t\tFilename: \"C:\\x.png\"\n\t}\n", 50000)],
+        ];
+    }
+
+    #[DataProvider('craftedAsciiVideos')]
+    public function testReadsACraftedAsciiVideoInLinearTime(string $body): void
+    {
+        $model = $this->modelNamed(
+            'scene.fbx',
+            "Objects:  {\n\tVideo: 1, \"Video::a\", \"Clip\" {\n" . $body . "\n\t}\n}\n",
+            ['wood.png' => $this->fileNamed('wood.png')],
+        );
+
+        $started = microtime(true);
+
+        try {
+            $this->resolver->resolve($model, 'wood.png');
+        } catch (NotFoundException) {
+            // Only the timing is under test
+        }
+
+        $this->assertLessThan(1.5, microtime(true) - $started);
+    }
+
+    public function testServesAnAsciiVideosFilenameWhenItsRelativeFilenameIsEmpty(): void
+    {
+        $texture = $this->fileNamed('wood.png');
+        $model = $this->modelNamed(
+            'scene.fbx',
+            "; FBX 7.4.0 project file\nObjects:  {\n"
+            . "\tVideo: 1, \"Video::wood\", \"Clip\" {\n\t\tFilename: \"C:\\Users\\anna\\wood.png\"\n\t\tRelativeFilename: \"\"\n\t}\n"
+            . "\tVideo: 2, \"Video::metal\", \"Clip\" {\n\t\tFilename: \"C:\\other.png\"\n\t\tRelativeFilename: \"metal.png\"\n\t}\n"
+            . "\tTexture: 3, \"Texture::x\", \"\" {\n\t\tFileName: \"C:\\Users\\anna\\texture.png\"\n\t\tRelativeFilename: \"\"\n\t}\n}\n",
+            [
+                'wood.png' => $texture,
+                'other.png' => $this->fileNamed('other.png'),
+                'texture.png' => $this->fileNamed('texture.png'),
+            ],
+        );
+
+        $this->assertSame($texture, $this->resolver->resolve($model, 'wood.png'));
+        foreach (['other.png', 'texture.png'] as $name) {
+            try {
+                $this->resolver->resolve($model, $name);
+                $this->fail($name . ' is not what three asks for');
+            } catch (NotFoundException) {
+                $this->addToAssertionCount(1);
+            }
+        }
+    }
+
     public function testServesATextureA3dsDeclares(): void
     {
         $texture = $this->fileNamed('WOOD.JPG');
