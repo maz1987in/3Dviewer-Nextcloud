@@ -368,7 +368,7 @@ async function locateDependency(modelFileId, refPath, dirPath) {
  */
 export function parseObjMaterialFiles(objContent) {
 	// Match lines like: mtllib material.mtl
-	const matches = [...objContent.matchAll(/^\s*mtllib[^\S\r\n]+(.*?)$/gm)]
+	const matches = [...objContent.matchAll(/^[^\S\r\n]*mtllib[^\S\r\n]+(.*?)$/gm)]
 	const names = matches.map((capture) => {
 		const value = asciiTrim(capture[1])
 		return fallsBackToName(value) ? nameOnlyRef(value) : value
@@ -413,7 +413,7 @@ export function mtlMapPath(value) {
 export function parseMtlTexturePaths(mtlContent, materialRef) {
 	const directory = materialDirectory(normaliseRef(materialRef))
 	// map_Kd texture.jpg, map_Ka ambient.png, bump normal.jpg, refl env.jpg
-	const matches = [...mtlContent.matchAll(/^\s*(?:map_[A-Za-z0-9_]+|bump|refl)[^\S\r\n]+(.*?)$/gm)]
+	const matches = [...mtlContent.matchAll(/^[^\S\r\n]*(?:map_[A-Za-z0-9_]+|bump|refl)[^\S\r\n]+(.*?)$/gm)]
 	const paths = matches
 		.map((capture) => normaliseRef(mtlMapPath(capture[1]), directory))
 		.filter((path) => path !== null)

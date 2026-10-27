@@ -7,7 +7,7 @@
  * The table is shared with tests/unit/Service/ModelDependencyResolverTest.php.
  */
 import table from '../../fixtures/texture-references.json'
-import { parseMtlTexturePaths } from '../../../src/loaders/multiFileHelpers.js'
+import { parseMtlTexturePaths, parseObjMaterialFiles } from '../../../src/loaders/multiFileHelpers.js'
 import { materialDirectory, normaliseRef } from '../../../src/loaders/textureReferences.js'
 
 jest.mock('../../../src/utils/logger.js', () => ({
@@ -59,5 +59,42 @@ describe('normaliseRef relative to a folder', () => {
 	it('reads the model\'s folder by default', () => {
 		expect(normaliseRef('wood.png')).toBe('wood.png')
 		expect(normaliseRef('wood.png', '.')).toBe('wood.png')
+	})
+})
+
+/**
+ * An OBJ or MTL is whatever the uploader wrote, and the background queue parses every
+ * one in a folder on the Files page. A statement pattern that let its leading blanks run
+ * across newlines retried from every line, so a file of blank lines took quadratic time.
+ */
+describe('reading an OBJ or MTL made to stall the parser', () => {
+	const crafted = [
+		['five million newlines', '\n'.repeat(5_000_000)],
+		['CRLF line ends', '\r\n'.repeat(2_500_000)],
+		['lines of a blank each', ' \n'.repeat(2_500_000)],
+		['blank lines between statements', `${'\n'.repeat(5_000_000)}mtllib chair.mtl\nmap_Kd wood.png\n`],
+	]
+
+	it.each(crafted)('reads mtllib statements in linear time: %s', (_, text) => {
+		const started = Date.now()
+
+		const found = parseObjMaterialFiles(text)
+
+		expect(Date.now() - started).toBeLessThan(1000)
+		expect(found).toEqual(text.includes('mtllib') ? ['chair.mtl'] : [])
+	})
+
+	it.each(crafted)('reads map statements in linear time: %s', (_, text) => {
+		const started = Date.now()
+
+		const found = parseMtlTexturePaths(text, 'chair.mtl')
+
+		expect(Date.now() - started).toBeLessThan(1000)
+		expect(found).toEqual(text.includes('map_Kd') ? ['wood.png'] : [])
+	})
+
+	it('still reads a statement indented with blanks', () => {
+		expect(parseObjMaterialFiles(' \t mtllib chair.mtl\n')).toEqual(['chair.mtl'])
+		expect(parseMtlTexturePaths('newmtl a\n\t map_Kd wood.png\n', 'chair.mtl')).toEqual(['wood.png'])
 	})
 })
