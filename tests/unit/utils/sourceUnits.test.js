@@ -3,7 +3,7 @@
  * (millimetres) and USDZ (metres) export need to write a model at its real size.
  */
 import * as THREE from 'three'
-import { millimetresPerUnit, rhinoUnit, SOURCE_UNITS } from '../../../src/utils/sourceUnits.js'
+import { millimetresPerUnit, rhinoUnit, threeMFUnit, SOURCE_UNITS } from '../../../src/utils/sourceUnits.js'
 import { MODEL_EXTENSIONS } from '../../../src/config/viewer-config.js'
 
 describe('millimetresPerUnit', () => {
@@ -45,6 +45,32 @@ describe('millimetresPerUnit', () => {
 		root.userData.settings = { modelUnitSystem: { value: 0 } } // "None"
 		expect(rhinoUnit(root)).toBeNull()
 		expect(millimetresPerUnit('a.3dm', root)).toBe(1)
+	})
+})
+
+describe('3MF', () => {
+	it('takes the unit the 3MF loader recorded, also on a model the viewer wrapped', () => {
+		const wrapper = new THREE.Group()
+		const loaded = new THREE.Group()
+		loaded.userData.threeMFUnit = 'meter'
+		wrapper.add(loaded)
+		expect(millimetresPerUnit('part.3mf', wrapper)).toBe(1000)
+		loaded.userData.threeMFUnit = 'inch'
+		expect(millimetresPerUnit('part.3mf', wrapper)).toBeCloseTo(25.4, 9)
+	})
+
+	it('takes a 3MF with no recorded or an unknown unit as millimetres', () => {
+		expect(millimetresPerUnit('part.3mf', new THREE.Group())).toBe(1)
+		const root = new THREE.Group()
+		root.userData.threeMFUnit = 'furlong'
+		expect(threeMFUnit(root)).toBeNull()
+		expect(millimetresPerUnit('part.3mf', root)).toBe(1)
+	})
+
+	it('reads the unit only for a 3MF', () => {
+		const root = new THREE.Group()
+		root.userData.threeMFUnit = 'meter'
+		expect(millimetresPerUnit('part.stl', root)).toBe(1)
 	})
 })
 

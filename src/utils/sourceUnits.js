@@ -23,8 +23,6 @@
  *   stl, obj, ply, off, 3ds
  *                    no unit in the file; millimetres is what printing and CAD tools
  *                    write, and what the viewer's measurements assume.
- *   3mf              the file's `unit` is read by ThreeMFLoader but not applied; the
- *                    default, and nearly every file, is millimetres.
  *   amf              AMFLoader scales by the file's `unit` into millimetres.
  *   step, stp, iges, igs, brep, brp, fcstd
  *                    OCCT and FreeCAD shapes are millimetres.
@@ -37,6 +35,11 @@
  * the file's own unit
  *   3dm              Rhino3dmLoader keeps the model's unit system and records it in the
  *                    root's userData.settings.modelUnitSystem; see `rhinoUnit`.
+ *   3mf              the `unit` attribute of the file's <model> (micron, millimeter,
+ *                    centimeter, inch, foot or meter; millimeter when absent). three's
+ *                    ThreeMFLoader reads it but never applies it, so the scene keeps the
+ *                    file's numbers; the app's loader records the unit in the root's
+ *                    userData.threeMFUnit; see `threeMFUnit`.
  *
  * Anything not listed is taken as millimetres.
  */
@@ -108,6 +111,47 @@ export function rhinoUnit(root) {
 	return found
 }
 
+// The 3MF core specification's units, in millimetres
+const THREE_MF_UNITS = {
+	micron: 0.001,
+	millimeter: 1,
+	centimeter: 10,
+	inch: 25.4,
+	foot: 304.8,
+	meter: 1000,
+}
+
+/**
+ * Look for a value the loader recorded in some object's userData: the model may be
+ * wrapped in a group of the viewer's (the comparison model is).
+ *
+ * @param {?THREE.Object3D} root - The loaded model
+ * @param {function(object): (string|number|undefined)} read - Returns the value from one
+ *   object's userData, or undefined
+ * @return {string|number|undefined} The first value found, or undefined
+ */
+function recorded(root, read) {
+	let found
+	root?.traverse?.((child) => {
+		if (found === undefined && child.userData) {
+			found = read(child.userData)
+		}
+	})
+	return found
+}
+
+/**
+ * The unit a 3MF file is written in, from what the app's 3MF loader records on the
+ * object it returns: `userData.threeMFUnit`, the spec's name for it.
+ *
+ * @param {?THREE.Object3D} root - The loaded model
+ * @return {?number} Millimetres per unit, or null when not recorded or not a 3MF unit
+ */
+export function threeMFUnit(root) {
+	const unit = recorded(root, (data) => data.threeMFUnit)
+	return THREE_MF_UNITS[String(unit ?? '').toLowerCase()] ?? null
+}
+
 /**
  * Millimetres per scene unit for a model.
  *
@@ -119,6 +163,9 @@ export function millimetresPerUnit(filename, root = null) {
 	const extension = String(filename ?? '').split('/').pop().split('.').pop().toLowerCase()
 	if (extension === '3dm') {
 		return rhinoUnit(root) ?? MILLIMETRE
+	}
+	if (extension === '3mf') {
+		return threeMFUnit(root) ?? MILLIMETRE
 	}
 	return SOURCE_UNITS[extension] ?? MILLIMETRE
 }

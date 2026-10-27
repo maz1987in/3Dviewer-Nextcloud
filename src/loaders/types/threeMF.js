@@ -1,6 +1,70 @@
 import { ThreeMFLoader } from 'three/examples/jsm/loaders/3MFLoader.js'
 import { BaseLoader } from '../BaseLoader.js'
-import { unzip } from 'three/examples/jsm/libs/fflate.module.js'
+import { unzip, Unzip, UnzipInflate, DecodeUTF8 } from 'three/examples/jsm/libs/fflate.module.js'
+
+// The root model part, as three's loader finds it: a .model directly under 3D/
+const ROOT_MODEL = /^3D\/[^/]*\.model$/
+// The <model> start tag, with or without a namespace prefix
+const MODEL_TAG = /<(?:[\w.-]+:)?model\b([^>]*)>/
+const UNIT_ATTRIBUTE = /\bunit\s*=\s*["']([^"']*)["']/
+// Bytes of the archive fed to the reader at a time, and the most of the model text read
+// before giving up on finding its start tag
+const SLICE = 64 * 1024
+const HEAD_LIMIT = 256 * 1024
+
+/**
+ * The unit a 3MF file is written in: the `unit` attribute of its root model's <model>
+ * element. three's ThreeMFLoader reads it and then never applies it, so a file in
+ * metres comes out a thousandth of its size; the loader records it on the model for
+ * utils/sourceUnits.js instead of rescaling the scene.
+ *
+ * Only the start of the root model part is inflated: the attribute is on the first
+ * element, and the part can be hundreds of megabytes of mesh after it.
+ *
+ * @param {ArrayBuffer|Uint8Array} data - The 3MF archive
+ * @return {?string} The unit as written ("millimeter" when the attribute is absent, as
+ *   the spec says), or null when there is no root model to read
+ */
+export function read3MFUnit(data) {
+	const bytes = data instanceof Uint8Array ? data : new Uint8Array(data)
+	let unit = null
+	let done = false
+	try {
+		const archive = new Unzip()
+		archive.register(UnzipInflate)
+		archive.onfile = (file) => {
+			if (done || !ROOT_MODEL.test(file.name)) {
+				return
+			}
+			let head = ''
+			const decoder = new DecodeUTF8((text) => { head += text })
+			file.ondata = (error, chunk, final) => {
+				if (done) {
+					return
+				}
+				if (error) {
+					done = true
+					return
+				}
+				decoder.push(chunk, final)
+				const tag = head.match(MODEL_TAG)
+				if (tag || final || head.length > HEAD_LIMIT) {
+					done = true
+					if (tag) {
+						unit = tag[1].match(UNIT_ATTRIBUTE)?.[1].trim() || 'millimeter'
+					}
+				}
+			}
+			file.start()
+		}
+		for (let offset = 0; offset < bytes.length && !done; offset += SLICE) {
+			archive.push(bytes.subarray(offset, offset + SLICE), offset + SLICE >= bytes.length)
+		}
+	} catch {
+		// A damaged archive: three's loader reports it; the unit falls back to millimetres
+	}
+	return unit
+}
 
 class ThreeMfLoader extends BaseLoader {
 
@@ -81,8 +145,17 @@ class ThreeMfLoader extends BaseLoader {
 			// Rotate to Y-up (Three.js standard) by rotating -90° around X-axis
 			object.rotation.x = -Math.PI / 2
 
+			// The file's unit, recorded rather than applied: the scene keeps the file's
+			// numbers, so framing and thumbnails are as before, and measurements and export
+			// convert (utils/sourceUnits.js)
+			const unit = read3MFUnit(uint8Array)
+			if (unit) {
+				object.userData.threeMFUnit = unit
+			}
+
 			this.logInfo('3MF model loaded successfully', {
 				children: object.children.length,
+				unit,
 			})
 
 			return this.processModel(object, { fileId, filename })
