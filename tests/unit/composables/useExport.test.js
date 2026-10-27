@@ -14,6 +14,9 @@
 const mockStlBytes = new ArrayBuffer(84)
 const mockObjText = 'v 0 0 0\nv 1 0 0\nv 0 1 0\nusemtl red\nf 1 2 3\nusemtl blue\nf 1 2 3\n'
 const mockGlbBytes = new ArrayBuffer(128)
+const mockPlyBytes = new ArrayBuffer(96)
+const mockUsdzBytes = new Uint8Array(64)
+const mock3mfBytes = new Uint8Array(48)
 
 const mockStlParse = jest.fn(() => mockStlBytes)
 const mockObjParse = jest.fn(() => mockObjText)
@@ -28,6 +31,22 @@ jest.mock('three/examples/jsm/exporters/STLExporter.js', () => ({
 jest.mock('three/examples/jsm/exporters/OBJExporter.js', () => ({
 	OBJExporter: jest.fn().mockImplementation(() => ({ parse: mockObjParse })),
 }), { virtual: true })
+
+const mockPlyParse = jest.fn(() => mockPlyBytes)
+const mockUsdzParseAsync = jest.fn(async () => mockUsdzBytes)
+const mockBuild3MF = jest.fn(() => mock3mfBytes)
+
+jest.mock('three/examples/jsm/exporters/PLYExporter.js', () => ({
+	PLYExporter: jest.fn().mockImplementation(() => ({ parse: mockPlyParse })),
+}), { virtual: true })
+
+jest.mock('three/examples/jsm/exporters/USDZExporter.js', () => ({
+	USDZExporter: jest.fn().mockImplementation(() => ({ parseAsync: mockUsdzParseAsync })),
+}), { virtual: true })
+
+jest.mock('../../../src/utils/threeMFWriter.js', () => ({
+	build3MF: mockBuild3MF,
+}))
 
 jest.mock('three/examples/jsm/exporters/GLTFExporter.js', () => ({
 	GLTFExporter: jest.fn().mockImplementation(() => ({ parse: mockGltfParse })),
@@ -79,6 +98,9 @@ beforeEach(() => {
 	mockStlParse.mockClear()
 	mockObjParse.mockClear()
 	mockGltfParse.mockClear()
+	mockPlyParse.mockClear()
+	mockUsdzParseAsync.mockClear()
+	mockBuild3MF.mockClear()
 })
 
 // Tight loop that advances timers and flushes microtasks so the exporter's
@@ -186,10 +208,58 @@ describe('useExport — blob creation', () => {
 		expect(blob.size).toBe(mockGlbBytes.byteLength)
 	})
 
+	it('exportAsPLY asks for binary PLY, passing the options where parse reads them', async () => {
+		const exp = useExport()
+		const mesh = fakeMesh({ positions: [0, 0, 0], index: [0] })
+
+		await run(exp.exportAsPLY(mesh, 'scan'))
+
+		// parse(object, onDone, options) — options second would be taken for onDone
+		expect(mockPlyParse).toHaveBeenCalledWith(mesh, null, { binary: true, littleEndian: true })
+		expect(blobCapture).toHaveLength(1)
+		expect(blobCapture[0].type).toBe('model/ply')
+		expect(blobCapture[0].size).toBe(mockPlyBytes.byteLength)
+	})
+
+	it('exportAs3MF packages the model as model/3mf', async () => {
+		const exp = useExport()
+		const mesh = fakeMesh({ positions: [0, 0, 0], index: [0] })
+
+		await run(exp.exportAs3MF(mesh, 'part'))
+
+		expect(mockBuild3MF).toHaveBeenCalledWith(mesh)
+		expect(blobCapture[0].type).toBe('model/3mf')
+		expect(blobCapture[0].size).toBe(mock3mfBytes.byteLength)
+	})
+
+	it('exportAsUSDZ wraps the async result in a USDZ blob', async () => {
+		const exp = useExport()
+		const mesh = fakeMesh({ positions: [0, 0, 0], index: [0] })
+
+		await run(exp.exportAsUSDZ(mesh, 'ar'))
+
+		expect(mockUsdzParseAsync).toHaveBeenCalledWith(mesh)
+		expect(blobCapture[0].type).toBe('model/vnd.usdz+zip')
+		expect(blobCapture[0].size).toBe(mockUsdzBytes.byteLength)
+	})
+
+	it('reports a failed export and leaves the exporting flag down', async () => {
+		const exp = useExport()
+		mockBuild3MF.mockImplementationOnce(() => { throw new Error('Model has no triangle meshes to export as 3MF') })
+
+		await expect(exp.exportAs3MF(fakeMesh({ positions: [0, 0, 0] }), 'x')).rejects.toThrow(/no triangle meshes/)
+		expect(exp.exporting.value).toBe(false)
+		expect(exp.exportError.value).toMatch(/no triangle meshes/)
+		expect(blobCapture).toHaveLength(0)
+	})
+
 	it('rejects each export when no object is provided', async () => {
 		const exp = useExport()
 		await expect(exp.exportAsSTL(null, 'x')).rejects.toThrow(/No object/)
 		await expect(exp.exportAsOBJ(null, 'x')).rejects.toThrow(/No object/)
 		await expect(exp.exportAsGLB(null, 'x')).rejects.toThrow(/No object/)
+		await expect(exp.exportAsPLY(null, 'x')).rejects.toThrow(/No object/)
+		await expect(exp.exportAs3MF(null, 'x')).rejects.toThrow(/No object/)
+		await expect(exp.exportAsUSDZ(null, 'x')).rejects.toThrow(/No object/)
 	})
 })

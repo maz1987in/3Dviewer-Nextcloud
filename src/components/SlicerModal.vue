@@ -334,7 +334,8 @@ export default {
 					const exporter = new PLYExporter()
 					exportMessage.value = t('threedviewer', 'Converting to PLY format...')
 					await new Promise(resolve => setTimeout(resolve, 100))
-					const result = exporter.parse(props.modelObject, { binary: true })
+					// parse(object, onDone, options): passed second, the options were ignored
+					const result = exporter.parse(props.modelObject, null, { binary: true, littleEndian: true })
 					exportMessage.value = t('threedviewer', 'Creating file...')
 					await new Promise(resolve => setTimeout(resolve, 100))
 					exportedBlob = new Blob([result], { type: 'application/octet-stream' })

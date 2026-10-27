@@ -465,6 +465,15 @@
 										<option value="obj">
 											{{ t('threedviewer', 'OBJ (Universal)') }}
 										</option>
+										<option value="3mf">
+											{{ t('threedviewer', '3MF (Slicers)') }}
+										</option>
+										<option value="ply">
+											{{ t('threedviewer', 'PLY (Scans, vertex colors)') }}
+										</option>
+										<option value="usdz">
+											{{ t('threedviewer', 'USDZ (Apple AR)') }}
+										</option>
 										<option v-if="hasMultipleSourceFiles" value="zip">
 											{{ t('threedviewer', 'ZIP (All Files)') }}
 										</option>
