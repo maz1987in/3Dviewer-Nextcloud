@@ -77,17 +77,6 @@
      * }, array{}>]]></code>
     </MoreSpecificReturnType>
   </file>
-  <file src="lib/Controller/AssetController.php">
-    <InvalidArgument>
-      <code><![CDATA[$filePath]]></code>
-      <code><![CDATA[$filePath]]></code>
-      <code><![CDATA[$mimeType]]></code>
-      <code><![CDATA[$mimeType]]></code>
-    </InvalidArgument>
-    <UnusedClass>
-      <code><![CDATA[AssetController]]></code>
-    </UnusedClass>
-  </file>
   <file src="lib/Controller/BaseController.php">
     <InvalidArrayOffset>
       <code><![CDATA[$units[$unitIndex]]]></code>

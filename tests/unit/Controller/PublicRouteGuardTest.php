@@ -36,14 +36,13 @@ class PublicRouteGuardTest extends TestCase
      * what the method serves and why that needs no share.
      *
      * Keys are `ShortClassName::method`.
+     *
+     * @var array<string, string>
      */
     private const TOKENLESS_PUBLIC_METHODS = [
-        // Static image assets (slicer logos and the like) read from the app's own
-        // directory. It touches no user file and no share data (no Node, no share
-        // manager, no database), and the response is the same for every caller, so there
-        // is nothing a share could protect. Its path containment is the app root rather
-        // than img/, which only exposes the app's own, already public, source.
-        'AssetController::serveAsset' => 'static assets from the app directory',
+        // Empty on purpose: the app has no anonymous route that needs no share. An entry
+        // goes here as `'ShortClassName::method' => 'why it is safe', ` with a comment
+        // above it saying what the method serves and why no share is needed.
     ];
 
     private const REQUIRED_SHARE_METHODS = ['isValidToken', 'isPasswordProtected', 'getPasswordHash'];
