@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 import http from 'http'
 import fs from 'fs'
 import path from 'path'
@@ -247,6 +247,21 @@ const MTL_CONTENT = `newmtl Blue\nKd 0 0 1\nnewmtl Red\nKd 1 0 0\n`
 // We cannot invoke backend streaming here; future enhancement will mock or serve endpoints.
 // Current test just ensures the application script executes without runtime error mounting the app root.
 
+/*
+ * Waits until the viewer has finished loading: it is mounted, it has a canvas, and its
+ * loading overlay has gone.
+ *
+ * "There is a canvas" is not that. The canvas exists while the overlay is still up, and the
+ * overlay is drawn over everything inside the viewer — so a panel opened, or a point probed,
+ * in the gap between the two is measured under a dark sheet that is gone a moment later.
+ * The overlay is rendered from the moment the viewer mounts until initialisation ends, so
+ * its absence after the viewer exists is a state the viewer reaches, not a time that passes.
+ */
+async function viewerLoaded(page: Page) {
+  await page.waitForFunction(() => !!document.querySelector('.three-viewer canvas')
+    && !document.querySelector('.three-viewer .loading'), null, { timeout: 20000 })
+}
+
 test.describe('Viewer smoke', () => {
   let server: {url: string, close: () => Promise<void>}
   test.beforeAll(async () => {
@@ -348,6 +363,82 @@ test.describe('Viewer smoke', () => {
   })
 
   /*
+   * The bar stays usable while a model is loading.
+   *
+   * The loading overlay is there to cover the canvas, and it was laid out as the whole of
+   * the viewer's box. The bar floats over the top of that same box, so for as long as a
+   * load lasted the overlay sat on top of every control in it: Help, the Tools button and
+   * the view actions could not be pressed until the model arrived. For a small file that
+   * is a flicker, and for a large one it is minutes in which the only thing a user can do
+   * is Cancel.
+   *
+   * The test above only ever saw this by accident, and flakily: it asks the bar a question
+   * the moment its first control can be hit, which is sometimes just before the overlay
+   * appears. Here the load is held open, so the overlay is certainly on screen when the
+   * bar is asked, and the answer does not depend on how quickly anything else happens.
+   */
+  test('no top bar control is covered while a model is loading', async ({ page }) => {
+    const triangle = fs.readFileSync(path.join(PROJECT_ROOT, 'tests/fixtures/triangle.gltf'))
+    let release: () => void = () => {}
+    const held = new Promise<void>((resolve) => { release = resolve })
+    // The viewer reads the file to open from the query string, as it does inside the Files app.
+    await page.addInitScript(() => {
+      window.history.replaceState({}, '', '?fileId=4242&filename=triangle.gltf')
+    })
+    await page.route('**/apps/threedviewer/api/file/4242**', async (route) => {
+      await held
+      await route.fulfill({
+        status: 200,
+        body: triangle,
+        headers: { 'Content-Type': 'model/gltf+json', 'Content-Disposition': 'inline; filename="triangle.gltf"' },
+      })
+    })
+    await page.goto(server.url)
+
+    // The overlay is up and stays up: the model request is the thing holding it.
+    const overlay = page.locator('.three-viewer .loading')
+    await expect(overlay).toBeVisible({ timeout: 20000 })
+    await page.waitForSelector('.minimal-top-bar')
+
+    const coveredByOverlay = () => page.evaluate(() => {
+      const controls = [...document.querySelectorAll('.minimal-top-bar button, .minimal-top-bar label')]
+      return controls.flatMap((control) => {
+        const rect = control.getBoundingClientRect()
+        if (rect.width === 0 || rect.height === 0) return []
+        const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)
+        if (hit && (hit === control || control.contains(hit))) return []
+        const name = control.getAttribute('aria-label') || control.className
+        return [`${name} -> ${(hit && typeof hit.className === 'string' && hit.className) || hit?.tagName || 'nothing'}`]
+      })
+    })
+    expect(await coveredByOverlay()).toEqual([])
+
+    // And the overlay still covers the canvas, which is its job: nothing may reach the
+    // scene while it loads, but the way to cancel has to stay reachable.
+    const geometry = await page.evaluate(() => {
+      const box = (selector: string) => {
+        const r = document.querySelector(selector)!.getBoundingClientRect()
+        return { top: r.top, bottom: r.bottom }
+      }
+      return { overlay: box('.three-viewer .loading'), viewer: box('.three-viewer'), bar: box('.minimal-top-bar') }
+    })
+    expect(geometry.overlay.top).toBeGreaterThanOrEqual(geometry.bar.bottom)
+    expect(geometry.overlay.bottom).toBe(geometry.viewer.bottom)
+    await expect(overlay.getByRole('button', { name: 'Cancel loading' })).toBeVisible()
+
+    // A real click, which Playwright only performs on a control nothing is covering.
+    await page.getByRole('button', { name: 'Help' }).click({ timeout: 5000 })
+    await expect(page.locator('.help-panel')).toBeVisible()
+    // The help dialog has a backdrop of its own, which would cover the bar for the check below.
+    await page.keyboard.press('Escape')
+    await expect(page.locator('.help-panel')).toBeHidden()
+
+    release()
+    await expect(overlay).toBeHidden({ timeout: 20000 })
+    expect(await coveredByOverlay()).toEqual([])
+  })
+
+  /*
    * Every word in a floating panel has to be legible against what is behind it.
    *
    * The statistics panel was a dark overlay and became a light one, and three rules kept
@@ -387,7 +478,7 @@ test.describe('Viewer smoke', () => {
   test(`every word in the ${label} panel is legible on the ${theme} palette`, async ({ page }) => {
     await page.goto(server.url)
     await page.waitForSelector('.minimal-top-bar', { timeout: 20000 })
-    await page.waitForSelector('canvas', { timeout: 20000 })
+    await viewerLoaded(page)
     await page.click('[aria-label="Toggle tools panel"]')
     await page.waitForSelector('.slide-out-panel', { timeout: 5000 })
     if (!floats) {
@@ -599,7 +690,7 @@ test.describe('Viewer smoke', () => {
     test(`the ${label} panel is not covered by the tools panel that opens it`, async ({ page }) => {
       await page.goto(server.url)
       await page.waitForSelector('.minimal-top-bar', { timeout: 20000 })
-      await page.waitForSelector('canvas', { timeout: 20000 })
+      await viewerLoaded(page)
       await page.click('[aria-label="Toggle tools panel"]')
       await page.waitForSelector('.slide-out-panel', { timeout: 5000 })
       await page.getByText(open, { exact: true }).first().click()
@@ -644,7 +735,7 @@ test.describe('Viewer smoke', () => {
   test('the statistics panel is drawn on the same surface as the performance HUD', async ({ page }) => {
     await page.goto(server.url)
     await page.waitForSelector('.minimal-top-bar', { timeout: 20000 })
-    await page.waitForSelector('canvas', { timeout: 20000 })
+    await viewerLoaded(page)
     await page.click('[aria-label="Toggle tools panel"]')
     await page.waitForSelector('.slide-out-panel', { timeout: 5000 })
     await page.getByText('Model Statistics', { exact: false }).first().click()
@@ -832,7 +923,7 @@ test.describe('Viewer smoke', () => {
     test(`the ${label} covers the page it is drawn over`, async ({ page }) => {
       await page.goto(server.url)
       await page.waitForSelector('.minimal-top-bar', { timeout: 20000 })
-      await page.waitForSelector('canvas', { timeout: 20000 })
+      await viewerLoaded(page)
       if (open === 'Help') {
         await page.click('[aria-label="Help"]')
       } else {
@@ -865,7 +956,7 @@ test.describe('Viewer smoke', () => {
   test('the tools panel opens clear of the bar that opens it', async ({ page }) => {
     await page.goto(server.url)
     await page.waitForSelector('.minimal-top-bar', { timeout: 20000 })
-    await page.waitForSelector('canvas', { timeout: 20000 })
+    await viewerLoaded(page)
     await page.click('[aria-label="Toggle tools panel"]')
     await page.waitForSelector('.slide-out-panel', { timeout: 5000 })
 
