@@ -8,7 +8,7 @@ import * as THREE from 'three'
 import { useMeasurement } from '../../../src/composables/useMeasurement.js'
 import { useModelStats } from '../../../src/composables/useModelStats.js'
 import { useComparison } from '../../../src/composables/useComparison.js'
-import { defaultDisplayUnit, displayLengthFactor, millimetresPerFileUnit, millimetresPerUnit } from '../../../src/utils/sourceUnits.js'
+import { defaultDisplayUnit, displayLengthFactor, formatLength, millimetresPerFileUnit, millimetresPerUnit } from '../../../src/utils/sourceUnits.js'
 import { VIEWER_CONFIG } from '../../../src/config/viewer-config.js'
 
 jest.mock('@nextcloud/dialogs', () => ({ getFilePickerBuilder: jest.fn() }), { virtual: true })
@@ -249,6 +249,52 @@ describe('the comparison table', () => {
 		expect(diff.comparison.bbox.x).toBeCloseTo(1000, 6)
 		expect(diff.delta.bbox.x).toBeCloseTo(0, 6)
 		expect(diff.delta.bboxDiagonal).toBeCloseTo(0, 6)
+	})
+})
+
+describe('precision', () => {
+	it('keeps three significant figures of a small reading, so 0.4 mm in metres is not 0.000 m', () => {
+		const measurement = measuring()
+		measurement.setModelScale(1000)
+		measurement.setUnit('meters')
+		// 0.4 mm on a glTF: 0.0004 scene units
+		expect(measurement.addMeasurement('distance', [v(0, 0, 0), v(0.0004, 0, 0)]).formatted).toBe('0.000400 m')
+		expect(measurement.addMeasurement('distance', [v(0, 0, 0), v(0.05, 0, 0)]).formatted).toBe('0.0500 m')
+	})
+
+	it('leaves normal readings as they were', () => {
+		const measurement = measuring()
+		measurement.setModelScale(1000)
+		measurement.setUnit('meters')
+		expect(measurement.addMeasurement('distance', [v(0, 0, 0), v(0, 1.8, 0)]).formatted).toBe('1.800 m')
+		expect(measurement.addMeasurement('distance', [v(0, 0, 0), v(0, 0.6, 0)]).formatted).toBe('0.600 m')
+		measurement.setUnit('millimeters')
+		expect(measurement.measurements.value[0].formatted).toBe('1800.000 mm')
+	})
+
+	it.each([
+		[1.8, 3, '1.800'],
+		[1234.5, 3, '1234.500'],
+		[0.6, 3, '0.600'],
+		[0.123456, 3, '0.123'],
+		[0.05, 3, '0.0500'],
+		[0.0004, 3, '0.000400'],
+		[-0.0004, 3, '-0.000400'],
+		[0, 3, '0.000'],
+		[0.05, 2, '0.0500'],
+		[0.5, 2, '0.500'],
+		[12.345, 2, '12.35'],
+		[3e-12, 3, '3.00e-12'],
+	])('formatLength(%d, %d) is %s', (value, decimals, expected) => {
+		expect(formatLength(value, decimals)).toBe(expected)
+	})
+
+	it('writes small statistics with three significant figures in Copy Measurements', () => {
+		const stats = useModelStats()
+		stats.setModelScale(1000)
+		stats.setUnit('meters')
+		stats.analyzeModel(cube(0.05), 'part.glb', 0)
+		expect(stats.buildMeasurementReport()).toContain('Bounding box:  0.0500 × 0.0500 × 0.0500 m')
 	})
 })
 

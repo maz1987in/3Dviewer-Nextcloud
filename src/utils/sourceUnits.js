@@ -271,3 +271,24 @@ export function defaultDisplayUnit(filename, root = null) {
 export function displayLengthFactor(unit, sceneMillimetres, fileMillimetres = sceneMillimetres) {
 	return unit.fileUnits ? sceneMillimetres / fileMillimetres : sceneMillimetres / unit.factor
 }
+
+/**
+ * A length as the panels write it: `minDecimals` decimals, or more for a small value, so
+ * that it keeps three significant figures. In metres, a 0.4 mm feature reads 0.000400
+ * rather than 0.000; 1.800 and 0.600 read as they always have.
+ *
+ * @param {number} value - The length, in its display unit
+ * @param {number} [minDecimals] - Decimals for a length of 0.1 and over
+ * @return {string} The number, without a unit
+ */
+export function formatLength(value, minDecimals = 3) {
+	if (!Number.isFinite(value)) {
+		return String(value)
+	}
+	if (value === 0) {
+		return (0).toFixed(minDecimals)
+	}
+	const decimals = Math.max(minDecimals, 2 - Math.floor(Math.log10(Math.abs(value))))
+	// Smaller than a billionth of the unit: a long row of zeros says less than an exponent
+	return decimals > 9 ? value.toExponential(2) : value.toFixed(decimals)
+}

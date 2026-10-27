@@ -11,7 +11,7 @@ import {
 	raycastIntersection,
 	updateTextMesh,
 } from '../utils/modelScaleUtils.js'
-import { displayLengthFactor } from '../utils/sourceUnits.js'
+import { displayLengthFactor, formatLength } from '../utils/sourceUnits.js'
 
 // Unit conversion factors from config
 const UNIT_SCALES = VIEWER_CONFIG.measurement.unitScales
@@ -185,7 +185,7 @@ export function useMeasurement() {
 		const realDistance = threeJsDistance * displayLengthFactor(unitConfig, modelScale.value, fileScale.value)
 		return {
 			value: realDistance,
-			formatted: `${realDistance.toFixed(3)} ${unitConfig.suffix}`,
+			formatted: `${formatLength(realDistance)} ${unitConfig.suffix}`,
 			unit: currentUnit.value,
 			suffix: unitConfig.suffix,
 		}

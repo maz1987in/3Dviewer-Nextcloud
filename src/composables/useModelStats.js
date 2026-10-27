@@ -8,7 +8,7 @@ import * as THREE from 'three'
 import { logger } from '../utils/logger.js'
 import { getBoundingInfo } from '../utils/three-utils.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
-import { displayLengthFactor } from '../utils/sourceUnits.js'
+import { displayLengthFactor, formatLength } from '../utils/sourceUnits.js'
 
 // Skip watertightness detection above this triangle count per mesh (edge map is O(n))
 const WATERTIGHT_MAX_TRIANGLES = 500000
@@ -558,7 +558,8 @@ export function useModelStats() {
 			if (n === 0) return '0'
 			const abs = Math.abs(n)
 			if (abs >= 1000 || abs < 0.01) return n.toExponential(3)
-			return n.toFixed(3)
+			// Three significant figures at least: 0.05 m is 0.0500, not 0.050
+			return formatLength(n, 3)
 		}
 		const lines = []
 		lines.push(`# Model measurements (${u.label})`)

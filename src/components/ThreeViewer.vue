@@ -804,7 +804,7 @@ import { createNotesApi } from '../utils/notesApi.js'
 import { getPublicShareContext } from '../composables/usePublicShare.js'
 import { awaitStatusBeforeDownload, scheduleCapture } from '../thumbnails/captureFromViewer.js'
 import { measurementsFromJson, measurementsToJson } from '../utils/measurementJson.js'
-import { millimetresPerUnit, millimetresPerFileUnit, defaultDisplayUnit } from '../utils/sourceUnits.js'
+import { millimetresPerUnit, millimetresPerFileUnit, defaultDisplayUnit, formatLength } from '../utils/sourceUnits.js'
 import { usePerformance } from '../composables/usePerformance.js'
 import { useExport, getGeometryStats } from '../composables/useExport.js'
 import { useModelStats } from '../composables/useModelStats.js'
@@ -2439,8 +2439,8 @@ export default {
 		}
 
 		/**
-		 * Format a number for the stats panel — uses scientific notation for very small/large
-		 * values and locale-formatted decimals for normal ranges.
+		 * Format a number for the stats panel — scientific notation for very large values,
+		 * locale-formatted for large ones, and at least three significant figures below.
 		 * @param {number} value - Number to format
 		 * @return {string} Formatted display string
 		 */
@@ -2448,9 +2448,11 @@ export default {
 			if (value == null || !isFinite(value)) return '0'
 			const abs = Math.abs(value)
 			if (abs === 0) return '0.00'
-			if (abs < 0.01 || abs >= 1e6) return value.toExponential(2)
+			if (abs >= 1e6) return value.toExponential(2)
 			if (abs >= 1000) return value.toLocaleString(undefined, { maximumFractionDigits: 1 })
-			return value.toFixed(2)
+			// Two decimals, or as many as three significant figures need: 0.05 m is
+			// 0.0500, not 0.05, and 0.0004 m is 0.000400
+			return formatLength(value, 2)
 		}
 
 		/**
