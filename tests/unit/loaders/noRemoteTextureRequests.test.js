@@ -32,6 +32,8 @@ const UNMATCHED = [
 	['a drive-letter path', 'C:\\textures\\x.png'],
 	['a file: URL', 'file:///C:/textures/x.png'],
 	['a relative path', 'textures/x.png'],
+	['a path above the model\'s folder', '../../maps/x.png'],
+	['a Windows path above the model\'s folder', '..\\..\\textures\\x.png'],
 ]
 
 /** A 1×1 PNG, not the placeholder's own pixel. */

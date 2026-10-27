@@ -117,6 +117,52 @@ describe('createWorkerResources', () => {
 		expect(nativeFetch).not.toHaveBeenCalled()
 	})
 
+	it('resolves a texture named above the model\'s folder to the handed file of that name', () => {
+		// The queue fetched these by their bare names beside the model; a loader asks for
+		// the path as written, or resolved against the model's URL, which may land
+		// anywhere above the app
+		const resources = resourcesFor([new File(['png'], 'checker.png'), new File(['png'], 'wood grain.png')])
+		const checker = resources.resolve('checker.png')
+
+		for (const url of [
+			'../../maps/checker.png',
+			'..\\..\\maps\\checker.png',
+			'textures/../../checker.png',
+			'../../MAPS/CHECKER.PNG',
+			new URL('../../maps/checker.png', WORKER_URL).href,
+			new URL('../../../../../maps/checker.png', WORKER_URL).href,
+			`${ORIGIN}/custom_apps/threedviewer/js/../../maps/checker.png`,
+		]) {
+			expect(resources.resolve(url)).toBe(checker)
+		}
+		expect(resources.resolve('../maps/wood%20grain.png')).toBe(`blob:${ORIGIN}/2-wood grain.png`)
+		expect(resources.refused).toEqual([])
+	})
+
+	it('refuses a texture named above the model\'s folder whose name it was not handed, without a request', async () => {
+		const resources = resourcesFor([new File(['png'], 'checker.png')])
+		const urls = [
+			'../../maps/secret.png',
+			'..\\..\\maps\\secret.png',
+			'../../maps/checker.png/',
+			'../../maps/..',
+			new URL('../../maps/secret.png', WORKER_URL).href,
+			new URL('../../../../remote.php/dav/files/alice/checker.png/', WORKER_URL).href,
+		]
+
+		for (const url of urls) {
+			expect(resources.resolve(url)).toBe(url)
+			expect(resources.isAllowed(url)).toBe(false)
+		}
+		expect(resources.refused).toEqual(urls)
+
+		const nativeFetch = jest.fn()
+		const scope = { fetch: nativeFetch, URL: {} }
+		guardWorkerRequests(scope, () => resources)
+		await expect(scope.fetch(new URL('../../maps/checker.png', WORKER_URL).href)).rejects.toBeInstanceOf(RefusedResourceError)
+		expect(nativeFetch).not.toHaveBeenCalled()
+	})
+
 	it('allows data: URLs and the blob: URLs the worker made, but no other blob:', () => {
 		const resources = resourcesFor()
 		resources.noteObjectUrl(`blob:${ORIGIN}/made-here`)

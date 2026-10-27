@@ -372,6 +372,30 @@ describe('loadModelForBackground', () => {
 		])
 	})
 
+	it('looks for an MTL map named above the model\'s folder by its name beside the model only', async () => {
+		const server = serve({
+			'house/parts/chair.obj': { id: 35, body: 'mtllib chair.mtl\nf 1 2 3\n' },
+			'house/parts/chair.mtl': { id: 36, body: 'newmtl seat\nmap_Kd ..\\..\\textures\\wood.png\nbump ../maps/normal.png\n' },
+			'house/parts/wood.png': { id: 37, body: 'PNG' },
+			'house/parts/normal.png': { id: 38, body: 'PNG' },
+			// Where the path's own folders would lead, were they followed
+			'textures/wood.png': { id: 39, body: 'PNG' },
+			'house/maps/normal.png': { id: 40, body: 'PNG' },
+		})
+
+		const result = await loadModelForBackground(35, 'chair.obj', 'obj', '/house/parts', { budgetBytes: MB })
+
+		expect(result.dependencies.map((file) => file.name)).toEqual(['chair.mtl', 'wood.png', 'normal.png'])
+		expect(result.missingFiles).toEqual([])
+		expect(server.urls().filter((url) => url.includes('/api/files/find'))).toEqual([
+			`/index.php/apps/threedviewer/api/files/find?path=${encodeURIComponent('house/parts/chair.mtl')}`,
+			`/index.php/apps/threedviewer/api/files/find?path=${encodeURIComponent('house/parts/wood.png')}`,
+			`/index.php/apps/threedviewer/api/files/find?path=${encodeURIComponent('house/parts/normal.png')}`,
+		])
+		expect(server.urls()).not.toContain('/index.php/apps/threedviewer/api/file/39')
+		expect(server.urls()).not.toContain('/index.php/apps/threedviewer/api/file/40')
+	})
+
 	it('reads an MTL map\'s path after its options', async () => {
 		serve({
 			'parts/chair.obj': { id: 30, body: 'mtllib chair.mtl\nf 1 2 3\n' },
@@ -627,6 +651,72 @@ describe('loadModelForBackground in the queue', () => {
 		expect(deps.skips.markSkipped.mock.calls).toEqual([[90, 'e90']])
 	})
 
+	it('an FBX naming its texture above its folder, as 3ds Max writes, fetches it by name beside the model, renders and uploads', async () => {
+		const fbx = '; FBX 7.4.0 project file\nObjects:  {\n\tTexture: 1, "Texture::wood", "" {\n\t\tRelativeFilename: "..\\..\\textures\\wood.png"\n\t}\n}\n'
+		const server = serve({
+			'projects/house/scenes/room.fbx': { id: 120, body: fbx },
+			'projects/house/scenes/wood.png': { id: 121, body: 'PNG' },
+			// Where the path's own folders would lead, were they followed
+			'projects/textures/wood.png': { id: 122, body: 'PNG' },
+		})
+		const statuses = { 120: { name: 'room.fbx', dir: '/projects/house/scenes', size: fbx.length, etag: 'e120', canEdit: true, hasThumbnail: false } }
+		const { queue, deps } = queueOn(statuses, 10)
+
+		queue.setFolder('/projects/house/scenes', [120], new Set())
+		await queue.idle()
+
+		expect(server.urls().filter((url) => url.includes('/api/files/find'))).toEqual([
+			`/index.php/apps/threedviewer/api/files/find?path=${encodeURIComponent('projects/house/scenes/wood.png')}`,
+		])
+		expect(server.urls()).toContain('/index.php/apps/threedviewer/api/file/121')
+		expect(server.urls()).not.toContain('/index.php/apps/threedviewer/api/file/122')
+		expect(deps.render.mock.calls.map(([job]) => job.additionalFiles.map((file) => file.name))).toEqual([['wood.png']])
+		expect(deps.api.uploadThumbnail.mock.calls.map(([id]) => id)).toEqual([120])
+		expect(deps.skips.markSkipped).not.toHaveBeenCalled()
+	})
+
+	it('a DAE naming its image above its folder fetches it by name beside the model, renders and uploads', async () => {
+		const dae = '<COLLADA><library_images><image id="img"><init_from>..\\..\\textures\\wood.png</init_from></image></library_images></COLLADA>'
+		const server = serve({
+			'projects/house/scenes/room.dae': { id: 125, body: dae },
+			'projects/house/scenes/wood.png': { id: 126, body: 'PNG' },
+			'projects/textures/wood.png': { id: 127, body: 'PNG' },
+		})
+		const statuses = { 125: { name: 'room.dae', dir: '/projects/house/scenes', size: dae.length, etag: 'e125', canEdit: true, hasThumbnail: false } }
+		const { queue, deps } = queueOn(statuses, 10)
+
+		queue.setFolder('/projects/house/scenes', [125], new Set())
+		await queue.idle()
+
+		expect(server.urls().filter((url) => url.includes('/api/files/find'))).toEqual([
+			`/index.php/apps/threedviewer/api/files/find?path=${encodeURIComponent('projects/house/scenes/wood.png')}`,
+		])
+		expect(deps.render.mock.calls.map(([job]) => job.additionalFiles.map((file) => file.name))).toEqual([['wood.png']])
+		expect(deps.api.uploadThumbnail.mock.calls.map(([id]) => id)).toEqual([125])
+	})
+
+	it('an FBX or DAE naming its texture above its folder, with no such file beside it, is skipped even when the path exists', async () => {
+		serve({
+			'projects/house/scenes/room.fbx': { id: 130, body: '; FBX 7.4.0 project file\nObjects:  {\n\tTexture: 1, "Texture::wood", "" {\n\t\tRelativeFilename: "..\\..\\textures\\wood.png"\n\t}\n}\n' },
+			'projects/house/scenes/room.dae': { id: 131, body: '<COLLADA><library_images><image id="img"><init_from>../../textures/wood.png</init_from></image></library_images></COLLADA>' },
+			// The folders a climbing path names are never followed
+			'projects/textures/wood.png': { id: 132, body: 'PNG' },
+			'projects/house/scenes/textures/wood.png': { id: 133, body: 'PNG' },
+		})
+		const statuses = {
+			130: { name: 'room.fbx', dir: '/projects/house/scenes', size: 128, etag: 'e130', canEdit: true, hasThumbnail: false },
+			131: { name: 'room.dae', dir: '/projects/house/scenes', size: 128, etag: 'e131', canEdit: true, hasThumbnail: false },
+		}
+		const { queue, deps } = queueOn(statuses, 10)
+
+		queue.setFolder('/projects/house/scenes', [130, 131], new Set())
+		await queue.idle()
+
+		expect(deps.render).not.toHaveBeenCalled()
+		expect(deps.api.uploadThumbnail).not.toHaveBeenCalled()
+		expect(deps.skips.markSkipped.mock.calls).toEqual([[130, 'e130'], [131, 'e131']])
+	})
+
 	describe('with the real loader drawing the model', () => {
 		/** A 1×1 PNG. */
 		const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64')
@@ -684,11 +774,14 @@ describe('loadModelForBackground in the queue', () => {
 			expect(deps.api.uploadThumbnail.mock.calls.map(([id]) => id)).toEqual([100])
 		})
 
-		it('a DAE naming its image by a file: URL with a query loads the fetched file, not the URL', async () => {
-			const dae = `<?xml version="1.0" encoding="utf-8"?>
+		/**
+		 * @param {string} initFrom - What the image's init_from names, entities encoded
+		 * @return {string} A textured quad in COLLADA
+		 */
+		const texturedQuadDae = (initFrom) => `<?xml version="1.0" encoding="utf-8"?>
 <COLLADA xmlns="http://www.collada.org/2005/11/COLLADASchema" version="1.4.1">
 <asset><up_axis>Y_UP</up_axis></asset>
-<library_images><image id="img"><init_from>${QUERY_URL.replaceAll('&', '&amp;')}</init_from></image></library_images>
+<library_images><image id="img"><init_from>${initFrom}</init_from></image></library_images>
 <library_effects><effect id="fx"><profile_COMMON><newparam sid="surf"><surface type="2D"><init_from>img</init_from></surface></newparam><newparam sid="samp"><sampler2D><source>surf</source></sampler2D></newparam><technique sid="common"><lambert><diffuse><texture texture="samp" texcoord="UV"/></diffuse></lambert></technique></profile_COMMON></effect></library_effects>
 <library_materials><material id="mat"><instance_effect url="#fx"/></material></library_materials>
 <library_geometries><geometry id="quad"><mesh>
@@ -700,6 +793,33 @@ describe('loadModelForBackground in the queue', () => {
 <library_visual_scenes><visual_scene id="s"><node id="n"><instance_geometry url="#quad"><bind_material><technique_common><instance_material symbol="m" target="#mat"/></technique_common></bind_material></instance_geometry></node></visual_scene></library_visual_scenes>
 <scene><instance_visual_scene url="#s"/></scene>
 </COLLADA>`
+
+		it('a DAE naming its image above its folder, as 3ds Max writes, loads the fetched file', async () => {
+			const dae = texturedQuadDae('..\\..\\maps\\checker.png')
+			serve({
+				'projects/house/scenes/quad.dae': { id: 115, body: dae },
+				'projects/house/scenes/checker.png': { id: 116, body: PNG.toString('latin1') },
+			})
+			const statuses = { 115: { name: 'quad.dae', dir: '/projects/house/scenes', size: dae.length, etag: 'e115', canEdit: true, hasThumbnail: false } }
+			const { queue, deps } = queueOn(statuses, 10, async (job) => {
+				const files = job.additionalFiles.map((file) => new File([file], file.name, { type: 'image/png' }))
+				await new DaeLoader().loadModel(job.buffer, { THREE, additionalFiles: files })
+				if (!imageLoads.some((url) => url.startsWith('data:image/png;base64,'))) {
+					throw new Error(`rendered untextured: asked for ${imageLoads.join(', ')}`)
+				}
+				return { type: 'image/png', size: 4 }
+			})
+
+			queue.setFolder('/projects/house/scenes', [115], new Set())
+			await queue.idle()
+
+			expect(deps.render.mock.calls.map(([job]) => job.additionalFiles.map((file) => file.name))).toEqual([['checker.png']])
+			await expect(deps.render.mock.results[0].value).resolves.toEqual({ type: 'image/png', size: 4 })
+			expect(deps.api.uploadThumbnail.mock.calls.map(([id]) => id)).toEqual([115])
+		})
+
+		it('a DAE naming its image by a file: URL with a query loads the fetched file, not the URL', async () => {
+			const dae = texturedQuadDae(QUERY_URL.replaceAll('&', '&amp;'))
 			serve({
 				'scenes/quad.dae': { id: 110, body: dae },
 				'scenes/checker.png': { id: 111, body: PNG.toString('latin1') },
