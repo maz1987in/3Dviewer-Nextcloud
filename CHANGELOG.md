@@ -7,16 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Four inspection tools: angle measurement, a layer slider for G-code, Clay, Normals and X-ray shading, and export to 3MF, PLY and USDZ.
+
 ### Added
-- Angle measurement. The measurement panel has a Distance / Angle switch; in angle mode the second of three clicks is the corner, and the reading is in degrees.
-- A layer slider for G-code in the tools panel's Analyze section: show the print up to a layer, with its height, or turn on *Only this layer* to see it alone. A Z-hop no longer counts as a layer of its own.
-- Export as 3MF, PLY (binary) and USDZ. Three.js has no 3MF exporter, so a small writer packages each visible mesh, turned from Y-up to the Z-up slicers expect.
-- Clay, Normals and X-ray shading, in the Scene section of the tools panel. The model's own materials are put back for exports and when the mode returns to Standard.
+- **Angle measurement.** The measurement panel has a Distance / Angle switch. In Angle mode, three clicks measure the angle at the second one, in degrees, and changing the length unit leaves it alone. A second click on the point just picked, usually a double click, is not taken, since it would leave the angle without a side. Angles are shared like distances: everyone who can open the model sees them, with their author, and anyone who can edit it can delete them. They are stored as a note type of their own, so a viewer older than this one skips them instead of drawing them as a distance. The annotations JSON export includes angles, and import restores them, whichever mode the panel is in.
+- **A layer slider for G-code**, in the Analyze section of the tools panel, for files with more than one layer. It shows the print up to the chosen layer, with that layer's height, and "Only this layer" shows that layer alone. A Z-hop counts as part of its layer rather than as a layer of its own. Each step changes only the layers it passes, so dragging across a vase-mode print with tens of thousands of layers stays smooth. The slider and the switch work from the keyboard.
+- **Clay, Normals and X-ray shading**, in the Scene section of the tools panel. Clay shows the shape of the surface in each part's colour, Normals shows which way each face points, which makes dents and flipped faces stand out, and X-ray makes the parts see-through to show the inside of an assembly. The model's own materials are not changed: exports use them, Send to Slicer included, and so do thumbnails, so a model opened while X-ray is on still gets a normal thumbnail. The shading stays on when you open the next model.
+- **Export to 3MF, PLY and USDZ.** 3MF, which slicers open, is written in millimetres with Z up, and its parts are closed solids, so a slicer does not have to repair them. PLY is binary and keeps vertex colours. USDZ opens in AR Quick Look on iPhone and iPad at the model's real size, reading one unit as a millimetre, as the measurements do. A model with no surfaces, such as a G-code toolpath, gets a message instead of an empty file. The exporters themselves load only when an export starts.
 
 ### Fixed
-- G-code toolpaths drew the travel moves the parser filters out: each layer was a `Line` through start/end pairs, which joined every move to the next. Layers are now `LineSegments`.
-- Deleting a measurement could remove another measurement's markers. Markers were matched to measurements by position in a list that assumed two points each and ignored a point picked but not yet used; each measurement now owns what it drew.
-- Send to Slicer's PLY option always sent ASCII PLY: `{ binary: true }` was passed where `PLYExporter.parse` takes its callback. It now sends binary PLY.
+- G-code toolpaths drew the travel moves the parser leaves out. Each layer was drawn as a single connected line through all its moves, so a line joined the end of each move to the start of the next. Layers are now drawn as separate moves.
+- Closing the measurement panel with one point picked left that point's marker in the scene. Markers were matched to measurements by their position in a list of pairs, so every later pair was off by one, and deleting a measurement could remove another one's markers. Each measurement now keeps track of what it drew, and an unused point's marker goes when the panel closes or the mode changes.
+- Send to Slicer's PLY option always sent ASCII PLY: the binary option was passed where the exporter expects its callback. It now sends binary PLY.
+- In Windows High Contrast mode, the tools panel's switches (Grid, Axes, Wireframe and the others) showed no difference between on and off, because their track was filled with a colour that the system palette replaces. They now have an outline, and a switch that is on is filled with the highlight colour.
 
 ## [3.7.1] - 2026-10-27
 
