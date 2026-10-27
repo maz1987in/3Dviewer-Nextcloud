@@ -104,14 +104,25 @@ class ModelDependencyResolverTest extends TestCase
         $this->assertSame($texture, $this->resolver->resolve($model, 'wood.png'));
     }
 
-    public function testRefusesADeclaredPathThatClimbsOutOfTheModelsFolder(): void
+    /**
+     * A path that climbs out of the model's folder falls back to its name beside the
+     * model; where it leads is never looked at.
+     */
+    public function testNeverFollowsADeclaredPathThatClimbsOutOfTheModelsFolder(): void
     {
+        $material = $this->fileNamed('chair.mtl', "map_Kd ../../private/key.png\n");
+        $above = $this->fileNamed('key.png');
+
+        $beside = $this->fileNamed('key.png');
+        $withBeside = $this->objModel(
+            "mtllib chair.mtl\n",
+            ['chair.mtl' => $material, '../../private/key.png' => $above, 'private/key.png' => $above, 'key.png' => $beside],
+        );
+        $this->assertSame($beside, $this->resolver->resolve($withBeside, 'key.png'));
+
         $model = $this->objModel(
             "mtllib chair.mtl\n",
-            [
-                'chair.mtl' => $this->fileNamed('chair.mtl', "map_Kd ../../private/key.png\n"),
-                '../../private/key.png' => $this->fileNamed('key.png'),
-            ],
+            ['chair.mtl' => $material, '../../private/key.png' => $above, 'private/key.png' => $above],
         );
 
         $this->expectException(NotFoundException::class);
@@ -871,6 +882,12 @@ class ModelDependencyResolverTest extends TestCase
             'a file: URL of stray percent signs' => ['file:///' . str_repeat('%', 1000000) . '.png', str_repeat('%', 1000000) . '.png'],
             'a file: URL of escapes' => ['file:///' . str_repeat('%41', 300000) . '.png', str_repeat('A', 300000) . '.png'],
             'a file: URL of query marks' => ['file:///wood.jpg' . str_repeat('?', 1000000), 'wood.jpg'],
+            // Fewer segments than the runs above: explode() makes a string of each, and a
+            // million of them is more than the test runner's memory limit
+            'a long climb' => [str_repeat('../', 200000) . 'wood.jpg', 'wood.jpg'],
+            'a long climb with Windows separators' => [str_repeat('..\\', 200000) . 'wood.jpg', 'wood.jpg'],
+            'folders after a climb' => ['../' . str_repeat('a/', 200000) . 'wood.jpg', 'wood.jpg'],
+            'folders collapsed and climbed out of' => [str_repeat('a/../', 100000) . '../wood.jpg', 'wood.jpg'],
         ];
     }
 
@@ -1041,6 +1058,129 @@ class ModelDependencyResolverTest extends TestCase
 
         $this->assertSame($below, $this->resolver->resolve($relativeFirst, 'wood.png'));
         $this->assertSame($beside, $this->resolver->resolve($absoluteFirst, 'wood.png'));
+    }
+
+    /**
+     * 3ds Max writes texture paths relative to the project, not the model, while the user
+     * uploads the texture beside the model. Every format that declares textures serves
+     * such a path by its name from beside the model.
+     *
+     * @return array<string, array{string, string, string}>
+     */
+    public static function texturesNamedAboveTheModel(): array
+    {
+        return [
+            'FBX, Windows separators' => ['scene.fbx', 'fbx', '..\\..\\textures\\wood.png'],
+            'FBX, collapsed then climbing' => ['scene.fbx', 'fbx', 'textures/../../wood.png'],
+            '3DS' => ['scene.3ds', '3ds', '..\\..\\MAPS\\wood.png'],
+            'COLLADA' => ['room.dae', '<COLLADA><library_images><image><init_from>../../textures/wood.png</init_from></image></library_images></COLLADA>', ''],
+            'COLLADA, encoded' => ['room.dae', '<COLLADA><library_images><image><init_from>..%2F..%2Ftextures%2Fwood.png</init_from></image></library_images></COLLADA>', ''],
+            'X3D' => ['wall.x3d', '<X3D><Scene><ImageTexture url=\'"..\\..\\textures\\wood.png"\'/></Scene></X3D>', ''],
+            'glTF' => ['scene.gltf', '{"images":[{"uri":"../textures/wood.png"}]}', ''],
+            'OBJ material map' => ['chair.obj', "mtllib chair.mtl\n", "map_Kd ..\\..\\textures\\wood.png\n"],
+            'OBJ mtllib above the model' => ['chair.obj', "mtllib ../materials/chair.mtl\n", "map_Kd wood.png\n"],
+        ];
+    }
+
+    /**
+     * @param string $name  the model's file name
+     * @param string $first the document, or for FBX and 3DS the format of a document naming
+     *                      $extra; for OBJ, the OBJ
+     * @param string $extra the reference, for FBX and 3DS; for OBJ, its material
+     *
+     * @return array{string, array<string, File>} the document, and the siblings a model needs
+     *                                             besides its texture
+     */
+    private function declaringAboveTheModel(string $name, string $first, string $extra): array
+    {
+        return match ($first) {
+            'fbx' => [$this->fbxDocumentWith([$extra]), []],
+            '3ds' => [$this->threeDsDocumentWith([$extra]), []],
+            default => [$first, str_ends_with($name, '.obj') ? ['chair.mtl' => $this->fileNamed('chair.mtl', $extra)] : []],
+        };
+    }
+
+    #[DataProvider('texturesNamedAboveTheModel')]
+    public function testServesATextureNamedAboveTheModelsFolderFromBesideIt(string $name, string $first, string $extra): void
+    {
+        [$document, $siblings] = $this->declaringAboveTheModel($name, $first, $extra);
+        $texture = $this->fileNamed('wood.png');
+        // Where the path leads, were its folders followed: never reached
+        $decoys = [
+            'textures/wood.png' => $this->fileNamed('wood.png'),
+            'MAPS/wood.png' => $this->fileNamed('wood.png'),
+            '../../textures/wood.png' => $this->fileNamed('wood.png'),
+            '../textures/wood.png' => $this->fileNamed('wood.png'),
+        ];
+        $model = $this->modelNamed($name, $document, $siblings + ['wood.png' => $texture] + $decoys);
+
+        $this->assertSame($texture, $this->resolver->resolve($model, 'wood.png'));
+    }
+
+    #[DataProvider('texturesNamedAboveTheModel')]
+    public function testRefusesATextureNamedAboveTheModelsFolderThatIsNotBesideIt(string $name, string $first, string $extra): void
+    {
+        [$document, $siblings] = $this->declaringAboveTheModel($name, $first, $extra);
+        // The name exists only where the path's folders lead, and in a subfolder
+        $model = $this->modelNamed($name, $document, $siblings + [
+            'textures/wood.png' => $this->fileNamed('wood.png'),
+            'MAPS/wood.png' => $this->fileNamed('wood.png'),
+            '../../textures/wood.png' => $this->fileNamed('wood.png'),
+            '../textures/wood.png' => $this->fileNamed('wood.png'),
+        ]);
+
+        $this->expectException(NotFoundException::class);
+        $this->resolver->resolve($model, 'wood.png');
+    }
+
+    /**
+     * A material in a subfolder: `..` that stays inside the model's folder is collapsed
+     * against the material's folder as before, and only a path that climbs above the
+     * model's folder falls back to its name beside the model.
+     */
+    public function testCollapsesAMapOfASubfolderMaterialUntilItClimbsOut(): void
+    {
+        $inside = $this->fileNamed('wood.png');
+        $beside = $this->fileNamed('stone.png');
+        $model = $this->objModel(
+            "mtllib mats/chair.mtl\n",
+            [
+                'mats/chair.mtl' => $this->fileNamed('chair.mtl', "map_Kd ../textures/wood.png\nbump ../../stone.png\n"),
+                'textures/wood.png' => $inside,
+                'wood.png' => $this->fileNamed('wood.png'),
+                'stone.png' => $beside,
+                'mats/stone.png' => $this->fileNamed('stone.png'),
+                '../stone.png' => $this->fileNamed('stone.png'),
+            ],
+        );
+
+        $this->assertSame($inside, $this->resolver->resolve($model, 'wood.png'));
+        $this->assertSame($beside, $this->resolver->resolve($model, 'stone.png'));
+    }
+
+    /**
+     * A name a climbing path fell back to keys the same entry as a relative declaration
+     * of that name: the first one wins, either way round.
+     */
+    public function testTheFirstDeclarationOfANameWinsBetweenClimbingAndRelative(): void
+    {
+        $beside = $this->fileNamed('wood.png');
+        $below = $this->fileNamed('wood.png');
+        $siblings = ['wood.png' => $beside, 'textures/wood.png' => $below];
+
+        $relativeFirst = $this->modelNamed(
+            'scene.fbx',
+            $this->fbxDocumentWith(['textures/wood.png', '..\\..\\textures\\wood.png']),
+            $siblings,
+        );
+        $climbingFirst = $this->modelNamed(
+            'scene.fbx',
+            $this->fbxDocumentWith(['..\\..\\textures\\wood.png', 'textures/wood.png']),
+            $siblings,
+        );
+
+        $this->assertSame($below, $this->resolver->resolve($relativeFirst, 'wood.png'));
+        $this->assertSame($beside, $this->resolver->resolve($climbingFirst, 'wood.png'));
     }
 
     /**

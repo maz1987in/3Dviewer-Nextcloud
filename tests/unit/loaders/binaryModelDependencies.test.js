@@ -257,6 +257,45 @@ describe('parseFbxDependencies', () => {
 		expect(parseFbxDependencies(doc)).toEqual(['wood.png', 'metal.png', 'stone wall.png', 'local.png'])
 	})
 
+	it('declares a RelativeFilename that climbs above the model\'s folder by its name', () => {
+		// 3ds Max writes RelativeFilename relative to the project, not to the model; the
+		// user uploads the texture beside the model, and the folders are not followed
+		const doc = fbxWithTextures([
+			'..\\..\\textures\\wood.png',
+			'../maps/metal.png',
+			'textures\\..\\..\\stone.png',
+			'..\\..\\',
+			'..\\ .. \\secret.png',
+			'maps\\..\\local.png',
+		])
+
+		expect(parseFbxDependencies(doc)).toEqual(['wood.png', 'metal.png', 'stone.png', 'local.png'])
+	})
+
+	it('declares an ASCII RelativeFilename that climbs above the model\'s folder by its name', () => {
+		const text = [
+			'; FBX 7.4.0 project file',
+			'Objects:  {',
+			'\tVideo: 1, "Video::wood", "Clip" {',
+			'\t\tFilename: "C:\\Projects\\house\\textures\\wood.png"',
+			'\t\tRelativeFilename: "..\\..\\textures\\wood.png"',
+			'\t}',
+			'\tTexture: 2, "Texture::wood", "" {',
+			'\t\tRelativeFilename: "..\\..\\textures\\wood.png"',
+			'\t}',
+			'}',
+		].join('\n')
+
+		expect(parseFbxDependencies(ascii(text).buffer)).toEqual(['wood.png'])
+	})
+
+	it('declares a texture named above the model\'s folder and by a relative path once, first come', () => {
+		expect(parseFbxDependencies(fbxWithTextures(['..\\textures\\wood.png', 'wood.png', 'textures/wood.png'])))
+			.toEqual(['wood.png', 'textures/wood.png'])
+		expect(parseFbxDependencies(fbxWithTextures(['textures/wood.png', '..\\..\\wood.png'])))
+			.toEqual(['textures/wood.png', 'wood.png'])
+	})
+
 	it('declares a texture named by an absolute path and by a relative one once, first come', () => {
 		expect(parseFbxDependencies(fbxWithTextures(['C:\\export\\wood.png', 'wood.png', 'textures/wood.png'])))
 			.toEqual(['wood.png', 'textures/wood.png'])
@@ -515,6 +554,16 @@ describe('parse3dsDependencies', () => {
 		])
 
 		expect(parse3dsDependencies(doc)).toEqual(['WOOD.JPG', 'bump map.jpg'])
+	})
+
+	it('declares a map name that climbs above the model\'s folder by its name', () => {
+		const doc = threeDs([
+			chunk(0xa200, new Uint8Array(0), [MAPNAME('..\\..\\MAPS\\WOOD.JPG')]),
+			chunk(0xa230, new Uint8Array(0), [MAPNAME('../maps/bump.jpg')]),
+			chunk(0xa210, new Uint8Array(0), [MAPNAME('..\\..\\')]),
+		])
+
+		expect(parse3dsDependencies(doc)).toEqual(['WOOD.JPG', 'bump.jpg'])
 	})
 
 	it.each(ASCII_REFERENCES)('%s: %j', (_, ref, expected) => {

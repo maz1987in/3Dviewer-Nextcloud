@@ -33,7 +33,7 @@ import { generateUrl } from '@nextcloud/router'
 import { buildFileUrl } from '../composables/usePublicShare.js'
 import { parse3dsDependencies, parseFbxDependencies } from '../loaders/binaryModelDependencies.js'
 import { mtlMapPath, parseGltfDependencies, parseObjMaterialFiles, parseXmlModelDependencies } from '../loaders/multiFileHelpers.js'
-import { isLocalAbsoluteRef, nameOnlyRef } from '../loaders/textureReferences.js'
+import { fallsBackToName, nameOnlyRef } from '../loaders/textureReferences.js'
 import { logger } from '../utils/logger.js'
 import { ThumbnailBudgetError, ThumbnailEnvironmentError } from './errors.js'
 
@@ -169,7 +169,8 @@ function joinPath(dirPath, ref) {
  * basenames, because the viewer then searches subfolders for them; here the declared
  * path is the first place to look, so it is kept. An absolute or `file:` path is the
  * exception: its directories are on the author's machine, so only its name is kept, to
- * be looked for beside the model.
+ * be looked for beside the model. So is a relative path that climbs above the model's
+ * folder, `..\..\textures\wood.png`, whose folders are not followed.
  *
  * @param {string} mtlContent - Text of the MTL
  * @return {string[]} Declared paths, with forward slashes, deduplicated
@@ -178,7 +179,7 @@ function parseMtlTexturePaths(mtlContent) {
 	const matches = [...mtlContent.matchAll(/^\s*(?:map_[A-Za-z0-9_]+|bump|refl)[^\S\r\n]+(.*?)$/gm)]
 	const paths = matches.map((match) => {
 		const path = mtlMapPath(match[1])
-		return isLocalAbsoluteRef(path) ? nameOnlyRef(path) : path.replace(/\\/g, '/')
+		return fallsBackToName(path) ? nameOnlyRef(path) : path.replace(/\\/g, '/')
 	}).filter(Boolean)
 	return [...new Set(paths)]
 }
@@ -340,8 +341,9 @@ async function declaredCompanions(extension, mainFile, buffer) {
 /**
  * Find a declared companion by exact path: first where the model says it is, then by its
  * name beside the model, as exporters often write a path from the machine they ran on.
- * Two lookups at most; no folder is listed. An absolute reference was already reduced to
- * its name by the parsers, so it is looked for beside the model only.
+ * Two lookups at most; no folder is listed. An absolute reference, or a relative one that
+ * climbs above the model's folder, was already reduced to its name by the parsers, so it
+ * is looked for beside the model only.
  *
  * @param {string} ref - The path the model declared
  * @param {string} dirPath - Folder of the model

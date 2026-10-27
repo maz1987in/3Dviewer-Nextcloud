@@ -9,7 +9,7 @@
 import { generateUrl } from '@nextcloud/router'
 import { buildFileUrl, buildPublicDepUrl, isPublicShare } from '../composables/usePublicShare.js'
 import { parse3dsDependencies, parseFbxTextures } from './binaryModelDependencies.js'
-import { asciiTrim, hasScheme, isFileUrl, isLocalAbsoluteRef, nameOnlyRef, percentDecoded } from './textureReferences.js'
+import { asciiTrim, hasScheme, isFileUrl, fallsBackToName, nameOnlyRef, percentDecoded } from './textureReferences.js'
 import { logger } from '../utils/logger.js'
 import { getFulfilledValues } from '../utils/arrayHelpers.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
@@ -359,8 +359,9 @@ async function locateDependency(modelFileId, refPath, dirPath) {
 /**
  * Parse OBJ file content to find referenced MTL files
  *
- * An absolute or `file:` path falls back to the material's bare name beside the model,
- * which is what the server's resolver serves for it.
+ * An absolute or `file:` path, or a relative one that climbs above the model's folder,
+ * falls back to the material's bare name beside the model, which is what the server's
+ * resolver serves for it.
  *
  * @param {string} objContent - Text content of OBJ file
  * @return {string[]} - Array of MTL filenames
@@ -370,7 +371,7 @@ export function parseObjMaterialFiles(objContent) {
 	const matches = [...objContent.matchAll(/^\s*mtllib[^\S\r\n]+(.*?)$/gm)]
 	const names = matches.map((capture) => {
 		const value = asciiTrim(capture[1])
-		return isLocalAbsoluteRef(value) ? nameOnlyRef(value) : value
+		return fallsBackToName(value) ? nameOnlyRef(value) : value
 	})
 	return [...new Set(names.filter(Boolean))]
 }
@@ -408,9 +409,10 @@ export function parseMtlTextureFiles(mtlContent) {
 	// but Nextcloud stores all files flat in the same directory
 	const filenames = matches.map(capture => {
 		const fullPath = mtlMapPath(capture[1])
-		// An absolute or file: path goes through the same reduction the server applies,
-		// which decodes a file: URL's name and refuses one that is no file name at all
-		if (isLocalAbsoluteRef(fullPath)) {
+		// An absolute or file: path, or a relative one that climbs above the model's
+		// folder, goes through the same reduction the server applies, which decodes a
+		// file: URL's name and refuses one that is no file name at all
+		if (fallsBackToName(fullPath)) {
 			return nameOnlyRef(fullPath)
 		}
 		// Normalize both forward and backward slashes, then get basename
@@ -648,9 +650,11 @@ function x3dTextureUrls(content) {
  *
  * Decoded first, as the server decodes before it normalises. A file: URL is the
  * exception: nameOnlyRef decodes its name, and decoding twice would turn a literal %20
- * in a file name into a space. An absolute path or file: URL is then its bare name, any
- * other scheme is no companion, and a relative path is kept as decoded: signed in, it is
- * looked up as written, and the server collapses it.
+ * in a file name into a space. An absolute path or file: URL is then its bare name, and
+ * so is a relative path that climbs above the model's folder, `../../maps/wood.png`, whose
+ * folders are not followed either; any other scheme is no companion, and any other
+ * relative path is kept as decoded: signed in, it is looked up as written, and the server
+ * collapses it.
  *
  * @param {string} raw - the reference as the document wrote it, entities decoded
  * @return {string|null} the name or relative path to ask for, or null when there is none
@@ -658,9 +662,9 @@ function x3dTextureUrls(content) {
 function uriReference(raw) {
 	const value = asciiTrim(raw)
 	const decoded = isFileUrl(value) ? value : percentDecoded(value)
-	// C:\textures\wood.png, /home/anna/wood.png, file:///C:/wood.png: by name, beside
-	// the model, as the server's resolver serves it
-	if (isLocalAbsoluteRef(decoded)) {
+	// C:\textures\wood.png, /home/anna/wood.png, file:///C:/wood.png, ../../wood.png: by
+	// name, beside the model, as the server's resolver serves it
+	if (fallsBackToName(decoded)) {
 		return nameOnlyRef(decoded)
 	}
 	// Any other scheme means it is not a file beside the model: data:, http:, https:.

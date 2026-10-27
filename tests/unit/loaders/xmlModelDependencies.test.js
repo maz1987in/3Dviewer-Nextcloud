@@ -198,13 +198,47 @@ describe('parseXmlModelDependencies', () => {
 		expect(parseXmlModelDependencies(dae, 'dae')).toEqual(['wood.png'])
 	})
 
-	it('keeps relative paths as they were', () => {
+	it('keeps relative paths that stay in the model\'s folder as they were', () => {
 		const dae = `<COLLADA><library_images>
 			<image><init_from>textures/wood%20grain.png</init_from></image>
-			<image><init_from>../shared/metal.png</init_from></image>
+			<image><init_from>maps/../metal.png</init_from></image>
 		</library_images></COLLADA>`
 
-		expect(parseXmlModelDependencies(dae, 'dae')).toEqual(['textures/wood grain.png', '../shared/metal.png'])
+		expect(parseXmlModelDependencies(dae, 'dae')).toEqual(['textures/wood grain.png', 'maps/../metal.png'])
+	})
+
+	it('declares a COLLADA image named above the model\'s folder by its bare name', () => {
+		// 3ds Max and SketchUp write paths relative to the project; the user uploads the
+		// texture beside the model, and the folders the path names are not followed
+		const dae = `<COLLADA><library_images>
+			<image id="a"><init_from>..\\..\\textures\\wood.png</init_from></image>
+			<image id="b"><init_from>../shared/metal.png</init_from></image>
+			<image id="c"><init_from><ref>textures/../../stone%20wall.png</ref></init_from></image>
+			<image id="d"><init_from>../../maps/checker.png</init_from></image>
+		</library_images></COLLADA>`
+
+		expect(parseXmlModelDependencies(dae, 'dae')).toEqual(['wood.png', 'metal.png', 'stone wall.png', 'checker.png'])
+	})
+
+	it('declares an X3D url named above the model\'s folder by its bare name', () => {
+		const x3d = `<X3D><Scene>
+			<ImageTexture url='"../../maps/checker%20board.png" "..\\textures\\checker.png"'/>
+			<ImageTexture url="&quot;../stone.png&quot; &quot;https://example.invalid/stone.png&quot;"/>
+		</Scene></X3D>`
+
+		expect(parseXmlModelDependencies(x3d, 'x3d')).toEqual(['checker board.png', 'checker.png', 'stone.png'])
+	})
+
+	it('refuses a reference above the model\'s folder whose name is no file name', () => {
+		const dae = `<COLLADA><library_images>
+			<image><init_from>..\\..\\</init_from></image>
+			<image><init_from>../..</init_from></image>
+			<image><init_from>../ .. /x.png</init_from></image>
+			<image><init_from>../.../x.png</init_from></image>
+			<image><init_from>../%2E%2E%20/x.png</init_from></image>
+		</library_images></COLLADA>`
+
+		expect(parseXmlModelDependencies(dae, 'dae')).toEqual([])
 	})
 
 	// The same rows the server's resolver is held to
