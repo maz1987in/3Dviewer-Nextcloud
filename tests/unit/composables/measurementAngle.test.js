@@ -218,3 +218,34 @@ describe('angles as notes', () => {
 		expect(group.children).toHaveLength(0)
 	})
 })
+
+/*
+ * An import adds whole measurements. Fed click by click, as it was, a file of distances
+ * imported while the panel was in Angle mode was read three points at a time.
+ */
+describe('adding a whole measurement', () => {
+	it('records distances and angles as given, whatever the panel mode', () => {
+		const { measurement } = setup()
+		const added = jest.fn()
+		measurement.setNoteHooks({ added })
+		measurement.setMode('angle')
+
+		measurement.addMeasurement('distance', [v(0, 0, 0), v(3, 4, 0)])
+		measurement.addMeasurement('distance', [v(0, 0, 0), v(1, 0, 0)])
+		measurement.addMeasurement('angle', [v(1, 0, 0), v(0, 0, 0), v(1, 1, 0)])
+
+		const [a, b, c] = measurement.measurements.value
+		expect([a.type, b.type, c.type]).toEqual(['distance', 'distance', 'angle'])
+		expect(a.distance).toBeCloseTo(5, 6)
+		expect(c.angle).toBeCloseTo(45, 6)
+		// An import is the user's own change: each one is saved
+		expect(added).toHaveBeenCalledTimes(3)
+		expect(measurement.mode.value).toBe('angle')
+	})
+
+	it('refuses the wrong number of points', () => {
+		const { measurement } = setup()
+		expect(() => measurement.addMeasurement('angle', [v(0, 0, 0), v(1, 0, 0)])).toThrow()
+		expect(() => measurement.addMeasurement('area', [v(0, 0, 0), v(1, 0, 0)])).toThrow()
+	})
+})

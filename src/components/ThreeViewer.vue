@@ -2769,10 +2769,18 @@ export default {
 				const doc = {
 					...annotation.exportAsJSON(props.filename || ''),
 					version: 2,
-					measurements: measurement.measurements.value.map(m => ({
-						point1: { x: m.point1.x, y: m.point1.y, z: m.point1.z },
-						point2: { x: m.point2.x, y: m.point2.y, z: m.point2.z },
-					})),
+					// An angle also carries its corner; a file without `type` holds distances
+					measurements: measurement.measurements.value.map(m => (m.type === 'angle'
+						? {
+							type: 'angle',
+							point1: { x: m.point1.x, y: m.point1.y, z: m.point1.z },
+							vertex: { x: m.vertex.x, y: m.vertex.y, z: m.vertex.z },
+							point2: { x: m.point2.x, y: m.point2.y, z: m.point2.z },
+						}
+						: {
+							point1: { x: m.point1.x, y: m.point1.y, z: m.point1.z },
+							point2: { x: m.point2.x, y: m.point2.y, z: m.point2.z },
+						})),
 				}
 				const blob = new Blob([JSON.stringify(doc, null, 2)], { type: 'application/json' })
 				const url = URL.createObjectURL(blob)
@@ -2813,13 +2821,15 @@ export default {
 				const text = await file.text()
 				const result = annotation.importFromJSON(text)
 				const parsed = JSON.parse(text)
-				// A half-taken measurement would pair with the first imported point.
-				measurement.cancelPendingPoint()
+				// Each measurement is added whole, not click by click: the panel's Distance /
+				// Angle switch must not decide how many of the file's points make one, and a
+				// half-taken measurement is dropped rather than paired with them.
 				for (const m of Array.isArray(parsed.measurements) ? parsed.measurements : []) {
-					const valid = [m?.point1, m?.point2].every(p => p && [p.x, p.y, p.z].every(Number.isFinite))
+					const type = m?.type === 'angle' ? 'angle' : 'distance'
+					const stored = type === 'angle' ? [m?.point1, m?.vertex, m?.point2] : [m?.point1, m?.point2]
+					const valid = stored.every(p => p && [p.x, p.y, p.z].every(Number.isFinite))
 					if (!valid) continue
-					measurement.addMeasurementPoint(new THREE.Vector3(m.point1.x, m.point1.y, m.point1.z))
-					measurement.addMeasurementPoint(new THREE.Vector3(m.point2.x, m.point2.y, m.point2.z))
+					measurement.addMeasurement(type, stored.map(p => new THREE.Vector3(p.x, p.y, p.z)))
 					result.added++
 				}
 				emit('push-toast', {
