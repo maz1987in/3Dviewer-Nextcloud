@@ -14,6 +14,10 @@ import { disposeObject } from '../utils/three-utils.js'
 import { isHelperMesh } from '../utils/modelScaleUtils.js'
 import { millimetresPerUnit } from '../utils/sourceUnits.js'
 import { getFileIdByPath, loadModelWithDependencies } from '../loaders/multiFileHelpers.js'
+import { fetchVersion } from '../utils/fileVersions.js'
+
+// Formats whose model names other files (buffers, materials, textures) to load beside it
+const MULTI_FILE_FORMATS = ['obj', 'gltf', 'fbx', '3ds', 'dae']
 
 export function useComparison() {
 	// Comparison state
@@ -21,6 +25,9 @@ export function useComparison() {
 	const comparisonModel = shallowRef(null)
 	const comparisonIndicator = shallowRef(null)
 	const comparisonFilename = ref(null)
+	// Where the comparison model came from: another file, or an earlier version of the open one
+	const comparisonSource = ref(null)
+	const comparisonVersion = shallowRef(null)
 	// Millimetres per scene unit of the comparison model, from its own format: it may
 	// not be in the original's unit (a glTF in metres beside an STL in millimetres)
 	let comparisonMillimetresPerUnit = 1
@@ -154,6 +161,95 @@ export function useComparison() {
 	}
 
 	/**
+	 * The model file and the files it names, for a format that names other files.
+	 * @param {number} fileId - The model file
+	 * @param {string} filename - Its name
+	 * @param {string} extension - Its lower-case extension
+	 * @param {?string} dirPath - The folder it is in
+	 * @return {Promise<?{mainFile: File, dependencies: File[]}>} Null for a single-file
+	 *   format, or when the supporting files could not be gathered
+	 */
+	const loadWithDependencies = async (fileId, filename, extension, dirPath) => {
+		if (!MULTI_FILE_FORMATS.includes(extension)) {
+			return null
+		}
+		logger.info('useComparison', 'Multi-file format detected, loading dependencies', { extension, fileId, dirPath })
+		try {
+			const dependencyResult = await loadModelWithDependencies(fileId, filename, extension, dirPath)
+			logger.info('useComparison', 'Dependencies loaded', {
+				filename,
+				dependencies: dependencyResult.dependencies?.length || 0,
+				missing: dependencyResult.missingFiles?.length || 0,
+			})
+			return { mainFile: dependencyResult.mainFile, dependencies: dependencyResult.dependencies || [] }
+		} catch (multiFileError) {
+			logger.warn('useComparison', 'Multi-file loading failed, falling back to single-file', multiFileError)
+			return null
+		}
+	}
+
+	/**
+	 * Load an earlier version of the open file as the comparison model. The model file is
+	 * the version's; the files it names (textures, buffers) are today's, because Nextcloud
+	 * keeps versions per file, not per folder.
+	 * @param {import('../utils/fileVersions.js').Version} version - The version
+	 * @param {object} file - The open file
+	 * @param {number} file.fileId - Its id
+	 * @param {string} file.filename - Its name
+	 * @param {?string} file.dirPath - The folder it is in
+	 * @param {object} context - Loading context
+	 * @return {Promise<object>} Load result
+	 */
+	const loadComparisonModelFromVersion = async (version, { fileId, filename, dirPath }, context) => {
+		if (comparisonModel.value && context.scene) {
+			clearComparison(context.scene)
+		}
+		const controller = new AbortController()
+		abortController.value = controller
+		loadingComparison.value = true
+		comparisonError.value = null
+		const extension = filename.split('.').pop().toLowerCase()
+
+		try {
+			const arrayBuffer = await fetchVersion(version, { signal: controller.signal })
+			const withDependencies = controller.signal.aborted ? null : await loadWithDependencies(fileId, filename, extension, dirPath)
+			if (controller.signal.aborted) {
+				throw new DOMException('Comparison cancelled', 'AbortError')
+			}
+
+			comparisonFilename.value = filename
+			const result = await loadComparisonModelFromArrayBuffer(arrayBuffer, extension, filename, {
+				...context,
+				fileId,
+				additionalFiles: withDependencies?.dependencies ?? [],
+				fileExtension: extension,
+			})
+			if (controller.signal.aborted) {
+				// Cancelled while the loader ran: drop what it made
+				if (comparisonModel.value) {
+					disposeObject(comparisonModel.value)
+					comparisonModel.value = null
+				}
+				throw new DOMException('Comparison cancelled', 'AbortError')
+			}
+			comparisonSource.value = 'version'
+			comparisonVersion.value = version
+			return result
+		} catch (error) {
+			if (!controller.signal.aborted) {
+				comparisonError.value = error
+				logger.error('useComparison', 'Error loading an earlier version', error)
+			}
+			throw error
+		} finally {
+			if (abortController.value === controller) {
+				abortController.value = null
+			}
+			loadingComparison.value = false
+		}
+	}
+
+	/**
 	 * Load comparison model from Nextcloud file path
 	 * @param {string} filePath - File path from file picker
 	 * @param {object} context - Loading context
@@ -207,36 +303,15 @@ export function useComparison() {
 			const lastSlashIndex = filePath.lastIndexOf('/')
 			const dirPath = lastSlashIndex >= 0 ? filePath.substring(0, lastSlashIndex) : null
 
-			// Check if this is a multi-file format that needs dependencies
-			const isMultiFile = ['obj', 'gltf', 'fbx', '3ds', 'dae'].includes(extension)
-
 			let arrayBuffer
 			let additionalFiles = []
 			let multiFileLoaded = false
 
-			if (isMultiFile) {
-				logger.info('useComparison', 'Multi-file format detected, loading dependencies', { extension, fileId, dirPath })
-
-				try {
-					// Load model with dependencies (buffers, textures, etc.)
-					const dependencyResult = await loadModelWithDependencies(fileId, filename, extension, dirPath)
-
-					// Get the main file as ArrayBuffer
-					arrayBuffer = await dependencyResult.mainFile.arrayBuffer()
-
-					// Store dependencies for the loader
-					additionalFiles = dependencyResult.dependencies || []
-					multiFileLoaded = true
-
-					logger.info('useComparison', 'Dependencies loaded', {
-						filename,
-						dependencies: additionalFiles.length,
-						missing: dependencyResult.missingFiles?.length || 0,
-					})
-				} catch (multiFileError) {
-					logger.warn('useComparison', 'Multi-file loading failed, falling back to single-file', multiFileError)
-					// Fall through to single-file loading
-				}
+			const withDependencies = await loadWithDependencies(fileId, filename, extension, dirPath)
+			if (withDependencies) {
+				arrayBuffer = await withDependencies.mainFile.arrayBuffer()
+				additionalFiles = withDependencies.dependencies
+				multiFileLoaded = true
 			}
 
 			// Single-file loading (fallback or non-multi-file formats)
@@ -275,6 +350,8 @@ export function useComparison() {
 				fileExtension: extension,
 			}
 			const result = await loadComparisonModelFromArrayBuffer(arrayBuffer, extension, filename, loadingContext)
+			comparisonSource.value = 'file'
+			comparisonVersion.value = null
 			logger.info('useComparison', 'Comparison model loaded successfully from path')
 			return result
 		} catch (error) {
@@ -1408,6 +1485,8 @@ export function useComparison() {
 		comparisonError.value = null
 		loadingComparison.value = false
 		comparisonFilename.value = null
+		comparisonSource.value = null
+		comparisonVersion.value = null
 		comparisonMillimetresPerUnit = 1
 		diffStats.value = null
 		showDiffOverlay.value = true
@@ -1455,6 +1534,8 @@ export function useComparison() {
 		comparisonModel: readonly(comparisonModel),
 		comparisonIndicator: readonly(comparisonIndicator),
 		comparisonFilename: readonly(comparisonFilename),
+		comparisonSource: readonly(comparisonSource),
+		comparisonVersion: readonly(comparisonVersion),
 		loadingComparison: readonly(loadingComparison),
 		comparisonError: readonly(comparisonError),
 		comparisonAnimations: readonly(comparisonAnimations),
@@ -1472,6 +1553,7 @@ export function useComparison() {
 		setupComparisonMode,
 		openFilePicker,
 		loadComparisonModelFromPath,
+		loadComparisonModelFromVersion,
 		loadComparisonModelFromNextcloud,
 		loadComparisonModel,
 		addComparisonIndicator,
