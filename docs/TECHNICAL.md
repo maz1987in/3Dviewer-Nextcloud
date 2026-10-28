@@ -12,6 +12,7 @@ This document provides comprehensive technical information about the 3D Viewer f
 - [Model Loading Implementation](#model-loading-implementation)
 - [Advanced Viewer Wiring](#advanced-viewer-wiring)
 - [Thumbnail Generation System](#thumbnail-generation-system)
+- [File Versions](#file-versions)
 
 ## System Architecture
 
@@ -2021,6 +2022,18 @@ The integrated File Browser allows users to navigate and manage 3D models direct
   - **Types**: Groups files by extension (e.g., all .obj files).
   - **Dates**: Groups files by year and month.
 - **Performance**: Uses lazy loading to fetch folder contents only when requested, ensuring scalability with large file sets.
+
+## File Versions
+
+Version comparison lists and downloads a file's earlier versions straight from Nextcloud's `versions` WebDAV collection, so Nextcloud's own permission checks apply. The app adds no route of its own. This is what the collection returns. It was checked on a Nextcloud 34 server; the code that builds the list (`VersionCollection::getChildren` and `LegacyVersionsBackend::getVersionsForFile`) is the same on `stable31` and `stable35`.
+
+- **Where:** `PROPFIND /remote.php/dav/versions/<user>/versions/<fileId>` with `Depth: 1`, where `<user>` is the **logged-in** user. A share recipient lists and downloads through their own collection (`versions/bob/versions/<fileId>`). The owner's collection answers them with 403.
+- **What comes back:** one response for the collection itself, with no props, then one per version. Each version's href ends in its id, which is the version's timestamp in Unix seconds. A version is downloaded with a `GET` on its href.
+- **The current version is listed too.** Its id equals the file's modified time, so a file that was never edited lists exactly one version. Version comparison leaves that entry out. When the file's modified time isn't known, it leaves out the newest entry, which is the current version on 31–35.
+- **Props:** `d:getlastmodified`, `d:getcontentlength` and `d:getcontenttype` are always present, and `nc:version-author` is the user id of whoever made the version. `nc:version-label` is in a separate `404` propstat when the version has no label, and is read as no label.
+- **Errors:** an unknown file id gives 404. With the `files_versions` app disabled, the whole `versions` root gives 404 (`File not found: versions in 'root'`). Version comparison treats both as "no earlier versions".
+
+The captured responses are in `tests/fixtures/versions/`.
 
 ---
 
