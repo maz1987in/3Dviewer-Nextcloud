@@ -115,6 +115,9 @@
     "testPathIgnorePatterns": [
       "<rootDir>/tests/playwright/",
       "<rootDir>/tests/smoke/"
+    ],
+    "modulePathIgnorePatterns": [
+      "<rootDir>/.claude/"
     ]
   }
 }
