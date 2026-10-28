@@ -1,6 +1,6 @@
 # 3D Viewer for Nextcloud
 
-[![Version](https://img.shields.io/badge/version-3.8.1-blue)](https://github.com/maz1987in/3Dviewer-Nextcloud/releases)
+[![Version](https://img.shields.io/badge/version-3.9.0-blue)](https://github.com/maz1987in/3Dviewer-Nextcloud/releases)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-orange)](LICENSE)
 [![Nextcloud](https://img.shields.io/badge/Nextcloud-31--35-0082c9)](https://nextcloud.com)
 [![Update nextcloud/ocp](https://github.com/maz1987in/3Dviewer-Nextcloud/actions/workflows/update-nextcloud-ocp-matrix.yml/badge.svg)](https://github.com/maz1987in/3Dviewer-Nextcloud/actions/workflows/update-nextcloud-ocp-matrix.yml)
@@ -231,37 +231,29 @@ This project is licensed under the **AGPL-3.0 License**. See [LICENSE](LICENSE) 
 
 ## 📊 Version
 
-**Current Version**: 3.8.1
-**Released**: October 27, 2026
+**Current Version**: 3.9.0
+**Released**: October 28, 2026
 **Requires**: Nextcloud 31 -- 35
 
-### Coming in the next release
+### What's New in 3.9.0
 
-These are on `main` and not yet in a release:
+**Compare with an earlier version:**
+- Pick one of the versions Nextcloud kept, and see the two side by side with what changed, or the earlier one as a see-through ghost over the current one
 
-- **Compare with an earlier version:** pick one of the versions Nextcloud kept, and see the two side by side with what changed, or the earlier one as a see-through ghost over the current one
-- **Print check:** fit against your printer's build volume, overhang shading, a filament estimate and a wall thickness check, or the slicer's own print time and filament for G-code
-- **Turntable video:** record the model turning, from the tools panel's Export section, and download it or save it next to the model
+**Print check:**
+- Whether a model fits your printer's build volume, and by how much it doesn't
+- Overhang shading past an angle you choose, a filament estimate, and a wall thickness check
+- For G-code, the print time and filament the slicer worked out
 
-### What's New in 3.8.1
-
-**Thumbnails and exports:**
-- A thumbnail made in the viewer shows the model as its file has it: no wireframe, parts together, the loaded transform and pose, and the G-code gradient, whatever you were viewing it with
-- Exports and Send to Slicer from Exploded view have the parts together
+**Turntable video:**
+- Record the model turning, from the tools panel's Export section, and download it or save it next to the model
 
 **Viewer:**
-- The top bar stays usable while a model loads
-- Every control in the tools panel works from the keyboard and is announced to screen readers; choosing an export format no longer starts the export, the Export button does
-
-**Textures:**
-- Textures named by a path above the model's folder (`..\..\textures\wood.jpg`) or with encoded slashes are found by their file name beside the model, in the viewer, in thumbnails and on public shares
-- An OBJ whose MTL sits in a subfolder gets its textures in its thumbnail
-
-**Security:**
-- Every route that changes data now checks Nextcloud's request token, and viewer settings accept only the values the viewer stores
+- While a dialog is open, keys belong to it: the tool shortcuts and Escape no longer act on the viewer behind it
 
 ### Recent releases
 
+- **3.8.1:** thumbnails show the model as its file has it, every tools panel control works from the keyboard, textures named by a path above the model's folder are found, and every write route checks the request token
 - **3.8.0:** angle measurement, a G-code layer slider, Clay, Normals and X-ray shading, export to 3MF, PLY and USDZ, and measurements in each model's real unit
 - **3.7.1:** background thumbnails for 3MF, AMF, DAE and X3D, and FreeCAD files drawn as FreeCAD shows them
 - **3.7.0:** thumbnails made while browsing Files, shared by everyone who can see the file
