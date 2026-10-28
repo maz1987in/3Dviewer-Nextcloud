@@ -21,8 +21,9 @@ const BUDGETS = [
   // imported from here; the rest is not loaded until a folder shows a model. The bytes are
   // its import and preload entries: filesPage, plus dependencyCache, thumbnailApi and
   // errors, which Rollup now splits out of the viewer's chunks because filesQueue.js
-  // shares them.
-  { pattern: /^threedviewer-main\.mjs$/, name: 'main', maxRaw: 5700, maxGzip: 2000 },
+  // shares them. 5800 and 2100 since version comparison: the viewer chunk names one more
+  // dependency in its preload list, which this file carries (+13 B raw at the time).
+  { pattern: /^threedviewer-main\.mjs$/, name: 'main', maxRaw: 5800, maxGzip: 2100 },
   { pattern: /^gltf-.*\.chunk\.mjs$/, name: 'gltf-loader', maxRaw: 22000, maxGzip: 6000 }, // GLTF loader chunk (includes decoder worker pool tuning via setWorkerLimit)
   // Main app component. Bumped 360 KB → 370 KB in v3.3.0 for the 9 new viewer-config
   // entries, and unchanged by the redesign: replacing every emoji control with a Material

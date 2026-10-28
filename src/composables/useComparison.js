@@ -22,7 +22,7 @@ export const GHOST_COLOR = 0x5b9bd5
 export const GHOST_OPACITY = 0.35
 
 // Formats whose model names other files (buffers, materials, textures) to load beside it
-const MULTI_FILE_FORMATS = ['obj', 'gltf', 'fbx', '3ds', 'dae']
+export const MULTI_FILE_FORMATS = ['obj', 'gltf', 'fbx', '3ds', 'dae']
 
 export function useComparison() {
 	// Comparison state
@@ -1382,9 +1382,11 @@ export function useComparison() {
 	 * @param {string} originalFilenameInput - Filename of the primary model
 	 * @param {number} [originalMillimetresPerUnit] - Millimetres per scene unit of the
 	 *   primary model (utils/sourceUnits.js)
+	 * @param {?{original: string, comparison: string}} [labels] - Column names, when the
+	 *   file names are not the right ones (a version comparison: "This version" and a date)
 	 * @return {object|null} The diff stats object, or null if either model missing
 	 */
-	const computeDiffStats = (originalModel, originalFilenameInput = '', originalMillimetresPerUnit = 1) => {
+	const computeDiffStats = (originalModel, originalFilenameInput = '', originalMillimetresPerUnit = 1, labels = null) => {
 		if (!originalModel || !comparisonModel.value) {
 			diffStats.value = null
 			return null
@@ -1427,8 +1429,8 @@ export function useComparison() {
 			}
 
 			const result = {
-				originalLabel: (originalFilenameInput || '').split('/').pop() || 'Original',
-				comparisonLabel: comparisonFilename.value || 'Comparison',
+				originalLabel: labels?.original || (originalFilenameInput || '').split('/').pop() || 'Original',
+				comparisonLabel: labels?.comparison || comparisonFilename.value || 'Comparison',
 				original: origStats,
 				comparison: compStats,
 				delta,

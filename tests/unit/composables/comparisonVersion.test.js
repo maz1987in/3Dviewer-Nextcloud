@@ -134,3 +134,18 @@ test('source and version are recorded, and cleared with the comparison', async (
 	expect(comparison.comparisonSource.value).toBeNull()
 	expect(comparison.comparisonVersion.value).toBeNull()
 })
+
+test('the diff table can label its columns, as a version comparison does', async () => {
+	fetchVersion.mockResolvedValue(VERSION_BYTES)
+	loadModelByExtension.mockResolvedValue(loadedModel())
+	const comparison = useComparison()
+	await comparison.loadComparisonModelFromVersion(VERSION, { fileId: 154, filename: 'a.stl', dirPath: '/models' }, context())
+	const open = loadedModel().object3D
+
+	comparison.computeDiffStats(open, 'a.stl', 1, { original: 'This version', comparison: '28 Oct 2026, 04:08' })
+	expect(comparison.diffStats.value.originalLabel).toBe('This version')
+	expect(comparison.diffStats.value.comparisonLabel).toBe('28 Oct 2026, 04:08')
+
+	comparison.computeDiffStats(open, 'models/a.stl', 1)
+	expect(comparison.diffStats.value.originalLabel).toBe('a.stl')
+})

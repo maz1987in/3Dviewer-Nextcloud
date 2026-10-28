@@ -198,6 +198,14 @@
 									<span class="tool-label">{{ t('threedviewer', 'Comparison') }}</span>
 									<span v-if="comparisonMode" class="active-badge">{{ t('threedviewer', 'Active') }}</span>
 								</button>
+								<button v-if="canCompareVersions"
+									type="button"
+									class="tool-btn feature-btn"
+									:disabled="!modelLoaded || comparisonMode"
+									@click="emit('compare-version')">
+									<ViewerIcon class="tool-icon" name="history" :size="17" />
+									<span class="tool-label">{{ t('threedviewer', 'Compare with earlier version') }}</span>
+								</button>
 								<!-- Clipping Plane / Cross-Section -->
 								<button class="tool-btn feature-btn"
 									:class="{ 'active': clippingActive }"
@@ -669,6 +677,8 @@ export default {
 		measurementMode: { type: Boolean, default: false },
 		annotationMode: { type: Boolean, default: false },
 		comparisonMode: { type: Boolean, default: false },
+		// False on a public link, where Nextcloud lists no versions
+		canCompareVersions: { type: Boolean, default: false },
 		transformGizmoActive: { type: Boolean, default: false },
 		transformGizmoMode: { type: String, default: 'translate' },
 		modelLoaded: { type: Boolean, default: false },
@@ -748,6 +758,7 @@ export default {
 		'toggle-measurement',
 		'toggle-annotation',
 		'toggle-comparison',
+		'compare-version',
 		'toggle-transform-gizmo',
 		'set-transform-mode',
 		'reset-transform',

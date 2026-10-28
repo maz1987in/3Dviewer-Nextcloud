@@ -313,6 +313,17 @@
 					<ViewerIcon class="btn-icon" name="visibility" :size="18" />
 					<span class="btn-text">{{ t('threedviewer', 'Comparison') }}</span>
 				</button>
+				<!-- Only once Compare has laid the two out: diffStats is filled in after that -->
+				<button v-if="comparisonSource === 'version' && diffStats"
+					type="button"
+					class="comparison-btn"
+					:class="{ 'active': overlayActive }"
+					:aria-pressed="overlayActive ? 'true' : 'false'"
+					:title="t('threedviewer', 'Show the earlier version on top of this one')"
+					@click="toggleOverlay">
+					<ViewerIcon class="btn-icon" name="comparison" :size="18" />
+					<span class="btn-text">{{ t('threedviewer', 'Overlay') }}</span>
+				</button>
 				<button class="comparison-btn" :title="t('threedviewer', 'Fit both models to view')" @click="fitBothModelsToView">
 					<ViewerIcon class="btn-icon" name="measurement" :size="18" />
 					<span class="btn-text">{{ t('threedviewer', 'Fit Both') }}</span>
@@ -329,6 +340,14 @@
 		</div>
 
 		<!-- Comparison diff overlay (vertex/face/bbox deltas) -->
+		<VersionPickerDialog v-if="versionPicker.open"
+			:versions="versionPicker.versions"
+			:loading="versionPicker.loading"
+			:error="versionPicker.error"
+			:multi-file="versionPicker.multiFile"
+			@pick="onVersionPicked"
+			@cancel="onVersionPickerCancel" />
+
 		<div
 			v-if="isComparisonMode && hasComparisonModel && diffStats && showDiffOverlay"
 			class="comparison-diff-overlay"
@@ -786,7 +805,7 @@
 </template>
 
 <script>
-import { ref, shallowRef, markRaw, toRaw, onMounted, onBeforeUnmount, watch, computed, nextTick } from 'vue'
+import { ref, shallowRef, reactive, markRaw, toRaw, onMounted, onBeforeUnmount, watch, computed, nextTick, defineAsyncComponent } from 'vue'
 import ViewerIcon from './ViewerIcon.vue'
 import * as THREE from 'three'
 import { NcProgressBar, NcButton } from '@nextcloud/vue'
@@ -796,7 +815,10 @@ import axios from '@nextcloud/axios'
 import CircularController from './CircularController.vue'
 import { useCamera } from '../composables/useCamera.js'
 import { useModelLoading } from '../composables/useModelLoading.js'
-import { useComparison } from '../composables/useComparison.js'
+import { useComparison, MULTI_FILE_FORMATS } from '../composables/useComparison.js'
+import { listVersions, formatVersionDate } from '../utils/fileVersions.js'
+// eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
+import { getCurrentUser } from '@nextcloud/auth'
 import { measurementNumbers, useMeasurement } from '../composables/useMeasurement.js'
 import { useAnnotation } from '../composables/useAnnotation.js'
 import { useSharedNotes } from '../composables/useSharedNotes.js'
@@ -841,6 +863,8 @@ export default {
 		NcProgressBar,
 		NcButton,
 		CircularController,
+		// Loaded the first time someone compares with an earlier version
+		VersionPickerDialog: defineAsyncComponent(() => import('./VersionPickerDialog.vue')),
 	},
 	props: {
 		fileId: { type: [Number, String], default: null },
@@ -2924,6 +2948,193 @@ export default {
 			}
 		}
 
+		/**
+		 * Put a comparison model that has just loaded into the scene, beside the open model,
+		 * and fill the diff table once both have valid matrices.
+		 */
+		const addLoadedComparisonModel = () => {
+			// Pause rendering during comparison model initialization to prevent race conditions
+			renderPaused.value = true
+
+			// Add the comparison model to the scene
+			if (comparison.comparisonModel.value) {
+				// Ensure comparison model has valid matrices before adding to scene
+				// This prevents render errors with undefined matrices
+				try {
+					const comparisonModel = comparison.comparisonModel.value
+
+					// Ensure matrices exist for the model and all its children recursively
+					// This validates the entire hierarchy before adding to scene
+					// Validates parents before children to prevent multiplyMatrices errors
+					comparison.ensureMatricesValid(comparisonModel, 0)
+
+					// Update matrices before adding to scene
+					comparisonModel.updateMatrix()
+
+					// Add to scene first
+					scene.value.add(comparisonModel)
+
+					// Then update all matrices in the scene hierarchy
+					// This ensures all objects including the new model have valid world matrices
+					// All objects should now have valid matrices due to ensureMatricesValid call above
+					try {
+						scene.value.updateMatrixWorld(true)
+					} catch (updateError) {
+						logger.warn('ThreeViewer', 'Error updating scene matrices after adding comparison model', updateError)
+						// Try to recover by validating again and updating
+						comparison.ensureMatricesValid(comparisonModel, 0)
+						comparison.ensureMatricesValid(scene.value, 0)
+						scene.value.updateMatrixWorld(true)
+					}
+
+					logger.info('ThreeViewer', 'Comparison model added to scene with validated matrices')
+				} catch (matrixError) {
+					logger.error('ThreeViewer', 'Failed to initialize comparison model matrices', matrixError)
+					// Still try to add to scene but ensure basic validation
+					const comparisonModel = comparison.comparisonModel.value
+					comparison.ensureMatricesValid(comparisonModel, 0)
+					scene.value.add(comparisonModel)
+				}
+
+				// Use triple requestAnimationFrame to ensure models are fully rendered before fitting
+				requestAnimationFrame(() => {
+					requestAnimationFrame(() => {
+						requestAnimationFrame(() => {
+							try {
+								// Ensure all scene matrices are valid before fitting
+								// This prevents render errors during positioning
+								if (scene.value) {
+									scene.value.updateMatrixWorld(true)
+								}
+
+								// Fit both models to view after everything is ready
+								fitBothModelsToView()
+
+								// One more matrix update after positioning to ensure everything is valid
+								if (scene.value) {
+									scene.value.updateMatrixWorld(true)
+								}
+
+								// Compute the side-by-side diff stats now that both models
+								// have valid world matrices and are placed in the scene.
+								try {
+									comparison.computeDiffStats(modelRoot.value, props.filename || '', modelMillimetresPerUnit.value, diffLabels())
+								} catch (diffError) {
+									logger.warn('ThreeViewer', 'Failed to compute comparison diff stats', diffError)
+								}
+							} catch (fitError) {
+								logger.warn('ThreeViewer', 'Failed to fit models to view', fitError)
+							} finally {
+								// Ensure matrices are valid one final time before resuming rendering
+								try {
+									if (modelRoot.value && comparison.comparisonModel.value) {
+										if (modelRoot.value.updateMatrixWorld) {
+											modelRoot.value.updateMatrixWorld(true)
+										}
+										if (comparison.comparisonModel.value.updateMatrixWorld) {
+											comparison.comparisonModel.value.updateMatrixWorld(true)
+										}
+									}
+									if (scene.value && scene.value.updateMatrixWorld) {
+										scene.value.updateMatrixWorld(true)
+									}
+								} catch (finalUpdateError) {
+									logger.warn('ThreeViewer', 'Final matrix update failed', finalUpdateError)
+								}
+
+								// Resume rendering after fitting is complete and matrices are validated
+								renderPaused.value = false
+							}
+						})
+					})
+				})
+			}
+		}
+
+		/**
+		 * The diff table's column names: the file names, or for an earlier version of the
+		 * open file, "This version" and the version's date.
+		 * @return {?{original: string, comparison: string}} Labels, or null for the file names
+		 */
+		const diffLabels = () => {
+			const version = comparison.comparisonVersion.value
+			return version ? { original: t('threedviewer', 'This version'), comparison: formatVersionDate(version.mtime) } : null
+		}
+
+		// The earlier-version dialog: open while the user picks, with the list it shows
+		const versionPicker = reactive({ open: false, loading: false, error: false, multiFile: false, versions: [] })
+
+		/**
+		 * Compare the open model with an earlier version of its file: enter comparison mode
+		 * and list the versions Nextcloud kept for the user to pick from.
+		 */
+		const startVersionComparison = async () => {
+			const userId = getCurrentUser()?.uid
+			if (comparison.isComparisonMode.value || !modelRoot.value || !userId || props.fileId === null) {
+				return
+			}
+			comparison.toggleComparisonMode()
+			const extension = String(props.filename || '').split('.').pop().toLowerCase()
+			Object.assign(versionPicker, { open: true, loading: true, error: false, multiFile: MULTI_FILE_FORMATS.includes(extension), versions: [] })
+			try {
+				versionPicker.versions = await listVersions({ userId, fileId: props.fileId })
+			} catch (error) {
+				logger.warn('ThreeViewer', 'Could not list the earlier versions', error)
+				versionPicker.error = true
+			} finally {
+				versionPicker.loading = false
+			}
+		}
+
+		/**
+		 * Load the version the user picked beside the open model.
+		 * @param {import('../utils/fileVersions.js').Version} version - The version
+		 */
+		const onVersionPicked = async (version) => {
+			versionPicker.open = false
+			const context = {
+				THREE,
+				scene: scene.value,
+				applyWireframe: props.wireframe,
+				ensurePlaceholderRemoved: () => {},
+				wireframe: props.wireframe,
+			}
+			try {
+				await comparison.loadComparisonModelFromVersion(version, { fileId: props.fileId, filename: props.filename || '', dirPath: props.dir }, context)
+				addLoadedComparisonModel()
+			} catch (error) {
+				renderPaused.value = false
+				if (error?.name !== 'AbortError') {
+					emit('push-toast', {
+						message: t('threedviewer', "Couldn't open the version from {date}", { date: formatVersionDate(version.mtime) }),
+						type: 'error',
+						timeout: 5000,
+					})
+				}
+				if (comparison.isComparisonMode.value) {
+					comparison.clearComparison()
+					comparison.toggleComparisonMode()
+				}
+			}
+		}
+
+		/**
+		 * The dialog was closed without picking: leave comparison mode.
+		 */
+		const onVersionPickerCancel = () => {
+			versionPicker.open = false
+			if (comparison.isComparisonMode.value && !comparison.hasComparisonModel.value) {
+				comparison.toggleComparisonMode()
+			}
+		}
+
+		/**
+		 * Show the earlier version over the open model, or beside it again.
+		 */
+		const toggleOverlay = () => {
+			comparison.setOverlay(!comparison.overlayActive.value, modelRoot.value, fitCameraToModels, scene.value)
+		}
+
 		const toggleComparisonMode = async () => {
 			try {
 				if (!comparison.isComparisonMode.value) {
@@ -2953,102 +3164,7 @@ export default {
 
 						await comparison.loadComparisonModelFromPath(filePath, context)
 
-						// Pause rendering during comparison model initialization to prevent race conditions
-						renderPaused.value = true
-
-						// Add the comparison model to the scene
-						if (comparison.comparisonModel.value) {
-							// Ensure comparison model has valid matrices before adding to scene
-							// This prevents render errors with undefined matrices
-							try {
-								const comparisonModel = comparison.comparisonModel.value
-
-								// Ensure matrices exist for the model and all its children recursively
-								// This validates the entire hierarchy before adding to scene
-								// Validates parents before children to prevent multiplyMatrices errors
-								comparison.ensureMatricesValid(comparisonModel, 0)
-
-								// Update matrices before adding to scene
-								comparisonModel.updateMatrix()
-
-								// Add to scene first
-								scene.value.add(comparisonModel)
-
-								// Then update all matrices in the scene hierarchy
-								// This ensures all objects including the new model have valid world matrices
-								// All objects should now have valid matrices due to ensureMatricesValid call above
-								try {
-									scene.value.updateMatrixWorld(true)
-								} catch (updateError) {
-									logger.warn('ThreeViewer', 'Error updating scene matrices after adding comparison model', updateError)
-									// Try to recover by validating again and updating
-									comparison.ensureMatricesValid(comparisonModel, 0)
-									comparison.ensureMatricesValid(scene.value, 0)
-									scene.value.updateMatrixWorld(true)
-								}
-
-								logger.info('ThreeViewer', 'Comparison model added to scene with validated matrices')
-							} catch (matrixError) {
-								logger.error('ThreeViewer', 'Failed to initialize comparison model matrices', matrixError)
-								// Still try to add to scene but ensure basic validation
-								const comparisonModel = comparison.comparisonModel.value
-								comparison.ensureMatricesValid(comparisonModel, 0)
-								scene.value.add(comparisonModel)
-							}
-
-							// Use triple requestAnimationFrame to ensure models are fully rendered before fitting
-							requestAnimationFrame(() => {
-								requestAnimationFrame(() => {
-									requestAnimationFrame(() => {
-										try {
-											// Ensure all scene matrices are valid before fitting
-											// This prevents render errors during positioning
-											if (scene.value) {
-												scene.value.updateMatrixWorld(true)
-											}
-
-											// Fit both models to view after everything is ready
-											fitBothModelsToView()
-
-											// One more matrix update after positioning to ensure everything is valid
-											if (scene.value) {
-												scene.value.updateMatrixWorld(true)
-											}
-
-											// Compute the side-by-side diff stats now that both models
-											// have valid world matrices and are placed in the scene.
-											try {
-												comparison.computeDiffStats(modelRoot.value, props.filename || '', modelMillimetresPerUnit.value)
-											} catch (diffError) {
-												logger.warn('ThreeViewer', 'Failed to compute comparison diff stats', diffError)
-											}
-										} catch (fitError) {
-											logger.warn('ThreeViewer', 'Failed to fit models to view', fitError)
-										} finally {
-											// Ensure matrices are valid one final time before resuming rendering
-											try {
-												if (modelRoot.value && comparison.comparisonModel.value) {
-													if (modelRoot.value.updateMatrixWorld) {
-														modelRoot.value.updateMatrixWorld(true)
-													}
-													if (comparison.comparisonModel.value.updateMatrixWorld) {
-														comparison.comparisonModel.value.updateMatrixWorld(true)
-													}
-												}
-												if (scene.value && scene.value.updateMatrixWorld) {
-													scene.value.updateMatrixWorld(true)
-												}
-											} catch (finalUpdateError) {
-												logger.warn('ThreeViewer', 'Final matrix update failed', finalUpdateError)
-											}
-
-											// Resume rendering after fitting is complete and matrices are validated
-											renderPaused.value = false
-										}
-									})
-								})
-							})
-						}
+						addLoadedComparisonModel()
 					} catch (error) {
 						// Error occurred during loading
 						logger.error('ThreeViewer', 'Failed to load comparison model', error)
@@ -3080,6 +3196,94 @@ export default {
 		}
 
 		/**
+		 * Point the camera at two models together: the open one and the comparison model.
+		 * @param {THREE.Object3D} model1 - The open model
+		 * @param {THREE.Object3D} model2 - The comparison model
+		 */
+		const fitCameraToModels = (model1, model2) => {
+			// Fit function callback
+			// Use requestAnimationFrame to defer camera updates until after current render cycle
+			requestAnimationFrame(() => {
+				try {
+					// Set flag to prevent OrbitControls from updating during this operation
+					if (camera.isPositioningCamera !== undefined) {
+						camera.isPositioningCamera.value = true
+					}
+
+					// Ensure both models have valid matrices before calculating bounding boxes
+					// This prevents render errors with undefined matrices
+					if (model1.matrix && model2.matrix) {
+						model1.updateMatrixWorld(true)
+						model2.updateMatrixWorld(true)
+					}
+
+					// Ensure scene matrices are also updated
+					if (scene.value && scene.value.updateMatrixWorld) {
+						scene.value.updateMatrixWorld(true)
+					}
+
+					// After positioning, fit camera to the combined bounding box
+					const box1 = new THREE.Box3().setFromObject(model1)
+					const box2 = new THREE.Box3().setFromObject(model2)
+					const combinedBox = box1.union(box2)
+
+					if (combinedBox.isEmpty()) {
+						logger.warn('ThreeViewer', 'Combined bounding box is empty')
+						// Reset flag
+						if (camera.isPositioningCamera !== undefined) {
+							camera.isPositioningCamera.value = false
+						}
+						return
+					}
+
+					const center = combinedBox.getCenter(new THREE.Vector3())
+					const size = combinedBox.getSize(new THREE.Vector3())
+					const maxDim = Math.max(size.x, size.y, size.z)
+
+					// Calculate camera distance using FOV-based calculation
+					const fov = camera.camera.value.fov * (Math.PI / 180)
+					const cameraDistance = Math.abs(maxDim / Math.sin(fov / 2)) * 1.2
+
+					// Position camera to view both models at a good angle
+					camera.camera.value.position.set(
+						center.x + cameraDistance * 0.7,
+						center.y + cameraDistance * 0.7,
+						center.z + cameraDistance * 0.7,
+					)
+
+					// Set camera target to center of both models
+					// Don't call controls.update() here as isPositioningCamera flag is set
+					if (camera.controls.value) {
+						camera.controls.value.target.copy(center)
+						// Update camera matrices instead
+						camera.camera.value.updateMatrixWorld(false)
+					}
+
+					logger.info('ThreeViewer', 'Camera positioned for both models', {
+						center: { x: center.x, y: center.y, z: center.z },
+						cameraDistance,
+						cameraPosition: {
+							x: camera.camera.value.position.x,
+							y: camera.camera.value.position.y,
+							z: camera.camera.value.position.z,
+						},
+					})
+
+					// Reset flag after positioning is complete
+					if (camera.isPositioningCamera !== undefined) {
+						camera.isPositioningCamera.value = false
+					}
+				} catch (error) {
+					logger.error('ThreeViewer', 'Error in deferred camera positioning', error)
+					// Ensure flag is reset even on error
+					if (camera.isPositioningCamera !== undefined) {
+						camera.isPositioningCamera.value = false
+					}
+				}
+			})
+		}
+
+		/**
 		 * Fit both original and comparison models to camera view
 		 * Positions models side by side and adjusts camera to show both
 		 */
@@ -3088,92 +3292,16 @@ export default {
 				logger.warn('ThreeViewer', 'Cannot fit both models: one or both models missing')
 				return
 			}
+			// Side by side again: Compare lays the two out beside each other
+			if (comparison.overlayActive.value) {
+				comparison.setOverlay(false, modelRoot.value, fitCameraToModels, scene.value)
+				return
+			}
 
 			try {
 				// First position the models side by side
 				// Pass scene to ensure entire scene hierarchy is validated
-				comparison.fitBothModelsToView(modelRoot.value, comparison.comparisonModel.value, (model1, model2) => {
-					// Fit function callback
-					// Use requestAnimationFrame to defer camera updates until after current render cycle
-					requestAnimationFrame(() => {
-						try {
-							// Set flag to prevent OrbitControls from updating during this operation
-							if (camera.isPositioningCamera !== undefined) {
-								camera.isPositioningCamera.value = true
-							}
-
-							// Ensure both models have valid matrices before calculating bounding boxes
-							// This prevents render errors with undefined matrices
-							if (model1.matrix && model2.matrix) {
-								model1.updateMatrixWorld(true)
-								model2.updateMatrixWorld(true)
-							}
-
-							// Ensure scene matrices are also updated
-							if (scene.value && scene.value.updateMatrixWorld) {
-								scene.value.updateMatrixWorld(true)
-							}
-
-							// After positioning, fit camera to the combined bounding box
-							const box1 = new THREE.Box3().setFromObject(model1)
-							const box2 = new THREE.Box3().setFromObject(model2)
-							const combinedBox = box1.union(box2)
-
-							if (combinedBox.isEmpty()) {
-								logger.warn('ThreeViewer', 'Combined bounding box is empty')
-								// Reset flag
-								if (camera.isPositioningCamera !== undefined) {
-									camera.isPositioningCamera.value = false
-								}
-								return
-							}
-
-							const center = combinedBox.getCenter(new THREE.Vector3())
-							const size = combinedBox.getSize(new THREE.Vector3())
-							const maxDim = Math.max(size.x, size.y, size.z)
-
-							// Calculate camera distance using FOV-based calculation
-							const fov = camera.camera.value.fov * (Math.PI / 180)
-							const cameraDistance = Math.abs(maxDim / Math.sin(fov / 2)) * 1.2
-
-							// Position camera to view both models at a good angle
-							camera.camera.value.position.set(
-								center.x + cameraDistance * 0.7,
-								center.y + cameraDistance * 0.7,
-								center.z + cameraDistance * 0.7,
-							)
-
-							// Set camera target to center of both models
-							// Don't call controls.update() here as isPositioningCamera flag is set
-							if (camera.controls.value) {
-								camera.controls.value.target.copy(center)
-								// Update camera matrices instead
-								camera.camera.value.updateMatrixWorld(false)
-							}
-
-							logger.info('ThreeViewer', 'Camera positioned for both models', {
-								center: { x: center.x, y: center.y, z: center.z },
-								cameraDistance,
-								cameraPosition: {
-									x: camera.camera.value.position.x,
-									y: camera.camera.value.position.y,
-									z: camera.camera.value.position.z,
-								},
-							})
-
-							// Reset flag after positioning is complete
-							if (camera.isPositioningCamera !== undefined) {
-								camera.isPositioningCamera.value = false
-							}
-						} catch (error) {
-							logger.error('ThreeViewer', 'Error in deferred camera positioning', error)
-							// Ensure flag is reset even on error
-							if (camera.isPositioningCamera !== undefined) {
-								camera.isPositioningCamera.value = false
-							}
-						}
-					})
-				}, scene.value)
+				comparison.fitBothModelsToView(modelRoot.value, comparison.comparisonModel.value, fitCameraToModels, scene.value)
 			} catch (error) {
 				logger.error('ThreeViewer', 'Failed to fit both models to view', error)
 				// Ensure flag is reset even on error
@@ -3956,6 +4084,13 @@ export default {
 			isComparisonLoading: comparison.isComparisonLoading,
 			comparisonFilenameRef: comparison.comparisonFilename,
 			diffStats: comparison.diffStats,
+			comparisonSource: comparison.comparisonSource,
+			overlayActive: comparison.overlayActive,
+			versionPicker,
+			startVersionComparison,
+			onVersionPicked,
+			onVersionPickerCancel,
+			toggleOverlay,
 			showDiffOverlay: comparison.showDiffOverlay,
 			dismissDiffOverlay: comparison.dismissDiffOverlay,
 			showDiffOverlayPanel: comparison.showDiffOverlayPanel,

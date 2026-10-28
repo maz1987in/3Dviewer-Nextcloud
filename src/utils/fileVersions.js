@@ -138,3 +138,13 @@ export async function fetchVersion(version, { signal } = {}) {
 	const response = await axios.get(version.url, { responseType: 'arraybuffer', signal })
 	return response.data
 }
+
+/**
+ * When a version was made, as the user reads dates: day and time in their locale.
+ *
+ * @param {number} mtime - Milliseconds since the epoch
+ * @return {string} The date and time
+ */
+export function formatVersionDate(mtime) {
+	return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(mtime))
+}

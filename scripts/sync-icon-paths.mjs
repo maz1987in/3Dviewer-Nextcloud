@@ -56,6 +56,7 @@ export const ICONS = {
 	chevron: 'MenuDown',
 	close: 'Close',
 	comparison: 'Compare',
+	history: 'History',
 	controller: 'Gamepad',
 	// The mockup's scissors-on-a-line is not in this package version.
 	crossSection: 'ContentCut',

@@ -140,6 +140,7 @@
 					:measurement-mode="measurementMode"
 					:annotation-mode="annotationMode"
 					:comparison-mode="comparisonMode"
+					:can-compare-versions="canCompareVersions"
 					@reset-view="onReset"
 					@fit-to-view="onFitToView"
 					@toggle-auto-rotate="onToggleAutoRotate"
@@ -151,6 +152,7 @@
 					@toggle-measurement="onToggleMeasurement"
 					@toggle-annotation="onToggleAnnotation"
 					@toggle-comparison="onToggleComparison"
+					@compare-version="onCompareVersion"
 					@toggle-transform-gizmo="onToggleTransformGizmo"
 					@set-transform-mode="onSetTransformMode"
 					@reset-transform="onResetTransform"
@@ -246,6 +248,9 @@ import axios from '@nextcloud/axios'
 import { generateUrl } from '@nextcloud/router'
 import { VIEWER_CONFIG, SLICER_SETTINGS } from './config/viewer-config.js'
 import { applyCacheConfig } from './utils/dependencyCache.js'
+// eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
+import { getCurrentUser } from '@nextcloud/auth'
+import { isPublicShare } from './composables/usePublicShare.js'
 
 export default {
 	name: 'App',
@@ -398,6 +403,11 @@ export default {
 		}
 	},
 	computed: {
+		// Versions are a logged-in user's: Nextcloud lists none to a public link
+		canCompareVersions() {
+			return !isPublicShare() && !!getCurrentUser()
+		},
+
 		// Computed properties that return data properties (for reactivity)
 		hasAnimationsComputed() {
 			return this.hasAnimations
@@ -744,6 +754,11 @@ export default {
 		onToggleComparison() {
 			this.transformGizmoActive = false
 			this.$refs.viewer?.toggleComparisonMode?.()
+		},
+
+		onCompareVersion() {
+			this.transformGizmoActive = false
+			this.$refs.viewer?.startVersionComparison?.()
 		},
 
 		onToggleTransformGizmo() {

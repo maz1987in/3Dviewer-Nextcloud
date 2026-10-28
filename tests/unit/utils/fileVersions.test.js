@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import axios from '@nextcloud/axios'
-import { versionsUrl, parseVersions, listVersions, fetchVersion } from '../../../src/utils/fileVersions.js'
+import { versionsUrl, parseVersions, listVersions, fetchVersion, formatVersionDate } from '../../../src/utils/fileVersions.js'
 
 jest.mock('@nextcloud/axios')
 jest.mock('@nextcloud/router')
@@ -98,4 +98,10 @@ test('fetchVersion resolves the body as an ArrayBuffer', async () => {
 
 	expect(result).toBe(bytes)
 	expect(axios.get).toHaveBeenCalledWith('/remote.php/dav/versions/alice/versions/154/1793160498', { responseType: 'arraybuffer', signal })
+})
+
+test('formatVersionDate gives the date and time in the user\'s locale', () => {
+	const ms = Date.UTC(2026, 9, 28, 4, 8, 23)
+	expect(formatVersionDate(ms)).toBe(new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(ms)))
+	expect(formatVersionDate(ms)).toMatch(/2026/)
 })
