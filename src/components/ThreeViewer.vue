@@ -864,12 +864,9 @@ import { useController } from '../composables/useController.js'
 import { useScreenshot } from '../composables/useScreenshot.js'
 import { useAnimation } from '../composables/useAnimation.js'
 import { useClippingPlane } from '../composables/useClippingPlane.js'
-import {
-	readCameraStateFromUrl,
-	applyCameraState,
-} from '../utils/cameraUrlState.js'
+import { applyCameraState } from '../utils/cameraUrlState.js'
 import { copyText } from '../utils/clipboard.js'
-import { buildViewUrl, captureViewState } from '../utils/viewLink.js'
+import { buildViewUrl, captureViewState, isUsableTarget, readViewFromUrl } from '../utils/viewLink.js'
 import { useLightingPresets } from '../composables/useLightingPresets.js'
 import { useBookmarks } from '../composables/useBookmarks.js'
 import { useExplodedView } from '../composables/useExplodedView.js'
@@ -933,7 +930,7 @@ export default {
 	// Declared and never sent is as misleading as sent and never declared: nine of these
 	// named toolbar actions the viewer stopped emitting long ago, and among them sat the
 	// three mode toggles it did send and nothing received.
-	emits: ['model-loaded', 'error', 'measurement-active', 'annotation-active', 'comparison-active', 'print-check-active', 'cycle-performance-mode', 'push-toast', 'loading-state-changed', 'fps-updated', 'animations-initialized'],
+	emits: ['model-loaded', 'error', 'measurement-active', 'annotation-active', 'comparison-active', 'print-check-active', 'cycle-performance-mode', 'push-toast', 'loading-state-changed', 'fps-updated', 'animations-initialized', 'view-applied'],
 	setup(props, { emit }) {
 		// Refs
 		const container = ref(null)
@@ -1596,19 +1593,13 @@ export default {
 					const newCenter = newBox.getCenter(new THREE.Vector3())
 					camera.fitCameraToObject(modelRoot.value, newCenter)
 
-					// Shareable view link: if the page URL carries a `cam=...` param,
-					// restore that exact viewpoint AFTER fitCameraToObject so the
-					// auto-fit doesn't immediately stomp on it. The param is only
-					// read on the first successful load — navigating to a different
-					// file clears the URL before reaching this branch.
-					const sharedState = readCameraStateFromUrl()
-					let cameraFromUrl = false
-					if (sharedState && camera.camera?.value && camera.controls?.value) {
-						cameraFromUrl = applyCameraState(camera.camera.value, camera.controls.value, sharedState)
-						if (cameraFromUrl) {
-							logger.info('ThreeViewer', 'Restored camera view from cam URL parameter')
-						}
-					}
+					// A view link (utils/viewLink.js) applies to the first model this page
+					// shows, and only once: a reload or the next file frames as usual. Its
+					// camera goes on after fitCameraToObject, which would otherwise undo it;
+					// the rest waits until the tools it sets have taken this model.
+					const linkedView = viewLinkConsumed ? null : readViewFromUrl()
+					viewLinkConsumed = true
+					const cameraFromUrl = linkedView ? applyLinkedCamera(linkedView.camera, newBox) : false
 
 					// Update grid size
 					updateGridSize(modelRoot.value)
@@ -1644,6 +1635,10 @@ export default {
 					// sees a change
 					if (props.wireframe) {
 						setViewerWireframe(modelRoot.value, true)
+					}
+
+					if (linkedView) {
+						applyLinkedView(linkedView, cameraFromUrl)
 					}
 
 					// Initialize animations if present
@@ -2371,6 +2366,67 @@ export default {
 
 		// The shared note a link points at, set when one is opened from a link or copied
 		const highlightedNoteId = ref(null)
+		// A view link is read once per page (see the load path)
+		let viewLinkConsumed = false
+
+		/**
+		 * Put the camera where a view link says, in the projection it names. Skipped when
+		 * the link aims well away from the model, which then keeps the usual framing.
+		 *
+		 * @param {object} linked - a ViewState's camera
+		 * @param {object} box - THREE.Box3 of the model as placed
+		 * @return {boolean} whether the camera was set
+		 */
+		const applyLinkedCamera = (linked, box) => {
+			if (!camera.camera?.value || !camera.controls?.value || !isUsableTarget(linked.target, box)) return false
+			// Projection first: switching it afterwards would recompute the zoom
+			if ((linked.projection === 'orthographic') !== !!camera.camera.value.isOrthographicCamera) {
+				camera.toggleCameraProjection()
+			}
+			const [px, py, pz] = linked.position
+			const [tx, ty, tz] = linked.target
+			const applied = applyCameraState(camera.camera.value, camera.controls.value, {
+				position: { x: px, y: py, z: pz },
+				target: { x: tx, y: ty, z: tz },
+				zoom: linked.zoom,
+			})
+			if (applied) logger.info('ThreeViewer', 'Camera set from a view link')
+			return applied
+		}
+
+		/**
+		 * Apply the rest of a view link: shading, lighting, the cut and the exploded view.
+		 * Wireframe is the app's to set, so it travels in `view-applied` with the rest; the
+		 * app mirrors all of it for the tools panel without saving any as a preference.
+		 *
+		 * @param {object} view - a ViewState
+		 * @param {boolean} cameraFromUrl - whether the link's camera was used
+		 */
+		const applyLinkedView = (view, cameraFromUrl) => {
+			if (view.renderMode) setRenderMode(view.renderMode)
+			if (view.lighting) lightingPresets.applyPreset(view.lighting)
+			if (view.clipping) {
+				clippingPlane.setMode(view.clipping.mode)
+				if (view.clipping.mode === 'box') {
+					for (const [face, value] of Object.entries(view.clipping.offsets)) clippingPlane.setBoxOffset(face, value)
+				} else {
+					clippingPlane.setAxis(view.clipping.axis)
+					clippingPlane.setPosition(view.clipping.position)
+					if (clippingPlane.flipped.value !== view.clipping.flipped) clippingPlane.toggleFlip()
+				}
+				if (!clippingPlane.isActive.value) clippingPlane.toggle()
+			}
+			if (view.exploded !== undefined && explodedView.hasMeshes.value) {
+				if (!explodedView.isActive.value) explodedView.toggle()
+				explodedView.setFactor(view.exploded)
+				// Spread parts can leave a view fitted to them together
+				if (!cameraFromUrl) camera.fitCameraToObject(modelRoot.value)
+			}
+			emit('view-applied', {
+				wireframe: view.wireframe,
+				projection: camera.camera?.value?.isOrthographicCamera ? 'orthographic' : 'perspective',
+			})
+		}
 
 		/**
 		 * The view this viewer is showing, as a link records it.

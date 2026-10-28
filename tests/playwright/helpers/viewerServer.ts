@@ -15,7 +15,8 @@ import { fileURLToPath } from 'url'
 export const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
 
 export type ViewerModel = { id: number, name: string, body: string | Buffer }
-export type Viewer = { user?: string | null, publicToken?: string | null, dir?: string }
+/** `query` is added to the page's own address, as a link's parameters would be. */
+export type Viewer = { user?: string | null, publicToken?: string | null, dir?: string, query?: string }
 
 const pages = new Map<string, { model: ViewerModel, viewer: Viewer }>()
 
@@ -104,7 +105,7 @@ export async function openViewer(page: Page, url: string, model: ViewerModel, vi
 		body: JSON.stringify(viewer.publicToken ? { ocs: { data: { canEdit: false, notes: [] } } } : { canEdit: true, notes: [], private: [] }),
 	}))
 
-	await page.goto(`${url}?page=${encodeURIComponent(key)}`)
+	await page.goto(`${url}?page=${encodeURIComponent(key)}${viewer.query ? `&${viewer.query}` : ''}`)
 	await page.waitForFunction(() => (window as any).__LOAD_COMPLETE === true, null, { timeout: 30000 })
 	await page.click('[aria-label="Toggle tools panel"]')
 	await page.waitForSelector('.slide-out-panel', { timeout: 5000 })

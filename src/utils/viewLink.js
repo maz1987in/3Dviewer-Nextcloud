@@ -171,6 +171,24 @@ export function readViewFromUrl(search = (typeof window !== 'undefined' ? window
 }
 
 /**
+ * Whether a linked camera's target is still somewhere near the model: inside its box,
+ * grown by the box's own size on every side. A link made for a file that has since
+ * changed can aim at empty space, and then the usual framing serves better.
+ *
+ * @param {number[]} target - [x, y, z]
+ * @param {object} box - THREE.Box3 of the model as placed
+ * @return {boolean} true when there is no box to judge by
+ */
+export function isUsableTarget(target, box) {
+	if (!box || box.isEmpty()) return true
+	const size = box.getSize(box.min.clone())
+	const grown = box.clone().expandByVector(size)
+	const [x, y, z] = target
+	return x >= grown.min.x && x <= grown.max.x && y >= grown.min.y && y <= grown.max.y
+		&& z >= grown.min.z && z <= grown.max.z
+}
+
+/**
  * The view the full viewer is showing. The cut and the exploded view are included only
  * while they are on, so a link never switches on a tool its sender had off.
  *

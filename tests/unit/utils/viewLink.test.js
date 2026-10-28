@@ -2,7 +2,8 @@
  * A view, carried in a link: written short, read back strictly. Whatever arrives in a
  * link was typed or edited by someone, so nothing in it is trusted until it is checked.
  */
-import { encodeView, decodeView, readViewFromUrl, buildViewUrl, VIEW_PARAM, VIEW_VERSION } from '../../../src/utils/viewLink.js'
+import * as THREE from 'three'
+import { encodeView, decodeView, readViewFromUrl, buildViewUrl, isUsableTarget, VIEW_PARAM, VIEW_VERSION } from '../../../src/utils/viewLink.js'
 
 const full = {
 	camera: { position: [1.23456, 2, 3], target: [0, 0.5, 0], zoom: 1, projection: 'orthographic' },
@@ -114,5 +115,26 @@ describe('building a link', () => {
 
 	it('stays well under 2,000 characters', () => {
 		expect(buildViewUrl('https://cloud.example.com/index.php/apps/threedviewer/f/123456', full).length).toBeLessThan(2000)
+	})
+})
+
+describe('whether a linked camera still looks at the model', () => {
+	const box = new THREE.Box3(new THREE.Vector3(0, 0, 0), new THREE.Vector3(10, 20, 10))
+
+	it('takes a target on the model', () => {
+		expect(isUsableTarget([5, 10, 5], box)).toBe(true)
+	})
+
+	it('takes a target off the model by up to its own size', () => {
+		expect(isUsableTarget([-9.9, 39.9, 19.9], box)).toBe(true)
+	})
+
+	it('refuses a target further off than that', () => {
+		expect(isUsableTarget([-10.1, 10, 5], box)).toBe(false)
+		expect(isUsableTarget([5, 40.1, 5], box)).toBe(false)
+	})
+
+	it('takes anything when there is no box to judge by', () => {
+		expect(isUsableTarget([1e6, 0, 0], new THREE.Box3())).toBe(true)
 	})
 })

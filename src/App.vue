@@ -150,7 +150,7 @@
 					@copy-view-link="onCopyViewLink"
 					@toggle-grid="grid = !grid"
 					@toggle-axes="axes = !axes"
-					@toggle-wireframe="wireframe = !wireframe"
+					@toggle-wireframe="onToggleWireframe"
 					@toggle-measurement="onToggleMeasurement"
 					@toggle-annotation="onToggleAnnotation"
 					@toggle-comparison="onToggleComparison"
@@ -227,6 +227,7 @@
 					@comparison-active="comparisonMode = $event"
 					@print-check-active="printCheckActive = $event"
 					@model-loaded="onModelLoaded"
+					@view-applied="onViewApplied"
 					@loading-state-changed="onLoadingStateChanged"
 					@fps-updated="onFpsUpdated"
 					@animations-initialized="onAnimationsInitialized"
@@ -309,6 +310,9 @@ export default {
 			grid: true,
 			axes: true,
 			wireframe: false,
+			// The wireframe this user chose, which is what gets saved: a view link can show
+			// the model in wireframe without making it their preference
+			ownWireframe: false,
 			background: '#f5f5f5',
 			autoRotate: false,
 			autoRotateSpeed: 2.0,
@@ -659,7 +663,7 @@ export default {
 				const data = {
 					grid: this.grid,
 					axes: this.axes,
-					wireframe: this.wireframe,
+					wireframe: this.ownWireframe,
 					background: this.background,
 					v: 1,
 				}
@@ -668,6 +672,32 @@ export default {
 		},
 		onReset() {
 			this.$refs.viewer?.resetView?.()
+		},
+		onToggleWireframe() {
+			this.wireframe = !this.wireframe
+			this.ownWireframe = this.wireframe
+		},
+		/**
+		 * A view link has been applied to the viewer: copy what it set into the state the
+		 * tools panel reads. None of it is saved as this user's preference.
+		 *
+		 * @param {{wireframe: (boolean|undefined), projection: string}} applied - what only the app can set
+		 */
+		onViewApplied({ wireframe, projection }) {
+			const viewer = this.$refs.viewer
+			if (!viewer) return
+			if (wireframe !== undefined) this.wireframe = wireframe
+			this.cameraType = projection
+			this.renderMode = viewer.renderMode.mode.value
+			this.lightingPreset = viewer.lightingPresets.currentPreset.value
+			const clip = viewer.clippingPlane
+			this.clippingActive = clip.isActive.value
+			this.clippingMode = clip.mode.value
+			this.clippingAxis = clip.axis.value
+			this.clippingPosition = clip.position.value
+			this.clippingFlipped = clip.flipped.value
+			this.clippingBoxOffsets = { ...clip.boxOffsets.value }
+			this.updateAnimationState()
 		},
 		onFitToView() {
 			this.$refs.viewer?.fitToView?.()
@@ -1516,7 +1546,10 @@ export default {
 				if (display) {
 					if (display.grid !== undefined) this.grid = display.grid
 					if (display.axes !== undefined) this.axes = display.axes
-					if (display.wireframe !== undefined) this.wireframe = display.wireframe
+					if (display.wireframe !== undefined) {
+						this.wireframe = display.wireframe
+						this.ownWireframe = display.wireframe
+					}
 					if (display.backgroundColor) this.background = display.backgroundColor
 				}
 			}
