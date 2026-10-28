@@ -123,4 +123,9 @@ describe('createOverhangMaterial', () => {
 		expect(material.clippingPlanes).toEqual([plane])
 		expect(material.clipping).toBe(true)
 	})
+
+	test('is cut by the renderer\'s own clipping planes, which the cross-section uses', () => {
+		const material = createOverhangMaterial({ up: UP, thresholdDeg: 45, bedHeight: 0, bedEpsilon: 0.05 })
+		expect(material.clipping).toBe(true)
+	})
 })

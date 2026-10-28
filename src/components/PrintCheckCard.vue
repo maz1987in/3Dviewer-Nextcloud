@@ -13,13 +13,15 @@
 			</button>
 		</div>
 
-		<div class="print-check-body" aria-live="polite">
+		<!-- Only the results are live regions: the hover readout, the slider and the progress
+			bar change continuously and would be read out on every change -->
+		<div class="print-check-body">
 			<p v-if="state.assumesMm" class="tdv-secondary print-check-note">
 				{{ t('threedviewer', 'Sizes assume millimetres, because this file doesn\'t record a unit.') }}
 			</p>
 
 			<!-- A toolpath: the slicer has already worked out what matters -->
-			<template v-if="state.kind === 'gcode'">
+			<div v-if="state.kind === 'gcode'" aria-live="polite">
 				<ul v-if="hasSlicerNumbers" class="print-check-lines">
 					<li v-if="summary.printSeconds !== null">
 						{{ t('threedviewer', 'Print time: {time}', { time: formatDuration(summary.printSeconds) }) }}
@@ -37,7 +39,7 @@
 				<p v-else class="tdv-secondary">
 					{{ t('threedviewer', 'This file doesn\'t include the slicer\'s estimates') }}
 				</p>
-			</template>
+			</div>
 
 			<template v-else>
 				<div class="print-check-section">
@@ -79,15 +81,17 @@
 							{{ axis === 'y' ? t('threedviewer', 'Y up') : t('threedviewer', 'Z up') }}
 						</button>
 					</div>
-					<p v-if="state.fit" class="print-check-fit" :class="{ 'print-check-warn': !state.fit.fits }">
-						<template v-if="state.fit.fits">
-							{{ t('threedviewer', 'Fits the build volume') }}
-						</template>
-						<template v-else>
-							<span v-for="line in overLines" :key="line" class="print-check-over">{{ line }}</span>
-							<span v-if="state.fit.fitsTurned" class="tdv-secondary">{{ t('threedviewer', 'Fits if turned 90°') }}</span>
-						</template>
-					</p>
+					<div aria-live="polite">
+						<p v-if="state.fit" class="print-check-fit" :class="{ 'print-check-warn': !state.fit.fits }">
+							<template v-if="state.fit.fits">
+								{{ t('threedviewer', 'Fits the build volume') }}
+							</template>
+							<template v-else>
+								<span v-for="line in overLines" :key="line" class="print-check-over">{{ line }}</span>
+								<span v-if="state.fit.fitsTurned" class="tdv-secondary">{{ t('threedviewer', 'Fits if turned 90°') }}</span>
+							</template>
+						</p>
+					</div>
 				</div>
 
 				<template v-if="state.kind === 'mesh'">
@@ -103,9 +107,11 @@
 								@input="$emit('set-overhang-angle', Number($event.target.value))">
 							<output for="print-check-angle">{{ state.settings.overhangAngle }}°</output>
 						</div>
-						<p v-if="state.overhang">
-							{{ t('threedviewer', '{percent} % of the surface overhangs', { percent: Math.round(state.overhang.share * 100) }) }}
-						</p>
+						<div aria-live="polite">
+							<p v-if="state.overhang">
+								{{ t('threedviewer', '{percent} % of the surface overhangs', { percent: Math.round(state.overhang.share * 100) }) }}
+							</p>
+						</div>
 					</div>
 
 					<div class="print-check-section">
@@ -133,15 +139,17 @@
 								</select>
 							</div>
 						</div>
-						<p v-if="state.closed === 'checking'" class="tdv-secondary">
-							{{ t('threedviewer', 'Checking…') }}
-						</p>
-						<p v-else-if="state.closed === 'open'" class="print-check-warn">
-							{{ n('threedviewer', 'Needs a closed model: %n part has holes', 'Needs a closed model: %n parts have holes', state.openParts) }}
-						</p>
-						<p v-else-if="state.estimate">
-							{{ t('threedviewer', 'About {grams} g · {metres} m of filament (estimate)', { grams: fixed(state.estimate.grams, 1), metres: fixed(state.estimate.metres, 2) }) }}
-						</p>
+						<div aria-live="polite">
+							<p v-if="state.closed === 'checking'" class="tdv-secondary">
+								{{ t('threedviewer', 'Checking…') }}
+							</p>
+							<p v-else-if="state.closed === 'open'" class="print-check-warn">
+								{{ n('threedviewer', 'Needs a closed model: %n part has holes', 'Needs a closed model: %n parts have holes', state.openParts) }}
+							</p>
+							<p v-else-if="state.estimate">
+								{{ t('threedviewer', 'About {grams} g · {metres} m of filament (estimate)', { grams: fixed(state.estimate.grams, 1), metres: fixed(state.estimate.metres, 2) }) }}
+							</p>
+						</div>
 					</div>
 
 					<div class="print-check-section">
@@ -170,24 +178,26 @@
 							@click="$emit('run-thickness')">
 							{{ t('threedviewer', 'Check wall thickness') }}
 						</button>
-						<template v-if="state.thickness.state === 'done'">
-							<ul class="print-check-legend">
-								<li><span class="print-check-swatch print-check-swatch--thin" aria-hidden="true" />{{ t('threedviewer', 'Thinner than {min} mm', { min: state.settings.minThickness }) }}</li>
-								<li><span class="print-check-swatch print-check-swatch--near" aria-hidden="true" />{{ t('threedviewer', 'Under {near} mm', { near: round(state.settings.minThickness * NEAR_THIN_FACTOR, 2) }) }}</li>
-							</ul>
-							<p>{{ t('threedviewer', '{percent} % of the surface is thinner than {min} mm', { percent: Math.round(state.thickness.share * 100), min: state.settings.minThickness }) }}</p>
-							<p v-if="state.thickness.sampled" class="tdv-secondary">
-								{{ t('threedviewer', 'Checked a sample of points on this large model') }}
+						<div aria-live="polite">
+							<template v-if="state.thickness.state === 'done'">
+								<ul class="print-check-legend">
+									<li><span class="print-check-swatch print-check-swatch--thin" aria-hidden="true" />{{ t('threedviewer', 'Thinner than {min} mm', { min: state.settings.minThickness }) }}</li>
+									<li><span class="print-check-swatch print-check-swatch--near" aria-hidden="true" />{{ t('threedviewer', 'Under {near} mm', { near: round(state.settings.minThickness * NEAR_THIN_FACTOR, 2) }) }}</li>
+								</ul>
+								<p>{{ t('threedviewer', '{percent} % of the surface is thinner than {min} mm', { percent: Math.round(state.thickness.share * 100), min: state.settings.minThickness }) }}</p>
+								<p v-if="state.thickness.sampled" class="tdv-secondary">
+									{{ t('threedviewer', 'Checked a sample of points on this large model') }}
+								</p>
+								<p v-if="state.thickness.warnOpen" class="print-check-warn">
+									{{ t('threedviewer', 'This model has holes, so the thickness may be wrong') }}
+								</p>
+							</template>
+							<p v-else-if="state.thickness.state === 'error'" class="print-check-warn">
+								{{ t('threedviewer', 'Could not check the wall thickness') }}
 							</p>
-							<p v-if="state.thickness.warnOpen" class="print-check-warn">
-								{{ t('threedviewer', 'This model has holes, so the thickness may be wrong') }}
-							</p>
-							<p v-if="state.hoverMm !== null" class="tdv-secondary">
-								{{ t('threedviewer', '{mm} mm thick', { mm: round(state.hoverMm, 2) }) }}
-							</p>
-						</template>
-						<p v-else-if="state.thickness.state === 'error'" class="print-check-warn">
-							{{ t('threedviewer', 'Could not check the wall thickness') }}
+						</div>
+						<p v-if="state.thickness.state === 'done' && state.hoverMm !== null" class="tdv-secondary">
+							{{ t('threedviewer', '{mm} mm thick', { mm: round(state.hoverMm, 2) }) }}
 						</p>
 					</div>
 				</template>
@@ -206,14 +216,17 @@ export default {
 	components: {
 		ViewerIcon,
 	},
+
 	props: {
 		// What usePrintCheck holds, unwrapped, plus `hoverMm` under the pointer
 		state: { type: Object, required: true },
 	},
+
 	emits: ['close', 'set-printer', 'set-custom', 'set-up', 'set-overhang-angle', 'set-infill', 'set-material', 'set-min-thickness', 'run-thickness', 'cancel-thickness'],
 	data() {
 		return { PRINTERS, MATERIALS, OVERHANG_ANGLE_RANGE, NEAR_THIN_FACTOR }
 	},
+
 	computed: {
 		SIDES() {
 			return [
@@ -222,13 +235,16 @@ export default {
 				{ key: 'height', label: this.t('threedviewer', 'Height (mm)') },
 			]
 		},
+
 		summary() {
 			return this.state.slicerSummary || { slicer: null, printSeconds: null, filamentMm: null, filamentGrams: null }
 		},
+
 		hasSlicerNumbers() {
 			const { printSeconds, filamentMm, filamentGrams } = this.summary
 			return printSeconds !== null || filamentMm !== null || filamentGrams !== null
 		},
+
 		overLines() {
 			const over = this.state.fit?.over || {}
 			return [
@@ -238,6 +254,7 @@ export default {
 			].filter(Boolean)
 		},
 	},
+
 	methods: {
 		formatDuration,
 		/**
@@ -248,6 +265,7 @@ export default {
 		round(value, decimals) {
 			return String(Number(value.toFixed(decimals)))
 		},
+
 		/**
 		 * @param {number} value - A number
 		 * @param {number} decimals - Exactly this many decimals

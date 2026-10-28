@@ -76,10 +76,14 @@ export function createSurfaceOverlay(scene, source, material, extraAttributes = 
 
 	const dispose = () => {
 		object.removeFromParent()
-		// Only what the overlay made: the attributes it shares are the model's
-		for (const name of Object.keys(extraAttributes)) {
-			geometry.deleteAttribute(name)
+		// Disposing frees the GPU buffer of every attribute still attached, so the model's
+		// own come off first: only what the overlay made is freed
+		for (const name of Object.keys(geometry.attributes)) {
+			if (!(name in extraAttributes)) {
+				geometry.deleteAttribute(name)
+			}
 		}
+		geometry.setIndex(null)
 		geometry.dispose()
 	}
 	return { object, sync, dispose }

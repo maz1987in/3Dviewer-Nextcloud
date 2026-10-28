@@ -151,10 +151,11 @@ export function createOverhangMaterial({ up, thresholdDeg, bedHeight, bedEpsilon
 		polygonOffset: true,
 		polygonOffsetFactor: -1,
 		polygonOffsetUnits: -1,
+		// The cross-section cuts with the renderer's planes; a ShaderMaterial only gets them with this
+		clipping: true,
 	})
 	if (clippingPlanes?.length) {
 		material.clippingPlanes = clippingPlanes
-		material.clipping = true
 	}
 	return material
 }

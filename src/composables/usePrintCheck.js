@@ -22,7 +22,7 @@ import { modelClosed } from '../printCheck/closedMesh.js'
 import { estimateFilament, modelVolumeAndArea } from '../printCheck/filament.js'
 import { findSlicerSummary } from '../printCheck/slicerSummary.js'
 import { checkClosed, measureThickness } from '../printCheck/printCheckClient.js'
-import { loadPrintCheckSettings, savePrintCheckSettings, flushPrintCheckSettings } from '../printCheck/printCheckSettings.js'
+import { loadPrintCheckSettings, savePrintCheckSettings, flushPrintCheckSettings, sanitizePrintCheckSettings } from '../printCheck/printCheckSettings.js'
 import { PRINTERS, MATERIALS, NEAR_THIN_FACTOR, BED_EPSILON_MM } from '../printCheck/printers.js'
 import { withPartsTogether } from '../utils/viewerTransforms.js'
 import { assumesMillimetres } from '../utils/sourceUnits.js'
@@ -148,10 +148,11 @@ function createThicknessMaterial(minimum, clippingPlanes = null) {
 		polygonOffset: true,
 		polygonOffsetFactor: -2,
 		polygonOffsetUnits: -2,
+		// The cross-section cuts with the renderer's planes; a ShaderMaterial only gets them with this
+		clipping: true,
 	})
 	if (clippingPlanes?.length) {
 		material.clippingPlanes = clippingPlanes
-		material.clipping = true
 	}
 	return material
 }
@@ -191,6 +192,8 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 	let thicknessController = null
 	let recomputeTimer = null
 	let savedUp = null
+	// The camera whose up Print check turned, and `savedUp` is that camera's own
+	let upCamera = null
 	// Bumped by every open and teardown; a worker result for an earlier one is dropped
 	let generation = 0
 	// The model's world matrix when the fit was last measured
@@ -324,7 +327,25 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 		orbit?.update?.()
 	}
 
+	/**
+	 * Toggling the projection swaps in the viewer's other camera, which still has its own
+	 * up: the one that was turned goes back, and the new one is turned instead.
+	 */
+	const followCamera = () => {
+		const cam = read(camera)
+		if (!savedUp || !upCamera || !cam || cam === upCamera) {
+			return
+		}
+		upCamera.up.copy(savedUp)
+		savedUp = cam.up.clone()
+		upCamera = cam
+		if (up.value === 'z') {
+			orbitAbout(new THREE.Vector3(0, 0, 1))
+		}
+	}
+
 	const teardown = () => {
+		followCamera()
 		generation++
 		controller?.abort()
 		thicknessController?.abort()
@@ -342,6 +363,7 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 			orbitAbout(savedUp)
 			savedUp = null
 		}
+		upCamera = null
 		active.value = false
 		fit.value = null
 		overhang.value = null
@@ -379,6 +401,7 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 
 		const cam = read(camera)
 		savedUp = cam ? cam.up.clone() : null
+		upCamera = cam ?? null
 		if (up.value === 'z') {
 			orbitAbout(new THREE.Vector3(0, 0, 1))
 		}
@@ -456,7 +479,8 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 		if (!settings.value) {
 			return
 		}
-		settings.value = { ...settings.value, ...change }
+		// A typed value is held to the same range as a stored one
+		settings.value = sanitizePrintCheckSettings({ ...settings.value, ...change })
 		savePrintCheckSettings(settings.value)
 	}
 
@@ -495,6 +519,7 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 		if (!active.value || (axis !== 'y' && axis !== 'z')) {
 			return
 		}
+		followCamera()
 		up.value = axis
 		upChoices.set(fileKey(), axis)
 		orbitAbout(axis === 'z' ? new THREE.Vector3(0, 0, 1) : (savedUp ?? new THREE.Vector3(0, 1, 0)))
@@ -590,6 +615,7 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 		if (!active.value) {
 			return
 		}
+		followCamera()
 		overhangSet?.sync()
 		thicknessSet?.sync()
 		const root = read(modelRoot)

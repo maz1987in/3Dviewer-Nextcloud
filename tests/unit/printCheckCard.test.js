@@ -156,3 +156,15 @@ test('each control tells the viewer what changed', () => {
 		['close', []],
 	])
 })
+
+test('results are announced; the hover readout, the slider value and the progress bar are not', () => {
+	mount(meshState({ thickness: { state: 'done', progress: 1, share: 0.25, sampled: false, warnOpen: false }, hoverMm: 1.234 }))
+	const live = [...document.querySelectorAll('[aria-live]')].filter((element) => element.getAttribute('aria-live') !== 'off')
+	const announced = live.map((element) => element.textContent.replace(/\s+/g, ' ')).join(' ')
+	expect(announced).toContain('Fits the build volume')
+	expect(announced).toContain('12 % of the surface overhangs')
+	expect(announced).toContain('25 % of the surface is thinner than 0.8 mm')
+	expect(announced).not.toContain('mm thick')
+	expect(announced).not.toContain('°')
+	expect(live.some((element) => element.querySelector('progress, input, select, output'))).toBe(false)
+})

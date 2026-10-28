@@ -80,3 +80,19 @@ test('overlay copies the source\'s clipping planes', () => {
 	createSurfaceOverlay(scene, a, material)
 	expect(material.clippingPlanes).toEqual([plane])
 })
+
+test('dispose lets go of the model\'s buffers and frees only its own', () => {
+	const { scene, a } = model()
+	const thickness = new THREE.Float32BufferAttribute(new Float32Array(a.geometry.attributes.position.count), 1)
+	const overlay = createSurfaceOverlay(scene, a, new THREE.MeshBasicMaterial(), { thickness })
+	// The renderer frees the GPU buffer of every attribute still on a geometry when it is disposed
+	let atDispose = null
+	overlay.object.geometry.addEventListener('dispose', ({ target }) => {
+		atDispose = { attributes: Object.values(target.attributes), index: target.index }
+	})
+	overlay.dispose()
+	const shared = [a.geometry.attributes.position, a.geometry.attributes.normal]
+	expect(atDispose.attributes.some((attribute) => shared.includes(attribute))).toBe(false)
+	expect(atDispose.index).toBeNull()
+	expect(atDispose.attributes).toContain(thickness)
+})

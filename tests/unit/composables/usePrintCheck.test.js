@@ -14,6 +14,7 @@ jest.mock('../../../src/printCheck/printCheckSettings.js', () => ({
 	loadPrintCheckSettings: jest.fn(),
 	savePrintCheckSettings: jest.fn(() => Promise.resolve()),
 	flushPrintCheckSettings: jest.fn(() => Promise.resolve()),
+	sanitizePrintCheckSettings: jest.requireActual('../../../src/printCheck/printCheckSettings.js').sanitizePrintCheckSettings,
 }))
 
 const CLOSED = { boundaryEdges: 0, nonManifoldEdges: 0, closed: true }
@@ -29,6 +30,7 @@ function deferred() {
 
 /** A 10 mm cube resting on y = 0, in a scene, with a camera and orbit controls. */
 function setup({ filename = 'cube.stl', size = 10, fileId = 1 } = {}) {
+	const cameras = { current: null }
 	const scene = new THREE.Scene()
 	const root = new THREE.Group()
 	const geometry = new THREE.BoxGeometry(size, size, size)
@@ -39,6 +41,7 @@ function setup({ filename = 'cube.stl', size = 10, fileId = 1 } = {}) {
 	root.updateMatrixWorld(true)
 	const camera = new THREE.PerspectiveCamera()
 	camera.position.set(30, 30, 30)
+	cameras.current = camera
 	const controls = {
 		target: new THREE.Vector3(),
 		_quat: new THREE.Quaternion(),
@@ -49,13 +52,13 @@ function setup({ filename = 'cube.stl', size = 10, fileId = 1 } = {}) {
 	const printCheck = usePrintCheck({
 		scene: () => scene,
 		modelRoot,
-		camera: () => camera,
+		camera: () => cameras.current,
 		controls: () => controls,
 		mmPerUnit: () => 1,
 		filename: () => filename,
 		fileId: () => fileId,
 	})
-	return { scene, root, mesh, camera, controls, modelRoot, printCheck }
+	return { scene, root, mesh, camera, cameras, controls, modelRoot, printCheck }
 }
 
 /** Every object in the scene that is not part of the model. */
@@ -92,14 +95,14 @@ test('open adds overlays to the scene, none under the model root', async () => {
 })
 
 test("a cube that doesn't fit turns the box red", async () => {
-	const { scene, root, printCheck } = setup()
+	const { scene, root, printCheck } = setup({ size: 20 })
 	printCheck.open()
 	printCheck.setPrinter('custom')
-	printCheck.setCustom({ width: 5, depth: 5, height: 5 })
+	printCheck.setCustom({ width: 10, depth: 10, height: 10 })
 	await flush()
 
 	expect(printCheck.fit.value.fits).toBe(false)
-	expect(printCheck.fit.value.over.width).toBeCloseTo(5, 6)
+	expect(printCheck.fit.value.over.width).toBeCloseTo(10, 6)
 	const box = overlays(scene, root).find((object) => object.isLineSegments)
 	expect(box.material.color.getHex()).toBe(0xe53935)
 	expect(savePrintCheckSettings).toHaveBeenCalled()
@@ -279,4 +282,55 @@ test('a model that moved is noticed on the next frame, whatever moved it', () =>
 	jest.advanceTimersByTime(200)
 	expect(printCheck.fit.value.size.width).toBeCloseTo(20, 6)
 	jest.useRealTimers()
+})
+
+test('the thickness colours are cut by the renderer\'s own clipping planes', async () => {
+	const { scene, root, printCheck } = setup({ size: 0.5 })
+	measureThickness.mockResolvedValue([{ thickness: new Float32Array(24).fill(0.5), triangleThickness: new Float32Array(12).fill(0.5), sampled: false }])
+	printCheck.open()
+	await flush()
+	const before = new Set(overlays(scene, root))
+	await printCheck.runThickness()
+	const added = overlays(scene, root).filter((object) => !before.has(object))
+	expect(added).toHaveLength(1)
+	expect(added[0].material.clipping).toBe(true)
+})
+
+test('typed values are kept in range, on screen and when saved', () => {
+	const { printCheck } = setup()
+	printCheck.open()
+	printCheck.setMinThickness(0)
+	expect(printCheck.settings.value.minThickness).toBe(0.1)
+	printCheck.setInfill(500)
+	expect(printCheck.settings.value.infill).toBe(100)
+	printCheck.setCustom({ width: Number.NaN })
+	expect(printCheck.settings.value.custom.width).toBe(PRINT_CHECK_DEFAULTS.custom.width)
+	const saved = savePrintCheckSettings.mock.calls.at(-1)[0]
+	expect(saved.minThickness).toBe(0.1)
+	expect(saved.infill).toBe(100)
+})
+
+test('z up follows a projection toggle, and close puts both cameras back', () => {
+	const { camera, cameras, printCheck } = setup()
+	printCheck.open()
+	printCheck.setUp('z')
+	const other = new THREE.OrthographicCamera()
+	cameras.current = other
+	printCheck.onFrame()
+	expect(other.up.toArray()).toEqual([0, 0, 1])
+	expect(camera.up.toArray()).toEqual([0, 1, 0])
+
+	printCheck.close()
+	expect(other.up.toArray()).toEqual([0, 1, 0])
+	expect(camera.up.toArray()).toEqual([0, 1, 0])
+})
+
+test('close puts the turned camera back even when the projection changed since the last frame', () => {
+	const { camera, cameras, printCheck } = setup()
+	printCheck.open()
+	printCheck.setUp('z')
+	cameras.current = new THREE.OrthographicCamera()
+	printCheck.close()
+	expect(camera.up.toArray()).toEqual([0, 1, 0])
+	expect(cameras.current.up.toArray()).toEqual([0, 1, 0])
 })

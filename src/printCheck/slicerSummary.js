@@ -53,6 +53,15 @@ function numberOf(text) {
 }
 
 /**
+ * @param {string} text - One number per extruder, comma-separated: `1.20, 3.40`
+ * @return {?number} Their sum, or null when one isn't a number
+ */
+function sumOf(text) {
+	const values = text.split(',').map((part) => numberOf(part.trim()))
+	return values.some((value) => value === null) ? null : values.reduce((sum, value) => sum + value, 0)
+}
+
+/**
  * What the slicer wrote about a G-code file.
  *
  * @param {string} text - The file
@@ -101,15 +110,16 @@ export function parseSlicerSummary(text) {
 		}
 
 		if (summary.filamentMm === null) {
-			if ((match = /^;\s*(?:filament used|total filament length) \[mm\]\s*[=:]\s*([\d.]+)/.exec(line))) {
-				summary.filamentMm = numberOf(match[1])
+			// A multi-extruder print lists one value per extruder
+			if ((match = /^;\s*(?:filament used|total filament length) \[mm\]\s*[=:]\s*([\d.]+(?:\s*,\s*[\d.]+)*)/.exec(line))) {
+				summary.filamentMm = sumOf(match[1])
 			} else if ((match = /^;Filament used:\s*([\d.]+)m\b/.exec(line))) {
 				const metres = numberOf(match[1])
 				summary.filamentMm = metres === null ? null : Math.round(metres * 1e6) / 1e3
 			}
 		}
-		if (summary.filamentGrams === null && (match = /^;\s*(?:filament used|total filament weight) \[g\]\s*[=:]\s*([\d.]+)/.exec(line))) {
-			summary.filamentGrams = numberOf(match[1])
+		if (summary.filamentGrams === null && (match = /^;\s*(?:filament used|total filament weight) \[g\]\s*[=:]\s*([\d.]+(?:\s*,\s*[\d.]+)*)/.exec(line))) {
+			summary.filamentGrams = sumOf(match[1])
 		}
 	}
 	return summary

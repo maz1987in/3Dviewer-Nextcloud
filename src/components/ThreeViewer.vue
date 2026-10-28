@@ -2460,23 +2460,38 @@ export default {
 			}
 		})
 
+		// One load for every click that lands while the code is on its way, and none once the
+		// viewer has gone: a second instance would hold overlays the card can't close
+		let printCheckLoading = null
+		let printCheckGone = false
+		const loadPrintCheck = () => {
+			printCheckLoading ??= import('../composables/usePrintCheck.js').then(({ usePrintCheck }) => {
+				if (!printCheckGone) {
+					printCheck.value = markRaw(usePrintCheck({
+						scene,
+						modelRoot,
+						camera: () => camera.camera.value,
+						controls: () => camera.controls.value,
+						mmPerUnit: modelMillimetresPerUnit,
+						filename: () => props.filename,
+						fileId: () => props.fileId,
+					}))
+				}
+				return printCheck.value
+			}, (error) => {
+				// A failed download is tried again on the next click
+				printCheckLoading = null
+				throw error
+			})
+			return printCheckLoading
+		}
+
 		const togglePrintCheck = async () => {
 			if (!printCheckActive.value && comparison.comparisonMode.value) {
 				return
 			}
-			if (!printCheck.value) {
-				const { usePrintCheck } = await import('../composables/usePrintCheck.js')
-				printCheck.value = markRaw(usePrintCheck({
-					scene,
-					modelRoot,
-					camera: () => camera.camera.value,
-					controls: () => camera.controls.value,
-					mmPerUnit: modelMillimetresPerUnit,
-					filename: () => props.filename,
-					fileId: () => props.fileId,
-				}))
-			}
-			printCheck.value.toggle()
+			const check = printCheck.value ?? await loadPrintCheck()
+			check?.toggle()
 		}
 
 		// Hovering the model after a thickness check reads the wall thickness there
@@ -4077,6 +4092,7 @@ export default {
 
 		onBeforeUnmount(() => {
 			// Ends a running print-check worker and takes its overlays out of the scene
+			printCheckGone = true
 			printCheck.value?.dispose()
 			renderer.value?.domElement?.removeEventListener('pointermove', onPrintCheckHover)
 

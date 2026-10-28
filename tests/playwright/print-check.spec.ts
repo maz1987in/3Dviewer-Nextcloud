@@ -58,6 +58,7 @@ const PRUSA_GCODE = [
 
 const MODELS = {
 	cube: { id: 6161, name: 'cube.stl', body: boxesStl([[[0, 0, 0], [10, 10, 10]]]) },
+	cube20: { id: 6666, name: 'cube20.stl', body: boxesStl([[[0, 0, 0], [20, 20, 20]]]) },
 	// An STL is Z-up: a stem 10 high with a bar across its top, whose undersides overhang
 	tee: { id: 6262, name: 'tee.stl', body: boxesStl([[[4, 0, 0], [6, 2, 10]], [[0, 0, 10], [10, 2, 12]]]) },
 	slab: { id: 6363, name: 'slab.stl', body: boxesStl([[[0, 0, 0], [20, 0.5, 20]]]) },
@@ -81,19 +82,19 @@ async function openPrintCheck(page: Page, model: keyof typeof MODELS) {
 	return { errors }
 }
 
-test('a 10 mm cube fits, and a 5 mm custom printer reports 5 mm too wide, deep and tall', async ({ page }) => {
-	const { errors } = await openPrintCheck(page, 'cube')
+test('a 20 mm cube fits, and a 10 mm custom printer reports 10 mm too wide, deep and tall', async ({ page }) => {
+	const { errors } = await openPrintCheck(page, 'cube20')
 	await expect(card(page)).toContainText('Fits the build volume')
 	await expect(card(page)).toContainText("Sizes assume millimetres, because this file doesn't record a unit.")
 
 	await card(page).locator('#print-check-printer').selectOption('custom')
 	for (const side of ['width', 'depth', 'height']) {
-		await card(page).locator(`#print-check-${side}`).fill('5')
+		await card(page).locator(`#print-check-${side}`).fill('10')
 		await card(page).locator(`#print-check-${side}`).dispatchEvent('change')
 	}
-	await expect(card(page)).toContainText('5 mm too wide')
-	await expect(card(page)).toContainText('5 mm too deep')
-	await expect(card(page)).toContainText('5 mm too tall')
+	await expect(card(page)).toContainText('10 mm too wide')
+	await expect(card(page)).toContainText('10 mm too deep')
+	await expect(card(page)).toContainText('10 mm too tall')
 	await expect(panelButton(page)).toHaveAttribute('aria-pressed', 'true')
 	expect(errors).toEqual([])
 })
@@ -202,4 +203,28 @@ test('keyboard: every card control works with Tab, Enter and the arrow keys', as
 	await card(page).getByRole('button', { name: 'Close' }).focus()
 	await page.keyboard.press('Enter')
 	await expect(card(page)).toBeHidden()
+})
+
+test('two quick clicks while print check first loads leave nothing behind once it is closed', async ({ page }) => {
+	// Hold the lazily loaded code back, so both clicks land while it is still on its way
+	await page.route('**/js/*usePrintCheck-*.chunk.mjs', async (route) => {
+		await new Promise((resolve) => setTimeout(resolve, 1500))
+		await route.continue().catch(() => {})
+	})
+	await page.route('**/apps/threedviewer/settings', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ settings: {} }) }))
+	await openViewer(page, server.url, MODELS.cube)
+	await panelButton(page).click()
+	await panelButton(page).click()
+	await page.waitForTimeout(2500)
+	if (await card(page).isVisible()) {
+		await card(page).getByRole('button', { name: 'Close' }).click()
+	}
+	await expect(card(page)).toBeHidden()
+	const overlays = await page.evaluate(() => {
+		const viewer = (window as any).__THREEDVIEWER_APP.$.subTree.component.proxy.$refs.viewer
+		let count = 0
+		viewer.scene.traverse((child: any) => { if (child.userData?.viewerOverlay) count++ })
+		return count
+	})
+	expect(overlays).toBe(0)
 })
