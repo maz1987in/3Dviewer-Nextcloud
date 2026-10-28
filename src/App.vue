@@ -738,14 +738,13 @@ export default {
 		async onCopyBookmarkLink(index) {
 			const viewer = this.$refs.viewer
 			const bookmark = this.bookmarksList[index]
-			const view = viewer?.getViewState?.()
-			if (!bookmark || !view) {
-				await this.copyLink(null)
-				return
-			}
-			const { camera: c, target: t } = bookmark
-			view.camera = { ...view.camera, position: [c.x, c.y, c.z], target: [t.x, t.y, t.z] }
-			await this.copyLink(viewer.viewLinkFor(view))
+			// A bookmark holds the camera in the viewer's scene; the viewer turns it into
+			// the model-relative camera a link holds
+			const view = bookmark && viewer?.getViewState?.({
+				position: [bookmark.camera.x, bookmark.camera.y, bookmark.camera.z],
+				target: [bookmark.target.x, bookmark.target.y, bookmark.target.z],
+			})
+			await this.copyLink(view ? viewer.viewLinkFor(view) : null)
 		},
 		/**
 		 * Copy a public link of this model that opens it from the current angle. A public

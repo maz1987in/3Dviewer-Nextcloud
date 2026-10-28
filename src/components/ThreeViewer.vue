@@ -750,7 +750,14 @@
 				<p v-if="notesReadOnly" class="canvas-panel-hint">
 					{{ t('threedviewer', 'This model is view-only for you, so you can’t add annotations.') }}
 				</p>
-				<p class="canvas-panel-hint">
+				<!-- Opened by a note link: for reading, until the user asks to add notes -->
+				<button v-if="notePlacementHeld && notesCanEdit"
+					type="button"
+					class="canvas-panel-outline"
+					@click="notePlacementHeld = false">
+					{{ t('threedviewer', 'Add notes') }}
+				</button>
+				<p v-else-if="!notePlacementHeld" class="canvas-panel-hint">
 					{{ t('threedviewer', 'Click the model to place a note at that point.') }}
 				</p>
 				<div class="annotation-list">
@@ -880,7 +887,7 @@ import { useAnimation } from '../composables/useAnimation.js'
 import { useClippingPlane } from '../composables/useClippingPlane.js'
 import { applyCameraState } from '../utils/cameraUrlState.js'
 import { copyText } from '../utils/clipboard.js'
-import { buildViewUrl, captureViewState, isUsableTarget, readViewFromUrl } from '../utils/viewLink.js'
+import { buildViewUrl, captureViewState, cameraToScene, isUsableCamera, takeViewFromUrl } from '../utils/viewLink.js'
 import { useLightingPresets } from '../composables/useLightingPresets.js'
 import { useBookmarks } from '../composables/useBookmarks.js'
 import { useExplodedView } from '../composables/useExplodedView.js'
@@ -1517,6 +1524,9 @@ export default {
 
 					// Add the loaded model to the scene first
 					modelRoot.value = markRaw(loadedModel.object3D)
+					// A note a link marked belonged to the previous model
+					highlightedNoteId.value = null
+					notePlacementHeld.value = false
 					scene.value.add(modelRoot.value)
 
 					// Apply current G-code color scheme if applicable
@@ -1608,12 +1618,11 @@ export default {
 					camera.fitCameraToObject(modelRoot.value, newCenter)
 
 					// A view link (utils/viewLink.js) applies to the first model this page
-					// shows, and only once: a reload or the next file frames as usual. Its
+					// shows, and only once: a retry or the next file frames as usual. Its
 					// camera goes on after fitCameraToObject, which would otherwise undo it;
 					// the rest waits until the tools it sets have taken this model.
-					const linkedView = viewLinkConsumed ? null : readViewFromUrl()
-					viewLinkConsumed = true
-					const cameraFromUrl = linkedView ? applyLinkedCamera(linkedView.camera, newBox) : false
+					const linkedView = takeViewFromUrl()
+					const cameraFromUrl = linkedView ? applyLinkedCamera(linkedView, newBox) : false
 
 					// Update grid size
 					updateGridSize(modelRoot.value)
@@ -2241,7 +2250,7 @@ export default {
 			}
 
 			// Handle annotation clicks
-			if (annotation.isActive.value) {
+			if (annotation.isActive.value && !notePlacementHeld.value) {
 				annotation.handleClick(event, camera.camera.value)
 			}
 		}
@@ -2383,32 +2392,45 @@ export default {
 
 		// The shared note a link points at, set when one is opened from a link or copied
 		const highlightedNoteId = ref(null)
-		// A view link is read once per page (see the load path)
-		let viewLinkConsumed = false
+		// While a note link has the Annotations panel open for reading, a click on the
+		// model places nothing until the user asks to add notes
+		const notePlacementHeld = ref(false)
 
 		/**
-		 * Put the camera where a view link says, in the projection it names. Skipped when
-		 * the link aims well away from the model, which then keeps the usual framing.
+		 * Put the camera where a view link says, in the projection it names. The link holds
+		 * it relative to the model (an older `cam=` link, in this viewer's scene). Skipped
+		 * when it no longer frames the model, which then keeps the usual framing.
 		 *
-		 * @param {object} linked - a ViewState's camera
+		 * @param {object} view - a ViewState
 		 * @param {object} box - THREE.Box3 of the model as placed
 		 * @return {boolean} whether the camera was set
 		 */
-		const applyLinkedCamera = (linked, box) => {
-			if (!camera.camera?.value || !camera.controls?.value || !isUsableTarget(linked.target, box)) return false
+		const applyLinkedCamera = (view, box) => {
+			if (!camera.camera?.value || !camera.controls?.value || !modelRoot.value) return false
+			const linked = view.camera
+			const { position, target } = view.inScene ? linked : cameraToScene(linked, modelRoot.value)
+			if (!isUsableCamera(position, target, box)) return false
 			// Projection first: switching it afterwards would recompute the zoom
 			if ((linked.projection === 'orthographic') !== !!camera.camera.value.isOrthographicCamera) {
 				camera.toggleCameraProjection()
 			}
-			const [px, py, pz] = linked.position
-			const [tx, ty, tz] = linked.target
+			const [px, py, pz] = position
+			const [tx, ty, tz] = target
 			const applied = applyCameraState(camera.camera.value, camera.controls.value, {
 				position: { x: px, y: py, z: pz },
 				target: { x: tx, y: ty, z: tz },
 				zoom: linked.zoom,
 			})
-			if (applied) logger.info('ThreeViewer', 'Camera set from a view link')
-			return applied
+			if (!applied) return false
+			// The fit set the clipping range for its own distance, as fitCameraToObject does
+			const distance = camera.camera.value.position.distanceTo(camera.controls.value.target)
+			if (distance > 0 && !camera.camera.value.isOrthographicCamera) {
+				camera.camera.value.near = distance / 100
+				camera.camera.value.far = distance * 100
+				camera.camera.value.updateProjectionMatrix()
+			}
+			logger.info('ThreeViewer', 'Camera set from a view link')
+			return true
 		}
 
 		/**
@@ -2448,11 +2470,16 @@ export default {
 		/**
 		 * The view this viewer is showing, as a link records it.
 		 *
+		 * @param {{position: number[], target: number[]}|null} [at] - another camera place,
+		 *   in this viewer's scene (a bookmark's); the current camera's by default
 		 * @return {object|null} a ViewState (utils/viewLink.js), null before a model is shown
 		 */
-		const getViewState = () => captureViewState({
-			camera: camera.camera?.value,
-			controls: camera.controls?.value,
+		const getViewState = (at = null) => captureViewState({
+			camera: at && camera.camera?.value
+				? { position: new THREE.Vector3(...at.position), zoom: camera.camera.value.zoom, isOrthographicCamera: camera.camera.value.isOrthographicCamera }
+				: camera.camera?.value,
+			controls: at ? { target: new THREE.Vector3(...at.target) } : camera.controls?.value,
+			model: modelRoot.value,
 			renderMode: renderMode.mode.value,
 			wireframe: props.wireframe,
 			lightingPreset: lightingPresets.currentPreset.value,
@@ -2533,8 +2560,9 @@ export default {
 		 */
 		const focusLinkedNote = async (noteId) => {
 			if (!annotation.annotations.value.some((a) => a.meta?.noteId === noteId)) return
-			highlightedNoteId.value = noteId
 			if (!annotation.isActive.value) toggleAnnotationMode()
+			highlightedNoteId.value = noteId
+			notePlacementHeld.value = true
 			await nextTick()
 			const card = container.value?.querySelector(`.annotation-item[data-note-id="${noteId}"]`)
 			card?.scrollIntoView?.({ block: 'nearest' })
@@ -2568,10 +2596,7 @@ export default {
 		}
 
 		const closeMeasurementPanel = () => toggleMeasurementMode()
-		const closeAnnotationPanel = () => {
-			highlightedNoteId.value = null
-			toggleAnnotationMode()
-		}
+		const closeAnnotationPanel = () => toggleAnnotationMode()
 
 		const toggleAnnotationMode = () => {
 		// If turning annotation ON, turn measurement OFF
@@ -2596,7 +2621,14 @@ export default {
 		 * copy behind. Both happened. One watcher per mode says what is true.
 		 */
 		watch(() => measurement.isActive.value, (active) => emit('measurement-active', active))
-		watch(() => annotation.isActive.value, (active) => emit('annotation-active', active))
+		watch(() => annotation.isActive.value, (active) => {
+			emit('annotation-active', active)
+			// However the panel closes, what a link marked in it ends with it
+			if (!active) {
+				highlightedNoteId.value = null
+				notePlacementHeld.value = false
+			}
+		})
 		watch(() => comparison.comparisonMode.value, (active) => emit('comparison-active', active))
 
 		// Print check: fit, overhangs, filament and wall thickness for the open model. Loaded
@@ -4555,6 +4587,7 @@ export default {
 			getViewState,
 			viewLinkFor,
 			highlightedNoteId,
+			notePlacementHeld,
 			isSharedNote,
 			isHighlightedNote,
 			onAnnotationCardClick,

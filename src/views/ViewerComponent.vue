@@ -149,7 +149,7 @@ import { awaitStatusBeforeDownload, scheduleCapture } from '../thumbnails/captur
 import { useScreenshot } from '../composables/useScreenshot.js'
 import { logger } from '../utils/logger.js'
 import { computeCameraFit } from '../thumbnails/cameraFit.js'
-import { buildViewUrl, isUsableTarget, readViewFromUrl, viewerLinkBase } from '../utils/viewLink.js'
+import { buildViewUrl, cameraFromScene, cameraToScene, isUsableCamera, takeViewFromUrl, viewerLinkBase } from '../utils/viewLink.js'
 import { copyText } from '../utils/clipboard.js'
 
 export default {
@@ -220,8 +220,8 @@ export default {
 
 	data() {
 		return {
-			// A view link (utils/viewLink.js) is read once, for the first model shown
-			viewLinkConsumed: false,
+			// The model a view link's camera is held relative to (utils/viewLink.js)
+			linkModel: null,
 			linkCopied: false,
 			linkStatus: '',
 			scene: null,
@@ -1150,6 +1150,8 @@ export default {
 					distance: cameraDistance.toFixed(2),
 				})
 
+				// What a link's camera is held relative to, and copied relative to
+				this.linkModel = markRaw(object)
 				this.applyLinkedCamera(box)
 			} catch (error) {
 				logger.error('ViewerComponent', 'Failed to fit camera to model', error)
@@ -1157,21 +1159,25 @@ export default {
 		},
 
 		/**
-		 * Put the camera where a view link says, the first time a model is shown. This
-		 * viewer has no shading modes, cut or exploded view, so the camera is all of a link
-		 * it applies; and it draws in perspective only, so an orthographic link's zoom is
-		 * left out. A link aiming well away from the model keeps the usual framing.
+		 * Put the camera where a view link says, the first time this page shows a model
+		 * (utils/viewLink.js). This viewer has no shading modes, cut or exploded view, so
+		 * the camera is all of a link it applies; and it draws in perspective only, so an
+		 * orthographic link's zoom is left out. The link holds the camera relative to the
+		 * model; an older `cam=` link was in the full viewer's scene, which this viewer
+		 * doesn't share, so it is left alone, as it always was here. A camera that no
+		 * longer frames the model keeps the usual framing.
 		 *
 		 * @param {object} box - THREE.Box3 of the model
 		 */
 		applyLinkedCamera(box) {
-			if (this.viewLinkConsumed) return
-			this.viewLinkConsumed = true
-			const linked = readViewFromUrl()?.camera
-			if (!linked || !isUsableTarget(linked.target, box)) return
-			this.camera.position.set(...linked.position)
-			this.controls?.target.set(...linked.target)
-			this.camera.lookAt(...linked.target)
+			const view = takeViewFromUrl()
+			if (!view || view.inScene || !this.linkModel) return
+			const linked = view.camera
+			const { position, target } = cameraToScene(linked, this.linkModel)
+			if (!isUsableCamera(position, target, box)) return
+			this.camera.position.set(...position)
+			this.controls?.target.set(...target)
+			this.camera.lookAt(...target)
 			if (linked.projection === 'perspective') this.camera.zoom = linked.zoom
 			// The fit set the clipping range for its own distance
 			const distance = this.camera.position.distanceTo(this.controls?.target ?? this.camera.position)
@@ -1189,15 +1195,8 @@ export default {
 		 * visitor, the full viewer for a logged-in user.
 		 */
 		async copyViewLink() {
-			if (!this.camera) return
-			const view = {
-				camera: {
-					position: this.camera.position.toArray(),
-					target: (this.controls?.target ?? this.camera.position).toArray(),
-					zoom: this.camera.zoom,
-					projection: 'perspective',
-				},
-			}
+			if (!this.camera || !this.controls) return
+			const view = { camera: cameraFromScene(this.camera, this.controls, this.linkModel) }
 			const base = viewerLinkBase({ isPublic: this.isPublic, pageUrl: window.location.href, origin: window.location.origin, fileId: this.fileid })
 			try {
 				await copyText(buildViewUrl(base, view))
@@ -1210,6 +1209,10 @@ export default {
 				}, 2000)
 			} catch (error) {
 				logger.error('ViewerComponent', 'Failed to copy a view link', error)
+				this.linkCopied = false
+				// Emptied first, so a second failure is a change a screen reader announces
+				this.linkStatus = ''
+				await this.$nextTick()
 				this.linkStatus = this.t('threedviewer', 'Copy failed')
 			}
 		},

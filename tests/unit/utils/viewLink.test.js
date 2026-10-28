@@ -3,7 +3,7 @@
  * link was typed or edited by someone, so nothing in it is trusted until it is checked.
  */
 import * as THREE from 'three'
-import { encodeView, decodeView, readViewFromUrl, buildViewUrl, isUsableTarget, viewerLinkBase, VIEW_PARAM, VIEW_VERSION } from '../../../src/utils/viewLink.js'
+import { encodeView, decodeView, readViewFromUrl, buildViewUrl, isUsableTarget, isUsableCamera, viewerLinkBase, cameraToScene, takeViewFromUrl, captureViewState, VIEW_PARAM, VIEW_VERSION } from '../../../src/utils/viewLink.js'
 
 const full = {
 	camera: { position: [1.23456, 2, 3], target: [0, 0.5, 0], zoom: 1, projection: 'orthographic' },
@@ -90,8 +90,14 @@ describe('a view in a link', () => {
 })
 
 describe('reading the view from the page URL', () => {
-	it('reads the legacy cam parameter', () => {
-		expect(readViewFromUrl('?cam=1,2,3,0,0,0,1').camera).toEqual({ position: [1, 2, 3], target: [0, 0, 0], zoom: 1, projection: 'perspective' })
+	it('reads the legacy cam parameter, which is in the full viewer\'s scene', () => {
+		const view = readViewFromUrl('?cam=1,2,3,0,0,0,1')
+		expect(view.camera).toEqual({ position: [1, 2, 3], target: [0, 0, 0], zoom: 1, projection: 'perspective' })
+		expect(view.inScene).toBe(true)
+	})
+
+	it('reads a view link as relative to the model', () => {
+		expect(readViewFromUrl(`?view=${encodeView(full)}`).inScene).toBeUndefined()
 	})
 
 	it('prefers view over cam', () => {
@@ -148,5 +154,73 @@ describe('where a link from the light viewer points', () => {
 	it('is the full viewer for a logged-in user in Files', () => {
 		expect(viewerLinkBase({ isPublic: false, pageUrl: 'https://cloud.test/apps/files/files/7?openfile=true', origin: 'https://cloud.test', fileId: 7 }))
 			.toBe('https://cloud.test/index.php/apps/threedviewer/f/7')
+	})
+})
+
+describe('the camera, relative to the model', () => {
+	// The full viewer moves a model to the middle of the scene; the light viewer leaves it
+	// where the file puts it. A link holds the camera relative to the model, so it means
+	// the same in both.
+	const placed = (x, y, z) => {
+		const model = new THREE.Group()
+		model.position.set(x, y, z)
+		model.updateMatrixWorld(true)
+		return model
+	}
+	const camera = () => {
+		const c = new THREE.PerspectiveCamera(50, 1, 0.1, 1000)
+		c.position.set(10, 20, 30)
+		return c
+	}
+	const base = {
+		renderMode: 'standard', wireframe: false, lightingPreset: 'default',
+		clipping: { isActive: false }, exploded: { isActive: false, factor: 0 }, highlightedNoteId: null,
+	}
+
+	it('is captured relative to where the model sits', () => {
+		const view = captureViewState({ ...base, camera: camera(), controls: { target: new THREE.Vector3(1, 2, 3) }, model: placed(-100, 0, 0) })
+		expect(view.camera.position).toEqual([110, 20, 30])
+		expect(view.camera.target).toEqual([101, 2, 3])
+	})
+
+	it('is put back in the scene of a viewer that placed the model elsewhere', () => {
+		const linked = { position: [110, 20, 30], target: [101, 2, 3], zoom: 1, projection: 'perspective' }
+		expect(cameraToScene(linked, placed(0, 0, 0))).toEqual({ position: [110, 20, 30], target: [101, 2, 3] })
+		expect(cameraToScene(linked, placed(-100, 0, 0))).toEqual({ position: [10, 20, 30], target: [1, 2, 3] })
+	})
+
+	it('follows a rotated model too', () => {
+		const model = placed(0, 0, 0)
+		model.rotation.set(-Math.PI / 2, 0, 0)
+		model.updateMatrixWorld(true)
+		const view = captureViewState({ ...base, camera: camera(), controls: { target: new THREE.Vector3(0, 5, 0) }, model })
+		const back = cameraToScene(view.camera, model)
+		back.position.forEach((n, i) => expect(n).toBeCloseTo([10, 20, 30][i], 4))
+		back.target.forEach((n, i) => expect(n).toBeCloseTo([0, 5, 0][i], 4))
+	})
+})
+
+describe('whether a linked camera still frames the model', () => {
+	const box = new THREE.Box3(new THREE.Vector3(0, 0, 0), new THREE.Vector3(10, 10, 10))
+
+	it('takes a camera at a sensible distance', () => {
+		expect(isUsableCamera([5, 5, 30], [5, 5, 5], box)).toBe(true)
+	})
+
+	it('refuses a camera much too far for the model, or inside a point of it', () => {
+		expect(isUsableCamera([5, 5, 5 + 2000], [5, 5, 5], box)).toBe(false)
+		expect(isUsableCamera([5, 5, 5.05], [5, 5, 5], box)).toBe(false)
+	})
+
+	it('refuses a target off the model, as isUsableTarget does', () => {
+		expect(isUsableCamera([100, 5, 5], [80, 5, 5], box)).toBe(false)
+	})
+})
+
+describe('reading the view once per page', () => {
+	it('hands the view out once: the next viewer on the page frames as usual', () => {
+		const search = `?view=${encodeView(full)}`
+		expect(takeViewFromUrl(search)).not.toBeNull()
+		expect(takeViewFromUrl(search)).toBeNull()
 	})
 })

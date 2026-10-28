@@ -84,14 +84,20 @@
 								<!-- The same view on a public link this user manages: the camera only,
 								     which is all a public page applies. With several, they choose. -->
 								<template v-if="modelLoaded && publicShares.length > 0">
-									<button class="tool-btn"
+									<button ref="publicLinkOpener"
+										class="tool-btn"
 										:aria-expanded="publicShares.length > 1 ? String(showShareChoices) : undefined"
+										:aria-controls="publicShares.length > 1 ? 'public-link-choices' : undefined"
 										:title="t('threedviewer', 'Copy the public link, opening the model from this angle')"
 										@click="onCopyPublicLink">
 										<ViewerIcon class="tool-icon" name="copyLink" :size="17" />
 										<span class="tool-label">{{ t('threedviewer', 'Copy public link to this view') }}</span>
 									</button>
-									<div v-if="showShareChoices && publicShares.length > 1" class="bookmark-list public-link-choices">
+									<!-- Escape closes the list only, not the whole panel -->
+									<div v-if="showShareChoices && publicShares.length > 1"
+										id="public-link-choices"
+										class="bookmark-list public-link-choices"
+										@keydown.esc.stop="closeShareChoices">
 										<button v-for="share in publicShares"
 											:key="share.id"
 											class="bookmark-name"
@@ -114,7 +120,7 @@
 											<button class="bookmark-name" @click="emit('load-bookmark', i)">
 												{{ bm.name }}
 											</button>
-											<button class="bookmark-delete"
+											<button class="bookmark-link"
 												:title="t('threedviewer', 'Copy link')"
 												:aria-label="`${t('threedviewer', 'Copy link')}: ${bm.name}`"
 												@click="emit('copy-bookmark-link', i)">
@@ -1043,6 +1049,12 @@ export default {
 			}
 		}
 
+		const publicLinkOpener = ref(null)
+		const closeShareChoices = () => {
+			showShareChoices.value = false
+			publicLinkOpener.value?.focus()
+		}
+
 		const chooseShare = (id) => {
 			showShareChoices.value = false
 			emit('copy-public-view-link', id)
@@ -1053,6 +1065,8 @@ export default {
 		return {
 			t,
 			showShareChoices,
+			publicLinkOpener,
+			closeShareChoices,
 			onCopyPublicLink,
 			chooseShare,
 			formatShareDate,
@@ -1561,6 +1575,24 @@ export default {
 }
 
 .bookmark-name.bookmark-name:hover { background: var(--tdv-color-hover-bg); }
+
+/* Copy link sits beside Remove and must not look like it: no red on hover */
+.bookmark-link.bookmark-link {
+	display: inline-flex;
+	align-items: center;
+	padding: 2px 6px;
+	border: none;
+	border-radius: 4px;
+	background: transparent;
+	color: var(--tdv-color-text-secondary);
+	cursor: pointer;
+}
+
+.bookmark-link.bookmark-link:hover,
+.bookmark-link.bookmark-link:focus-visible {
+	background: var(--tdv-color-hover-bg);
+	color: var(--tdv-color-text);
+}
 
 .bookmark-delete.bookmark-delete {
 	background: transparent;

@@ -10,10 +10,15 @@
  * A camera that fails the check rejects the whole view; any other field that fails is
  * dropped and the rest still applies.
  *
+ * The camera is held relative to the model, not to a viewer's scene: the full viewer
+ * moves a model to the middle of its scene and the light viewer leaves it where the file
+ * puts it, so a position in either scene would aim the other at the wrong place.
+ *
  * The older `cam=` links, which carried the camera alone, are still read
- * (`cameraUrlState.js`).
+ * (`cameraUrlState.js`). Those were in the full viewer's scene, and say so (`inScene`).
  */
 
+import { Vector3 } from 'three'
 import { generateUrl } from '@nextcloud/router'
 import { parseCameraState, CAMERA_URL_PARAM } from './cameraUrlState.js'
 import { LIGHTING_PRESETS } from '../config/lightingPresets.js'
@@ -168,6 +173,63 @@ export function readViewFromUrl(search = (typeof window !== 'undefined' ? window
 			zoom: clamp(legacy.zoom, ZOOM_RANGE),
 			projection: 'perspective',
 		},
+		inScene: true,
+	}
+}
+
+// A page shows one model from a link; whichever viewer asks first takes it
+let viewTaken = false
+
+/**
+ * The page's view link, handed out once. A viewer opening its next model, or a second
+ * viewer on the same page, gets null and frames as usual, though the link stays in the
+ * address bar.
+ *
+ * @param {string} [search] - a query string; the page's own by default
+ * @return {ViewState|null}
+ */
+export function takeViewFromUrl(search) {
+	if (viewTaken) return null
+	viewTaken = true
+	return readViewFromUrl(search)
+}
+
+/**
+ * The camera as a link holds it: relative to the model.
+ *
+ * @param {object} camera - THREE camera
+ * @param {object} controls - OrbitControls (needs `.target`)
+ * @param {object} [model] - the model's root object; without it, the scene is the frame
+ * @return {object} a ViewState's camera
+ */
+export function cameraFromScene(camera, controls, model) {
+	const position = camera.position.clone()
+	const target = controls.target.clone()
+	if (model) {
+		model.updateWorldMatrix(true, false)
+		model.worldToLocal(position)
+		model.worldToLocal(target)
+	}
+	return {
+		position: position.toArray(),
+		target: target.toArray(),
+		zoom: typeof camera.zoom === 'number' ? camera.zoom : 1,
+		projection: camera.isOrthographicCamera ? 'orthographic' : 'perspective',
+	}
+}
+
+/**
+ * A linked camera, put into the scene of a viewer that placed the model as `model` is.
+ *
+ * @param {object} linked - a ViewState's camera
+ * @param {object} model - the model's root object
+ * @return {{position: number[], target: number[]}}
+ */
+export function cameraToScene(linked, model) {
+	model.updateWorldMatrix(true, false)
+	return {
+		position: model.localToWorld(new Vector3(...linked.position)).toArray(),
+		target: model.localToWorld(new Vector3(...linked.target)).toArray(),
 	}
 }
 
@@ -190,12 +252,32 @@ export function isUsableTarget(target, box) {
 }
 
 /**
+ * Whether a linked camera still frames the model: its target near the model, and the
+ * camera within a hundredth and a hundred times the model's size of it. A model scaled
+ * since the link was made can put a camera inside it or out where it is a speck.
+ *
+ * @param {number[]} position - [x, y, z], in the viewer's scene
+ * @param {number[]} target - [x, y, z], in the viewer's scene
+ * @param {object} box - THREE.Box3 of the model as placed
+ * @return {boolean}
+ */
+export function isUsableCamera(position, target, box) {
+	if (!isUsableTarget(target, box)) return false
+	if (!box || box.isEmpty()) return true
+	const size = box.getSize(box.min.clone())
+	const extent = Math.max(size.x, size.y, size.z)
+	const distance = Math.hypot(position[0] - target[0], position[1] - target[1], position[2] - target[2])
+	return extent <= 0 || (distance >= extent / 100 && distance <= extent * 100)
+}
+
+/**
  * The view the full viewer is showing. The cut and the exploded view are included only
  * while they are on, so a link never switches on a tool its sender had off.
  *
  * @param {object} state - plain values, read from the viewer's composables
  * @param {object|null} state.camera - THREE camera
  * @param {object|null} state.controls - OrbitControls (needs `.target`)
+ * @param {object} [state.model] - the model's root object, which the camera is held relative to
  * @param {string} state.renderMode
  * @param {boolean} state.wireframe
  * @param {string} state.lightingPreset
@@ -204,15 +286,10 @@ export function isUsableTarget(target, box) {
  * @param {number|null} state.highlightedNoteId
  * @return {ViewState|null} null without a camera
  */
-export function captureViewState({ camera, controls, renderMode, wireframe, lightingPreset, clipping, exploded, highlightedNoteId }) {
+export function captureViewState({ camera, controls, model, renderMode, wireframe, lightingPreset, clipping, exploded, highlightedNoteId }) {
 	if (!camera?.position || !controls?.target) return null
 	const view = {
-		camera: {
-			position: camera.position.toArray(),
-			target: controls.target.toArray(),
-			zoom: typeof camera.zoom === 'number' ? camera.zoom : 1,
-			projection: camera.isOrthographicCamera ? 'orthographic' : 'perspective',
-		},
+		camera: cameraFromScene(camera, controls, model),
 		renderMode,
 		wireframe: !!wireframe,
 		lighting: lightingPreset,
