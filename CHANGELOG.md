@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Compare a model with an earlier version of the same file: pick one of the versions Nextcloud kept, and see the two side by side with what changed, or the earlier one as a see-through ghost over the current one. Supporting files such as textures are loaded as they are now.
+
 ## [3.8.1] - 2026-10-27
 
 Thumbnails made in the viewer now show the model as its file has it, whatever wireframe, exploded view, transform or animation state the viewer was in, and exports from exploded view have the parts together. The top bar stays usable while a model loads, and every control in the tools panel works from the keyboard and is announced to screen readers. Textures named by a path above the model's folder, such as `..\..\textures\wood.jpg`, are found beside the model. Every route that changes data now checks Nextcloud's request token.
