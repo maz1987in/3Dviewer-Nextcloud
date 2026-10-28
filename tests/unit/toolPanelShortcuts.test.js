@@ -14,7 +14,7 @@
 
 const { readFileSync } = require('fs')
 const { join } = require('path')
-const { TOOL_SHORTCUTS, isShortcutBlocked, shortcutFor, shortcutKey } = require('../../src/utils/toolShortcuts.js')
+const { TOOL_SHORTCUTS, isShortcutBlocked, shortcutFor, shortcutKey, hasOpenModal } = require('../../src/utils/toolShortcuts.js')
 
 const PANEL = readFileSync(
 	join(__dirname, '..', '..', 'src', 'components', 'SlideOutToolPanel.vue'),
@@ -99,6 +99,54 @@ describe('what a keypress resolves to', () => {
 		expect(isShortcutBlocked(keydown('t', { target: document.createElement('input') }))).toBe(true)
 		expect(isShortcutBlocked(keydown('t', { target: document.createElement('button') }))).toBe(false)
 		expect(PANEL).toContain('isShortcutBlocked(event)')
+	})
+
+	it('leaves a key pressed inside a modal dialog to the dialog', () => {
+		const dialog = document.createElement('div')
+		dialog.setAttribute('role', 'dialog')
+		dialog.setAttribute('aria-modal', 'true')
+		const button = document.createElement('button')
+		dialog.appendChild(button)
+		document.body.appendChild(dialog)
+		expect(isShortcutBlocked(keydown('s', { target: button }))).toBe(true)
+		expect(shortcutFor(keydown('s', { target: button }))).toBeNull()
+		dialog.remove()
+	})
+
+	it('leaves every key alone while a modal dialog is open, wherever the focus has gone', () => {
+		const dialog = document.createElement('div')
+		dialog.setAttribute('role', 'dialog')
+		dialog.setAttribute('aria-modal', 'true')
+		document.body.appendChild(dialog)
+		expect(isShortcutBlocked(keydown('s', { target: document.body }))).toBe(true)
+		expect(shortcutFor(keydown('r', { target: document.body }))).toBeNull()
+		dialog.remove()
+		expect(shortcutFor(keydown('r', { target: document.body }))).not.toBeNull()
+	})
+
+	it('lets a modal keep the one shortcut that closes it: ? closes Help', () => {
+		const dialog = document.createElement('div')
+		dialog.setAttribute('role', 'dialog')
+		dialog.setAttribute('aria-modal', 'true')
+		dialog.dataset.shortcut = 'toggle-help'
+		const button = document.createElement('button')
+		dialog.appendChild(button)
+		document.body.appendChild(dialog)
+		expect(shortcutFor(keydown('?', { target: button }))).toBe('toggle-help')
+		expect(shortcutFor(keydown('s', { target: button }))).toBeNull()
+		dialog.remove()
+		const HELP = readFileSync(join(__dirname, '..', '..', 'src', 'components', 'HelpPanel.vue'), 'utf8')
+		expect(HELP).toContain('data-shortcut="toggle-help"')
+	})
+
+	it('leaves Escape to an open modal dialog: the tools panel behind it stays open', () => {
+		const dialog = document.createElement('div')
+		dialog.setAttribute('aria-modal', 'true')
+		document.body.appendChild(dialog)
+		expect(hasOpenModal()).toBe(true)
+		dialog.remove()
+		expect(hasOpenModal()).toBe(false)
+		expect(PANEL).toContain("event.key === 'Escape' && isOpen.value && !hasOpenModal()")
 	})
 
 	it('leaves a key it does not know alone', () => {

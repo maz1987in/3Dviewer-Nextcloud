@@ -54,6 +54,7 @@
     "occt-import-js": "^0.0.23",
     "rhino3dm": "8.35.0",
     "three": "^0.186.0",
+    "three-mesh-bvh": "^0.9.16",
     "vue": "^3.5.33",
     "vue-material-design-icons": "^5.4.0",
     "web-ifc": "^0.0.78"
@@ -115,6 +116,9 @@
     "testPathIgnorePatterns": [
       "<rootDir>/tests/playwright/",
       "<rootDir>/tests/smoke/"
+    ],
+    "modulePathIgnorePatterns": [
+      "<rootDir>/.claude/"
     ]
   }
 }

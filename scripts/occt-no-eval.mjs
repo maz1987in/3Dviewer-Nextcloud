@@ -87,25 +87,34 @@ export function stripDynamicExecution(code) {
 /**
  * Vite plugin applying {@link stripDynamicExecution} to the glue as it is bundled.
  *
+ * @param {object} [options] - Options
+ * @param {?RegExp} [options.exemptEntry] - A build of a module matching this has no glue
+ *   to rewrite and is not expected to: the print-check worker, which shares the worker
+ *   plugins with the thumbnail worker but bundles no loader that uses OCCT
  * @return {import('vite').Plugin}
  */
-export function occtNoEval() {
+export function occtNoEval({ exemptEntry = null } = {}) {
 	let applied = false
+	let exempt = false
 	return {
 		name: 'threedviewer:occt-no-eval',
 		enforce: 'pre',
 		buildStart() {
 			applied = false
+			exempt = false
 		},
 		// Matching on a path can stop matching — the package moves its entry point, or a
 		// bundler change alters the id — and a rewrite that silently never runs ships
 		// exactly the bug it exists to prevent, behind a green build.
 		buildEnd(error) {
-			if (!error && !applied) {
+			if (!error && !applied && !exempt) {
 				throw new Error('occt-no-eval: the occt-import-js glue was never seen during the build, so it was not rewritten.')
 			}
 		},
 		transform(code, id) {
+			if (exemptEntry?.test(id)) {
+				exempt = true
+			}
 			// The id must end at `.js`: the CommonJS plugin also emits proxy modules under
 			// the same path with a `?commonjs-…` query, and those hold no glue.
 			if (!/[\\/]occt-import-js[\\/]dist[\\/]occt-import-js\.js$/.test(id)) {

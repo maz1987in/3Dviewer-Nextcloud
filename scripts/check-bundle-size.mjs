@@ -21,8 +21,9 @@ const BUDGETS = [
   // imported from here; the rest is not loaded until a folder shows a model. The bytes are
   // its import and preload entries: filesPage, plus dependencyCache, thumbnailApi and
   // errors, which Rollup now splits out of the viewer's chunks because filesQueue.js
-  // shares them.
-  { pattern: /^threedviewer-main\.mjs$/, name: 'main', maxRaw: 5700, maxGzip: 2000 },
+  // shares them. 5800 and 2100 since version comparison: the viewer chunk names one more
+  // dependency in its preload list, which this file carries (+13 B raw at the time).
+  { pattern: /^threedviewer-main\.mjs$/, name: 'main', maxRaw: 5800, maxGzip: 2100 },
   { pattern: /^gltf-.*\.chunk\.mjs$/, name: 'gltf-loader', maxRaw: 22000, maxGzip: 6000 }, // GLTF loader chunk (includes decoder worker pool tuning via setWorkerLimit)
   // Main app component. Bumped 360 KB → 370 KB in v3.3.0 for the 9 new viewer-config
   // entries, and unchanged by the redesign: replacing every emoji control with a Material
@@ -44,6 +45,10 @@ const BUDGETS = [
   // 81 bytes over the first time this actually matched it.
   { pattern: /^index-.*\.chunk\.mjs$/, name: 'index', largest: true, maxRaw: 1080000, maxGzip: 295000 },
   { pattern: /^NcSelect-.*\.chunk\.mjs$/, name: 'nc-select', maxRaw: 1250000, maxGzip: 320000 }, // Nextcloud Select component
+  // The print-check worker: the closed-model test and the wall-thickness check, with
+  // three-mesh-bvh and the parts of three.js they use. Loaded only when someone opens Print
+  // check. 142.1 KB raw / 41.3 KB gzip when added, budgeted at that plus 10%.
+  { pattern: /^print-check-worker-[\w-]+\.mjs$/, name: 'print-check-worker', maxRaw: 156000, maxGzip: 45500 },
 ];
 
 const buildDir = path.resolve(process.cwd(), 'js');

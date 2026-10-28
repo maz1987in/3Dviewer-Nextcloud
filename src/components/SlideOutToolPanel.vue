@@ -198,6 +198,14 @@
 									<span class="tool-label">{{ t('threedviewer', 'Comparison') }}</span>
 									<span v-if="comparisonMode" class="active-badge">{{ t('threedviewer', 'Active') }}</span>
 								</button>
+								<button v-if="canCompareVersions"
+									type="button"
+									class="tool-btn feature-btn"
+									:disabled="!modelLoaded || comparisonMode"
+									@click="emit('compare-version')">
+									<ViewerIcon class="tool-icon" name="history" :size="17" />
+									<span class="tool-label">{{ t('threedviewer', 'Compare with earlier version') }}</span>
+								</button>
 								<!-- Clipping Plane / Cross-Section -->
 								<button class="tool-btn feature-btn"
 									:class="{ 'active': clippingActive }"
@@ -206,6 +214,16 @@
 									<ViewerIcon class="tool-icon" name="crossSection" :size="17" />
 									<span class="tool-label">{{ t('threedviewer', 'Cross-Section') }}</span>
 									<span v-if="clippingActive" class="active-badge">{{ t('threedviewer', 'Active') }}</span>
+								</button>
+								<button type="button"
+									class="tool-btn feature-btn"
+									:class="{ 'active': printCheckActive }"
+									:aria-pressed="printCheckActive ? 'true' : 'false'"
+									:disabled="!modelLoaded || comparisonMode"
+									@click="emit('toggle-print-check')">
+									<ViewerIcon class="tool-icon" name="printer3d" :size="17" />
+									<span class="tool-label">{{ t('threedviewer', 'Print check') }}</span>
+									<span v-if="printCheckActive" class="active-badge">{{ t('threedviewer', 'Active') }}</span>
 								</button>
 								<div v-if="clippingActive" class="clipping-controls">
 									<!-- Mode switch: single plane vs 6-plane box -->
@@ -471,6 +489,14 @@
 									<span class="tool-label">{{ t('threedviewer', 'Screenshot') }}</span>
 									<span class="tool-hint">{{ shortcutKey('take-screenshot') }}</span>
 								</button>
+								<button type="button"
+									class="tool-btn"
+									:disabled="!modelLoaded || !canRecordVideo"
+									:title="canRecordVideo ? undefined : t('threedviewer', 'This browser can\'t record video')"
+									@click="emit('record-turntable')">
+									<ViewerIcon class="tool-icon" name="videoRecord" :size="17" />
+									<span class="tool-label">{{ t('threedviewer', 'Record turntable') }}</span>
+								</button>
 								<!--
 									Choosing a format does not start an export: a change of setting must not
 									have an effect the user was not told of (WCAG 3.2.2). Arrowing through the
@@ -642,7 +668,7 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import ViewerIcon from './ViewerIcon.vue'
 import ToggleSwitchRow from './ToggleSwitchRow.vue'
-import { isShortcutBlocked, shortcutFor, shortcutKey } from '../utils/toolShortcuts.js'
+import { isShortcutBlocked, shortcutFor, shortcutKey, hasOpenModal } from '../utils/toolShortcuts.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
 // eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
 import { translate as t } from '@nextcloud/l10n'
@@ -669,6 +695,11 @@ export default {
 		measurementMode: { type: Boolean, default: false },
 		annotationMode: { type: Boolean, default: false },
 		comparisonMode: { type: Boolean, default: false },
+		// False on a public link, where Nextcloud lists no versions
+		canCompareVersions: { type: Boolean, default: false },
+		printCheckActive: { type: Boolean, default: false },
+		// False where MediaRecorder or canvas streams are missing
+		canRecordVideo: { type: Boolean, default: false },
 		transformGizmoActive: { type: Boolean, default: false },
 		transformGizmoMode: { type: String, default: 'translate' },
 		modelLoaded: { type: Boolean, default: false },
@@ -748,6 +779,8 @@ export default {
 		'toggle-measurement',
 		'toggle-annotation',
 		'toggle-comparison',
+		'compare-version',
+		'toggle-print-check',
 		'toggle-transform-gizmo',
 		'set-transform-mode',
 		'reset-transform',
@@ -757,6 +790,7 @@ export default {
 		'reset-palette',
 		'toggle-stats',
 		'take-screenshot',
+		'record-turntable',
 		'export-model',
 		'send-to-slicer',
 		'clear-cache',
@@ -835,7 +869,7 @@ export default {
 				togglePanel()
 				return
 			}
-			if (event.key === 'Escape' && isOpen.value) {
+			if (event.key === 'Escape' && isOpen.value && !hasOpenModal()) {
 				closePanel()
 				return
 			}

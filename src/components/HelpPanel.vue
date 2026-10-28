@@ -12,6 +12,7 @@
 				class="help-panel"
 				role="dialog"
 				aria-modal="true"
+				data-shortcut="toggle-help"
 				aria-labelledby="help-title"
 				tabindex="-1"
 				@click.stop>

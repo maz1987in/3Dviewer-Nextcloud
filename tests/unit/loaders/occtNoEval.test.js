@@ -16,7 +16,7 @@ import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { stripDynamicExecution } from '../../../scripts/occt-no-eval.mjs'
+import { stripDynamicExecution, occtNoEval } from '../../../scripts/occt-no-eval.mjs'
 
 const DIST = path.resolve(process.cwd(), 'node_modules/occt-import-js/dist')
 const glue = () => fs.readFileSync(path.join(DIST, 'occt-import-js.js'), 'utf8')
@@ -85,5 +85,30 @@ describe('stripDynamicExecution', () => {
 	// whose CAD formats fail only in the browser and only under a strict CSP.
 	it('refuses glue it does not recognise rather than passing it through', () => {
 		expect(() => stripDynamicExecution('var Module = {}')).toThrow(/occt-import-js/)
+	})
+})
+
+describe('occtNoEval as a plugin', () => {
+	const GLUE_ID = '/app/node_modules/occt-import-js/dist/occt-import-js.js'
+	const WORKER = /[\\/]src[\\/]printCheck[\\/]printCheck\.worker\.js$/
+
+	function build(plugin, ids) {
+		plugin.buildStart()
+		for (const id of ids) {
+			plugin.transform(id === GLUE_ID ? 'var x = 1' : 'export {}', id)
+		}
+		return () => plugin.buildEnd()
+	}
+
+	test('a build that never sees the glue fails', () => {
+		expect(build(occtNoEval(), ['/app/src/main.js'])).toThrow('was never seen')
+	})
+
+	test('a build from an exempt entry, which has no glue, passes', () => {
+		expect(build(occtNoEval({ exemptEntry: WORKER }), ['/app/src/printCheck/printCheck.worker.js', '/app/src/printCheck/thickness.js'])).not.toThrow()
+	})
+
+	test('an exempt entry pattern does not excuse any other build', () => {
+		expect(build(occtNoEval({ exemptEntry: WORKER }), ['/app/src/thumbnails/thumbnail.worker.js'])).toThrow('was never seen')
 	})
 })

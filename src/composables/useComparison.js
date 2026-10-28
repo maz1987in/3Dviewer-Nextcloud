@@ -13,7 +13,16 @@ import { logger } from '../utils/logger.js'
 import { disposeObject } from '../utils/three-utils.js'
 import { isHelperMesh } from '../utils/modelScaleUtils.js'
 import { millimetresPerUnit } from '../utils/sourceUnits.js'
+import { showStandIn, restoreOwnMaterial } from '../utils/materialStandIns.js'
 import { getFileIdByPath, loadModelWithDependencies } from '../loaders/multiFileHelpers.js'
+import { fetchVersion } from '../utils/fileVersions.js'
+
+// The earlier version, drawn over the open model in Overlay: one flat translucent colour
+export const GHOST_COLOR = 0x5b9bd5
+export const GHOST_OPACITY = 0.35
+
+// Formats whose model names other files (buffers, materials, textures) to load beside it
+export const MULTI_FILE_FORMATS = ['obj', 'gltf', 'fbx', '3ds', 'dae']
 
 export function useComparison() {
 	// Comparison state
@@ -21,6 +30,14 @@ export function useComparison() {
 	const comparisonModel = shallowRef(null)
 	const comparisonIndicator = shallowRef(null)
 	const comparisonFilename = ref(null)
+	// Where the comparison model came from: another file, or an earlier version of the open one
+	const comparisonSource = ref(null)
+	const comparisonVersion = shallowRef(null)
+	// Overlay: the earlier version on top of the open model instead of beside it
+	const overlayActive = ref(false)
+	// What Overlay moved, and where Compare had put it
+	let overlayPlaced = null
+	let ghostMaterial = null
 	// Millimetres per scene unit of the comparison model, from its own format: it may
 	// not be in the original's unit (a glTF in metres beside an STL in millimetres)
 	let comparisonMillimetresPerUnit = 1
@@ -154,6 +171,97 @@ export function useComparison() {
 	}
 
 	/**
+	 * The model file and the files it names, for a format that names other files.
+	 * @param {number} fileId - The model file
+	 * @param {string} filename - Its name
+	 * @param {string} extension - Its lower-case extension
+	 * @param {?string} dirPath - The folder it is in
+	 * @return {Promise<?{mainFile: File, dependencies: File[]}>} Null for a single-file
+	 *   format, or when the supporting files could not be gathered
+	 */
+	const loadWithDependencies = async (fileId, filename, extension, dirPath) => {
+		if (!MULTI_FILE_FORMATS.includes(extension)) {
+			return null
+		}
+		logger.info('useComparison', 'Multi-file format detected, loading dependencies', { extension, fileId, dirPath })
+		try {
+			const dependencyResult = await loadModelWithDependencies(fileId, filename, extension, dirPath)
+			logger.info('useComparison', 'Dependencies loaded', {
+				filename,
+				dependencies: dependencyResult.dependencies?.length || 0,
+				missing: dependencyResult.missingFiles?.length || 0,
+			})
+			return { mainFile: dependencyResult.mainFile, dependencies: dependencyResult.dependencies || [] }
+		} catch (multiFileError) {
+			logger.warn('useComparison', 'Multi-file loading failed, falling back to single-file', multiFileError)
+			return null
+		}
+	}
+
+	/**
+	 * Load an earlier version of the open file as the comparison model. The model file is
+	 * the version's; the files it names (textures, buffers) are today's, because Nextcloud
+	 * keeps versions per file, not per folder.
+	 * @param {import('../utils/fileVersions.js').Version} version - The version
+	 * @param {object} file - The open file
+	 * @param {number} file.fileId - Its id
+	 * @param {string} file.filename - Its name
+	 * @param {?string} file.dirPath - The folder it is in
+	 * @param {object} context - Loading context
+	 * @return {Promise<object>} Load result
+	 */
+	const loadComparisonModelFromVersion = async (version, { fileId, filename, dirPath }, context) => {
+		if (comparisonModel.value && context.scene) {
+			clearComparison(context.scene)
+		}
+		const controller = new AbortController()
+		abortController.value = controller
+		loadingComparison.value = true
+		comparisonError.value = null
+		const extension = filename.split('.').pop().toLowerCase()
+
+		try {
+			const arrayBuffer = await fetchVersion(version, { signal: controller.signal })
+			const withDependencies = controller.signal.aborted ? null : await loadWithDependencies(fileId, filename, extension, dirPath)
+			if (controller.signal.aborted) {
+				throw new DOMException('Comparison cancelled', 'AbortError')
+			}
+
+			comparisonFilename.value = filename
+			const result = await loadComparisonModelFromArrayBuffer(arrayBuffer, extension, filename, {
+				...context,
+				fileId,
+				additionalFiles: withDependencies?.dependencies ?? [],
+				fileExtension: extension,
+			})
+			if (controller.signal.aborted) {
+				// Cancelled while the loader ran: drop what it made
+				if (comparisonModel.value) {
+					disposeObject(comparisonModel.value)
+					comparisonModel.value = null
+				}
+				throw new DOMException('Comparison cancelled', 'AbortError')
+			}
+			comparisonSource.value = 'version'
+			comparisonVersion.value = version
+			return result
+		} catch (error) {
+			if (controller.signal.aborted) {
+				// However it was stopped (axios rejects with its own CanceledError), it was cancelled
+				throw new DOMException('Comparison cancelled', 'AbortError')
+			}
+			comparisonError.value = error
+			logger.error('useComparison', 'Error loading an earlier version', error)
+			throw error
+		} finally {
+			if (abortController.value === controller) {
+				abortController.value = null
+			}
+			loadingComparison.value = false
+		}
+	}
+
+	/**
 	 * Load comparison model from Nextcloud file path
 	 * @param {string} filePath - File path from file picker
 	 * @param {object} context - Loading context
@@ -207,36 +315,15 @@ export function useComparison() {
 			const lastSlashIndex = filePath.lastIndexOf('/')
 			const dirPath = lastSlashIndex >= 0 ? filePath.substring(0, lastSlashIndex) : null
 
-			// Check if this is a multi-file format that needs dependencies
-			const isMultiFile = ['obj', 'gltf', 'fbx', '3ds', 'dae'].includes(extension)
-
 			let arrayBuffer
 			let additionalFiles = []
 			let multiFileLoaded = false
 
-			if (isMultiFile) {
-				logger.info('useComparison', 'Multi-file format detected, loading dependencies', { extension, fileId, dirPath })
-
-				try {
-					// Load model with dependencies (buffers, textures, etc.)
-					const dependencyResult = await loadModelWithDependencies(fileId, filename, extension, dirPath)
-
-					// Get the main file as ArrayBuffer
-					arrayBuffer = await dependencyResult.mainFile.arrayBuffer()
-
-					// Store dependencies for the loader
-					additionalFiles = dependencyResult.dependencies || []
-					multiFileLoaded = true
-
-					logger.info('useComparison', 'Dependencies loaded', {
-						filename,
-						dependencies: additionalFiles.length,
-						missing: dependencyResult.missingFiles?.length || 0,
-					})
-				} catch (multiFileError) {
-					logger.warn('useComparison', 'Multi-file loading failed, falling back to single-file', multiFileError)
-					// Fall through to single-file loading
-				}
+			const withDependencies = await loadWithDependencies(fileId, filename, extension, dirPath)
+			if (withDependencies) {
+				arrayBuffer = await withDependencies.mainFile.arrayBuffer()
+				additionalFiles = withDependencies.dependencies
+				multiFileLoaded = true
 			}
 
 			// Single-file loading (fallback or non-multi-file formats)
@@ -275,6 +362,8 @@ export function useComparison() {
 				fileExtension: extension,
 			}
 			const result = await loadComparisonModelFromArrayBuffer(arrayBuffer, extension, filename, loadingContext)
+			comparisonSource.value = 'file'
+			comparisonVersion.value = null
 			logger.info('useComparison', 'Comparison model loaded successfully from path')
 			return result
 		} catch (error) {
@@ -745,7 +834,11 @@ export function useComparison() {
 
 			// CRITICAL: Use toRaw to get the actual Three.js object, not Vue proxy
 			// This ensures parent-child relationships work correctly and animations work properly
-			const rawModel2 = toRaw(model2)
+			const given = toRaw(model2)
+			// Laid out before (Fit Both): reuse that wrapper rather than wrapping the wrapper,
+			// which would leave the model one level further down than Overlay looks for it
+			const existingWrapper = given.userData?.comparisonWrapper ? given : null
+			const rawModel2 = existingWrapper ? existingWrapper.children[0] : given
 
 			// Store model2's current local position before wrapping
 			const model2LocalOffset = new THREE.Vector3(
@@ -754,20 +847,22 @@ export function useComparison() {
 				rawModel2.position.z,
 			)
 
-			// Remove model2 from scene
-			const originalParent = rawModel2.parent
-			if (rawModel2.parent) {
-				rawModel2.parent.remove(rawModel2)
-			}
-
 			// Create a new Group to wrap model2
 			// Don't pre-position it - we'll calculate the final position after getting the bounding box
-			const model2Wrapper = new THREE.Group()
+			const originalParent = rawModel2.parent
+			const model2Wrapper = existingWrapper || new THREE.Group()
+			if (!existingWrapper) {
+				// Remove model2 from scene
+				if (rawModel2.parent) {
+					rawModel2.parent.remove(rawModel2)
+				}
+				// Overlay looks for this to find the model inside
+				model2Wrapper.userData.comparisonWrapper = true
+				// Add model2 to wrapper - this should set the parent automatically
+				model2Wrapper.add(rawModel2)
+			}
 			// CRITICAL: Ensure matrixAutoUpdate is enabled so wrapper updates during render loop
 			model2Wrapper.matrixAutoUpdate = true
-
-			// Add model2 to wrapper - this should set the parent automatically
-			model2Wrapper.add(rawModel2)
 
 			// CRITICAL: Force parent reference update (Three.js should do this, but ensure it's set)
 			// Check both the raw object and the proxy
@@ -1293,9 +1388,11 @@ export function useComparison() {
 	 * @param {string} originalFilenameInput - Filename of the primary model
 	 * @param {number} [originalMillimetresPerUnit] - Millimetres per scene unit of the
 	 *   primary model (utils/sourceUnits.js)
+	 * @param {?{original: string, comparison: string}} [labels] - Column names, when the
+	 *   file names are not the right ones (a version comparison: "This version" and a date)
 	 * @return {object|null} The diff stats object, or null if either model missing
 	 */
-	const computeDiffStats = (originalModel, originalFilenameInput = '', originalMillimetresPerUnit = 1) => {
+	const computeDiffStats = (originalModel, originalFilenameInput = '', originalMillimetresPerUnit = 1, labels = null) => {
 		if (!originalModel || !comparisonModel.value) {
 			diffStats.value = null
 			return null
@@ -1338,8 +1435,8 @@ export function useComparison() {
 			}
 
 			const result = {
-				originalLabel: (originalFilenameInput || '').split('/').pop() || 'Original',
-				comparisonLabel: comparisonFilename.value || 'Comparison',
+				originalLabel: labels?.original || (originalFilenameInput || '').split('/').pop() || 'Original',
+				comparisonLabel: labels?.comparison || comparisonFilename.value || 'Comparison',
 				original: origStats,
 				comparison: compStats,
 				delta,
@@ -1376,6 +1473,116 @@ export function useComparison() {
 	}
 
 	/**
+	 * Move the comparison model's wrapper so the model inside has the open model's world
+	 * matrix.
+	 * @param {THREE.Object3D} wrapper - The comparison model as Compare holds it
+	 * @param {THREE.Object3D} open - The open model
+	 */
+	const placeOver = (wrapper, open) => {
+		// Compare positions the model by its wrapper; the model is the first child that is
+		// not itself a wrapper
+		let root = wrapper
+		while (root.userData?.comparisonWrapper && root.children[0]) {
+			root = root.children[0]
+		}
+		open.updateMatrixWorld(true)
+		const target = open.matrixWorld.clone()
+		if (root !== wrapper) {
+			// Everything between the wrapper and the model stays as it is
+			const inner = new THREE.Matrix4()
+			for (let node = root; node && node !== wrapper; node = node.parent) {
+				node.updateMatrix()
+				inner.premultiply(node.matrix)
+			}
+			target.multiply(inner.invert())
+		}
+		if (wrapper.parent) {
+			wrapper.parent.updateMatrixWorld(true)
+			target.premultiply(wrapper.parent.matrixWorld.clone().invert())
+		}
+		target.decompose(wrapper.position, wrapper.quaternion, wrapper.scale)
+		wrapper.updateMatrixWorld(true)
+	}
+
+	/**
+	 * Keep the ghost on the open model after the open model moved (the transform gizmo).
+	 * Cheap enough to call every frame; does nothing while Overlay is off.
+	 * @param {THREE.Object3D} originalRoot - The open model
+	 */
+	const syncOverlay = (originalRoot) => {
+		if (overlayActive.value && comparisonModel.value && originalRoot) {
+			placeOver(toRaw(comparisonModel.value), toRaw(originalRoot))
+		}
+	}
+
+	/**
+	 * Show the comparison model over the open model as a ghost, or beside it again.
+	 *
+	 * The two are aligned by the file's own coordinates: the comparison model's root gets
+	 * the open model's world matrix. Both went through the same loader, which only centres
+	 * a model by moving its root, so this puts every shared part in the same place.
+	 * Aligning their bounding boxes instead would shift the whole ghost when one version
+	 * has a part the other lacks.
+	 * @param {boolean} on - Overlay or side by side
+	 * @param {THREE.Object3D} originalRoot - The open model
+	 * @param {Function} fitFunction - Fits the camera to `(model1, model2)`
+	 * @param {THREE.Scene} scene - The scene both are in
+	 */
+	const setOverlay = (on, originalRoot, fitFunction, scene) => {
+		const wrapper = comparisonModel.value ? toRaw(comparisonModel.value) : null
+		if (!wrapper || !originalRoot || on === overlayActive.value) {
+			return
+		}
+
+		if (on) {
+			overlayPlaced = { object: wrapper, position: wrapper.position.clone(), quaternion: wrapper.quaternion.clone(), scale: wrapper.scale.clone() }
+			placeOver(wrapper, toRaw(originalRoot))
+
+			ghostMaterial = new THREE.MeshBasicMaterial({ color: GHOST_COLOR, transparent: true, opacity: GHOST_OPACITY, depthWrite: false })
+			wrapper.traverse((child) => {
+				if (child.isMesh && !isHelperMesh(child)) {
+					showStandIn(child, ghostMaterial)
+				}
+			})
+			overlayActive.value = true
+		} else {
+			removeGhost(wrapper)
+			if (overlayPlaced) {
+				const { object, position, quaternion, scale } = overlayPlaced
+				object.position.copy(position)
+				object.quaternion.copy(quaternion)
+				object.scale.copy(scale)
+				object.updateMatrixWorld(true)
+				overlayPlaced = null
+			}
+		}
+
+		if (typeof fitFunction === 'function') {
+			fitFunction(toRaw(originalRoot), wrapper)
+		}
+		if (scene) {
+			ensureMatricesValid(scene, 0, new Set())
+		}
+	}
+
+	/**
+	 * Give the comparison model its own materials back and forget the ghost.
+	 * @param {?THREE.Object3D} model - The comparison model
+	 */
+	const removeGhost = (model) => {
+		if (model) {
+			model.traverse((child) => {
+				if (child.isMesh) {
+					restoreOwnMaterial(child)
+				}
+			})
+		}
+		ghostMaterial?.dispose()
+		ghostMaterial = null
+		overlayActive.value = false
+	}
+
+	/**
 	 * Clear comparison
 	 * @param {THREE.Scene} scene - Optional scene to remove model from
 	 */
@@ -1386,13 +1593,20 @@ export function useComparison() {
 			abortController.value = null
 		}
 
+		// Overlay off first, so the model gets its own materials back to be disposed
+		if (overlayActive.value) {
+			removeGhost(comparisonModel.value ? toRaw(comparisonModel.value) : null)
+		}
+		overlayPlaced = null
+
 		// Dispose animations first
 		disposeComparisonAnimations()
 
 		if (comparisonModel.value) {
-			// Remove from scene if scene is provided and model is in scene
-			if (scene && comparisonModel.value.parent) {
-				scene.remove(comparisonModel.value)
+			// Out of the scene whether or not the caller passed it: disposed but still in the
+			// scene, three.js would go on drawing it
+			if (comparisonModel.value.parent) {
+				comparisonModel.value.parent.remove(comparisonModel.value)
 				logger.info('useComparison', 'Comparison model removed from scene')
 			}
 
@@ -1408,6 +1622,8 @@ export function useComparison() {
 		comparisonError.value = null
 		loadingComparison.value = false
 		comparisonFilename.value = null
+		comparisonSource.value = null
+		comparisonVersion.value = null
 		comparisonMillimetresPerUnit = 1
 		diffStats.value = null
 		showDiffOverlay.value = true
@@ -1455,6 +1671,9 @@ export function useComparison() {
 		comparisonModel: readonly(comparisonModel),
 		comparisonIndicator: readonly(comparisonIndicator),
 		comparisonFilename: readonly(comparisonFilename),
+		comparisonSource: readonly(comparisonSource),
+		comparisonVersion: readonly(comparisonVersion),
+		overlayActive: readonly(overlayActive),
 		loadingComparison: readonly(loadingComparison),
 		comparisonError: readonly(comparisonError),
 		comparisonAnimations: readonly(comparisonAnimations),
@@ -1472,6 +1691,9 @@ export function useComparison() {
 		setupComparisonMode,
 		openFilePicker,
 		loadComparisonModelFromPath,
+		loadComparisonModelFromVersion,
+		setOverlay,
+		syncOverlay,
 		loadComparisonModelFromNextcloud,
 		loadComparisonModel,
 		addComparisonIndicator,

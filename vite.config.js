@@ -1,8 +1,18 @@
 import { createAppConfig } from "@nextcloud/vite-config";
 import { occtNoEval } from "./scripts/occt-no-eval.mjs";
 
-// Every file of the background thumbnail worker's bundle (see `worker` below)
-const WORKER_FILE = /^js\/thumbnail-worker-/;
+// Every file of a worker's bundle (see `worker` below): the background thumbnail worker's
+// and the print-check worker's
+const WORKER_FILE = /^js\/(thumbnail|print-check)-worker-/;
+
+// Which worker a bundle file belongs to: the file holding the print-check worker's entry is
+// the print-check worker's, and every other worker file keeps the thumbnail worker's names
+// (the G-code loader the thumbnail worker bundles imports from src/printCheck/ too)
+const workerPrefix = (chunk) => (
+  [chunk.facadeModuleId, ...(chunk.moduleIds || [])].some((id) => id && id.endsWith('/src/printCheck/printCheck.worker.js'))
+    ? 'print-check-worker'
+    : 'thumbnail-worker'
+);
 
 const appConfig = createAppConfig(
   {
@@ -27,17 +37,18 @@ const appConfig = createAppConfig(
       // The OCCT glue compiles its bindings with `new Function`, which Nextcloud's CSP
       // blocks; rewrite it to closures as it is bundled (#169).
       plugins: [occtNoEval()],
-      // The background thumbnail worker (src/thumbnails/thumbnail.worker.js) is bundled
-      // on its own, with none of the main build's plugins or output names. It is a module
+      // The background thumbnail worker (src/thumbnails/thumbnail.worker.js) and the
+      // print-check worker (src/printCheck/printCheck.worker.js) are each bundled on their own, with none of the main build's plugins or output names. It is a module
       // worker, because the loader registry code-splits, and its files go under js/ like
       // every other chunk. The OCCT glue it bundles needs the same rewrite as above.
       worker: {
         format: 'es',
-        plugins: () => [occtNoEval()],
+        // The print-check worker bundles no OCCT loader, so it has no glue to rewrite
+        plugins: () => [occtNoEval({ exemptEntry: /[\\/]src[\\/]printCheck[\\/]printCheck\.worker\.js$/ })],
         rollupOptions: {
           output: {
-            entryFileNames: 'js/thumbnail-worker-[hash].mjs',
-            chunkFileNames: 'js/thumbnail-worker-[name]-[hash].chunk.mjs',
+            entryFileNames: (chunk) => `js/${workerPrefix(chunk)}-[hash].mjs`,
+            chunkFileNames: (chunk) => `js/${workerPrefix(chunk)}-[name]-[hash].chunk.mjs`,
             assetFileNames: 'dist/[name]-[hash][extname]',
           },
         },

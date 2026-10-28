@@ -12,6 +12,8 @@ This document provides comprehensive technical information about the 3D Viewer f
 - [Model Loading Implementation](#model-loading-implementation)
 - [Advanced Viewer Wiring](#advanced-viewer-wiring)
 - [Thumbnail Generation System](#thumbnail-generation-system)
+- [Print Check](#print-check)
+- [File Versions](#file-versions)
 
 ## System Architecture
 
@@ -2021,6 +2023,53 @@ The integrated File Browser allows users to navigate and manage 3D models direct
   - **Types**: Groups files by extension (e.g., all .obj files).
   - **Dates**: Groups files by year and month.
 - **Performance**: Uses lazy loading to fetch folder contents only when requested, ensuring scalability with large file sets.
+
+## Print Check
+
+Print check (the tools panel's Analyze section) answers four questions about the open model without changing it: does it fit a printer, where does it overhang, roughly how much filament does it take, and how thick are its walls. For a G-code file it shows the numbers the slicer wrote instead. The code is in `src/printCheck/` and `src/composables/usePrintCheck.js`. The composable and the card are only loaded the first time someone opens Print check.
+
+- **What it measures.** The model as an export writes it: its parts together however Exploded view has moved them, and placed as the user placed it with the transform gizmo (`withPartsTogether`). Clipping is ignored. Lengths are in millimetres, using the same millimetres-per-unit as measurements (`utils/sourceUnits.js`). For STL, OBJ, PLY, OFF, 3DS and G-code, which record no unit, the card says sizes assume millimetres.
+- **Which way is up.** Up is the viewer's +Y. **Z up** treats the scene's +Z as up instead, for a file drawn Z-up that lies on its side. It turns the camera and the build box, never the model: `camera.up` changes, and so does OrbitControls' orbit basis (`_quat`), which OrbitControls only works out from `camera.up` when it is created. The choice lasts for the session, per file.
+- **Fit.** The model's extent along the bed's width, depth and up axes, against the printer's build volume (`printCheck/printers.js`, the makers' published print areas). It reports how far each side sticks out, and whether the model would fit turned 90° on the bed.
+- **Overhangs.** A triangle overhangs when its flat normal leans past the chosen angle from vertical toward facing down: 0° is a wall and 90° a ceiling. The default is 45°, adjustable from 20° to 80°. Triangles no higher than 0.05 mm above the model's lowest point rest on the bed and are left out. The share is overhang area over total area (`overhangShare`). The shading is a shader that applies the same rule on the GPU, using a flat normal from `dFdx`/`dFdy`, so smooth normals don't change it.
+- **Closed or not.** A part is closed when every edge is shared by exactly two triangles. Vertices within 1e-6 of the part's largest extent are welded first, since an STL stores each triangle with its own three vertices. This runs in the print-check worker on every part, with no size cap (`closedMesh.edgeReport`), unlike the stats panel's check, which stops at 500,000 triangles on indexed meshes.
+- **Filament estimate.** Only for a closed model. The walls and the top and bottom count as solid to 1.2 mm, and the inside is filled at the infill percentage:
+
+  ```
+  shell    = min(volume, area × 1.2 mm)
+  material = shell + (volume − shell) × infill / 100
+  grams    = material / 1000 × density        (g/cm³: PLA 1.24, PETG 1.27, ABS 1.04, ASA 1.07, TPU 1.21)
+  metres   = material / (π × (1.75 mm / 2)²) / 1000
+  ```
+
+  Volume and area are measured in the world (`modelVolumeAndArea`). The result is labelled as an estimate: a slicer's figure depends on settings this doesn't know.
+- **Wall thickness.** In the print-check worker, using `three-mesh-bvh`. From each triangle's centre, a ray goes inward along the triangle's normal, and the distance to the first surface it meets is the wall's thickness there (`thickness.measurePartThickness`). Rays start at centres because a vertex is often a corner, where an inward ray grazes the faces beside it. Each vertex takes the thinnest triangle around it. Above 300,000 triangles per part an even sample is measured, and the rest take the value of the measured triangle before them; the card says when that happened, and gives the thickness under the pointer as "about". Progress counts every triangle of the part either way. Where a ray meets no wall, the colour data holds a large finite number rather than Infinity, which the GPU would turn into NaN along edges. Colours: red below the minimum (0.8 mm by default), yellow below 1.5 × the minimum.
+- **G-code.** `slicerSummary.parseSlicerSummary` reads the first and last 512 KiB of the file, and only comment lines up to 512 characters. It reads the comments of PrusaSlicer, SuperSlicer, OrcaSlicer, Bambu Studio and Cura: print time ("total estimated time" first), filament length and weight (added up over extruders when a multi-material print lists one value each), and which slicer wrote it.
+- **Nothing reaches an export or a thumbnail.** The box, the bed and both kinds of shading are objects added to the scene beside the model (`surfaceOverlay.js`). Each shading overlay shares its part's geometry and copies its world matrix every frame. Exports read the model, thumbnails render the model in a scene of their own, and render modes swap the model's materials, so none of them meets an overlay. An overlay takes its part's matrix again just before it is drawn (`onBeforeRender`), so it doesn't lag a frame behind a drag, and it is cut by an open cross-section like the model: the cross-section clips with the renderer's planes, which a `ShaderMaterial` only receives with `clipping: true`. Closing an overlay frees only what it made: the attributes it shares come off its geometry first, since disposing a geometry frees the GPU buffer of every attribute still on it.
+- **Remembered settings.** The printer (or custom size), angle, infill, material and minimum thickness are saved under `printCheck` in the viewer's preferences (`/apps/threedviewer/settings`), held to the same ranges whether typed or read back. A change waiting for its half-second debounce is sent when Print check closes or the viewer goes. On a public link they're kept in that browser's `localStorage`.
+
+## File Versions
+
+Version comparison lists and downloads a file's earlier versions straight from Nextcloud's `versions` WebDAV collection, so Nextcloud's own permission checks apply. The app adds no route of its own. This is what the collection returns. It was checked on a Nextcloud 34 server; the code that builds the list (`VersionCollection::getChildren` and `LegacyVersionsBackend::getVersionsForFile`) is the same on `stable31` and `stable35`.
+
+- **Where:** `PROPFIND /remote.php/dav/versions/<user>/versions/<fileId>` with `Depth: 1`, where `<user>` is the **logged-in** user. A share recipient lists and downloads through their own collection (`versions/bob/versions/<fileId>`). The owner's collection answers them with 403.
+- **What comes back:** one response for the collection itself, with no props, then one per version. Each version's href ends in its id, which is the version's timestamp in Unix seconds. A version is downloaded with a `GET` on its href.
+- **The current version is listed too.** Its id equals the file's modified time, so a file that was never edited lists exactly one version. Version comparison leaves that entry out. When the file's modified time isn't known, it leaves out the newest entry, which is the current version on 31–35.
+- **Props:** `d:getlastmodified`, `d:getcontentlength` and `d:getcontenttype` are always present, and `nc:version-author` is the user id of whoever made the version. `nc:version-label` is in a separate `404` propstat when the version has no label, and is read as no label.
+- **Errors:** an unknown file id gives 404. With the `files_versions` app disabled, the whole `versions` root gives 404 (`File not found: versions in 'root'`). Version comparison treats both as "no earlier versions".
+
+The captured responses are in `tests/fixtures/versions/`.
+
+## Turntable Video
+
+**Record turntable** (the tools panel's Export section) records one full turn of the camera around what it looks at, for someone who won't open a viewer. The recording is `src/composables/useTurntable.js`, the helpers are `src/utils/turntable.js`, and the dialog is `src/components/TurntableDialog.vue`, which is only loaded the first time someone opens it.
+
+- **Format.** `MediaRecorder` on the canvas's stream, in the first format the browser can record: WebM (VP9, then VP8), as Chrome, Firefox and Edge do, and otherwise MP4 (H.264), as older Safari does. The file's extension matches what was made. The button is disabled, with a title that says why, where there's no `MediaRecorder`, no format it can record, or no `canvas.captureStream` (`canRecordVideo`).
+- **The turn.** It starts from the current view and zoom, and the camera turns about the camera's up axis through the orbit target, which is the model's centre unless the view was panned, and then keeps the framing chosen. The direction is the model's, as on a turntable: for the model to turn clockwise seen from above, the camera goes counter-clockwise round it. Lengths run from 4 to 15 s at 30 fps; the default is 8 s. Sizes are 720p, 1080p or the window's size, rounded to even pixels, which video encoders need. A perspective camera takes the video's aspect; an orthographic one keeps the height of the scene it shows and is widened or narrowed to the video's shape.
+- **Frame timing.** The viewer's own render loop pauses for the recording (`renderPaused`), so nothing else moves the camera or draws in between. Each frame is drawn once and sent explicitly (`captureStream(0)` and `requestFrame()`), so a slow frame arrives late rather than going missing. Before each frame, labels are turned to face the camera, as the viewer's own loop does. A hidden tab throttles timers, so hiding the page ends the recording and keeps what was recorded; the dialog says it stopped early, and why.
+- **Put back afterwards.** The renderer's size and pixel ratio, the camera's position and aspect, and the orbit controls' target and enabled state are restored whether the recording finished, was stopped or failed. The canvas keeps its place on the page throughout: only its drawing buffer changes size. Changing the buffer can change the page's layout, and the window can be resized meanwhile; the viewer's resize handling waits for the recording to end and then runs once, so the video keeps its size and the viewer fits the window afterwards. A recorder that stops on its own, when its encoder fails, ends the recording with an error, and everything is put back as above.
+- **What's in the video.** Whatever the renderer draws: render mode, wireframe, lighting, background, grid and axes, annotations, measurements and Print check's colours if they're showing. Face labels aren't in it, because they're HTML on top of the canvas, not part of the scene. While it records, the dialog covers the viewer and the orbit controls are off. While any modal dialog is open, the tool shortcuts and the tools panel's Escape are left to the dialog, wherever the focus is; a dialog can name, in `data-shortcut`, the one shortcut that closes it, as Help does with `?`. Focus moves to Stop when recording starts and to Download when the video is ready.
+- **Saving.** **Download** saves `<model name>-turntable.<ext>`. **Save next to the model** writes the file into the model's folder through WebDAV (`utils/davFiles.js`). It's offered only to a logged-in user whose folder permissions include `C` (create), checked with a `PROPFIND` for `oc:permissions`. A name that's taken gets " (2)", " (3)" and so on, from a listing of the folder made just before the `PUT`. The `PUT` sends `If-None-Match: *`, so it never replaces a file; if one took the name since the listing, the server answers 412 and the folder is listed again, up to three times. A model at the root of the user's files comes with no folder, and is saved at the root (`saveFolder`). The dialog stays open while it saves, so the result is always shown. On a public link, only Download is offered.
 
 ---
 

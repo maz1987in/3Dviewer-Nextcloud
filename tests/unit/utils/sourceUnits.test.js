@@ -83,3 +83,9 @@ describe('SOURCE_UNITS', () => {
 		expect(undecided).toEqual([])
 	})
 })
+
+test('assumesMillimetres: true only for formats that record no unit', () => {
+	const { assumesMillimetres } = require('../../../src/utils/sourceUnits.js')
+	expect(['a.stl', 'b.OBJ', 'c.ply', 'd.off', 'e.3ds', 'f.gcode'].map(assumesMillimetres)).toEqual([true, true, true, true, true, true])
+	expect(['a.glb', 'b.3mf', 'c.3dm', 'd.step', 'e.fbx', null].map(assumesMillimetres)).toEqual([false, false, false, false, false, false])
+})
