@@ -12,6 +12,10 @@ const MODEL = { id: 7171, name: 'cube.stl', body: stlCube(10) }
 
 let server: { url: string, close: () => Promise<void> }
 test.beforeAll(async () => { server = await startServer() })
+// A recording draws every frame of the turn: on a CI runner, which draws in software, a
+// 4 s video takes about 20 s to record
+test.beforeEach(() => { test.slow() })
+const RECORDING_MS = 60000
 test.afterAll(async () => { await server.close() })
 
 const panelButton = (page: Page) => page.locator('.slide-out-panel').getByRole('button', { name: 'Record turntable' })
@@ -84,7 +88,7 @@ async function recordFourSeconds(page: Page) {
 	await dialog(page).locator('#turntable-length').fill('4')
 	await dialog(page).locator('#turntable-size').selectOption('720p')
 	await dialog(page).getByRole('button', { name: 'Record' }).click()
-	await expect(dialog(page).getByRole('button', { name: 'Download' })).toBeVisible({ timeout: 20000 })
+	await expect(dialog(page).getByRole('button', { name: 'Download' })).toBeVisible({ timeout: RECORDING_MS })
 }
 
 test('records 4 s at 720p and downloads a WebM', async ({ page }) => {
@@ -203,7 +207,7 @@ test('a 720p video stays 1280 × 720 whatever the window does, and the viewer fi
 	expect(during.buffer).toEqual([1280, 720])
 	expect(during.aspect).toBeCloseTo(1280 / 720, 6)
 
-	await expect(dialog(page).getByRole('button', { name: 'Download' })).toBeVisible({ timeout: 20000 })
+	await expect(dialog(page).getByRole('button', { name: 'Download' })).toBeVisible({ timeout: RECORDING_MS })
 	const after = await canvasState()
 	expect(after.buffer).toEqual(after.shown)
 	expect(after.aspect).toBeCloseTo(after.shownAspect, 3)

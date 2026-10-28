@@ -153,12 +153,14 @@ test('cancelling a running check stops it', async ({ page }) => {
 })
 
 test('STL export with print check on is byte-identical to export with it off', async ({ page }) => {
+	// Two exports and the check between them: more than the default 30 s on a loaded CI runner
+	test.slow()
 	await page.route('**/apps/threedviewer/settings', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ settings: {} }) }))
 	await openViewer(page, server.url, MODELS.tee)
 	await page.locator('.slide-out-panel').getByText('Export', { exact: true }).first().click()
 	const exportStl = async () => {
 		const [download] = await Promise.all([
-			page.waitForEvent('download', { timeout: 20000 }),
+			page.waitForEvent('download', { timeout: 40000 }),
 			(async () => {
 				await page.selectOption('.export-select', 'stl')
 				await page.locator('.export-btn').click()
