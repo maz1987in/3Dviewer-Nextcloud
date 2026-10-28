@@ -69,3 +69,17 @@ describe('the Export button', () => {
 		expect(PANEL).toMatch(/\.export-btn\.export-btn:active:not\(\[aria-disabled="true"\]\)\s*\{/)
 	})
 })
+
+describe('the Record turntable button', () => {
+	const record = /<button\b[^>]*@click="emit\('record-turntable'\)"[^>]*>[\s\S]*?<\/button>/.exec(template)[0]
+
+	it('is a real button, named by its text', () => {
+		expect(record).toContain('type="button"')
+		expect(record).toContain("t('threedviewer', 'Record turntable')")
+	})
+
+	it('is disabled without a model, and where the browser cannot record video, with a title that says so', () => {
+		expect(record).toContain(':disabled="!modelLoaded || !canRecordVideo"')
+		expect(record).toContain(":title=\"canRecordVideo ? undefined : t('threedviewer', 'This browser can\\'t record video')\"")
+	})
+})

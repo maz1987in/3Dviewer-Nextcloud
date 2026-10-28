@@ -366,7 +366,7 @@
 			:recorder="turntable"
 			:model-name="turntableModelName"
 			:user-id="turntableUserId"
-			:dir-path="dir"
+			:dir-path="turntableFolder"
 			:public-share="turntablePublicShare"
 			@close="turntableOpen = false"
 			@saved="onTurntableSaved"
@@ -842,6 +842,7 @@ import { useCamera } from '../composables/useCamera.js'
 import { useModelLoading } from '../composables/useModelLoading.js'
 import { useComparison, MULTI_FILE_FORMATS } from '../composables/useComparison.js'
 import { useTurntable } from '../composables/useTurntable.js'
+import { saveFolder } from '../utils/turntable.js'
 import { listVersions, formatVersionDate } from '../utils/fileVersions.js'
 // eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
 import { getCurrentUser } from '@nextcloud/auth'
@@ -2185,8 +2186,15 @@ export default {
 			}
 		}
 
+		// A recording sizes the renderer for the video and puts it back when it ends: a resize
+		// in between waits for that, then happens once
+		let resizeWhileRecording = false
 		const onWindowResize = () => {
 			if (!container.value) {
+				return
+			}
+			if (turntable.isRecording.value) {
+				resizeWhileRecording = true
 				return
 			}
 			const width = container.value.clientWidth
@@ -2508,10 +2516,19 @@ export default {
 			camera: () => camera.camera.value,
 			controls: () => camera.controls.value,
 			renderPaused,
+			// The viewer's loop, paused meanwhile, is what turns labels to face the camera
+			beforeRender: () => updateBillboards(),
 		}))
+		watch(turntable.isRecording, (recording) => {
+			if (!recording && resizeWhileRecording) {
+				resizeWhileRecording = false
+				onWindowResize()
+			}
+		})
 		const turntableOpen = ref(false)
 		const turntableUserId = computed(() => getCurrentUser()?.uid ?? null)
 		const turntablePublicShare = computed(() => !!getPublicShareContext())
+		const turntableFolder = computed(() => saveFolder(props.dir, props.filename))
 		// The file's name without the folder it came with
 		const turntableModelName = computed(() => decodeURIComponent(String(props.filename || 'model')).split('/').pop())
 		const openTurntable = () => {
@@ -4265,6 +4282,7 @@ export default {
 			turntableOpen,
 			turntableUserId,
 			turntablePublicShare,
+			turntableFolder,
 			turntableModelName,
 			openTurntable,
 			onTurntableSaved,

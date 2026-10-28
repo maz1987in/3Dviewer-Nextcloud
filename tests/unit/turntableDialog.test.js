@@ -69,7 +69,7 @@ test('Record records with the chosen settings, then offers Download and Save nex
 	expect(recorder.record).toHaveBeenCalledWith({ seconds: 5, size: '1080p', direction: 'ccw' })
 	expect(button('Download')).toBeTruthy()
 	expect(button('Save next to the model')).toBeTruthy()
-	expect(document.body.textContent).toContain('Saved as WebM')
+	expect(document.body.textContent).toContain('Recorded as WebM')
 })
 
 test('saving picks a free name next to the model', async () => {
@@ -114,7 +114,7 @@ test('stopped early shows why', async () => {
 	await flush()
 	await flush()
 	expect(document.body.textContent).toContain('Stopped early: the tab was hidden')
-	expect(document.body.textContent).toContain('Saved as MP4')
+	expect(document.body.textContent).toContain('Recorded as MP4')
 })
 
 test('while recording: progress and Stop', async () => {
@@ -162,5 +162,86 @@ test('when the video is ready, its format is announced', async () => {
 	await flush()
 	await flush()
 	const announced = [...document.querySelectorAll('[aria-live="polite"]')].map((element) => element.textContent).join(' ')
-	expect(announced).toContain('Saved as WebM')
+	expect(announced).toContain('Recorded as WebM')
+})
+
+/** A recorder whose recording runs until the test ends it. */
+function heldRecorder() {
+	const recorder = recorderStub()
+	let finish
+	recorder.record = jest.fn(() => {
+		recorder.isRecording.value = true
+		return new Promise((resolve) => {
+			finish = (result = { blob: new Blob(['v'], { type: 'video/webm' }), extension: 'webm', complete: true }) => {
+				recorder.isRecording.value = false
+				resolve(result)
+			}
+		})
+	})
+	return { recorder, finish: (result) => finish(result) }
+}
+
+test('focus moves to Stop while recording, then to Download, never to the page behind', async () => {
+	const { recorder, finish } = heldRecorder()
+	mount({ recorder })
+	button('Record').focus()
+	button('Record').click()
+	await flush()
+	expect(document.activeElement).toBe(button('Stop'))
+	finish()
+	await flush()
+	await flush()
+	expect(document.activeElement).toBe(button('Download'))
+})
+
+test('while saving, the dialog stays open and says so', async () => {
+	let finishSave
+	davFiles.putFile.mockImplementation(() => new Promise((resolve) => { finishSave = resolve }))
+	const { events } = mount({ recorder: recorderStub() })
+	button('Record').click()
+	await flush()
+	await flush()
+	button('Save next to the model').click()
+	await flush()
+	const saving = button('Saving…')
+	expect(saving).toBeTruthy()
+	expect(saving.disabled).toBe(true)
+	document.querySelector('.turntable-close').click()
+	document.querySelector('[role="dialog"]').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+	document.querySelector('.turntable-backdrop').click()
+	expect(events.filter(([name]) => name === 'close')).toEqual([])
+	finishSave()
+	await flush()
+	expect(events).toContainEqual(['saved', ['cube-turntable (2).webm']])
+})
+
+test('a dialog that is gone when the recording ends asks nothing of the server', async () => {
+	const { recorder, finish } = heldRecorder()
+	const { unmount } = mount({ recorder })
+	button('Record').click()
+	await flush()
+	unmount()
+	finish()
+	await flush()
+	await flush()
+	expect(davFiles.canCreateIn).not.toHaveBeenCalled()
+})
+
+test('a name taken between the listing and the save is not overwritten: the next free one is used', async () => {
+	davFiles.listNames
+		.mockResolvedValueOnce(['cube-turntable.webm'])
+		.mockResolvedValueOnce(['cube-turntable.webm', 'cube-turntable (2).webm'])
+	davFiles.putFile
+		.mockRejectedValueOnce(Object.assign(new Error('Precondition Failed'), { response: { status: 412 } }))
+		.mockResolvedValueOnce()
+	const { events } = mount({ recorder: recorderStub() })
+	button('Record').click()
+	await flush()
+	await flush()
+	button('Save next to the model').click()
+	await flush()
+	await flush()
+	await flush()
+	expect(davFiles.putFile.mock.calls.map((call) => call[2])).toEqual(['cube-turntable (2).webm', 'cube-turntable (3).webm'])
+	expect(events).toContainEqual(['saved', ['cube-turntable (3).webm']])
 })

@@ -15,7 +15,7 @@
 
 import { ref, computed, isRef } from 'vue'
 import * as THREE from 'three'
-import { TURNTABLE_DEFAULTS, pickRecordingFormat, frameCount, orbitPosition, outputSize } from '../utils/turntable.js'
+import { TURNTABLE_DEFAULTS, recorderFormat, frameCount, orbitPosition, outputSize } from '../utils/turntable.js'
 
 /**
  * @param {unknown} source - A ref, a getter or a value
@@ -32,9 +32,12 @@ const read = (source) => (isRef(source) ? source.value : (typeof source === 'fun
  * @param {import('vue').Ref<boolean>} viewer.renderPaused - Pauses the viewer's own loop
  * @param {function(function(number): void): number} [viewer.raf] - Frame scheduler (tests pass their own)
  * @param {function(): number} [viewer.now] - Milliseconds, for frame timing
+ * @param {function(): void} [viewer.beforeRender] - Runs before each frame is drawn, once
+ *   the camera is in place: what the viewer's own loop would do, such as turning labels
+ *   to face the camera
  * @return {object} The recording's state and methods
  */
-export function useTurntable({ renderer, scene, camera, controls, renderPaused, raf = null, now = null }) {
+export function useTurntable({ renderer, scene, camera, controls, renderPaused, raf = null, now = null, beforeRender = null }) {
 	const schedule = raf ?? ((callback) => window.requestAnimationFrame(callback))
 	const clock = now ?? (() => window.performance.now())
 
@@ -44,12 +47,8 @@ export function useTurntable({ renderer, scene, camera, controls, renderPaused, 
 	let stopRequested = null
 
 	const format = computed(() => {
-		const Recorder = typeof globalThis.MediaRecorder === 'function' ? globalThis.MediaRecorder : null
 		const canvas = read(renderer)?.domElement
-		if (!Recorder || typeof Recorder.isTypeSupported !== 'function' || (canvas && typeof canvas.captureStream !== 'function')) {
-			return null
-		}
-		return pickRecordingFormat((type) => Recorder.isTypeSupported(type))
+		return canvas && typeof canvas.captureStream !== 'function' ? null : recorderFormat()
 	})
 	const isSupported = computed(() => format.value !== null)
 
@@ -92,6 +91,7 @@ export function useTurntable({ renderer, scene, camera, controls, renderPaused, 
 			pixelRatio: glRenderer.getPixelRatio(),
 			position: cam.position.clone(),
 			aspect: cam.aspect,
+			frustum: cam.isOrthographicCamera ? [cam.left, cam.right, cam.top, cam.bottom] : null,
 			controlsEnabled: orbit?.enabled,
 			target: orbit?.target?.clone() ?? null,
 			paused: renderPaused?.value ?? false,
@@ -123,6 +123,12 @@ export function useTurntable({ renderer, scene, camera, controls, renderPaused, 
 			glRenderer.setSize(width, height, false)
 			if (cam.isPerspectiveCamera) {
 				cam.aspect = width / height
+			} else if (cam.isOrthographicCamera) {
+				// The same height of the scene, as wide as the video
+				const half = (cam.top - cam.bottom) / 2 * (width / height)
+				const centre = (cam.left + cam.right) / 2
+				cam.left = centre - half
+				cam.right = centre + half
 			}
 			cam.updateProjectionMatrix()
 
@@ -134,6 +140,17 @@ export function useTurntable({ renderer, scene, camera, controls, renderPaused, 
 					chunks.push(event.data)
 				}
 			}
+			// Listened for from the start: a recorder can stop on its own, when its encoder
+			// fails, and stopping it again then does nothing
+			let endedEarly = null
+			const stopped = new Promise((resolve, reject) => {
+				recorder.onstop = () => (endedEarly ? reject(endedEarly) : resolve())
+				recorder.onerror = (event) => {
+					endedEarly = event?.error ?? new Error('The video could not be recorded')
+					reject(endedEarly)
+				}
+			})
+			stopped.catch(() => {})
 			recorder.start()
 			document.addEventListener('visibilitychange', onVisibility)
 
@@ -143,6 +160,11 @@ export function useTurntable({ renderer, scene, camera, controls, renderPaused, 
 			await new Promise((resolve, reject) => {
 				const step = (time) => {
 					try {
+						if (recorder.state === 'inactive') {
+							endedEarly ??= new Error('The recorder stopped before the turn was done')
+							reject(endedEarly)
+							return
+						}
 						if (stopRequested) {
 							resolve()
 							return
@@ -152,6 +174,7 @@ export function useTurntable({ renderer, scene, camera, controls, renderPaused, 
 							last = at
 							cam.position.copy(orbitPosition(start, target, cam.up, frame / frames, direction))
 							cam.lookAt(target)
+							beforeRender?.()
 							glRenderer.render(scene3d, cam)
 							track?.requestFrame?.()
 							frame++
@@ -169,7 +192,6 @@ export function useTurntable({ renderer, scene, camera, controls, renderPaused, 
 				schedule(step)
 			})
 
-			const stopped = new Promise((resolve) => { recorder.onstop = resolve })
 			recorder.stop()
 			await stopped
 			stoppedReason.value = stopRequested
@@ -192,6 +214,8 @@ export function useTurntable({ renderer, scene, camera, controls, renderPaused, 
 			glRenderer.setSize(saved.size.x, saved.size.y, false)
 			if (cam.isPerspectiveCamera) {
 				cam.aspect = saved.aspect
+			} else if (saved.frustum) {
+				[cam.left, cam.right, cam.top, cam.bottom] = saved.frustum
 			}
 			cam.updateProjectionMatrix()
 			cam.position.copy(saved.position)

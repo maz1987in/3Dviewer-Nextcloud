@@ -410,10 +410,10 @@ export default {
 		}
 	},
 	computed: {
-		// Versions are a logged-in user's: Nextcloud lists none to a public link
 		canRecordVideo() {
 			return canRecordVideo()
 		},
+		// Versions are a logged-in user's: Nextcloud lists none to a public link
 		canCompareVersions() {
 			return !isPublicShare() && !!getCurrentUser()
 		},

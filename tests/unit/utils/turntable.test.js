@@ -3,7 +3,7 @@
  * camera is at each frame, what size the video is, and what the file is called.
  */
 import * as THREE from 'three'
-import { TURNTABLE_DEFAULTS, TURNTABLE_SECONDS, pickRecordingFormat, canRecordVideo, frameCount, orbitPosition, outputSize, turntableFileName } from '../../../src/utils/turntable.js'
+import { TURNTABLE_DEFAULTS, TURNTABLE_SECONDS, pickRecordingFormat, canRecordVideo, saveFolder, frameCount, orbitPosition, outputSize, turntableFileName } from '../../../src/utils/turntable.js'
 
 describe('pickRecordingFormat', () => {
 	test('prefers VP9 WebM', () => {
@@ -44,19 +44,41 @@ describe('canRecordVideo', () => {
 	})
 })
 
+describe('saveFolder', () => {
+	test('the folder the viewer was given', () => {
+		expect(saveFolder('/models', 'cube.stl')).toBe('/models')
+	})
+
+	test('a file at the root of the user\'s files, which comes with no folder, is saved at the root', () => {
+		expect(saveFolder(null, 'cube.stl')).toBe('/')
+		expect(saveFolder('', 'cube.stl')).toBe('/')
+	})
+
+	test('a filename that is a path names its folder', () => {
+		expect(saveFolder(null, '/models/parts/cube.stl')).toBe('/models/parts')
+		expect(saveFolder(null, '%2Fmodels%2Fcube.stl')).toBe('/models')
+	})
+
+	test('no folder when the file itself is unknown', () => {
+		expect(saveFolder(null, null)).toBeNull()
+		expect(saveFolder(null, '')).toBeNull()
+	})
+})
+
 describe('orbitPosition', () => {
 	const target = new THREE.Vector3(0, 0, 0)
 	const up = new THREE.Vector3(0, 1, 0)
 	const start = new THREE.Vector3(0, 0, 10)
 
-	test('fraction 0 and 1 return the start position; 0.25 cw from +Z, about +Y, gives -X', () => {
+	test('fraction 0 and 1 return the start position; the model turns cw when the camera goes from +Z to +X', () => {
 		expect(orbitPosition(start, target, up, 0, 'cw').distanceTo(start)).toBeLessThan(1e-9)
 		expect(orbitPosition(start, target, up, 1, 'cw').distanceTo(start)).toBeLessThan(1e-9)
-		// Seen from above, +X is to the right and +Z toward the bottom: clockwise from the
-		// bottom goes left, to -X
+		// The direction is the model's, as on a turntable. Seen from above, +X is to the right
+		// and +Z toward the bottom: for the model to turn clockwise, the camera goes the other
+		// way round it, from the bottom to the right, +X
 		const quarter = orbitPosition(start, target, up, 0.25, 'cw')
-		expect(quarter.distanceTo(new THREE.Vector3(-10, 0, 0))).toBeLessThan(1e-9)
-		expect(orbitPosition(start, target, up, 0.25, 'ccw').distanceTo(new THREE.Vector3(10, 0, 0))).toBeLessThan(1e-9)
+		expect(quarter.distanceTo(new THREE.Vector3(10, 0, 0))).toBeLessThan(1e-9)
+		expect(orbitPosition(start, target, up, 0.25, 'ccw').distanceTo(new THREE.Vector3(-10, 0, 0))).toBeLessThan(1e-9)
 	})
 
 	test('distance to the target and height along up stay constant', () => {

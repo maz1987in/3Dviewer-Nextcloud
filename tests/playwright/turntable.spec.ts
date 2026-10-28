@@ -90,7 +90,7 @@ async function recordFourSeconds(page: Page) {
 test('records 4 s at 720p and downloads a WebM', async ({ page }) => {
 	const { errors } = await open(page)
 	await recordFourSeconds(page)
-	await expect(dialog(page)).toContainText('Saved as WebM')
+	await expect(dialog(page)).toContainText('Recorded as WebM')
 
 	const [download] = await Promise.all([
 		page.waitForEvent('download'),
@@ -151,21 +151,69 @@ test('keyboard: open the dialog, record, stop and download with the keyboard', a
 
 	await dialog(page).getByRole('button', { name: 'Record' }).focus()
 	await page.keyboard.press('Enter')
+	// Each stage takes the pressed button away: focus moves on by itself, to Stop, then Download
 	const stop = dialog(page).getByRole('button', { name: 'Stop' })
-	await expect(stop).toBeVisible()
-	await stop.focus()
+	await expect(stop).toBeFocused()
+	// A tool shortcut pressed while recording reaches nothing behind the dialog
+	const stats = page.locator('.model-stats-overlay')
+	const statsBefore = await stats.count()
+	await page.keyboard.press('s')
 	await page.keyboard.press('Enter')
 	await expect(dialog(page)).toContainText('Stopped early')
+	await expect(stats).toHaveCount(statsBefore)
 
+	await expect(dialog(page).getByRole('button', { name: 'Download' })).toBeFocused()
 	const [download] = await Promise.all([
 		page.waitForEvent('download'),
-		(async () => {
-			await dialog(page).getByRole('button', { name: 'Download' }).focus()
-			await page.keyboard.press('Enter')
-		})(),
+		page.keyboard.press('Enter'),
 	])
 	expect(download.suggestedFilename()).toBe('cube-turntable.webm')
 
 	await page.keyboard.press('Escape')
 	await expect(dialog(page)).toBeHidden()
+	// Escape closed the dialog, not the tools panel behind it
+	await expect(page.locator('.slide-out-panel')).toBeVisible()
+	await expect(panelButton(page)).toBeFocused()
+})
+
+test('a 720p video stays 1280 × 720 whatever the window does, and the viewer fits the window afterwards', async ({ page }) => {
+	await open(page)
+	const canvasState = () => page.evaluate(() => {
+		const viewer = (window as any).__THREEDVIEWER_APP.$.subTree.component.proxy.$refs.viewer
+		const canvas = viewer.renderer.domElement
+		const camera = viewer.camera.camera.value
+		return {
+			buffer: [canvas.width, canvas.height],
+			// The viewer draws at its own pixel ratio, which the performance mode sets
+			shown: [Math.round(canvas.clientWidth * viewer.renderer.getPixelRatio()), Math.round(canvas.clientHeight * viewer.renderer.getPixelRatio())],
+			aspect: camera.aspect,
+			shownAspect: canvas.clientWidth / canvas.clientHeight,
+		}
+	})
+	await panelButton(page).click()
+	await dialog(page).locator('#turntable-length').fill('6')
+	await dialog(page).locator('#turntable-size').selectOption('720p')
+	await dialog(page).getByRole('button', { name: 'Record' }).click()
+	await page.waitForTimeout(800)
+	// Changing the drawing buffer can change the page's layout, which the viewer hears as a resize
+	expect((await canvasState()).buffer).toEqual([1280, 720])
+	await page.setViewportSize({ width: 900, height: 700 })
+	await page.waitForTimeout(500)
+	const during = await canvasState()
+	expect(during.buffer).toEqual([1280, 720])
+	expect(during.aspect).toBeCloseTo(1280 / 720, 6)
+
+	await expect(dialog(page).getByRole('button', { name: 'Download' })).toBeVisible({ timeout: 20000 })
+	const after = await canvasState()
+	expect(after.buffer).toEqual(after.shown)
+	expect(after.aspect).toBeCloseTo(after.shownAspect, 3)
+})
+
+test('a model at the root of the user\'s files can be saved next to itself', async ({ page }) => {
+	const puts = await mockFolder(page, 'RGDNVCK')
+	await open(page, { user: 'alice', dir: '' })
+	await recordFourSeconds(page)
+	await dialog(page).getByRole('button', { name: 'Save next to the model' }).click()
+	await expect.poll(() => puts.length).toBe(1)
+	expect(puts[0]).toMatch(/\/remote\.php\/dav\/files\/alice\/cube-turntable%20\(2\)\.webm$/)
 })

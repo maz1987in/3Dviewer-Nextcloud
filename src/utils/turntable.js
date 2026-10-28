@@ -9,7 +9,7 @@
 export const TURNTABLE_DEFAULTS = Object.freeze({ seconds: 8, size: '720p', direction: 'cw', fps: 30 })
 export const TURNTABLE_SECONDS = Object.freeze({ min: 4, max: 15 })
 
-// Best first. Safari records no WebM, only MP4.
+// Best first. Older Safari records no WebM, only MP4.
 const FORMATS = [
 	{ mimeType: 'video/webm;codecs=vp9', extension: 'webm' },
 	{ mimeType: 'video/webm;codecs=vp8', extension: 'webm' },
@@ -38,12 +38,50 @@ export function pickRecordingFormat(isTypeSupported) {
  * @return {boolean} True with a recordable format and a canvas that can be streamed
  */
 export function canRecordVideo(env = globalThis) {
+	return typeof env.HTMLCanvasElement?.prototype?.captureStream === 'function' && recorderFormat(env) !== null
+}
+
+/**
+ * The format this browser's MediaRecorder would record in.
+ *
+ * @param {object} [env] - Where MediaRecorder lives (tests pass their own)
+ * @return {?{mimeType: string, extension: 'webm'|'mp4'}} The format, or null without a
+ *   MediaRecorder or a format it can record
+ */
+export function recorderFormat(env = globalThis) {
 	const Recorder = env.MediaRecorder
-	if (typeof Recorder !== 'function' || typeof Recorder.isTypeSupported !== 'function'
-		|| typeof env.HTMLCanvasElement?.prototype?.captureStream !== 'function') {
-		return false
+	if (typeof Recorder !== 'function' || typeof Recorder.isTypeSupported !== 'function') {
+		return null
 	}
-	return pickRecordingFormat((type) => Recorder.isTypeSupported(type)) !== null
+	return pickRecordingFormat((type) => Recorder.isTypeSupported(type))
+}
+
+/**
+ * The folder "Save next to the model" writes to.
+ *
+ * Nextcloud hands a file at the root of the user's files over with no folder at all, so
+ * a known file with no folder is at the root. A filename that is a path names its own.
+ *
+ * @param {?string} dir - The folder the viewer was given
+ * @param {?string} filename - The model's name, or its path
+ * @return {?string} The folder, or null when the file itself is unknown
+ */
+export function saveFolder(dir, filename) {
+	if (dir) {
+		return dir
+	}
+	if (!filename) {
+		return null
+	}
+	let path = String(filename)
+	try {
+		path = decodeURIComponent(path)
+	} catch (error) {
+		// A literal % in the name: it is the name as it is
+	}
+	const parts = path.split('/').filter(Boolean)
+	parts.pop()
+	return `/${parts.join('/')}`
 }
 
 /**
@@ -62,12 +100,14 @@ export function frameCount(seconds, fps = TURNTABLE_DEFAULTS.fps) {
  * @param {THREE.Vector3} target - What it turns around
  * @param {THREE.Vector3} up - The axis it turns about (the camera's up)
  * @param {number} fraction - 0 at the start, 1 a full turn
- * @param {'cw'|'ccw'} direction - Clockwise or counter-clockwise, seen from above
+ * @param {'cw'|'ccw'} direction - Which way the model turns, seen from above, as on a
+ *   turntable: the camera goes round it the other way
  * @return {THREE.Vector3} The position
  */
 export function orbitPosition(start, target, up, fraction, direction) {
-	// Clockwise seen from above is a negative turn about the up axis
-	const angle = (direction === 'ccw' ? 1 : -1) * Math.PI * 2 * fraction
+	// The model turning clockwise seen from above is the camera turning counter-clockwise,
+	// a positive turn about the up axis
+	const angle = (direction === 'ccw' ? -1 : 1) * Math.PI * 2 * fraction
 	const axis = up.clone().normalize()
 	return start.clone().sub(target).applyAxisAngle(axis, angle).add(target)
 }

@@ -58,7 +58,12 @@ test('putFile encodes the path and sends the type', async () => {
 	axios.put.mockResolvedValue({ status: 201 })
 	const blob = new Blob(['x'], { type: 'video/webm' })
 	await putFile('alice', '/models', 'cube-turntable (2).webm', blob)
-	expect(axios.put).toHaveBeenCalledWith('/remote.php/dav/files/alice/models/cube-turntable%20(2).webm', blob, { headers: { 'Content-Type': 'video/webm' } })
+	expect(axios.put).toHaveBeenCalledWith('/remote.php/dav/files/alice/models/cube-turntable%20(2).webm', blob, { headers: { 'Content-Type': 'video/webm', 'If-None-Match': '*' } })
+})
+
+test('putFile never replaces a file: one made since the folder was listed makes it fail with 412', async () => {
+	axios.put.mockRejectedValue(Object.assign(new Error('Precondition Failed'), { response: { status: 412 } }))
+	await expect(putFile('alice', '/models', 'a.webm', new Blob(['x']))).rejects.toMatchObject({ response: { status: 412 } })
 })
 
 test('putFile rejects on 507', async () => {

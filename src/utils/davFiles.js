@@ -84,16 +84,18 @@ export async function listNames(userId, dirPath) {
 }
 
 /**
- * Write a file into a folder, replacing nothing the caller did not mean to: pick a free
- * name first (listNames).
+ * Write a new file into a folder. It never replaces one: pick a free name first
+ * (listNames), and a file given that name since (another device, another tab) makes the
+ * write fail with 412 instead of being overwritten.
  *
  * @param {string} userId - The logged-in user
  * @param {string} dirPath - The folder
  * @param {string} name - The file name
  * @param {Blob} blob - The content
- * @return {Promise<void>} Rejects when the server refuses it (no space, no permission)
+ * @return {Promise<void>} Rejects when the server refuses it (412 for a name now taken,
+ *   no space, no permission)
  */
 export async function putFile(userId, dirPath, name, blob) {
 	const path = `${String(dirPath || '').replace(/\/+$/, '')}/${name}`
-	await axios.put(userFilesUrl(userId, path), blob, { headers: { 'Content-Type': blob.type || 'application/octet-stream' } })
+	await axios.put(userFilesUrl(userId, path), blob, { headers: { 'Content-Type': blob.type || 'application/octet-stream', 'If-None-Match': '*' } })
 }

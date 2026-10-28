@@ -668,7 +668,7 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import ViewerIcon from './ViewerIcon.vue'
 import ToggleSwitchRow from './ToggleSwitchRow.vue'
-import { isShortcutBlocked, shortcutFor, shortcutKey } from '../utils/toolShortcuts.js'
+import { isShortcutBlocked, shortcutFor, shortcutKey, hasOpenModal } from '../utils/toolShortcuts.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
 // eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
 import { translate as t } from '@nextcloud/l10n'
@@ -869,7 +869,7 @@ export default {
 				togglePanel()
 				return
 			}
-			if (event.key === 'Escape' && isOpen.value) {
+			if (event.key === 'Escape' && isOpen.value && !hasOpenModal()) {
 				closePanel()
 				return
 			}

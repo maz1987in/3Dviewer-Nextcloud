@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Print check, in the tools panel's Analyze section: see whether a model fits your printer's build volume (pick from common printers or enter your own size), which surfaces overhang past an angle you choose, and roughly how much filament it needs. For G-code files it shows the print time and filament the slicer worked out. A wall thickness check colours walls thinner than a minimum you set.
 - Compare a model with an earlier version of the same file: pick one of the versions Nextcloud kept, and see the two side by side with what changed, or the earlier one as a see-through ghost over the current one. Supporting files such as textures are loaded as they are now.
-- Record a turntable video, from the tools panel's Export section: one full turn of the camera around the model, 4 to 15 seconds at 720p, 1080p or your window's size, as the viewer draws it, with its shading, annotations and measurements (face labels aren't included). Download it as WebM (MP4 in Safari), or save it next to the model in your Nextcloud when you can add files to that folder.
+- Record a turntable video, from the tools panel's Export section: one full turn of the camera around the model, 4 to 15 seconds at 720p, 1080p or your window's size, as the viewer draws it, with its shading, annotations and measurements (face labels aren't included). Download it as WebM (MP4 in browsers that can't record WebM, such as older Safari), or save it next to the model in your Nextcloud when you can add files to that folder.
 
 ## [3.8.1] - 2026-10-27
 

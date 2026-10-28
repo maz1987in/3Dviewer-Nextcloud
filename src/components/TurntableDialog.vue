@@ -18,7 +18,7 @@
 						class="tdv-btn tdv-btn--icon turntable-close"
 						:aria-label="t('threedviewer', 'Close')"
 						:title="t('threedviewer', 'Close')"
-						:disabled="recording"
+						:disabled="recording || saving"
 						@click="closeUnlessRecording">
 						<ViewerIcon name="close" :size="18" />
 					</button>
@@ -72,7 +72,7 @@
 							{{ t('threedviewer', 'Recording…') }}
 						</p>
 						<template v-else-if="result">
-							<p>{{ result.extension === 'mp4' ? t('threedviewer', 'Saved as MP4') : t('threedviewer', 'Saved as WebM') }}</p>
+							<p>{{ result.extension === 'mp4' ? t('threedviewer', 'Recorded as MP4') : t('threedviewer', 'Recorded as WebM') }}</p>
 							<p v-if="!result.complete" class="tdv-secondary">
 								{{ stoppedReason === 'hidden' ? t('threedviewer', 'Stopped early: the tab was hidden') : t('threedviewer', 'Stopped early') }}
 							</p>
@@ -84,7 +84,10 @@
 						<progress :value="progress" max="1" :aria-label="t('threedviewer', 'Recording')" />
 						<p>{{ t('threedviewer', '{percent} %', { percent: Math.round(progress * 100) }) }}</p>
 						<div class="turntable-actions">
-							<button type="button" class="tdv-btn tdv-btn--secondary" @click="recorder.stop()">
+							<button ref="stopRef"
+								type="button"
+								class="tdv-btn tdv-btn--secondary"
+								@click="recorder.stop()">
 								{{ t('threedviewer', 'Stop') }}
 							</button>
 						</div>
@@ -92,13 +95,17 @@
 
 					<div class="turntable-actions">
 						<button v-if="!recording && !result"
+							ref="recordRef"
 							type="button"
 							class="tdv-btn tdv-btn--primary"
 							@click="start">
 							{{ t('threedviewer', 'Record') }}
 						</button>
 						<template v-else-if="result">
-							<button type="button" class="tdv-btn tdv-btn--primary" @click="download">
+							<button ref="downloadRef"
+								type="button"
+								class="tdv-btn tdv-btn--primary"
+								@click="download">
 								{{ t('threedviewer', 'Download') }}
 							</button>
 							<button v-if="canSave"
@@ -106,7 +113,7 @@
 								class="tdv-btn tdv-btn--secondary"
 								:disabled="saving"
 								@click="save">
-								{{ t('threedviewer', 'Save next to the model') }}
+								{{ saving ? t('threedviewer', 'Saving…') : t('threedviewer', 'Save next to the model') }}
 							</button>
 						</template>
 					</div>
@@ -122,6 +129,9 @@ import ViewerIcon from './ViewerIcon.vue'
 import { useFocusTrap } from '../composables/useFocusTrap.js'
 import { TURNTABLE_DEFAULTS, TURNTABLE_SECONDS, turntableFileName } from '../utils/turntable.js'
 import { canCreateIn, listNames, putFile } from '../utils/davFiles.js'
+
+// Tries at a free name when another file keeps taking the chosen one
+const SAVE_ATTEMPTS = 3
 
 export default {
 	name: 'TurntableDialog',
@@ -141,6 +151,12 @@ export default {
 	emits: ['close', 'saved', 'save-failed', 'record-failed'],
 	setup(props, { emit }) {
 		const dialogRef = ref(null)
+		// Each stage takes away the button that was pressed: focus goes to the next one,
+		// not to the page behind the dialog
+		const recordRef = ref(null)
+		const stopRef = ref(null)
+		const downloadRef = ref(null)
+		let gone = false
 		const focusTrap = useFocusTrap(dialogRef)
 		const seconds = ref(TURNTABLE_DEFAULTS.seconds)
 		const size = ref(TURNTABLE_DEFAULTS.size)
@@ -158,21 +174,40 @@ export default {
 			await nextTick()
 			focusTrap.activate()
 		})
-		onBeforeUnmount(() => focusTrap.deactivate())
+		onBeforeUnmount(() => {
+			gone = true
+			focusTrap.deactivate()
+		})
 
+		// Closing while a save runs would hide whether it worked
 		const closeUnlessRecording = () => {
-			if (!recording.value) {
+			if (!recording.value && !saving.value) {
 				emit('close')
 			}
 		}
 
+		const focus = async (button) => {
+			await nextTick()
+			button.value?.focus()
+		}
+
 		const start = async () => {
+			const recorded = props.recorder.record({ seconds: seconds.value, size: size.value, direction: direction.value })
+			recorded.catch(() => {})
+			await focus(stopRef)
 			try {
-				result.value = await props.recorder.record({ seconds: seconds.value, size: size.value, direction: direction.value })
+				result.value = await recorded
 			} catch (error) {
-				emit('record-failed', error)
+				if (!gone) {
+					emit('record-failed', error)
+					await focus(recordRef)
+				}
 				return
 			}
+			if (gone) {
+				return
+			}
+			await focus(downloadRef)
 			// "Save next to the model" only for someone who may add files to that folder
 			canSave.value = !props.publicShare && !!props.userId && props.dirPath !== null
 				&& await canCreateIn(props.userId, props.dirPath)
@@ -193,9 +228,19 @@ export default {
 		const save = async () => {
 			saving.value = true
 			try {
-				const name = turntableFileName(props.modelName, result.value.extension, await listNames(props.userId, props.dirPath))
-				await putFile(props.userId, props.dirPath, name, result.value.blob)
-				emit('saved', name)
+				// A name taken between the listing and the write fails with 412: list again
+				for (let attempt = 1; ; attempt++) {
+					const name = turntableFileName(props.modelName, result.value.extension, await listNames(props.userId, props.dirPath))
+					try {
+						await putFile(props.userId, props.dirPath, name, result.value.blob)
+						emit('saved', name)
+						break
+					} catch (error) {
+						if (error?.response?.status !== 412 || attempt >= SAVE_ATTEMPTS) {
+							throw error
+						}
+					}
+				}
 			} catch (error) {
 				emit('save-failed', error)
 			} finally {
@@ -205,6 +250,9 @@ export default {
 
 		return {
 			dialogRef,
+			recordRef,
+			stopRef,
+			downloadRef,
 			seconds,
 			size,
 			direction,

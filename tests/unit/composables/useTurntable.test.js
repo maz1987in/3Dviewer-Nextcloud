@@ -17,13 +17,15 @@ class FakeRecorder {
 
 	start() { this.state = 'recording' }
 	stop() {
+		// As in the spec: stopping a recorder that has already stopped does nothing
+		if (this.state === 'inactive') return
 		this.state = 'inactive'
 		this.ondataavailable?.({ data: new Blob(['frames'], { type: this.options.mimeType }) })
 		setTimeout(() => this.onstop?.(), 0)
 	}
 }
 
-function setup() {
+function setup({ camera: givenCamera = null, beforeRender = undefined } = {}) {
 	const track = { requestFrame: jest.fn(), stop: jest.fn() }
 	const canvas = { width: 801, height: 601, style: { width: '800px' }, captureStream: jest.fn(() => ({ getVideoTracks: () => [track], getTracks: () => [track] })) }
 	const size = { x: 800, y: 600 }
@@ -36,7 +38,7 @@ function setup() {
 		setSize: jest.fn((w, h) => { size.x = w; size.y = h }),
 		render: jest.fn(),
 	}
-	const camera = new THREE.PerspectiveCamera(50, 800 / 600)
+	const camera = givenCamera ?? new THREE.PerspectiveCamera(50, 800 / 600)
 	camera.position.set(0, 2, 10)
 	const controls = { enabled: true, target: new THREE.Vector3(0, 2, 0) }
 	const renderPaused = ref(false)
@@ -49,6 +51,7 @@ function setup() {
 		renderPaused,
 		raf: (callback) => setTimeout(() => callback((time += 34)), 0),
 		now: () => time,
+		beforeRender,
 	})
 	return { turntable, renderer, camera, controls, renderPaused, track, canvas, size }
 }
@@ -77,7 +80,7 @@ test('the camera makes one full turn and ends where it began', async () => {
 	renderer.render.mockImplementation(() => positions.push(camera.position.clone()))
 	await turntable.record({ seconds: 4, size: '720p', direction: 'cw' })
 	expect(positions[0].distanceTo(new THREE.Vector3(0, 2, 10))).toBeLessThan(1e-9)
-	expect(positions[30].distanceTo(new THREE.Vector3(-10, 2, 0))).toBeLessThan(1e-6)
+	expect(positions[30].distanceTo(new THREE.Vector3(10, 2, 0))).toBeLessThan(1e-6)
 	expect(camera.position.distanceTo(new THREE.Vector3(0, 2, 10))).toBeLessThan(1e-9)
 })
 
@@ -161,4 +164,60 @@ test('isSupported is false without MediaRecorder', () => {
 	global.MediaRecorder = FakeRecorder
 	FakeRecorder.isTypeSupported.mockImplementation(() => false)
 	expect(setup().turntable.isSupported.value).toBe(false)
+})
+
+test('beforeRender runs once per frame, after the camera has moved, so labels can face it', async () => {
+	const seen = []
+	const { turntable, renderer, camera } = setup({ beforeRender: () => seen.push(camera.position.clone()) })
+	const drawn = []
+	renderer.render.mockImplementation(() => drawn.push(camera.position.clone()))
+	await turntable.record({ seconds: 4, size: '720p', direction: 'cw' })
+	expect(seen).toHaveLength(120)
+	seen.forEach((position, i) => expect(position.distanceTo(drawn[i])).toBeLessThan(1e-9))
+})
+
+test('an orthographic camera is widened to the video\'s shape, then put back', async () => {
+	const camera = new THREE.OrthographicCamera(-4, 4, 3, -3, 0.1, 100)
+	const { turntable, renderer } = setup({ camera })
+	const shapes = []
+	renderer.render.mockImplementation(() => shapes.push([(camera.right - camera.left) / (camera.top - camera.bottom), (camera.right + camera.left) / 2]))
+	await turntable.record({ seconds: 4, size: '720p', direction: 'cw' })
+	expect(shapes[0][0]).toBeCloseTo(1280 / 720, 9)
+	expect(shapes[0][1]).toBeCloseTo(0, 9)
+	expect([camera.left, camera.right, camera.top, camera.bottom]).toEqual([-4, 4, 3, -3])
+})
+
+test('a recorder that stops on its own ends the recording with an error and puts everything back', async () => {
+	const { turntable, renderer, size, renderPaused } = setup()
+	renderer.render.mockImplementation(() => {
+		if (renderer.render.mock.calls.length === 5) {
+			const recorder = FakeRecorder.last
+			recorder.state = 'inactive'
+			recorder.onerror?.({ error: new Error('encoder failed') })
+			recorder.onstop?.()
+		}
+	})
+	await expect(turntable.record({ seconds: 4, size: '720p', direction: 'cw' })).rejects.toThrow('encoder failed')
+	expect(turntable.isRecording.value).toBe(false)
+	expect(size).toEqual({ x: 800, y: 600 })
+	expect(renderPaused.value).toBe(false)
+})
+
+test('a recorder that stops on its own without an error still ends the recording', async () => {
+	const { turntable, renderer } = setup()
+	renderer.render.mockImplementation(() => {
+		if (renderer.render.mock.calls.length === 5) {
+			FakeRecorder.last.state = 'inactive'
+			FakeRecorder.last.onstop?.()
+		}
+	})
+	await expect(turntable.record({ seconds: 4, size: '720p', direction: 'cw' })).rejects.toThrow()
+	expect(turntable.isRecording.value).toBe(false)
+})
+
+test('a viewer loop that was already paused stays paused afterwards', async () => {
+	const { turntable, renderPaused } = setup()
+	renderPaused.value = true
+	await turntable.record({ seconds: 4, size: '720p', direction: 'cw' })
+	expect(renderPaused.value).toBe(true)
 })
