@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Print check, in the tools panel's Analyze section: see whether a model fits your printer's build volume (pick from common printers or enter your own size), which surfaces overhang past an angle you choose, and roughly how much filament it needs. For G-code files it shows the print time and filament the slicer worked out. A wall thickness check colours walls thinner than a minimum you set.
 - Compare a model with an earlier version of the same file: pick one of the versions Nextcloud kept, and see the two side by side with what changed, or the earlier one as a see-through ghost over the current one. Supporting files such as textures are loaded as they are now.
 
 ## [3.8.1] - 2026-10-27
