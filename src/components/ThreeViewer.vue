@@ -870,6 +870,7 @@ import {
 	applyCameraState,
 	buildShareableUrl,
 } from '../utils/cameraUrlState.js'
+import { copyText } from '../utils/clipboard.js'
 import { useLightingPresets } from '../composables/useLightingPresets.js'
 import { useBookmarks } from '../composables/useBookmarks.js'
 import { useExplodedView } from '../composables/useExplodedView.js'
@@ -2294,8 +2295,7 @@ export default {
 
 		/**
 		 * Copy the current measurement report (bbox, surface area, volume,
-		 * watertightness, per-mesh breakdown) to the clipboard using the same
-		 * secure-context + textarea fallback pattern as App.onCopyViewLink.
+		 * watertightness, per-mesh breakdown) to the clipboard.
 		 */
 		const copyMeasurementReport = async () => {
 			const text = modelStatsComposable.buildMeasurementReport()
@@ -2305,19 +2305,7 @@ export default {
 				return
 			}
 			try {
-				if (navigator.clipboard && window.isSecureContext) {
-					await navigator.clipboard.writeText(text)
-				} else {
-					const ta = document.createElement('textarea')
-					ta.value = text
-					ta.style.position = 'fixed'
-					ta.style.opacity = '0'
-					document.body.appendChild(ta)
-					ta.focus()
-					ta.select()
-					document.execCommand('copy')
-					document.body.removeChild(ta)
-				}
+				await copyText(text)
 				emit('push-toast', {
 					type: 'success',
 					title: tr('Measurements copied'),

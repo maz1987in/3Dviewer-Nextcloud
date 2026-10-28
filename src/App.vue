@@ -257,6 +257,7 @@ import { applyCacheConfig } from './utils/dependencyCache.js'
 import { getCurrentUser } from '@nextcloud/auth'
 import { isPublicShare } from './composables/usePublicShare.js'
 import { canRecordVideo } from './utils/turntable.js'
+import { copyText } from './utils/clipboard.js'
 
 export default {
 	name: 'App',
@@ -687,8 +688,7 @@ export default {
 		 *
 		 * Recipients who open the link see the exact position/target/zoom
 		 * we're looking at right now. Requires a model to be loaded so the
-		 * camera/controls exist. Uses navigator.clipboard with a hidden
-		 * textarea fallback for older contexts.
+		 * camera/controls exist.
 		 */
 		async onCopyViewLink() {
 			const link = this.$refs.viewer?.getShareableViewLink?.()
@@ -701,24 +701,7 @@ export default {
 				return
 			}
 			try {
-				// Prefer the modern async clipboard API. It requires a secure
-				// context (HTTPS or localhost) — both apply to Nextcloud.
-				if (navigator.clipboard && window.isSecureContext) {
-					await navigator.clipboard.writeText(link)
-				} else {
-					// Fallback: offscreen textarea + execCommand. Deprecated but
-					// still works in every browser shipped in the last decade,
-					// and is the only option on non-secure contexts.
-					const ta = document.createElement('textarea')
-					ta.value = link
-					ta.style.position = 'fixed'
-					ta.style.opacity = '0'
-					document.body.appendChild(ta)
-					ta.focus()
-					ta.select()
-					document.execCommand('copy')
-					document.body.removeChild(ta)
-				}
+				await copyText(link)
 				this.pushToast({
 					type: 'success',
 					title: this.t('threedviewer', 'Link copied'),
