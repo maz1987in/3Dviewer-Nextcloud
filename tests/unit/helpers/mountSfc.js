@@ -9,6 +9,7 @@
 const { readFileSync } = require('fs')
 const { join } = require('path')
 const vue = require('vue')
+const { parse } = require('@vue/compiler-sfc')
 const { stripHtmlComments } = require('./stripHtmlComments.js')
 
 const COMPONENTS = join(__dirname, '..', '..', '..', 'src', 'components')
@@ -22,9 +23,10 @@ const COMPONENTS = join(__dirname, '..', '..', '..', 'src', 'components')
  * @return {object} Component options, template included
  */
 function loadSfc(name, modules = {}) {
-	const source = readFileSync(join(COMPONENTS, `${name}.vue`), 'utf8')
-	const template = stripHtmlComments(/<template>([\s\S]*)<\/template>\s*<script>/.exec(source)[1])
-	let script = /<script>([\s\S]*?)<\/script>/.exec(source)[1]
+	// Split into blocks by Vue's own SFC parser, as the build does
+	const { descriptor } = parse(readFileSync(join(COMPONENTS, `${name}.vue`), 'utf8'))
+	const template = stripHtmlComments(descriptor.template.content)
+	let script = descriptor.script.content
 
 	const bindings = []
 	script = script.replace(/^import\s+([\s\S]+?)\s+from\s+'([^']+)'\s*$/gm, (_, clause, specifier) => {
