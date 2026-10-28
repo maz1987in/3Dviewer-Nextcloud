@@ -489,6 +489,14 @@
 									<span class="tool-label">{{ t('threedviewer', 'Screenshot') }}</span>
 									<span class="tool-hint">{{ shortcutKey('take-screenshot') }}</span>
 								</button>
+								<button type="button"
+									class="tool-btn"
+									:disabled="!modelLoaded || !canRecordVideo"
+									:title="canRecordVideo ? undefined : t('threedviewer', 'This browser can\'t record video')"
+									@click="emit('record-turntable')">
+									<ViewerIcon class="tool-icon" name="videoRecord" :size="17" />
+									<span class="tool-label">{{ t('threedviewer', 'Record turntable') }}</span>
+								</button>
 								<!--
 									Choosing a format does not start an export: a change of setting must not
 									have an effect the user was not told of (WCAG 3.2.2). Arrowing through the
@@ -690,6 +698,8 @@ export default {
 		// False on a public link, where Nextcloud lists no versions
 		canCompareVersions: { type: Boolean, default: false },
 		printCheckActive: { type: Boolean, default: false },
+		// False where MediaRecorder or canvas streams are missing
+		canRecordVideo: { type: Boolean, default: false },
 		transformGizmoActive: { type: Boolean, default: false },
 		transformGizmoMode: { type: String, default: 'translate' },
 		modelLoaded: { type: Boolean, default: false },
@@ -780,6 +790,7 @@ export default {
 		'reset-palette',
 		'toggle-stats',
 		'take-screenshot',
+		'record-turntable',
 		'export-model',
 		'send-to-slicer',
 		'clear-cache',

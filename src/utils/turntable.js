@@ -32,6 +32,21 @@ export function pickRecordingFormat(isTypeSupported) {
 }
 
 /**
+ * Whether this browser can record the viewer's canvas at all, before a recording is set up.
+ *
+ * @param {object} [env] - Where MediaRecorder and HTMLCanvasElement live (tests pass their own)
+ * @return {boolean} True with a recordable format and a canvas that can be streamed
+ */
+export function canRecordVideo(env = globalThis) {
+	const Recorder = env.MediaRecorder
+	if (typeof Recorder !== 'function' || typeof Recorder.isTypeSupported !== 'function'
+		|| typeof env.HTMLCanvasElement?.prototype?.captureStream !== 'function') {
+		return false
+	}
+	return pickRecordingFormat((type) => Recorder.isTypeSupported(type)) !== null
+}
+
+/**
  * @param {number} seconds - The video's length
  * @param {number} [fps] - Frames per second
  * @return {number} How many frames that is

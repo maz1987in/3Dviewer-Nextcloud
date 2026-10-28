@@ -2060,6 +2060,17 @@ Version comparison lists and downloads a file's earlier versions straight from N
 
 The captured responses are in `tests/fixtures/versions/`.
 
+## Turntable Video
+
+**Record turntable** (the tools panel's Export section) records one full turn of the camera around what it looks at, for someone who won't open a viewer. The recording is `src/composables/useTurntable.js`, the helpers are `src/utils/turntable.js`, and the dialog is `src/components/TurntableDialog.vue`, which is only loaded the first time someone opens it.
+
+- **Format.** `MediaRecorder` on the canvas's stream, in the first format the browser can record: WebM (VP9, then VP8) in Chrome, Firefox and Edge, and MP4 (H.264) in Safari. The file's extension matches what was made. The button is disabled, with a title that says why, where there's no `MediaRecorder`, no format it can record, or no `canvas.captureStream` (`canRecordVideo`).
+- **The turn.** It starts from the current view and zoom, and the camera turns about the camera's up axis through the orbit target, clockwise or counter-clockwise as seen from above. Lengths run from 4 to 15 s at 30 fps; the default is 8 s. Sizes are 720p, 1080p or the window's size, rounded to even pixels, which video encoders need.
+- **Frame timing.** The viewer's own render loop pauses for the recording (`renderPaused`), so nothing else moves the camera or draws in between. Each frame is drawn once and sent explicitly (`captureStream(0)` and `requestFrame()`), so a slow frame arrives late rather than going missing. A hidden tab throttles timers, so hiding the page ends the recording and keeps what was recorded; the dialog says it stopped early, and why.
+- **Put back afterwards.** The renderer's size and pixel ratio, the camera's position and aspect, and the orbit controls' target and enabled state are restored whether the recording finished, was stopped or failed. The canvas keeps its place on the page throughout: only its drawing buffer changes size.
+- **What's in the video.** Whatever the renderer draws: render mode, wireframe, lighting, background, grid and axes, annotations, measurements and Print check's colours if they're showing. Face labels aren't in it, because they're HTML on top of the canvas, not part of the scene. While it records, the dialog covers the viewer, the orbit controls are off, and keys pressed in the dialog don't reach the tool shortcuts.
+- **Saving.** **Download** saves `<model name>-turntable.<ext>`. **Save next to the model** writes the file into the model's folder through WebDAV (`utils/davFiles.js`). It's offered only to a logged-in user whose folder permissions include `C` (create), checked with a `PROPFIND` for `oc:permissions`. A name that's taken gets " (2)", " (3)" and so on, from a listing of the folder made just before the `PUT`. On a public link, only Download is offered.
+
 ---
 
 This technical documentation provides comprehensive information about the 3D Viewer's architecture, performance monitoring, multi-file loading capabilities, composables API, lazy loading implementation, model loading system, advanced viewer wiring, and decoder integration. For user-facing documentation, see the main [README.md](../README.md). For implementation history and lessons learned, see [IMPLEMENTATION.md](IMPLEMENTATION.md). For testing information, see [TESTING.md](TESTING.md).

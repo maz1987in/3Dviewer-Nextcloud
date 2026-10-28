@@ -142,6 +142,7 @@
 					:comparison-mode="comparisonMode"
 					:can-compare-versions="canCompareVersions"
 					:print-check-active="printCheckActive"
+					:can-record-video="canRecordVideo"
 					@reset-view="onReset"
 					@fit-to-view="onFitToView"
 					@toggle-auto-rotate="onToggleAutoRotate"
@@ -155,6 +156,7 @@
 					@toggle-comparison="onToggleComparison"
 					@compare-version="onCompareVersion"
 					@toggle-print-check="onTogglePrintCheck"
+					@record-turntable="onRecordTurntable"
 					@toggle-transform-gizmo="onToggleTransformGizmo"
 					@set-transform-mode="onSetTransformMode"
 					@reset-transform="onResetTransform"
@@ -254,6 +256,7 @@ import { applyCacheConfig } from './utils/dependencyCache.js'
 // eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
 import { getCurrentUser } from '@nextcloud/auth'
 import { isPublicShare } from './composables/usePublicShare.js'
+import { canRecordVideo } from './utils/turntable.js'
 
 export default {
 	name: 'App',
@@ -408,6 +411,9 @@ export default {
 	},
 	computed: {
 		// Versions are a logged-in user's: Nextcloud lists none to a public link
+		canRecordVideo() {
+			return canRecordVideo()
+		},
 		canCompareVersions() {
 			return !isPublicShare() && !!getCurrentUser()
 		},
@@ -762,6 +768,10 @@ export default {
 
 		onTogglePrintCheck() {
 			this.$refs.viewer?.togglePrintCheck?.()
+		},
+
+		onRecordTurntable() {
+			this.$refs.viewer?.openTurntable?.()
 		},
 
 		onCompareVersion() {

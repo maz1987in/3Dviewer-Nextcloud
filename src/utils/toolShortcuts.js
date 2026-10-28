@@ -22,7 +22,7 @@ const TYPING = /^(INPUT|TEXTAREA|SELECT)$/
 
 /**
  * Whether a keypress belongs to something other than the viewer's shortcuts: a key typed
- * into a field, or one held with a modifier.
+ * into a field, one held with a modifier, or one pressed inside a modal dialog.
  *
  * A button is not a field. Enter and Space on a focused button or switch are not in the
  * table, so they reach it as the click they are, and a letter pressed there still works as
@@ -39,8 +39,10 @@ export function isShortcutBlocked(event) {
 	}
 
 	const target = event.target
+	// A modal dialog has the keyboard: a key there is for the dialog, never for a tool behind it
 	return !!target && (TYPING.test(target.tagName) || !!target.isContentEditable
-		|| target.getAttribute?.('contenteditable') === 'true')
+		|| target.getAttribute?.('contenteditable') === 'true'
+		|| !!target.closest?.('[aria-modal="true"]'))
 }
 
 /**

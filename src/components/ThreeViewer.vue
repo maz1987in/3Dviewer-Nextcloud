@@ -362,6 +362,17 @@
 			@pick="onVersionPicked"
 			@cancel="onVersionPickerCancel" />
 
+		<TurntableDialog v-if="turntableOpen"
+			:recorder="turntable"
+			:model-name="turntableModelName"
+			:user-id="turntableUserId"
+			:dir-path="dir"
+			:public-share="turntablePublicShare"
+			@close="turntableOpen = false"
+			@saved="onTurntableSaved"
+			@save-failed="onTurntableSaveFailed"
+			@record-failed="onTurntableRecordFailed" />
+
 		<div
 			v-if="isComparisonMode && hasComparisonModel && diffStats && showDiffOverlay"
 			class="comparison-diff-overlay"
@@ -830,6 +841,7 @@ import CircularController from './CircularController.vue'
 import { useCamera } from '../composables/useCamera.js'
 import { useModelLoading } from '../composables/useModelLoading.js'
 import { useComparison, MULTI_FILE_FORMATS } from '../composables/useComparison.js'
+import { useTurntable } from '../composables/useTurntable.js'
 import { listVersions, formatVersionDate } from '../utils/fileVersions.js'
 // eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
 import { getCurrentUser } from '@nextcloud/auth'
@@ -881,6 +893,8 @@ export default {
 		VersionPickerDialog: defineAsyncComponent(() => import('./VersionPickerDialog.vue')),
 		// Loaded the first time someone opens Print check
 		PrintCheckCard: defineAsyncComponent(() => import('./PrintCheckCard.vue')),
+		// Loaded the first time someone records a turntable
+		TurntableDialog: defineAsyncComponent(() => import('./TurntableDialog.vue')),
 	},
 	props: {
 		fileId: { type: [Number, String], default: null },
@@ -2484,6 +2498,37 @@ export default {
 				throw error
 			})
 			return printCheckLoading
+		}
+
+		// Turntable video: one turn of the camera, recorded from the canvas. The viewer's own
+		// loop pauses while it runs, and the dialog covers the tools until it finishes.
+		const turntable = markRaw(useTurntable({
+			renderer,
+			scene,
+			camera: () => camera.camera.value,
+			controls: () => camera.controls.value,
+			renderPaused,
+		}))
+		const turntableOpen = ref(false)
+		const turntableUserId = computed(() => getCurrentUser()?.uid ?? null)
+		const turntablePublicShare = computed(() => !!getPublicShareContext())
+		// The file's name without the folder it came with
+		const turntableModelName = computed(() => decodeURIComponent(String(props.filename || 'model')).split('/').pop())
+		const openTurntable = () => {
+			if (modelRoot.value && turntable.isSupported.value) {
+				turntableOpen.value = true
+			}
+		}
+		const onTurntableSaved = (name) => {
+			emit('push-toast', { type: 'success', message: t('threedviewer', 'Saved {name} next to the model', { name }), timeout: 5000 })
+		}
+		const onTurntableSaveFailed = (error) => {
+			logger.error('ThreeViewer', 'Saving the turntable video failed', error)
+			emit('push-toast', { type: 'error', message: t('threedviewer', 'Couldn\'t save the video'), timeout: 5000 })
+		}
+		const onTurntableRecordFailed = (error) => {
+			logger.error('ThreeViewer', 'Recording the turntable video failed', error)
+			emit('push-toast', { type: 'error', message: t('threedviewer', 'Couldn\'t record the video'), timeout: 5000 })
 		}
 
 		const togglePrintCheck = async () => {
@@ -4094,6 +4139,7 @@ export default {
 			// Ends a running print-check worker and takes its overlays out of the scene
 			printCheckGone = true
 			printCheck.value?.dispose()
+			turntable.dispose()
 			renderer.value?.domElement?.removeEventListener('pointermove', onPrintCheckHover)
 
 			// Send any note edits still waiting on their debounce before the viewer goes.
@@ -4215,6 +4261,15 @@ export default {
 			printCheckActive,
 			printCheckState,
 			togglePrintCheck,
+			turntable,
+			turntableOpen,
+			turntableUserId,
+			turntablePublicShare,
+			turntableModelName,
+			openTurntable,
+			onTurntableSaved,
+			onTurntableSaveFailed,
+			onTurntableRecordFailed,
 			overlayActive: comparison.overlayActive,
 			versionPicker,
 			startVersionComparison,

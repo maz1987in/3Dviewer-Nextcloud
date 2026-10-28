@@ -101,6 +101,18 @@ describe('what a keypress resolves to', () => {
 		expect(PANEL).toContain('isShortcutBlocked(event)')
 	})
 
+	it('leaves a key pressed inside a modal dialog to the dialog', () => {
+		const dialog = document.createElement('div')
+		dialog.setAttribute('role', 'dialog')
+		dialog.setAttribute('aria-modal', 'true')
+		const button = document.createElement('button')
+		dialog.appendChild(button)
+		document.body.appendChild(dialog)
+		expect(isShortcutBlocked(keydown('s', { target: button }))).toBe(true)
+		expect(shortcutFor(keydown('s', { target: button }))).toBeNull()
+		dialog.remove()
+	})
+
 	it('leaves a key it does not know alone', () => {
 		expect(shortcutFor(keydown('q'))).toBeNull()
 	})

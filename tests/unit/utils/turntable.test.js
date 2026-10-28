@@ -3,7 +3,7 @@
  * camera is at each frame, what size the video is, and what the file is called.
  */
 import * as THREE from 'three'
-import { TURNTABLE_DEFAULTS, TURNTABLE_SECONDS, pickRecordingFormat, frameCount, orbitPosition, outputSize, turntableFileName } from '../../../src/utils/turntable.js'
+import { TURNTABLE_DEFAULTS, TURNTABLE_SECONDS, pickRecordingFormat, canRecordVideo, frameCount, orbitPosition, outputSize, turntableFileName } from '../../../src/utils/turntable.js'
 
 describe('pickRecordingFormat', () => {
 	test('prefers VP9 WebM', () => {
@@ -27,6 +27,21 @@ test('defaults and limits', () => {
 test('8 s at 30 fps is 240 frames', () => {
 	expect(frameCount(8)).toBe(240)
 	expect(frameCount(4, 30)).toBe(120)
+})
+
+describe('canRecordVideo', () => {
+	const canvasWith = (captureStream) => ({ prototype: captureStream ? { captureStream() {} } : {} })
+	const recorder = (supported) => Object.assign(function MediaRecorder() {}, { isTypeSupported: () => supported })
+
+	test('true with a MediaRecorder that records a format and a canvas that streams', () => {
+		expect(canRecordVideo({ MediaRecorder: recorder(true), HTMLCanvasElement: canvasWith(true) })).toBe(true)
+	})
+
+	test('false without MediaRecorder, without a format, or without canvas streams', () => {
+		expect(canRecordVideo({ HTMLCanvasElement: canvasWith(true) })).toBe(false)
+		expect(canRecordVideo({ MediaRecorder: recorder(false), HTMLCanvasElement: canvasWith(true) })).toBe(false)
+		expect(canRecordVideo({ MediaRecorder: recorder(true), HTMLCanvasElement: canvasWith(false) })).toBe(false)
+	})
 })
 
 describe('orbitPosition', () => {
