@@ -100,3 +100,15 @@ test('the G-code loader keeps the summary on the model it returns', async () => 
 	const { object3D } = await new GCodeLoader().loadModel(new TextEncoder().encode(text).buffer, {})
 	expect(findSlicerSummary(object3D)).toEqual({ slicer: 'PrusaSlicer 2.8.1', printSeconds: 3723, filamentMm: 1520.35, filamentGrams: 4.54 })
 })
+
+test('a crafted comment line of digits does not stall the parser', () => {
+	const digits = '9'.repeat(200000)
+	const text = `; estimated printing time (normal mode) = ${digits}\n; total estimated time: ${digits}\n${PRUSA_FOOTER}\n`
+	const started = Date.now()
+	const result = parseSlicerSummary(text)
+	expect(Date.now() - started).toBeLessThan(500)
+	expect(result.filamentGrams).toBe(4.54)
+	const startedDuration = Date.now()
+	expect(parseDuration(digits)).toBeNull()
+	expect(Date.now() - startedDuration).toBeLessThan(500)
+})

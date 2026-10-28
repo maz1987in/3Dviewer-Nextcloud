@@ -13,6 +13,7 @@
  */
 
 const WINDOW = 512 * 1024
+const MAX_LINE = 512
 
 /**
  * @typedef {object} SlicerSummary
@@ -32,7 +33,8 @@ export function parseDuration(text) {
 	const units = { d: 86400, h: 3600, m: 60, s: 1 }
 	let seconds = 0
 	let found = false
-	for (const [, amount, unit] of String(text).matchAll(/(\d+(?:\.\d+)?)\s*([dhms])\b/g)) {
+	// A duration is a few characters; bounded, so a crafted line cannot make this backtrack
+	for (const [, amount, unit] of String(text).slice(0, 64).matchAll(/(?<![\d.])(\d{1,9}(?:\.\d{1,6})?)\s{0,3}([dhms])\b/g)) {
 		seconds += Number(amount) * units[unit]
 		found = true
 	}
@@ -69,7 +71,9 @@ export function parseSlicerSummary(text) {
 	}
 
 	for (const rawLine of source.split('\n')) {
-		if (rawLine.charCodeAt(0) !== 59) { // ';'
+		// Only comments, and no slicer writes a summary line this long: a longer one is not
+		// read at all, so no pattern below can be made to backtrack across a huge line
+		if (rawLine.charCodeAt(0) !== 59 || rawLine.length > MAX_LINE) { // ';'
 			continue
 		}
 		const line = rawLine.trim()
