@@ -69,3 +69,13 @@ test('progress reaches total', () => {
 	expect(done).toBe(total)
 	expect(progress.length).toBeLessThanOrEqual(52)
 })
+
+test('progress counts every triangle of the part, also when a sample is measured', () => {
+	const geometry = new THREE.SphereGeometry(5, 48, 32).toNonIndexed()
+	const triangles = geometry.attributes.position.count / 3
+	const progress = []
+	measurePartThickness(partOf(geometry), { budget: 200, onProgress: (done, total) => progress.push([done, total]) })
+	expect(progress.every(([, total]) => total === triangles)).toBe(true)
+	expect(progress[progress.length - 1]).toEqual([triangles, triangles])
+	expect(progress[0][0]).toBeGreaterThan(1)
+})

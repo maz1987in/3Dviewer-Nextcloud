@@ -26,8 +26,8 @@ import { MeshBVH } from 'three-mesh-bvh'
  * @param {object} [options] - Options
  * @param {number} [options.budget] - Measure at most this many triangles; above it an even
  *   sample is measured and the rest take a measured neighbour's value
- * @param {function(number, number): void} [options.onProgress] - Called as `(done, total)`,
- *   at most every 2% of the work
+ * @param {function(number, number): void} [options.onProgress] - Called as `(done, total)`
+ *   in triangles of the part, at most every 2% of the work
  * @return {{thickness: Float32Array, triangleThickness: Float32Array, sampled: boolean}}
  *   Per vertex and per triangle, in scene units; Infinity where no wall was met
  */
@@ -81,7 +81,8 @@ export function measurePartThickness({ positions, index = null }, { budget = 300
 		}
 		done++
 		if (onProgress && (done % step === 0 || done === measured)) {
-			onProgress(done, measured)
+			// In triangles of the part, so a sampled part counts the same as the worker's total
+			onProgress(done === measured ? triangleCount : Math.min(triangleCount, done * stride), triangleCount)
 		}
 	}
 

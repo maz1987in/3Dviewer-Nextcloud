@@ -16,7 +16,7 @@
 		<!-- Only the results are live regions: the hover readout, the slider and the progress
 			bar change continuously and would be read out on every change -->
 		<div class="print-check-body">
-			<p v-if="state.assumesMm" class="tdv-secondary print-check-note">
+			<p v-if="state.assumesMm && state.kind !== 'gcode'" class="tdv-secondary print-check-note">
 				{{ t('threedviewer', 'Sizes assume millimetres, because this file doesn\'t record a unit.') }}
 			</p>
 
@@ -197,7 +197,10 @@
 							</p>
 						</div>
 						<p v-if="state.thickness.state === 'done' && state.hoverMm !== null" class="tdv-secondary">
-							{{ t('threedviewer', '{mm} mm thick', { mm: round(state.hoverMm, 2) }) }}
+							<!-- On a sampled model most values are a measured neighbour's -->
+							{{ state.thickness.sampled
+								? t('threedviewer', 'About {mm} mm thick', { mm: round(state.hoverMm, 2) })
+								: t('threedviewer', '{mm} mm thick', { mm: round(state.hoverMm, 2) }) }}
 						</p>
 					</div>
 				</template>
@@ -253,6 +256,19 @@ export default {
 				over.height > 0 && this.t('threedviewer', '{amount} mm too tall', { amount: this.round(over.height, 1) }),
 			].filter(Boolean)
 		},
+	},
+
+	// The tools panel's button opened the card: closing it gives focus back there rather
+	// than to the page
+	mounted() {
+		this.opener = document.activeElement
+	},
+
+	beforeUnmount() {
+		const focusInside = this.$el.contains(document.activeElement) || document.activeElement === document.body
+		if (focusInside && this.opener?.isConnected && typeof this.opener.focus === 'function') {
+			this.opener.focus()
+		}
 	},
 
 	methods: {

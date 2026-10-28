@@ -168,3 +168,27 @@ test('results are announced; the hover readout, the slider value and the progres
 	expect(announced).not.toContain('°')
 	expect(live.some((element) => element.querySelector('progress, input, select, output'))).toBe(false)
 })
+
+test('a G-code file shows no units note: it shows no sizes', () => {
+	mount(meshState({ kind: 'gcode', assumesMm: true, slicerSummary: { slicer: null, printSeconds: 60, filamentMm: null, filamentGrams: null } }))
+	expect(text()).not.toContain('Sizes assume millimetres')
+})
+
+test('on a sampled model the thickness under the pointer is given as about', () => {
+	mount(meshState({ thickness: { state: 'done', progress: 1, share: 0.25, sampled: true, warnOpen: false }, hoverMm: 1.234 }))
+	expect(text()).toContain('About 1.23 mm thick')
+	document.body.replaceChildren()
+	mount(meshState({ thickness: { state: 'done', progress: 1, share: 0.25, sampled: false, warnOpen: false }, hoverMm: 1.234 }))
+	expect(text()).toContain('1.23 mm thick')
+	expect(text()).not.toContain('About 1.23')
+})
+
+test('closing the card gives focus back to what opened it', () => {
+	const opener = document.createElement('button')
+	document.body.appendChild(opener)
+	opener.focus()
+	const { unmount } = mount(meshState())
+	document.querySelector('.print-check-close').focus()
+	unmount()
+	expect(document.activeElement).toBe(opener)
+})

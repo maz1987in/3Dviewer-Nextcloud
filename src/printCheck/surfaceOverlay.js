@@ -66,11 +66,17 @@ export function createSurfaceOverlay(scene, source, material, extraAttributes = 
 	object.userData.viewerOverlay = true
 	object.name = `${source.name || 'part'} (print check)`
 
-	const sync = () => {
+	const follow = () => {
 		object.matrix.copy(source.matrixWorld)
 		object.matrixWorld.copy(source.matrixWorld)
+	}
+	const sync = () => {
+		follow()
 		object.visible = visibleInWorld(source)
 	}
+	// The renderer brings world matrices up to date before it draws, and calls this just
+	// before drawing the overlay: a part moved since the last frame is followed at once
+	object.onBeforeRender = follow
 	sync()
 	scene.add(object)
 

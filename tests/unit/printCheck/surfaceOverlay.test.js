@@ -96,3 +96,13 @@ test('dispose lets go of the model\'s buffers and frees only its own', () => {
 	expect(atDispose.index).toBeNull()
 	expect(atDispose.attributes).toContain(thickness)
 })
+
+test('the overlay takes its part\'s matrix as it is drawn, so it never lags a frame behind a drag', () => {
+	const { scene, root, a } = model()
+	const overlay = createSurfaceOverlay(scene, a, new THREE.MeshBasicMaterial())
+	// The renderer updates world matrices, then draws: the gizmo moved the model in between frames
+	root.position.set(4, 0, 0)
+	root.updateMatrixWorld(true)
+	overlay.object.onBeforeRender()
+	expect(overlay.object.matrixWorld.equals(a.matrixWorld)).toBe(true)
+})

@@ -17,6 +17,7 @@
     "< 1 MB": "< 1 MB",
     "> 10 MB": "> 10 MB",
     "About {grams} g · {metres} m of filament (estimate)": "About {grams} g · {metres} m of filament (estimate)",
+    "About {mm} mm thick": "About {mm} mm thick",
     "Access denied. You may not have permission to access this file.": "Access denied. You may not have permission to access this file.",
     "Active": "Active",
     "Add annotations": "Add annotations",

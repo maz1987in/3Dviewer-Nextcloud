@@ -105,6 +105,19 @@ function triangleAreas(mesh) {
 	return areas
 }
 
+// Stands for "no wall met" in the colour data: the GPU interpolates between vertices, and
+// Infinity there turns into NaN along edges, which the shader would draw as near-thin
+const NO_WALL = 1e30
+
+/**
+ * @param {?Float32Array} perVertex - Thickness per vertex, Infinity where no wall was met
+ * @param {number} count - The part's vertex count, for a part that wasn't measured
+ * @return {Float32Array} The same, finite throughout
+ */
+function colourData(perVertex, count) {
+	return perVertex ? perVertex.map((value) => (Number.isFinite(value) ? value : NO_WALL)) : new Float32Array(count).fill(NO_WALL)
+}
+
 /**
  * The material that colours thin walls: red under the minimum, yellow close to it, and
  * nothing elsewhere. Reads the overlay's per-vertex `thickness`, in scene units.
@@ -565,7 +578,7 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 			const byMesh = new Map(meshes.map((mesh, i) => [mesh, results[i]]))
 			thicknessSet = createOverlaySet(read(scene), root,
 				(mesh) => createThicknessMaterial(minimum, (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material)?.clippingPlanes ?? null),
-				(mesh) => ({ thickness: new THREE.BufferAttribute(byMesh.get(mesh)?.thickness ?? new Float32Array(mesh.geometry.attributes.position.count).fill(Infinity), 1) }))
+				(mesh) => ({ thickness: new THREE.BufferAttribute(colourData(byMesh.get(mesh)?.thickness, mesh.geometry.attributes.position.count), 1) }))
 			thickness.value = {
 				state: 'done',
 				progress: 1,
@@ -633,8 +646,13 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 	})
 
 	const dispose = () => {
+		const wasActive = active.value
 		teardown()
 		stopWatching()
+		// The viewer is going: a change still waiting for its debounce is sent now
+		if (wasActive) {
+			flushPrintCheckSettings()
+		}
 	}
 
 	return {

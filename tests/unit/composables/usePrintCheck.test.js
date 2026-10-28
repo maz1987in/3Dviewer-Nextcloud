@@ -6,7 +6,7 @@ import * as THREE from 'three'
 import { ref, nextTick } from 'vue'
 import { usePrintCheck } from '../../../src/composables/usePrintCheck.js'
 import { checkClosed, measureThickness } from '../../../src/printCheck/printCheckClient.js'
-import { loadPrintCheckSettings, savePrintCheckSettings } from '../../../src/printCheck/printCheckSettings.js'
+import { loadPrintCheckSettings, savePrintCheckSettings, flushPrintCheckSettings } from '../../../src/printCheck/printCheckSettings.js'
 import { PRINT_CHECK_DEFAULTS } from '../../../src/printCheck/printers.js'
 
 jest.mock('../../../src/printCheck/printCheckClient.js', () => ({ checkClosed: jest.fn(), measureThickness: jest.fn() }))
@@ -333,4 +333,27 @@ test('close puts the turned camera back even when the projection changed since t
 	printCheck.close()
 	expect(camera.up.toArray()).toEqual([0, 1, 0])
 	expect(cameras.current.up.toArray()).toEqual([0, 1, 0])
+})
+
+test('where no wall was met, the colour data holds a large finite value, never Infinity', async () => {
+	const { scene, root, printCheck } = setup({ size: 0.5 })
+	const perVertex = new Float32Array(24).fill(0.5)
+	perVertex[3] = Infinity
+	measureThickness.mockResolvedValue([{ thickness: perVertex, triangleThickness: new Float32Array(12).fill(0.5), sampled: false }])
+	printCheck.open()
+	await flush()
+	const before = new Set(overlays(scene, root))
+	await printCheck.runThickness()
+	const [overlay] = overlays(scene, root).filter((object) => !before.has(object))
+	const values = [...overlay.geometry.attributes.thickness.array]
+	expect(values.every(Number.isFinite)).toBe(true)
+	expect(values[3]).toBeGreaterThan(1e20)
+})
+
+test('closing the viewer sends a settings change still waiting to be saved', () => {
+	const { printCheck } = setup()
+	printCheck.open()
+	printCheck.setInfill(40)
+	printCheck.dispose()
+	expect(flushPrintCheckSettings).toHaveBeenCalled()
 })
