@@ -2090,6 +2090,9 @@ export default {
 			// Update controls
 			camera.updateControls()
 
+			// The earlier version's ghost stays on the open model when that is moved
+			comparison.syncOverlay(modelRoot.value)
+
 			// Update animation mixer if animations are active
 			if (animation.mixer.value && animation.isPlaying.value) {
 				// delta is already in milliseconds, convert to seconds
@@ -3292,9 +3295,9 @@ export default {
 				logger.warn('ThreeViewer', 'Cannot fit both models: one or both models missing')
 				return
 			}
-			// Side by side again: Compare lays the two out beside each other
+			// With Overlay on the two are already where they belong: only the camera moves
 			if (comparison.overlayActive.value) {
-				comparison.setOverlay(false, modelRoot.value, fitCameraToModels, scene.value)
+				fitCameraToModels(modelRoot.value, comparison.comparisonModel.value)
 				return
 			}
 

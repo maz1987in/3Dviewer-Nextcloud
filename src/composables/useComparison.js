@@ -246,10 +246,12 @@ export function useComparison() {
 			comparisonVersion.value = version
 			return result
 		} catch (error) {
-			if (!controller.signal.aborted) {
-				comparisonError.value = error
-				logger.error('useComparison', 'Error loading an earlier version', error)
+			if (controller.signal.aborted) {
+				// However it was stopped (axios rejects with its own CanceledError), it was cancelled
+				throw new DOMException('Comparison cancelled', 'AbortError')
 			}
+			comparisonError.value = error
+			logger.error('useComparison', 'Error loading an earlier version', error)
 			throw error
 		} finally {
 			if (abortController.value === controller) {
@@ -832,7 +834,11 @@ export function useComparison() {
 
 			// CRITICAL: Use toRaw to get the actual Three.js object, not Vue proxy
 			// This ensures parent-child relationships work correctly and animations work properly
-			const rawModel2 = toRaw(model2)
+			const given = toRaw(model2)
+			// Laid out before (Fit Both): reuse that wrapper rather than wrapping the wrapper,
+			// which would leave the model one level further down than Overlay looks for it
+			const existingWrapper = given.userData?.comparisonWrapper ? given : null
+			const rawModel2 = existingWrapper ? existingWrapper.children[0] : given
 
 			// Store model2's current local position before wrapping
 			const model2LocalOffset = new THREE.Vector3(
@@ -841,22 +847,22 @@ export function useComparison() {
 				rawModel2.position.z,
 			)
 
-			// Remove model2 from scene
-			const originalParent = rawModel2.parent
-			if (rawModel2.parent) {
-				rawModel2.parent.remove(rawModel2)
-			}
-
 			// Create a new Group to wrap model2
 			// Don't pre-position it - we'll calculate the final position after getting the bounding box
-			const model2Wrapper = new THREE.Group()
-			// Overlay looks for this to find the model inside
-			model2Wrapper.userData.comparisonWrapper = true
+			const originalParent = rawModel2.parent
+			const model2Wrapper = existingWrapper || new THREE.Group()
+			if (!existingWrapper) {
+				// Remove model2 from scene
+				if (rawModel2.parent) {
+					rawModel2.parent.remove(rawModel2)
+				}
+				// Overlay looks for this to find the model inside
+				model2Wrapper.userData.comparisonWrapper = true
+				// Add model2 to wrapper - this should set the parent automatically
+				model2Wrapper.add(rawModel2)
+			}
 			// CRITICAL: Ensure matrixAutoUpdate is enabled so wrapper updates during render loop
 			model2Wrapper.matrixAutoUpdate = true
-
-			// Add model2 to wrapper - this should set the parent automatically
-			model2Wrapper.add(rawModel2)
 
 			// CRITICAL: Force parent reference update (Three.js should do this, but ensure it's set)
 			// Check both the raw object and the proxy
@@ -1467,6 +1473,49 @@ export function useComparison() {
 	}
 
 	/**
+	 * Move the comparison model's wrapper so the model inside has the open model's world
+	 * matrix.
+	 * @param {THREE.Object3D} wrapper - The comparison model as Compare holds it
+	 * @param {THREE.Object3D} open - The open model
+	 */
+	const placeOver = (wrapper, open) => {
+		// Compare positions the model by its wrapper; the model is the first child that is
+		// not itself a wrapper
+		let root = wrapper
+		while (root.userData?.comparisonWrapper && root.children[0]) {
+			root = root.children[0]
+		}
+		open.updateMatrixWorld(true)
+		const target = open.matrixWorld.clone()
+		if (root !== wrapper) {
+			// Everything between the wrapper and the model stays as it is
+			const inner = new THREE.Matrix4()
+			for (let node = root; node && node !== wrapper; node = node.parent) {
+				node.updateMatrix()
+				inner.premultiply(node.matrix)
+			}
+			target.multiply(inner.invert())
+		}
+		if (wrapper.parent) {
+			wrapper.parent.updateMatrixWorld(true)
+			target.premultiply(wrapper.parent.matrixWorld.clone().invert())
+		}
+		target.decompose(wrapper.position, wrapper.quaternion, wrapper.scale)
+		wrapper.updateMatrixWorld(true)
+	}
+
+	/**
+	 * Keep the ghost on the open model after the open model moved (the transform gizmo).
+	 * Cheap enough to call every frame; does nothing while Overlay is off.
+	 * @param {THREE.Object3D} originalRoot - The open model
+	 */
+	const syncOverlay = (originalRoot) => {
+		if (overlayActive.value && comparisonModel.value && originalRoot) {
+			placeOver(toRaw(comparisonModel.value), toRaw(originalRoot))
+		}
+	}
+
+	/**
 	 * Show the comparison model over the open model as a ghost, or beside it again.
 	 *
 	 * The two are aligned by the file's own coordinates: the comparison model's root gets
@@ -1486,25 +1535,8 @@ export function useComparison() {
 		}
 
 		if (on) {
-			const root = wrapper.userData.comparisonWrapper ? wrapper.children[0] : wrapper
-			// Compare positions the model by its wrapper, so that is what Overlay moves
-			const moved = wrapper
-			const open = toRaw(originalRoot)
-			open.updateMatrixWorld(true)
-			root.updateMatrix()
-
-			// The world matrix `moved` needs so that root.matrixWorld equals the open model's
-			const target = open.matrixWorld.clone()
-			if (root !== moved) {
-				target.multiply(root.matrix.clone().invert())
-			}
-			if (moved.parent) {
-				moved.parent.updateMatrixWorld(true)
-				target.premultiply(moved.parent.matrixWorld.clone().invert())
-			}
-			overlayPlaced = { object: moved, position: moved.position.clone(), quaternion: moved.quaternion.clone(), scale: moved.scale.clone() }
-			target.decompose(moved.position, moved.quaternion, moved.scale)
-			moved.updateMatrixWorld(true)
+			overlayPlaced = { object: wrapper, position: wrapper.position.clone(), quaternion: wrapper.quaternion.clone(), scale: wrapper.scale.clone() }
+			placeOver(wrapper, toRaw(originalRoot))
 
 			ghostMaterial = new THREE.MeshBasicMaterial({ color: GHOST_COLOR, transparent: true, opacity: GHOST_OPACITY, depthWrite: false })
 			wrapper.traverse((child) => {
@@ -1571,9 +1603,10 @@ export function useComparison() {
 		disposeComparisonAnimations()
 
 		if (comparisonModel.value) {
-			// Remove from scene if scene is provided and model is in scene
-			if (scene && comparisonModel.value.parent) {
-				scene.remove(comparisonModel.value)
+			// Out of the scene whether or not the caller passed it: disposed but still in the
+			// scene, three.js would go on drawing it
+			if (comparisonModel.value.parent) {
+				comparisonModel.value.parent.remove(comparisonModel.value)
 				logger.info('useComparison', 'Comparison model removed from scene')
 			}
 
@@ -1660,6 +1693,7 @@ export function useComparison() {
 		loadComparisonModelFromPath,
 		loadComparisonModelFromVersion,
 		setOverlay,
+		syncOverlay,
 		loadComparisonModelFromNextcloud,
 		loadComparisonModel,
 		addComparisonIndicator,

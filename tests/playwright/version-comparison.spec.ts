@@ -75,6 +75,39 @@ test('overlay toggles and reports its state', async ({ page }) => {
 	await expect(overlay).toHaveAttribute('aria-pressed', 'false')
 })
 
+test('Fit Both with Overlay on keeps the overlay and only moves the camera', async ({ page }) => {
+	await mockVersions(page, fixture('owner-two-versions.xml'))
+	await openViewer(page, server.url, MODEL)
+	await versionButton(page).click()
+	await page.locator('.version-row').first().click()
+	const overlay = page.getByRole('button', { name: 'Overlay' })
+	await overlay.click()
+	await expect(overlay).toHaveAttribute('aria-pressed', 'true')
+
+	await page.getByRole('button', { name: 'Fit Both' }).click()
+	await page.waitForTimeout(300)
+	await expect(overlay).toHaveAttribute('aria-pressed', 'true')
+})
+
+test('leaving comparison takes the earlier version out of the scene', async ({ page }) => {
+	await mockVersions(page, fixture('owner-two-versions.xml'))
+	await openViewer(page, server.url, MODEL)
+	const meshes = () => page.evaluate(() => {
+		const viewer = (window as any).__THREEDVIEWER_APP.$.subTree.component.proxy.$refs.viewer
+		let count = 0
+		viewer.scene.traverse((child: any) => { if (child.isMesh && !child.userData?.isHelper) count++ })
+		return count
+	})
+	const before = await meshes()
+	await versionButton(page).click()
+	await page.locator('.version-row').first().click()
+	await page.getByRole('button', { name: 'Overlay' }).click()
+	expect(await meshes()).toBeGreaterThan(before)
+
+	await page.locator('.slide-out-panel').getByRole('button', { name: /^Comparison/ }).click()
+	await expect.poll(meshes).toBe(before)
+})
+
 test('no earlier versions shows the empty state', async ({ page }) => {
 	await mockVersions(page, fixture('only-current.xml'))
 	await openViewer(page, server.url, MODEL)

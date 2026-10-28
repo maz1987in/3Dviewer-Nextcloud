@@ -83,3 +83,18 @@ test('is a labelled modal dialog with a named close button', () => {
 	expect(document.querySelector('.version-picker-close').getAttribute('aria-label')).toBe('Close')
 	expect(document.querySelector('[aria-live="polite"]')).not.toBeNull()
 })
+
+test('closing gives focus back to what had it before the dialog opened', async () => {
+	const { useFocusTrap } = require('../../src/composables/useFocusTrap.js')
+	const trigger = document.createElement('button')
+	trigger.textContent = 'Compare with earlier version'
+	document.body.appendChild(trigger)
+	trigger.focus()
+
+	const { unmount } = mountSfc('VersionPickerDialog', { versions: VERSIONS }, { ...MODULES, '../composables/useFocusTrap.js': { useFocusTrap } })
+	await new Promise((resolve) => setTimeout(resolve, 0))
+	expect(document.querySelector('[role="dialog"]').contains(document.activeElement)).toBe(true)
+
+	unmount()
+	expect(document.activeElement).toBe(trigger)
+})

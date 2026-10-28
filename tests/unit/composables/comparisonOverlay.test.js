@@ -152,3 +152,58 @@ test('clearComparison turns the overlay off', async () => {
 	expect(comparison.overlayActive.value).toBe(false)
 	expect(comparison.comparisonModel.value).toBeNull()
 })
+
+test('Fit Both before Overlay does not wrap the model twice, and the ghost still lines up', async () => {
+	const openCube = cube('a', [0, 0, 0])
+	const openModel = loadedModel(openCube, cube('b', [3, 0, 0]))
+	const versionCube = cube('a', [0, 0, 0])
+	const { scene, comparison, fit } = await sideBySide(openModel, loadedModel(versionCube))
+	const wrapper = comparison.comparisonModel.value
+
+	// Fit Both runs the layout again
+	comparison.fitBothModelsToView(openModel, comparison.comparisonModel.value, fit, scene)
+	expect(comparison.comparisonModel.value).toBe(wrapper)
+	expect(wrapper.children[0].userData.comparisonWrapper).toBeFalsy()
+
+	comparison.setOverlay(true, openModel, fit, scene)
+	const open = worldVertices(openCube)
+	const ghost = worldVertices(versionCube)
+	open.forEach((vertex, i) => expect(ghost[i].distanceTo(vertex)).toBeLessThan(1e-6))
+})
+
+test('the ghost follows the open model when it is moved with Overlay on', async () => {
+	const openCube = cube('a', [0, 0, 0])
+	const openModel = loadedModel(openCube)
+	const versionCube = cube('a', [0, 0, 0])
+	const { scene, comparison, fit } = await sideBySide(openModel, loadedModel(versionCube))
+	comparison.setOverlay(true, openModel, fit, scene)
+
+	openModel.position.x += 4
+	openModel.rotation.z = 0.7
+	comparison.syncOverlay(openModel)
+
+	const open = worldVertices(openCube)
+	const ghost = worldVertices(versionCube)
+	open.forEach((vertex, i) => expect(ghost[i].distanceTo(vertex)).toBeLessThan(1e-6))
+})
+
+test('syncOverlay does nothing while Overlay is off', async () => {
+	const openModel = loadedModel(cube('a', [0, 0, 0]))
+	const { comparison } = await sideBySide(openModel, loadedModel(cube('a', [0, 0, 0])))
+	const before = worldBox(comparison.comparisonModel.value)
+	openModel.position.x += 4
+	comparison.syncOverlay(openModel)
+	expect(worldBox(comparison.comparisonModel.value).min.distanceTo(before.min)).toBeLessThan(1e-9)
+})
+
+test('clearing without the scene still takes the model out of it', async () => {
+	const openModel = loadedModel(cube('a', [0, 0, 0]))
+	const { scene, comparison, fit } = await sideBySide(openModel, loadedModel(cube('a', [0, 0, 0])))
+	const wrapper = comparison.comparisonModel.value
+	comparison.setOverlay(true, openModel, fit, scene)
+
+	comparison.clearComparison()
+
+	expect(wrapper.parent).toBeNull()
+	expect(scene.children).not.toContain(wrapper)
+})

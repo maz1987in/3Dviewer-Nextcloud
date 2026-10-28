@@ -79,9 +79,10 @@ export default {
 		const dialogRef = ref(null)
 		const focusTrap = useFocusTrap(dialogRef)
 
+		// The trap remembers what had focus and gives it back on close, so it goes first:
+		// focusing the dialog before it would make the dialog the thing to go back to
 		onMounted(async () => {
 			await nextTick()
-			dialogRef.value?.focus()
 			focusTrap.activate()
 		})
 		onBeforeUnmount(() => focusTrap.deactivate())

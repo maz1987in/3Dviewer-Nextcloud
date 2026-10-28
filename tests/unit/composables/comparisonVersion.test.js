@@ -149,3 +149,17 @@ test('the diff table can label its columns, as a version comparison does', async
 	comparison.computeDiffStats(open, 'models/a.stl', 1)
 	expect(comparison.diffStats.value.originalLabel).toBe('a.stl')
 })
+
+test('a download stopped by axios reads as cancelled, not as a failure', async () => {
+	fetchVersion.mockImplementation((version, { signal }) => new Promise((resolve, reject) => {
+		signal.addEventListener('abort', () => reject(Object.assign(new Error('canceled'), { name: 'CanceledError', code: 'ERR_CANCELED' })))
+	}))
+	const comparison = useComparison()
+
+	const loading = comparison.loadComparisonModelFromVersion(VERSION, { fileId: 154, filename: 'a.stl', dirPath: '/models' }, context())
+	await Promise.resolve()
+	comparison.clearComparison()
+
+	await expect(loading).rejects.toMatchObject({ name: 'AbortError' })
+	expect(comparison.comparisonError.value).toBeNull()
+})
