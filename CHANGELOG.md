@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Links to a view: "Copy link to this view" in the tools panel (or the L key) copies a link that reopens the model as you see it, with the same camera, shading, lighting, cross-section and exploded view. Each annotation has "Copy link to this note", which opens the Annotations panel on that note, and each bookmark has "Copy link". The link points at the file, so only people who can open it see it. On a public link, and in the viewer opened from Files, a link sets the camera, and those viewers have a "Copy link to this view" button of their own; if you manage a public link of a file, "Copy public link to this view" copies that link with the camera. The tools panel's "Copy View Link", which carried the camera only, is now this, and its links still open.
+
 ### Fixed
 - The Print check card was hard to read: its text, the Y up/Z up switch, the warnings and the Check wall thickness button took the page's colours while the card took the colours of the panels drawn over the model, which are the reverse of the page's, so on Nextcloud's dark theme they came out light grey and pale red on a light card. The card now uses the same colours as the statistics, measurement and annotation panels throughout, and the legend's swatches match the colours on the model.
 

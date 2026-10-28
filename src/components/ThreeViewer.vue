@@ -2511,16 +2511,17 @@ export default {
 		 * @param {object} note - an annotation with a shared note behind it
 		 */
 		const copyNoteLink = async (note) => {
-			const tr = (s) => (typeof window !== 'undefined' && window.t) ? window.t('threedviewer', s) : s
+			// Written as t('threedviewer', …) so scripts/check-i18n.mjs finds the strings
+			const t = (app, text) => (typeof window !== 'undefined' && window.t) ? window.t(app, text) : text
 			const view = getViewState()
 			const link = view && viewLinkFor({ ...view, note: note.meta.noteId })
 			try {
 				if (!link) throw new Error('No view to link to')
 				await copyText(link)
-				emit('push-toast', { type: 'success', title: tr('Link copied'), message: tr('The link opens the model here, with this note highlighted.'), timeout: 4000 })
+				emit('push-toast', { type: 'success', title: t('threedviewer', 'Link copied'), message: t('threedviewer', 'The link opens the model here, with this note highlighted.'), timeout: 4000 })
 			} catch (err) {
 				logger.error('ThreeViewer', 'Failed to copy a note link', err)
-				emit('push-toast', { type: 'error', title: tr('Copy failed') })
+				emit('push-toast', { type: 'error', title: t('threedviewer', 'Copy failed') })
 			}
 		}
 
