@@ -267,3 +267,16 @@ test('thickness on an open model carries the warning', async () => {
 	expect(printCheck.thickness.value.sampled).toBe(true)
 	expect(printCheck.thickness.value.share).toBe(0)
 })
+
+test('a model that moved is noticed on the next frame, whatever moved it', () => {
+	jest.useFakeTimers()
+	const { root, printCheck } = setup()
+	printCheck.open()
+	printCheck.onFrame()
+	root.scale.setScalar(2)
+	root.updateMatrixWorld(true)
+	printCheck.onFrame()
+	jest.advanceTimersByTime(200)
+	expect(printCheck.fit.value.size.width).toBeCloseTo(20, 6)
+	jest.useRealTimers()
+})

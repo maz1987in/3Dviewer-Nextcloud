@@ -141,6 +141,7 @@
 					:annotation-mode="annotationMode"
 					:comparison-mode="comparisonMode"
 					:can-compare-versions="canCompareVersions"
+					:print-check-active="printCheckActive"
 					@reset-view="onReset"
 					@fit-to-view="onFitToView"
 					@toggle-auto-rotate="onToggleAutoRotate"
@@ -153,6 +154,7 @@
 					@toggle-annotation="onToggleAnnotation"
 					@toggle-comparison="onToggleComparison"
 					@compare-version="onCompareVersion"
+					@toggle-print-check="onTogglePrintCheck"
 					@toggle-transform-gizmo="onToggleTransformGizmo"
 					@set-transform-mode="onSetTransformMode"
 					@reset-transform="onResetTransform"
@@ -221,6 +223,7 @@
 					@measurement-active="measurementMode = $event"
 					@annotation-active="annotationMode = $event"
 					@comparison-active="comparisonMode = $event"
+					@print-check-active="printCheckActive = $event"
 					@model-loaded="onModelLoaded"
 					@loading-state-changed="onLoadingStateChanged"
 					@fps-updated="onFpsUpdated"
@@ -333,6 +336,7 @@ export default {
 			measurementMode: false,
 			annotationMode: false,
 			comparisonMode: false,
+			printCheckActive: false,
 			transformGizmoActive: false,
 			transformGizmoMode: 'translate',
 			performanceMode: 'auto',
@@ -754,6 +758,10 @@ export default {
 		onToggleComparison() {
 			this.transformGizmoActive = false
 			this.$refs.viewer?.toggleComparisonMode?.()
+		},
+
+		onTogglePrintCheck() {
+			this.$refs.viewer?.togglePrintCheck?.()
 		},
 
 		onCompareVersion() {

@@ -340,6 +340,20 @@
 		</div>
 
 		<!-- Comparison diff overlay (vertex/face/bbox deltas) -->
+		<PrintCheckCard v-if="printCheckActive"
+			:state="printCheckState"
+			:class="{ 'beside-stats': showModelStats && !!modelStats }"
+			@close="printCheck.close()"
+			@set-printer="printCheck.setPrinter"
+			@set-custom="printCheck.setCustom"
+			@set-up="printCheck.setUp"
+			@set-overhang-angle="printCheck.setOverhangAngle"
+			@set-infill="printCheck.setInfill"
+			@set-material="printCheck.setMaterial"
+			@set-min-thickness="printCheck.setMinThickness"
+			@run-thickness="printCheck.runThickness"
+			@cancel-thickness="printCheck.cancelThickness" />
+
 		<VersionPickerDialog v-if="versionPicker.open"
 			:versions="versionPicker.versions"
 			:loading="versionPicker.loading"
@@ -865,6 +879,8 @@ export default {
 		CircularController,
 		// Loaded the first time someone compares with an earlier version
 		VersionPickerDialog: defineAsyncComponent(() => import('./VersionPickerDialog.vue')),
+		// Loaded the first time someone opens Print check
+		PrintCheckCard: defineAsyncComponent(() => import('./PrintCheckCard.vue')),
 	},
 	props: {
 		fileId: { type: [Number, String], default: null },
@@ -902,7 +918,7 @@ export default {
 	// Declared and never sent is as misleading as sent and never declared: nine of these
 	// named toolbar actions the viewer stopped emitting long ago, and among them sat the
 	// three mode toggles it did send and nothing received.
-	emits: ['model-loaded', 'error', 'measurement-active', 'annotation-active', 'comparison-active', 'cycle-performance-mode', 'push-toast', 'loading-state-changed', 'fps-updated', 'animations-initialized'],
+	emits: ['model-loaded', 'error', 'measurement-active', 'annotation-active', 'comparison-active', 'print-check-active', 'cycle-performance-mode', 'push-toast', 'loading-state-changed', 'fps-updated', 'animations-initialized'],
 	setup(props, { emit }) {
 		// Refs
 		const container = ref(null)
@@ -2092,6 +2108,8 @@ export default {
 
 			// The earlier version's ghost stays on the open model when that is moved
 			comparison.syncOverlay(modelRoot.value)
+			// Print check's overlays follow their parts, and a moved model is measured again
+			printCheck.value?.onFrame()
 
 			// Update animation mixer if animations are active
 			if (animation.mixer.value && animation.isPlaying.value) {
@@ -2410,6 +2428,91 @@ export default {
 		watch(() => measurement.isActive.value, (active) => emit('measurement-active', active))
 		watch(() => annotation.isActive.value, (active) => emit('annotation-active', active))
 		watch(() => comparison.comparisonMode.value, (active) => emit('comparison-active', active))
+
+		// Print check: fit, overhangs, filament and wall thickness for the open model. Loaded
+		// the first time someone opens it, so viewing a model downloads none of it.
+		const printCheck = shallowRef(null)
+		const printCheckActive = computed(() => printCheck.value?.active.value ?? false)
+		// The wall thickness under the pointer, in mm, once a check has run
+		const printCheckHoverMm = ref(null)
+		const printCheckState = computed(() => {
+			const check = printCheck.value
+			return check && {
+				kind: check.kind.value,
+				assumesMm: check.assumesMm.value,
+				settings: check.settings.value,
+				up: check.up.value,
+				fit: check.fit.value,
+				overhang: check.overhang.value,
+				closed: check.closed.value,
+				openParts: check.openParts.value,
+				estimate: check.estimate.value,
+				slicerSummary: check.slicerSummary.value,
+				thickness: check.thickness.value,
+				hoverMm: printCheckHoverMm.value,
+			}
+		})
+		watch(printCheckActive, (active) => emit('print-check-active', active))
+		// Comparing and print-checking at once would measure two models as one
+		watch(() => comparison.comparisonMode.value, (comparing) => {
+			if (comparing) {
+				printCheck.value?.close()
+			}
+		})
+
+		const togglePrintCheck = async () => {
+			if (!printCheckActive.value && comparison.comparisonMode.value) {
+				return
+			}
+			if (!printCheck.value) {
+				const { usePrintCheck } = await import('../composables/usePrintCheck.js')
+				printCheck.value = markRaw(usePrintCheck({
+					scene,
+					modelRoot,
+					camera: () => camera.camera.value,
+					controls: () => camera.controls.value,
+					mmPerUnit: modelMillimetresPerUnit,
+					filename: () => props.filename,
+					fileId: () => props.fileId,
+				}))
+			}
+			printCheck.value.toggle()
+		}
+
+		// Hovering the model after a thickness check reads the wall thickness there
+		const hoverRaycaster = new THREE.Raycaster()
+		const hoverPointer = new THREE.Vector2()
+		let hoverFrame = 0
+		const onPrintCheckHover = (event) => {
+			if (printCheck.value?.thickness.value.state !== 'done' || hoverFrame) {
+				return
+			}
+			hoverFrame = requestAnimationFrame(() => {
+				hoverFrame = 0
+				const canvas = renderer.value?.domElement
+				const root = modelRoot.value
+				if (!canvas || !root || !camera.camera.value) {
+					return
+				}
+				const rect = canvas.getBoundingClientRect()
+				hoverPointer.set(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1)
+				hoverRaycaster.setFromCamera(hoverPointer, camera.camera.value)
+				const hit = hoverRaycaster.intersectObject(toRaw(root), true).find((candidate) => candidate.object.isMesh)
+				printCheckHoverMm.value = hit ? printCheck.value.thicknessAt(hit) : null
+			})
+		}
+		watch(() => printCheck.value?.thickness.value.state === 'done', (listening) => {
+			const canvas = renderer.value?.domElement
+			if (!canvas) {
+				return
+			}
+			if (listening) {
+				canvas.addEventListener('pointermove', onPrintCheckHover)
+			} else {
+				canvas.removeEventListener('pointermove', onPrintCheckHover)
+				printCheckHoverMm.value = null
+			}
+		})
 
 		const toggleTransformGizmo = () => {
 			// Turn off measurement/annotation when enabling gizmo
@@ -3973,6 +4076,10 @@ export default {
 		})
 
 		onBeforeUnmount(() => {
+			// Ends a running print-check worker and takes its overlays out of the scene
+			printCheck.value?.dispose()
+			renderer.value?.domElement?.removeEventListener('pointermove', onPrintCheckHover)
+
 			// Send any note edits still waiting on their debounce before the viewer goes.
 			// Not awaited: the requests carry on after the component is gone.
 			sharedNotes.flush().catch((e) => {
@@ -4088,6 +4195,10 @@ export default {
 			comparisonFilenameRef: comparison.comparisonFilename,
 			diffStats: comparison.diffStats,
 			comparisonSource: comparison.comparisonSource,
+			printCheck,
+			printCheckActive,
+			printCheckState,
+			togglePrintCheck,
 			overlayActive: comparison.overlayActive,
 			versionPicker,
 			startVersionComparison,

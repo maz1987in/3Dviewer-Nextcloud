@@ -193,6 +193,8 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 	let savedUp = null
 	// Bumped by every open and teardown; a worker result for an earlier one is dropped
 	let generation = 0
+	// The model's world matrix when the fit was last measured
+	const lastPlacement = new THREE.Matrix4()
 
 	const fileKey = () => `${read(fileId) ?? ''}:${read(filename) ?? ''}`
 	const volume = () => {
@@ -263,6 +265,7 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 		const axes = bedAxes(up.value)
 		const unit = read(mmPerUnit) || 1
 		const extent = modelExtentMm(root, axes, unit)
+		lastPlacement.copy(root.matrixWorld)
 		fit.value = { size: { width: extent.width, depth: extent.depth, height: extent.height }, ...fitReport(extent, volume()) }
 		drawBuildVolume(extent, axes)
 
@@ -579,9 +582,21 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 		return Number.isFinite(value) ? value * (read(mmPerUnit) || 1) : null
 	}
 
+	/**
+	 * Called every frame: overlays follow their parts, and a model that moved (the
+	 * transform gizmo, or anything else) is measured again once it settles.
+	 */
 	const onFrame = () => {
+		if (!active.value) {
+			return
+		}
 		overhangSet?.sync()
 		thicknessSet?.sync()
+		const root = read(modelRoot)
+		if (root && !root.matrixWorld.equals(lastPlacement)) {
+			lastPlacement.copy(root.matrixWorld)
+			recomputeSoon()
+		}
 	}
 
 	// A different model, or none: everything made for the last one goes

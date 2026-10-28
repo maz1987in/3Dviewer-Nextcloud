@@ -12,6 +12,7 @@ This document provides comprehensive technical information about the 3D Viewer f
 - [Model Loading Implementation](#model-loading-implementation)
 - [Advanced Viewer Wiring](#advanced-viewer-wiring)
 - [Thumbnail Generation System](#thumbnail-generation-system)
+- [Print Check](#print-check)
 - [File Versions](#file-versions)
 
 ## System Architecture
@@ -2022,6 +2023,30 @@ The integrated File Browser allows users to navigate and manage 3D models direct
   - **Types**: Groups files by extension (e.g., all .obj files).
   - **Dates**: Groups files by year and month.
 - **Performance**: Uses lazy loading to fetch folder contents only when requested, ensuring scalability with large file sets.
+
+## Print Check
+
+Print check (the tools panel's Analyze section) answers four questions about the open model without changing it: does it fit a printer, where does it overhang, roughly how much filament does it take, and how thick are its walls. For a G-code file it shows the numbers the slicer wrote instead. The code is in `src/printCheck/` and `src/composables/usePrintCheck.js`. The composable and the card are only loaded the first time someone opens Print check.
+
+- **What it measures.** The model as an export writes it: its parts together however Exploded view has moved them, and placed as the user placed it with the transform gizmo (`withPartsTogether`). Clipping is ignored. Lengths are in millimetres, using the same millimetres-per-unit as measurements (`utils/sourceUnits.js`). For STL, OBJ, PLY, OFF, 3DS and G-code, which record no unit, the card says sizes assume millimetres.
+- **Which way is up.** Up is the viewer's +Y. **Z up** treats the scene's +Z as up instead, for a file drawn Z-up that lies on its side. It turns the camera and the build box, never the model: `camera.up` changes, and so does OrbitControls' orbit basis (`_quat`), which OrbitControls only works out from `camera.up` when it is created. The choice lasts for the session, per file.
+- **Fit.** The model's extent along the bed's width, depth and up axes, against the printer's build volume (`printCheck/printers.js`, the makers' published print areas). It reports how far each side sticks out, and whether the model would fit turned 90° on the bed.
+- **Overhangs.** A triangle overhangs when its flat normal leans past the chosen angle from vertical toward facing down: 0° is a wall and 90° a ceiling. The default is 45°, adjustable from 20° to 80°. Triangles no higher than 0.05 mm above the model's lowest point rest on the bed and are left out. The share is overhang area over total area (`overhangShare`). The shading is a shader that applies the same rule on the GPU, using a flat normal from `dFdx`/`dFdy`, so smooth normals don't change it.
+- **Closed or not.** A part is closed when every edge is shared by exactly two triangles. Vertices within 1e-6 of the part's largest extent are welded first, since an STL stores each triangle with its own three vertices. This runs in the print-check worker on every part, with no size cap (`closedMesh.edgeReport`), unlike the stats panel's check, which stops at 500,000 triangles on indexed meshes.
+- **Filament estimate.** Only for a closed model. The walls and the top and bottom count as solid to 1.2 mm, and the inside is filled at the infill percentage:
+
+  ```
+  shell    = min(volume, area × 1.2 mm)
+  material = shell + (volume − shell) × infill / 100
+  grams    = material / 1000 × density        (g/cm³: PLA 1.24, PETG 1.27, ABS 1.04, ASA 1.07, TPU 1.21)
+  metres   = material / (π × (1.75 mm / 2)²) / 1000
+  ```
+
+  Volume and area are measured in the world (`modelVolumeAndArea`). The result is labelled as an estimate: a slicer's figure depends on settings this doesn't know.
+- **Wall thickness.** In the print-check worker, using `three-mesh-bvh`. From each triangle's centre, a ray goes inward along the triangle's normal, and the distance to the first surface it meets is the wall's thickness there (`thickness.measurePartThickness`). Rays start at centres because a vertex is often a corner, where an inward ray grazes the faces beside it. Each vertex takes the thinnest triangle around it. Above 300,000 triangles per part an even sample is measured, and the rest take the value of the measured triangle before them; the card says when that happened. Colours: red below the minimum (0.8 mm by default), yellow below 1.5 × the minimum.
+- **G-code.** `slicerSummary.parseSlicerSummary` reads the first and last 512 KiB of the file, and only comment lines up to 512 characters. It reads the comments of PrusaSlicer, SuperSlicer, OrcaSlicer, Bambu Studio and Cura: print time ("total estimated time" first), filament length and weight, and which slicer wrote it.
+- **Nothing reaches an export or a thumbnail.** The box, the bed and both kinds of shading are objects added to the scene beside the model (`surfaceOverlay.js`). Each shading overlay shares its part's geometry and copies its world matrix every frame. Exports read the model, thumbnails render the model in a scene of their own, and render modes swap the model's materials, so none of them meets an overlay.
+- **Remembered settings.** The printer (or custom size), angle, infill, material and minimum thickness are saved under `printCheck` in the viewer's preferences (`/apps/threedviewer/settings`). On a public link they're kept in that browser's `localStorage`.
 
 ## File Versions
 

@@ -43,7 +43,8 @@ const appConfig = createAppConfig(
       // every other chunk. The OCCT glue it bundles needs the same rewrite as above.
       worker: {
         format: 'es',
-        plugins: () => [occtNoEval()],
+        // The print-check worker bundles no OCCT loader, so it has no glue to rewrite
+        plugins: () => [occtNoEval({ exemptEntry: /[\\/]src[\\/]printCheck[\\/]printCheck\.worker\.js$/ })],
         rollupOptions: {
           output: {
             entryFileNames: (chunk) => `js/${workerPrefix(chunk)}-[hash].mjs`,

@@ -215,6 +215,16 @@
 									<span class="tool-label">{{ t('threedviewer', 'Cross-Section') }}</span>
 									<span v-if="clippingActive" class="active-badge">{{ t('threedviewer', 'Active') }}</span>
 								</button>
+								<button type="button"
+									class="tool-btn feature-btn"
+									:class="{ 'active': printCheckActive }"
+									:aria-pressed="printCheckActive ? 'true' : 'false'"
+									:disabled="!modelLoaded || comparisonMode"
+									@click="emit('toggle-print-check')">
+									<ViewerIcon class="tool-icon" name="printer3d" :size="17" />
+									<span class="tool-label">{{ t('threedviewer', 'Print check') }}</span>
+									<span v-if="printCheckActive" class="active-badge">{{ t('threedviewer', 'Active') }}</span>
+								</button>
 								<div v-if="clippingActive" class="clipping-controls">
 									<!-- Mode switch: single plane vs 6-plane box -->
 									<div class="axis-buttons clipping-mode-switch">
@@ -679,6 +689,7 @@ export default {
 		comparisonMode: { type: Boolean, default: false },
 		// False on a public link, where Nextcloud lists no versions
 		canCompareVersions: { type: Boolean, default: false },
+		printCheckActive: { type: Boolean, default: false },
 		transformGizmoActive: { type: Boolean, default: false },
 		transformGizmoMode: { type: String, default: 'translate' },
 		modelLoaded: { type: Boolean, default: false },
@@ -759,6 +770,7 @@ export default {
 		'toggle-annotation',
 		'toggle-comparison',
 		'compare-version',
+		'toggle-print-check',
 		'toggle-transform-gizmo',
 		'set-transform-mode',
 		'reset-transform',

@@ -45,6 +45,10 @@ const BUDGETS = [
   // 81 bytes over the first time this actually matched it.
   { pattern: /^index-.*\.chunk\.mjs$/, name: 'index', largest: true, maxRaw: 1080000, maxGzip: 295000 },
   { pattern: /^NcSelect-.*\.chunk\.mjs$/, name: 'nc-select', maxRaw: 1250000, maxGzip: 320000 }, // Nextcloud Select component
+  // The print-check worker: the closed-model test and the wall-thickness check, with
+  // three-mesh-bvh and the parts of three.js they use. Loaded only when someone opens Print
+  // check. 142.1 KB raw / 41.3 KB gzip when added, budgeted at that plus 10%.
+  { pattern: /^print-check-worker-[^-]+\.mjs$/, name: 'print-check-worker', maxRaw: 156000, maxGzip: 45500 },
 ];
 
 const buildDir = path.resolve(process.cwd(), 'js');

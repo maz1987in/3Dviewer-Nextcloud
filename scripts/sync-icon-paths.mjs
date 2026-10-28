@@ -57,6 +57,7 @@ export const ICONS = {
 	close: 'Close',
 	comparison: 'Compare',
 	history: 'History',
+	printer3d: 'Printer3d',
 	controller: 'Gamepad',
 	// The mockup's scissors-on-a-line is not in this package version.
 	crossSection: 'ContentCut',
