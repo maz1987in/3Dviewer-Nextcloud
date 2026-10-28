@@ -22,7 +22,8 @@
 
 **🎮 Interactive Features:**
 - 🎯 3D Camera Controller: Enhanced intuitive circular controller for precise camera navigation with improved controls
-- 🔄 Model comparison: Side-by-side viewing with synchronized controls
+- 🔄 Model comparison: Side-by-side viewing with synchronized controls, against another file or an earlier version of the same file
+- 🕘 Compare with an earlier version: Pick one of the versions Nextcloud kept and see what changed, side by side or as a see-through ghost over the current model
 - 📝 Annotations: Add notes and markers to specific points on models (always readable, faces camera) with customizable visual sizing controls
 - 📏 Measurements: Distance and angle measurement tools (with billboard text) with per-user sizing controls for point size, line thickness, and label width
 - 🎬 Animation Controls: Play/pause controls for animated models with loop toggle, timeline scrubber, and frame stepping
@@ -42,9 +43,17 @@
 - 🍞 Breadcrumb navigation: Easy navigation back through folder/type/date hierarchies
 - 🔄 Lazy loading: Fast navigation with on-demand data loading
 
+**🖨️ Print Check:**
+- 📦 Build volume: See whether a model fits common printers or your own size, and by how much it doesn't
+- 📐 Overhangs: Surfaces that overhang past an angle you choose are shaded, with their share of the surface
+- 🧵 Filament estimate: Roughly how many grams and metres a closed model needs, for your infill and material
+- 🧱 Wall thickness: Walls thinner than a minimum you set are coloured
+- ⏱️ G-code: The print time and filament the slicer worked out
+
 **⚡ Export & Tools:**
 - 📷 Screenshot capture: Take high-quality PNG/JPEG screenshots of your models
-- 💾 Export models to GLB, STL, and OBJ formats
+- 🎥 Turntable video: Record one full turn around the model and download it, or save it next to the model in your Nextcloud
+- 💾 Export models to GLB, STL, OBJ, 3MF, PLY and USDZ formats
 - 🖨️ Slicer integration: Send models directly to PrusaSlicer, Cura, BambuStudio, OrcaSlicer, Simplify3D, Eufy Studio, and AnycubicSlicer with enhanced security (file size limits, MIME validation, rolling expiration)
 - 📊 Model statistics panel with detailed information
 - 🔲 Wireframe and bounding box visualization
