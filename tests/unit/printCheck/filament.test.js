@@ -23,3 +23,14 @@ test('a part thinner than the shell is solid', () => {
 	// A 10 × 10 × 1 plate: area 240, so area × 1.2 = 288 > 100 mm³
 	expect(estimateFilament({ volumeMm3: 100, areaMm2: 240, infillPercent: 20, density: 1.24 }).grams).toBeCloseTo(0.124, 9)
 })
+
+test('modelVolumeAndArea measures meshes in the world, in mm', () => {
+	const THREE = require('three')
+	const mesh = new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10).toNonIndexed())
+	mesh.scale.setScalar(2)
+	mesh.updateMatrixWorld(true)
+	const { volumeMm3, areaMm2 } = require('../../../src/printCheck/filament.js').modelVolumeAndArea([mesh], 0.5)
+	// 20 scene units a side at 0.5 mm each: a 10 mm cube
+	expect(volumeMm3).toBeCloseTo(1000, 6)
+	expect(areaMm2).toBeCloseTo(600, 6)
+})

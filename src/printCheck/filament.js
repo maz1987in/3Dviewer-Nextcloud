@@ -31,3 +31,53 @@ export function estimateFilament({ volumeMm3, areaMm2, infillPercent, density, s
 		metres: material / crossSection / 1000,
 	}
 }
+
+/**
+ * The volume and surface area of some closed meshes, in the world, in millimetres.
+ * Volume by the signed tetrahedra each triangle makes with the origin.
+ *
+ * @param {Array<object>} meshes - THREE.Mesh objects, world matrices up to date
+ * @param {number} mmPerUnit - Millimetres per scene unit
+ * @return {{volumeMm3: number, areaMm2: number}} The two
+ */
+export function modelVolumeAndArea(meshes, mmPerUnit) {
+	let volume = 0
+	let area = 0
+	const p = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+	for (const mesh of meshes) {
+		const position = mesh.geometry?.attributes?.position
+		if (!position) {
+			continue
+		}
+		const index = mesh.geometry.index
+		const e = mesh.matrixWorld.elements
+		const triangles = (index ? index.count : position.count) / 3
+		let signed = 0
+		for (let t = 0; t < triangles; t++) {
+			for (let corner = 0; corner < 3; corner++) {
+				const v = index ? index.getX(t * 3 + corner) : t * 3 + corner
+				const x = position.getX(v)
+				const y = position.getY(v)
+				const z = position.getZ(v)
+				p[corner * 3] = e[0] * x + e[4] * y + e[8] * z + e[12]
+				p[corner * 3 + 1] = e[1] * x + e[5] * y + e[9] * z + e[13]
+				p[corner * 3 + 2] = e[2] * x + e[6] * y + e[10] * z + e[14]
+			}
+			const [ax, ay, az, bx, by, bz, cx, cy, cz] = p
+			if (![ax, ay, az, bx, by, bz, cx, cy, cz].every(Number.isFinite)) {
+				continue
+			}
+			// a · (b × c) / 6, and |(b − a) × (c − a)| / 2
+			signed += (ax * (by * cz - bz * cy) - ay * (bx * cz - bz * cx) + az * (bx * cy - by * cx)) / 6
+			const ux = bx - ax
+			const uy = by - ay
+			const uz = bz - az
+			const wx = cx - ax
+			const wy = cy - ay
+			const wz = cz - az
+			area += Math.hypot(uy * wz - uz * wy, uz * wx - ux * wz, ux * wy - uy * wx) / 2
+		}
+		volume += Math.abs(signed)
+	}
+	return { volumeMm3: volume * mmPerUnit ** 3, areaMm2: area * mmPerUnit ** 2 }
+}
