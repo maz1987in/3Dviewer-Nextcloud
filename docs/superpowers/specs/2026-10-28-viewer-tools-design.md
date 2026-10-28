@@ -68,7 +68,7 @@ A **Print check** section in the tools panel, off until opened. Opening it place
 - **Which way is up:** the model as the user currently sees it, including any turning or scaling done with the move/rotate tool (`useTransformGizmo`). Fit, bed contact and overhangs follow those changes. Exploded view and clipping are viewing aids and are ignored: the check uses the assembled, unclipped model.
 - **"Up: Y / Z" switch:** STL, 3MF, PLY and DAE are already turned upright on load, but other formats (OBJ, STEP, FBX and so on) are shown with the file's own Y as up, so a file authored Z-up lies on its side. One switch in Print check stands it upright by treating the file's Z as up. It defaults to how the viewer shows the model and is remembered per file for the session. This is a one-click correction, not automatic orientation.
 - **Printer choice:** a short list of common printers plus **Custom** (width, depth, height). The list holds about ten current models from Prusa, Bambu Lab, Creality, Anycubic and Elegoo, with sizes checked against each maker's published specs.
-- The choice is remembered per user through the existing user-preference route (`ConfigController`, adding keys to its allowlist). On public share links it's remembered in that browser only.
+- The choice is remembered per user in the viewer's existing preferences (`/apps/threedviewer/settings`, `SettingsController`, the `user_preferences` blob merged into `VIEWER_CONFIG`), under a `printCheck` key. On public share links it's remembered in that browser only.
 - If the model doesn't fit, the box turns red and a line says by how much it sticks out on each axis, for example "12.4 mm too wide".
 
 ### Overhangs
