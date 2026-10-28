@@ -19,8 +19,11 @@ export type ViewerModel = { id: number, name: string, body: string | Buffer }
  * `query` is added to the page's own address, as a link's parameters would be; `notes`
  * are the shared notes the server answers with for a logged-in user. The tools panel is
  * opened once the model is in, unless `openPanel` is false: opening it moves the focus.
+ *
+ * `lite` serves the page a public link to a single file gets, where the light viewer
+ * (ViewerComponent) replaces the share page's content instead of the full app mounting.
  */
-export type Viewer = { user?: string | null, publicToken?: string | null, dir?: string, query?: string, notes?: object[], openPanel?: boolean }
+export type Viewer = { user?: string | null, publicToken?: string | null, dir?: string, query?: string, notes?: object[], openPanel?: boolean, lite?: boolean }
 
 const pages = new Map<string, { model: ViewerModel, viewer: Viewer }>()
 
@@ -32,7 +35,7 @@ const pages = new Map<string, { model: ViewerModel, viewer: Viewer }>()
 function html({ model, viewer }: { model: ViewerModel, viewer: Viewer }) {
 	const user = viewer.user ? ` data-user="${viewer.user}" data-user-displayname="${viewer.user}"` : ''
 	const share = viewer.publicToken
-		? `<input type="hidden" id="initial-state-threedviewer-publicShare" value="${Buffer.from(JSON.stringify({ token: viewer.publicToken, fileId: model.id, filename: model.name })).toString('base64')}">`
+		? `<input type="hidden" id="initial-state-threedviewer-publicShare" value="${Buffer.from(JSON.stringify({ token: viewer.publicToken, fileId: model.id, filename: model.name, ...(viewer.lite ? { isSingleFile: true, mime: 'application/octet-stream' } : {}) })).toString('base64')}">`
 		: ''
 	return `<!doctype html><html><head${user}><meta charset="utf-8"><title>Viewer</title>
 	<meta name="requesttoken" content="test-token">
@@ -40,7 +43,9 @@ function html({ model, viewer }: { model: ViewerModel, viewer: Viewer }) {
 	<style>html, body { margin: 0; height: 100%; } #threedviewer { height: 100vh; }</style>
 	</head><body>
 	${share}
-	<div id="threedviewer" data-file-id="${model.id}" data-filename="${model.name}" data-dir="${viewer.dir ?? '/models'}"></div>
+	${viewer.lite
+		? '<div id="content" style="height: 100vh"></div>'
+		: `<div id="threedviewer" data-file-id="${model.id}" data-filename="${model.name}" data-dir="${viewer.dir ?? '/models'}"></div>`}
 	<script>
 		window.t = function (_app, s, vars) { if (vars) { for (const k in vars) s = s.replace('{' + k + '}', vars[k]) } return s }
 		window.n = function (_app, s, p, n) { return (n === 1 ? s : p).replace('%n', n) }
@@ -110,6 +115,11 @@ export async function openViewer(page: Page, url: string, model: ViewerModel, vi
 	}))
 
 	await page.goto(`${url}?page=${encodeURIComponent(key)}${viewer.query ? `&${viewer.query}` : ''}`)
+	if (viewer.lite) {
+		// The light viewer shows its own buttons once the model is in
+		await page.waitForSelector('.viewer-bottom-actions', { timeout: 30000 })
+		return { errors }
+	}
 	await page.waitForFunction(() => (window as any).__LOAD_COMPLETE === true, null, { timeout: 30000 })
 	if (viewer.openPanel !== false) {
 		await page.click('[aria-label="Toggle tools panel"]')

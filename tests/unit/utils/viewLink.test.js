@@ -3,7 +3,7 @@
  * link was typed or edited by someone, so nothing in it is trusted until it is checked.
  */
 import * as THREE from 'three'
-import { encodeView, decodeView, readViewFromUrl, buildViewUrl, isUsableTarget, VIEW_PARAM, VIEW_VERSION } from '../../../src/utils/viewLink.js'
+import { encodeView, decodeView, readViewFromUrl, buildViewUrl, isUsableTarget, viewerLinkBase, VIEW_PARAM, VIEW_VERSION } from '../../../src/utils/viewLink.js'
 
 const full = {
 	camera: { position: [1.23456, 2, 3], target: [0, 0.5, 0], zoom: 1, projection: 'orthographic' },
@@ -136,5 +136,17 @@ describe('whether a linked camera still looks at the model', () => {
 
 	it('takes anything when there is no box to judge by', () => {
 		expect(isUsableTarget([1e6, 0, 0], new THREE.Box3())).toBe(true)
+	})
+})
+
+describe('where a link from the light viewer points', () => {
+	it('is the page itself for a public-link visitor', () => {
+		expect(viewerLinkBase({ isPublic: true, pageUrl: 'https://cloud.test/s/abc?x=1', origin: 'https://cloud.test', fileId: 7 }))
+			.toBe('https://cloud.test/s/abc?x=1')
+	})
+
+	it('is the full viewer for a logged-in user in Files', () => {
+		expect(viewerLinkBase({ isPublic: false, pageUrl: 'https://cloud.test/apps/files/files/7?openfile=true', origin: 'https://cloud.test', fileId: 7 }))
+			.toBe('https://cloud.test/index.php/apps/threedviewer/f/7')
 	})
 })

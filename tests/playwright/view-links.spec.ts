@@ -197,3 +197,47 @@ test("a bookmark's Copy link carries the bookmark's camera", async ({ page, cont
 	near(view.c.p, [30, 40, 50])
 	near(view.c.t, [15, 5, 5])
 })
+
+/** The light viewer's camera, read off the component the share page mounts. */
+const liteCamera = (page: Page) => page.evaluate(() => {
+	// A production build keeps no app instance, so through the root vnode Vue leaves on the container
+	const viewer = (document.querySelector('#threedviewer-public') as any)._vnode.component.subTree.component.proxy
+	return { position: viewer.camera.position.toArray(), target: viewer.controls.target.toArray() }
+})
+const VISITOR: Viewer = { user: null, publicToken: 'abc123', lite: true }
+
+test('a public link with a view opens the light viewer at that camera', async ({ page }) => {
+	const { errors } = await open(page, `view=${link({ c: camera })}`, VISITOR)
+	const state = await liteCamera(page)
+	near(state.position, [30, 40, 50])
+	near(state.target, [15, 5, 5])
+	expect(errors).toEqual([])
+})
+
+test('the light viewer applies the camera and ignores the rest', async ({ page }) => {
+	const { errors } = await open(page, `view=${link({ c: camera, r: 'clay', k: { m: 'p', a: 'x', s: 0.2, f: 0 }, e: 0.5, n: 6 })}`, VISITOR)
+	near((await liteCamera(page)).position, [30, 40, 50])
+	expect(errors).toEqual([])
+})
+
+test('the light viewer keeps its usual framing for a camera aimed far from the model', async ({ page, browser }) => {
+	await open(page, undefined, VISITOR)
+	const usual = await liteCamera(page)
+	const other = await browser.newPage()
+	await open(other, `view=${link({ c: { p: [1e6, 10, 10], t: [1e6, 0, 0], z: 1, o: 0 } })}`, VISITOR)
+	near((await liteCamera(other)).position, usual.position)
+	await other.close()
+})
+
+test("a visitor's Copy link to this view keeps the page and adds only the camera", async ({ page, context }) => {
+	await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+	await open(page, undefined, VISITOR)
+	const button = page.getByRole('button', { name: 'Copy link to this view' })
+	await button.click()
+	const copied = new URL(await page.evaluate(() => navigator.clipboard.readText()))
+	const here = new URL(page.url())
+	expect(copied.pathname).toBe(here.pathname)
+	expect(copied.searchParams.get('page')).toBe(here.searchParams.get('page'))
+	expect(Object.keys(decode(copied.searchParams.get('view')!))).toEqual(['c'])
+	await expect(page.getByRole('status')).toContainText('Link copied')
+})

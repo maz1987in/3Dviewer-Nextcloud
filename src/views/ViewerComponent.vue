@@ -95,6 +95,15 @@
 				@click.prevent="showStats = !showStats">
 				<ViewerIcon name="statistics" :size="18" />
 			</button>
+			<button
+				class="viewer-action-btn"
+				:aria-label="t('threedviewer', 'Copy link to this view')"
+				:title="t('threedviewer', 'Copy link to this view')"
+				@click.prevent="copyViewLink">
+				<ViewerIcon :name="linkCopied ? 'check' : 'copyLink'" :size="18" />
+			</button>
+			<!-- No toast reaches a share page, which mounts this viewer on its own -->
+			<span role="status" class="viewer-link-status">{{ linkStatus }}</span>
 		</div>
 
 		<!-- Stats panel overlay -->
@@ -140,6 +149,8 @@ import { awaitStatusBeforeDownload, scheduleCapture } from '../thumbnails/captur
 import { useScreenshot } from '../composables/useScreenshot.js'
 import { logger } from '../utils/logger.js'
 import { computeCameraFit } from '../thumbnails/cameraFit.js'
+import { buildViewUrl, isUsableTarget, readViewFromUrl, viewerLinkBase } from '../utils/viewLink.js'
+import { copyText } from '../utils/clipboard.js'
 
 export default {
 	name: 'ViewerComponent',
@@ -209,6 +220,10 @@ export default {
 
 	data() {
 		return {
+			// A view link (utils/viewLink.js) is read once, for the first model shown
+			viewLinkConsumed: false,
+			linkCopied: false,
+			linkStatus: '',
 			scene: null,
 			camera: null,
 			renderer: null,
@@ -357,6 +372,7 @@ export default {
 	},
 
 	beforeUnmount() {
+		clearTimeout(this.linkCopiedTimer)
 		// Restore console error handler
 		if (this.cspErrorListener && this.cspErrorListener.restore) {
 			this.cspErrorListener.restore()
@@ -1133,8 +1149,68 @@ export default {
 					center: { x: center.x.toFixed(2), y: center.y.toFixed(2), z: center.z.toFixed(2) },
 					distance: cameraDistance.toFixed(2),
 				})
+
+				this.applyLinkedCamera(box)
 			} catch (error) {
 				logger.error('ViewerComponent', 'Failed to fit camera to model', error)
+			}
+		},
+
+		/**
+		 * Put the camera where a view link says, the first time a model is shown. This
+		 * viewer has no shading modes, cut or exploded view, so the camera is all of a link
+		 * it applies; and it draws in perspective only, so an orthographic link's zoom is
+		 * left out. A link aiming well away from the model keeps the usual framing.
+		 *
+		 * @param {object} box - THREE.Box3 of the model
+		 */
+		applyLinkedCamera(box) {
+			if (this.viewLinkConsumed) return
+			this.viewLinkConsumed = true
+			const linked = readViewFromUrl()?.camera
+			if (!linked || !isUsableTarget(linked.target, box)) return
+			this.camera.position.set(...linked.position)
+			this.controls?.target.set(...linked.target)
+			this.camera.lookAt(...linked.target)
+			if (linked.projection === 'perspective') this.camera.zoom = linked.zoom
+			// The fit set the clipping range for its own distance
+			const distance = this.camera.position.distanceTo(this.controls?.target ?? this.camera.position)
+			if (distance > 0) {
+				this.camera.near = distance / 100
+				this.camera.far = distance * 100
+			}
+			this.camera.updateProjectionMatrix()
+			this.controls?.update()
+			logger.info('ViewerComponent', 'Camera set from a view link')
+		},
+
+		/**
+		 * Copy a link to this model with the camera as it is now: the share link for a
+		 * visitor, the full viewer for a logged-in user.
+		 */
+		async copyViewLink() {
+			if (!this.camera) return
+			const view = {
+				camera: {
+					position: this.camera.position.toArray(),
+					target: (this.controls?.target ?? this.camera.position).toArray(),
+					zoom: this.camera.zoom,
+					projection: 'perspective',
+				},
+			}
+			const base = viewerLinkBase({ isPublic: this.isPublic, pageUrl: window.location.href, origin: window.location.origin, fileId: this.fileid })
+			try {
+				await copyText(buildViewUrl(base, view))
+				this.linkCopied = true
+				this.linkStatus = this.t('threedviewer', 'Link copied')
+				clearTimeout(this.linkCopiedTimer)
+				this.linkCopiedTimer = setTimeout(() => {
+					this.linkCopied = false
+					this.linkStatus = ''
+				}, 2000)
+			} catch (error) {
+				logger.error('ViewerComponent', 'Failed to copy a view link', error)
+				this.linkStatus = this.t('threedviewer', 'Copy failed')
 			}
 		},
 
@@ -1638,6 +1714,16 @@ export default {
 	display: flex;
 	gap: 6px;
 	z-index: 1000;
+}
+
+/* Read out, not shown: the button's icon turning into a tick says it visually */
+.viewer-link-status {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
 }
 
 .viewer-action-btn.viewer-action-btn {

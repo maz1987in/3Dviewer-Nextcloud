@@ -14,6 +14,7 @@
  * (`cameraUrlState.js`).
  */
 
+import { generateUrl } from '@nextcloud/router'
 import { parseCameraState, CAMERA_URL_PARAM } from './cameraUrlState.js'
 import { LIGHTING_PRESETS } from '../config/lightingPresets.js'
 import { RENDER_MODES } from '../composables/useRenderMode.js'
@@ -224,6 +225,22 @@ export function captureViewState({ camera, controls, renderMode, wireframe, ligh
 	if (exploded?.isActive) view.exploded = exploded.factor
 	if (highlightedNoteId) view.note = highlightedNoteId
 	return view
+}
+
+/**
+ * Where a link copied from the light viewer points. A public-link visitor gets the page
+ * they are on, the share link; a logged-in user in Files gets the file in the full
+ * viewer, which opens it with everything a view link carries.
+ *
+ * @param {object} where
+ * @param {boolean} where.isPublic - on a public share page
+ * @param {string} where.pageUrl - the page's own address
+ * @param {string} where.origin - the instance's origin
+ * @param {number|string} where.fileId
+ * @return {string}
+ */
+export function viewerLinkBase({ isPublic, pageUrl, origin, fileId }) {
+	return isPublic ? pageUrl : origin + generateUrl('/apps/threedviewer/f/{fileId}', { fileId })
 }
 
 /**
