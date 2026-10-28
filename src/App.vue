@@ -148,6 +148,7 @@
 					@toggle-auto-rotate="onToggleAutoRotate"
 					@toggle-projection="onToggleProjection"
 					@copy-view-link="onCopyViewLink"
+					@copy-bookmark-link="onCopyBookmarkLink"
 					@toggle-grid="grid = !grid"
 					@toggle-axes="axes = !axes"
 					@toggle-wireframe="onToggleWireframe"
@@ -714,14 +715,35 @@ export default {
 			}
 		},
 		/**
-		 * Copy a shareable link to the current camera viewpoint.
-		 *
-		 * Recipients who open the link see the exact position/target/zoom
-		 * we're looking at right now. Requires a model to be loaded so the
-		 * camera/controls exist.
+		 * Copy a link that reopens this file as it is shown now (utils/viewLink.js).
 		 */
 		async onCopyViewLink() {
-			const link = this.$refs.viewer?.getShareableViewLink?.()
+			await this.copyLink(this.$refs.viewer?.getShareableViewLink?.())
+		},
+		/**
+		 * Copy a link to this file showing a bookmark's camera, with everything else as it
+		 * is shown now.
+		 *
+		 * @param {number} index - the bookmark's position in the list
+		 */
+		async onCopyBookmarkLink(index) {
+			const viewer = this.$refs.viewer
+			const bookmark = this.bookmarksList[index]
+			const view = viewer?.getViewState?.()
+			if (!bookmark || !view) {
+				await this.copyLink(null)
+				return
+			}
+			const { camera: c, target: t } = bookmark
+			view.camera = { ...view.camera, position: [c.x, c.y, c.z], target: [t.x, t.y, t.z] }
+			await this.copyLink(viewer.viewLinkFor(view))
+		},
+		/**
+		 * Copy a view link and say how that went.
+		 *
+		 * @param {string|null} link - null when there is no model to link to
+		 */
+		async copyLink(link) {
 			if (!link) {
 				this.pushToast({
 					type: 'error',

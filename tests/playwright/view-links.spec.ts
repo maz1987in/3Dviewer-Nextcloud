@@ -146,3 +146,54 @@ test('copying from the panel gives a link that reproduces the view', async ({ pa
 	expect(copied.pathname).toMatch(/\/apps\/threedviewer\/f\/7301$/)
 	expect(decode(copied.searchParams.get('view')!).r).toBe('clay')
 })
+
+/** A shared note as the notes route returns it. */
+const note = (id: number, text: string, x: number) => ({
+	id, type: 'annotation', payload: { space: 'model', point: { x, y: 5, z: 5 }, text }, author: { uid: 'bob', displayName: 'Bob' }, createdAt: 1, updatedAt: 1,
+})
+const NOTES = [note(5, 'Hole', 5), note(6, 'Edge', 25)]
+const camera = { p: [30, 40, 50], t: [15, 5, 5], z: 1, o: 0 }
+
+test('a note link opens Annotations with that note highlighted and focused', async ({ page }) => {
+	// The panel stays closed: opening it would take the focus this checks for
+	await open(page, `view=${link({ c: camera, n: 6 })}`, { user: 'alice', notes: NOTES, openPanel: false })
+	const highlighted = page.locator('.annotation-overlay .annotation-item.is-highlighted')
+	await expect(highlighted).toHaveCount(1)
+	await expect(highlighted.locator('.annotation-text-input')).toHaveValue('Edge')
+	await expect(highlighted).toBeFocused()
+})
+
+test('a link to a note that is gone opens normally', async ({ page }) => {
+	const { errors } = await open(page, `view=${link({ c: camera, n: 999 })}`, { user: 'alice', notes: NOTES })
+	near((await shown(page)).position, [30, 40, 50])
+	await expect(page.locator('.annotation-overlay')).toHaveCount(0)
+	expect(errors).toEqual([])
+})
+
+test('Copy link to this note gives a link with that note', async ({ page, context }) => {
+	await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+	await open(page, undefined, { user: 'alice', notes: NOTES })
+	await page.locator('.slide-out-panel').getByRole('button', { name: /^Annotation/ }).click()
+	const actions = page.locator('.annotation-overlay').getByRole('button', { name: /^Copy link to this note/ })
+	await expect(actions).toHaveCount(2)
+	await actions.nth(1).click()
+	const copied = new URL(await page.evaluate(() => navigator.clipboard.readText()))
+	expect(decode(copied.searchParams.get('view')!).n).toBe(6)
+})
+
+test("a bookmark's Copy link carries the bookmark's camera", async ({ page, context }) => {
+	await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+	await open(page, `view=${link({ c: camera })}`)
+	await page.locator('.slide-out-panel').getByRole('button', { name: 'Save View' }).click()
+	// Move away, so the link can only have the camera from the bookmark
+	await page.evaluate(() => {
+		const viewer = (window as any).__THREEDVIEWER_APP.$.subTree.component.proxy.$refs.viewer
+		viewer.camera.camera.value.position.set(80, 10, 10)
+		viewer.camera.controls.value.update()
+	})
+	await page.locator('.slide-out-panel').getByRole('button', { name: /^Copy link: View 1/ }).click()
+	const copied = new URL(await page.evaluate(() => navigator.clipboard.readText()))
+	const view = decode(copied.searchParams.get('view')!)
+	near(view.c.p, [30, 40, 50])
+	near(view.c.t, [15, 5, 5])
+})

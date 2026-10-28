@@ -754,9 +754,23 @@
 					{{ t('threedviewer', 'Click the model to place a note at that point.') }}
 				</p>
 				<div class="annotation-list">
-					<div v-for="(annotation, index) in annotations" :key="annotation.id" class="canvas-panel-card annotation-item">
+					<div v-for="(annotation, index) in annotations"
+						:key="annotation.id"
+						:data-note-id="annotation.meta?.noteId ?? null"
+						:class="{ 'is-highlighted': isHighlightedNote(annotation) }"
+						class="canvas-panel-card annotation-item"
+						tabindex="-1"
+						@click="onAnnotationCardClick(annotation)">
 						<div class="canvas-panel-card-header">
 							<span class="canvas-panel-card-title">{{ t('threedviewer', 'Annotation') }} {{ index + 1 }}</span>
+							<button v-if="isSharedNote(annotation)"
+								type="button"
+								class="tdv-btn tdv-btn--icon canvas-panel-link"
+								:aria-label="t('threedviewer', 'Copy link to this note: annotation {number}', { number: index + 1 })"
+								:title="t('threedviewer', 'Copy link to this note')"
+								@click.stop="copyNoteLink(annotation)">
+								<ViewerIcon name="copyLink" :size="16" />
+							</button>
 							<button v-if="canChangeNote(annotation)"
 								type="button"
 								class="tdv-btn tdv-btn--icon canvas-panel-delete"
@@ -1742,9 +1756,12 @@ export default {
 					// fileId: the comparison model shares the scene but isn't annotatable.
 					if (fileId && fileId !== 'comparison') {
 						const share = getPublicShareContext()
-						sharedNotes.load(createNotesApi({ fileId, shareToken: share?.token ?? null })).catch((e) => {
-							logger.warn('ThreeViewer', 'Loading notes failed', e)
-						})
+						const linkedNote = linkedView?.note ?? null
+						sharedNotes.load(createNotesApi({ fileId, shareToken: share?.token ?? null }))
+							.then(() => { if (linkedNote) focusLinkedNote(linkedNote) })
+							.catch((e) => {
+								logger.warn('ThreeViewer', 'Loading notes failed', e)
+							})
 					}
 
 					// Capture a thumbnail once per file version (if enabled). It is rendered
@@ -2458,11 +2475,69 @@ export default {
 		 *
 		 * @return {string|null}
 		 */
-		const getShareableViewLink = () => {
-			const view = getViewState()
-			if (!view || props.fileId == null) return null
+		const getShareableViewLink = () => viewLinkFor(getViewState())
+
+		/**
+		 * A link to this file in the full viewer showing `view`.
+		 *
+		 * @param {object|null} view - a ViewState
+		 * @return {string|null} null without a view or a file
+		 */
+		const viewLinkFor = (view) => {
+			if (!view || props.fileId === null || props.fileId === undefined) return null
 			const base = window.location.origin + generateUrl('/apps/threedviewer/f/{fileId}', { fileId: props.fileId })
 			return buildViewUrl(base, view)
+		}
+
+		/**
+		 * Whether a note is shared and saved, so a link can name it: a private note's id
+		 * is not one anyone else can open, and an unsaved one has none yet.
+		 *
+		 * @param {object} note - an annotation
+		 * @return {boolean}
+		 */
+		const isSharedNote = (note) => Number.isSafeInteger(note?.meta?.noteId) && note.meta.noteId > 0
+
+		const isHighlightedNote = (note) => highlightedNoteId.value !== null && note?.meta?.noteId === highlightedNoteId.value
+
+		// Working on another note ends the highlight a link gave one
+		const onAnnotationCardClick = (note) => {
+			if (!isHighlightedNote(note)) highlightedNoteId.value = null
+		}
+
+		/**
+		 * Copy a link to the view as it is now, pointing at one note.
+		 *
+		 * @param {object} note - an annotation with a shared note behind it
+		 */
+		const copyNoteLink = async (note) => {
+			const tr = (s) => (typeof window !== 'undefined' && window.t) ? window.t('threedviewer', s) : s
+			const view = getViewState()
+			const link = view && viewLinkFor({ ...view, note: note.meta.noteId })
+			try {
+				if (!link) throw new Error('No view to link to')
+				await copyText(link)
+				emit('push-toast', { type: 'success', title: tr('Link copied'), message: tr('The link opens the model here, with this note highlighted.'), timeout: 4000 })
+			} catch (err) {
+				logger.error('ThreeViewer', 'Failed to copy a note link', err)
+				emit('push-toast', { type: 'error', title: tr('Copy failed') })
+			}
+		}
+
+		/**
+		 * Open Annotations on the note a link names, highlighted and focused. A note that
+		 * has been deleted, or isn't shared, is skipped: the link still opens the view.
+		 *
+		 * @param {number} noteId
+		 */
+		const focusLinkedNote = async (noteId) => {
+			if (!annotation.annotations.value.some((a) => a.meta?.noteId === noteId)) return
+			highlightedNoteId.value = noteId
+			if (!annotation.isActive.value) toggleAnnotationMode()
+			await nextTick()
+			const card = container.value?.querySelector(`.annotation-item[data-note-id="${noteId}"]`)
+			card?.scrollIntoView?.({ block: 'nearest' })
+			card?.focus()
 		}
 
 		// Advanced feature methods
@@ -2492,7 +2567,10 @@ export default {
 		}
 
 		const closeMeasurementPanel = () => toggleMeasurementMode()
-		const closeAnnotationPanel = () => toggleAnnotationMode()
+		const closeAnnotationPanel = () => {
+			highlightedNoteId.value = null
+			toggleAnnotationMode()
+		}
 
 		const toggleAnnotationMode = () => {
 		// If turning annotation ON, turn measurement OFF
@@ -4474,7 +4552,12 @@ export default {
 			fitToView,
 			getShareableViewLink,
 			getViewState,
+			viewLinkFor,
 			highlightedNoteId,
+			isSharedNote,
+			isHighlightedNote,
+			onAnnotationCardClick,
+			copyNoteLink,
 			toggleMeasurementMode,
 			handleUnitChange,
 			deleteMeasurement,
@@ -5681,6 +5764,7 @@ export default {
 /* Doubled, like every button on this surface: Nextcloud's own button rule sets a
    background and a text colour through a selector a single class does not beat. */
 .canvas-panel-close.canvas-panel-close,
+.canvas-panel-link.canvas-panel-link,
 .canvas-panel-delete.canvas-panel-delete {
 	color: var(--tdv-hud-text-secondary);
 	border-radius: 4px;
@@ -5689,12 +5773,16 @@ export default {
 
 .canvas-panel-close.canvas-panel-close:hover,
 .canvas-panel-close.canvas-panel-close:focus,
-.canvas-panel-close.canvas-panel-close:focus-visible {
+.canvas-panel-close.canvas-panel-close:focus-visible,
+.canvas-panel-link.canvas-panel-link:hover,
+.canvas-panel-link.canvas-panel-link:focus,
+.canvas-panel-link.canvas-panel-link:focus-visible {
 	background: var(--tdv-hud-hover-bg);
 	color: var(--tdv-hud-text);
 }
 
-.canvas-panel-close.canvas-panel-close:active {
+.canvas-panel-close.canvas-panel-close:active,
+.canvas-panel-link.canvas-panel-link:active {
 	background: var(--tdv-hud-hover-bg) !important;
 	color: var(--tdv-hud-text) !important;
 }
@@ -5811,6 +5899,18 @@ export default {
 	padding: 12px 14px;
 	border: 1px solid var(--tdv-hud-border);
 	border-radius: 12px;
+}
+
+/* The note a link pointed at: drawn in the HUD's own foreground, and focused when the
+   panel opens on it, so a keyboard user starts from it too */
+.annotation-item.is-highlighted {
+	border-color: var(--tdv-hud-text);
+	box-shadow: inset 0 0 0 1px var(--tdv-hud-text);
+}
+
+.annotation-item:focus-visible {
+	outline: 2px solid var(--tdv-hud-text);
+	outline-offset: 2px;
 }
 
 .canvas-panel-card-header {

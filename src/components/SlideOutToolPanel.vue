@@ -96,6 +96,12 @@
 												{{ bm.name }}
 											</button>
 											<button class="bookmark-delete"
+												:title="t('threedviewer', 'Copy link')"
+												:aria-label="`${t('threedviewer', 'Copy link')}: ${bm.name}`"
+												@click="emit('copy-bookmark-link', i)">
+												<ViewerIcon name="copyLink" :size="14" />
+											</button>
+											<button class="bookmark-delete"
 												:title="t('threedviewer', 'Remove')"
 												:aria-label="`${t('threedviewer', 'Remove')}: ${bm.name}`"
 												@click="emit('remove-bookmark', i)">
@@ -773,6 +779,7 @@ export default {
 		'toggle-auto-rotate',
 		'toggle-projection',
 		'copy-view-link',
+		'copy-bookmark-link',
 		'toggle-grid',
 		'toggle-axes',
 		'toggle-wireframe',
