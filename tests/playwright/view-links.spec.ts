@@ -241,3 +241,53 @@ test("a visitor's Copy link to this view keeps the page and adds only the camera
 	expect(Object.keys(decode(copied.searchParams.get('view')!))).toEqual(['c'])
 	await expect(page.getByRole('status')).toContainText('Link copied')
 })
+
+/** Answer the sharing API with these link shares of the model. */
+async function withShares(page: Page, shares: object[]) {
+	await page.route('**/ocs/v2.php/apps/files_sharing/api/v1/shares*', (route) => route.fulfill({
+		status: 200,
+		contentType: 'application/json',
+		body: JSON.stringify({ ocs: { meta: { status: 'ok' }, data: shares } }),
+	}))
+}
+const linkShare = (id: string, label: string, stime: number) => ({
+	id, share_type: 3, token: `tok${id}`, url: `https://cloud.test/s/tok${id}`, label, stime, expiration: null, password: null, hide_download: 0, permissions: 1,
+})
+
+test('a user who manages a link share copies its URL with the camera', async ({ page, context }) => {
+	await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+	await withShares(page, [linkShare('21', 'Client', 1761600000)])
+	await open(page, `view=${link({ c: camera, r: 'clay' })}`)
+	await page.locator('.slide-out-panel').getByRole('button', { name: /^Copy public link to this view/ }).click()
+	const copied = new URL(await page.evaluate(() => navigator.clipboard.readText()))
+	expect(`${copied.origin}${copied.pathname}`).toBe('https://cloud.test/s/tok21')
+	// A public page applies the camera only, so that is all the link carries
+	const view = decode(copied.searchParams.get('view')!)
+	expect(Object.keys(view)).toEqual(['c'])
+	near(view.c.p, [30, 40, 50])
+})
+
+test('without a link share there is no public link to copy', async ({ page }) => {
+	await withShares(page, [])
+	await open(page)
+	await expect(page.locator('.slide-out-panel').getByRole('button', { name: /^Copy link to this view/ })).toBeVisible()
+	await expect(page.locator('.slide-out-panel').getByRole('button', { name: /^Copy public link to this view/ })).toHaveCount(0)
+})
+
+test('with two link shares the user picks one, listed by label and date', async ({ page, context }) => {
+	await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+	await withShares(page, [linkShare('21', 'Client', 1761600000), linkShare('22', '', 1761700000)])
+	await open(page)
+	const panel = page.locator('.slide-out-panel')
+	const opener = panel.getByRole('button', { name: /^Copy public link to this view/ })
+	await opener.click()
+	await expect(opener).toHaveAttribute('aria-expanded', 'true')
+	const choices = panel.locator('.public-link-choices').getByRole('button')
+	await expect(choices).toHaveCount(2)
+	// Newest first; one without a label is called what it is
+	await expect(choices.nth(0)).toContainText('Public link')
+	await expect(choices.nth(1)).toContainText('Client')
+	await choices.nth(1).click()
+	const copied = new URL(await page.evaluate(() => navigator.clipboard.readText()))
+	expect(copied.pathname).toBe('/s/tok21')
+})

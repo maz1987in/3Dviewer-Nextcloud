@@ -81,6 +81,25 @@
 									<span class="tool-label">{{ t('threedviewer', 'Copy link to this view') }}</span>
 									<span class="tool-hint">{{ shortcutKey('copy-view-link') }}</span>
 								</button>
+								<!-- The same view on a public link this user manages: the camera only,
+								     which is all a public page applies. With several, they choose. -->
+								<template v-if="modelLoaded && publicShares.length > 0">
+									<button class="tool-btn"
+										:aria-expanded="publicShares.length > 1 ? String(showShareChoices) : undefined"
+										:title="t('threedviewer', 'Copy the public link, opening the model from this angle')"
+										@click="onCopyPublicLink">
+										<ViewerIcon class="tool-icon" name="copyLink" :size="17" />
+										<span class="tool-label">{{ t('threedviewer', 'Copy public link to this view') }}</span>
+									</button>
+									<div v-if="showShareChoices && publicShares.length > 1" class="bookmark-list public-link-choices">
+										<button v-for="share in publicShares"
+											:key="share.id"
+											class="bookmark-name"
+											@click="chooseShare(share.id)">
+											{{ share.label || t('threedviewer', 'Public link') }} · {{ formatShareDate(share.created) }}
+										</button>
+									</div>
+								</template>
 								<!-- Bookmarks -->
 								<div class="tool-group">
 									<label class="tool-label-small">{{ t('threedviewer', 'Bookmarks') }}</label>
@@ -740,6 +759,8 @@ export default {
 
 		// Bookmarks
 		bookmarks: { type: Array, default: () => [] },
+		// Link shares of the model this user manages (utils/linkShares.js), newest first
+		publicShares: { type: Array, default: () => [] },
 
 		// Exploded view
 		explodedViewActive: { type: Boolean, default: false },
@@ -780,6 +801,7 @@ export default {
 		'toggle-projection',
 		'copy-view-link',
 		'copy-bookmark-link',
+		'copy-public-view-link',
 		'toggle-grid',
 		'toggle-axes',
 		'toggle-wireframe',
@@ -1009,8 +1031,31 @@ export default {
 			{ value: 'xray', label: t('threedviewer', 'X-ray'), title: t('threedviewer', 'See-through parts, to look inside assemblies') },
 		]
 
+		const showShareChoices = ref(false)
+		watch(() => props.publicShares, () => { showShareChoices.value = false })
+
+		// One share is copied at once; several are listed to choose from
+		const onCopyPublicLink = () => {
+			if (props.publicShares.length === 1) {
+				emit('copy-public-view-link', props.publicShares[0].id)
+			} else {
+				showShareChoices.value = !showShareChoices.value
+			}
+		}
+
+		const chooseShare = (id) => {
+			showShareChoices.value = false
+			emit('copy-public-view-link', id)
+		}
+
+		const formatShareDate = (seconds) => new Date(seconds * 1000).toLocaleDateString()
+
 		return {
 			t,
+			showShareChoices,
+			onCopyPublicLink,
+			chooseShare,
+			formatShareDate,
 			renderModeOptions,
 			gcodeLayerValueText,
 			gcodeLayerHeight,

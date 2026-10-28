@@ -123,6 +123,7 @@
 					:lighting-preset="lightingPreset"
 					:lighting-presets="lightingPresetsList"
 					:bookmarks="bookmarksList"
+					:public-shares="publicShares"
 					:exploded-view-active="explodedViewActive"
 					:exploded-view-available="explodedViewAvailable"
 					:exploded-view-factor="explodedViewFactor"
@@ -149,6 +150,7 @@
 					@toggle-projection="onToggleProjection"
 					@copy-view-link="onCopyViewLink"
 					@copy-bookmark-link="onCopyBookmarkLink"
+					@copy-public-view-link="onCopyPublicViewLink"
 					@toggle-grid="grid = !grid"
 					@toggle-axes="axes = !axes"
 					@toggle-wireframe="onToggleWireframe"
@@ -260,6 +262,8 @@ import { getCurrentUser } from '@nextcloud/auth'
 import { isPublicShare } from './composables/usePublicShare.js'
 import { canRecordVideo } from './utils/turntable.js'
 import { copyText } from './utils/clipboard.js'
+import { buildViewUrl } from './utils/viewLink.js'
+import { listLinkShares, modelPath, pickableShares } from './utils/linkShares.js'
 
 export default {
 	name: 'App',
@@ -342,6 +346,10 @@ export default {
 			// Whether the tools panel is showing. It owns the right edge at 320px, so the
 			// panels opened from it move clear of it rather than under it.
 			toolsPanelOpen: false,
+			// The model's link shares this user manages, read when the tools panel first
+			// opens for it, and the path they were read for
+			publicShares: [],
+			publicSharesPath: null,
 			measurementMode: false,
 			annotationMode: false,
 			comparisonMode: false,
@@ -436,6 +444,7 @@ export default {
 		},
 	},
 	watch: {
+		toolsPanelOpen() { this.loadPublicShares() },
 		grid() { this.savePrefs() },
 		axes() { this.savePrefs() },
 		wireframe() { this.savePrefs() },
@@ -739,11 +748,36 @@ export default {
 			await this.copyLink(viewer.viewLinkFor(view))
 		},
 		/**
+		 * Copy a public link of this model that opens it from the current angle. A public
+		 * page shows the camera and nothing else of a view, so the link carries only that.
+		 *
+		 * @param {string} shareId - one of publicShares
+		 */
+		async onCopyPublicViewLink(shareId) {
+			const share = this.publicShares.find((s) => s.id === shareId)
+			const view = this.$refs.viewer?.getViewState?.()
+			await this.copyLink(share && view ? buildViewUrl(share.url, { camera: view.camera }) : null,
+				this.t('threedviewer', 'Anyone with the public link will see the model from this angle.'))
+		},
+		/**
+		 * Read the model's link shares the first time the tools panel opens for it. Public
+		 * pages have no user to ask for, and nothing is asked while the panel is closed.
+		 */
+		async loadPublicShares() {
+			if (isPublicShare() || !this.modelLoaded || !this.toolsPanelOpen) return
+			const path = modelPath(this.currentDir, this.currentFilename)
+			if (!path || path === this.publicSharesPath) return
+			this.publicSharesPath = path
+			const shares = pickableShares(await listLinkShares(path))
+			// Another model may have opened while this was asked for
+			if (this.publicSharesPath === path) this.publicShares = shares
+		},
+		/**
 		 * Copy a view link and say how that went.
 		 *
 		 * @param {string|null} link - null when there is no model to link to
 		 */
-		async copyLink(link) {
+		async copyLink(link, message = this.t('threedviewer', 'Anyone who can open this file will see it as you do.')) {
 			if (!link) {
 				this.pushToast({
 					type: 'error',
@@ -757,7 +791,7 @@ export default {
 				this.pushToast({
 					type: 'success',
 					title: this.t('threedviewer', 'Link copied'),
-					message: this.t('threedviewer', 'Anyone who can open this file will see it as you do.'),
+					message,
 					timeout: 4000,
 				})
 			} catch (error) {
@@ -1055,6 +1089,10 @@ export default {
 			this.isLoading = false
 			this.modelLoaded = true
 			this.hasMultipleSourceFiles = this.$refs.viewer?.hasMultipleSourceFiles ?? false
+			// A new model has its own shares, read now if the panel is already open
+			this.publicShares = []
+			this.publicSharesPath = null
+			this.loadPublicShares()
 
 			// Check if the loaded model is a G-code file
 			if (meta.filename) {
