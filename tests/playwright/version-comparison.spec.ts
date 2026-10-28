@@ -162,3 +162,18 @@ test('Escape closes the version list', async ({ page }) => {
 	await page.keyboard.press('Escape')
 	await expect(dialog).toBeHidden()
 })
+
+test('closing the version list while it loads cancels the request, and a list that arrives late is not shown', async ({ page }) => {
+	const failed: string[] = []
+	page.on('requestfailed', (request) => { if (request.url().includes('/remote.php/dav/versions/')) failed.push(request.failure()?.errorText ?? '') })
+	await page.route('**/remote.php/dav/versions/**', async (route) => {
+		await new Promise((resolve) => setTimeout(resolve, 1500))
+		await route.fulfill({ status: 207, contentType: 'application/xml; charset=utf-8', body: fixture('owner-two-versions.xml') }).catch(() => {})
+	})
+	await openViewer(page, server.url, MODEL)
+	await versionButton(page).click()
+	await expect(page.getByRole('dialog')).toBeVisible()
+	await page.keyboard.press('Escape')
+	await expect(page.getByRole('dialog')).toBeHidden()
+	await expect.poll(() => failed.length).toBe(1)
+})

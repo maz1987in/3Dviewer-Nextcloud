@@ -3246,6 +3246,8 @@ export default {
 
 		// The earlier-version dialog: open while the user picks, with the list it shows
 		const versionPicker = reactive({ open: false, loading: false, error: false, multiFile: false, versions: [] })
+		// Closing the dialog cancels its listing, so a late answer never lands in the next one
+		let versionListing = null
 
 		/**
 		 * Compare the open model with an earlier version of its file: enter comparison mode
@@ -3259,13 +3261,23 @@ export default {
 			comparison.toggleComparisonMode()
 			const extension = String(props.filename || '').split('.').pop().toLowerCase()
 			Object.assign(versionPicker, { open: true, loading: true, error: false, multiFile: MULTI_FILE_FORMATS.includes(extension), versions: [] })
+			const listing = new AbortController()
+			versionListing = listing
 			try {
-				versionPicker.versions = await listVersions({ userId, fileId: props.fileId })
+				const versions = await listVersions({ userId, fileId: props.fileId, signal: listing.signal })
+				if (!listing.signal.aborted) {
+					versionPicker.versions = versions
+				}
 			} catch (error) {
-				logger.warn('ThreeViewer', 'Could not list the earlier versions', error)
-				versionPicker.error = true
+				if (!listing.signal.aborted) {
+					logger.warn('ThreeViewer', 'Could not list the earlier versions', error)
+					versionPicker.error = true
+				}
 			} finally {
-				versionPicker.loading = false
+				if (versionListing === listing) {
+					versionListing = null
+					versionPicker.loading = false
+				}
 			}
 		}
 
@@ -3305,6 +3317,8 @@ export default {
 		 * The dialog was closed without picking: leave comparison mode.
 		 */
 		const onVersionPickerCancel = () => {
+			versionListing?.abort()
+			versionListing = null
 			versionPicker.open = false
 			if (comparison.isComparisonMode.value && !comparison.hasComparisonModel.value) {
 				comparison.toggleComparisonMode()
@@ -4157,6 +4171,7 @@ export default {
 			printCheckGone = true
 			printCheck.value?.dispose()
 			turntable.dispose()
+			versionListing?.abort()
 			renderer.value?.domElement?.removeEventListener('pointermove', onPrintCheckHover)
 
 			// Send any note edits still waiting on their debounce before the viewer goes.
