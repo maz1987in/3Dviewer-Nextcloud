@@ -13,8 +13,13 @@ import { logger } from '../utils/logger.js'
 import { disposeObject } from '../utils/three-utils.js'
 import { isHelperMesh } from '../utils/modelScaleUtils.js'
 import { millimetresPerUnit } from '../utils/sourceUnits.js'
+import { showStandIn, restoreOwnMaterial } from '../utils/materialStandIns.js'
 import { getFileIdByPath, loadModelWithDependencies } from '../loaders/multiFileHelpers.js'
 import { fetchVersion } from '../utils/fileVersions.js'
+
+// The earlier version, drawn over the open model in Overlay: one flat translucent colour
+export const GHOST_COLOR = 0x5b9bd5
+export const GHOST_OPACITY = 0.35
 
 // Formats whose model names other files (buffers, materials, textures) to load beside it
 const MULTI_FILE_FORMATS = ['obj', 'gltf', 'fbx', '3ds', 'dae']
@@ -28,6 +33,11 @@ export function useComparison() {
 	// Where the comparison model came from: another file, or an earlier version of the open one
 	const comparisonSource = ref(null)
 	const comparisonVersion = shallowRef(null)
+	// Overlay: the earlier version on top of the open model instead of beside it
+	const overlayActive = ref(false)
+	// What Overlay moved, and where Compare had put it
+	let overlayPlaced = null
+	let ghostMaterial = null
 	// Millimetres per scene unit of the comparison model, from its own format: it may
 	// not be in the original's unit (a glTF in metres beside an STL in millimetres)
 	let comparisonMillimetresPerUnit = 1
@@ -840,6 +850,8 @@ export function useComparison() {
 			// Create a new Group to wrap model2
 			// Don't pre-position it - we'll calculate the final position after getting the bounding box
 			const model2Wrapper = new THREE.Group()
+			// Overlay looks for this to find the model inside
+			model2Wrapper.userData.comparisonWrapper = true
 			// CRITICAL: Ensure matrixAutoUpdate is enabled so wrapper updates during render loop
 			model2Wrapper.matrixAutoUpdate = true
 
@@ -1453,6 +1465,90 @@ export function useComparison() {
 	}
 
 	/**
+	 * Show the comparison model over the open model as a ghost, or beside it again.
+	 *
+	 * The two are aligned by the file's own coordinates: the comparison model's root gets
+	 * the open model's world matrix. Both went through the same loader, which only centres
+	 * a model by moving its root, so this puts every shared part in the same place.
+	 * Aligning their bounding boxes instead would shift the whole ghost when one version
+	 * has a part the other lacks.
+	 * @param {boolean} on - Overlay or side by side
+	 * @param {THREE.Object3D} originalRoot - The open model
+	 * @param {Function} fitFunction - Fits the camera to `(model1, model2)`
+	 * @param {THREE.Scene} scene - The scene both are in
+	 */
+	const setOverlay = (on, originalRoot, fitFunction, scene) => {
+		const wrapper = comparisonModel.value ? toRaw(comparisonModel.value) : null
+		if (!wrapper || !originalRoot || on === overlayActive.value) {
+			return
+		}
+
+		if (on) {
+			const root = wrapper.userData.comparisonWrapper ? wrapper.children[0] : wrapper
+			// Compare positions the model by its wrapper, so that is what Overlay moves
+			const moved = wrapper
+			const open = toRaw(originalRoot)
+			open.updateMatrixWorld(true)
+			root.updateMatrix()
+
+			// The world matrix `moved` needs so that root.matrixWorld equals the open model's
+			const target = open.matrixWorld.clone()
+			if (root !== moved) {
+				target.multiply(root.matrix.clone().invert())
+			}
+			if (moved.parent) {
+				moved.parent.updateMatrixWorld(true)
+				target.premultiply(moved.parent.matrixWorld.clone().invert())
+			}
+			overlayPlaced = { object: moved, position: moved.position.clone(), quaternion: moved.quaternion.clone(), scale: moved.scale.clone() }
+			target.decompose(moved.position, moved.quaternion, moved.scale)
+			moved.updateMatrixWorld(true)
+
+			ghostMaterial = new THREE.MeshBasicMaterial({ color: GHOST_COLOR, transparent: true, opacity: GHOST_OPACITY, depthWrite: false })
+			wrapper.traverse((child) => {
+				if (child.isMesh && !isHelperMesh(child)) {
+					showStandIn(child, ghostMaterial)
+				}
+			})
+			overlayActive.value = true
+		} else {
+			removeGhost(wrapper)
+			if (overlayPlaced) {
+				const { object, position, quaternion, scale } = overlayPlaced
+				object.position.copy(position)
+				object.quaternion.copy(quaternion)
+				object.scale.copy(scale)
+				object.updateMatrixWorld(true)
+				overlayPlaced = null
+			}
+		}
+
+		if (typeof fitFunction === 'function') {
+			fitFunction(toRaw(originalRoot), wrapper)
+		}
+		if (scene) {
+			ensureMatricesValid(scene, 0, new Set())
+		}
+	}
+
+	/**
+	 * Give the comparison model its own materials back and forget the ghost.
+	 * @param {?THREE.Object3D} model - The comparison model
+	 */
+	const removeGhost = (model) => {
+		if (model) {
+			model.traverse((child) => {
+				if (child.isMesh) {
+					restoreOwnMaterial(child)
+				}
+			})
+		}
+		ghostMaterial?.dispose()
+		ghostMaterial = null
+		overlayActive.value = false
+	}
+
+	/**
 	 * Clear comparison
 	 * @param {THREE.Scene} scene - Optional scene to remove model from
 	 */
@@ -1462,6 +1558,12 @@ export function useComparison() {
 			abortController.value.abort()
 			abortController.value = null
 		}
+
+		// Overlay off first, so the model gets its own materials back to be disposed
+		if (overlayActive.value) {
+			removeGhost(comparisonModel.value ? toRaw(comparisonModel.value) : null)
+		}
+		overlayPlaced = null
 
 		// Dispose animations first
 		disposeComparisonAnimations()
@@ -1536,6 +1638,7 @@ export function useComparison() {
 		comparisonFilename: readonly(comparisonFilename),
 		comparisonSource: readonly(comparisonSource),
 		comparisonVersion: readonly(comparisonVersion),
+		overlayActive: readonly(overlayActive),
 		loadingComparison: readonly(loadingComparison),
 		comparisonError: readonly(comparisonError),
 		comparisonAnimations: readonly(comparisonAnimations),
@@ -1554,6 +1657,7 @@ export function useComparison() {
 		openFilePicker,
 		loadComparisonModelFromPath,
 		loadComparisonModelFromVersion,
+		setOverlay,
 		loadComparisonModelFromNextcloud,
 		loadComparisonModel,
 		addComparisonIndicator,
