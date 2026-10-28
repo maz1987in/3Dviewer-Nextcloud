@@ -50,6 +50,7 @@ Point clouds and splats serve two groups equally: surveyors and architects with 
 | Who point clouds and splats are for | Surveyors and architects, and phone-capture users, equally | User |
 | Largest scan that opens smoothly | About 200 MB, loaded whole in the browser; bigger files open thinned, with a note | User |
 | Compare for scans | Not now: off for point clouds and splats, with a note | User |
+| What a view link restores on a public link | The camera only: the public page's light viewer has no shading, cross-section, exploded view or annotations | User |
 | Build order | View links, units, embedding, point clouds, splats; one PR each | My call |
 
 ## 1. View links
@@ -60,7 +61,13 @@ Point clouds and splats serve two groups equally: surveyors and architects with 
 - The link reopens the file as the sender saw it: camera position, target and projection; shading (Standard, Clay, Normals, X-ray), wireframe and lighting preset; the cross-section's plane or box; the exploded view's amount; and, if one was selected, an annotation with its note showing. For a point cloud it also restores the point size and the colour-by choice.
 - **Logged in:** the link is the viewer's file route (`/apps/threedviewer/f/{fileId}`) with the view added. It must survive Nextcloud's login redirect. Nextcloud's normal access rules decide whether the recipient can open the file; someone who can't gets Nextcloud's ordinary "not found", nothing that hints the file exists.
 - **Public share page:** the link is the share link with the view added, so anyone with the share sees the view. On a folder share it opens the same file.
+  - Public links, and the viewer opened from the Files app, use the light viewer (`ViewerComponent`), not the full one. It has no tools panel, shading modes, cross-section, exploded view or annotations, so a view link applies **only the camera** there (decision). Everything else in the link is ignored on that page and applies when the link is opened in the full viewer.
+  - The light viewer gets its own **"Copy link to this view"** button beside Screenshot, which copies the page's own link with the camera added: the share link for a visitor, and a link to the full viewer (`/apps/threedviewer/f/{fileId}`) for a logged-in user in Files.
+  - In the full viewer, a user who can manage a link share of the file can also copy **"Copy public link to this view"**: the share link with the camera added. With several shares they pick one, as for embed codes (section 3).
 - Opening a view link never changes the recipient's own preferences (default shading, lighting and so on). The view is applied once, on top of them.
+- **Which annotation:** each saved annotation in the Annotations panel gets a "Copy link to this note" action, which copies the current view with that note. Opening such a link opens the Annotations panel with that note highlighted and focused. "Copy link to this view" includes a note only when one is highlighted.
+- **Bookmarks:** each bookmark gets "Copy link", which copies the current view with the bookmark's camera.
+- The existing `cam=` links (camera only) keep working.
 - If the file has changed since the link was made, the link still opens and applies what still makes sense. A deleted annotation is skipped. A camera that no longer frames anything falls back to the usual framing.
 
 ### Constraints
@@ -96,7 +103,7 @@ Point clouds and splats serve two groups equally: surveyors and architects with 
   - With one eligible share, that share is used. With several, the user picks one, listed by its label and creation date.
   - With none, it says the file needs a public link without a password and points to Nextcloud's Sharing sidebar. The app never creates shares itself.
 - **Eligible shares:** a link share of a single supported file, readable, not expired, and not password-protected (a password prompt can't work inside someone else's page). Other shares don't offer the code, and the embed page refuses them.
-- **The embedded viewer** is pared down: the model, orbit and zoom, a full-screen button and a small "Open in Nextcloud" link to the share. There's no tools panel, file browser or notes panel. Download is offered only if the share allows downloads. A view in the embed code is applied as in a view link. Multi-file models (OBJ with MTL and textures, glTF with `.bin`) load in the embed exactly as they do on the share page today.
+- **The embedded viewer** is pared down: the model, orbit and zoom, a full-screen button and a small "Open in Nextcloud" link to the share. There's no tools panel, file browser or notes panel. Download is offered only if the share allows downloads. The embed uses the light viewer, so a view in the embed code sets its camera. Multi-file models (OBJ with MTL and textures, glTF with `.bin`) load in the embed exactly as they do on the share page today.
 - **Gone shares:** an expired, deleted or no-longer-eligible share shows a plain "This model is no longer shared" in the frame.
 
 ### Server and security
