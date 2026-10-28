@@ -509,6 +509,9 @@ test.describe('Viewer smoke', () => {
     ['statistics', 'Model Statistics', '.model-stats-overlay', true, null],
     ['measurements', 'Measurement', '.measurement-overlay', true, null],
     ['annotations', 'Annotation', '.annotation-overlay', true, null],
+    // Drawn as HUD chrome while its text, toggle and warnings took the page's palette: light
+    // grey and pale red on the light card the dark theme gives the HUD.
+    ['print check', 'Print check', '.print-check-card', true, null],
     // Always on screen, so nothing to open. Its own root is transparent — the ring is the
     // surface, and the readout beside it is the text.
     ['controller', null, '.circular-controller', true, '.steer-ring'],
