@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { parseSlicerSummary } from '../../printCheck/slicerSummary.js'
 import { BaseLoader } from '../BaseLoader.js'
 
 /**
@@ -50,6 +51,8 @@ class GCodeLoader extends BaseLoader {
 		// Create a group to hold all line segments
 		const gcodeGroup = new THREE.Group()
 		gcodeGroup.name = 'GCodeToolpath'
+		// The print time and filament the slicer wrote into the file, for Print check
+		gcodeGroup.userData.slicerSummary = parseSlicerSummary(text)
 
 		// Resolve color mode options from context
 		const colorMode = context?.gcodeOptions?.colorMode === 'single' ? 'single' : 'gradient'
