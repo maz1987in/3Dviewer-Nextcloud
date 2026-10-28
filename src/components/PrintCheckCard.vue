@@ -60,6 +60,7 @@
 							<label :for="`print-check-${side.key}`">{{ side.label }}</label>
 							<input :id="`print-check-${side.key}`"
 								type="number"
+								class="print-check-number"
 								min="10"
 								max="2000"
 								step="1"
@@ -121,6 +122,7 @@
 								<label for="print-check-infill">{{ t('threedviewer', 'Infill (%)') }}</label>
 								<input id="print-check-infill"
 									type="number"
+									class="print-check-number"
 									min="0"
 									max="100"
 									step="1"
@@ -158,6 +160,7 @@
 							<label for="print-check-min">{{ t('threedviewer', 'Minimum (mm)') }}</label>
 							<input id="print-check-min"
 								type="number"
+								class="print-check-number"
 								min="0.1"
 								max="10"
 								step="0.1"
@@ -295,6 +298,13 @@ export default {
 </script>
 
 <style scoped>
+/*
+ * The card is HUD chrome, like the statistics, measurement and annotation panels: its
+ * surface comes from .tdv-panel--hud, which is the inverse of the theme so it stands out
+ * from the scene. Everything drawn on it takes the HUD's tokens too. The page's palette is
+ * chosen for the page's surface, and on this one it put light grey text and a pale red
+ * warning on the light card the dark theme gives the HUD.
+ */
 .print-check-card {
 	position: absolute;
 	top: 80px;
@@ -320,18 +330,43 @@ export default {
 	align-items: center;
 	justify-content: space-between;
 	padding: 12px 10px 12px 18px;
+	border-bottom-color: var(--tdv-hud-border);
 }
 
 .print-check-header h3 {
 	margin: 0;
 	font-size: var(--tdv-font-size-heading);
 	font-weight: var(--tdv-font-weight-bold);
+	color: var(--tdv-hud-text);
+}
+
+/* Doubled, like every button on this surface: Nextcloud's own button rule sets a
+   background and a text colour through a selector a single class does not beat. */
+.print-check-close.print-check-close {
+	color: var(--tdv-hud-text-secondary);
+}
+
+.print-check-close.print-check-close:hover,
+.print-check-close.print-check-close:focus,
+.print-check-close.print-check-close:focus-visible {
+	background: var(--tdv-hud-hover-bg);
+	color: var(--tdv-hud-text);
+}
+
+.print-check-close.print-check-close:active {
+	background: var(--tdv-hud-hover-bg) !important;
+	color: var(--tdv-hud-text) !important;
 }
 
 .print-check-body {
 	overflow: auto;
 	padding: 0 18px 16px;
-	color: var(--tdv-color-text);
+	color: var(--tdv-hud-text);
+}
+
+.print-check-body .tdv-secondary,
+.print-check-body .tdv-section-label {
+	color: var(--tdv-hud-text-secondary);
 }
 
 .print-check-body p {
@@ -343,7 +378,7 @@ export default {
 	flex-direction: column;
 	gap: 6px;
 	padding: 10px 0;
-	border-top: 1px solid var(--tdv-color-border);
+	border-top: 1px solid var(--tdv-hud-border);
 }
 
 .print-check-note {
@@ -354,6 +389,22 @@ export default {
 .print-check-field input,
 .print-check-field select {
 	width: 100%;
+}
+
+/* Doubled to beat .tdv-select and Nextcloud's own input rule, which both paint the page's
+   surface and text. */
+.print-check-body select.tdv-select,
+.print-check-body input[type='number'].print-check-number {
+	border: 1px solid var(--tdv-hud-border);
+	background: var(--tdv-hud-sunken-bg);
+	color: var(--tdv-hud-text);
+}
+
+/* The list is drawn by the platform, on the platform's surface, so its options have to be
+   legible there rather than on this card. */
+.print-check-body select.tdv-select option {
+	background: var(--tdv-color-surface);
+	color: var(--tdv-color-text);
 }
 
 .print-check-custom,
@@ -383,17 +434,40 @@ export default {
 	flex: 1;
 	margin: 0;
 	padding: 4px 8px;
-	border: 1px solid var(--tdv-color-border);
+	border: 1px solid var(--tdv-hud-border);
 	border-radius: var(--tdv-radius-control);
 	background: transparent;
-	color: var(--tdv-color-text);
+	color: var(--tdv-hud-text);
 	cursor: pointer;
 }
 
+.print-check-toggle.print-check-toggle:hover,
+.print-check-toggle.print-check-toggle:focus-visible {
+	background: var(--tdv-hud-hover-bg);
+}
+
+/* Marked by its outline and a fill in the HUD's own foreground rather than the instance's
+   primary, which is chosen for contrast against the page and can vanish on this surface. */
 .print-check-toggle.print-check-toggle.active {
-	border-color: var(--tdv-color-primary);
-	background: var(--tdv-color-primary-light);
-	color: var(--tdv-color-primary-text);
+	border-color: var(--tdv-hud-text);
+	background: var(--tdv-hud-chip-bg);
+	font-weight: var(--tdv-font-weight-bold);
+}
+
+.print-check-body .tdv-btn.tdv-btn--secondary {
+	border-color: var(--tdv-hud-text-secondary);
+	color: var(--tdv-hud-text);
+}
+
+.print-check-body .tdv-btn.tdv-btn--secondary:hover,
+.print-check-body .tdv-btn.tdv-btn--secondary:focus,
+.print-check-body .tdv-btn.tdv-btn--secondary:focus-visible {
+	background: var(--tdv-hud-hover-bg);
+}
+
+.print-check-body .tdv-btn.tdv-btn--secondary:active {
+	background: var(--tdv-hud-hover-bg) !important;
+	color: var(--tdv-hud-text) !important;
 }
 
 .print-check-fit {
@@ -403,7 +477,7 @@ export default {
 }
 
 .print-check-warn {
-	color: var(--tdv-color-error);
+	color: var(--tdv-hud-error);
 }
 
 .print-check-range {
@@ -452,11 +526,13 @@ export default {
 	border-radius: 2px;
 }
 
+/* The shading's own colours (createThicknessMaterial in usePrintCheck.js), so the legend matches
+   what is on the model in either theme. */
 .print-check-swatch--thin {
-	background: var(--tdv-color-error);
+	background: rgb(229, 57, 53);
 }
 
 .print-check-swatch--near {
-	background: var(--tdv-color-warning);
+	background: rgb(251, 192, 45);
 }
 </style>

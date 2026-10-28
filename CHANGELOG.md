@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- The Print check card was hard to read: its text, the Y up/Z up switch, the warnings and the Check wall thickness button took the page's colours while the card took the colours of the panels drawn over the model, which are the reverse of the page's, so on Nextcloud's dark theme they came out light grey and pale red on a light card. The card now uses the same colours as the statistics, measurement and annotation panels throughout, and the legend's swatches match the colours on the model.
+
 ## [3.9.0] - 2026-10-28
 
 Three new tools. Compare a model with an earlier version of the same file, side by side or as a see-through ghost over the current one. Print check tells you whether a model fits your printer, where it overhangs, roughly how much filament it needs and which walls are too thin, or, for G-code, what the slicer worked out. Record turntable makes a short video of the model turning, to download or save next to it.
