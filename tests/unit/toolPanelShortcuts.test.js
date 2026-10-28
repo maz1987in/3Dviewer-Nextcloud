@@ -22,8 +22,16 @@ const PANEL = readFileSync(
 )
 
 describe('the shortcut table', () => {
-	it('covers the keys the sheet prints', () => {
-		expect(TOOL_SHORTCUTS.map((s) => s.key)).toEqual(['r', 'f', 'm', 's', 'p', '?'])
+	it('covers the keys the sheet prints, and L for a link to the view', () => {
+		expect(TOOL_SHORTCUTS.map((s) => s.key)).toEqual(['r', 'f', 'm', 's', 'p', 'l', '?'])
+	})
+
+	it('copies a link to the view on L', () => {
+		expect(shortcutFor({ key: 'l', target: document.body })).toBe('copy-view-link')
+	})
+
+	it('prints the L hint beside the copy-link row', () => {
+		expect(PANEL).toContain("shortcutKey('copy-view-link')")
 	})
 
 	it('names an event for each, and no event twice', () => {

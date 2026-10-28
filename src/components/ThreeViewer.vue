@@ -865,12 +865,11 @@ import { useScreenshot } from '../composables/useScreenshot.js'
 import { useAnimation } from '../composables/useAnimation.js'
 import { useClippingPlane } from '../composables/useClippingPlane.js'
 import {
-	serializeCameraState,
 	readCameraStateFromUrl,
 	applyCameraState,
-	buildShareableUrl,
 } from '../utils/cameraUrlState.js'
 import { copyText } from '../utils/clipboard.js'
+import { buildViewUrl, captureViewState } from '../utils/viewLink.js'
 import { useLightingPresets } from '../composables/useLightingPresets.js'
 import { useBookmarks } from '../composables/useBookmarks.js'
 import { useExplodedView } from '../composables/useExplodedView.js'
@@ -2370,18 +2369,44 @@ export default {
 			camera.resetView()
 		}
 
+		// The shared note a link points at, set when one is opened from a link or copied
+		const highlightedNoteId = ref(null)
+
 		/**
-		 * Build a shareable viewer URL embedding the current camera
-		 * viewpoint. Returns null if the camera/controls aren't ready —
-		 * UI should disable the Copy link button in that case.
+		 * The view this viewer is showing, as a link records it.
+		 *
+		 * @return {object|null} a ViewState (utils/viewLink.js), null before a model is shown
+		 */
+		const getViewState = () => captureViewState({
+			camera: camera.camera?.value,
+			controls: camera.controls?.value,
+			renderMode: renderMode.mode.value,
+			wireframe: props.wireframe,
+			lightingPreset: lightingPresets.currentPreset.value,
+			clipping: {
+				isActive: clippingPlane.isActive.value,
+				mode: clippingPlane.mode.value,
+				axis: clippingPlane.axis.value,
+				position: clippingPlane.position.value,
+				flipped: clippingPlane.flipped.value,
+				boxOffsets: clippingPlane.boxOffsets.value,
+			},
+			exploded: { isActive: explodedView.isActive.value, factor: explodedView.factor.value },
+			highlightedNoteId: highlightedNoteId.value,
+		})
+
+		/**
+		 * A link to this file in the full viewer that reopens it as it is shown now. It is
+		 * the file's own address, so Nextcloud's access rules decide who can open it.
+		 * Null before a model is shown.
 		 *
 		 * @return {string|null}
 		 */
 		const getShareableViewLink = () => {
-			if (!camera.camera?.value || !camera.controls?.value) return null
-			const serialized = serializeCameraState(camera.camera.value, camera.controls.value)
-			if (!serialized) return null
-			return buildShareableUrl(serialized)
+			const view = getViewState()
+			if (!view || props.fileId == null) return null
+			const base = window.location.origin + generateUrl('/apps/threedviewer/f/{fileId}', { fileId: props.fileId })
+			return buildViewUrl(base, view)
 		}
 
 		// Advanced feature methods
@@ -4392,6 +4417,8 @@ export default {
 			resetView,
 			fitToView,
 			getShareableViewLink,
+			getViewState,
+			highlightedNoteId,
 			toggleMeasurementMode,
 			handleUnitChange,
 			deleteMeasurement,

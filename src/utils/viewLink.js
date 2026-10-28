@@ -171,6 +171,44 @@ export function readViewFromUrl(search = (typeof window !== 'undefined' ? window
 }
 
 /**
+ * The view the full viewer is showing. The cut and the exploded view are included only
+ * while they are on, so a link never switches on a tool its sender had off.
+ *
+ * @param {object} state - plain values, read from the viewer's composables
+ * @param {object|null} state.camera - THREE camera
+ * @param {object|null} state.controls - OrbitControls (needs `.target`)
+ * @param {string} state.renderMode
+ * @param {boolean} state.wireframe
+ * @param {string} state.lightingPreset
+ * @param {{isActive: boolean, mode: string, axis: string, position: number, flipped: boolean, boxOffsets: object}} state.clipping
+ * @param {{isActive: boolean, factor: number}} state.exploded
+ * @param {number|null} state.highlightedNoteId
+ * @return {ViewState|null} null without a camera
+ */
+export function captureViewState({ camera, controls, renderMode, wireframe, lightingPreset, clipping, exploded, highlightedNoteId }) {
+	if (!camera?.position || !controls?.target) return null
+	const view = {
+		camera: {
+			position: camera.position.toArray(),
+			target: controls.target.toArray(),
+			zoom: typeof camera.zoom === 'number' ? camera.zoom : 1,
+			projection: camera.isOrthographicCamera ? 'orthographic' : 'perspective',
+		},
+		renderMode,
+		wireframe: !!wireframe,
+		lighting: lightingPreset,
+	}
+	if (clipping?.isActive) {
+		view.clipping = clipping.mode === 'box'
+			? { mode: 'box', offsets: { ...clipping.boxOffsets } }
+			: { mode: 'plane', axis: clipping.axis, position: clipping.position, flipped: !!clipping.flipped }
+	}
+	if (exploded?.isActive) view.exploded = exploded.factor
+	if (highlightedNoteId) view.note = highlightedNoteId
+	return view
+}
+
+/**
  * A link to `base` showing `view`. Every other parameter of `base` is kept; an older
  * `cam` is dropped, since `view` replaces it.
  *

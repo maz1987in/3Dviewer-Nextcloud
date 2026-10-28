@@ -70,16 +70,16 @@
 									<ViewerIcon class="tool-icon" name="projection" :size="17" />
 									<span class="tool-label">{{ cameraType === 'perspective' ? t('threedviewer', 'Perspective') : t('threedviewer', 'Orthographic') }}</span>
 								</button>
-								<!-- Copy shareable view link: encodes current camera state
-								     (position, target, zoom) into the URL as a `cam=...`
-								     parameter so others can open the same exact viewpoint.
+								<!-- Copies a link that reopens the model as it is shown now: camera,
+								     shading, lighting, cut and exploded view (utils/viewLink.js).
 								     Feedback is surfaced via a toast, not inline. -->
 								<button class="tool-btn"
 									:disabled="!modelLoaded"
-									:title="t('threedviewer', 'Copy a link to this exact viewpoint')"
+									:title="t('threedviewer', 'Copy a link that opens the model as you see it now')"
 									@click="emit('copy-view-link')">
 									<ViewerIcon class="tool-icon" name="copyLink" :size="17" />
-									<span class="tool-label">{{ t('threedviewer', 'Copy View Link') }}</span>
+									<span class="tool-label">{{ t('threedviewer', 'Copy link to this view') }}</span>
+									<span class="tool-hint">{{ shortcutKey('copy-view-link') }}</span>
 								</button>
 								<!-- Bookmarks -->
 								<div class="tool-group">

@@ -705,7 +705,7 @@ export default {
 				this.pushToast({
 					type: 'success',
 					title: this.t('threedviewer', 'Link copied'),
-					message: this.t('threedviewer', 'Share this link to send the exact viewpoint.'),
+					message: this.t('threedviewer', 'Anyone who can open this file will see it as you do.'),
 					timeout: 4000,
 				})
 			} catch (error) {
