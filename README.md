@@ -78,7 +78,10 @@ A comprehensive 3D model viewer application for Nextcloud that supports multiple
 - **Bundle Budget Enforcement** - Automated bundle size checking with historical tracking and CI integration
 - **Smart File Browser** - Toggle between Viewer, Folders, Type, Date, and Favorites modes with breadcrumbs, Nextcloud-style navigation, lazy loading, and customizable default view (Grid/List)
 - **Dynamic Grid System** - Automatically adapts to model size and position
-- **Model Comparison** - Side-by-side model viewing with synchronized controls
+- **Model Comparison** - Side-by-side model viewing with synchronized controls, against another file or an earlier version of the same file
+- **Compare with an Earlier Version** - Pick one of the versions Nextcloud kept and see it beside the current model with what changed, or as a see-through ghost over it
+- **Print Check** - See whether a model fits your printer's build volume (common printers or your own size), which surfaces overhang past an angle you choose, roughly how much filament it needs, and which walls are thinner than a minimum you set; for G-code, the print time and filament the slicer worked out
+- **Turntable Video** - Record one full turn around the model (4–15 s, at 720p, 1080p or your window's size) and download it as WebM or MP4, or save it next to the model in your Nextcloud
 - **Shared Notes** - Annotations, distance and angle measurements are saved with the model and shown to everyone who can open it; anyone who can edit the model can add or change them
 - **Measurements in Real Units** - Distances, areas, volumes and exports use the unit of the format the model came from: metres for glTF, IFC and X3D, millimetres for STL, 3MF, OBJ and CAD formats, and the file's own unit for Rhino, 3MF and FBX
 - **3D Camera Controller** - Enhanced intuitive circular controller for precise camera navigation with improved controls
@@ -231,6 +234,14 @@ This project is licensed under the **AGPL-3.0 License**. See [LICENSE](LICENSE) 
 **Current Version**: 3.8.1
 **Released**: October 27, 2026
 **Requires**: Nextcloud 31 -- 35
+
+### Coming in the next release
+
+These are on `main` and not yet in a release:
+
+- **Compare with an earlier version:** pick one of the versions Nextcloud kept, and see the two side by side with what changed, or the earlier one as a see-through ghost over the current one
+- **Print check:** fit against your printer's build volume, overhang shading, a filament estimate and a wall thickness check, or the slicer's own print time and filament for G-code
+- **Turntable video:** record the model turning, from the tools panel's Export section, and download it or save it next to the model
 
 ### What's New in 3.8.1
 
