@@ -3,7 +3,7 @@
  * (millimetres) and USDZ (metres) export need to write a model at its real size.
  */
 import * as THREE from 'three'
-import { millimetresPerUnit, rhinoUnit, threeMFUnit, SOURCE_UNITS } from '../../../src/utils/sourceUnits.js'
+import { millimetresPerUnit, millimetresPerFileUnit, defaultDisplayUnit, isUnitChangeable, fileUnitKey, unitSuffix, rhinoUnit, threeMFUnit, SOURCE_UNITS } from '../../../src/utils/sourceUnits.js'
 import { MODEL_EXTENSIONS } from '../../../src/config/viewer-config.js'
 
 describe('millimetresPerUnit', () => {
@@ -88,4 +88,57 @@ test('assumesMillimetres: true only for formats that record no unit', () => {
 	const { assumesMillimetres } = require('../../../src/utils/sourceUnits.js')
 	expect(['a.stl', 'b.OBJ', 'c.ply', 'd.off', 'e.3ds', 'f.gcode'].map(assumesMillimetres)).toEqual([true, true, true, true, true, true])
 	expect(['a.glb', 'b.3mf', 'c.3dm', 'd.step', 'e.fbx', null].map(assumesMillimetres)).toEqual([false, false, false, false, false, false])
+})
+
+describe('a unit chosen for the file', () => {
+	it('applies to the formats that record no unit', () => {
+		for (const name of ['a.stl', 'a.obj', 'a.ply', 'a.off', 'a.3ds']) {
+			expect(millimetresPerFileUnit(name, null, 'in')).toBe(25.4)
+			expect(isUnitChangeable(name)).toBe(true)
+		}
+		expect(millimetresPerFileUnit('a.stl', null, 'us-ft')).toBeCloseTo(304.8006096, 7)
+	})
+
+	it('applies to an FBX without a unit scale, and not to one with', () => {
+		const bare = new THREE.Group()
+		const scaled = new THREE.Group()
+		scaled.userData.unitScaleFactor = 1
+		expect(millimetresPerFileUnit('a.fbx', bare, 'm')).toBe(1000)
+		expect(isUnitChangeable('a.fbx', scaled)).toBe(false)
+		expect(millimetresPerFileUnit('a.fbx', scaled, 'm')).toBe(10)
+	})
+
+	it('ignores a chosen unit for a format that records its own', () => {
+		expect(millimetresPerFileUnit('a.glb', null, 'in')).toBe(1000)
+		expect(millimetresPerFileUnit('a.3mf', null, 'in')).toBe(1)
+		expect(isUnitChangeable('a.glb')).toBe(false)
+		expect(isUnitChangeable('a.gcode')).toBe(false)
+		expect(isUnitChangeable(null)).toBe(false)
+	})
+
+	it('ignores an unknown unit', () => {
+		expect(millimetresPerFileUnit('a.stl', null, 'furlong')).toBe(1)
+		expect(millimetresPerFileUnit('a.stl', null, 'constructor')).toBe(1)
+	})
+
+	it('still divides out the viewer\'s rescale', () => {
+		const root = new THREE.Group()
+		root.userData.viewerScale = 0.1
+		expect(millimetresPerUnit('a.obj', root, 'cm')).toBe(100)
+	})
+
+	it('starts the panels in the chosen unit', () => {
+		expect(defaultDisplayUnit('a.stl', null, 'in')).toBe('inches')
+		expect(defaultDisplayUnit('a.stl', null, 'us-ft')).toBe('feet')
+		expect(defaultDisplayUnit('a.stl', null, null)).toBe('millimeters')
+	})
+
+	it('names units', () => {
+		expect(fileUnitKey(25.4)).toBe('in')
+		expect(fileUnitKey(914.4)).toBeNull()
+		expect(unitSuffix(1200000 / 3937)).toBe('ft (US)')
+		expect(unitSuffix(0.001)).toBe('µm')
+		expect(unitSuffix(914.4)).toBe('yd')
+		expect(unitSuffix(2)).toBe('2.000 mm')
+	})
 })
