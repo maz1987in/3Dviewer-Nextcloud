@@ -75,6 +75,28 @@ class WriteRoutesCsrfHttpTest extends HttpTestCase
         $this->assertSame('in', self::json($this->basic($uid)->get($url))['unit']);
     }
 
+    public function testSavingTheEmbedSitesNeedsTheRequestToken(): void
+    {
+        $before = self::storedEmbedOrigins();
+        $this->setEmbedOrigins([]);
+        [$client, $token] = $this->session($this->newAdmin());
+        $body = ['json' => ['origins' => ['https://shop.example']]];
+
+        try {
+            $without = $client->put(self::EMBED_ADMIN_URL, $body);
+
+            $this->assertSame(412, $without->getStatusCode(), 'a failed CSRF check answers 412 Precondition Failed');
+            $this->assertSame([], self::storedEmbedOrigins(), 'the rejected request must not have saved anything');
+
+            $with = $client->put(self::EMBED_ADMIN_URL, $body + ['headers' => ['requesttoken' => $token]]);
+
+            $this->assertSame(200, $with->getStatusCode(), 'the same session with its token is accepted');
+            $this->assertSame(['https://shop.example'], self::storedEmbedOrigins());
+        } finally {
+            $this->setEmbedOrigins($before);
+        }
+    }
+
     public function testReindexingNeedsTheRequestToken(): void
     {
         $uid = $this->newUser();

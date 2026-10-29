@@ -826,6 +826,15 @@
       <code><![CDATA[__construct]]></code>
     </PossiblyUnusedMethod>
   </file>
+  <file src="lib/Service/EmbedOrigins.php">
+    <MixedAssignment>
+      <code><![CDATA[$stored]]></code>
+    </MixedAssignment>
+    <PossiblyUnusedMethod>
+      <code><![CDATA[__construct]]></code>
+      <code><![CDATA[isEnabled]]></code>
+    </PossiblyUnusedMethod>
+  </file>
   <file src="lib/Service/FileIndexService.php">
     <MissingDependency>
       <code><![CDATA[$this->rootFolder]]></code>
@@ -906,6 +915,14 @@
       <code><![CDATA[getThumbnailPath]]></code>
     </PossiblyUnusedMethod>
   </file>
+  <file src="tests/http/EmbedAdminHttpTest.php">
+    <MissingDependency>
+      <code><![CDATA[HttpTestCase]]></code>
+    </MissingDependency>
+    <UnusedClass>
+      <code><![CDATA[EmbedAdminHttpTest]]></code>
+    </UnusedClass>
+  </file>
   <file src="tests/http/FileSettingsHttpTest.php">
     <MissingDependency>
       <code><![CDATA[HttpTestCase]]></code>
@@ -921,6 +938,7 @@
       <code><![CDATA[base]]></code>
       <code><![CDATA[basic]]></code>
       <code><![CDATA[json]]></code>
+      <code><![CDATA[newAdmin]]></code>
       <code><![CDATA[newModel]]></code>
       <code><![CDATA[newUser]]></code>
       <code><![CDATA[noteCount]]></code>
@@ -928,15 +946,18 @@
       <code><![CDATA[publicNotesUrl]]></code>
       <code><![CDATA[publicSettingsUrl]]></code>
       <code><![CDATA[session]]></code>
+      <code><![CDATA[setEmbedOrigins]]></code>
       <code><![CDATA[settingsUrl]]></code>
       <code><![CDATA[shareByLink]]></code>
       <code><![CDATA[shareWithUser]]></code>
+      <code><![CDATA[storedEmbedOrigins]]></code>
       <code><![CDATA[tearDown]]></code>
     </PossiblyUnusedMethod>
     <UndefinedClass>
       <code><![CDATA[TestCase]]></code>
     </UndefinedClass>
     <UnusedProperty>
+      <code><![CDATA[$embedAdmin]]></code>
       <code><![CDATA[$users]]></code>
     </UnusedProperty>
   </file>
@@ -1036,6 +1057,14 @@
     </UndefinedClass>
     <UnusedClass>
       <code><![CDATA[ConfigControllerTest]]></code>
+    </UnusedClass>
+  </file>
+  <file src="tests/unit/Controller/EmbedAdminControllerTest.php">
+    <UndefinedClass>
+      <code><![CDATA[TestCase]]></code>
+    </UndefinedClass>
+    <UnusedClass>
+      <code><![CDATA[EmbedAdminControllerTest]]></code>
     </UnusedClass>
   </file>
   <file src="tests/unit/Controller/FileControllerTest.php">
@@ -1221,6 +1250,14 @@
     </UndefinedClass>
     <UnusedClass>
       <code><![CDATA[RemoveLegacyThumbnailsTest]]></code>
+    </UnusedClass>
+  </file>
+  <file src="tests/unit/Service/EmbedOriginsTest.php">
+    <UndefinedClass>
+      <code><![CDATA[TestCase]]></code>
+    </UndefinedClass>
+    <UnusedClass>
+      <code><![CDATA[EmbedOriginsTest]]></code>
     </UnusedClass>
   </file>
   <file src="tests/unit/Service/FileIndexServiceTest.php">
