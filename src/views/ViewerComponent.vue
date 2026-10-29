@@ -126,7 +126,7 @@
 			</div>
 			<div class="stats-row">
 				<span class="stats-label">{{ t('threedviewer', 'Size') }}</span>
-				<span class="stats-value">{{ modelStats.dimensions }}</span>
+				<span class="stats-value">{{ sizeText }}</span>
 			</div>
 		</div>
 	</div>
@@ -151,6 +151,9 @@ import { logger } from '../utils/logger.js'
 import { computeCameraFit } from '../thumbnails/cameraFit.js'
 import { buildViewUrl, cameraFromScene, cameraToScene, isUsableCamera, takeViewFromUrl, viewerLinkBase } from '../utils/viewLink.js'
 import { copyText } from '../utils/clipboard.js'
+import { createFileSettingsApi } from '../utils/fileSettingsApi.js'
+import { defaultDisplayUnit, displayLengthFactor, isUnitChangeable, millimetresPerFileUnit, millimetresPerUnit } from '../utils/sourceUnits.js'
+import { VIEWER_CONFIG } from '../config/viewer-config.js'
 
 export default {
 	name: 'ViewerComponent',
@@ -252,10 +255,31 @@ export default {
 			// Stats panel
 			showStats: false,
 			modelStats: null,
+			// The model's size in scene units, and the unit chosen for its file (if any)
+			modelSize: null,
+			chosenUnit: null,
 		}
 	},
 
 	computed: {
+		/**
+		 * The model's size, in its file's unit: the one chosen for the file, or the one the
+		 * format records or assumes (utils/sourceUnits.js). Read-only here; it is chosen in
+		 * the full viewer.
+		 */
+		sizeText() {
+			if (!this.modelSize) {
+				return ''
+			}
+			const name = this.effectiveFilename
+			const root = this.linkModel
+			const display = VIEWER_CONFIG.measurement.unitScales[defaultDisplayUnit(name, root, this.chosenUnit)]
+			const factor = displayLengthFactor(display, millimetresPerUnit(name, root, this.chosenUnit), millimetresPerFileUnit(name, root, this.chosenUnit))
+			const fmt = (v) => v < 0.01 ? v.toExponential(1) : v.toFixed(2)
+			const { x, y, z } = this.modelSize
+			return `${fmt(x * factor)} × ${fmt(y * factor)} × ${fmt(z * factor)} ${display.suffix}`
+		},
+
 		/**
 		 * True on a public share page, where anything requiring a user account
 		 * must stay hidden rather than bouncing the visitor to a login screen.
@@ -596,15 +620,36 @@ export default {
 				}
 			})
 
-			let dimensions = ''
+			this.modelSize = null
 			if (hasGeometry && !box.isEmpty()) {
 				const size = new this._THREE.Vector3()
 				box.getSize(size)
-				const fmt = (v) => v < 0.01 ? v.toExponential(1) : v.toFixed(2)
-				dimensions = `${fmt(size.x)} × ${fmt(size.y)} × ${fmt(size.z)}`
+				this.modelSize = { x: size.x, y: size.y, z: size.z }
 			}
 
-			this.modelStats = { meshes, vertices: Math.round(vertices), faces: Math.round(faces), dimensions }
+			this.modelStats = { meshes, vertices: Math.round(vertices), faces: Math.round(faces) }
+			this.loadChosenUnit()
+		},
+
+		/**
+		 * Ask for the unit chosen for the file, for a file that records none. An answer for
+		 * a file since replaced is dropped; a failed one leaves the format's own.
+		 */
+		async loadChosenUnit() {
+			this.chosenUnit = null
+			const share = getPublicShareContext()
+			const fileId = this.fileid || share?.fileId
+			if (!fileId || !isUnitChangeable(this.effectiveFilename, this.linkModel)) {
+				return
+			}
+			try {
+				const { unit } = await createFileSettingsApi({ fileId, shareToken: share?.token ?? null }).get()
+				if (fileId === (this.fileid || getPublicShareContext()?.fileId)) {
+					this.chosenUnit = unit
+				}
+			} catch (error) {
+				logger.warn('ViewerComponent', 'Could not read the file\'s unit', error)
+			}
 		},
 
 		formatNumber(n) {

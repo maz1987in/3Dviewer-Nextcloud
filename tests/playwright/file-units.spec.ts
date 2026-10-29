@@ -114,3 +114,22 @@ test('the select works from the keyboard', async ({ page }) => {
 	await expect(stats(page).locator('[role="status"]')).toHaveText('Saved')
 	expect(unitPuts).toEqual([{ unit: 'cm' }])
 })
+
+async function openLiteStats(page: Page, viewer: Viewer) {
+	await open(page, { user: null, publicToken: 'unitstok', lite: true, ...viewer })
+	await page.locator('[aria-controls="viewer-stats-panel"]').click()
+	return page.locator('#viewer-stats-panel')
+}
+
+test('light viewer shows the size in the file\'s unit', async ({ page }) => {
+	const panel = await openLiteStats(page, { unit: 'in' })
+
+	await expect(panel).toContainText('10.00 × 10.00 × 10.00 in')
+	await expect(panel.locator('select')).toHaveCount(0)
+})
+
+test('light viewer shows millimetres when no unit is set', async ({ page }) => {
+	const panel = await openLiteStats(page, { unit: null })
+
+	await expect(panel).toContainText('10.00 × 10.00 × 10.00 mm')
+})
