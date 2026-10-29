@@ -915,6 +915,11 @@
       <code><![CDATA[getThumbnailPath]]></code>
     </PossiblyUnusedMethod>
   </file>
+  <file src="lib/Settings/Admin.php">
+    <UnusedClass>
+      <code><![CDATA[Admin]]></code>
+    </UnusedClass>
+  </file>
   <file src="tests/http/EmbedAdminHttpTest.php">
     <MissingDependency>
       <code><![CDATA[HttpTestCase]]></code>
@@ -1386,6 +1391,14 @@
     </UndefinedClass>
     <UnusedClass>
       <code><![CDATA[ThumbnailServiceTest]]></code>
+    </UnusedClass>
+  </file>
+  <file src="tests/unit/Settings/AdminTest.php">
+    <UndefinedClass>
+      <code><![CDATA[TestCase]]></code>
+    </UndefinedClass>
+    <UnusedClass>
+      <code><![CDATA[AdminTest]]></code>
     </UnusedClass>
   </file>
 </files>
