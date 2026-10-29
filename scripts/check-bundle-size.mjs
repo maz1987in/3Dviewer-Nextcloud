@@ -23,10 +23,10 @@ const BUDGETS = [
   // errors, which Rollup now splits out of the viewer's chunks because filesQueue.js
   // shares them. 5800 and 2100 since version comparison: the viewer chunk names one more
   // dependency in its preload list, which this file carries (+13 B raw at the time).
-  // 6000 and 2200 since the admin settings entry: it shares Vue, the translation helpers
-  // and Nextcloud's components with the viewer, so Rollup cuts those into finer chunks
-  // and this file's preload lists name more of them (5864 B raw, with main.js unchanged).
-  { pattern: /^threedviewer-main\.mjs$/, name: 'main', maxRaw: 6000, maxGzip: 2200 },
+  { pattern: /^threedviewer-main\.mjs$/, name: 'main', maxRaw: 5800, maxGzip: 2100 },
+  // The embed page's entry: the token, one request, then the light viewer the share page
+  // mounts. No more than main's, which does the same and more.
+  { pattern: /^threedviewer-embed\.mjs$/, name: 'embed', maxRaw: 5800, maxGzip: 2100 },
   { pattern: /^gltf-.*\.chunk\.mjs$/, name: 'gltf-loader', maxRaw: 22000, maxGzip: 6000 }, // GLTF loader chunk (includes decoder worker pool tuning via setWorkerLimit)
   // Main app component. Bumped 360 KB → 370 KB in v3.3.0 for the 9 new viewer-config
   // entries, and unchanged by the redesign: replacing every emoji control with a Material

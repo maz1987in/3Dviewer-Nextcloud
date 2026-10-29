@@ -1,5 +1,5 @@
 <template>
-	<div class="threedviewer-wrapper" :class="{ 'showing-progress': loadingProgress?.show }">
+	<div class="threedviewer-wrapper" :class="{ 'showing-progress': loadingProgress?.show, 'is-embed': embed }">
 		<canvas ref="canvas" class="threedviewer-canvas" />
 
 		<!-- Progress bar for loading states -->
@@ -76,9 +76,29 @@
 			<ViewerIcon :name="isAnimationPlayingComputed ? 'animationPause' : 'animationPlay'" :size="18" />
 		</NcButton>
 
-		<!-- Bottom-right action buttons -->
+		<!-- Bottom-right action buttons; an embed has its own few -->
 		<div v-if="hasLoaded" class="viewer-bottom-actions">
 			<button
+				v-if="embed && canFullscreen"
+				type="button"
+				class="viewer-action-btn"
+				:aria-label="t('threedviewer', 'Full screen')"
+				:aria-pressed="isFullscreen ? 'true' : 'false'"
+				:title="isFullscreen ? t('threedviewer', 'Exit full screen') : t('threedviewer', 'Full screen')"
+				@click.prevent="toggleFullscreen">
+				<ViewerIcon :name="isFullscreen ? 'fullscreenExit' : 'fullscreen'" :size="18" />
+			</button>
+			<a v-if="embed?.downloadUrl"
+				class="viewer-action-btn"
+				:href="embed.downloadUrl"
+				target="_blank"
+				rel="noopener noreferrer"
+				:aria-label="t('threedviewer', 'Download')"
+				:title="t('threedviewer', 'Download')">
+				<ViewerIcon name="download" :size="18" />
+			</a>
+			<button
+				v-if="!embed"
 				class="viewer-action-btn"
 				:aria-label="t('threedviewer', 'Screenshot')"
 				:title="t('threedviewer', 'Screenshot')"
@@ -86,6 +106,7 @@
 				<ViewerIcon name="camera" :size="18" />
 			</button>
 			<button
+				v-if="!embed"
 				class="viewer-action-btn"
 				:class="{ active: showStats }"
 				:aria-label="t('threedviewer', 'Model info')"
@@ -96,6 +117,7 @@
 				<ViewerIcon name="statistics" :size="18" />
 			</button>
 			<button
+				v-if="!embed"
 				class="viewer-action-btn"
 				:aria-label="t('threedviewer', 'Copy link to this view')"
 				:title="t('threedviewer', 'Copy link to this view')"
@@ -105,6 +127,15 @@
 			<!-- No toast reaches a share page, which mounts this viewer on its own -->
 			<span role="status" class="viewer-link-status">{{ linkStatus }}</span>
 		</div>
+
+		<!-- Where the embedded model lives, for whoever wants more than the frame -->
+		<a v-if="embed"
+			class="viewer-embed-open"
+			:href="embed.shareUrl"
+			target="_blank"
+			rel="noopener noreferrer">
+			{{ t('threedviewer', 'Open in Nextcloud') }}
+		</a>
 
 		<!-- Stats panel overlay -->
 		<div v-if="showStats && modelStats"
@@ -258,6 +289,9 @@ export default {
 			// The model's size in scene units, and the unit chosen for its file (if any)
 			modelSize: null,
 			chosenUnit: null,
+			// Full screen, offered in an embed only, where the frame may be small
+			canFullscreen: typeof document !== 'undefined' && document.fullscreenEnabled === true,
+			isFullscreen: false,
 		}
 	},
 
@@ -286,6 +320,14 @@ export default {
 		 */
 		isPublic() {
 			return isPublicShare()
+		},
+
+		/**
+		 * The embed page's links, when this viewer is in a frame on another site: then it
+		 * shows only full screen, a download if the share allows one, and a link to the share.
+		 */
+		embed() {
+			return getPublicShareContext()?.embed ?? null
 		},
 
 		/**
@@ -382,6 +424,8 @@ export default {
 		// Set up CSP error listener to detect texture loading failures
 		this.setupCSPErrorListener()
 
+		document.addEventListener('fullscreenchange', this.onFullscreenChange)
+
 		// Check if we're already active on mount (initial file)
 		if (this.active) {
 			logger.info('ViewerComponent', 'Instance is active on mount, starting load', { filename: this.filename })
@@ -397,6 +441,7 @@ export default {
 
 	beforeUnmount() {
 		clearTimeout(this.linkCopiedTimer)
+		document.removeEventListener('fullscreenchange', this.onFullscreenChange)
 		// Restore console error handler
 		if (this.cspErrorListener && this.cspErrorListener.restore) {
 			this.cspErrorListener.restore()
@@ -453,6 +498,15 @@ export default {
 	},
 
 	methods: {
+		toggleFullscreen() {
+			const request = document.fullscreenElement ? document.exitFullscreen() : this.$el.requestFullscreen()
+			request?.catch((error) => logger.warn('ViewerComponent', 'Full screen was refused', error))
+		},
+
+		onFullscreenChange() {
+			this.isFullscreen = Boolean(document.fullscreenElement)
+		},
+
 		/**
 		 * Load the thumbnail setting from user preferences
 		 */
@@ -1796,6 +1850,34 @@ export default {
 
 .viewer-action-btn.viewer-action-btn.active {
 	background: var(--tdv-color-primary);
+}
+
+a.viewer-action-btn.viewer-action-btn {
+	text-decoration: none;
+}
+
+/* No Nextcloud footer under a frame's viewer */
+.is-embed .viewer-bottom-actions {
+	bottom: 16px;
+}
+
+.viewer-embed-open {
+	position: absolute;
+	bottom: 16px;
+	inset-inline-start: 16px;
+	z-index: 1000;
+	padding: 4px 10px;
+	border-radius: var(--tdv-radius-pill);
+	background: rgb(0, 0, 0, 0.55);
+	color: #fff;
+	font-size: var(--tdv-font-size-secondary);
+	text-decoration: none;
+}
+
+.viewer-embed-open:hover,
+.viewer-embed-open:focus-visible {
+	background: rgb(0, 0, 0, 0.75);
+	text-decoration: underline;
 }
 
 /* Stats panel — positioned above action buttons */

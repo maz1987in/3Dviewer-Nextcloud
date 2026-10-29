@@ -19,6 +19,7 @@ const appConfig = createAppConfig(
     main: 'src/main.js',
     'settings-personal': 'src/settings-personal.js',
     'settings-admin': 'src/settings-admin.js',
+    embed: 'src/embed.js',
   },
   {
     createEmptyCSSEntryPoints: true,

@@ -26,11 +26,18 @@ export type ViewerModel = { id: number, name: string, body: string | Buffer }
  * `unit` is the unit saved for the file and `unitCanEdit` whether the user may change it
  * (default: yes when logged in); `unitSaveStatus` makes a save fail with that status, and
  * `unitGate` holds the unit's answer back until it resolves.
+ *
+ * `embed` serves the embed page at /index.php/apps/threedviewer/embed/{publicToken}, as
+ * another site frames it, and answers its data route with the model and these links;
+ * 'gone' answers it 404, as for a share that may no longer be embedded.
  */
 export type Viewer = {
 	user?: string | null, publicToken?: string | null, dir?: string, query?: string, notes?: object[], openPanel?: boolean, lite?: boolean,
 	unit?: string | null, unitCanEdit?: boolean, unitSaveStatus?: number, unitGate?: Promise<void>,
+	embed?: { shareUrl: string, downloadUrl: string | null } | 'gone',
 }
+
+const EMBED_PATH = '/index.php/apps/threedviewer/embed/'
 
 const pages = new Map<string, { model: ViewerModel, viewer: Viewer }>()
 
@@ -41,16 +48,16 @@ const pages = new Map<string, { model: ViewerModel, viewer: Viewer }>()
  */
 function html({ model, viewer }: { model: ViewerModel, viewer: Viewer }) {
 	const user = viewer.user ? ` data-user="${viewer.user}" data-user-displayname="${viewer.user}"` : ''
-	const share = viewer.publicToken
+	const share = viewer.publicToken && !viewer.embed
 		? `<input type="hidden" id="initial-state-threedviewer-publicShare" value="${Buffer.from(JSON.stringify({ token: viewer.publicToken, fileId: model.id, filename: model.name, ...(viewer.lite ? { isSingleFile: true, mime: 'application/octet-stream' } : {}) })).toString('base64')}">`
 		: ''
 	return `<!doctype html><html><head${user}><meta charset="utf-8"><title>Viewer</title>
 	<meta name="requesttoken" content="test-token">
-	<link rel="stylesheet" href="/css/threedviewer-main.css">
+	<link rel="stylesheet" href="/css/threedviewer-${viewer.embed ? 'embed' : 'main'}.css">
 	<style>html, body { margin: 0; height: 100%; } #threedviewer { height: 100vh; }</style>
 	</head><body>
 	${share}
-	${viewer.lite
+	${viewer.lite || viewer.embed
 		? '<div id="content" style="height: 100vh"></div>'
 		: `<div id="threedviewer" data-file-id="${model.id}" data-filename="${model.name}" data-dir="${viewer.dir ?? '/models'}"></div>`}
 	<script>
@@ -61,7 +68,7 @@ function html({ model, viewer }: { model: ViewerModel, viewer: Viewer }) {
 		window.OCP = {}
 		window._oc_config = { session_lifetime: 0 }
 	</script>
-	<script type="module" src="/js/threedviewer-main.mjs"></script>
+	<script type="module" src="/js/threedviewer-${viewer.embed ? 'embed' : 'main'}.mjs"></script>
 	</body></html>`
 }
 
@@ -72,8 +79,11 @@ export function startServer(): Promise<{ url: string, close: () => Promise<void>
 	return new Promise((resolve) => {
 		const server = http.createServer((req, res) => {
 			const requestUrl = new URL(req.url || '/', 'http://x')
-			if (requestUrl.pathname === '/') {
-				const entry = pages.get(requestUrl.searchParams.get('page') || '')
+			const embedded = requestUrl.pathname.startsWith(EMBED_PATH)
+			if (requestUrl.pathname === '/' || embedded) {
+				const entry = pages.get(embedded
+					? `embed:${requestUrl.pathname.slice(EMBED_PATH.length)}`
+					: requestUrl.searchParams.get('page') || '')
 				res.writeHead(entry ? 200 : 404, { 'Content-Type': 'text/html; charset=utf-8' })
 				res.end(entry ? html(entry) : '')
 				return
@@ -107,7 +117,7 @@ export function startServer(): Promise<{ url: string, close: () => Promise<void>
 export async function openViewer(page: Page, url: string, model: ViewerModel, viewer: Viewer = { user: 'alice' }) {
 	const errors: string[] = []
 	page.on('pageerror', (err) => errors.push(err.message))
-	const key = `${model.id}-${viewer.user ?? 'anon'}-${viewer.publicToken ?? ''}`
+	const key = viewer.embed ? `embed:${viewer.publicToken}` : `${model.id}-${viewer.user ?? 'anon'}-${viewer.publicToken ?? ''}`
 	pages.set(key, { model, viewer })
 
 	const fileRoute = viewer.publicToken
@@ -141,6 +151,15 @@ export async function openViewer(page: Page, url: string, model: ViewerModel, vi
 		return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ canEdit, unit: savedUnit }) })
 	})
 
+	if (viewer.embed) {
+		const answer = viewer.embed
+		await page.route(`**/ocs/v2.php/apps/threedviewer/public/embed/${viewer.publicToken}*`, (route) => route.fulfill(answer === 'gone'
+			? { status: 404, contentType: 'application/json', body: '{"message":"Not found"}' }
+			: { status: 200, contentType: 'application/json', body: JSON.stringify({ fileId: model.id, filename: model.name, mime: 'application/octet-stream', ...answer }) }))
+		await page.goto(`${url}${EMBED_PATH.slice(1)}${viewer.publicToken}${viewer.query ? `?${viewer.query}` : ''}`)
+		await page.waitForSelector(answer === 'gone' ? '.threedviewer-embed-gone' : '.viewer-bottom-actions', { timeout: 30000 })
+		return { errors, unitPuts }
+	}
 	await page.goto(`${url}?page=${encodeURIComponent(key)}${viewer.query ? `&${viewer.query}` : ''}`)
 	if (viewer.lite) {
 		// The light viewer shows its own buttons once the model is in

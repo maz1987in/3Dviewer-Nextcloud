@@ -1,0 +1,32 @@
+/*
+ * The embed page: the viewer fills the frame another site gives it, with nothing of
+ * Nextcloud's page around it.
+ */
+
+html,
+body#body-public {
+	height: 100%;
+	margin: 0;
+	overflow: hidden;
+	background: var(--tdv-color-surface);
+}
+
+body#body-public #content {
+	width: 100%;
+	height: 100%;
+	margin: 0;
+	padding: 0;
+}
+
+.threedviewer-embed-gone {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: 100%;
+	margin: 0;
+	padding: 16px;
+	box-sizing: border-box;
+	color: var(--tdv-color-text-secondary);
+	font-size: var(--tdv-font-size-body);
+	text-align: center;
+}

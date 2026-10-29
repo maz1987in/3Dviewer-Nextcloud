@@ -63,6 +63,10 @@ export const ICONS = {
 	// The mockup's scissors-on-a-line is not in this package version.
 	crossSection: 'ContentCut',
 	copyLink: 'LinkVariant',
+	// The embed's own controls
+	fullscreen: 'Fullscreen',
+	fullscreenExit: 'FullscreenExit',
+	download: 'Download',
 	delete: 'Delete',
 	explode: 'ArrowExpandAll',
 	exportModel: 'Download',
