@@ -159,7 +159,7 @@ import { useSlicerIntegration } from '../composables/useSlicerIntegration.js'
 import { useFocusTrap } from '../composables/useFocusTrap.js'
 import { logger } from '../utils/logger.js'
 import { uploadTempFile, deleteTempFile } from '../utils/slicerApi.js'
-import { withExportState } from '../utils/ownDisplayState.js'
+import { parseInMillimetres, sendsFileAsIs } from '../utils/slicerExport.js'
 
 export default {
 	name: 'SlicerModal',
@@ -197,6 +197,17 @@ export default {
 			type: String,
 			default: 'stl',
 			validator: (value) => ['stl', 'obj', 'ply'].includes(value),
+		},
+		// Millimetres per scene unit of the open model (utils/sourceUnits.js): the copy
+		// is written in millimetres, which is what a slicer reads it as
+		millimetresPerUnit: {
+			type: Number,
+			default: 1,
+		},
+		// Whether a unit was chosen for the file in the viewer (it records none)
+		unitChosen: {
+			type: Boolean,
+			default: false,
 		},
 	},
 
@@ -242,13 +253,13 @@ export default {
 		const lastUsedSlicer = computed(() => slicerIntegration.lastUsedSlicer.value)
 
 		// Whether current file is a passthrough format (no conversion needed)
-		const isPassthrough = computed(() => {
-			const ext = sourceExtension.value
-			const list = Array.isArray(props.passthroughFormats)
-				? props.passthroughFormats.map(f => String(f).toLowerCase())
-				: []
-			return ext && list.includes(ext) && !!props.fileId
-		})
+		const isPassthrough = computed(() => sendsFileAsIs({
+			extension: sourceExtension.value,
+			passthroughFormats: props.passthroughFormats,
+			fileId: props.fileId,
+			unitChosen: props.unitChosen,
+			millimetresPerUnit: props.millimetresPerUnit,
+		}))
 
 		/**
 		 * Close the modal
@@ -317,7 +328,7 @@ export default {
 					const exporter = new STLExporter()
 					exportMessage.value = t('threedviewer', 'Converting to STL format...')
 					await new Promise(resolve => setTimeout(resolve, 100))
-					const result = withExportState(props.modelObject, () => exporter.parse(props.modelObject, { binary: true }))
+					const result = parseInMillimetres(props.modelObject, props.millimetresPerUnit, () => exporter.parse(props.modelObject, { binary: true }))
 					exportMessage.value = t('threedviewer', 'Creating file...')
 					await new Promise(resolve => setTimeout(resolve, 100))
 					// Match useExport.js: STL is a first-class format with a registered MIME.
@@ -327,7 +338,7 @@ export default {
 					const exporter = new OBJExporter()
 					exportMessage.value = t('threedviewer', 'Converting to OBJ format...')
 					await new Promise(resolve => setTimeout(resolve, 100))
-					const result = withExportState(props.modelObject, () => exporter.parse(props.modelObject))
+					const result = parseInMillimetres(props.modelObject, props.millimetresPerUnit, () => exporter.parse(props.modelObject))
 					exportMessage.value = t('threedviewer', 'Creating file...')
 					await new Promise(resolve => setTimeout(resolve, 100))
 					exportedBlob = new Blob([result], { type: 'model/obj' })
@@ -337,7 +348,7 @@ export default {
 					exportMessage.value = t('threedviewer', 'Converting to PLY format...')
 					await new Promise(resolve => setTimeout(resolve, 100))
 					// parse(object, onDone, options): passed second, the options were ignored
-					const result = withExportState(props.modelObject, () => exporter.parse(props.modelObject, null, { binary: true, littleEndian: true }))
+					const result = parseInMillimetres(props.modelObject, props.millimetresPerUnit, () => exporter.parse(props.modelObject, null, { binary: true, littleEndian: true }))
 					exportMessage.value = t('threedviewer', 'Creating file...')
 					await new Promise(resolve => setTimeout(resolve, 100))
 					exportedBlob = new Blob([result], { type: 'application/octet-stream' })

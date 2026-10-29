@@ -62,6 +62,8 @@
 					:filename="currentFilename"
 					:passthrough-formats="slicerPassthroughFormats"
 					:export-format="slicerExportFormat"
+					:millimetres-per-unit="getModelMillimetresPerUnit()"
+					:unit-chosen="getModelUnitChosen()"
 					@close="showSlicerModal = false"
 					@success="onSlicerSuccess"
 					@error="onSlicerError" />
@@ -939,6 +941,14 @@ export default {
 		getModelObject() {
 			// Get the model object from the viewer
 			return this.$refs.viewer?.getModelObject?.() || null
+		},
+
+		getModelMillimetresPerUnit() {
+			return this.$refs.viewer?.modelMillimetresPerUnit ?? 1
+		},
+
+		getModelUnitChosen() {
+			return Boolean(this.$refs.viewer?.fileUnitChosen)
 		},
 
 		getModelName() {

@@ -19,6 +19,7 @@
  * Web Worker, where no tool has registered anything and this does nothing.
  */
 
+import { Matrix4 } from 'three'
 import { withOwnMaterials } from './materialStandIns.js'
 import { withViewerHiddenShown } from './viewerHidden.js'
 import { withOwnMaterialProps } from './viewerMaterialProps.js'
@@ -54,4 +55,34 @@ export function withOwnDisplayState(root, fn) {
  */
 export function withExportState(root, fn) {
 	return withOwnMaterials(root, () => withOwnMaterialProps(root, () => withViewerHiddenShown(root, () => withPartsTogether(root, fn))))
+}
+
+/**
+ * Run `fn` with the model written in millimetres: every object's world matrix scaled by
+ * `millimetresPerUnit` about the scene's origin, and given back before this returns or
+ * throws. Inside `withExportState`, for the copy Send to Slicer writes: a slicer reads an
+ * STL, OBJ or PLY as millimetres, whatever unit the model was drawn in.
+ *
+ * @param {THREE.Object3D} root - The model
+ * @param {number} millimetresPerUnit - Millimetres per scene unit (utils/sourceUnits.js)
+ * @param {Function} fn - A single synchronous exporter `parse()`
+ * @return {*} What `fn` returns
+ */
+export function withMillimetres(root, millimetresPerUnit, fn) {
+	if (!(Number.isFinite(millimetresPerUnit) && millimetresPerUnit > 0) || millimetresPerUnit === 1) {
+		return fn()
+	}
+	const scale = new Matrix4().makeScale(millimetresPerUnit, millimetresPerUnit, millimetresPerUnit)
+	const saved = []
+	root.traverse((object) => {
+		saved.push([object, object.matrixWorld.clone()])
+		object.matrixWorld.premultiply(scale)
+	})
+	try {
+		return fn()
+	} finally {
+		for (const [object, matrix] of saved) {
+			object.matrixWorld.copy(matrix)
+		}
+	}
 }

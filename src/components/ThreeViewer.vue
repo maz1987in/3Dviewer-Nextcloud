@@ -4515,6 +4515,7 @@ export default {
 			printCheckState,
 			fileUnitState: fileUnit.state,
 			fileUnitChosen: fileUnit.chosen,
+			modelMillimetresPerUnit,
 			onSetFileUnit,
 			togglePrintCheck,
 			turntable,
