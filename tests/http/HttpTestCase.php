@@ -176,6 +176,16 @@ abstract class HttpTestCase extends TestCase
         return '/ocs/v2.php/apps/threedviewer/public/notes/' . $token . '/' . $fileId;
     }
 
+    protected static function settingsUrl(int $fileId): string
+    {
+        return '/index.php/apps/threedviewer/api/file-settings/' . $fileId;
+    }
+
+    protected static function publicSettingsUrl(string $token, int $fileId): string
+    {
+        return '/ocs/v2.php/apps/threedviewer/public/file-settings/' . $token . '/' . $fileId;
+    }
+
     /** @return array<string, mixed> */
     protected static function annotation(string $text): array
     {
