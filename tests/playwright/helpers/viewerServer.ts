@@ -22,8 +22,14 @@ export type ViewerModel = { id: number, name: string, body: string | Buffer }
  *
  * `lite` serves the page a public link to a single file gets, where the light viewer
  * (ViewerComponent) replaces the share page's content instead of the full app mounting.
+ *
+ * `unit` is the unit saved for the file and `unitCanEdit` whether the user may change it
+ * (default: yes when logged in); `unitSaveStatus` makes a save fail with that status.
  */
-export type Viewer = { user?: string | null, publicToken?: string | null, dir?: string, query?: string, notes?: object[], openPanel?: boolean, lite?: boolean }
+export type Viewer = {
+	user?: string | null, publicToken?: string | null, dir?: string, query?: string, notes?: object[], openPanel?: boolean, lite?: boolean,
+	unit?: string | null, unitCanEdit?: boolean, unitSaveStatus?: number,
+}
 
 const pages = new Map<string, { model: ViewerModel, viewer: Viewer }>()
 
@@ -114,18 +120,35 @@ export async function openViewer(page: Page, url: string, model: ViewerModel, vi
 		body: JSON.stringify(viewer.publicToken ? { ocs: { data: { canEdit: false, notes: [] } } } : { canEdit: true, notes: viewer.notes ?? [], private: [] }),
 	}))
 
+	// The file's saved unit; every save is recorded in `unitPuts`
+	const unitPuts: object[] = []
+	let savedUnit = viewer.unit ?? null
+	await page.route(/\/(api|public)\/file-settings\//, (route) => {
+		const request = route.request()
+		const canEdit = !viewer.publicToken && (viewer.unitCanEdit ?? true)
+		if (request.method() === 'PUT') {
+			const body = request.postDataJSON()
+			unitPuts.push(body)
+			if (viewer.unitSaveStatus) {
+				return route.fulfill({ status: viewer.unitSaveStatus, contentType: 'application/json', body: '{"error":"Failed"}' })
+			}
+			savedUnit = body.unit
+		}
+		return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ canEdit, unit: savedUnit }) })
+	})
+
 	await page.goto(`${url}?page=${encodeURIComponent(key)}${viewer.query ? `&${viewer.query}` : ''}`)
 	if (viewer.lite) {
 		// The light viewer shows its own buttons once the model is in
 		await page.waitForSelector('.viewer-bottom-actions', { timeout: 30000 })
-		return { errors }
+		return { errors, unitPuts }
 	}
 	await page.waitForFunction(() => (window as any).__LOAD_COMPLETE === true, null, { timeout: 30000 })
 	if (viewer.openPanel !== false) {
 		await page.click('[aria-label="Toggle tools panel"]')
 		await page.waitForSelector('.slide-out-panel', { timeout: 5000 })
 	}
-	return { errors }
+	return { errors, unitPuts }
 }
 
 /**

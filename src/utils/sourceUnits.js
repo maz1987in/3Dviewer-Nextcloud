@@ -289,21 +289,6 @@ export function unitSuffix(millimetres) {
 	return other ? other[1] : `${formatLength(millimetres)} mm`
 }
 
-// Formats whose files never say what unit they are in, and which slicers read as millimetres
-const UNITLESS_MILLIMETRE_FORMATS = new Set(['stl', 'obj', 'ply', 'off', '3ds', 'gcode'])
-
-/**
- * Whether a file's sizes are millimetres only by assumption: its format records no unit,
- * so the viewer reads it as slicers do. Print check says so beside its sizes.
- *
- * @param {?string} filename - The file (a path is fine)
- * @return {boolean} True for STL, OBJ, PLY, OFF, 3DS and G-code
- */
-export function assumesMillimetres(filename) {
-	const extension = extensionOf(filename)
-	return Boolean(filename) && UNITLESS_MILLIMETRE_FORMATS.has(extension)
-}
-
 /**
  * Millimetres per unit of the file a model was loaded from: the unit it was written in,
  * before any rescale of the viewer's.

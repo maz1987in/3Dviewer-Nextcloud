@@ -162,6 +162,12 @@
 							</option>
 						</select>
 					</div>
+					<FileUnitControl v-if="fileUnitState"
+						class="stats-file-unit"
+						:unit="fileUnitState"
+						control-id="stats-file-unit"
+						select-class="stats-unit-select"
+						@set="onSetFileUnit" />
 					<!-- Watertightness badge -->
 					<div class="stats-watertight-row">
 						<span v-if="modelStats.allWatertight === true" class="stats-badge stats-badge-ok">
@@ -344,6 +350,7 @@
 			:state="printCheckState"
 			:class="{ 'beside-stats': showModelStats && !!modelStats }"
 			@close="printCheck.close()"
+			@set-unit="onSetFileUnit"
 			@set-printer="printCheck.setPrinter"
 			@set-custom="printCheck.setCustom"
 			@set-up="printCheck.setUp"
@@ -871,6 +878,9 @@ import { measurementNumbers, useMeasurement } from '../composables/useMeasuremen
 import { useAnnotation } from '../composables/useAnnotation.js'
 import { useSharedNotes } from '../composables/useSharedNotes.js'
 import { createNotesApi } from '../utils/notesApi.js'
+import { createFileSettingsApi } from '../utils/fileSettingsApi.js'
+import { useFileUnit } from '../composables/useFileUnit.js'
+import FileUnitControl from './FileUnitControl.vue'
 import { getPublicShareContext } from '../composables/usePublicShare.js'
 import { awaitStatusBeforeDownload, scheduleCapture } from '../thumbnails/captureFromViewer.js'
 import { measurementsFromJson, measurementsToJson } from '../utils/measurementJson.js'
@@ -905,6 +915,7 @@ export default {
 	name: 'ThreeViewer',
 	components: {
 		ViewerIcon,
+		FileUnitControl,
 		NcProgressBar,
 		NcButton,
 		CircularController,
@@ -965,6 +976,9 @@ export default {
 		// and per unit of its file (differs only when the loader rescaled the model)
 		const modelMillimetresPerUnit = ref(1)
 		const modelMillimetresPerFileUnit = ref(1)
+		// The unit the open file is in, and the one its editors chose (useFileUnit)
+		const fileUnit = useFileUnit()
+		let unitsFilename = null
 		const modelSourceFiles = shallowRef(null) // File[] for ZIP export
 		const aborting = ref(false)
 		const initializing = ref(true) // Show loading during initial setup
@@ -1059,19 +1073,37 @@ export default {
 		 * the model's own unit unless the user has picked one.
 		 * @param {?string} filename - The file the model came from
 		 * @param {?THREE.Object3D} root - The loaded model
+		 * @param {?string} [chosenUnit] - The unit chosen for the file (useFileUnit), if any
 		 */
-		const applySourceUnits = (filename, root) => {
-			const scale = millimetresPerUnit(filename, root)
-			const perFileUnit = millimetresPerFileUnit(filename, root)
+		const applySourceUnits = (filename, root, chosenUnit = null) => {
+			unitsFilename = filename
+			const scale = millimetresPerUnit(filename, root, chosenUnit)
+			const perFileUnit = millimetresPerFileUnit(filename, root, chosenUnit)
 			modelMillimetresPerUnit.value = scale
 			modelMillimetresPerFileUnit.value = perFileUnit
 			measurement.setModelScale(scale, perFileUnit)
 			modelStatsComposable.setModelScale(scale, perFileUnit)
 			// With no file, back to the configured default; a unit the user picked stays
-			const unit = defaultDisplayUnit(filename, root)
+			const unit = defaultDisplayUnit(filename, root, chosenUnit)
 			measurement.suggestUnit(unit)
 			modelStatsComposable.suggestUnit(unit)
 			logger.info('ThreeViewer', 'Source units', { filename, millimetresPerUnit: scale })
+		}
+
+		/** The unit chosen for the open file changed: everything that shows a size follows. */
+		const applyChosenUnit = () => {
+			applySourceUnits(unitsFilename, modelRoot.value, fileUnit.chosen.value)
+			printCheck.value?.unitChanged()
+		}
+
+		/**
+		 * Save a unit for the open file, for everyone who can open it.
+		 * @param {string} key - A key of FILE_UNITS
+		 */
+		const onSetFileUnit = async (key) => {
+			if (await fileUnit.set(key)) {
+				applyChosenUnit()
+			}
 		}
 
 		// Methods
@@ -1702,6 +1734,7 @@ export default {
 						const progressTotal = modelLoading.progress.value.total || 0
 						if (progressTotal > 1000) fileSize = progressTotal
 					}
+					fileUnit.describe(filename, modelRoot.value)
 					applySourceUnits(filename, modelRoot.value)
 					const stats = modelStatsComposable.analyzeModel(modelRoot.value, filename, fileSize)
 					evaluatePerformanceScaling(stats)
@@ -1771,6 +1804,10 @@ export default {
 							.catch((e) => {
 								logger.warn('ThreeViewer', 'Loading notes failed', e)
 							})
+						// The unit chosen for a file that records none; an answer for a model
+						// since replaced is dropped by useFileUnit
+						fileUnit.load(createFileSettingsApi({ fileId, shareToken: share?.token ?? null }))
+							.then((changed) => { if (changed) applyChosenUnit() })
 					}
 
 					// Capture a thumbnail once per file version (if enabled). It is rendered
@@ -1972,6 +2009,7 @@ export default {
 
 				// Analyze demo model for stats. It has no real size; read as before, a
 				// millimetre per unit.
+				fileUnit.reset()
 				applySourceUnits(null, null)
 				modelStatsComposable.analyzeModel(modelRoot.value, 'demo-scene.glb', 0)
 
@@ -2641,7 +2679,7 @@ export default {
 			const check = printCheck.value
 			return check && {
 				kind: check.kind.value,
-				assumesMm: check.assumesMm.value,
+				fileUnit: fileUnit.state.value,
 				settings: check.settings.value,
 				up: check.up.value,
 				fit: check.fit.value,
@@ -3473,6 +3511,8 @@ export default {
 				applyWireframe: props.wireframe,
 				ensurePlaceholderRemoved: () => {},
 				wireframe: props.wireframe,
+				// An earlier version of the same file is in the unit chosen for it
+				fileUnit: fileUnit.chosen.value,
 			}
 			try {
 				await comparison.loadComparisonModelFromVersion(version, { fileId: props.fileId, filename: props.filename || '', dirPath: props.dir }, context)
@@ -4174,6 +4214,7 @@ export default {
 
 				// Clear model stats
 				modelStatsComposable.clearStats()
+				fileUnit.reset()
 				applySourceUnits(null, null)
 
 				// Load new model (loadModel will use updated props.filename and props.dir)
@@ -4472,6 +4513,9 @@ export default {
 			printCheck,
 			printCheckActive,
 			printCheckState,
+			fileUnitState: fileUnit.state,
+			fileUnitChosen: fileUnit.chosen,
+			onSetFileUnit,
 			togglePrintCheck,
 			turntable,
 			turntableOpen,
@@ -5024,6 +5068,10 @@ export default {
 }
 
 .stats-watertight-row {
+	margin-bottom: 10px;
+}
+
+.stats-file-unit {
 	margin-bottom: 10px;
 }
 

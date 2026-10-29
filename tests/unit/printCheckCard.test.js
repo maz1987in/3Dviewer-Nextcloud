@@ -12,12 +12,13 @@ const MODULES = {
 	'./ViewerIcon.vue': { default: { name: 'ViewerIcon', props: ['name', 'size'], template: '<i />' } },
 	'../printCheck/printers.js': printers,
 	'../printCheck/formatDuration.js': formatDuration,
+	'./FileUnitControl.vue': { default: { name: 'FileUnitControl', props: ['unit', 'controlId', 'selectClass'], emits: ['set'], template: '<div class="file-unit-stub" :data-key="unit.key" @click="$emit(\'set\', \'in\')" />' } },
 }
 
 function meshState(overrides = {}) {
 	return {
 		kind: 'mesh',
-		assumesMm: true,
+		fileUnit: { millimetres: 1, key: 'mm', suffix: 'mm', source: 'default', changeable: true, canEdit: true, status: '' },
 		settings: { ...printers.PRINT_CHECK_DEFAULTS, custom: { ...printers.PRINT_CHECK_DEFAULTS.custom } },
 		up: 'y',
 		fit: { size: { width: 10, depth: 10, height: 10 }, fits: true, over: { width: 0, depth: 0, height: 0 }, fitsTurned: true },
@@ -40,12 +41,13 @@ const text = () => document.body.textContent.replace(/\s+/g, ' ')
 
 afterEach(() => document.body.replaceChildren())
 
-test('shows the units note only for formats without a unit', () => {
-	mount(meshState({ assumesMm: true }))
-	expect(text()).toContain("Sizes assume millimetres, because this file doesn't record a unit.")
-	document.body.replaceChildren()
-	mount(meshState({ assumesMm: false }))
+test('shows the file\'s units, where the old note was, and passes a choice on', () => {
+	const { events } = mount(meshState())
 	expect(text()).not.toContain('Sizes assume millimetres')
+	const control = document.querySelector('.file-unit-stub')
+	expect(control.dataset.key).toBe('mm')
+	control.click()
+	expect(events).toContainEqual(['set-unit', ['in']])
 })
 
 test('a model that fits says so, and one that does not says by how much', () => {
@@ -169,9 +171,9 @@ test('results are announced; the hover readout, the slider value and the progres
 	expect(live.some((element) => element.querySelector('progress, input, select, output'))).toBe(false)
 })
 
-test('a G-code file shows no units note: it shows no sizes', () => {
-	mount(meshState({ kind: 'gcode', assumesMm: true, slicerSummary: { slicer: null, printSeconds: 60, filamentMm: null, filamentGrams: null } }))
-	expect(text()).not.toContain('Sizes assume millimetres')
+test('a G-code file shows no units: it shows no sizes', () => {
+	mount(meshState({ kind: 'gcode', slicerSummary: { slicer: null, printSeconds: 60, filamentMm: null, filamentGrams: null } }))
+	expect(document.querySelector('.file-unit-stub')).toBeNull()
 })
 
 test('on a sampled model the thickness under the pointer is given as about', () => {

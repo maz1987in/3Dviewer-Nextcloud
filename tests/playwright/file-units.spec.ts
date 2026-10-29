@@ -1,0 +1,116 @@
+/**
+ * File units through the whole app: the unit saved for a file that records none sizes
+ * the model everywhere, people who can edit the file choose it, everyone else reads it.
+ * The unit table itself is pinned in `tests/unit/utils/sourceUnits.test.js`.
+ */
+import { test, expect, type Page } from '@playwright/test'
+import { startServer, openViewer, stlCube, type Viewer } from './helpers/viewerServer'
+
+const CUBE = { id: 7401, name: 'cube.stl', body: stlCube(10) }
+// A minimal glTF: one triangle, 10 units across; glTF is metres by specification
+const GLTF = {
+	id: 7402,
+	name: 'triangle.gltf',
+	body: JSON.stringify({
+		asset: { version: '2.0' },
+		scene: 0,
+		scenes: [{ nodes: [0] }],
+		nodes: [{ mesh: 0 }],
+		meshes: [{ primitives: [{ attributes: { POSITION: 0 } }] }],
+		buffers: [{ byteLength: 36, uri: 'data:application/octet-stream;base64,' + Buffer.from(new Float32Array([0, 0, 0, 10, 0, 0, 0, 10, 0]).buffer).toString('base64') }],
+		bufferViews: [{ buffer: 0, byteLength: 36 }],
+		accessors: [{ bufferView: 0, componentType: 5126, count: 3, type: 'VEC3', min: [0, 0, 0], max: [10, 10, 0] }],
+	}),
+}
+
+let server: { url: string, close: () => Promise<void> }
+test.beforeAll(async () => { server = await startServer() })
+test.afterAll(async () => { await server.close() })
+
+async function open(page: Page, viewer: Viewer = { user: 'alice' }, model: { id: number, name: string, body: string } = CUBE) {
+	await page.route('**/apps/threedviewer/settings', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ settings: {} }) }))
+	return openViewer(page, server.url, model, viewer)
+}
+
+const stats = (page: Page) => page.locator('.model-stats-overlay')
+const card = (page: Page) => page.locator('.print-check-card')
+
+async function openStats(page: Page) {
+	await page.locator('.slide-out-panel').getByRole('button', { name: /^Model Statistics/ }).click()
+	await expect(stats(page)).toBeVisible()
+}
+
+async function openPrintCheck(page: Page) {
+	await page.locator('.slide-out-panel').getByRole('button', { name: /^Print check/ }).click()
+	await expect(card(page)).toBeVisible()
+}
+
+test('an editor sets inches and the sizes follow', async ({ page }) => {
+	const { errors, unitPuts } = await open(page)
+	await openStats(page)
+	await expect(stats(page)).toContainText('Width (X):10.00 mm')
+
+	await stats(page).locator('#stats-file-unit').selectOption('in')
+
+	await expect(stats(page).locator('[role="status"]')).toHaveText('Saved')
+	await expect(stats(page)).toContainText('Width (X):10.00 in')
+	expect(unitPuts).toEqual([{ unit: 'in' }])
+	await openPrintCheck(page)
+	await expect(card(page).locator('#print-check-unit')).toHaveValue('in')
+	// A 10-inch cube is 254 mm across: more than the default printer's bed
+	await expect(card(page)).toContainText('too wide')
+	expect(errors).toEqual([])
+})
+
+test('a saved unit applies on open for a read-only user', async ({ page }) => {
+	const { errors } = await open(page, { user: 'bob', unit: 'in', unitCanEdit: false })
+	await openStats(page)
+
+	await expect(stats(page)).toContainText('Width (X):10.00 in')
+	await expect(stats(page).locator('#stats-file-unit')).toHaveCount(0)
+	await expect(stats(page)).toContainText('Inches')
+	await expect(stats(page)).toContainText('Set for this file')
+	expect(errors).toEqual([])
+})
+
+test('a glTF shows metres from the file, and asks the server nothing', async ({ page }) => {
+	let asked = 0
+	page.on('request', (request) => { if (request.url().includes('/file-settings/')) asked++ })
+	const { errors } = await open(page, { user: 'alice' }, GLTF)
+	await openStats(page)
+
+	await expect(stats(page)).toContainText('Metres')
+	await expect(stats(page)).toContainText('From the file')
+	await expect(stats(page).locator('#stats-file-unit')).toHaveCount(0)
+	expect(asked).toBe(0)
+	expect(errors).toEqual([])
+})
+
+test('a failed save leaves the unit in force', async ({ page }) => {
+	const { errors, unitPuts } = await open(page, { user: 'alice', unitSaveStatus: 500 })
+	await openStats(page)
+
+	await stats(page).locator('#stats-file-unit').selectOption('ft')
+
+	await expect(stats(page).locator('[role="status"]')).toHaveText("Couldn't save the units")
+	await expect(stats(page).locator('#stats-file-unit')).toHaveValue('mm')
+	await expect(stats(page)).toContainText('Width (X):10.00 mm')
+	expect(unitPuts).toEqual([{ unit: 'ft' }])
+	expect(errors).toEqual([])
+})
+
+test('the select works from the keyboard', async ({ page }) => {
+	const { unitPuts } = await open(page)
+	await openStats(page)
+	const select = stats(page).locator('#stats-file-unit')
+	await expect(select).toHaveAccessibleName('File units')
+	await expect(select).toHaveAccessibleDescription('Saved with the file for everyone who can open it')
+
+	// Typing a unit's first letter picks it, on every platform (an arrow key opens the
+	// menu on macOS instead)
+	await select.focus()
+	await page.keyboard.press('c')
+
+	await expect(stats(page).locator('[role="status"]')).toHaveText('Saved')
+	expect(unitPuts).toEqual([{ unit: 'cm' }])
+})

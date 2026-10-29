@@ -31,7 +31,11 @@ export function useFileUnit() {
 		source,
 	})
 
-	/** The state for the unit in force, keeping the rights and the status. */
+	/**
+	 * The state for the unit in force, keeping the rights and the status.
+	 *
+	 * @param {object} [patch] - Fields to set as well, such as `canEdit` or `status`
+	 */
 	const refresh = (patch = {}) => {
 		const source = chosen.value ? 'chosen' : (file.changeable ? 'default' : 'file')
 		state.value = {

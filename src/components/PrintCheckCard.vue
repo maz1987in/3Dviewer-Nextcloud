@@ -16,9 +16,12 @@
 		<!-- Only the results are live regions: the hover readout, the slider and the progress
 			bar change continuously and would be read out on every change -->
 		<div class="print-check-body">
-			<p v-if="state.assumesMm && state.kind !== 'gcode'" class="tdv-secondary print-check-note">
-				{{ t('threedviewer', 'Sizes assume millimetres, because this file doesn\'t record a unit.') }}
-			</p>
+			<FileUnitControl v-if="state.fileUnit && state.kind !== 'gcode'"
+				class="print-check-unit"
+				:unit="state.fileUnit"
+				control-id="print-check-unit"
+				select-class="print-check-select"
+				@set="$emit('set-unit', $event)" />
 
 			<!-- A toolpath: the slicer has already worked out what matters -->
 			<div v-if="state.kind === 'gcode'" aria-live="polite">
@@ -214,12 +217,14 @@
 
 <script>
 import ViewerIcon from './ViewerIcon.vue'
+import FileUnitControl from './FileUnitControl.vue'
 import { PRINTERS, MATERIALS, OVERHANG_ANGLE_RANGE, NEAR_THIN_FACTOR } from '../printCheck/printers.js'
 import { formatDuration } from '../printCheck/formatDuration.js'
 
 export default {
 	name: 'PrintCheckCard',
 	components: {
+		FileUnitControl,
 		ViewerIcon,
 	},
 
@@ -228,7 +233,7 @@ export default {
 		state: { type: Object, required: true },
 	},
 
-	emits: ['close', 'set-printer', 'set-custom', 'set-up', 'set-overhang-angle', 'set-infill', 'set-material', 'set-min-thickness', 'run-thickness', 'cancel-thickness'],
+	emits: ['close', 'set-unit', 'set-printer', 'set-custom', 'set-up', 'set-overhang-angle', 'set-infill', 'set-material', 'set-min-thickness', 'run-thickness', 'cancel-thickness'],
 	data() {
 		return { PRINTERS, MATERIALS, OVERHANG_ANGLE_RANGE, NEAR_THIN_FACTOR }
 	},
@@ -381,8 +386,8 @@ export default {
 	border-top: 1px solid var(--tdv-hud-border);
 }
 
-.print-check-note {
-	margin-top: 0;
+.print-check-unit {
+	padding-bottom: 10px;
 }
 
 .print-check-select,

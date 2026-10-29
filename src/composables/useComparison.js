@@ -565,7 +565,7 @@ export function useComparison() {
 
 		if (result && result.object3D) {
 			comparisonModel.value = markRaw(result.object3D)
-			comparisonMillimetresPerUnit = millimetresPerUnit(filename, result.object3D)
+			comparisonMillimetresPerUnit = millimetresPerUnit(filename, result.object3D, context.fileUnit ?? null)
 
 			// Store animations if present
 			if (result.animations && result.animations.length > 0) {

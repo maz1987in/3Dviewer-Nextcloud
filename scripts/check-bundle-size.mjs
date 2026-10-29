@@ -36,8 +36,10 @@ const BUDGETS = [
   // panel's author/retry UI), which put it at 362.0 KB raw / 100.3 KB gzip. Gzip raised
   // to 108 KB for view links (reading, checking and applying a view, and copying links to
   // notes, bookmarks and public shares), which put it at 367.4 KB raw / 102.8 KB gzip
-  // with the rest of that feature still to come.
-  { pattern: /^App-.*\.chunk\.mjs$/, name: 'app', maxRaw: 380000, maxGzip: 108000 },
+  // with the rest of that feature still to come. Raw raised to 395 KB for file units (the
+  // Units control, its loading and saving, and the chosen unit in the size code), which put
+  // it at 381.7 KB raw / 106.7 KB gzip.
+  { pattern: /^App-.*\.chunk\.mjs$/, name: 'app', maxRaw: 395000, maxGzip: 108000 },
   { pattern: /^three-core-.*\.chunk\.mjs$/, name: 'three-core', maxRaw: 800000, maxGzip: 210000 }, // Three.js core
   // Three chunks are named index-<hash>: the main one, a ~280 KB one and a 250-byte one.
   // This used to separate them with /^index-[A-Z][a-z]/, written to exclude one specific

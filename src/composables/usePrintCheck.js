@@ -25,7 +25,6 @@ import { checkClosed, measureThickness } from '../printCheck/printCheckClient.js
 import { loadPrintCheckSettings, savePrintCheckSettings, flushPrintCheckSettings, sanitizePrintCheckSettings } from '../printCheck/printCheckSettings.js'
 import { PRINTERS, MATERIALS, NEAR_THIN_FACTOR, BED_EPSILON_MM } from '../printCheck/printers.js'
 import { withPartsTogether } from '../utils/viewerTransforms.js'
-import { assumesMillimetres } from '../utils/sourceUnits.js'
 import { logger } from '../utils/logger.js'
 
 const FIT_COLOUR = 0x9e9e9e
@@ -193,7 +192,6 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 	const estimate = ref(null)
 	const slicerSummary = shallowRef(null)
 	const thickness = ref({ state: 'idle', progress: 0, share: 0, sampled: false, warnOpen: false })
-	const assumesMm = ref(false)
 
 	// What open() made, all of it let go of by teardown()
 	let helpers = []
@@ -400,7 +398,6 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 		const opened = generation
 		settings.value = loadPrintCheckSettings()
 		up.value = upChoices.get(fileKey()) ?? 'y'
-		assumesMm.value = assumesMillimetres(read(filename))
 		active.value = true
 
 		const summary = findSlicerSummary(root)
@@ -518,14 +515,32 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 		change({ material: id })
 		updateEstimate()
 	}
-	const setMinThickness = (mm) => {
-		change({ minThickness: mm })
+	// The thickness overlay's limits, in scene units, from the minimum in millimetres
+	const applyThicknessLimits = () => {
+		const mm = settings.value.minThickness
 		const unit = read(mmPerUnit) || 1
 		thicknessSet?.overlays.forEach(({ object }) => {
 			object.material.uniforms.uMin.value = mm / unit
 			object.material.uniforms.uNear.value = (mm * NEAR_THIN_FACTOR) / unit
 		})
 		updateThinShare()
+	}
+	const setMinThickness = (mm) => {
+		change({ minThickness: mm })
+		applyThicknessLimits()
+	}
+
+	/**
+	 * The file's unit changed (the user chose one, or the saved one arrived): measure the
+	 * fit, the filament and the thickness limits again in the new millimetres.
+	 */
+	const unitChanged = () => {
+		if (!active.value) {
+			return
+		}
+		recompute()
+		updateEstimate()
+		applyThicknessLimits()
 	}
 
 	const setUp = (axis) => {
@@ -667,7 +682,6 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 		estimate,
 		slicerSummary,
 		thickness,
-		assumesMm,
 		open,
 		close,
 		toggle: () => (active.value ? close() : open()),
@@ -682,6 +696,7 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 		cancelThickness,
 		thicknessAt,
 		modelMoved: recomputeSoon,
+		unitChanged,
 		onFrame,
 		dispose,
 	}
