@@ -278,6 +278,14 @@
     },
     "tags": [
         {
+            "name": "embed_admin",
+            "description": "The admin's list of sites allowed to embed public links. Admins only (no NoAdminRequired), and the request token is checked."
+        },
+        {
+            "name": "embed_page",
+            "description": "The page a listed site frames: the same page for every /embed/{token} URL. It reads no share and reveals nothing about one; its script reads the token from the URL and asks PublicEmbedController, which checks the share. Kept apart so that a share that is gone can be said so inside the frame: the share middleware's own \"not found\" page may not be framed, so the visitor would see only the browser's refusal. This is the only response that lists other sites in `frame-ancestors`; every other page keeps Nextcloud's `'self'`."
+        },
+        {
             "name": "file",
             "description": "Controller for serving 3D files using Nextcloud filesystem API."
         },
@@ -296,6 +304,10 @@
         {
             "name": "thumbnail",
             "description": "Stores the thumbnails the browser renders for 3D models, and reports which models have one. A thumbnail is stored once per file version and shown to everyone who can read the file, so this controller is the only gate on who may write one: it requires the CSRF token and update rights on the file, and it only ever stores under the server's own ETag."
+        },
+        {
+            "name": "public_embed",
+            "description": "What the embed page shows for a token: the model, and the links around it. MUST extend PublicShareController, for the reason PublicFileController gives: the middleware checks the share, and throttles bad tokens, only for instances of it. A token is valid here only when its share may be embedded (EmbedService), so a share that gained a password, expired, or went is refused before show() runs, and a password-protected share never reaches the password check: a frame has nowhere to ask."
         },
         {
             "name": "public_file",

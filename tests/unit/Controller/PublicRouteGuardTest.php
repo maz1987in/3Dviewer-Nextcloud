@@ -36,14 +36,23 @@ class PublicRouteGuardTest extends TestCase
      * Anything not listed fails Rule B. Adding to this list is a security decision: say
      * what the method serves and why that needs no share.
      *
+     * A listed method may have a token in its route URL only if it takes no parameter of
+     * that name: then the URL shape is all the token is, and Rule A lets it be. Its own
+     * test must show it reads nothing from the request, which no scan here can.
+     *
      * Keys are `ShortClassName::method`.
      *
      * @var array<string, string>
      */
     private const TOKENLESS_PUBLIC_METHODS = [
-        // Empty on purpose: the app has no anonymous route that needs no share. An entry
-        // goes here as `'ShortClassName::method' => 'why it is safe', ` with a comment
-        // above it saying what the method serves and why no share is needed.
+        // The embed page, /embed/{token}: the same page for every URL. It reads no share
+        // and reveals nothing about one, and lists other sites in frame-ancestors only
+        // while the admin has listed them. Its script reads the token from the URL and
+        // asks PublicEmbedController, a PublicShareController, which checks the share and
+        // throttles bad tokens. The token is in its URL only for that script: the method
+        // takes no parameter for it and reads nothing from the request, which
+        // EmbedPageControllerTest::testReadsNothingFromTheRequest pins.
+        'EmbedPageController::page' => 'serves the same empty page for every URL; the share is checked by PublicEmbedController',
     ];
 
     /**
@@ -65,7 +74,7 @@ class PublicRouteGuardTest extends TestCase
 
     private const APP_NAMESPACE = 'OCA\\ThreeDViewer\\Controller\\';
 
-    /** @var list<array{class: class-string, method: string, public: bool, noCsrf: bool, routes: list<string>, takesToken: bool, extendsShare: bool}>|null */
+    /** @var list<array{class: class-string, method: string, public: bool, noCsrf: bool, routes: list<string>, takesToken: bool, tokenParameter: bool, extendsShare: bool}>|null */
     private static ?array $methods = null;
 
     protected function setUp(): void
@@ -94,7 +103,8 @@ class PublicRouteGuardTest extends TestCase
     {
         $offenders = [];
         foreach (self::methods() as $m) {
-            if ($m['public'] && $m['takesToken'] && !$m['extendsShare']) {
+            $urlOnly = !$m['tokenParameter'] && isset(self::TOKENLESS_PUBLIC_METHODS[$this->key($m)]);
+            if ($m['public'] && $m['takesToken'] && !$m['extendsShare'] && !$urlOnly) {
                 $offenders[] = $this->label($m);
             }
         }
@@ -136,7 +146,7 @@ class PublicRouteGuardTest extends TestCase
     {
         $live = [];
         foreach (self::methods() as $m) {
-            if ($m['public'] && !$m['takesToken']) {
+            if ($m['public'] && !$m['tokenParameter']) {
                 $live[$this->key($m)] = true;
             }
         }
@@ -331,7 +341,7 @@ class PublicRouteGuardTest extends TestCase
     }
 
     /**
-     * @return list<array{class: class-string, method: string, public: bool, noCsrf: bool, routes: list<string>, takesToken: bool, extendsShare: bool}>
+     * @return list<array{class: class-string, method: string, public: bool, noCsrf: bool, routes: list<string>, takesToken: bool, tokenParameter: bool, extendsShare: bool}>
      */
     private static function methods(): array
     {
@@ -376,10 +386,8 @@ class PublicRouteGuardTest extends TestCase
                     $placeholders = array_merge($placeholders, self::placeholders($entry['url']));
                 }
 
-                $names = $placeholders;
-                foreach ($method->getParameters() as $parameter) {
-                    $names[] = $parameter->getName();
-                }
+                $parameters = array_map(static fn (\ReflectionParameter $p): string => $p->getName(), $method->getParameters());
+                $names = array_merge($placeholders, $parameters);
 
                 $found[] = [
                     'class' => $class,
@@ -390,7 +398,8 @@ class PublicRouteGuardTest extends TestCase
                     // Both the route and the signature count, so renaming either one
                     // cannot hide a token from the guard. "Contains token" also catches
                     // shareToken, share_token and linkToken.
-                    'takesToken' => array_filter($names, static fn (string $n): bool => stripos($n, 'token') !== false) !== [],
+                    'takesToken' => self::namesAToken($names),
+                    'tokenParameter' => self::namesAToken($parameters),
                     'extendsShare' => $reflection->isSubclassOf(PublicShareController::class),
                 ];
             }
@@ -424,6 +433,12 @@ class PublicRouteGuardTest extends TestCase
         }
 
         return preg_match('/@NoCSRFRequired\b/i', (string) $target->getDocComment()) === 1;
+    }
+
+    /** @param list<string> $names */
+    private static function namesAToken(array $names): bool
+    {
+        return array_filter($names, static fn (string $n): bool => stripos($n, 'token') !== false) !== [];
     }
 
     /**

@@ -121,6 +121,11 @@
       <code><![CDATA[ConfigController]]></code>
     </UnusedClass>
   </file>
+  <file src="lib/Controller/EmbedPageController.php">
+    <UndefinedAttributeClass>
+      <code><![CDATA[NoSameSiteCookieRequired]]></code>
+    </UndefinedAttributeClass>
+  </file>
   <file src="lib/Controller/FileController.php">
     <DocblockTypeContradiction>
       <code><![CDATA['']]></code>
@@ -299,10 +304,6 @@
     </UnusedClass>
   </file>
   <file src="lib/Controller/PageController.php">
-    <InvalidArgument>
-      <code><![CDATA[$response]]></code>
-      <code><![CDATA[$response]]></code>
-    </InvalidArgument>
     <MissingDependency>
       <code><![CDATA[$this->rootFolder]]></code>
       <code><![CDATA[private]]></code>
@@ -835,6 +836,11 @@
       <code><![CDATA[isEnabled]]></code>
     </PossiblyUnusedMethod>
   </file>
+  <file src="lib/Service/EmbedService.php">
+    <PossiblyUnusedMethod>
+      <code><![CDATA[__construct]]></code>
+    </PossiblyUnusedMethod>
+  </file>
   <file src="lib/Service/FileIndexService.php">
     <MissingDependency>
       <code><![CDATA[$this->rootFolder]]></code>
@@ -904,9 +910,6 @@
       <code><![CDATA[createRateLimitResponse]]></code>
       <code><![CDATA[createValidationErrorResponse]]></code>
     </PossiblyUnusedMethod>
-    <UndefinedDocblockClass>
-      <code><![CDATA[JSONResponse|StreamResponse|TemplateResponse]]></code>
-    </UndefinedDocblockClass>
   </file>
   <file src="lib/Service/ThumbnailService.php">
     <PossiblyUnusedMethod>
@@ -926,6 +929,14 @@
     </MissingDependency>
     <UnusedClass>
       <code><![CDATA[EmbedAdminHttpTest]]></code>
+    </UnusedClass>
+  </file>
+  <file src="tests/http/EmbedPageHttpTest.php">
+    <MissingDependency>
+      <code><![CDATA[HttpTestCase]]></code>
+    </MissingDependency>
+    <UnusedClass>
+      <code><![CDATA[EmbedPageHttpTest]]></code>
     </UnusedClass>
   </file>
   <file src="tests/http/FileSettingsHttpTest.php">
@@ -972,6 +983,14 @@
     </MissingDependency>
     <UnusedClass>
       <code><![CDATA[NotesHttpTest]]></code>
+    </UnusedClass>
+  </file>
+  <file src="tests/http/PublicEmbedHttpTest.php">
+    <MissingDependency>
+      <code><![CDATA[HttpTestCase]]></code>
+    </MissingDependency>
+    <UnusedClass>
+      <code><![CDATA[PublicEmbedHttpTest]]></code>
     </UnusedClass>
   </file>
   <file src="tests/http/WriteRoutesCsrfHttpTest.php">
@@ -1072,6 +1091,14 @@
       <code><![CDATA[EmbedAdminControllerTest]]></code>
     </UnusedClass>
   </file>
+  <file src="tests/unit/Controller/EmbedPageControllerTest.php">
+    <UndefinedClass>
+      <code><![CDATA[TestCase]]></code>
+    </UndefinedClass>
+    <UnusedClass>
+      <code><![CDATA[EmbedPageControllerTest]]></code>
+    </UnusedClass>
+  </file>
   <file src="tests/unit/Controller/FileControllerTest.php">
     <UndefinedClass>
       <code><![CDATA[TestCase]]></code>
@@ -1094,6 +1121,22 @@
     </UndefinedClass>
     <UnusedClass>
       <code><![CDATA[NotesControllerTest]]></code>
+    </UnusedClass>
+  </file>
+  <file src="tests/unit/Controller/PageControllerTest.php">
+    <UndefinedClass>
+      <code><![CDATA[TestCase]]></code>
+    </UndefinedClass>
+    <UnusedClass>
+      <code><![CDATA[PageControllerTest]]></code>
+    </UnusedClass>
+  </file>
+  <file src="tests/unit/Controller/PublicEmbedControllerTest.php">
+    <UndefinedClass>
+      <code><![CDATA[TestCase]]></code>
+    </UndefinedClass>
+    <UnusedClass>
+      <code><![CDATA[PublicEmbedControllerTest]]></code>
     </UnusedClass>
   </file>
   <file src="tests/unit/Controller/PublicFileControllerAuthTest.php">
@@ -1263,6 +1306,14 @@
     </UndefinedClass>
     <UnusedClass>
       <code><![CDATA[EmbedOriginsTest]]></code>
+    </UnusedClass>
+  </file>
+  <file src="tests/unit/Service/EmbedServiceTest.php">
+    <UndefinedClass>
+      <code><![CDATA[TestCase]]></code>
+    </UndefinedClass>
+    <UnusedClass>
+      <code><![CDATA[EmbedServiceTest]]></code>
     </UnusedClass>
   </file>
   <file src="tests/unit/Service/FileIndexServiceTest.php">

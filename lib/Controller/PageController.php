@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OCA\ThreeDViewer\Controller;
 
 use OCA\ThreeDViewer\AppInfo\Application;
+use OCA\ThreeDViewer\Service\EmbedOrigins;
 use OCA\ThreeDViewer\Service\ResponseBuilder;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\Attribute\FrontpageRoute;
@@ -32,7 +33,8 @@ class PageController extends Controller
         private IInitialState $initialState,
         private IConfig $config,
         private ?IUserSession $userSession,
-        private IRootFolder $rootFolder
+        private IRootFolder $rootFolder,
+        private EmbedOrigins $embedOrigins,
     ) {
         parent::__construct($appName, $request);
         $this->responseBuilder = $responseBuilder;
@@ -59,6 +61,7 @@ class PageController extends Controller
         ];
 
         $this->initialState->provideInitialState('navigation-initial-state', $initialState);
+        $this->provideEmbedState();
 
         $response = new TemplateResponse(
             Application::APP_ID,
@@ -131,6 +134,7 @@ class PageController extends Controller
         ];
 
         $this->initialState->provideInitialState('navigation-initial-state', $initialState);
+        $this->provideEmbedState();
 
         $response = new TemplateResponse(
             Application::APP_ID,
@@ -146,5 +150,11 @@ class PageController extends Controller
         $this->responseBuilder->addCspHeaders($response);
 
         return $response;
+    }
+
+    /** Whether "Copy embed code" can be offered: some site is allowed to embed. */
+    private function provideEmbedState(): void
+    {
+        $this->initialState->provideInitialState('embed', ['enabled' => $this->embedOrigins->isEnabled()]);
     }
 }
