@@ -104,7 +104,7 @@ test('the select works from the keyboard', async ({ page }) => {
 	await openStats(page)
 	const select = stats(page).locator('#stats-file-unit')
 	await expect(select).toHaveAccessibleName('File units')
-	await expect(select).toHaveAccessibleDescription('Saved with the file for everyone who can open it')
+	await expect(select).toHaveAccessibleDescription("Assumed, because this file doesn't record a unit Saved with the file for everyone who can open it")
 
 	// Typing a unit's first letter picks it, on every platform (an arrow key opens the
 	// menu on macOS instead)
@@ -132,4 +132,43 @@ test('light viewer shows millimetres when no unit is set', async ({ page }) => {
 	const panel = await openLiteStats(page, { unit: null })
 
 	await expect(panel).toContainText('10.00 × 10.00 × 10.00 mm')
+})
+
+/** The x extent of a binary STL, in its own numbers. */
+function stlWidth(body: Buffer): number {
+	const triangles = body.readUInt32LE(80)
+	let min = Infinity
+	let max = -Infinity
+	for (let t = 0; t < triangles; t++) {
+		for (let v = 0; v < 3; v++) {
+			const x = body.readFloatLE(84 + t * 50 + 12 + v * 12)
+			min = Math.min(min, x)
+			max = Math.max(max, x)
+		}
+	}
+	return max - min
+}
+
+test('Send to Slicer writes the model in millimetres, with a unit that arrives while it is open', async ({ page }) => {
+	let release: () => void = () => {}
+	const unitGate = new Promise<void>((resolve) => { release = resolve })
+	const uploads: Buffer[] = []
+	await page.route('**/apps/threedviewer/api/slicer/temp*', (route) => {
+		uploads.push(route.request().postDataBuffer() ?? Buffer.alloc(0))
+		return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, downloadUrl: 'http://127.0.0.1:9/model.stl', fileId: 1 }) })
+	})
+	await open(page, { user: 'alice', unit: 'in', unitGate })
+
+	// Its row is in the Export section, which starts collapsed
+	await page.locator('.slide-out-panel').getByText('Export', { exact: true }).first().click()
+	await page.locator('.slide-out-panel').getByRole('button', { name: /^Send to Slicer/ }).click()
+	await expect(page.locator('.slicer-modal')).toBeVisible()
+	release()
+	// The unit has arrived once the stats say so
+	await page.waitForFunction(() => (window as any).__THREEDVIEWER_APP.$.subTree.component.proxy.$refs.viewer.fileUnitChosen === 'in')
+	await page.locator('.slicer-modal').getByRole('button', { name: /^Open in / }).first().click()
+
+	await expect.poll(() => uploads.length).toBe(1)
+	// A 10-inch cube: 254 mm across
+	expect(stlWidth(uploads[0])).toBeCloseTo(254, 3)
 })

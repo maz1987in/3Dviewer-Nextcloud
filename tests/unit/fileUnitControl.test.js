@@ -31,8 +31,20 @@ test('an editor gets a labelled select of the six units, the one in force select
 		['mm', 'Millimetres'], ['cm', 'Centimetres'], ['m', 'Metres'], ['in', 'Inches'], ['ft', 'Feet'], ['us-ft', 'US survey feet'],
 	])
 	expect(select.value).toBe('in')
-	const hint = document.getElementById(select.getAttribute('aria-describedby'))
+	const hint = document.getElementById(select.getAttribute('aria-describedby').split(' ').pop())
 	expect(hint.textContent.trim()).toBe('Saved with the file for everyone who can open it')
+})
+
+test('an editor sees where the unit comes from too, as part of the select\'s description', () => {
+	mount(state())
+	const select = document.querySelector('select')
+	const description = select.getAttribute('aria-describedby').split(' ').map((id) => document.getElementById(id).textContent.trim())
+
+	expect(description).toEqual(["Assumed, because this file doesn't record a unit", 'Saved with the file for everyone who can open it'])
+	document.body.replaceChildren()
+
+	mount(state({ key: 'in', millimetres: 25.4, suffix: 'in', source: 'chosen' }))
+	expect(text()).toContain('Set for this file')
 })
 
 test('choosing a unit asks for it to be set', () => {

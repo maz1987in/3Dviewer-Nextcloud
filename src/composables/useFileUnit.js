@@ -87,33 +87,65 @@ export function useFileUnit() {
 		return chosen.value !== before
 	}
 
+	// The save under way, and the latest unit asked for while it runs: picks made in quick
+	// succession (an arrow key steps through the list, a save each) send only the last,
+	// one save at a time, so the server keeps what the user ended on
+	let saving = null
+	let wanted = null
+
 	/**
 	 * Save a unit for the file, for everyone who can open it.
 	 *
 	 * @param {?string} key - A key of FILE_UNITS, or null for the format's default
-	 * @return {Promise<boolean>} Whether it was saved and is now in force
+	 * @return {Promise<boolean>} Whether the unit in force changed
 	 */
 	const set = async (key) => {
 		if (!api || !state.value?.canEdit || (key !== null && !Object.hasOwn(FILE_UNITS, key))) {
 			return false
 		}
-		const asked = generation
+		wanted = key
 		state.value = { ...state.value, status: 'saving' }
-		let answer
-		try {
-			answer = await api.setUnit(key)
-		} catch {
-			if (asked === generation) {
-				state.value = { ...state.value, status: 'failed' }
+		saving ??= sendLatest().finally(() => { saving = null })
+		return saving
+	}
+
+	/**
+	 * Send the latest unit asked for until it is the one saved, or saving it fails.
+	 *
+	 * @return {Promise<boolean>} Whether the unit in force changed
+	 */
+	const sendLatest = async () => {
+		const asked = generation
+		const target = api
+		const before = chosen.value
+		let held = before
+		let canEdit = true
+		let failed = false
+		for (;;) {
+			const sending = wanted
+			try {
+				const answer = await target.setUnit(sending)
+				held = answer.unit
+				canEdit = answer.canEdit
+				failed = false
+			} catch (error) {
+				failed = true
+				// No longer allowed to edit the file: nothing more is sent
+				if (error?.response?.status === 403) {
+					canEdit = false
+					break
+				}
 			}
-			return false
+			if (asked !== generation) {
+				return false
+			}
+			if (wanted === sending) {
+				break
+			}
 		}
-		if (asked !== generation) {
-			return false
-		}
-		chosen.value = answer.unit
-		refresh({ canEdit: answer.canEdit, status: 'saved' })
-		return true
+		chosen.value = held
+		refresh({ canEdit, status: failed ? 'failed' : 'saved' })
+		return chosen.value !== before
 	}
 
 	/** No file open (the model was cleared, or the demo scene). */

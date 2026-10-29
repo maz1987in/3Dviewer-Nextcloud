@@ -1094,6 +1094,11 @@ export default {
 		const applyChosenUnit = () => {
 			applySourceUnits(unitsFilename, modelRoot.value, fileUnit.chosen.value)
 			printCheck.value?.unitChanged()
+			// A comparison on screen: its table is measured again in the new unit
+			if (comparison.diffStats.value) {
+				comparison.setFileUnit(fileUnit.chosen.value)
+				comparison.computeDiffStats(modelRoot.value, props.filename || '', modelMillimetresPerUnit.value, diffLabels())
+			}
 		}
 
 		/**

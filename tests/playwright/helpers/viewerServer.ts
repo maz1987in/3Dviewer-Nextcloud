@@ -24,11 +24,12 @@ export type ViewerModel = { id: number, name: string, body: string | Buffer }
  * (ViewerComponent) replaces the share page's content instead of the full app mounting.
  *
  * `unit` is the unit saved for the file and `unitCanEdit` whether the user may change it
- * (default: yes when logged in); `unitSaveStatus` makes a save fail with that status.
+ * (default: yes when logged in); `unitSaveStatus` makes a save fail with that status, and
+ * `unitGate` holds the unit's answer back until it resolves.
  */
 export type Viewer = {
 	user?: string | null, publicToken?: string | null, dir?: string, query?: string, notes?: object[], openPanel?: boolean, lite?: boolean,
-	unit?: string | null, unitCanEdit?: boolean, unitSaveStatus?: number,
+	unit?: string | null, unitCanEdit?: boolean, unitSaveStatus?: number, unitGate?: Promise<void>,
 }
 
 const pages = new Map<string, { model: ViewerModel, viewer: Viewer }>()
@@ -123,8 +124,11 @@ export async function openViewer(page: Page, url: string, model: ViewerModel, vi
 	// The file's saved unit; every save is recorded in `unitPuts`
 	const unitPuts: object[] = []
 	let savedUnit = viewer.unit ?? null
-	await page.route(/\/(api|public)\/file-settings\//, (route) => {
+	await page.route(/\/(api|public)\/file-settings\//, async (route) => {
 		const request = route.request()
+		if (request.method() === 'GET' && viewer.unitGate) {
+			await viewer.unitGate
+		}
 		const canEdit = !viewer.publicToken && (viewer.unitCanEdit ?? true)
 		if (request.method() === 'PUT') {
 			const body = request.postDataJSON()

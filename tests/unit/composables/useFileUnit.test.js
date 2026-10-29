@@ -137,4 +137,75 @@ describe('useFileUnit', () => {
 		expect(unit.state.value).toBeNull()
 		expect(unit.chosen.value).toBeNull()
 	})
+
+	/** A unit loaded for a.stl that the user may change. */
+	async function editable(unitKey = null) {
+		const unit = useFileUnit()
+		unit.describe('a.stl', null)
+		const { api, calls } = deferredApi()
+		const loading = unit.load(api)
+		calls.get[0].resolve({ canEdit: true, unit: unitKey })
+		await loading
+		return { unit, api, calls }
+	}
+
+	const flush = () => new Promise((resolve) => setTimeout(resolve, 0))
+
+	it('sends only the latest of quick picks, once the one in flight is answered', async () => {
+		const { unit, api, calls } = await editable()
+
+		const first = unit.set('cm')
+		const second = unit.set('m')
+		const third = unit.set('in')
+		expect(api.setUnit).toHaveBeenCalledTimes(1)
+		calls.setUnit[0].resolve({ canEdit: true, unit: 'cm' })
+		await flush()
+
+		expect(api.setUnit.mock.calls.map(([key]) => key)).toEqual(['cm', 'in'])
+		expect(unit.state.value.status).toBe('saving')
+		calls.setUnit[1].resolve({ canEdit: true, unit: 'in' })
+
+		expect(await Promise.all([first, second, third])).toEqual([true, true, true])
+		expect(unit.chosen.value).toBe('in')
+		expect(unit.state.value).toMatchObject({ key: 'in', status: 'saved' })
+	})
+
+	it('does not report a later pick as failed when an earlier one failed', async () => {
+		const { unit, calls } = await editable()
+
+		const first = unit.set('cm')
+		unit.set('in')
+		calls.setUnit[0].reject(new Error('Network Error'))
+		await flush()
+		calls.setUnit[1].resolve({ canEdit: true, unit: 'in' })
+
+		expect(await first).toBe(true)
+		expect(unit.state.value).toMatchObject({ key: 'in', status: 'saved' })
+	})
+
+	it('keeps what the server holds when the last pick fails after an earlier one saved', async () => {
+		const { unit, calls } = await editable()
+
+		const saving = unit.set('cm')
+		unit.set('in')
+		calls.setUnit[0].resolve({ canEdit: true, unit: 'cm' })
+		await flush()
+		calls.setUnit[1].reject(new Error('Network Error'))
+
+		expect(await saving).toBe(true)
+		expect(unit.chosen.value).toBe('cm')
+		expect(unit.state.value).toMatchObject({ key: 'cm', status: 'failed' })
+	})
+
+	it('turns read-only when the server says the user may no longer edit the file', async () => {
+		const { unit, api, calls } = await editable()
+
+		const saving = unit.set('in')
+		calls.setUnit[0].reject(Object.assign(new Error('Request failed with status code 403'), { response: { status: 403 } }))
+
+		expect(await saving).toBe(false)
+		expect(unit.state.value).toMatchObject({ canEdit: false, status: 'failed', key: 'mm' })
+		expect(await unit.set('cm')).toBe(false)
+		expect(api.setUnit).toHaveBeenCalledTimes(1)
+	})
 })

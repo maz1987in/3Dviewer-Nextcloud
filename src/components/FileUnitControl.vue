@@ -6,12 +6,15 @@
 				class="file-unit-select"
 				:class="selectClass"
 				:value="pending ?? unit.key"
-				:aria-describedby="`${controlId}-hint`"
+				:aria-describedby="`${controlId}-source ${controlId}-hint`"
 				@change="choose($event.target.value)">
 				<option v-for="choice in choices" :key="choice.key" :value="choice.key">
 					{{ choice.name }}
 				</option>
 			</select>
+			<p :id="`${controlId}-source`" class="tdv-secondary file-unit-note">
+				{{ sourceText }}
+			</p>
 			<p :id="`${controlId}-hint`" class="tdv-secondary file-unit-note">
 				{{ t('threedviewer', 'Saved with the file for everyone who can open it') }}
 			</p>

@@ -26,6 +26,7 @@ class FileSettingsControllerTest extends TestCase
     private NoteAccess&MockObject $access;
     private FileSettingsService&MockObject $settings;
     private FileSettingsController $controller;
+    private IRequest&MockObject $request;
 
     protected function setUp(): void
     {
@@ -40,9 +41,10 @@ class FileSettingsControllerTest extends TestCase
         $cacheFactory = $this->createMock(ICacheFactory::class);
         $cacheFactory->method('createDistributed')->willReturn($this->createMock(ICache::class));
 
+        $this->request = $this->createMock(IRequest::class);
         $this->controller = new FileSettingsController(
             'threedviewer',
-            $this->createMock(IRequest::class),
+            $this->request,
             $session,
             $this->access,
             $this->settings,
@@ -94,6 +96,7 @@ class FileSettingsControllerTest extends TestCase
 
     public function testAnEditorSaves(): void
     {
+        $this->request->method('getParams')->willReturn(['fileId' => '7', 'unit' => 'in']);
         $this->access->method('forUser')->willReturn(new NoteAccessResult(true, 'model.stl'));
         $this->settings->expects($this->once())->method('setUnit')->with(7, 'model.stl', 'in', 'alice')->willReturn('in');
 
@@ -105,6 +108,7 @@ class FileSettingsControllerTest extends TestCase
 
     public function testAnInvalidUnitIs400(): void
     {
+        $this->request->method('getParams')->willReturn(['unit' => 'furlong']);
         $this->access->method('forUser')->willReturn(new NoteAccessResult(true, 'model.stl'));
         $this->settings->method('setUnit')->willThrowException(new InvalidFileSettingException('Unknown unit'));
 
@@ -112,5 +116,27 @@ class FileSettingsControllerTest extends TestCase
 
         $this->assertSame(400, $response->getStatus());
         $this->assertSame(['error' => 'Unknown unit'], $response->getData());
+    }
+
+    /** Clearing the unit is an explicit `null`; a body without the field is a mistake. */
+    public function testASaveWithoutAUnitIs400(): void
+    {
+        $this->request->method('getParams')->willReturn(['fileId' => '7']);
+        $this->access->method('forUser')->willReturn(new NoteAccessResult(true, 'model.stl'));
+        $this->settings->expects($this->never())->method('setUnit');
+
+        $response = $this->controller->update(7);
+
+        $this->assertSame(400, $response->getStatus());
+        $this->assertSame(['error' => 'No unit given'], $response->getData());
+    }
+
+    public function testAnExplicitNullClearsTheUnit(): void
+    {
+        $this->request->method('getParams')->willReturn(['fileId' => '7', 'unit' => null]);
+        $this->access->method('forUser')->willReturn(new NoteAccessResult(true, 'model.stl'));
+        $this->settings->expects($this->once())->method('setUnit')->with(7, 'model.stl', null, 'alice')->willReturn(null);
+
+        $this->assertSame(['canEdit' => true, 'unit' => null], $this->controller->update(7, null)->getData());
     }
 }

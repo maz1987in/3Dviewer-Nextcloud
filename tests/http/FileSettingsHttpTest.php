@@ -88,6 +88,17 @@ class FileSettingsHttpTest extends HttpTestCase
         $this->assertSame(['canEdit' => true, 'unit' => null], self::json($cleared));
     }
 
+    public function testASaveWithoutAUnitIsRefusedAndKeepsTheUnit(): void
+    {
+        $owner = $this->newUser();
+        $model = $this->newModel($owner);
+        $client = $this->basic($owner);
+        $client->put(self::settingsUrl($model->getId()), ['json' => ['unit' => 'in']]);
+
+        $this->assertSame(400, $client->put(self::settingsUrl($model->getId()), ['json' => []])->getStatusCode());
+        $this->assertSame('in', self::json($client->get(self::settingsUrl($model->getId())))['unit']);
+    }
+
     public function testASessionWriteWithoutTheRequestTokenIsRejected(): void
     {
         $owner = $this->newUser();

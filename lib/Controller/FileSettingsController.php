@@ -67,6 +67,10 @@ class FileSettingsController extends BaseController
         if (!$access->canEdit) {
             return new JSONResponse(['error' => 'This model is view-only for you'], Http::STATUS_FORBIDDEN);
         }
+        // `null` clears the unit; a body without the field is a mistake, not a request to
+        if (!array_key_exists('unit', $this->request->getParams())) {
+            return new JSONResponse(['error' => 'No unit given'], Http::STATUS_BAD_REQUEST);
+        }
 
         try {
             $stored = $this->settings->setUnit($fileId, $access->fileName, $unit, $uid);
