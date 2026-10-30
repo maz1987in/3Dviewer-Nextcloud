@@ -132,7 +132,8 @@ describe('the panel', () => {
 
 	it.each(SWITCHES)('shows %s as a switch labelled "%s" that emits %s', (prop, label, event) => {
 		const row = new RegExp(
-			`<ToggleSwitchRow[^>]*:checked="${prop}"[^>]*:label="t\\('threedviewer', '${label}'\\)"[^>]*@toggle="emit\\('${event}'\\)"`,
+			// A switch a scan turns off emits nothing for one (pointclouds/unavailable.js)
+			`<ToggleSwitchRow[^>]*:checked="${prop}"[^>]*:label="t\\('threedviewer', '${label}'\\)"[^>]*@toggle="(?:pointCloud \\|\\| )?emit\\('${event}'\\)"`,
 		)
 		expect(PANEL).toMatch(row)
 	})

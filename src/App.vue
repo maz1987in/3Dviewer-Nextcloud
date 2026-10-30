@@ -127,6 +127,11 @@
 					:bookmarks="bookmarksList"
 					:public-shares="publicShares"
 					:embed-offered="embedOffered"
+					:point-cloud="pointCloud"
+					:colour-by="pointColourBy"
+					:point-size="pointSize"
+					@set-colour-by="$refs.viewer?.setColourBy($event)"
+					@set-point-size="$refs.viewer?.setPointSize($event)"
 					:model-path="publicSharesPath"
 					:file-id="currentFileId"
 					:exploded-view-active="explodedViewActive"
@@ -237,6 +242,7 @@
 					@print-check-active="printCheckActive = $event"
 					@model-loaded="onModelLoaded"
 					@view-applied="onViewApplied"
+					@point-cloud-changed="onPointCloudChanged"
 					@loading-state-changed="onLoadingStateChanged"
 					@fps-updated="onFpsUpdated"
 					@animations-initialized="onAnimationsInitialized"
@@ -249,11 +255,11 @@
 </template>
 
 <script>
+import { defineAsyncComponent } from 'vue'
 import ToastContainer from './components/ToastContainer.vue'
 import ThreeViewer from './components/ThreeViewer.vue'
 import MinimalTopBar from './components/MinimalTopBar.vue'
 import SlideOutToolPanel from './components/SlideOutToolPanel.vue'
-import HelpPanel from './components/HelpPanel.vue'
 import SlicerModal from './components/SlicerModal.vue'
 import FileNavigation from './components/FileNavigation.vue'
 import FileBrowser from './components/FileBrowser.vue'
@@ -283,7 +289,8 @@ export default {
 		ThreeViewer,
 		MinimalTopBar,
 		SlideOutToolPanel,
-		HelpPanel,
+		// Opened with Help or ?, so it loads the first time it is
+		HelpPanel: defineAsyncComponent(() => import('./components/HelpPanel.vue')),
 		SlicerModal,
 	},
 	props: {
@@ -347,6 +354,10 @@ export default {
 			persistControllerPosition: true,
 			lastError: null,
 			modelMeta: null,
+			// A scan's summary, and what it is coloured by and how big its points are; null for a mesh
+			pointCloud: null,
+			pointColourBy: 'height',
+			pointSize: 2,
 			modelLoaded: false,
 			hasMultipleSourceFiles: false,
 			// Advanced features
@@ -698,7 +709,16 @@ export default {
 		onReset() {
 			this.$refs.viewer?.resetView?.()
 		},
+		onPointCloudChanged(state) {
+			if (state) {
+				this.pointColourBy = state.colourBy
+				this.pointSize = state.pointSize
+			}
+		},
+
 		onToggleWireframe() {
+			// Colour by takes the place of shading for a scan
+			if (this.pointCloud) return
 			this.wireframe = !this.wireframe
 			this.ownWireframe = this.wireframe
 		},
@@ -860,6 +880,8 @@ export default {
 		},
 
 		onToggleComparison() {
+			// Comparing scans isn't available yet
+			if (this.pointCloud) return
 			this.transformGizmoActive = false
 			this.$refs.viewer?.toggleComparisonMode?.()
 		},
@@ -873,6 +895,7 @@ export default {
 		},
 
 		onCompareVersion() {
+			if (this.pointCloud) return
 			this.transformGizmoActive = false
 			this.$refs.viewer?.startVersionComparison?.()
 		},
@@ -1122,6 +1145,8 @@ export default {
 		},
 		async onModelLoaded(meta) {
 			this.modelMeta = meta
+			this.pointCloud = meta.pointCloud ?? null
+			this.onPointCloudChanged(meta.pointCloud)
 			this.lastError = null
 			this.isLoading = false
 			this.modelLoaded = true
@@ -1599,6 +1624,7 @@ export default {
 			}
 		},
 		onSetRenderMode(mode) {
+			if (this.pointCloud) return
 			const viewer = this.$refs.viewer
 			if (!viewer?.setRenderMode) return
 			viewer.setRenderMode(mode)

@@ -137,3 +137,34 @@ describe('a unit chosen for the file', () => {
 		expect(unitSuffix(2)).toBe('2.000 mm')
 	})
 })
+
+describe('scans', () => {
+	const cloud = (unit = null) => {
+		const points = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial())
+		points.userData.tdvPointCloud = { format: 'xyz', unit }
+		return points
+	}
+
+	it('default to metres, and a unit can be chosen', () => {
+		expect(millimetresPerFileUnit('site.xyz', cloud())).toBe(1000)
+		expect(isUnitChangeable('site.xyz', cloud())).toBe(true)
+		expect(millimetresPerFileUnit('site.xyz', cloud(), 'ft')).toBeCloseTo(304.8)
+	})
+
+	it('a PLY with no faces is a scan, in metres', () => {
+		expect(millimetresPerFileUnit('room.ply', cloud())).toBe(1000)
+		expect(millimetresPerFileUnit('part.ply', new THREE.Mesh())).toBe(1)
+	})
+
+	it('take the unit the file records, which cannot be changed', () => {
+		expect(millimetresPerFileUnit('site.las', cloud('us-ft'))).toBeCloseTo(304.8006096, 6)
+		expect(isUnitChangeable('site.las', cloud('us-ft'))).toBe(false)
+		expect(millimetresPerFileUnit('site.las', cloud('us-ft'), 'm')).toBeCloseTo(304.8006096, 6)
+	})
+
+	it('a LAS without a recorded unit can have one chosen', () => {
+		expect(isUnitChangeable('site.las', cloud())).toBe(true)
+		expect(isUnitChangeable('site.laz', cloud())).toBe(true)
+		expect(isUnitChangeable('site.pcd', cloud())).toBe(true)
+	})
+})

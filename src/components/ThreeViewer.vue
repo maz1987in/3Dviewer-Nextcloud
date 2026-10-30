@@ -91,18 +91,21 @@
 				<!-- Geometry Section -->
 				<div class="stats-section">
 					<h4>{{ t('threedviewer', 'Geometry') }}</h4>
-					<div class="stat-row">
-						<span>{{ t('threedviewer', 'Vertices') }}:</span>
-						<span class="tdv-value stat-value">{{ modelStats.vertices.toLocaleString() }}</span>
-					</div>
-					<div class="stat-row">
-						<span>{{ t('threedviewer', 'Faces') }}:</span>
-						<span class="tdv-value stat-value">{{ modelStats.faces.toLocaleString() }}</span>
-					</div>
-					<div class="stat-row">
-						<span>{{ t('threedviewer', 'Meshes') }}:</span>
-						<span class="tdv-value stat-value">{{ modelStats.meshes }}</span>
-					</div>
+					<PointCloudStats v-if="modelStats.isPointCloud" :stats="modelStats" />
+					<template v-else>
+						<div class="stat-row">
+							<span>{{ t('threedviewer', 'Vertices') }}:</span>
+							<span class="tdv-value stat-value">{{ modelStats.vertices.toLocaleString() }}</span>
+						</div>
+						<div class="stat-row">
+							<span>{{ t('threedviewer', 'Faces') }}:</span>
+							<span class="tdv-value stat-value">{{ modelStats.faces.toLocaleString() }}</span>
+						</div>
+						<div class="stat-row">
+							<span>{{ t('threedviewer', 'Meshes') }}:</span>
+							<span class="tdv-value stat-value">{{ modelStats.meshes }}</span>
+						</div>
+					</template>
 				</div>
 
 				<!-- Materials Section -->
@@ -168,8 +171,8 @@
 						control-id="stats-file-unit"
 						select-class="stats-unit-select"
 						@set="onSetFileUnit" />
-					<!-- Watertightness badge -->
-					<div class="stats-watertight-row">
+					<!-- Watertightness badge; a scan has no surface -->
+					<div v-if="!modelStats.isPointCloud" class="stats-watertight-row">
 						<span v-if="modelStats.allWatertight === true" class="stats-badge stats-badge-ok">
 							{{ t('threedviewer', 'Watertight — volume is reliable') }}
 						</span>
@@ -201,11 +204,11 @@
 						<span>{{ t('threedviewer', 'Depth (Z)') }}:</span>
 						<span class="tdv-value stat-value">{{ formatStatNumber(modelStats.boundingBox.z * statsLengthScale) }} {{ statsUnitConfig.suffix }}</span>
 					</div>
-					<div class="stat-row">
+					<div v-if="!modelStats.isPointCloud" class="stat-row">
 						<span>{{ t('threedviewer', 'Surface Area') }}:</span>
 						<span class="tdv-value stat-value">{{ formatStatNumber(activeSurfaceArea * statsAreaScale) }} {{ statsUnitConfig.suffix }}²</span>
 					</div>
-					<div class="stat-row">
+					<div v-if="!modelStats.isPointCloud" class="stat-row">
 						<span>{{ t('threedviewer', 'Mesh Volume') }}:</span>
 						<span class="tdv-value stat-value">{{ formatStatNumber(activeVolume * statsVolumeScale) }} {{ statsUnitConfig.suffix }}³</span>
 					</div>
@@ -238,7 +241,7 @@
 					</div>
 					<!-- Action bar: viewport pick + copy -->
 					<div class="stats-actions">
-						<button
+						<button v-if="!modelStats.isPointCloud"
 							class="stats-action-btn"
 							type="button"
 							:class="{ 'is-active': statsIsPickingMesh }"
@@ -909,6 +912,7 @@ import { logger } from '../utils/logger.js'
 import { setViewerWireframe } from '../utils/viewerMaterialProps.js'
 import { applyGcodeColorScheme } from '../utils/gcodeColorScheme.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
+import { POINT_SIZE } from '../pointclouds/limits.js'
 import { initCache, clearExpired, clearAll, getCacheStats } from '../utils/dependencyCache.js'
 
 export default {
@@ -923,6 +927,8 @@ export default {
 		VersionPickerDialog: defineAsyncComponent(() => import('./VersionPickerDialog.vue')),
 		// Loaded the first time someone opens Print check
 		PrintCheckCard: defineAsyncComponent(() => import('./PrintCheckCard.vue')),
+		// A scan's geometry rows, only when one opens
+		PointCloudStats: defineAsyncComponent(() => import('./PointCloudStats.vue')),
 		// Loaded the first time someone records a turntable
 		TurntableDialog: defineAsyncComponent(() => import('./TurntableDialog.vue')),
 	},
@@ -962,10 +968,12 @@ export default {
 	// Declared and never sent is as misleading as sent and never declared: nine of these
 	// named toolbar actions the viewer stopped emitting long ago, and among them sat the
 	// three mode toggles it did send and nothing received.
-	emits: ['model-loaded', 'error', 'measurement-active', 'annotation-active', 'comparison-active', 'print-check-active', 'cycle-performance-mode', 'push-toast', 'loading-state-changed', 'fps-updated', 'animations-initialized', 'view-applied'],
+	emits: ['model-loaded', 'error', 'measurement-active', 'annotation-active', 'comparison-active', 'print-check-active', 'cycle-performance-mode', 'push-toast', 'loading-state-changed', 'fps-updated', 'animations-initialized', 'view-applied', 'point-cloud-changed'],
 	setup(props, { emit }) {
 		// Refs
 		const container = ref(null)
+		// A scan's colour by and point size; null for a mesh (pointclouds/buildPointCloud.js)
+		const pointCloud = ref(null)
 		const scene = shallowRef(null)
 		const renderer = shallowRef(null)
 		const renderPaused = ref(false)
@@ -1561,6 +1569,9 @@ export default {
 
 					// Add the loaded model to the scene first
 					modelRoot.value = markRaw(loadedModel.object3D)
+					// A scan's colour by and point size, before a linked view sets them
+					const cloud = modelRoot.value.userData?.tdvPointCloud ?? null
+					pointCloud.value = cloud ? { colourBy: cloud.colourBy, pointSize: modelRoot.value.material?.size ?? POINT_SIZE.initial } : null
 					// A note a link marked belonged to the previous model
 					highlightedNoteId.value = null
 					notePlacementHeld.value = false
@@ -1786,7 +1797,7 @@ export default {
 						})
 					}
 
-					emit('model-loaded', { fileId, filename })
+					emit('model-loaded', { fileId, filename, pointCloud: cloud ? { ...pointCloudSummary(cloud), ...pointCloud.value } : null })
 					logger.info('ThreeViewer', 'Model loaded successfully')
 
 					// Test harness hook
@@ -2015,6 +2026,7 @@ export default {
 				// Analyze demo model for stats. It has no real size; read as before, a
 				// millimetre per unit.
 				fileUnit.reset()
+				pointCloud.value = null
 				applySourceUnits(null, null)
 				modelStatsComposable.analyzeModel(modelRoot.value, 'demo-scene.glb', 0)
 
@@ -2504,6 +2516,8 @@ export default {
 				// Spread parts can leave a view fitted to them together
 				if (!cameraFromUrl) camera.fitCameraToObject(modelRoot.value)
 			}
+			if (view.colourBy && pointCloud.value) setColourBy(view.colourBy)
+			if (view.pointSize !== undefined && pointCloud.value) setPointSize(view.pointSize)
 			emit('view-applied', {
 				wireframe: view.wireframe,
 				projection: camera.camera?.value?.isOrthographicCamera ? 'orthographic' : 'perspective',
@@ -2536,7 +2550,51 @@ export default {
 			},
 			exploded: { isActive: explodedView.isActive.value, factor: explodedView.factor.value },
 			highlightedNoteId: highlightedNoteId.value,
+			pointCloud: pointCloud.value,
 		})
+
+		/**
+		 * @param {object} cloud - A scan's userData.tdvPointCloud
+		 * @return {object} What the tools panel shows of it: everything but the points
+		 */
+		const pointCloudSummary = ({ format, count, total, attributes, unit, defaultUp, up }) => ({ format, count, total, attributes: { ...attributes }, unit, defaultUp, up })
+
+		/**
+		 * Colour a scan by one of its attributes (pointclouds/colourBy.js). The cloud's
+		 * module came with the scan's loader, so this import costs nothing more.
+		 *
+		 * @param {string} mode - One of COLOUR_BY
+		 * @return {Promise<boolean>} Whether it changed; false for what the scan doesn't record
+		 */
+		const setColourBy = async (mode) => {
+			const root = modelRoot.value
+			if (!pointCloud.value || !root?.isPoints) {
+				return false
+			}
+			const { setColourBy: recolour } = await import('../pointclouds/buildPointCloud.js')
+			if (!recolour(root, mode)) {
+				return false
+			}
+			pointCloud.value = { ...pointCloud.value, colourBy: mode }
+			emit('point-cloud-changed', pointCloud.value)
+			return true
+		}
+
+		/**
+		 * @param {number} px - A scan's point size, clamped to POINT_SIZE
+		 * @return {Promise<?number>} The size set, or null for a mesh
+		 */
+		const setPointSize = async (px) => {
+			const root = modelRoot.value
+			if (!pointCloud.value || !root?.isPoints) {
+				return null
+			}
+			const { setPointSize: resize } = await import('../pointclouds/buildPointCloud.js')
+			const size = resize(root, px)
+			pointCloud.value = { ...pointCloud.value, pointSize: size }
+			emit('point-cloud-changed', pointCloud.value)
+			return size
+		}
 
 		/**
 		 * A link to this file in the full viewer that reopens it as it is shown now. It is
@@ -2772,7 +2830,8 @@ export default {
 		}
 
 		const togglePrintCheck = async () => {
-			if (!printCheckActive.value && comparison.comparisonMode.value) {
+			// A scan has no surface to check (pointclouds/unavailable.js)
+			if (!printCheckActive.value && (comparison.comparisonMode.value || pointCloud.value)) {
 				return
 			}
 			const check = printCheck.value ?? await loadPrintCheck()
@@ -3095,6 +3154,10 @@ export default {
 		 * @param {string} format - Export format (glb, stl, obj, ply, 3mf, usdz, zip)
 		 */
 		const handleExport = async (format) => {
+			// Export saves meshes, and a scan is points (pointclouds/unavailable.js)
+			if (pointCloud.value) {
+				return
+			}
 			if (!modelRoot.value) {
 				logger.warn('ThreeViewer', 'No model loaded for export')
 				emit('push-toast', {
@@ -4220,6 +4283,7 @@ export default {
 				// Clear model stats
 				modelStatsComposable.clearStats()
 				fileUnit.reset()
+				pointCloud.value = null
 				applySourceUnits(null, null)
 
 				// Load new model (loadModel will use updated props.filename and props.dir)
@@ -4471,6 +4535,9 @@ export default {
 			grid,
 			axes,
 			modelRoot,
+			pointCloud,
+			setColourBy,
+			setPointSize,
 			aborting,
 			initializing,
 

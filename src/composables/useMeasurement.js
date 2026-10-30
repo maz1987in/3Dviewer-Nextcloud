@@ -323,7 +323,7 @@ export function useMeasurement() {
 			 * marker floated clear of the surface.
 			 */
 			const point = raycastIntersection(event, camera, sceneRef.value, {
-				filterMesh: (mesh) => mesh.isMesh && mesh.visible && !isHelperMesh(mesh),
+				filterMesh: (mesh) => (mesh.isMesh || mesh.isPoints) && mesh.visible && !isHelperMesh(mesh),
 				recursive: true,
 			})
 

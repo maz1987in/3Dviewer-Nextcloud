@@ -144,6 +144,28 @@
 							</div>
 						</section>
 
+						<!-- SCAN Section: a scan's own controls, and the tools that are off for it -->
+						<section v-if="pointCloud" class="panel-section">
+							<button class="section-header"
+								:aria-expanded="sections.scan"
+								aria-controls="panel-section-scan"
+								@click="toggleSection('scan')">
+								<span class="section-title">{{ t('threedviewer', 'Scan') }}</span>
+								<ViewerIcon class="expand-icon"
+									:class="{ collapsed: !sections.scan }"
+									name="chevron"
+									:size="15" />
+							</button>
+							<!-- v-show: the gated controls are described by lines inside, open or not -->
+							<div v-show="sections.scan" id="panel-section-scan" class="section-content">
+								<PointCloudControls :meta="pointCloud"
+									:colour-by="colourBy"
+									:point-size="pointSize"
+									@set-colour-by="emit('set-colour-by', $event)"
+									@set-point-size="emit('set-point-size', $event)" />
+							</div>
+						</section>
+
 						<!-- SCENE Section (was Display) -->
 						<section class="panel-section">
 							<button class="section-header"
@@ -165,7 +187,8 @@
 									@toggle="emit('toggle-axes')" />
 								<ToggleSwitchRow :checked="wireframe"
 									:label="t('threedviewer', 'Wireframe')"
-									@toggle="emit('toggle-wireframe')" />
+									v-bind="unavailable('shading')"
+									@toggle="pointCloud || emit('toggle-wireframe')" />
 								<!-- Render mode: inspection shading in place of the model's materials -->
 								<div class="tool-group">
 									<!-- A heading for the group, not a <label>: there is no one control it names -->
@@ -178,7 +201,8 @@
 											:aria-pressed="renderMode === option.value ? 'true' : 'false'"
 											:title="option.title"
 											:disabled="!modelLoaded"
-											@click="emit('set-render-mode', option.value)">
+											v-bind="unavailable('shading')"
+											@click="pointCloud || emit('set-render-mode', option.value)">
 											{{ option.label }}
 										</button>
 									</div>
@@ -230,7 +254,8 @@
 								</button>
 								<button class="tool-btn feature-btn"
 									:class="{ 'active': comparisonMode }"
-									@click="emit('toggle-comparison')">
+									v-bind="unavailable('compare')"
+									@click="pointCloud || emit('toggle-comparison')">
 									<ViewerIcon class="tool-icon" name="comparison" :size="17" />
 									<span class="tool-label">{{ t('threedviewer', 'Comparison') }}</span>
 									<span v-if="comparisonMode" class="active-badge">{{ t('threedviewer', 'Active') }}</span>
@@ -239,7 +264,8 @@
 									type="button"
 									class="tool-btn feature-btn"
 									:disabled="!modelLoaded || comparisonMode"
-									@click="emit('compare-version')">
+									v-bind="unavailable('compare')"
+									@click="pointCloud || emit('compare-version')">
 									<ViewerIcon class="tool-icon" name="history" :size="17" />
 									<span class="tool-label">{{ t('threedviewer', 'Compare with earlier version') }}</span>
 								</button>
@@ -257,7 +283,8 @@
 									:class="{ 'active': printCheckActive }"
 									:aria-pressed="printCheckActive ? 'true' : 'false'"
 									:disabled="!modelLoaded || comparisonMode"
-									@click="emit('toggle-print-check')">
+									v-bind="unavailable('printCheck')"
+									@click="pointCloud || emit('toggle-print-check')">
 									<ViewerIcon class="tool-icon" name="printer3d" :size="17" />
 									<span class="tool-label">{{ t('threedviewer', 'Print check') }}</span>
 									<span v-if="printCheckActive" class="active-badge">{{ t('threedviewer', 'Active') }}</span>
@@ -579,7 +606,8 @@
 									<button type="button"
 										class="export-btn"
 										:disabled="!modelLoaded"
-										:aria-disabled="exporting ? 'true' : null"
+										:aria-disabled="exporting || pointCloud ? 'true' : null"
+										:aria-describedby="pointCloud ? 'tdv-unavailable-export' : null"
 										:aria-busy="exporting ? 'true' : 'false'"
 										@click="startExport">
 										{{ t('threedviewer', 'Export') }}
@@ -587,7 +615,8 @@
 								</div>
 								<button class="tool-btn"
 									:disabled="!modelLoaded"
-									@click="emit('send-to-slicer')">
+									v-bind="unavailable('export')"
+									@click="pointCloud || emit('send-to-slicer')">
 									<ViewerIcon class="tool-icon" name="sendToSlicer" :size="17" />
 									<span class="tool-label">{{ t('threedviewer', 'Send to Slicer') }}</span>
 								</button>
@@ -712,6 +741,8 @@ import { translate as t } from '@nextcloud/l10n'
 
 // Loaded only while embedding is on: most viewers never show it
 const EmbedCodeControl = defineAsyncComponent(() => import('./EmbedCodeControl.vue'))
+// Only a scan needs these, so they load with the first one
+const PointCloudControls = defineAsyncComponent(() => import('./PointCloudControls.vue'))
 
 export default {
 	name: 'SlideOutToolPanel',
@@ -720,6 +751,7 @@ export default {
 		ViewerIcon,
 		ToggleSwitchRow,
 		EmbedCodeControl,
+		PointCloudControls,
 	},
 
 	props: {
@@ -780,6 +812,10 @@ export default {
 		// "Copy embed code": offered while embedding is on and someone is signed in; the
 		// control itself asks whether they may share the model at modelPath
 		embedOffered: { type: Boolean, default: false },
+		// A scan's summary (ThreeViewer's model-loaded pointCloud), or null for a mesh
+		pointCloud: { type: Object, default: null },
+		colourBy: { type: String, default: 'height' },
+		pointSize: { type: Number, default: 2 },
 		modelPath: { type: String, default: null },
 		// The model's file id, for the link to its Sharing sidebar
 		fileId: { type: [Number, String], default: null },
@@ -815,6 +851,8 @@ export default {
 	},
 
 	emits: [
+		'set-colour-by',
+		'set-point-size',
 		'panel-opened',
 		'panel-closed',
 		'reset-view',
@@ -878,6 +916,7 @@ export default {
 
 		// Section collapse states
 		const sections = ref({
+			scan: true,
 			view: true,
 			scene: true,
 			analyze: true,
@@ -960,9 +999,19 @@ export default {
 			window.removeEventListener('keydown', handleKeyPress)
 		})
 
+		/**
+		 * What a control the scan has turned off carries: it stays in its place, says it is
+		 * unavailable, and is described by the line saying why (PointCloudControls).
+		 *
+		 * @param {string} key - A key of POINT_CLOUD_UNAVAILABLE
+		 * @return {object} Its attributes, or none for a mesh
+		 */
+		const unavailable = (key) => (props.pointCloud ? { 'aria-disabled': 'true', 'aria-describedby': `tdv-unavailable-${key}` } : {})
+
 		const startExport = () => {
 			// aria-disabled does not stop a click, so an export already running does
-			if (props.exporting || !props.modelLoaded) return
+			// A scan has nothing to export (pointclouds/unavailable.js)
+			if (props.exporting || !props.modelLoaded || props.pointCloud) return
 			emit('export-model', exportFormat.value)
 		}
 
@@ -1081,6 +1130,7 @@ export default {
 
 		return {
 			t,
+			unavailable,
 			showShareChoices,
 			publicLinkOpener,
 			closeShareChoices,

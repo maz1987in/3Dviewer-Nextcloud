@@ -21,7 +21,8 @@
  *                    for 3,000 mm, the same as one written in metres.
  *   x3d, wrl, vrml   metres by specification; both loaders keep the file's values.
  *   bim              dotbim is metres by specification.
- *   xyz              a scan; scanners write metres.
+ *   xyz              a scan; scanners write metres. Any scan (a PLY with no faces too)
+ *                    is metres unless its file records a unit; see `scanUnit`.
  *
  * millimetres
  *   stl, obj, ply, off, 3ds
@@ -227,8 +228,30 @@ export function viewerScale(root) {
 }
 
 // Formats whose files never record a unit, so one can be chosen for them (and FBX, when
-// the file has no UnitScaleFactor)
-const CHANGEABLE_FORMATS = new Set(['stl', 'obj', 'ply', 'off', '3ds'])
+// the file has no UnitScaleFactor, and a scan whose coordinate system names none)
+const CHANGEABLE_FORMATS = new Set(['stl', 'obj', 'ply', 'off', '3ds', 'las', 'laz', 'pcd', 'xyz'])
+
+/**
+ * A scan's record of itself (pointclouds/buildPointCloud.js); a PLY is one only when it
+ * has no faces, so this, not the extension, says a model is a scan.
+ *
+ * @param {?THREE.Object3D} root - The loaded model
+ * @return {?object} Its userData.tdvPointCloud, or null for a mesh
+ */
+function pointCloudOf(root) {
+	return recorded(root, (data) => data.tdvPointCloud) ?? null
+}
+
+/**
+ * The unit a scan's file records: from a LAS's coordinate system, or metres for E57.
+ *
+ * @param {?THREE.Object3D} root - The loaded model
+ * @return {?number} Millimetres per unit, or null when it records none
+ */
+function scanUnit(root) {
+	const unit = pointCloudOf(root)?.unit
+	return typeof unit === 'string' && Object.hasOwn(FILE_UNITS, unit) ? FILE_UNITS[unit].millimetres : null
+}
 
 /**
  * @param {?string} filename - The file (a path is fine)
@@ -250,6 +273,9 @@ export function isUnitChangeable(filename, root = null) {
 		return false
 	}
 	const extension = extensionOf(filename)
+	if (pointCloudOf(root)) {
+		return scanUnit(root) === null
+	}
 	return CHANGEABLE_FORMATS.has(extension) || (extension === 'fbx' && fbxUnit(root) === null)
 }
 
@@ -305,6 +331,10 @@ export function millimetresPerFileUnit(filename, root = null, chosenUnit = null)
 	const chosen = chosenMillimetres(filename, root, chosenUnit)
 	if (chosen !== null) {
 		return chosen
+	}
+	// A scan: the unit its file records, or metres, which scanners write
+	if (pointCloudOf(root)) {
+		return scanUnit(root) ?? METRE
 	}
 	const extension = extensionOf(filename)
 	if (extension === '3dm') {

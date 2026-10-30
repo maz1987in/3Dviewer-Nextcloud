@@ -23,6 +23,8 @@ import { generateUrl } from '@nextcloud/router'
 import { parseCameraState, CAMERA_URL_PARAM } from './cameraUrlState.js'
 import { LIGHTING_PRESETS } from '../config/lightingPresets.js'
 import { RENDER_MODES } from '../composables/useRenderMode.js'
+import { COLOUR_BY } from '../pointclouds/colourModes.js'
+import { POINT_SIZE } from '../pointclouds/limits.js'
 
 export const VIEW_PARAM = 'view'
 export const VIEW_VERSION = 1
@@ -47,6 +49,8 @@ const isVector = (v) => Array.isArray(v) && v.length === 3 && v.every((n) => isN
  * @property {{mode: 'plane', axis: string, position: number, flipped: boolean}|{mode: 'box', offsets: object}} [clipping]
  * @property {number} [exploded] - 0..1
  * @property {number} [note] - a shared note's id
+ * @property {number} [pointSize] - a scan's point size, in px (POINT_SIZE)
+ * @property {string} [colourBy] - what a scan is coloured by, one of COLOUR_BY
  */
 
 /**
@@ -91,6 +95,8 @@ export function encodeView(view) {
 	}
 	if (view.exploded !== undefined) out.e = round(view.exploded, 3)
 	if (view.note !== undefined) out.n = view.note
+	if (view.pointSize !== undefined) out.ps = Math.round(view.pointSize / POINT_SIZE.step) * POINT_SIZE.step
+	if (view.colourBy !== undefined) out.cb = view.colourBy
 	return `${VIEW_VERSION}.${toBase64Url(JSON.stringify(out))}`
 }
 
@@ -148,6 +154,8 @@ export function decodeView(raw) {
 	if (clipping) view.clipping = clipping
 	if (isNumber(data.e)) view.exploded = clamp(data.e, [0, 1])
 	if (Number.isSafeInteger(data.n) && data.n > 0) view.note = data.n
+	if (isNumber(data.ps)) view.pointSize = clamp(data.ps, [POINT_SIZE.min, POINT_SIZE.max])
+	if (COLOUR_BY.includes(data.cb)) view.colourBy = data.cb
 	return view
 }
 
@@ -284,9 +292,10 @@ export function isUsableCamera(position, target, box) {
  * @param {{isActive: boolean, mode: string, axis: string, position: number, flipped: boolean, boxOffsets: object}} state.clipping
  * @param {{isActive: boolean, factor: number}} state.exploded
  * @param {number|null} state.highlightedNoteId
+ * @param {?{pointSize: number, colourBy: string}} [state.pointCloud] - a scan's, when the model is one
  * @return {ViewState|null} null without a camera
  */
-export function captureViewState({ camera, controls, model, renderMode, wireframe, lightingPreset, clipping, exploded, highlightedNoteId }) {
+export function captureViewState({ camera, controls, model, renderMode, wireframe, lightingPreset, clipping, exploded, highlightedNoteId, pointCloud = null }) {
 	if (!camera?.position || !controls?.target) return null
 	const view = {
 		camera: cameraFromScene(camera, controls, model),
@@ -301,6 +310,10 @@ export function captureViewState({ camera, controls, model, renderMode, wirefram
 	}
 	if (exploded?.isActive) view.exploded = exploded.factor
 	if (highlightedNoteId) view.note = highlightedNoteId
+	if (pointCloud) {
+		view.pointSize = pointCloud.pointSize
+		view.colourBy = pointCloud.colourBy
+	}
 	return view
 }
 

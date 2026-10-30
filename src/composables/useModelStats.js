@@ -145,9 +145,13 @@ export function useModelStats() {
 		let vertices = 0
 		let faces = 0
 		let meshes = 0
+		let points = 0
 
 		object3D.traverse((child) => {
-			if (child.isMesh) {
+			if (child.isPoints) {
+				// A scan: points, never faces
+				points += child.geometry?.attributes.position?.count ?? 0
+			} else if (child.isMesh) {
 				meshes++
 				if (child.geometry) {
 					// Count vertices
@@ -174,6 +178,7 @@ export function useModelStats() {
 			vertices,
 			faces: Math.floor(faces),
 			meshes,
+			points,
 		}
 	}
 
@@ -404,12 +409,21 @@ export function useModelStats() {
 			// Reset selection on fresh analysis
 			selectedMeshUuid.value = null
 
+			// A scan's own account of itself (pointclouds/buildPointCloud.js)
+			const cloud = object3D.userData?.tdvPointCloud ?? null
+
 			// Create statistics object
 			const stats = {
 				// Geometry
 				vertices: geometryStats.vertices,
 				faces: geometryStats.faces,
 				meshes: geometryStats.meshes,
+
+				// A scan: points drawn, points in the file, and what each point records
+				isPointCloud: cloud !== null,
+				pointCount: geometryStats.points,
+				pointTotal: cloud?.total ?? geometryStats.points,
+				pointAttributes: cloud ? ['color', 'intensity', 'classification'].filter((key) => cloud.attributes[key]) : [],
 
 				// Materials
 				materials: materials.slice(0, 10), // Limit to 10 for display

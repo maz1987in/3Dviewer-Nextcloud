@@ -60,8 +60,8 @@ describe('the Export button', () => {
 	it('is off without a model and while an export runs, without dropping focus', () => {
 		expect(button).toContain(':disabled="!modelLoaded"')
 		// aria-disabled, not disabled, while running: a disabled button loses the keyboard's place
-		expect(button).toContain(':aria-disabled="exporting ?')
-		expect(PANEL).toMatch(/if \(props\.exporting \|\| !props\.modelLoaded\) return/)
+		expect(button).toMatch(/:aria-disabled="exporting (\|\| pointCloud )?\?/)
+		expect(PANEL).toMatch(/if \(props\.exporting \|\| !props\.modelLoaded( \|\| props\.pointCloud)?\) return/)
 	})
 
 	it('shows no hover or pressed look while an export runs', () => {

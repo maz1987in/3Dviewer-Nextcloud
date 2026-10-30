@@ -110,7 +110,7 @@ export function useAnnotation() {
 			// this tool's own two markers left the gizmo picker in, and a note clicked onto
 			// the model was placed on the picker instead.
 			const point = raycastIntersection(event, camera, sceneRef.value, {
-				filterMesh: (mesh) => mesh.isMesh && mesh.visible && !isHelperMesh(mesh),
+				filterMesh: (mesh) => (mesh.isMesh || mesh.isPoints) && mesh.visible && !isHelperMesh(mesh),
 				recursive: false,
 			})
 

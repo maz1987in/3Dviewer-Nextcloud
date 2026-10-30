@@ -3,8 +3,9 @@
  * attribute on the CPU, so the ordinary PointsMaterial, clipping and the thumbnail
  * renderer all draw them without a shader of their own.
  */
+import { COLOUR_BY } from './colourModes.js'
 
-export const COLOUR_BY = Object.freeze(['file', 'height', 'intensity', 'classification', 'single'])
+export { COLOUR_BY }
 
 /** Low to high. */
 const HEIGHT_RAMP = [0x30123b, 0x4686fb, 0x1be5b5, 0xa4fc3c, 0xfb8022, 0x7a0403]

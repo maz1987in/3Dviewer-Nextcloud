@@ -54,3 +54,134 @@ test('cancel while a scan is read leaves no model and no error', async ({ page }
 	expect(await scene(page)).toEqual({ points: false, count: null })
 	expect(errors).toEqual([])
 })
+
+/** The cloud as the viewer holds it. */
+const cloud = (page: Page) => page.evaluate(() => {
+	const viewer = (window as any).__THREEDVIEWER_APP.$.subTree.component.proxy.$refs.viewer
+	const root = viewer.modelRoot
+	const colours = root.geometry.getAttribute('color').array
+	return { colourBy: root.userData.tdvPointCloud.colourBy, size: root.material.size, colour: Array.from(colours.slice(0, 3)) }
+})
+
+/**
+ * Two of the cloud's points that are drawn on bare canvas, nothing over them, as far
+ * apart on screen as can be found: where each is drawn, nudged by `offset` px, and where
+ * it is in the world.
+ */
+const twoOnScreen = (page: Page, offset: number) => page.evaluate((d) => {
+	const viewer = (window as any).__THREEDVIEWER_APP.$.subTree.component.proxy.$refs.viewer
+	const root = viewer.modelRoot
+	const camera = viewer.camera.camera.value
+	const canvas = viewer.renderer.domElement
+	const rect = canvas.getBoundingClientRect()
+	root.updateMatrixWorld(true)
+	const position = root.geometry.getAttribute('position')
+	const seen = []
+	for (let i = 0; i < position.count; i += 37) {
+		const p = new root.position.constructor().fromBufferAttribute(position, i).applyMatrix4(root.matrixWorld)
+		const world = p.toArray()
+		p.project(camera)
+		const x = rect.left + (p.x + 1) / 2 * rect.width + d
+		const y = rect.top + (1 - p.y) / 2 * rect.height + d
+		if (document.elementFromPoint(x, y) === canvas) {
+			seen.push({ x, y, world })
+		}
+	}
+	let best = [seen[0], seen[1]]
+	for (const a of seen) {
+		for (const b of seen) {
+			if (Math.hypot(a.x - b.x, a.y - b.y) > Math.hypot(best[0].x - best[1].x, best[0].y - best[1].y)) best = [a, b]
+		}
+	}
+	return best
+}, offset)
+
+const panel = (page: Page) => page.locator('.slide-out-panel')
+
+test('the scan\'s controls, and the tools that are off and why', async ({ page }) => {
+	const { errors } = await openViewer(page, server.url, CUBE_RGB)
+
+	await expect(page.locator('#tdv-colour-by')).toHaveValue('file')
+	/** A tool button by its visible label: its name also carries its shortcut hint. */
+	const tool = (name: string) => panel(page).locator('button', { has: page.locator('.tool-label', { hasText: new RegExp(`^${name}$`) }) })
+	const describedBy = async (name: string, key: string) => {
+		const control = tool(name)
+		await expect(control).toHaveAttribute('aria-disabled', 'true')
+		await expect(control).toHaveAttribute('aria-describedby', `tdv-unavailable-${key}`)
+	}
+	await describedBy('Print check', 'printCheck')
+	await describedBy('Comparison', 'compare')
+	await expect(page.locator('#tdv-unavailable-printCheck')).toContainText('nothing to check for printing')
+	for (const mode of ['Clay', 'Normals', 'X-ray']) {
+		await expect(panel(page).getByRole('button', { name: mode, exact: true })).toHaveAttribute('aria-describedby', 'tdv-unavailable-shading')
+	}
+	await expect(panel(page).getByRole('switch', { name: 'Wireframe' })).toHaveAttribute('aria-disabled', 'true')
+	await expect(panel(page).getByRole('switch', { name: 'Wireframe' })).toHaveAttribute('aria-describedby', 'tdv-unavailable-shading')
+	await expect(panel(page).locator('[aria-describedby="tdv-unavailable-export"]').first()).toHaveAttribute('aria-disabled', 'true')
+
+	// Pressing one does nothing; it stays focusable, so a keyboard user can hear why
+	await tool('Print check').focus()
+	await page.keyboard.press('Enter')
+	await expect(page.locator('.print-check-card')).toHaveCount(0)
+	expect(errors).toEqual([])
+})
+
+test('colour by and point size change the cloud', async ({ page }) => {
+	await openViewer(page, server.url, CUBE_RGB)
+	const before = await cloud(page)
+	expect(before).toMatchObject({ colourBy: 'file', size: 2 })
+
+	await page.locator('#tdv-colour-by').selectOption('single')
+	await page.locator('#tdv-point-size').fill('5')
+
+	await expect.poll(() => cloud(page)).toMatchObject({ colourBy: 'single', size: 5, colour: [0x8f, 0xa3, 0xb3] })
+})
+
+test('measurement snaps to a point', async ({ page }) => {
+	await openViewer(page, server.url, CUBE_RGB)
+	await panel(page).getByText('Measurement', { exact: true }).click()
+
+	// Two points of the cloud, each clicked a little off
+	const [a, b] = await twoOnScreen(page, 2)
+	await page.mouse.click(a.x, a.y)
+	await page.mouse.click(b.x, b.y)
+
+	const picked = await page.evaluate(() => {
+		const viewer = (window as any).__THREEDVIEWER_APP.$.subTree.component.proxy.$refs.viewer
+		const [m] = viewer.measurement.measurements.value
+		return m ? [m.point1.toArray(), m.point2.toArray()] : null
+	})
+	expect(picked).not.toBeNull()
+	picked!.forEach((point, i) => point.forEach((v, axis) => expect(v).toBeCloseTo([a, b][i].world[axis], 4)))
+})
+
+test('a view link restores colour by and point size', async ({ page }) => {
+	const view = `1.${Buffer.from(JSON.stringify({ c: { p: [25, 20, 25], t: [0, 0, 0], z: 1, o: 0 }, ps: 4, cb: 'height' })).toString('base64url')}`
+	await openViewer(page, server.url, CUBE_RGB, { user: 'alice', query: `view=${view}` })
+
+	await expect.poll(() => cloud(page)).toMatchObject({ colourBy: 'height', size: 4 })
+	await expect(page.locator('#tdv-colour-by')).toHaveValue('height')
+	await expect(page.locator('#tdv-point-size')).toHaveValue('4')
+})
+
+test('the cross-section cuts the cloud', async ({ page }) => {
+	await openViewer(page, server.url, CUBE_RGB)
+
+	await panel(page).getByText('Cross-Section', { exact: true }).click()
+
+	await expect.poll(() => page.evaluate(() => (window as any).__THREEDVIEWER_APP.$.subTree.component.proxy.$refs.viewer.renderer.clippingPlanes.length)).toBeGreaterThan(0)
+	expect(await scene(page)).toMatchObject({ points: true })
+})
+
+test('the transform gizmo moves a scan', async ({ page }) => {
+	await openViewer(page, server.url, CUBE_RGB)
+
+	// The gizmo stays on only once it has attached to the model root, the scan
+	const active = await page.evaluate(() => {
+		const viewer = (window as any).__THREEDVIEWER_APP.$.subTree.component.proxy.$refs.viewer
+		viewer.toggleTransformGizmo()
+		return viewer.transformGizmo.isActive.value
+	})
+
+	expect(active).toBe(true)
+})

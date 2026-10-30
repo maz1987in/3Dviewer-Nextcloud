@@ -89,6 +89,40 @@ describe('a view in a link', () => {
 	})
 })
 
+describe('a scan\'s view', () => {
+	const scan = { camera: full.camera, pointSize: 3.5, colourBy: 'intensity' }
+
+	it('round-trips point size and colour by', () => {
+		const view = decodeView(encodeView(scan))
+		expect(view.pointSize).toBe(3.5)
+		expect(view.colourBy).toBe('intensity')
+	})
+
+	it('rounds the point size to the slider\'s step', () => {
+		expect(decodeView(encodeView({ ...scan, pointSize: 3.3 })).pointSize).toBe(3.5)
+	})
+
+	it('clamps a point size out of range', () => {
+		expect(decodeView(raw({ c: { p: [0, 0, 5], t: [0, 0, 0], z: 1, o: 0 }, ps: 99 })).pointSize).toBe(10)
+		expect(decodeView(raw({ c: { p: [0, 0, 5], t: [0, 0, 0], z: 1, o: 0 }, ps: -4 })).pointSize).toBe(1)
+		expect(decodeView(raw({ c: { p: [0, 0, 5], t: [0, 0, 0], z: 1, o: 0 }, ps: 'big' })).pointSize).toBeUndefined()
+	})
+
+	it('drops a colour by it doesn\'t know, and keeps the rest', () => {
+		const view = decodeView(raw({ c: { p: [0, 0, 5], t: [0, 0, 0], z: 1, o: 0 }, cb: 'rainbow', r: 'clay' }))
+		expect(view.colourBy).toBeUndefined()
+		expect(view.renderMode).toBe('clay')
+	})
+
+	it('is captured only for a scan', () => {
+		const base = { camera: { position: new THREE.Vector3(0, 0, 5), zoom: 1, isOrthographicCamera: false }, controls: { target: new THREE.Vector3() }, renderMode: 'standard', wireframe: false, lightingPreset: 'default' }
+		expect(captureViewState({ ...base, pointCloud: { pointSize: 4, colourBy: 'height' } })).toMatchObject({ pointSize: 4, colourBy: 'height' })
+		const mesh = captureViewState(base)
+		expect(mesh.pointSize).toBeUndefined()
+		expect(mesh.colourBy).toBeUndefined()
+	})
+})
+
 describe('reading the view from the page URL', () => {
 	it('reads the legacy cam parameter, which is in the full viewer\'s scene', () => {
 		const view = readViewFromUrl('?cam=1,2,3,0,0,0,1')
