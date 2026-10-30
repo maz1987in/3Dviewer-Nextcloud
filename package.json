@@ -60,7 +60,7 @@
     "web-ifc": "^0.0.78"
   },
   "devDependencies": {
-    "@babel/core": "^8.0.7",
+    "@babel/core": "^8.0.9",
     "@babel/preset-env": "^8.0.7",
     "@babel/preset-typescript": "^8.0.7",
     "@nextcloud/browserslist-config": "^3.1.2",
