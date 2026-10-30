@@ -210,6 +210,9 @@ async function readBinary(blob, header, layout, add, { onProgress, signal }) {
 }
 
 /**
+ * @param {Blob} blob - The file
+ * @param {object} header - From plyHeader
+ * @param {object} layout - From layoutOf
  * @return {Promise<number[]>} Up to a thousand intensities from the start of the file
  */
 async function firstIntensities(blob, header, layout) {

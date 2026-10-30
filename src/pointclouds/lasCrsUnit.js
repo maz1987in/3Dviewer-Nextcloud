@@ -76,8 +76,7 @@ function geoKeysUnit(directory, doubles) {
 function blockEnd(text, open) {
 	let depth = 0
 	for (let i = open; i < text.length; i++) {
-		if (text[i] === '[') depth++
-		else if (text[i] === ']' && --depth === 0) return i + 1
+		if (text[i] === '[') { depth++ } else if (text[i] === ']' && --depth === 0) { return i + 1 }
 	}
 	return text.length
 }

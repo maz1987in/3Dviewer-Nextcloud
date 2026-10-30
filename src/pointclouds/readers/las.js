@@ -27,11 +27,11 @@ const MIN_RECORD = { 0: 20, 1: 28, 2: 26, 3: 34, 4: 57, 5: 63, 6: 30, 7: 36, 8: 
 /** Records looked at first, to decide the attributes and the colour depth. */
 const SAMPLE = 1000
 
-const text = (view, at, length) => {
+function text(view, at, length) {
 	let s = ''
 	for (let i = 0; i < length; i++) {
 		const c = view.getUint8(at + i)
-		if (c === 0) break
+		if (c === 0) { break }
 		s += String.fromCharCode(c)
 	}
 	return s
@@ -171,9 +171,8 @@ function attributesOf(view, records, header, layout) {
 }
 
 /**
- * Reads point records into the sink, a window at a time.
+ * What adds one point record to the sink.
  *
- * @param {Blob} blob - The file, or the records alone
  * @param {object} header - From lasHeader
  * @param {object} layout - From recordLayout
  * @param {object} attributes - From attributesOf
@@ -252,6 +251,9 @@ const LAZ_FORMATS = new Set([0, 1, 2, 3, 6, 7, 8])
  * @param {Blob} blob - The file
  * @param {object} header - From lasHeader
  * @param {object} options - As for read
+ * @param {number} options.budget - Points kept at most
+ * @param {function(number): void} options.onProgress - Told the fraction read
+ * @param {AbortSignal} [options.signal] - Stops the read between chunks
  * @return {Promise<object>} The finished sink
  */
 async function readLaz(blob, header, { budget, onProgress, signal }) {
