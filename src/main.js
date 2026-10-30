@@ -65,6 +65,7 @@ const SUPPORTED_MIMES = [
 	'model/brep', // .brep, .brp — OpenCascade native B-Rep
 	'application/x-brep', // BREP alternative MIME
 	'application/x-fcstd', // .fcstd — FreeCAD document
+	'application/x-xyz-pointcloud', // .xyz — point cloud as text
 ]
 
 // Mode 1: Register simple viewer handler with Viewer API (modal preview)

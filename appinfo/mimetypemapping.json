@@ -34,6 +34,7 @@
     "brep": "model/brep",
     "brp": "model/brep",
     "fcstd": "application/x-fcstd",
+    "xyz": "application/x-xyz-pointcloud",
     "mtl": "text/plain"
   }
 }

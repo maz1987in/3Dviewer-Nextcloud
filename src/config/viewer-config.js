@@ -710,6 +710,15 @@ export const SUPPORTED_FORMATS = {
 		displayOrder: 33,
 		icon: imagePath('threedviewer', 'filetypes/fcstd.svg'),
 	},
+	xyz: {
+		name: 'XYZ',
+		description: 'Point cloud as text',
+		mimeType: 'application/x-xyz-pointcloud',
+		features: ['pointcloud'],
+		multiFile: false,
+		displayOrder: 34,
+		icon: imagePath('threedviewer', 'filetypes/xyz.svg'),
+	},
 }
 
 /**

@@ -58,6 +58,9 @@ const BUDGETS = [
   // three-mesh-bvh and the parts of three.js they use. Loaded only when someone opens Print
   // check. 142.1 KB raw / 41.3 KB gzip when added, budgeted at that plus 10%.
   { pattern: /^print-check-worker-[\w-]+\.mjs$/, name: 'print-check-worker', maxRaw: 156000, maxGzip: 45500 },
+  // The point-cloud worker's entry: it picks a reader for the file and sends the points
+  // back. Each reader is a chunk of its own, loaded for its format only.
+  { pattern: /^point-cloud-worker-[\w-]+\.mjs$/, name: 'point-cloud-worker', maxRaw: 40000, maxGzip: 14000 },
 ];
 
 const buildDir = path.resolve(process.cwd(), 'js');

@@ -21,6 +21,7 @@
  *                    for 3,000 mm, the same as one written in metres.
  *   x3d, wrl, vrml   metres by specification; both loaders keep the file's values.
  *   bim              dotbim is metres by specification.
+ *   xyz              a scan; scanners write metres.
  *
  * millimetres
  *   stl, obj, ply, off, 3ds
@@ -94,6 +95,8 @@ export const SOURCE_UNITS = Object.freeze({
 	brep: MILLIMETRE,
 	brp: MILLIMETRE,
 	fcstd: MILLIMETRE,
+	// Scans: scanners write metres
+	xyz: METRE,
 	fbx: CENTIMETRE,
 	gcode: MILLIMETRE,
 })

@@ -170,7 +170,7 @@ class SupportedFormatsTest extends TestCase
      */
     public function testUnsupportedExtensionsReturnDefault(): void
     {
-        $unsupportedExtensions = ['xyz', 'unknown', 'test'];
+        $unsupportedExtensions = ['qqq', 'unknown', 'test'];
 
         foreach ($unsupportedExtensions as $ext) {
             $this->assertFalse(

@@ -34,12 +34,16 @@ export type ViewerModel = { id: number, name: string, body: string | Buffer }
  *
  * `embedEnabled` is what the viewer page says about embedding: whether the admin lists
  * any site (the `embed` initial state).
+ *
+ * `fileGate` holds the file's answer back until it resolves, and `loads: false` returns
+ * without waiting for a model, for a load that is cancelled or fails.
  */
 export type Viewer = {
 	user?: string | null, publicToken?: string | null, dir?: string, query?: string, notes?: object[], openPanel?: boolean, lite?: boolean,
 	unit?: string | null, unitCanEdit?: boolean, unitSaveStatus?: number, unitGate?: Promise<void>,
 	embed?: { shareUrl: string, downloadUrl: string | null } | 'gone' | number,
 	embedEnabled?: boolean,
+	fileGate?: Promise<void>, loads?: boolean,
 }
 
 const EMBED_PATH = '/index.php/apps/threedviewer/embed/'
@@ -134,7 +138,10 @@ export async function openViewer(page: Page, url: string, model: ViewerModel, vi
 	const fileRoute = viewer.publicToken
 		? `**/apps/threedviewer/public/file/${viewer.publicToken}/${model.id}*`
 		: `**/apps/threedviewer/api/file/${model.id}*`
-	await page.route(fileRoute, (route) => route.fulfill({ status: 200, contentType: 'application/octet-stream', body: model.body }))
+	await page.route(fileRoute, async (route) => {
+		await viewer.fileGate
+		await route.fulfill({ status: 200, contentType: 'application/octet-stream', body: model.body })
+	})
 	// Unanswered, the viewer would report its shared notes as not loaded
 	await page.route(/\/(api|public)\/notes\//, (route) => route.fulfill({
 		status: 200,
@@ -175,6 +182,9 @@ export async function openViewer(page: Page, url: string, model: ViewerModel, vi
 	if (viewer.lite) {
 		// The light viewer shows its own buttons once the model is in
 		await page.waitForSelector('.viewer-bottom-actions', { timeout: 30000 })
+		return { errors, unitPuts }
+	}
+	if (viewer.loads === false) {
 		return { errors, unitPuts }
 	}
 	await page.waitForFunction(() => (window as any).__LOAD_COMPLETE === true, null, { timeout: 30000 })

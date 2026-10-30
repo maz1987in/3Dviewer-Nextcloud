@@ -183,6 +183,7 @@ import { computeCameraFit } from '../thumbnails/cameraFit.js'
 import { buildViewUrl, cameraFromScene, cameraToScene, isUsableCamera, takeViewFromUrl, viewerLinkBase } from '../utils/viewLink.js'
 import { copyText } from '../utils/clipboard.js'
 import { createFileSettingsApi } from '../utils/fileSettingsApi.js'
+import { isScanExtension } from '../pointclouds/scanExtensions.js'
 import { defaultDisplayUnit, displayLengthFactor, isUnitChangeable, millimetresPerFileUnit, millimetresPerUnit } from '../utils/sourceUnits.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
 
@@ -1081,8 +1082,18 @@ export default {
 				const contentLength = response.headers.get('content-length')
 				const total = contentLength ? parseInt(contentLength, 10) : 0
 
+				const downloading = (receivedLength) => {
+					// Progress 0-50% for download
+					const downloadProgress = total > 0 ? Math.round((receivedLength / total) * 50) : 0
+					this.updateProgress(true, downloadProgress, this.t('threedviewer', 'Downloading model...'), `${Math.round(receivedLength / 1024 / 1024 * 10) / 10} MB / ${Math.round(total / 1024 / 1024 * 10) / 10} MB`, false)
+				}
+
 				let arrayBuffer
-				if (total > 0 && response.body) {
+				if (isScanExtension(extension)) {
+					// A scan stays a Blob, which the scan reader takes a window at a time
+					const { readScanBody } = await import('../pointclouds/blobReader.js')
+					arrayBuffer = await readScanBody(response, { onBytes: downloading })
+				} else if (total > 0 && response.body) {
 					// Track download progress
 					const reader = response.body.getReader()
 					const chunks = []
@@ -1095,10 +1106,7 @@ export default {
 
 						chunks.push(value)
 						receivedLength += value.length
-
-						// Update progress (0-50% for download)
-						const downloadProgress = Math.round((receivedLength / total) * 50)
-						this.updateProgress(true, downloadProgress, this.t('threedviewer', 'Downloading model...'), `${Math.round(receivedLength / 1024 / 1024 * 10) / 10} MB / ${Math.round(total / 1024 / 1024 * 10) / 10} MB`, false)
+						downloading(receivedLength)
 					}
 
 					// Combine chunks into array buffer
@@ -1115,7 +1123,7 @@ export default {
 					arrayBuffer = await response.arrayBuffer()
 				}
 
-				logger.info('ViewerComponent', 'Downloaded model data', { bytes: arrayBuffer.byteLength })
+				logger.info('ViewerComponent', 'Downloaded model data', { bytes: arrayBuffer.byteLength ?? arrayBuffer.size })
 
 				// Dynamically load the appropriate loader from registry
 				this.updateProgress(true, 50, this.t('threedviewer', 'Loading 3D loader...'), '', false)
@@ -1128,6 +1136,7 @@ export default {
 					renderer: this.renderer,
 					wireframe: false,
 					fileExtension: extension,
+					fileName: this.effectiveFilename,
 					applyWireframe: (enabled) => {
 						// Simple wireframe toggle implementation
 						this.scene.traverse((child) => {
