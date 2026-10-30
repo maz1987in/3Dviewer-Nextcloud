@@ -41,12 +41,12 @@ class PublicFileSettingsControllerTest extends TestCase
         $file = $this->createMock(File::class);
         $file->method('getId')->willReturn(7);
         $settings = $this->createMock(FileSettingsService::class);
-        $settings->expects($this->once())->method('unit')->with(7)->willReturn('in');
+        $settings->expects($this->once())->method('settings')->with(7)->willReturn(['unit' => 'in', 'up' => '-z']);
 
         $response = $this->controller($this->createMock(IShare::class), $settings, $file)->show('tok', 99);
 
         $this->assertSame(200, $response->getStatus());
-        $this->assertSame(['canEdit' => false, 'unit' => 'in'], $response->getData());
+        $this->assertSame(['canEdit' => false, 'unit' => 'in', 'up' => '-z'], $response->getData());
     }
 
     public function testAFileOutsideTheShareIs404(): void

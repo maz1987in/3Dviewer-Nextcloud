@@ -75,6 +75,21 @@ class WriteRoutesCsrfHttpTest extends HttpTestCase
         $this->assertSame('in', self::json($this->basic($uid)->get($url))['unit']);
     }
 
+    public function testSavingUpNeedsTheRequestToken(): void
+    {
+        $uid = $this->newUser();
+        $scan = $this->newModel($uid, 'scan.las');
+        [$client, $token] = $this->session($uid);
+        $url = self::settingsUrl($scan->getId());
+        $body = ['json' => ['up' => '+z']];
+
+        $this->assertSame(412, $client->put($url, $body)->getStatusCode());
+        $this->assertNull(self::json($this->basic($uid)->get($url))['up'], 'the rejected request must not have saved anything');
+
+        $this->assertSame(200, $client->put($url, $body + ['headers' => ['requesttoken' => $token]])->getStatusCode());
+        $this->assertSame('+z', self::json($this->basic($uid)->get($url))['up']);
+    }
+
     public function testSavingTheEmbedSitesNeedsTheRequestToken(): void
     {
         $before = self::storedEmbedOrigins();

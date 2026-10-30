@@ -132,6 +132,16 @@ class SupportedFormats
      * Every entry must also appear in CONTENT_TYPE_MAP, since these are streamed;
      * FormatSyncTest holds that line.
      */
+    /**
+     * Formats that hold scans, which the viewer thins as it reads (src/pointclouds/limits.js),
+     * so they may run to SCAN_MAX_BYTES. A PLY may be a scan or a mesh; the viewer refuses
+     * a mesh PLY over the ordinary limit itself.
+     */
+    public const POINT_CLOUD_EXTENSIONS = ['las', 'laz', 'e57', 'pcd', 'xyz', 'ply'];
+
+    /** The largest scan the viewer opens; the viewer's SCAN_CEILING_BYTES. */
+    public const SCAN_MAX_BYTES = 2 * 1024 * 1024 * 1024;
+
     public const DEPENDENCY_EXTENSIONS = [
         'mtl',
         'bin',

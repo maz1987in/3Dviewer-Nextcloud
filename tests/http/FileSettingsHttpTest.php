@@ -25,9 +25,9 @@ class FileSettingsHttpTest extends HttpTestCase
 
         $saved = $this->basic($owner)->put(self::settingsUrl($model->getId()), ['json' => ['unit' => 'in']]);
         $this->assertSame(200, $saved->getStatusCode());
-        $this->assertSame(['canEdit' => true, 'unit' => 'in'], self::json($saved));
+        $this->assertSame(['canEdit' => true, 'unit' => 'in', 'up' => null], self::json($saved));
 
-        $this->assertSame(['canEdit' => false, 'unit' => 'in'], self::json($this->basic($reader)->get(self::settingsUrl($model->getId()))));
+        $this->assertSame(['canEdit' => false, 'unit' => 'in', 'up' => null], self::json($this->basic($reader)->get(self::settingsUrl($model->getId()))));
     }
 
     public function testAReadOnlyRecipientCannotSetIt(): void
@@ -85,7 +85,7 @@ class FileSettingsHttpTest extends HttpTestCase
 
         $cleared = $client->put(self::settingsUrl($model->getId()), ['json' => ['unit' => null]]);
 
-        $this->assertSame(['canEdit' => true, 'unit' => null], self::json($cleared));
+        $this->assertSame(['canEdit' => true, 'unit' => null, 'up' => null], self::json($cleared));
     }
 
     public function testASaveWithoutAUnitIsRefusedAndKeepsTheUnit(): void
@@ -97,6 +97,53 @@ class FileSettingsHttpTest extends HttpTestCase
 
         $this->assertSame(400, $client->put(self::settingsUrl($model->getId()), ['json' => []])->getStatusCode());
         $this->assertSame('in', self::json($client->get(self::settingsUrl($model->getId())))['unit']);
+    }
+
+    public function testAnEditorSetsUpAndAViewerReadsIt(): void
+    {
+        $owner = $this->newUser();
+        $reader = $this->newUser();
+        $scan = $this->newModel($owner, 'scan.las');
+        $this->shareWithUser($scan, $owner, $reader, Constants::PERMISSION_READ);
+
+        $saved = $this->basic($owner)->put(self::settingsUrl($scan->getId()), ['json' => ['up' => '+z']]);
+        $this->assertSame(['canEdit' => true, 'unit' => null, 'up' => '+z'], self::json($saved));
+
+        $this->assertSame(['canEdit' => false, 'unit' => null, 'up' => '+z'], self::json($this->basic($reader)->get(self::settingsUrl($scan->getId()))));
+        $this->assertSame(403, $this->basic($reader)->put(self::settingsUrl($scan->getId()), ['json' => ['up' => '-y']])->getStatusCode());
+    }
+
+    public function testUpCannotBeSetOnAMesh(): void
+    {
+        $owner = $this->newUser();
+        $model = $this->newModel($owner);
+
+        $this->assertSame(400, $this->basic($owner)->put(self::settingsUrl($model->getId()), ['json' => ['up' => '+z']])->getStatusCode());
+    }
+
+    public function testClearingTheUpKeepsTheUnit(): void
+    {
+        $owner = $this->newUser();
+        $scan = $this->newModel($owner, 'scan.las');
+        $client = $this->basic($owner);
+        $client->put(self::settingsUrl($scan->getId()), ['json' => ['unit' => 'ft', 'up' => '-y']]);
+
+        $cleared = $client->put(self::settingsUrl($scan->getId()), ['json' => ['up' => null]]);
+
+        $this->assertSame(['canEdit' => true, 'unit' => 'ft', 'up' => null], self::json($cleared));
+    }
+
+    public function testAPublicVisitorReadsUp(): void
+    {
+        $owner = $this->newUser();
+        // A format the share routes serve today; las joins them with its loader
+        $scan = $this->newModel($owner, 'scan.ply');
+        $this->basic($owner)->put(self::settingsUrl($scan->getId()), ['json' => ['up' => '-z']]);
+        $token = $this->shareByLink($scan, $owner);
+
+        $answer = self::json($this->anonymous()->get(self::publicSettingsUrl($token, $scan->getId()), ['headers' => ['OCS-APIRequest' => 'true']]));
+
+        $this->assertSame(['canEdit' => false, 'unit' => null, 'up' => '-z'], $answer);
     }
 
     public function testASessionWriteWithoutTheRequestTokenIsRejected(): void
@@ -122,7 +169,7 @@ class FileSettingsHttpTest extends HttpTestCase
         $url = self::publicSettingsUrl($token, $model->getId());
         $headers = ['OCS-APIRequest' => 'true'];
 
-        $this->assertSame(['canEdit' => false, 'unit' => 'in'], self::json($this->anonymous()->get($url, ['headers' => $headers])));
+        $this->assertSame(['canEdit' => false, 'unit' => 'in', 'up' => null], self::json($this->anonymous()->get($url, ['headers' => $headers])));
         foreach (['POST', 'PUT', 'PATCH', 'DELETE'] as $method) {
             $status = $this->anonymous()->request($method, $url, ['json' => ['unit' => 'cm'], 'headers' => $headers])->getStatusCode();
             $this->assertGreaterThanOrEqual(400, $status, "$method on the public route must fail");

@@ -82,6 +82,6 @@ class PublicFileSettingsController extends PublicShareController
         }
 
         // The id of the file the share resolved to, never the id the caller sent
-        return new JSONResponse(['canEdit' => false, 'unit' => $this->settings->unit($file->getId())]);
+        return new JSONResponse(['canEdit' => false] + $this->settings->settings($file->getId()));
     }
 }

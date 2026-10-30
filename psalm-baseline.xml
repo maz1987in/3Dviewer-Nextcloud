@@ -598,12 +598,14 @@
     <MissingPropertyType>
       <code><![CDATA[$fileId]]></code>
       <code><![CDATA[$unit]]></code>
+      <code><![CDATA[$up]]></code>
       <code><![CDATA[$updatedAt]]></code>
       <code><![CDATA[$updatedBy]]></code>
     </MissingPropertyType>
     <PossiblyUnusedProperty>
       <code><![CDATA[$fileId]]></code>
       <code><![CDATA[$unit]]></code>
+      <code><![CDATA[$up]]></code>
       <code><![CDATA[$updatedAt]]></code>
       <code><![CDATA[$updatedBy]]></code>
     </PossiblyUnusedProperty>
@@ -737,6 +739,12 @@
       <code><![CDATA[$table]]></code>
       <code><![CDATA[$table]]></code>
       <code><![CDATA[$table]]></code>
+      <code><![CDATA[$table]]></code>
+      <code><![CDATA[$table]]></code>
+    </UndefinedDocblockClass>
+  </file>
+  <file src="lib/Migration/Version031000Date20261030000000.php">
+    <UndefinedDocblockClass>
       <code><![CDATA[$table]]></code>
       <code><![CDATA[$table]]></code>
     </UndefinedDocblockClass>
@@ -1273,6 +1281,14 @@
     </UndefinedClass>
     <UnusedClass>
       <code><![CDATA[Version031000Date20261029000000Test]]></code>
+    </UnusedClass>
+  </file>
+  <file src="tests/unit/Migration/Version031000Date20261030000000Test.php">
+    <UndefinedClass>
+      <code><![CDATA[TestCase]]></code>
+    </UndefinedClass>
+    <UnusedClass>
+      <code><![CDATA[Version031000Date20261030000000Test]]></code>
     </UnusedClass>
   </file>
   <file src="tests/unit/NoPrivateServerApiTest.php">

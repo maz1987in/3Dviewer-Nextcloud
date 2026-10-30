@@ -50,15 +50,17 @@ class FileSettingsController extends BaseController
             return $this->notFound();
         }
 
-        return new JSONResponse(['canEdit' => $access->canEdit, 'unit' => $this->settings->unit($fileId)]);
+        return new JSONResponse(['canEdit' => $access->canEdit] + $this->settings->settings($fileId));
     }
 
     /**
-     * @param mixed $unit decoded JSON body field, validated by FileSettingsService
+     * Saves the body's `unit` and/or `up`, read from the request rather than as arguments:
+     * a field that is present but null clears that setting, and one left out is kept.
+     * FileSettingsService validates them.
      */
     #[NoAdminRequired]
     #[FrontpageRoute(verb: 'PUT', url: '/api/file-settings/{fileId}')]
-    public function update(int $fileId, mixed $unit = null): JSONResponse
+    public function update(int $fileId): JSONResponse
     {
         [$uid, $access] = $this->resolve($fileId);
         if ($access === null) {
@@ -67,18 +69,19 @@ class FileSettingsController extends BaseController
         if (!$access->canEdit) {
             return new JSONResponse(['error' => 'This model is view-only for you'], Http::STATUS_FORBIDDEN);
         }
-        // `null` clears the unit; a body without the field is a mistake, not a request to
-        if (!array_key_exists('unit', $this->request->getParams())) {
-            return new JSONResponse(['error' => 'No unit given'], Http::STATUS_BAD_REQUEST);
+        // `null` clears a setting; a body with neither field is a mistake, not a request to
+        $changes = array_intersect_key($this->request->getParams(), ['unit' => true, 'up' => true]);
+        if ($changes === []) {
+            return new JSONResponse(['error' => 'Nothing to change'], Http::STATUS_BAD_REQUEST);
         }
 
         try {
-            $stored = $this->settings->setUnit($fileId, $access->fileName, $unit, $uid);
+            $stored = $this->settings->set($fileId, $access->fileName, $changes, $uid);
         } catch (InvalidFileSettingException $e) {
             return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
         }
 
-        return new JSONResponse(['canEdit' => true, 'unit' => $stored]);
+        return new JSONResponse(['canEdit' => true] + $stored);
     }
 
     /**

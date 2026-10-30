@@ -109,6 +109,60 @@ class FileControllerTest extends TestCase
         $this->assertInstanceOf(StreamResponse::class, $response);
     }
 
+    /** Scans run to gigabytes; the viewer thins them as it reads (src/pointclouds/limits.js). */
+    public function testAScanUpToTheCeilingIsServed(): void
+    {
+        $this->responseBuilder->method('buildStreamResponse')->willReturn(new StreamResponse(fopen('php://memory', 'r')));
+
+        $this->assertInstanceOf(StreamResponse::class, $this->serveSized('scan.laz', 'laz', (int) (1.5 * 1024 ** 3)));
+    }
+
+    public function testAScanOverTheCeilingIsRefused(): void
+    {
+        $this->responseBuilder->expects($this->once())->method('createErrorResponse')
+            ->with('File too large', 413, $this->callback(fn (array $details) => $details['max_size'] === '2 GB'))
+            ->willReturn(new \OCP\AppFramework\Http\JSONResponse([], 413));
+
+        $this->assertSame(413, $this->serveSized('scan.las', 'las', 3 * 1024 ** 3)->getStatus());
+    }
+
+    public function testAMeshOverFiveHundredMegabytesIsStillRefused(): void
+    {
+        $this->responseBuilder->expects($this->once())->method('createErrorResponse')
+            ->with('File too large', 413, $this->callback(fn (array $details) => $details['max_size'] === '500 MB'))
+            ->willReturn(new \OCP\AppFramework\Http\JSONResponse([], 413));
+
+        $this->assertSame(413, $this->serveSized('part.stl', 'stl', 600 * 1024 ** 2)->getStatus());
+    }
+
+    private function serveSized(string $name, string $extension, int $size): StreamResponse|\OCP\AppFramework\Http\JSONResponse
+    {
+        $file = $this->createMock(File::class);
+        $file->method('getId')->willReturn(42);
+        $file->method('getName')->willReturn($name);
+        $file->method('getExtension')->willReturn($extension);
+        $file->method('getSize')->willReturn($size);
+        $file->method('fopen')->willReturn(fopen('php://memory', 'r'));
+        $this->userFolder->method('getById')->with(42)->willReturn([$file]);
+
+        $controller = new FileController(
+            'threedviewer',
+            $this->request,
+            $this->rootFolder,
+            $this->userSession,
+            $this->fileIndexMapper,
+            $this->fileIndexService,
+            $this->createMock(ITagManager::class),
+            $this->modelFileSupport,
+            $this->responseBuilder,
+            $this->logger,
+            $this->cacheFactory,
+            new PathLocator()
+        );
+
+        return $controller->serveFile(42);
+    }
+
     public function testServeFileNotFound(): void
     {
         $this->userFolder->method('getById')->with(10)->willReturn([]);
