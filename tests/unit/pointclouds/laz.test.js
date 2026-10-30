@@ -150,3 +150,22 @@ describe('a chunk table that claims more than its file holds', () => {
 		await expect(readChunkTable(guarded, head)).rejects.toThrow('chunk table is damaged')
 	})
 })
+
+// LAS 1.4 point format 7, compressed with LASzip's layered compressor (3), as modern
+// LiDAR archives are; written by laz-rs, so not by the decoder under test
+test('a LAS 1.4 format-7 LAZ holds exactly the points of its twin', async () => {
+	const header = await headerOf(file('autzen-7.laz'))
+	expect(header).toMatchObject({ version: [1, 4], pointFormat: 7, compressed: true })
+	expect(new DataView(header.vlrs.find((v) => v.recordId === 22204).data.buffer, header.vlrs.find((v) => v.recordId === 22204).data.byteOffset).getUint16(0, true)).toBe(3)
+
+	const laz = await read(file('autzen-7.laz'), { budget: 5000 })
+	const las = await read(file('autzen-7.las'), { budget: 5000 })
+
+	expect(laz.sink.count).toBe(2000)
+	expect(laz.unit).toBe(las.unit)
+	expect(laz.sink.origin).toEqual(las.sink.origin)
+	expect(Array.from(laz.sink.positions)).toEqual(Array.from(las.sink.positions))
+	expect(Array.from(laz.sink.colors)).toEqual(Array.from(las.sink.colors))
+	expect(Array.from(laz.sink.intensity)).toEqual(Array.from(las.sink.intensity))
+	expect(Array.from(laz.sink.classification)).toEqual(Array.from(las.sink.classification))
+})

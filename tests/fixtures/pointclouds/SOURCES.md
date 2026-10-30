@@ -14,10 +14,15 @@ from elsewhere, unchanged.
 | `integer_intensity.e57` | e57 crate, [`testdata/integer_intensity.e57`](https://github.com/cry-inc/e57/blob/c759b1da81184bea3db5e093e7416729cb77cd27/testdata/integer_intensity.e57) at `c759b1da8118` | MIT (the crate's `LICENSE`) |
 | `cartesian_invalid_state_single.e57` | e57 crate, [`testdata/cartesian_invalid_state_single.e57`](https://github.com/cry-inc/e57/blob/c759b1da81184bea3db5e093e7416729cb77cd27/testdata/cartesian_invalid_state_single.e57) at `c759b1da8118` | MIT (the crate's `LICENSE`) |
 | `tiny_spherical.e57` | e57 crate, [`testdata/tiny_spherical.e57`](https://github.com/cry-inc/e57/blob/c759b1da81184bea3db5e093e7416729cb77cd27/testdata/tiny_spherical.e57) at `c759b1da8118` | MIT (the crate's `LICENSE`) |
+| `autzen-7.las` | The first 2,000 points of PDAL's [`test/data/las/autzen_trim_7.las`](https://github.com/PDAL/PDAL/blob/537aeeb55bc8e45864d6b5006ab8dfa195cae1d3/test/data/las/autzen_trim_7.las) at `537aeeb55bc8`, written by laspy 2.7.0 | BSD-3-Clause |
+| `autzen-7.laz` | The same points, compressed by laspy 2.7.0 with lazrs 0.8.2 (laz-rs, LASzip's layered compressor) | BSD-3-Clause |
 
 `simple.laz` and `simple.las` are LAS 1.2, point format 3, 1,065 points.
 `point-time-1.4.laz` is LAS 1.4, point format 1, 1,065 points, with its coordinate
 system in WKT.
+`autzen-7.las` and `autzen-7.laz` are LAS 1.4, point format 7 (colours, GPS time), 2,000
+points, with the source's WKT coordinate system: the layered compression modern LiDAR
+archives use, written by laz-rs rather than by the decoder under test.
 
 The E57 files are from the e57 crate's own test data, written by its generator or by
 libE57Format; its reader tests say what each holds (2,090 coloured points; two points
