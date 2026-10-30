@@ -70,3 +70,30 @@ test('a file without x, y and z is refused', async () => {
 
 	await expect(read(blob(file), { budget: 10 })).rejects.toThrow('x, y and z')
 })
+
+/** A binary_compressed header and its two sizes, with `points` points of x y z. */
+function compressedHeader(points, compressedSize, decompressedSize, body = new Uint8Array(0)) {
+	const head = new TextEncoder().encode(`FIELDS x y z\nSIZE 4 4 4\nTYPE F F F\nWIDTH ${points}\nHEIGHT 1\nPOINTS ${points}\nDATA binary_compressed\n`)
+	const sizes = new Uint8Array(8)
+	new DataView(sizes.buffer).setUint32(0, compressedSize, true)
+	new DataView(sizes.buffer).setUint32(4, decompressedSize, true)
+	return new Blob([head, sizes, body])
+}
+
+// A crafted file must not make the reader allocate gigabytes before reading anything
+test('a compressed PCD that claims more than LZF can expand to is refused', async () => {
+	const points = 300_000_000
+	await expect(read(compressedHeader(points, 16, points * 12, new Uint8Array(16)), { budget: 10 })).rejects.toThrow('compressed data')
+})
+
+test('compressed data longer than the file is refused', async () => {
+	await expect(read(compressedHeader(10, 1_000_000, 120, new Uint8Array(16)), { budget: 10 })).rejects.toThrow('compressed data')
+})
+
+test('a compressed PCD over 1 GB once decompressed is refused', async () => {
+	const points = 100_000_000
+	const big = compressedHeader(points, 20_000_000, points * 12)
+	Object.defineProperty(big, 'size', { value: 30_000_000 })
+
+	await expect(read(big, { budget: 10 })).rejects.toThrow('too large')
+})

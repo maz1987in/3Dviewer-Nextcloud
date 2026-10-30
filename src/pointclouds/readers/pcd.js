@@ -15,6 +15,11 @@ import { ScanError } from '../scanFormats.js'
 
 const HEADER_BYTES = 64 * 1024
 
+/** The most a compressed PCD may take once decompressed, which is all held at once. */
+const PCD_DECOMPRESSED_MAX_BYTES = 1024 ** 3
+/** LZF's longest back-reference copies 264 bytes from a 3-byte token. */
+const LZF_MAX_EXPANSION = 88
+
 /**
  * @param {Uint8Array} bytes - The file's first bytes
  * @return {object} The header: fields with their size, type and count, the point count,
@@ -198,8 +203,15 @@ async function readCompressed(blob, header, layout, add, setIntensityScale, { on
 	}
 	const compressedSize = sizes.getUint32(0, true)
 	const size = sizes.getUint32(4, true)
+	// Checked before anything is allocated: a crafted header can ask for gigabytes
 	if (size !== header.points * layout.record) {
 		throw new ScanError('its compressed data is not the size its header says')
+	}
+	if (compressedSize > blob.size - header.headerLength - 8 || size > compressedSize * LZF_MAX_EXPANSION) {
+		throw new ScanError('its compressed data is damaged')
+	}
+	if (size > PCD_DECOMPRESSED_MAX_BYTES) {
+		throw new ScanError('it is too large to decompress')
 	}
 	const packed = new Uint8Array(await blob.slice(header.headerLength + 8, header.headerLength + 8 + compressedSize).arrayBuffer())
 	const view = new DataView(decompressLZF(packed, size).buffer)
