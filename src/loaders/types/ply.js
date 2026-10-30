@@ -1,5 +1,11 @@
 import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader.js'
+// eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
+import { translate as t } from '@nextcloud/l10n'
 import { BaseLoader } from '../BaseLoader.js'
+import { loadPointCloud } from './pointCloud.js'
+import { isPointCloudPly, plyHeader } from '../../pointclouds/readers/plyPoints.js'
+import { PLY_MESH_CEILING_BYTES } from '../../pointclouds/limits.js'
+import { formatBytes } from '../../utils/validation.js'
 
 /**
  * PLY loader class
@@ -12,12 +18,37 @@ class PlyLoader extends BaseLoader {
 	}
 
 	/**
-	 * Load PLY model
+	 * Load a PLY: a mesh, or a scan when it has no faces (pointclouds/readers/plyPoints.js).
+	 * The page passes a Blob; the thumbnailer an ArrayBuffer.
+	 *
+	 * @param {Blob|ArrayBuffer} input - File data
+	 * @param {object} context - Loading context
+	 * @return {Promise<object>} Load result
+	 */
+	async loadModel(input, context) {
+		const blob = input instanceof Blob ? input : new Blob([input])
+		let header = null
+		try {
+			header = plyHeader(new Uint8Array(await blob.slice(0, 64 * 1024).arrayBuffer()))
+		} catch {
+			// Not a header the scan reader knows: PLYLoader says what is wrong with it
+		}
+		if (header && isPointCloudPly(header)) {
+			return loadPointCloud(this, blob, { ...context, fileExtension: 'ply' })
+		}
+		// A mesh is loaded whole, so it keeps the ordinary limit
+		if (blob.size > PLY_MESH_CEILING_BYTES) {
+			throw new Error(t('threedviewer', 'This model is {size}. The viewer opens models up to 500 MB.', { size: formatBytes(blob.size) }))
+		}
+		return this.loadMesh(input instanceof Blob ? await input.arrayBuffer() : input, context)
+	}
+
+	/**
 	 * @param {ArrayBuffer} arrayBuffer - File data
 	 * @param {object} context - Loading context
 	 * @return {Promise<object>} Load result
 	 */
-	async loadModel(arrayBuffer, context) {
+	async loadMesh(arrayBuffer, context) {
 		const { THREE } = context
 
 		// Create PLY loader

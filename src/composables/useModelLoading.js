@@ -298,7 +298,8 @@ export function useModelLoading() {
 			// one on disk, and the scan reader takes it a window at a time
 			let body
 			let receivedLength = 0
-			if (isScanExtension(extension)) {
+			// A PLY may be a scan, and is read the same way until its header says
+			if (isScanExtension(extension) || extension === 'ply') {
 				const { readScanBody } = await import('../pointclouds/blobReader.js')
 				body = await readScanBody(response, { onBytes: showDownloaded, signal })
 				receivedLength = body.size

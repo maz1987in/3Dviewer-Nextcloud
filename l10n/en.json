@@ -653,6 +653,7 @@
     "This model has no surfaces to save as {format}.": "This model has no surfaces to save as {format}.",
     "This model is no longer shared": "This model is no longer shared",
     "This model is view-only for you, so you can’t add annotations.": "This model is view-only for you, so you can’t add annotations.",
+    "This model is {size}. The viewer opens models up to 500 MB.": "This model is {size}. The viewer opens models up to 500 MB.",
     "This scan couldn't be read: {reason}": "This scan couldn't be read: {reason}",
     "This scan is {size}. The viewer opens scans up to 2 GB.": "This scan is {size}. The viewer opens scans up to 2 GB.",
     "This version": "This version",

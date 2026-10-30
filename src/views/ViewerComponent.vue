@@ -1125,8 +1125,8 @@ export default {
 				}
 
 				let arrayBuffer
-				if (isScanExtension(extension)) {
-					// A scan stays a Blob, which the scan reader takes a window at a time
+				if (isScanExtension(extension) || extension === 'ply') {
+					// A scan (a PLY may be one) stays a Blob, which the scan reader takes a window at a time
 					const { readScanBody } = await import('../pointclouds/blobReader.js')
 					arrayBuffer = await readScanBody(response, { onBytes: downloading })
 				} else if (total > 0 && response.body) {

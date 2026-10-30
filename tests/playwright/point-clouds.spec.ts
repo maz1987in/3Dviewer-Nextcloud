@@ -232,3 +232,12 @@ test('a public link turns the scan the way the file says', async ({ page }) => {
 	})).toBeCloseTo(Math.PI / 2)
 	expect(errors).toEqual([])
 })
+
+test('a PLY with no faces opens as points, coloured by its own colours', async ({ page }) => {
+	const ply = { id: 7604, name: 'room.ply', body: fs.readFileSync(path.join(FIXTURES, 'points-rgb.ply')) }
+	const { errors } = await openViewer(page, server.url, ply)
+
+	expect(await scene(page)).toEqual({ points: true, count: 1000 })
+	await expect(page.locator('#tdv-colour-by')).toHaveValue('file')
+	expect(errors).toEqual([])
+})
