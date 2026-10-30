@@ -160,6 +160,8 @@ self.onmessage = async ({ data }) => {
 			THREE,
 			additionalFiles,
 			fileExtension: extension,
+			// A scan is drawn at the thumbnail budget (pointclouds/limits.js), in this thread
+			thumbnail: true,
 			hasDraco: true,
 			hasKtx2: false,
 			hasMeshopt: false,

@@ -17,6 +17,7 @@ This document provides comprehensive technical information about the 3D Viewer f
 - [View Links](#view-links)
 - [File Units](#file-units)
 - [Embedding](#embedding)
+- [Point Clouds](#point-clouds)
 
 ## System Architecture
 
@@ -2110,3 +2111,16 @@ A public link to one model can be shown in a frame on another website, such as a
 ---
 
 This technical documentation provides comprehensive information about the 3D Viewer's architecture, performance monitoring, multi-file loading capabilities, composables API, lazy loading implementation, model loading system, advanced viewer wiring, and decoder integration. For user-facing documentation, see the main [README.md](../README.md). For implementation history and lessons learned, see [IMPLEMENTATION.md](IMPLEMENTATION.md). For testing information, see [TESTING.md](TESTING.md).
+
+## Point Clouds
+
+LAS, LAZ, E57, PCD and XYZ files, and a PLY with no faces, open as scans: one `THREE.Points` whose `userData.tdvPointCloud` is the one signal the viewer reads to know it has a scan (a PLY can be either). Everything lives in `src/pointclouds/`.
+
+- **Reading.** The viewer downloads a scan as a `Blob` (`readScanBody`), refused before its body is read when it is over 2 GB (`SCAN_CEILING_BYTES`; the server's `SupportedFormats::SCAN_MAX_BYTES` lets scans past the ordinary 500 MB). A worker of its own (`pointCloud.worker.js`, started by `parsePointCloud`, ended by Cancel loading) reads it a window at a time with the format's reader in `readers/`, and sends the points back as transferables. The thumbnail worker, already off the page, reads in-line. A share page's policy has no `worker-src`, so `CspListener` adds `worker-src 'self'` beside its WebAssembly allowance, and `ResponseBuilder` adds it to the app's own pages, the embed page among them; user files can't run as workers, being served with `nosniff` and no script type.
+- **The sink.** Every reader writes into a `PointSink`, allocated once at the smaller of the file's point count and the device's budget (`limits.js`: 20M desktop, 4M tablet, 2M phone, 300k thumbnail; `budget.js` decides the device). Past the budget it thins evenly, or by a seeded reservoir when the count isn't known up front (text). Each point is re-centred on an origin in double precision before it becomes Float32, so survey coordinates in the millions keep their millimetres. A thinned cloud says `Showing 1 in {n} points`.
+- **Formats.** `las.js` reads LAS 1.0–1.4, point formats 0–10, and its coordinate system's unit (`lasCrsUnit.js`, GeoKeys or WKT, judged by factor: m, ft, US survey ft). LAZ goes through the same reader: the chunk table is decoded with a port of LASzip's arithmetic decoder (`lazChunks.js`), and laz-perf decodes each chunk (formats 0–3, 6–8). `e57.js` reads E57's pages, XML and bit-packed sections, Cartesian scans placed by their poses, in metres. `pcd.js` reads PCD ascii, binary and binary_compressed; `xyz.js` text, refusing a chemistry `.xyz` (atom count, comment, element symbols); `plyPoints.js` a PLY of vertices. Sizes a file declares are checked before anything is allocated.
+- **In the viewer.** The tools panel's Scan section (`PointCloudControls.vue`, its own chunk) has Colour by (`colourBy.js`: file colours, height, intensity, classification, single colour, as the file allows; written into the colour attribute on the CPU), Point size (1–10 px) and Which way is up (`FileUpControl.vue`). Print check, shading and wireframe, comparison, export and Send to Slicer stay in place, `aria-disabled` and described by the section's "Not available for scans" lines (`unavailable.js`). Measurement and annotations snap to points within 5 px; the cross-section and the transform gizmo work as for meshes. Statistics show the points, the share shown and the attributes (`PointCloudStats.vue`). View links carry the point size and colour by.
+- **Which way is up.** `+y`, `-y`, `+z` or `-z` (`upAxis.js`; LAS, LAZ and E57 default to Z up, the rest Y up) turns the model root, not the points, so notes and view-link cameras still fit. It is a second file setting beside the unit: the `up` column of `threedviewer_file_settings`, the same routes and permissions (`useFileUp`), applied by the light viewer too, on public links and embeds.
+- **Units.** A scan is in metres unless its file records a unit: a LAS or LAZ whose coordinate system names one, or an E57, always metres. A recorded unit is read-only.
+- **Fixtures.** `scripts/make-point-fixtures.mjs` writes most of `tests/fixtures/pointclouds/`; the real LAZ and E57 files and their licences are listed in its `SOURCES.md`.
+

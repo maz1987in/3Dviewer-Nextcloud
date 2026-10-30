@@ -2578,7 +2578,15 @@ export default {
 		 * @param {object} cloud - A scan's userData.tdvPointCloud
 		 * @return {object} What the tools panel shows of it: everything but the points
 		 */
-		const pointCloudSummary = ({ format, count, total, attributes, unit, defaultUp, up }) => ({ format, count, total, attributes: { ...attributes }, unit, defaultUp, up })
+		const pointCloudSummary = (cloud) => ({
+			format: cloud.format,
+			count: cloud.count,
+			total: cloud.total,
+			attributes: { ...cloud.attributes },
+			unit: cloud.unit,
+			defaultUp: cloud.defaultUp,
+			up: cloud.up,
+		})
 
 		/**
 		 * Colour a scan by one of its attributes (pointclouds/colourBy.js). The cloud's

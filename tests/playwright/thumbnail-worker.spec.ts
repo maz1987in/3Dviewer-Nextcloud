@@ -704,6 +704,15 @@ test.describe('thumbnail worker', () => {
   test.describe('every model format renders in the worker', () => {
     const appRoot = APP_ROOTS[0]
 
+    // A chemistry .xyz has the scan's extension but lists atoms: it fails, and says why
+    test('a chemistry xyz fails as not a scan', async ({ page }) => {
+      await openHarness(page, server.origin, appRoot)
+
+      const outcome = await renderSample(page, appRoot, { name: 'molecule', extension: 'xyz', files: [`${FIXTURES}pointclouds/molecule.xyz`] })
+
+      expect(outcome.error).toMatch(/lists atoms, not a scan/)
+    })
+
     for (const sample of SAMPLES) {
       test(sample.name, async ({ page }) => {
         test.setTimeout(60000)
