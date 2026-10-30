@@ -49,7 +49,8 @@ const xmlField = (f) => {
  * @param {object} options - What to write
  * @param {Array<{fields: object[], records: number[][], pose?: {rotation: number[], translation: number[]}, packets?: number, limits?: string}>} options.scans - Each scan's
  *   prototype, records (one value per field), optional pose, how many packets to split
- *   its streams into, and extra XML (limits) for its vectorChild
+ *   its streams into, extra XML (limits) for its vectorChild, and a recordCount to claim
+ *   in place of the records' own
  * @return {Uint8Array} The file
  */
 export function e57File({ scans }) {
@@ -91,7 +92,7 @@ export function e57File({ scans }) {
 			? `<pose type="Structure"><rotation type="Structure"><w type="Float">${scan.pose.rotation[0]}</w><x type="Float">${scan.pose.rotation[1]}</x><y type="Float">${scan.pose.rotation[2]}</y><z type="Float">${scan.pose.rotation[3]}</z></rotation>`
 			+ `<translation type="Structure"><x type="Float">${scan.pose.translation[0]}</x><y type="Float">${scan.pose.translation[1]}</y><z type="Float">${scan.pose.translation[2]}</z></translation></pose>`
 			: ''
-		children.push(`<vectorChild type="Structure">${pose}${scan.limits ?? ''}<points type="CompressedVector" fileOffset="${physical(sectionAt)}" recordCount="${scan.records.length}">`
+		children.push(`<vectorChild type="Structure">${pose}${scan.limits ?? ''}<points type="CompressedVector" fileOffset="${physical(sectionAt)}" recordCount="${scan.recordCount ?? scan.records.length}">`
 			+ `<prototype type="Structure">${scan.fields.map(xmlField).join('')}</prototype><codecs type="Vector" allowHeterogeneousChildren="1"/></points></vectorChild>`)
 	}
 	const xml = new TextEncoder().encode('<?xml version="1.0" encoding="UTF-8"?><e57Root type="Structure" xmlns="http://www.astm.org/COMMIT/E57/2010-e57-v1.0">'

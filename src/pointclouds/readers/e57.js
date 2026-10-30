@@ -101,6 +101,14 @@ async function readScan(blob, header, scan, sink, attributes, signal) {
 	const packetsLength = sectionLength - 32 - (logicalOf(dataAt, header.pageSize) - logicalOf(scan.fileOffset, header.pageSize) - 32)
 
 	const readers = scan.fields.map((f) => new FieldReader(f))
+	// Checked before reading: the XML can claim any number of records
+	const bitsPerRecord = readers.reduce((n, r) => n + r.bits, 0)
+	if (bitsPerRecord === 0) {
+		throw new ScanError('its records take no space, so there is nothing to read')
+	}
+	if (scan.recordCount > Math.ceil((sectionLength * 8) / bitsPerRecord)) {
+		throw new ScanError('a scan claims more points than it holds')
+	}
 	const at = (name) => scan.fields.findIndex((f) => f.name === name)
 	const xyz = ['cartesianX', 'cartesianY', 'cartesianZ'].map(at)
 	const rgb = ['colorRed', 'colorGreen', 'colorBlue'].map(at)
@@ -139,6 +147,9 @@ async function readScan(blob, header, scan, sink, attributes, signal) {
 		// Every whole record the packets so far hold
 		let ready = Math.min(scan.recordCount - emitted, ...readers.map((r) => r.available()))
 		for (; ready > 0; ready--, emitted++) {
+			if ((emitted & 0xffff) === 0 && signal?.aborted) {
+				throw abortError()
+			}
 			const values = readers.map((r) => r.next())
 			if (invalid >= 0 && values[invalid] !== 0) {
 				continue

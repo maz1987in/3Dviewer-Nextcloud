@@ -90,3 +90,17 @@ test('thins evenly to the budget across scans', async () => {
 test('a file that isn\'t E57 is refused', async () => {
 	await expect(read(new Blob(['x'.repeat(2048)]), { budget: 10 })).rejects.toBeInstanceOf(ScanError)
 })
+
+// Checked before the records are read: a crafted file can claim any number of them
+test('a scan whose records take no bits is refused, whatever count it claims', async () => {
+	const constant = ['X', 'Y', 'Z'].map((a) => ({ name: `cartesian${a}`, type: 'Integer', min: 5, max: 5 }))
+	const file = e57File({ scans: [{ fields: constant, records: [[5, 5, 5]], recordCount: 100_000_000 }] })
+
+	await expect(read(new Blob([file]), { budget: 10 })).rejects.toThrow('records take no space')
+})
+
+test('a scan claiming more records than its section can hold is refused', async () => {
+	const file = e57File({ scans: [{ fields: CARTESIAN, records: [[1, 2, 3]], recordCount: 1_000_000 }] })
+
+	await expect(read(new Blob([file]), { budget: 10 })).rejects.toThrow('more points than it holds')
+})
