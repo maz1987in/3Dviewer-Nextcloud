@@ -23,7 +23,8 @@
  *   bim              dotbim is metres by specification.
  *   xyz, pcd, las, laz
  *                    scans; scanners write metres. A LAS or LAZ whose coordinate system
- *                    names a unit records it. Any scan (a PLY with no faces too)
+ *                    names a unit records it.
+ *   e57              a laser scan, in metres by the standard, which the file records. Any scan (a PLY with no faces too)
  *                    is metres unless its file records a unit; see `scanUnit`.
  *
  * millimetres
@@ -103,6 +104,7 @@ export const SOURCE_UNITS = Object.freeze({
 	pcd: METRE,
 	las: METRE,
 	laz: METRE,
+	e57: METRE,
 	fbx: CENTIMETRE,
 	gcode: MILLIMETRE,
 })

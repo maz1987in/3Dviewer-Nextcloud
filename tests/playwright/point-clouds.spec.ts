@@ -274,3 +274,14 @@ test('a LAZ scan is decoded in the worker and shown', async ({ page }) => {
 	await expect(page.locator('#tdv-colour-by')).toHaveValue('file')
 	expect(errors).toEqual([])
 })
+
+test('an E57 laser scan opens in metres, from the file', async ({ page }) => {
+	const e57 = { id: 7608, name: 'room.e57', body: fs.readFileSync(path.join(FIXTURES, 'tinyCartesianFloatRgb.e57')) }
+	const { errors } = await openViewer(page, server.url, e57)
+
+	expect(await scene(page)).toEqual({ points: true, count: 2090 })
+	await expect.poll(() => rotationX(page)).toBeCloseTo(-Math.PI / 2)
+	await panel(page).getByRole('button', { name: /^Model Statistics/ }).click()
+	await expect(page.locator('.model-stats-overlay .stats-file-unit')).toContainText('From the file')
+	expect(errors).toEqual([])
+})

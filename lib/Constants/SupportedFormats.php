@@ -64,6 +64,7 @@ class SupportedFormats
         'pcd' => ['application/x-pcd'], // Point Cloud Library point cloud
         'las' => ['application/vnd.las'], // ASPRS LAS survey / LiDAR point cloud
         'laz' => ['application/vnd.laszip'], // LAS compressed with LASzip
+        'e57' => ['model/e57'], // ASTM E57 laser scan
 
         // Material/texture files
         'mtl' => ['text/plain'],
@@ -114,6 +115,7 @@ class SupportedFormats
         'pcd' => 'application/x-pcd',
         'las' => 'application/vnd.las',
         'laz' => 'application/vnd.laszip',
+        'e57' => 'model/e57',
 
         // Material file
         'mtl' => 'text/plain',

@@ -34,6 +34,7 @@ const READERS = {
 	pcd: () => import('./readers/pcd.js'),
 	las: () => import('./readers/las.js'),
 	laz: () => import('./readers/las.js'),
+	e57: () => import('./readers/e57.js'),
 }
 
 /**

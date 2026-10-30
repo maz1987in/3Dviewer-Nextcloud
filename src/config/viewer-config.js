@@ -746,6 +746,15 @@ export const SUPPORTED_FORMATS = {
 		displayOrder: 37,
 		icon: imagePath('threedviewer', 'filetypes/laz.svg'),
 	},
+	e57: {
+		name: 'E57',
+		description: 'Laser scan',
+		mimeType: 'model/e57',
+		features: ['pointcloud'],
+		multiFile: false,
+		displayOrder: 38,
+		icon: imagePath('threedviewer', 'filetypes/e57.svg'),
+	},
 }
 
 /**

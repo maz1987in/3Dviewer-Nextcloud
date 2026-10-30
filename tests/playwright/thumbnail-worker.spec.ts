@@ -511,6 +511,7 @@ const SAMPLES: Sample[] = [
   { name: 'pcd', extension: 'pcd', files: [`${FIXTURES}pointclouds/cube-compressed.pcd`] },
   { name: 'las', extension: 'las', files: [`${FIXTURES}pointclouds/utm-1.2.las`] },
   { name: 'laz', extension: 'laz', files: [`${FIXTURES}pointclouds/simple.laz`] },
+  { name: 'e57', extension: 'e57', files: [`${FIXTURES}pointclouds/tinyCartesianFloatRgb.e57`] },
 ]
 
 function startStaticServer(): Promise<{ origin: string, close: () => Promise<void> }> {

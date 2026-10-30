@@ -42,6 +42,7 @@ const loaders = {
 	pcd: () => import('./types/pcd.js'),
 	las: () => import('./types/las.js'),
 	laz: () => import('./types/las.js'),
+	e57: () => import('./types/e57.js'),
 }
 
 export async function loadModelByExtension(ext, arrayBuffer, context) {
