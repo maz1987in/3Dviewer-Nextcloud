@@ -580,6 +580,8 @@
     "Show public links to 3D files on other websites, such as a shop or a blog. Only the sites listed here can show them; with none listed, embedding is off.": "Show public links to 3D files on other websites, such as a shop or a blog. Only the sites listed here can show them; with none listed, embedding is off.",
     "Show the earlier version on top of this one": "Show the earlier version on top of this one",
     "Show the model from this angle": "Show the model from this angle",
+    "Showing 1 in {n} points": "Showing 1 in {n} points",
+    "Showing {kept} of {total} points": "Showing {kept} of {total} points",
     "Single cross-section plane": "Single cross-section plane",
     "Sites allowed to embed": "Sites allowed to embed",
     "Size": "Size",
