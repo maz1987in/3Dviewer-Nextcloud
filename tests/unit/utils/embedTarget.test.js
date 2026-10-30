@@ -40,13 +40,21 @@ test('a refusal is no target', async () => {
 	expect(await loadEmbedTarget('AbC')).toBeNull()
 })
 
-test('an answer without the file is no target', async () => {
-	axios.get.mockResolvedValue({ data: { filename: 'part.stl' } })
-	expect(await loadEmbedTarget('AbC')).toBeNull()
+// Throttled, a server error, the network, or a sign-in page some proxy put in its place:
+// none of these says the share went, and the frame must not say so
+test.each([
+	['throttled', Object.assign(new Error('Too Many Requests'), { response: { status: 429 } })],
+	['a server error', Object.assign(new Error('Server Error'), { response: { status: 503 } })],
+	['the network', new Error('Network Error')],
+])('%s is a failure, not a refusal', async (_, error) => {
+	axios.get.mockRejectedValue(error)
 
-	axios.get.mockResolvedValue({ data: { fileId: 42 } })
-	expect(await loadEmbedTarget('AbC')).toBeNull()
+	await expect(loadEmbedTarget('AbC')).rejects.toBe(error)
+})
 
-	axios.get.mockResolvedValue({ data: '<html>' })
-	expect(await loadEmbedTarget('AbC')).toBeNull()
+test('an answer without the file is a failure, not a refusal', async () => {
+	for (const data of [{ filename: 'part.stl' }, { fileId: 42 }, '<html>']) {
+		axios.get.mockResolvedValue({ data })
+		await expect(loadEmbedTarget('AbC')).rejects.toThrow('not an embed')
+	}
 })

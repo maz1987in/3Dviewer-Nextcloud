@@ -14,7 +14,7 @@
 				autocomplete="off"
 				aria-describedby="threedviewer-embed-origins-hint" />
 			<p id="threedviewer-embed-origins-hint" class="embed-admin-hint">
-				{{ t('threedviewer', 'One site per line, such as https://shop.example.com. Only https addresses are accepted, and http://localhost for testing.') }}
+				{{ t('threedviewer', 'One site per line, such as https://shop.example.com. Only https addresses are accepted, and http://localhost for testing. Anyone can see this list: browsers are sent it with every embed.') }}
 			</p>
 			<p v-if="invalid.length" role="alert" class="embed-admin-invalid">
 				{{ t('threedviewer', 'Not a site address: {entries}', { entries: invalid.join(', ') }) }}

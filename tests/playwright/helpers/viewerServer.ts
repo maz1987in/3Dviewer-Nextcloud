@@ -29,7 +29,8 @@ export type ViewerModel = { id: number, name: string, body: string | Buffer }
  *
  * `embed` serves the embed page at /index.php/apps/threedviewer/embed/{publicToken}, as
  * another site frames it, and answers its data route with the model and these links;
- * 'gone' answers it 404, as for a share that may no longer be embedded.
+ * 'gone' answers it 404, as for a share that may no longer be embedded, and a number
+ * answers it with that status.
  *
  * `embedEnabled` is what the viewer page says about embedding: whether the admin lists
  * any site (the `embed` initial state).
@@ -37,7 +38,7 @@ export type ViewerModel = { id: number, name: string, body: string | Buffer }
 export type Viewer = {
 	user?: string | null, publicToken?: string | null, dir?: string, query?: string, notes?: object[], openPanel?: boolean, lite?: boolean,
 	unit?: string | null, unitCanEdit?: boolean, unitSaveStatus?: number, unitGate?: Promise<void>,
-	embed?: { shareUrl: string, downloadUrl: string | null } | 'gone',
+	embed?: { shareUrl: string, downloadUrl: string | null } | 'gone' | number,
 	embedEnabled?: boolean,
 }
 
@@ -163,11 +164,11 @@ export async function openViewer(page: Page, url: string, model: ViewerModel, vi
 
 	if (viewer.embed) {
 		const answer = viewer.embed
-		await page.route(`**/ocs/v2.php/apps/threedviewer/public/embed/${viewer.publicToken}*`, (route) => route.fulfill(answer === 'gone'
-			? { status: 404, contentType: 'application/json', body: '{"message":"Not found"}' }
-			: { status: 200, contentType: 'application/json', body: JSON.stringify({ fileId: model.id, filename: model.name, mime: 'application/octet-stream', ...answer }) }))
+		await page.route(`**/ocs/v2.php/apps/threedviewer/public/embed/${viewer.publicToken}*`, (route) => route.fulfill(typeof answer === 'object'
+			? { status: 200, contentType: 'application/json', body: JSON.stringify({ fileId: model.id, filename: model.name, mime: 'application/octet-stream', ...answer }) }
+			: { status: answer === 'gone' ? 404 : answer, contentType: 'application/json', body: '{"message":"Not found"}' }))
 		await page.goto(`${url}${EMBED_PATH.slice(1)}${viewer.publicToken}${viewer.query ? `?${viewer.query}` : ''}`)
-		await page.waitForSelector(answer === 'gone' ? '.threedviewer-embed-gone' : '.viewer-bottom-actions', { timeout: 30000 })
+		await page.waitForSelector(typeof answer === 'object' ? '.viewer-bottom-actions' : '.threedviewer-embed-message', { timeout: 30000 })
 		return { errors, unitPuts }
 	}
 	await page.goto(`${url}?page=${encodeURIComponent(key)}${viewer.query ? `&${viewer.query}` : ''}`)

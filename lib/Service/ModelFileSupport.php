@@ -34,6 +34,12 @@ class ModelFileSupport
         return SupportedFormats::isSupported($ext);
     }
 
+    /** A model the viewer opens on its own: not a texture, material or buffer beside one. */
+    public function isModel(string $ext): bool
+    {
+        return in_array(strtolower($ext), SupportedFormats::getModelExtensions(), true);
+    }
+
     public function mapContentType(string $ext): string
     {
         return SupportedFormats::getContentType($ext);

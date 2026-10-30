@@ -18,15 +18,26 @@ export function embedTokenFromPath(pathname) {
 /**
  * Ask whether the share may be embedded.
  *
+ * Only a 404 means it may not: the server answers every share it refuses that way. A
+ * throttled or failed request, or an answer that is not the server's (a proxy's sign-in
+ * page), rejects instead, so the frame never says a live share went.
+ *
  * @param {string} token - The share token
  * @return {Promise<?{fileId: number, filename: string, mime: string, shareUrl: string, downloadUrl: ?string}>}
- *   The model and its links, or null when it may not be shown, for whatever reason
+ *   The model and its links, or null when it may not be shown
  */
 export async function loadEmbedTarget(token) {
+	let data
 	try {
-		const { data } = await axios.get(generateOcsUrl('apps/threedviewer/public/embed/{token}', { token }), { headers: { 'OCS-APIRequest': 'true' } })
-		return data && typeof data === 'object' && data.fileId && typeof data.filename === 'string' ? data : null
+		({ data } = await axios.get(generateOcsUrl('apps/threedviewer/public/embed/{token}', { token }), { headers: { 'OCS-APIRequest': 'true' } }))
 	} catch (error) {
-		return null
+		if (error?.response?.status === 404) {
+			return null
+		}
+		throw error
 	}
+	if (!data || typeof data !== 'object' || !data.fileId || typeof data.filename !== 'string') {
+		throw new Error('The answer is not an embed')
+	}
+	return data
 }

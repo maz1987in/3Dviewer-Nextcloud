@@ -31,7 +31,8 @@
 						type="number"
 						min="200"
 						max="4000"
-						step="10">
+						step="10"
+						@change="width = embedSize(width, 640)">
 					<label for="embed-code-height" class="tool-label-small">{{ t('threedviewer', 'Height') }}</label>
 					<input id="embed-code-height"
 						v-model.number="height"
@@ -39,7 +40,8 @@
 						type="number"
 						min="200"
 						max="4000"
-						step="10">
+						step="10"
+						@change="height = embedSize(height, 480)">
 				</div>
 				<div class="embed-code-check">
 					<input id="embed-code-view" v-model="includeView" type="checkbox">
@@ -65,7 +67,7 @@
 import { getCurrentUser } from '@nextcloud/auth'
 import { generateUrl } from '@nextcloud/router'
 import { canShare } from '../utils/davFiles.js'
-import { embeddableShares } from '../utils/embedCode.js'
+import { embeddableShares, embedSize } from '../utils/embedCode.js'
 import ViewerIcon from './ViewerIcon.vue'
 
 /**
@@ -141,6 +143,9 @@ export default {
 	},
 
 	methods: {
+		// Shown as the snippet will have it, once the field is left
+		embedSize,
+
 		close() {
 			this.open = false
 			this.$refs.opener?.focus()

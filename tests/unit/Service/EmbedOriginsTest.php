@@ -42,7 +42,6 @@ class EmbedOriginsTest extends TestCase
             'spaces around it' => ['  https://a.example  ', 'https://a.example'],
             'localhost over http' => ['http://localhost:5173', 'http://localhost:5173'],
             'the loopback address' => ['http://127.0.0.1:8080', 'http://127.0.0.1:8080'],
-            'the IPv6 loopback' => ['http://[::1]:3000', 'http://[::1]:3000'],
             'an internationalised name' => ['https://xn--bcher-kva.example', 'https://xn--bcher-kva.example'],
         ];
     }
@@ -73,6 +72,9 @@ class EmbedOriginsTest extends TestCase
             'a backslash' => ['https://a\\b.example'],
             'a script' => ['javascript:alert(1)'],
             'a bare host' => ['localhost'],
+            // CSP's host-source has no form for an IPv6 address: browsers drop it unused
+            'the IPv6 loopback' => ['http://[::1]:3000'],
+            'an IPv6 address' => ['https://[2001:db8::1]'],
             'nothing' => [''],
         ];
     }

@@ -13,7 +13,10 @@ const MODULES = {
 	'@nextcloud/router': { generateUrl: (path, params = {}) => '/index.php' + path.replace(/{(\w+)}/g, (_, k) => params[k]) },
 	'@nextcloud/auth': { getCurrentUser: () => ({ uid: 'alice' }) },
 	'../utils/davFiles.js': { canShare: async (uid, path) => { asked.push([uid, path]); return permissions.includes('R') } },
-	'../utils/embedCode.js': { embeddableShares: (shares) => shares.filter((s) => s.isFile && s.canRead && !s.hasPassword) },
+	'../utils/embedCode.js': {
+		embeddableShares: (shares) => shares.filter((s) => s.isFile && s.canRead && !s.hasPassword),
+		embedSize: (value, fallback) => Number.isFinite(Number(value)) ? Math.min(4000, Math.max(200, Math.round(Number(value)))) : fallback,
+	},
 }
 
 const share = (id, label, created) => ({ id, token: `tok${id}`, url: `https://cloud.example/s/tok${id}`, label, created, hasPassword: false, expires: null, canDownload: true, isFile: true, canRead: true })
@@ -102,6 +105,23 @@ test('several shares: the chosen one, the size and the angle are copied', async 
 	await copy()
 
 	expect(events).toEqual([['copy', [{ token: 'tok2', width: 800, height: 600, includeView: false }]]])
+})
+
+test('a size outside the range shows, once typed, the size that will be copied', async () => {
+	const { events } = await mount([share('1', '', 100)])
+	await openOptions()
+
+	for (const [label, typed] of [['Width', '100'], ['Height', '9000']]) {
+		byLabel(label).value = typed
+		byLabel(label).dispatchEvent(new Event('input'))
+		byLabel(label).dispatchEvent(new Event('change'))
+	}
+	await vue.nextTick()
+
+	expect(byLabel('Width').value).toBe('200')
+	expect(byLabel('Height').value).toBe('4000')
+	await copy()
+	expect(events).toEqual([['copy', [{ token: 'tok1', width: 200, height: 4000, includeView: true }]]])
 })
 
 test('no share that can be embedded: says what is needed and links to the Sharing sidebar', async () => {

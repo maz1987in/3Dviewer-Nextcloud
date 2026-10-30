@@ -117,7 +117,7 @@ test('the textarea is labelled and described by the hint', () => {
 
 	expect(document.querySelector('label[for="threedviewer-embed-origins"]').textContent.trim()).toBe('Sites allowed to embed')
 	const hint = document.getElementById(textarea().getAttribute('aria-describedby'))
-	expect(hint.textContent.trim()).toBe('One site per line, such as https://shop.example.com. Only https addresses are accepted, and http://localhost for testing.')
+	expect(hint.textContent.trim()).toBe('One site per line, such as https://shop.example.com. Only https addresses are accepted, and http://localhost for testing. Anyone can see this list: browsers are sent it with every embed.')
 })
 
 test('the web server paragraph is there for an admin whose embeds stay blank', () => {

@@ -151,6 +151,39 @@ class PublicEmbedHttpTest extends HttpTestCase
         $this->assertSame(1, self::refusals(), 'the middleware throttles a token that is not embeddable');
     }
 
+    /**
+     * Embeds load on their own, several to a page, on every visit: a share that exists
+     * but cannot be embedded must not slow down, then lock out, the live embeds beside it
+     * for everyone behind the visitor's address. Only what looks like guessing counts,
+     * and a password not given, as core counts it.
+     */
+    public function testAShareThatCannotBeEmbeddedDoesNotCountTowardsTheThrottle(): void
+    {
+        $owner = $this->newUser();
+        $files = Server::get(\OCP\Files\IRootFolder::class)->getUserFolder($owner);
+        $refused = [
+            $this->shareByLink($files->newFolder('a-folder'), $owner),
+            $this->shareByLink($files->newFile('holiday.png', 'not really a png'), $owner),
+        ];
+
+        foreach ($refused as $token) {
+            $this->assertSame(404, $this->embed($token)->getStatusCode());
+        }
+
+        $this->assertSame(0, self::refusals());
+    }
+
+    public function testAPhotoIsNotEmbeddable(): void
+    {
+        $owner = $this->newUser();
+        $photo = Server::get(\OCP\Files\IRootFolder::class)->getUserFolder($owner)->newFile('holiday.jpg', 'not really a jpeg');
+
+        $response = $this->embed($this->shareByLink($photo, $owner));
+
+        $this->assertSame(404, $response->getStatusCode());
+        $this->assertStringNotContainsString('holiday', (string) $response->getBody());
+    }
+
     private static function refusals(): int
     {
         $query = Server::get(IDBConnection::class)->getQueryBuilder();

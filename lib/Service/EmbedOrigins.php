@@ -21,7 +21,7 @@ class EmbedOrigins
 {
     public const CONFIG_KEY = 'embed_origins';
 
-    private const LOCAL_HOSTS = ['localhost', '127.0.0.1', '[::1]'];
+    private const LOCAL_HOSTS = ['localhost', '127.0.0.1'];
     private const DEFAULT_PORTS = ['https' => 443, 'http' => 80];
 
     public function __construct(
@@ -67,9 +67,8 @@ class EmbedOrigins
         }
         $scheme = strtolower($parts['scheme']);
         $host = strtolower($parts['host']);
-        $isHostName = preg_match('/^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/', $host) === 1;
-        $isIpv6 = preg_match('/^\[[0-9a-f:.]+\]$/', $host) === 1;
-        if (!$isHostName && !$isIpv6) {
+        // A name or an IPv4 address: CSP's host-source has no form for an IPv6 one
+        if (preg_match('/^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/', $host) !== 1) {
             return null;
         }
         if ($scheme !== 'https' && !($scheme === 'http' && in_array($host, self::LOCAL_HOSTS, true))) {

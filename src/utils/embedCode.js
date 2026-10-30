@@ -25,7 +25,7 @@ export function embedUrl(origin, token, view) {
  * @param {number} fallback - Used when it is not a number
  * @return {number} A whole number of pixels, within SIZE
  */
-function size(value, fallback) {
+export function embedSize(value, fallback) {
 	const n = Number(value)
 	return Number.isFinite(n) ? Math.min(SIZE.max, Math.max(SIZE.min, Math.round(n))) : fallback
 }
@@ -43,7 +43,7 @@ function attribute(value) {
  * @return {string} The iframe to paste
  */
 export function buildEmbedCode({ url, width, height, title }) {
-	return `<iframe src="${attribute(url)}" width="${size(width, 640)}" height="${size(height, 480)}" title="${attribute(title)}" style="border: 0" allow="fullscreen" allowfullscreen loading="lazy"></iframe>`
+	return `<iframe src="${attribute(url)}" width="${embedSize(width, 640)}" height="${embedSize(height, 480)}" title="${attribute(title)}" style="border: 0" allow="fullscreen" allowfullscreen loading="lazy"></iframe>`
 }
 
 /**

@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace OCA\ThreeDViewer\Tests\Unit\Service;
 
+use OCA\ThreeDViewer\Constants\SupportedFormats;
 use OCA\ThreeDViewer\Service\EmbedOrigins;
 use OCA\ThreeDViewer\Service\EmbedService;
 use OCA\ThreeDViewer\Service\ModelFileSupport;
-use OCA\ThreeDViewer\Service\ShareFileService;
 use OCP\Files\File;
 use OCP\Files\Folder;
 use OCP\Files\NotFoundException;
@@ -19,92 +19,96 @@ use PHPUnit\Framework\TestCase;
 class EmbedServiceTest extends TestCase
 {
     private EmbedOrigins&MockObject $origins;
-    private ShareFileService&MockObject $shares;
     private EmbedService $service;
 
     protected function setUp(): void
     {
         $this->origins = $this->createMock(EmbedOrigins::class);
         $this->origins->method('isEnabled')->willReturn(true);
-        $this->shares = $this->createMock(ShareFileService::class);
-        $support = $this->createMock(ModelFileSupport::class);
-        $support->method('isSupported')->willReturnCallback(static fn (string $ext): bool => in_array($ext, ['stl', 'obj', 'glb'], true));
-        $this->service = new EmbedService($this->origins, $this->shares, $support);
+        $this->service = new EmbedService($this->origins, new ModelFileSupport());
     }
 
     public function testNothingIsEmbeddableWithEmbeddingOff(): void
     {
         $origins = $this->createMock(EmbedOrigins::class);
         $origins->method('isEnabled')->willReturn(false);
-        $this->shares->expects($this->never())->method('findValidLinkShare');
-        $service = new EmbedService($origins, $this->shares, $this->createMock(ModelFileSupport::class));
+        $service = new EmbedService($origins, new ModelFileSupport());
 
-        $this->assertNull($service->embeddable('tok'));
-    }
-
-    public function testNoShareIsNotEmbeddable(): void
-    {
-        $this->shares->method('findValidLinkShare')->willReturn(null);
-
-        $this->assertNull($this->service->embeddable('tok'));
+        $this->assertNull($service->embeddable($this->share()));
     }
 
     public function testAnEmailShareIsNotEmbeddable(): void
     {
-        $this->shares->method('findValidLinkShare')->willReturn($this->share(type: IShare::TYPE_EMAIL));
-
-        $this->assertNull($this->service->embeddable('tok'));
+        $this->assertNull($this->service->embeddable($this->share(type: IShare::TYPE_EMAIL)));
     }
 
     public function testAPasswordProtectedShareIsNotEmbeddable(): void
     {
-        $this->shares->method('findValidLinkShare')->willReturn($this->share(password: '$2y$hash'));
-
-        $this->assertNull($this->service->embeddable('tok'));
+        $this->assertNull($this->service->embeddable($this->share(password: '$2y$hash')));
     }
 
     public function testAFolderShareIsNotEmbeddable(): void
     {
-        $this->shares->method('findValidLinkShare')->willReturn($this->share(node: $this->createMock(Folder::class)));
-
-        $this->assertNull($this->service->embeddable('tok'));
+        $this->assertNull($this->service->embeddable($this->share(node: $this->createMock(Folder::class))));
     }
 
     public function testAnUnsupportedFileIsNotEmbeddable(): void
     {
-        $this->shares->method('findValidLinkShare')->willReturn($this->share(node: $this->file('notes.txt', 'txt')));
+        $this->assertNull($this->service->embeddable($this->share(node: $this->file('notes.txt', 'txt'))));
+    }
 
-        $this->assertNull($this->service->embeddable('tok'));
+    /**
+     * A photo, texture or companion file is not a model the viewer can open on its own,
+     * whatever the app streams beside one.
+     *
+     * @dataProvider companionFiles
+     */
+    public function testACompanionFileIsNotEmbeddable(string $name, string $extension): void
+    {
+        $this->assertNull($this->service->embeddable($this->share(node: $this->file($name, $extension))));
+    }
+
+    /** @return array<string, array{string, string}> */
+    public static function companionFiles(): array
+    {
+        return [
+            'photo' => ['holiday.JPG', 'JPG'],
+            'texture' => ['checker.png', 'png'],
+            'material' => ['part.mtl', 'mtl'],
+            'glTF buffer' => ['scene.bin', 'bin'],
+        ];
+    }
+
+    public function testEveryModelFormatIsEmbeddable(): void
+    {
+        foreach (SupportedFormats::getModelExtensions() as $ext) {
+            $this->assertNotNull($this->service->embeddable($this->share(node: $this->file('model.' . $ext, $ext))), $ext);
+        }
     }
 
     public function testAShareWhoseFileIsGoneIsNotEmbeddable(): void
     {
         $share = $this->share(node: false);
         $share->method('getNode')->willThrowException(new NotFoundException());
-        $this->shares->method('findValidLinkShare')->willReturn($share);
 
-        $this->assertNull($this->service->embeddable('tok'));
+        $this->assertNull($this->service->embeddable($share));
     }
 
     public function testALinkShareOfAModelIsEmbeddableWithDownloads(): void
     {
         $file = $this->file('part.STL', 'STL');
         $share = $this->share(node: $file);
-        $this->shares->method('findValidLinkShare')->with('tok')->willReturn($share);
 
-        $target = $this->service->embeddable('tok');
+        $target = $this->service->embeddable($share);
 
         $this->assertNotNull($target);
-        $this->assertSame($share, $target->share);
         $this->assertSame($file, $target->file);
         $this->assertTrue($target->canDownload);
     }
 
     public function testNoDownloadWhenTheShareHidesIt(): void
     {
-        $this->shares->method('findValidLinkShare')->willReturn($this->share(hideDownload: true));
-
-        $this->assertFalse($this->service->embeddable('tok')?->canDownload);
+        $this->assertFalse($this->service->embeddable($this->share(hideDownload: true))?->canDownload);
     }
 
     public function testNoDownloadWhenTheShareForbidsItByAttribute(): void
@@ -113,9 +117,7 @@ class EmbedServiceTest extends TestCase
         $attributes->method('getAttribute')->willReturnCallback(
             static fn (string $scope, string $key): mixed => $scope === 'permissions' && $key === 'download' ? false : null,
         );
-        $this->shares->method('findValidLinkShare')->willReturn($this->share(attributes: $attributes));
-
-        $this->assertFalse($this->service->embeddable('tok')?->canDownload);
+        $this->assertFalse($this->service->embeddable($this->share(attributes: $attributes))?->canDownload);
     }
 
     private function file(string $name, string $extension): File&MockObject

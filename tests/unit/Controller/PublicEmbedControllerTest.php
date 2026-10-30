@@ -7,8 +7,10 @@ namespace OCA\ThreeDViewer\Tests\Unit\Controller;
 use OCA\ThreeDViewer\Controller\PublicEmbedController;
 use OCA\ThreeDViewer\Service\EmbedService;
 use OCA\ThreeDViewer\Service\EmbedTarget;
+use OCA\ThreeDViewer\Service\ShareFileService;
 use OCP\AppFramework\PublicShareController;
 use OCP\Files\File;
+use OCP\Files\NotFoundException;
 use OCP\IRequest;
 use OCP\ISession;
 use OCP\IURLGenerator;
@@ -18,11 +20,15 @@ use PHPUnit\Framework\TestCase;
 
 class PublicEmbedControllerTest extends TestCase
 {
+    private ShareFileService&MockObject $shares;
     private EmbedService&MockObject $embed;
+    private IShare&MockObject $share;
 
     protected function setUp(): void
     {
+        $this->shares = $this->createMock(ShareFileService::class);
         $this->embed = $this->createMock(EmbedService::class);
+        $this->share = $this->createMock(IShare::class);
     }
 
     public function testIsAPublicShareController(): void
@@ -32,7 +38,8 @@ class PublicEmbedControllerTest extends TestCase
 
     public function testDescribesAnEmbeddableShare(): void
     {
-        $this->embed->method('embeddable')->with('tok')->willReturn($this->target(canDownload: true));
+        $this->shares->method('findValidLinkShare')->with('tok')->willReturn($this->share);
+        $this->embed->method('embeddable')->with($this->share)->willReturn($this->target(canDownload: true));
         $controller = $this->controller();
 
         $this->assertTrue($controller->isValidToken());
@@ -50,6 +57,7 @@ class PublicEmbedControllerTest extends TestCase
 
     public function testDownloadIsNullWhenTheShareHidesIt(): void
     {
+        $this->shares->method('findValidLinkShare')->willReturn($this->share);
         $this->embed->method('embeddable')->willReturn($this->target(canDownload: false));
         $controller = $this->controller();
         $controller->isValidToken();
@@ -57,27 +65,47 @@ class PublicEmbedControllerTest extends TestCase
         $this->assertNull($controller->show('tok')->getData()['downloadUrl']);
     }
 
-    public function testATokenThatIsNotEmbeddableIsInvalid(): void
+    public function testATokenWithNoShareIsInvalid(): void
     {
-        $this->embed->method('embeddable')->willReturn(null);
+        $this->shares->method('findValidLinkShare')->willReturn(null);
+        $this->embed->expects($this->never())->method('embeddable');
 
         $this->assertFalse($this->controller()->isValidToken());
     }
 
+    /**
+     * The middleware throttles an invalid token, and every embed for that address waits
+     * on it: a share that exists, but may not be embedded, is refused by show() instead.
+     */
+    public function testAShareThatCannotBeEmbeddedIsAValidTokenThatShowRefuses(): void
+    {
+        $this->shares->method('findValidLinkShare')->willReturn($this->share);
+        $this->embed->method('embeddable')->willReturn(null);
+        $controller = $this->controller();
+
+        $this->assertTrue($controller->isValidToken());
+        $this->expectException(NotFoundException::class);
+        $controller->show('tok');
+    }
+
+    public function testAPasswordProtectedShareIsNotAuthenticated(): void
+    {
+        $this->share->method('getPassword')->willReturn('$2y$hash');
+        $this->shares->method('findValidLinkShare')->willReturn($this->share);
+        $controller = $this->controller();
+        $controller->isValidToken();
+
+        $this->assertFalse($controller->isAuthenticated(), 'so the middleware refuses it before show() runs');
+    }
+
     public function testTheShareIsLookedUpOnce(): void
     {
-        $this->embed->expects($this->once())->method('embeddable')->willReturn($this->target(canDownload: true));
+        $this->shares->expects($this->once())->method('findValidLinkShare')->willReturn($this->share);
+        $this->embed->method('embeddable')->willReturn($this->target(canDownload: true));
         $controller = $this->controller();
 
         $controller->isValidToken();
         $controller->show('tok');
-    }
-
-    public function testWithoutTheMiddlewareTheAnswerIsStillNotFound(): void
-    {
-        $this->embed->method('embeddable')->willReturn(null);
-
-        $this->assertSame(404, $this->controller()->show('tok')->getStatus());
     }
 
     private function controller(): PublicEmbedController
@@ -88,7 +116,7 @@ class PublicEmbedControllerTest extends TestCase
             'files_sharing.Share.downloadShare' => 'https://cloud.example/index.php/s/' . $params['token'] . '/download',
             default => 'https://cloud.example/unexpected',
         });
-        $controller = new PublicEmbedController('threedviewer', $this->createMock(IRequest::class), $this->createMock(ISession::class), $this->embed, $urls);
+        $controller = new PublicEmbedController('threedviewer', $this->createMock(IRequest::class), $this->createMock(ISession::class), $this->shares, $this->embed, $urls);
         $controller->setToken('tok');
 
         return $controller;
@@ -101,6 +129,6 @@ class PublicEmbedControllerTest extends TestCase
         $file->method('getName')->willReturn('part.stl');
         $file->method('getMimetype')->willReturn('model/stl');
 
-        return new EmbedTarget($this->createMock(IShare::class), $file, $canDownload);
+        return new EmbedTarget($file, $canDownload);
     }
 }

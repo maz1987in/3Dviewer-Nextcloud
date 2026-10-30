@@ -126,7 +126,7 @@
 					:lighting-presets="lightingPresetsList"
 					:bookmarks="bookmarksList"
 					:public-shares="publicShares"
-					:embed-offered="embedEnabled && canCompareVersions"
+					:embed-offered="embedOffered"
 					:model-path="publicSharesPath"
 					:file-id="currentFileId"
 					:exploded-view-active="explodedViewActive"
@@ -439,6 +439,12 @@ export default {
 		// Versions are a logged-in user's: Nextcloud lists none to a public link
 		canCompareVersions() {
 			return !isPublicShare() && !!getCurrentUser()
+		},
+
+		// While the admin lists a site, to someone signed in who opened their own files, not
+		// a share: only they may have a link to embed. The control checks they may share it.
+		embedOffered() {
+			return this.embedEnabled && !isPublicShare() && !!getCurrentUser()
 		},
 
 		// Computed properties that return data properties (for reactivity)

@@ -18,7 +18,7 @@ body#body-public #content {
 	padding: 0;
 }
 
-.threedviewer-embed-gone {
+.threedviewer-embed-message {
 	display: flex;
 	align-items: center;
 	justify-content: center;

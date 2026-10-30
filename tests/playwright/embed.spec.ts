@@ -52,6 +52,14 @@ test('a gone share says so', async ({ page }) => {
 	expect(errors).toEqual([])
 })
 
+test('a failed load does not say the share is gone', async ({ page }) => {
+	const { errors } = await open(page, { ...EMBED, embed: 503 })
+
+	await expect(page.locator('[role="status"]')).toHaveText('Couldn\'t load the model. Try again later.')
+	await expect(page.locator('canvas')).toHaveCount(0)
+	expect(errors).toEqual([])
+})
+
 test('a view in the embed code sets the camera', async ({ page }) => {
 	const { errors } = await open(page, { ...EMBED, query: `view=${link({ c: { p: [30, 40, 50], t: [5, 5, 5], z: 1, o: 0 } })}` })
 

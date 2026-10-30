@@ -17,20 +17,16 @@ class EmbedService
 {
     public function __construct(
         private readonly EmbedOrigins $origins,
-        private readonly ShareFileService $shares,
         private readonly ModelFileSupport $support,
     ) {
     }
 
-    public function embeddable(string $token): ?EmbedTarget
+    /**
+     * @param IShare $share readable and unexpired (ShareFileService::findValidLinkShare)
+     */
+    public function embeddable(IShare $share): ?EmbedTarget
     {
-        if (!$this->origins->isEnabled()) {
-            return null;
-        }
-
-        // Readable and unexpired; link or email
-        $share = $this->shares->findValidLinkShare($token);
-        if ($share === null || $share->getShareType() !== IShare::TYPE_LINK) {
+        if (!$this->origins->isEnabled() || $share->getShareType() !== IShare::TYPE_LINK) {
             return null;
         }
         // A frame has nowhere to ask for a password, and must not show a protected model
@@ -44,11 +40,11 @@ class EmbedService
         } catch (NotFoundException) {
             return null;
         }
-        if (!$node instanceof File || !$this->support->isSupported(strtolower($node->getExtension()))) {
+        if (!$node instanceof File || !$this->support->isModel($node->getExtension())) {
             return null;
         }
 
-        return new EmbedTarget($share, $node, $this->allowsDownload($share));
+        return new EmbedTarget($node, $this->allowsDownload($share));
     }
 
     private function allowsDownload(IShare $share): bool
