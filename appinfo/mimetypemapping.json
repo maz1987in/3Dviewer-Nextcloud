@@ -36,6 +36,7 @@
     "fcstd": "application/x-fcstd",
     "xyz": "application/x-xyz-pointcloud",
     "pcd": "application/x-pcd",
+    "las": "application/vnd.las",
     "mtl": "text/plain"
   }
 }

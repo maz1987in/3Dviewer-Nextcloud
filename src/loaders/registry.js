@@ -40,6 +40,7 @@ const loaders = {
 	fcstd: () => import('./types/fcstd.js'),
 	xyz: () => import('./types/xyz.js'),
 	pcd: () => import('./types/pcd.js'),
+	las: () => import('./types/las.js'),
 }
 
 export async function loadModelByExtension(ext, arrayBuffer, context) {

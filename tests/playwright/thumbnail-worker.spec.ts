@@ -509,6 +509,7 @@ const SAMPLES: Sample[] = [
   // Scans, read by the same readers the viewer's point-cloud worker uses
   { name: 'xyz', extension: 'xyz', files: [`${FIXTURES}pointclouds/cube-rgb.xyz`] },
   { name: 'pcd', extension: 'pcd', files: [`${FIXTURES}pointclouds/cube-compressed.pcd`] },
+  { name: 'las', extension: 'las', files: [`${FIXTURES}pointclouds/utm-1.2.las`] },
 ]
 
 function startStaticServer(): Promise<{ origin: string, close: () => Promise<void> }> {

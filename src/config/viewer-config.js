@@ -728,6 +728,15 @@ export const SUPPORTED_FORMATS = {
 		displayOrder: 35,
 		icon: imagePath('threedviewer', 'filetypes/pcd.svg'),
 	},
+	las: {
+		name: 'LAS',
+		description: 'LiDAR and survey point cloud',
+		mimeType: 'application/vnd.las',
+		features: ['pointcloud'],
+		multiFile: false,
+		displayOrder: 36,
+		icon: imagePath('threedviewer', 'filetypes/las.svg'),
+	},
 }
 
 /**

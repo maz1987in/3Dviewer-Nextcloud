@@ -62,6 +62,7 @@ class SupportedFormats
         'fcstd' => ['application/x-fcstd'], // FreeCAD native document (ZIP + BREP)
         'xyz' => ['application/x-xyz-pointcloud'], // Point cloud as text; a chemistry .xyz is refused by the viewer
         'pcd' => ['application/x-pcd'], // Point Cloud Library point cloud
+        'las' => ['application/vnd.las'], // ASPRS LAS survey / LiDAR point cloud
 
         // Material/texture files
         'mtl' => ['text/plain'],
@@ -110,6 +111,7 @@ class SupportedFormats
         'fcstd' => 'application/x-fcstd',
         'xyz' => 'application/x-xyz-pointcloud',
         'pcd' => 'application/x-pcd',
+        'las' => 'application/vnd.las',
 
         // Material file
         'mtl' => 'text/plain',

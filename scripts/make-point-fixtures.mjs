@@ -8,6 +8,7 @@
  */
 import fs from 'node:fs'
 import path from 'node:path'
+import { geoKeys, lasFile, wktRecord } from './pointFixtureWriters.mjs'
 
 const OUT = path.resolve('tests/fixtures/pointclouds')
 fs.mkdirSync(OUT, { recursive: true })
@@ -163,3 +164,31 @@ function pcd(data) {
 write('cube-ascii.pcd', pcd('ascii'))
 write('cube-binary.pcd', pcd('binary'))
 write('cube-compressed.pcd', pcd('binary_compressed'))
+
+// LAS: a survey's cube, in UTM metres, its unit named by a GeoKey (ProjLinearUnits 9001)
+const UTM = [500000, 4500000, 100]
+write('utm-1.2.las', lasFile({
+	version: [1, 2],
+	format: 3,
+	offset: [500000, 4500000, 0],
+	points: cube().map((p, i) => ({ x: p[0] + UTM[0], y: p[1] + UTM[1], z: p[2] + UTM[2], intensity: i, classification: 2, rgb: rgb(p).map((c) => c * 257) })),
+	vlrs: [geoKeys([[1024, 1], [3072, 32633], [3076, 9001]])],
+}))
+// In US survey feet, named by a WKT whose geographic part is in degrees
+const WKT = 'PROJCS["NAD83 / Texas Central (ftUS)",GEOGCS["NAD83",DATUM["North_American_Datum_1983",SPHEROID["GRS 1980",6378137,298.257222101]],'
+	+ 'PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433]],PROJECTION["Lambert_Conformal_Conic_2SP"],UNIT["US survey foot",0.3048006096012192],AUTHORITY["EPSG","2277"]]'
+write('feet-1.4.las', lasFile({
+	version: [1, 4],
+	format: 7,
+	wkt: true,
+	scale: [0.01, 0.01, 0.01],
+	offset: [2000000, 10000000, 0],
+	points: cube().map((p) => ({ x: p[0] + 2000000, y: p[1] + 10000000, z: p[2], rgb: rgb(p).map((c) => c * 257) })),
+	vlrs: [wktRecord(WKT)],
+}))
+// Ground, high vegetation and buildings, and no coordinate system at all
+write('classes-1.4.las', lasFile({
+	version: [1, 4],
+	format: 6,
+	points: cube().map((p, i) => ({ x: p[0], y: p[1], z: p[2], intensity: 1000 + i, classification: [2, 5, 6][i % 3] })),
+}))

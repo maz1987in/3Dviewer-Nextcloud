@@ -251,3 +251,17 @@ test('a compressed PCD opens as points, coloured by its own colours', async ({ p
 	await expect(page.locator('#tdv-colour-by option[value="classification"]')).toHaveCount(1)
 	expect(errors).toEqual([])
 })
+
+test('a LAS survey opens Z up, in the unit its coordinate system names', async ({ page }) => {
+	const las = { id: 7606, name: 'survey.las', body: fs.readFileSync(path.join(FIXTURES, 'utm-1.2.las')) }
+	const { errors } = await openViewer(page, server.url, las)
+
+	expect(await scene(page)).toEqual({ points: true, count: 1000 })
+	await expect.poll(() => rotationX(page)).toBeCloseTo(-Math.PI / 2)
+	await panel(page).getByRole('button', { name: /^Model Statistics/ }).click()
+	const stats = page.locator('.model-stats-overlay')
+	await expect(stats).toContainText('Points')
+	await expect(stats.locator('.stats-file-unit')).toContainText('From the file')
+	await expect(stats.locator('.stats-file-unit select')).toHaveCount(0)
+	expect(errors).toEqual([])
+})
