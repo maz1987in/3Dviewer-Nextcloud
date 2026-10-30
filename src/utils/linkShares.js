@@ -22,6 +22,8 @@ const LINK_SHARE = 3
  * @property {boolean} hasPassword
  * @property {number|null} expires - milliseconds, or null for never
  * @property {boolean} canDownload
+ * @property {boolean} isFile - a share of the file itself, not of a folder holding it
+ * @property {boolean} canRead - false for an upload-only (file drop) link
  */
 
 /**
@@ -50,6 +52,8 @@ export async function listLinkShares(path) {
 			// for a list that only drops what has expired
 			expires: share.expiration ? Date.parse(share.expiration.replace(' ', 'T')) : null,
 			canDownload: !share.hide_download,
+			isFile: share.item_type === 'file',
+			canRead: (share.permissions & 1) === 1,
 		}))
 	} catch {
 		return []

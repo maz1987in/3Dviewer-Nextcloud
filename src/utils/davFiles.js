@@ -45,6 +45,33 @@ async function propfind(userId, path, depth, props) {
 }
 
 /**
+ * The user's permissions on a file or folder, as WebDAV letters: `R` share, `C` create.
+ *
+ * @param {string} userId - The logged-in user
+ * @param {string} path - The file or folder
+ * @return {Promise<string>} The letters; none on any error
+ */
+async function permissionsOf(userId, path) {
+	try {
+		const doc = await propfind(userId, path, '0', '<oc:permissions/>')
+		return doc.getElementsByTagNameNS(OC, 'permissions')[0]?.textContent ?? ''
+	} catch (error) {
+		return ''
+	}
+}
+
+/**
+ * Whether the user may share a file, so may make the public link an embed needs.
+ *
+ * @param {string} userId - The logged-in user
+ * @param {string} path - The file
+ * @return {Promise<boolean>} True only when its permissions include share (R); false on any error
+ */
+export async function canShare(userId, path) {
+	return (await permissionsOf(userId, path)).includes('R')
+}
+
+/**
  * Whether the user may create files in a folder.
  *
  * @param {string} userId - The logged-in user
@@ -52,13 +79,7 @@ async function propfind(userId, path, depth, props) {
  * @return {Promise<boolean>} True only when its permissions include create; false on any error
  */
 export async function canCreateIn(userId, dirPath) {
-	try {
-		const doc = await propfind(userId, dirPath, '0', '<oc:permissions/>')
-		const permissions = doc.getElementsByTagNameNS(OC, 'permissions')[0]?.textContent ?? ''
-		return permissions.includes('C')
-	} catch (error) {
-		return false
-	}
+	return (await permissionsOf(userId, dirPath)).includes('C')
 }
 
 /**

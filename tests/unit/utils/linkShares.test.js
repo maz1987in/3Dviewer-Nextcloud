@@ -11,7 +11,7 @@ jest.mock('@nextcloud/axios')
 /** A share as the OCS API formats it. */
 const share = (over) => ({
 	id: '11', share_type: 3, token: 'tok11', url: 'https://cloud.test/s/tok11', label: '', stime: 1761600000,
-	expiration: null, password: null, hide_download: 0, permissions: 1, ...over,
+	expiration: null, password: null, hide_download: 0, permissions: 1, item_type: 'file', ...over,
 })
 
 describe('listLinkShares', () => {
@@ -29,8 +29,8 @@ describe('listLinkShares', () => {
 		expect(options.params).toEqual({ path: '/models/part.stl', reshares: false, subfiles: false, format: 'json' })
 		expect(options.headers['OCS-APIRequest']).toBe('true')
 		expect(shares).toEqual([
-			{ id: '11', token: 'tok11', url: 'https://cloud.test/s/tok11', label: 'Client', created: 1761600000, hasPassword: false, expires: null, canDownload: true },
-			{ id: '13', token: 'tok13', url: 'https://cloud.test/s/tok13', label: '', created: 1761600000, hasPassword: true, expires: Date.parse('2026-12-01T00:00:00'), canDownload: false },
+			{ id: '11', token: 'tok11', url: 'https://cloud.test/s/tok11', label: 'Client', created: 1761600000, hasPassword: false, expires: null, canDownload: true, isFile: true, canRead: true },
+			{ id: '13', token: 'tok13', url: 'https://cloud.test/s/tok13', label: '', created: 1761600000, hasPassword: true, expires: Date.parse('2026-12-01T00:00:00'), canDownload: false, isFile: true, canRead: true },
 		])
 	})
 
@@ -65,5 +65,21 @@ describe('modelPath', () => {
 		[null, null, null],
 	])('dir %p and filename %p is %p', (dir, filename, expected) => {
 		expect(modelPath(dir, filename)).toBe(expected)
+	})
+})
+
+describe('the fields an embed needs', () => {
+	afterEach(() => jest.resetAllMocks())
+
+	it('says whether a share is of a file, and whether it can be read', async () => {
+		axios.get.mockResolvedValue({ data: { ocs: { data: [
+			share({ id: '21', item_type: 'folder', permissions: 31 }),
+			share({ id: '22', permissions: 4 }),
+		] } } })
+
+		const [folder, uploadOnly] = await listLinkShares('/models')
+
+		expect(folder).toMatchObject({ isFile: false, canRead: true })
+		expect(uploadOnly).toMatchObject({ isFile: true, canRead: false })
 	})
 })

@@ -126,6 +126,9 @@
 					:lighting-presets="lightingPresetsList"
 					:bookmarks="bookmarksList"
 					:public-shares="publicShares"
+					:embed-offered="embedEnabled && canCompareVersions"
+					:model-path="publicSharesPath"
+					:file-id="currentFileId"
 					:exploded-view-active="explodedViewActive"
 					:exploded-view-available="explodedViewAvailable"
 					:exploded-view-factor="explodedViewFactor"
@@ -153,6 +156,7 @@
 					@copy-view-link="onCopyViewLink"
 					@copy-bookmark-link="onCopyBookmarkLink"
 					@copy-public-view-link="onCopyPublicViewLink"
+					@copy-embed-code="onCopyEmbedCode"
 					@toggle-grid="grid = !grid"
 					@toggle-axes="axes = !axes"
 					@toggle-wireframe="onToggleWireframe"
@@ -266,6 +270,7 @@ import { canRecordVideo } from './utils/turntable.js'
 import { copyText } from './utils/clipboard.js'
 import { buildViewUrl } from './utils/viewLink.js'
 import { listLinkShares, modelPath, pickableShares } from './utils/linkShares.js'
+import { readInitialState } from './utils/initialState.js'
 
 export default {
 	name: 'App',
@@ -352,6 +357,8 @@ export default {
 			// opens for it, and the path they were read for
 			publicShares: [],
 			publicSharesPath: null,
+			// Whether the admin lets public links be shown on other sites
+			embedEnabled: readInitialState('embed')?.enabled === true,
 			measurementMode: false,
 			annotationMode: false,
 			comparisonMode: false,
@@ -774,11 +781,26 @@ export default {
 			if (this.publicSharesPath === path) this.publicShares = shares
 		},
 		/**
+		 * Copy the code that shows this model on another site, through one of its public
+		 * links (EmbedCodeControl). The code's helpers load only when it is copied.
+		 *
+		 * @param {{token: string, width: number, height: number, includeView: boolean}} options - The frame
+		 */
+		async onCopyEmbedCode({ token, width, height, includeView }) {
+			const { buildEmbedCode, embedUrl } = await import('./utils/embedCode.js')
+			const view = includeView ? this.$refs.viewer?.getViewState?.() : null
+			const title = String(this.currentFilename || '').split('/').pop()
+			await this.copyLink(view || !includeView ? buildEmbedCode({ url: embedUrl(window.location.origin, token, view), width, height, title }) : null,
+				this.t('threedviewer', 'Paste it into the page that shows the model.'), this.t('threedviewer', 'Embed code copied'))
+		},
+		/**
 		 * Copy a view link and say how that went.
 		 *
 		 * @param {string|null} link - null when there is no model to link to
+		 * @param {string} [message] - what the copy does for whoever receives it
+		 * @param {string} [title] - the toast's title
 		 */
-		async copyLink(link, message = this.t('threedviewer', 'Anyone who can open this file will see it as you do.')) {
+		async copyLink(link, message = this.t('threedviewer', 'Anyone who can open this file will see it as you do.'), title = this.t('threedviewer', 'Link copied')) {
 			if (!link) {
 				this.pushToast({
 					type: 'error',
@@ -791,7 +813,7 @@ export default {
 				await copyText(link)
 				this.pushToast({
 					type: 'success',
-					title: this.t('threedviewer', 'Link copied'),
+					title,
 					message,
 					timeout: 4000,
 				})

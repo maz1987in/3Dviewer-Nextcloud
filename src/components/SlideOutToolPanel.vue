@@ -106,6 +106,12 @@
 										</button>
 									</div>
 								</template>
+								<!-- An iframe of a public link, for another site the admin lists -->
+								<EmbedCodeControl v-if="modelLoaded && embedOffered && modelPath"
+									:shares="publicShares"
+									:model-path="modelPath"
+									:file-id="fileId"
+									@copy="emit('copy-embed-code', $event)" />
 								<!-- Bookmarks -->
 								<div class="tool-group">
 									<label class="tool-label-small">{{ t('threedviewer', 'Bookmarks') }}</label>
@@ -696,7 +702,7 @@
 </template>
 
 <script>
-import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount, defineAsyncComponent } from 'vue'
 import ViewerIcon from './ViewerIcon.vue'
 import ToggleSwitchRow from './ToggleSwitchRow.vue'
 import { isShortcutBlocked, shortcutFor, shortcutKey, hasOpenModal } from '../utils/toolShortcuts.js'
@@ -704,12 +710,16 @@ import { VIEWER_CONFIG } from '../config/viewer-config.js'
 // eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
 import { translate as t } from '@nextcloud/l10n'
 
+// Loaded only while embedding is on: most viewers never show it
+const EmbedCodeControl = defineAsyncComponent(() => import('./EmbedCodeControl.vue'))
+
 export default {
 	name: 'SlideOutToolPanel',
 
 	components: {
 		ViewerIcon,
 		ToggleSwitchRow,
+		EmbedCodeControl,
 	},
 
 	props: {
@@ -767,6 +777,12 @@ export default {
 		bookmarks: { type: Array, default: () => [] },
 		// Link shares of the model this user manages (utils/linkShares.js), newest first
 		publicShares: { type: Array, default: () => [] },
+		// "Copy embed code": offered while embedding is on and someone is signed in; the
+		// control itself asks whether they may share the model at modelPath
+		embedOffered: { type: Boolean, default: false },
+		modelPath: { type: String, default: null },
+		// The model's file id, for the link to its Sharing sidebar
+		fileId: { type: [Number, String], default: null },
 
 		// Exploded view
 		explodedViewActive: { type: Boolean, default: false },
@@ -808,6 +824,7 @@ export default {
 		'copy-view-link',
 		'copy-bookmark-link',
 		'copy-public-view-link',
+		'copy-embed-code',
 		'toggle-grid',
 		'toggle-axes',
 		'toggle-wireframe',

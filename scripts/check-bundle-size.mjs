@@ -39,8 +39,11 @@ const BUDGETS = [
   // panel's author/retry UI), which put it at 362.0 KB raw / 100.3 KB gzip. Gzip raised
   // to 108 KB for view links (reading, checking and applying a view, and copying links to
   // notes, bookmarks and public shares), which put it at 367.4 KB raw / 102.8 KB gzip
-  // with the rest of that feature still to come.
-  { pattern: /^App-.*\.chunk\.mjs$/, name: 'app', maxRaw: 380000, maxGzip: 108000 },
+  // with the rest of that feature still to come. Raw raised to 384 KB for "Copy embed
+  // code": the control and its helpers load as their own chunks, only while embedding is
+  // on, but the panel's slot for it, the copy handler and the two chunks' preload entries
+  // stay here, and put this at 381.7 KB raw / 104.3 KB gzip against 379.7 before.
+  { pattern: /^App-.*\.chunk\.mjs$/, name: 'app', maxRaw: 384000, maxGzip: 108000 },
   { pattern: /^three-core-.*\.chunk\.mjs$/, name: 'three-core', maxRaw: 800000, maxGzip: 210000 }, // Three.js core
   // Three chunks are named index-<hash>: the main one, a ~280 KB one and a 250-byte one.
   // This used to separate them with /^index-[A-Z][a-z]/, written to exclude one specific

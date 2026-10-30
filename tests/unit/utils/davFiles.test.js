@@ -3,7 +3,7 @@
  * they may: a folder shared read-only has no `C` in its permissions.
  */
 import axios from '@nextcloud/axios'
-import { userFilesUrl, canCreateIn, listNames, putFile } from '../../../src/utils/davFiles.js'
+import { userFilesUrl, canCreateIn, canShare, listNames, putFile } from '../../../src/utils/davFiles.js'
 
 jest.mock('@nextcloud/axios')
 jest.mock('@nextcloud/router')
@@ -69,4 +69,22 @@ test('putFile never replaces a file: one made since the folder was listed makes 
 test('putFile rejects on 507', async () => {
 	axios.put.mockRejectedValue(Object.assign(new Error('Insufficient Storage'), { response: { status: 507 } }))
 	await expect(putFile('alice', '/models', 'a.webm', new Blob(['x']))).rejects.toThrow('Insufficient Storage')
+})
+
+test('R in a file\'s permissions means it can be shared', async () => {
+	axios.request.mockResolvedValue({ data: propfind([{ href: '/remote.php/dav/files/alice/models/part.stl', permissions: 'RGDNVW' }]) })
+
+	await expect(canShare('alice', '/models/part.stl')).resolves.toBe(true)
+	expect(axios.request.mock.calls[0][0].url).toBe('/remote.php/dav/files/alice/models/part.stl')
+	expect(axios.request.mock.calls[0][0].headers.Depth).toBe('0')
+})
+
+test('no R means it cannot be shared', async () => {
+	axios.request.mockResolvedValue({ data: propfind([{ href: '/remote.php/dav/files/alice/shared/part.stl', permissions: 'GD' }]) })
+	await expect(canShare('alice', '/shared/part.stl')).resolves.toBe(false)
+})
+
+test('an error means it cannot be shared', async () => {
+	axios.request.mockRejectedValue(new Error('nope'))
+	await expect(canShare('alice', '/gone.stl')).resolves.toBe(false)
 })

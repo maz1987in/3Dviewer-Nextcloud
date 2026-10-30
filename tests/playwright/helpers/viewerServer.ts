@@ -30,11 +30,15 @@ export type ViewerModel = { id: number, name: string, body: string | Buffer }
  * `embed` serves the embed page at /index.php/apps/threedviewer/embed/{publicToken}, as
  * another site frames it, and answers its data route with the model and these links;
  * 'gone' answers it 404, as for a share that may no longer be embedded.
+ *
+ * `embedEnabled` is what the viewer page says about embedding: whether the admin lists
+ * any site (the `embed` initial state).
  */
 export type Viewer = {
 	user?: string | null, publicToken?: string | null, dir?: string, query?: string, notes?: object[], openPanel?: boolean, lite?: boolean,
 	unit?: string | null, unitCanEdit?: boolean, unitSaveStatus?: number, unitGate?: Promise<void>,
 	embed?: { shareUrl: string, downloadUrl: string | null } | 'gone',
+	embedEnabled?: boolean,
 }
 
 const EMBED_PATH = '/index.php/apps/threedviewer/embed/'
@@ -51,18 +55,24 @@ function html({ model, viewer }: { model: ViewerModel, viewer: Viewer }) {
 	const share = viewer.publicToken && !viewer.embed
 		? `<input type="hidden" id="initial-state-threedviewer-publicShare" value="${Buffer.from(JSON.stringify({ token: viewer.publicToken, fileId: model.id, filename: model.name, ...(viewer.lite ? { isSingleFile: true, mime: 'application/octet-stream' } : {}) })).toString('base64')}">`
 		: ''
+	const embedState = viewer.embedEnabled === undefined
+		? ''
+		: `<input type="hidden" id="initial-state-threedviewer-embed" value="${Buffer.from(JSON.stringify({ enabled: viewer.embedEnabled })).toString('base64')}">`
 	return `<!doctype html><html><head${user}><meta charset="utf-8"><title>Viewer</title>
 	<meta name="requesttoken" content="test-token">
 	<link rel="stylesheet" href="/css/threedviewer-${viewer.embed ? 'embed' : 'main'}.css">
 	<style>html, body { margin: 0; height: 100%; } #threedviewer { height: 100vh; }</style>
 	</head><body>
 	${share}
+	${embedState}
 	${viewer.lite || viewer.embed
 		? '<div id="content" style="height: 100vh"></div>'
 		: `<div id="threedviewer" data-file-id="${model.id}" data-filename="${model.name}" data-dir="${viewer.dir ?? '/models'}"></div>`}
 	<script>
 		window.t = function (_app, s, vars) { if (vars) { for (const k in vars) s = s.replace('{' + k + '}', vars[k]) } return s }
 		window.n = function (_app, s, p, n) { return (n === 1 ? s : p).replace('%n', n) }
+		// Nextcloud writes the web root on every page; without it @nextcloud/router guesses one from the path
+		window._oc_webroot = ''
 		window.OC = { config: { version: 'test' }, webroot: '', requestToken: 'test-token', filePath: function (_app, type, file) { return '/' + (type ? type + '/' : '') + file } }
 		window.OCA = {}
 		window.OCP = {}

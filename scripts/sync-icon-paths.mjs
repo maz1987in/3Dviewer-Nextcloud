@@ -67,6 +67,7 @@ export const ICONS = {
 	fullscreen: 'Fullscreen',
 	fullscreenExit: 'FullscreenExit',
 	download: 'Download',
+	embedCode: 'CodeTags',
 	delete: 'Delete',
 	explode: 'ArrowExpandAll',
 	exportModel: 'Download',
