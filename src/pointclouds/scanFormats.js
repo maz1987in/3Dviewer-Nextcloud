@@ -31,6 +31,7 @@ export function abortError() {
 const READERS = {
 	xyz: () => import('./readers/xyz.js'),
 	ply: () => import('./readers/plyPoints.js'),
+	pcd: () => import('./readers/pcd.js'),
 }
 
 /**

@@ -719,6 +719,15 @@ export const SUPPORTED_FORMATS = {
 		displayOrder: 34,
 		icon: imagePath('threedviewer', 'filetypes/xyz.svg'),
 	},
+	pcd: {
+		name: 'PCD',
+		description: 'Point Cloud Library point cloud',
+		mimeType: 'application/x-pcd',
+		features: ['pointcloud'],
+		multiFile: false,
+		displayOrder: 35,
+		icon: imagePath('threedviewer', 'filetypes/pcd.svg'),
+	},
 }
 
 /**

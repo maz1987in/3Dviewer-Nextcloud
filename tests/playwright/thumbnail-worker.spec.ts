@@ -508,6 +508,7 @@ const SAMPLES: Sample[] = [
   { name: '3mf', extension: '3mf', files: [`${GENERATED}triangle.3mf`] },
   // Scans, read by the same readers the viewer's point-cloud worker uses
   { name: 'xyz', extension: 'xyz', files: [`${FIXTURES}pointclouds/cube-rgb.xyz`] },
+  { name: 'pcd', extension: 'pcd', files: [`${FIXTURES}pointclouds/cube-compressed.pcd`] },
 ]
 
 function startStaticServer(): Promise<{ origin: string, close: () => Promise<void> }> {

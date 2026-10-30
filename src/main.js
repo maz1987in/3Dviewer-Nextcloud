@@ -66,6 +66,7 @@ const SUPPORTED_MIMES = [
 	'application/x-brep', // BREP alternative MIME
 	'application/x-fcstd', // .fcstd — FreeCAD document
 	'application/x-xyz-pointcloud', // .xyz — point cloud as text
+	'application/x-pcd', // .pcd — Point Cloud Library point cloud
 ]
 
 // Mode 1: Register simple viewer handler with Viewer API (modal preview)

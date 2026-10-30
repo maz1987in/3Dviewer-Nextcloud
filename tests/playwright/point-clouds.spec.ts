@@ -241,3 +241,13 @@ test('a PLY with no faces opens as points, coloured by its own colours', async (
 	await expect(page.locator('#tdv-colour-by')).toHaveValue('file')
 	expect(errors).toEqual([])
 })
+
+test('a compressed PCD opens as points, coloured by its own colours', async ({ page }) => {
+	const pcd = { id: 7605, name: 'scan.pcd', body: fs.readFileSync(path.join(FIXTURES, 'cube-compressed.pcd')) }
+	const { errors } = await openViewer(page, server.url, pcd)
+
+	expect(await scene(page)).toEqual({ points: true, count: 1000 })
+	await expect(page.locator('#tdv-colour-by')).toHaveValue('file')
+	await expect(page.locator('#tdv-colour-by option[value="classification"]')).toHaveCount(1)
+	expect(errors).toEqual([])
+})

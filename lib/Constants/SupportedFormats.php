@@ -61,6 +61,7 @@ class SupportedFormats
         'brp' => ['model/brep', 'application/x-brep'], // BREP alternative extension
         'fcstd' => ['application/x-fcstd'], // FreeCAD native document (ZIP + BREP)
         'xyz' => ['application/x-xyz-pointcloud'], // Point cloud as text; a chemistry .xyz is refused by the viewer
+        'pcd' => ['application/x-pcd'], // Point Cloud Library point cloud
 
         // Material/texture files
         'mtl' => ['text/plain'],
@@ -108,6 +109,7 @@ class SupportedFormats
         'brp' => 'model/brep',
         'fcstd' => 'application/x-fcstd',
         'xyz' => 'application/x-xyz-pointcloud',
+        'pcd' => 'application/x-pcd',
 
         // Material file
         'mtl' => 'text/plain',
