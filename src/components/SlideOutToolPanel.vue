@@ -161,6 +161,8 @@
 								<PointCloudControls :meta="pointCloud"
 									:colour-by="colourBy"
 									:point-size="pointSize"
+									:up-state="upState"
+									@set-up="emit('set-up', $event)"
 									@set-colour-by="emit('set-colour-by', $event)"
 									@set-point-size="emit('set-point-size', $event)" />
 							</div>
@@ -816,6 +818,8 @@ export default {
 		pointCloud: { type: Object, default: null },
 		colourBy: { type: String, default: 'height' },
 		pointSize: { type: Number, default: 2 },
+		// Which way is up for the scan (useFileUp's state), or null
+		upState: { type: Object, default: null },
 		modelPath: { type: String, default: null },
 		// The model's file id, for the link to its Sharing sidebar
 		fileId: { type: [Number, String], default: null },
@@ -851,6 +855,7 @@ export default {
 	},
 
 	emits: [
+		'set-up',
 		'set-colour-by',
 		'set-point-size',
 		'panel-opened',

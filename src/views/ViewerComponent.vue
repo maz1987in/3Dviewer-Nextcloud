@@ -661,7 +661,12 @@ export default {
 			let hasGeometry = false
 
 			this.scene.traverse((child) => {
-				if (child.isMesh && child.geometry) {
+				// A scan: its points, and its size
+				if (child.isPoints && child.geometry) {
+					vertices += child.geometry.attributes.position?.count ?? 0
+					box.expandByObject(child)
+					hasGeometry = true
+				} else if (child.isMesh && child.geometry) {
 					meshes++
 					const pos = child.geometry.attributes.position
 					if (pos) vertices += pos.count
@@ -705,6 +710,37 @@ export default {
 			} catch (error) {
 				logger.warn('ViewerComponent', 'Could not read the file\'s unit', error)
 			}
+		},
+
+		/**
+		 * Turn a scan the way its file's settings say is up (useFileUp in the full viewer),
+		 * for everyone who opens it, public-link visitors too. A failed read keeps the
+		 * format's own; an answer for a file since replaced is dropped.
+		 *
+		 * @param {object} object3D - The scan
+		 * @param {object} THREE - three.js
+		 */
+		async applySavedUp(object3D, THREE) {
+			const share = getPublicShareContext()
+			const fileId = this.fileid || share?.fileId
+			const cloud = object3D.userData.tdvPointCloud
+			let up
+			try {
+				({ up } = await createFileSettingsApi({ fileId, shareToken: share?.token ?? null }).get())
+			} catch (error) {
+				logger.warn('ViewerComponent', 'Could not read which way is up', error)
+				return
+			}
+			if (!up || up === cloud.up || fileId !== (this.fileid || getPublicShareContext()?.fileId)) {
+				return
+			}
+			const [{ applyUp }, { setColourBy }] = await Promise.all([import('../pointclouds/upAxis.js'), import('../pointclouds/buildPointCloud.js')])
+			applyUp(object3D, up)
+			cloud.up = up
+			if (cloud.colourBy === 'height') {
+				setColourBy(object3D, 'height')
+			}
+			this.fitCameraToModel(object3D, THREE)
 		},
 
 		formatNumber(n) {
@@ -1155,6 +1191,12 @@ export default {
 				const result = await loadModelByExtension(extension, arrayBuffer, context)
 
 				if (result && result.object3D) {
+					// A scan, turned to its format's up before it is shown
+					const cloud = result.object3D.userData?.tdvPointCloud ?? null
+					if (cloud) {
+						const { applyUp } = await import('../pointclouds/upAxis.js')
+						applyUp(result.object3D, cloud.up)
+					}
 					// Add loaded model to scene
 					this.updateProgress(true, 80, this.t('threedviewer', 'Adding model to scene...'), '', false)
 					this.scene.add(result.object3D)
@@ -1162,6 +1204,9 @@ export default {
 					// Auto-fit camera to model
 					this.updateProgress(true, 90, this.t('threedviewer', 'Positioning camera...'), '', false)
 					this.fitCameraToModel(result.object3D, THREE)
+					if (cloud) {
+						this.applySavedUp(result.object3D, THREE)
+					}
 
 					logger.info('ViewerComponent', 'Model loaded successfully')
 

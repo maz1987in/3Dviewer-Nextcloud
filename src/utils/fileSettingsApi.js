@@ -7,17 +7,19 @@
 import axios from '@nextcloud/axios'
 import { generateOcsUrl, generateUrl } from '@nextcloud/router'
 import { FILE_UNITS } from './sourceUnits.js'
+import { UPS } from '../pointclouds/upValues.js'
 
 /**
  * @param {object} data - A response body
  * @param {boolean} readOnly - Whether the caller is on a public link
- * @return {{canEdit: boolean, unit: ?string}} The answer, with anything unknown dropped
+ * @return {{canEdit: boolean, unit: ?string, up: ?string}} The answer, with anything unknown dropped
  */
 function settingsFrom(data, readOnly) {
 	const unit = data?.unit
 	return {
 		canEdit: !readOnly && data?.canEdit === true,
 		unit: typeof unit === 'string' && Object.hasOwn(FILE_UNITS, unit) ? unit : null,
+		up: UPS.includes(data?.up) ? data.up : null,
 	}
 }
 
@@ -46,13 +48,25 @@ export function createFileSettingsApi({ fileId, shareToken = null }) {
 
 		/**
 		 * @param {?string} unit - A key of FILE_UNITS, or null for the format's default
-		 * @return {Promise<{canEdit: boolean, unit: ?string}>} What the server now holds
+		 * @return {Promise<{canEdit: boolean, unit: ?string, up: ?string}>} What the server now holds
 		 */
 		async setUnit(unit) {
 			if (readOnly) {
 				throw new Error('The unit is read-only on a public link')
 			}
 			const { data } = await axios.put(base, { unit })
+			return settingsFrom(data, false)
+		},
+
+		/**
+		 * @param {?string} up - One of UPS, or null for the format's default
+		 * @return {Promise<{canEdit: boolean, unit: ?string, up: ?string}>} What the server now holds
+		 */
+		async setUp(up) {
+			if (readOnly) {
+				throw new Error('Which way is up is read-only on a public link')
+			}
+			const { data } = await axios.put(base, { up })
 			return settingsFrom(data, false)
 		},
 	}

@@ -1,6 +1,8 @@
 {
   "translations": {
     "+ {count} more": "+ {count} more",
+    "+Y up": "+Y up",
+    "+Z up": "+Z up",
     "1 texture could not be loaded": "1 texture could not be loaded",
     "1–10 MB": "1–10 MB",
     "3D Controller": "3D Controller",
@@ -442,6 +444,7 @@
     "Objects closer than this distance will not be rendered.": "Objects closer than this distance will not be rendered.",
     "Objects further than this distance will not be rendered.": "Objects further than this distance will not be rendered.",
     "One site per line, such as https://shop.example.com. Only https addresses are accepted, and http://localhost for testing. Anyone can see this list: browsers are sent it with every embed.": "One site per line, such as https://shop.example.com. Only https addresses are accepted, and http://localhost for testing. Anyone can see this list: browsers are sent it with every embed.",
+    "Only people who can edit this file can change this.": "Only people who can edit this file can change this.",
     "Only this layer": "Only this layer",
     "Open": "Open",
     "Open directly in {name}": "Open directly in {name}",
@@ -551,6 +554,7 @@
     "Save settings": "Save settings",
     "Saved": "Saved",
     "Saved with the file for everyone who can open it": "Saved with the file for everyone who can open it",
+    "Saved with the file for everyone who can see it.": "Saved with the file for everyone who can see it.",
     "Saved {name} next to the model": "Saved {name} next to the model",
     "Saving notes…": "Saving notes…",
     "Saving…": "Saving…",
@@ -759,6 +763,8 @@
     "{percent} % of the surface overhangs": "{percent} % of the surface overhangs",
     "{seconds} s": "{seconds} s",
     "{size} px": "{size} px",
-    "Δ": "Δ"
+    "Δ": "Δ",
+    "−Y up": "−Y up",
+    "−Z up": "−Z up"
   }
 }

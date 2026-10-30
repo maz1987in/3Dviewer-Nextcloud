@@ -185,3 +185,50 @@ test('the transform gizmo moves a scan', async ({ page }) => {
 
 	expect(active).toBe(true)
 })
+
+const rotationX = (page: Page) => page.evaluate(() => (window as any).__THREEDVIEWER_APP.$.subTree.component.proxy.$refs.viewer.modelRoot.rotation.x)
+
+test('an editor turns a scan, saved for the file', async ({ page }) => {
+	const { unitPuts } = await openViewer(page, server.url, CUBE_RGB)
+	await expect(page.locator('#tdv-up')).toHaveValue('+y')
+
+	await page.locator('#tdv-up').selectOption('+z')
+
+	await expect.poll(() => rotationX(page)).toBeCloseTo(-Math.PI / 2)
+	await expect.poll(() => unitPuts).toContainEqual({ up: '+z' })
+	// Still on the grid, turned
+	const bottom = await page.evaluate(() => {
+		const root = (window as any).__THREEDVIEWER_APP.$.subTree.component.proxy.$refs.viewer.modelRoot
+		root.geometry.computeBoundingBox()
+		return root.geometry.boundingBox.clone().applyMatrix4(root.matrixWorld).min.y
+	})
+	expect(bottom).toBeCloseTo(0, 3)
+})
+
+test('the up saved for a scan turns it when it opens', async ({ page }) => {
+	await openViewer(page, server.url, CUBE_RGB, { user: 'alice', up: '-y' })
+
+	await expect.poll(() => rotationX(page)).toBeCloseTo(Math.PI)
+	await expect(page.locator('#tdv-up')).toHaveValue('-y')
+})
+
+test('a view-only colleague sees which way is up, and can\'t change it', async ({ page }) => {
+	await openViewer(page, server.url, CUBE_RGB, { user: 'bob', up: '+z', unitCanEdit: false })
+
+	await expect(page.locator('.file-up-control')).toContainText('+Z up')
+	await expect(page.locator('.file-up-control')).toContainText('Only people who can edit this file can change this.')
+	await expect(page.locator('#tdv-up')).toHaveCount(0)
+	await expect.poll(() => rotationX(page)).toBeCloseTo(-Math.PI / 2)
+})
+
+test('a public link turns the scan the way the file says', async ({ page }) => {
+	const { errors } = await openViewer(page, server.url, CUBE_RGB, { user: null, publicToken: 'scantok', lite: true, up: '-z' })
+
+	await expect.poll(() => page.evaluate(() => {
+		const viewer = (document.querySelector('#threedviewer-public') as any)._vnode.component.subTree.component.proxy
+		let x = null
+		viewer.scene.traverse((child: any) => { if (child.isPoints) x = child.rotation.x })
+		return x
+	})).toBeCloseTo(Math.PI / 2)
+	expect(errors).toEqual([])
+})

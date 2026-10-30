@@ -883,6 +883,9 @@ import { useSharedNotes } from '../composables/useSharedNotes.js'
 import { createNotesApi } from '../utils/notesApi.js'
 import { createFileSettingsApi } from '../utils/fileSettingsApi.js'
 import { useFileUnit } from '../composables/useFileUnit.js'
+import { useFileUp } from '../composables/useFileUp.js'
+import { applyUp } from '../pointclouds/upAxis.js'
+import { UPS } from '../pointclouds/upValues.js'
 import FileUnitControl from './FileUnitControl.vue'
 import { getPublicShareContext } from '../composables/usePublicShare.js'
 import { awaitStatusBeforeDownload, scheduleCapture } from '../thumbnails/captureFromViewer.js'
@@ -986,6 +989,10 @@ export default {
 		const modelMillimetresPerFileUnit = ref(1)
 		// The unit the open file is in, and the one its editors chose (useFileUnit)
 		const fileUnit = useFileUnit()
+		// Which way is up for a scan, saved with the file like its unit
+		const fileUp = useFileUp()
+		// The file the statistics were last made for, to make them again once a scan turns
+		let statsFile = { filename: '', size: 0 }
 		let unitsFilename = null
 		const modelSourceFiles = shallowRef(null) // File[] for ZIP export
 		const aborting = ref(false)
@@ -1571,7 +1578,14 @@ export default {
 					modelRoot.value = markRaw(loadedModel.object3D)
 					// A scan's colour by and point size, before a linked view sets them
 					const cloud = modelRoot.value.userData?.tdvPointCloud ?? null
-					pointCloud.value = cloud ? { colourBy: cloud.colourBy, pointSize: modelRoot.value.material?.size ?? POINT_SIZE.initial } : null
+					pointCloud.value = cloud ? { colourBy: cloud.colourBy, pointSize: modelRoot.value.material?.size ?? POINT_SIZE.initial, upState: null } : null
+					// Turned to its format's up before it is placed; the file's own, once read, turns it again
+					if (cloud) {
+						applyUp(modelRoot.value, cloud.up)
+						fileUp.describe(cloud.defaultUp)
+					} else {
+						fileUp.reset()
+					}
 					// A note a link marked belonged to the previous model
 					highlightedNoteId.value = null
 					notePlacementHeld.value = false
@@ -1752,6 +1766,7 @@ export default {
 					}
 					fileUnit.describe(filename, modelRoot.value)
 					applySourceUnits(filename, modelRoot.value)
+					statsFile = { filename, size: fileSize }
 					const stats = modelStatsComposable.analyzeModel(modelRoot.value, filename, fileSize)
 					evaluatePerformanceScaling(stats)
 
@@ -1822,8 +1837,13 @@ export default {
 							})
 						// The unit chosen for a file that records none; an answer for a model
 						// since replaced is dropped by useFileUnit
-						fileUnit.load(createFileSettingsApi({ fileId, shareToken: share?.token ?? null }))
+						const settingsApi = createFileSettingsApi({ fileId, shareToken: share?.token ?? null })
+						fileUnit.load(settingsApi)
 							.then((changed) => { if (changed) applyChosenUnit() })
+						// Which way is up for a scan; an answer for a scan since replaced is dropped
+						if (cloud) {
+							fileUp.load(settingsApi).then((changed) => { if (changed) turnScan(fileUp.state.value.up) })
+						}
 					}
 
 					// Capture a thumbnail once per file version (if enabled). It is rendered
@@ -2026,6 +2046,7 @@ export default {
 				// Analyze demo model for stats. It has no real size; read as before, a
 				// millimetre per unit.
 				fileUnit.reset()
+				fileUp.reset()
 				pointCloud.value = null
 				applySourceUnits(null, null)
 				modelStatsComposable.analyzeModel(modelRoot.value, 'demo-scene.glb', 0)
@@ -2579,6 +2600,62 @@ export default {
 			emit('point-cloud-changed', pointCloud.value)
 			return true
 		}
+
+		/**
+		 * Turn the scan so `up` points up, put it back on the grid, and fit everything that
+		 * followed its shape to it again: the gizmo's Reset, the camera, the grid, the cut's
+		 * bounds, height colours and the statistics.
+		 *
+		 * @param {string} up - One of UPS
+		 */
+		const turnScan = async (up) => {
+			const root = modelRoot.value
+			const meta = root?.userData?.tdvPointCloud
+			if (!meta || !UPS.includes(up) || meta.up === up) {
+				return
+			}
+			applyUp(root, up)
+			meta.up = up
+			root.position.set(0, 0, 0)
+			root.updateMatrixWorld(true)
+			const box = new THREE.Box3().setFromObject(root)
+			const centre = box.getCenter(new THREE.Vector3())
+			root.position.set(-centre.x, -box.min.y, -centre.z)
+			root.updateMatrixWorld(true)
+			transformGizmo.rememberTransform(root)
+			const placed = new THREE.Box3().setFromObject(root)
+			camera.fitCameraToObject(root, placed.getCenter(new THREE.Vector3()))
+			updateGridSize(root)
+			clippingPlane.updateBounds(placed)
+			if (meta.colourBy === 'height') {
+				const { setColourBy: recolour } = await import('../pointclouds/buildPointCloud.js')
+				recolour(root, 'height')
+			}
+			modelStatsComposable.analyzeModel(root, statsFile.filename, statsFile.size)
+		}
+
+		/**
+		 * Choose which way is up for the file, for everyone: the scan turns at once, and
+		 * back if the save is refused.
+		 *
+		 * @param {string} up - One of UPS
+		 */
+		const setUp = async (up) => {
+			if (!pointCloud.value || !UPS.includes(up)) {
+				return
+			}
+			await turnScan(up)
+			await fileUp.set(up)
+			await turnScan(fileUp.state.value?.up ?? up)
+		}
+
+		// The panel shows which way is up, and whether it may be changed
+		watch(() => fileUp.state.value, (upState) => {
+			if (pointCloud.value) {
+				pointCloud.value = { ...pointCloud.value, upState }
+				emit('point-cloud-changed', pointCloud.value)
+			}
+		})
 
 		/**
 		 * @param {number} px - A scan's point size, clamped to POINT_SIZE
@@ -4283,6 +4360,7 @@ export default {
 				// Clear model stats
 				modelStatsComposable.clearStats()
 				fileUnit.reset()
+				fileUp.reset()
 				pointCloud.value = null
 				applySourceUnits(null, null)
 
@@ -4538,6 +4616,7 @@ export default {
 			pointCloud,
 			setColourBy,
 			setPointSize,
+			setUp,
 			aborting,
 			initializing,
 

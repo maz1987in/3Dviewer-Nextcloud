@@ -4,9 +4,9 @@
  * points, so notes and view-link cameras, kept in the root's space, still fit).
  */
 import * as THREE from 'three'
+import { UPS } from './upValues.js'
 
-/** The file settings' values (FileSettingsService::UPS). */
-export const UPS = Object.freeze(['+y', '-y', '+z', '-z'])
+export { UPS }
 
 const Z_UP_FORMATS = new Set(['las', 'laz', 'e57'])
 

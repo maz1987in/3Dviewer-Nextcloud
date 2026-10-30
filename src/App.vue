@@ -130,6 +130,8 @@
 					:point-cloud="pointCloud"
 					:colour-by="pointColourBy"
 					:point-size="pointSize"
+					:up-state="pointUpState"
+					@set-up="$refs.viewer?.setUp($event)"
 					@set-colour-by="$refs.viewer?.setColourBy($event)"
 					@set-point-size="$refs.viewer?.setPointSize($event)"
 					:model-path="publicSharesPath"
@@ -358,6 +360,8 @@ export default {
 			pointCloud: null,
 			pointColourBy: 'height',
 			pointSize: 2,
+			// Which way is up for it (useFileUp's state), once the server has answered
+			pointUpState: null,
 			modelLoaded: false,
 			hasMultipleSourceFiles: false,
 			// Advanced features
@@ -714,6 +718,7 @@ export default {
 				this.pointColourBy = state.colourBy
 				this.pointSize = state.pointSize
 			}
+			this.pointUpState = state?.upState ?? null
 		},
 
 		onToggleWireframe() {

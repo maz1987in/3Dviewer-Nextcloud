@@ -23,7 +23,7 @@ export type ViewerModel = { id: number, name: string, body: string | Buffer }
  * `lite` serves the page a public link to a single file gets, where the light viewer
  * (ViewerComponent) replaces the share page's content instead of the full app mounting.
  *
- * `unit` is the unit saved for the file and `unitCanEdit` whether the user may change it
+ * `unit` (and `up`, which way is up for a scan) is what is saved for the file, and `unitCanEdit` whether the user may change it
  * (default: yes when logged in); `unitSaveStatus` makes a save fail with that status, and
  * `unitGate` holds the unit's answer back until it resolves.
  *
@@ -40,7 +40,7 @@ export type ViewerModel = { id: number, name: string, body: string | Buffer }
  */
 export type Viewer = {
 	user?: string | null, publicToken?: string | null, dir?: string, query?: string, notes?: object[], openPanel?: boolean, lite?: boolean,
-	unit?: string | null, unitCanEdit?: boolean, unitSaveStatus?: number, unitGate?: Promise<void>,
+	unit?: string | null, unitCanEdit?: boolean, unitSaveStatus?: number, unitGate?: Promise<void>, up?: string | null,
 	embed?: { shareUrl: string, downloadUrl: string | null } | 'gone' | number,
 	embedEnabled?: boolean,
 	fileGate?: Promise<void>, loads?: boolean,
@@ -149,9 +149,10 @@ export async function openViewer(page: Page, url: string, model: ViewerModel, vi
 		body: JSON.stringify(viewer.publicToken ? { ocs: { data: { canEdit: false, notes: [] } } } : { canEdit: true, notes: viewer.notes ?? [], private: [] }),
 	}))
 
-	// The file's saved unit; every save is recorded in `unitPuts`
+	// The file's saved unit and up; every save is recorded in `unitPuts`
 	const unitPuts: object[] = []
 	let savedUnit = viewer.unit ?? null
+	let savedUp = viewer.up ?? null
 	await page.route(/\/(api|public)\/file-settings\//, async (route) => {
 		const request = route.request()
 		if (request.method() === 'GET' && viewer.unitGate) {
@@ -164,9 +165,11 @@ export async function openViewer(page: Page, url: string, model: ViewerModel, vi
 			if (viewer.unitSaveStatus) {
 				return route.fulfill({ status: viewer.unitSaveStatus, contentType: 'application/json', body: '{"error":"Failed"}' })
 			}
-			savedUnit = body.unit
+			// A save changes only what it carries
+			if ('unit' in body) savedUnit = body.unit
+			if ('up' in body) savedUp = body.up
 		}
-		return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ canEdit, unit: savedUnit }) })
+		return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ canEdit, unit: savedUnit, up: savedUp }) })
 	})
 
 	if (viewer.embed) {

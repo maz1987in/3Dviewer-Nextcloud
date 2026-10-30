@@ -27,6 +27,7 @@
 				:aria-valuetext="t('threedviewer', '{size} px', { size: pointSize })"
 				@input="$emit('set-point-size', parseFloat($event.target.value))">
 		</div>
+		<FileUpControl v-if="upState" :state="upState" @set-up="$emit('set-up', $event)" />
 		<!-- What the gated tools elsewhere in the panel point at (aria-describedby) -->
 		<div class="point-cloud-unavailable">
 			<span id="tdv-unavailable-heading" class="tool-label-small">{{ t('threedviewer', 'Not available for scans') }}</span>
@@ -44,6 +45,7 @@ import { thinningNote } from '../pointclouds/budget.js'
 import { availableColourBy } from '../pointclouds/colourBy.js'
 import { POINT_SIZE } from '../pointclouds/limits.js'
 import { POINT_CLOUD_UNAVAILABLE } from '../pointclouds/unavailable.js'
+import FileUpControl from './FileUpControl.vue'
 
 /**
  * The tools panel's controls for a scan. Loaded as its own chunk, only when a scan opens,
@@ -52,6 +54,8 @@ import { POINT_CLOUD_UNAVAILABLE } from '../pointclouds/unavailable.js'
  */
 export default {
 	name: 'PointCloudControls',
+
+	components: { FileUpControl },
 
 	props: {
 		// The cloud's userData.tdvPointCloud, without its points

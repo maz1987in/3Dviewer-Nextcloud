@@ -2,10 +2,11 @@
  * The tools panel's controls for a scan: what it is coloured by, how big its points are,
  * how much of it is shown, and the tools that are off for it, with why.
  */
-const { mountSfc } = require('./helpers/mountSfc.js')
+const { loadSfc, mountSfc } = require('./helpers/mountSfc.js')
 const vue = require('vue')
 
 const MODULES = {
+	'./FileUpControl.vue': { default: loadSfc('FileUpControl', { '../pointclouds/upValues.js': require('../../src/pointclouds/upValues.js') }) },
 	'../pointclouds/colourBy.js': require('../../src/pointclouds/colourBy.js'),
 	'../pointclouds/budget.js': require('../../src/pointclouds/budget.js'),
 	'../pointclouds/limits.js': require('../../src/pointclouds/limits.js'),
@@ -88,4 +89,18 @@ test('the tools that are off are listed, each with the id its control points at'
 	expect(items[4].textContent.trim()).toBe('Export: Export saves meshes, and a scan is points.')
 	const list = items[0].closest('ul')
 	expect(document.getElementById(list.getAttribute('aria-labelledby')).textContent.trim()).toBe('Not available for scans')
+})
+
+test('which way is up, once the server has answered, and its choice passed on', async () => {
+	const { events, props } = mount({ meta: meta() })
+	expect(byId('tdv-up')).toBeNull()
+
+	props.upState = { up: '+z', saved: null, defaultUp: '+z', canEdit: true, status: '' }
+	await vue.nextTick()
+	const select = byId('tdv-up')
+	select.value = '-y'
+	select.dispatchEvent(new Event('change'))
+	await vue.nextTick()
+
+	expect(events).toEqual([['set-up', ['-y']]])
 })
