@@ -39,8 +39,10 @@ class ResponseBuilderCspTest extends TestCase
 
         (new ResponseBuilder(new ModelFileSupport()))->addCspHeaders($response);
 
-        // DRACO, KTX2 and web-ifc all spin up workers from blob: URLs.
+        // DRACO, KTX2 and web-ifc all spin up workers from blob: URLs; the scan reader is
+        // a worker from the app's own files.
         $this->assertContains(['worker', 'blob:'], $csp->calls);
+        $this->assertContains(['worker', "'self'"], $csp->calls);
     }
 
     public function testAddCspHeadersAllowsBlobAndDataForGltfBuffersAndTextures(): void

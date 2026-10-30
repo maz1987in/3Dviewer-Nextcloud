@@ -45,6 +45,19 @@ class CspListenerTest extends TestCase
         $this->assertStringContainsString("'wasm-unsafe-eval'", $manager->policies[0]->buildPolicy());
     }
 
+    /**
+     * Scans are read in a worker the app's own chunk starts. A share page's policy has no
+     * worker-src, so it falls back to the nonce-only script-src and refuses the worker.
+     */
+    public function testAllowsWorkersFromTheServerItself(): void
+    {
+        $manager = new ContentSecurityPolicyManager();
+
+        (new CspListener())->handle(new AddContentSecurityPolicyEvent($manager));
+
+        $this->assertMatchesRegularExpression("/worker-src\\s+'self'/", $manager->policies[0]->buildPolicy());
+    }
+
     public function testNeverAsksForJavaScriptEval(): void
     {
         $manager = new ContentSecurityPolicyManager();
@@ -55,20 +68,20 @@ class CspListenerTest extends TestCase
         $this->assertDoesNotMatchRegularExpression("/(?<![-\w])'unsafe-eval'/", $manager->policies[0]->buildPolicy());
     }
 
-    public function testContributesNothingBeyondWebAssembly(): void
+    public function testContributesNothingBeyondWebAssemblyAndItsOwnWorkers(): void
     {
         $manager = new ContentSecurityPolicyManager();
 
         (new CspListener())->handle(new AddContentSecurityPolicyEvent($manager));
 
-        // Take the script-src directive out and what is left must be what an untouched
-        // empty policy builds: no sources, so merging it into another app's page cannot
-        // loosen or tighten anything else there.
+        // Take those two directives out and what is left must be what an untouched empty
+        // policy builds: no sources, so merging it into another app's page cannot loosen
+        // or tighten anything else there.
         $built = $manager->policies[0]->buildPolicy();
         $this->assertMatchesRegularExpression("/script-src\s+'wasm-unsafe-eval';/", $built);
         $this->assertSame(
             (new EmptyContentSecurityPolicy())->buildPolicy(),
-            preg_replace("/script-src\s+'wasm-unsafe-eval';/", '', $built),
+            preg_replace(["/script-src\s+'wasm-unsafe-eval';/", "/;?worker-src\s+'self';?/"], '', $built),
         );
     }
 
