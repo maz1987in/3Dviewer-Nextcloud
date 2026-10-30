@@ -223,6 +223,7 @@ describe('createWorkerResources', () => {
 			`${APP_ROOT}rhino3dm/rhino3dm.wasm`,
 			`${APP_ROOT}occt/occt-import-js.wasm`,
 			`${APP_ROOT}web-ifc/web-ifc.wasm`,
+			`${APP_ROOT}lazperf/laz-perf.wasm`,
 			`${APP_ROOT}basis/basis_transcoder.js`,
 			// Relative to the worker script, as a loader with no path resolves it
 			'../draco/draco_decoder.wasm',

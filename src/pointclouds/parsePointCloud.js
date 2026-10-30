@@ -3,7 +3,20 @@
  * is already a worker (the thumbnailer). One worker per file, ended when the read ends or
  * is cancelled.
  */
+import { generateFilePath } from '@nextcloud/router'
 import { NotAScanError, ScanError, abortError, readerFor } from './scanFormats.js'
+
+/**
+ * @return {?string} Where the app's files are served, for a worker to find its WASM by
+ *   (a worker has no Nextcloud globals to ask), or null when it can't be told
+ */
+function appWebRoot() {
+	try {
+		return generateFilePath('threedviewer', '', '')
+	} catch {
+		return null
+	}
+}
 
 /**
  * @param {Blob} blob - The file
@@ -56,6 +69,6 @@ export async function parsePointCloud(blob, ext, { budget, onProgress = () => {}
 			end()
 			reject(new Error(event?.message || 'The scan reader stopped'))
 		}
-		worker.postMessage({ blob, ext, budget })
+		worker.postMessage({ blob, ext, budget, appWebRoot: appWebRoot() })
 	})
 }

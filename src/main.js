@@ -68,6 +68,7 @@ const SUPPORTED_MIMES = [
 	'application/x-xyz-pointcloud', // .xyz — point cloud as text
 	'application/x-pcd', // .pcd — Point Cloud Library point cloud
 	'application/vnd.las', // .las — LiDAR and survey point cloud
+	'application/vnd.laszip', // .laz — compressed LiDAR and survey point cloud
 ]
 
 // Mode 1: Register simple viewer handler with Viewer API (modal preview)

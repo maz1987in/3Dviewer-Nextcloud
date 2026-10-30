@@ -737,6 +737,15 @@ export const SUPPORTED_FORMATS = {
 		displayOrder: 36,
 		icon: imagePath('threedviewer', 'filetypes/las.svg'),
 	},
+	laz: {
+		name: 'LAZ',
+		description: 'Compressed LiDAR and survey point cloud',
+		mimeType: 'application/vnd.laszip',
+		features: ['pointcloud'],
+		multiFile: false,
+		displayOrder: 37,
+		icon: imagePath('threedviewer', 'filetypes/laz.svg'),
+	},
 }
 
 /**

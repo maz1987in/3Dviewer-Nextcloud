@@ -37,6 +37,7 @@
     "xyz": "application/x-xyz-pointcloud",
     "pcd": "application/x-pcd",
     "las": "application/vnd.las",
+    "laz": "application/vnd.laszip",
     "mtl": "text/plain"
   }
 }

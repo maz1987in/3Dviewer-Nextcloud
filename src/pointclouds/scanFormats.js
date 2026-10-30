@@ -33,6 +33,7 @@ const READERS = {
 	ply: () => import('./readers/plyPoints.js'),
 	pcd: () => import('./readers/pcd.js'),
 	las: () => import('./readers/las.js'),
+	laz: () => import('./readers/las.js'),
 }
 
 /**

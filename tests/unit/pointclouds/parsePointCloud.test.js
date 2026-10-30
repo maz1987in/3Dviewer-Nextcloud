@@ -34,7 +34,8 @@ test('sends the blob, extension and budget, reports progress and resolves with t
 	const result = await parsePointCloud(blob, 'xyz', { budget: 42, onProgress: (f) => progress.push(f) })
 
 	expect(result).toEqual(RESULT)
-	expect(worker.posted).toEqual({ blob, ext: 'xyz', budget: 42 })
+	expect(worker.posted).toMatchObject({ blob, ext: 'xyz', budget: 42 })
+	expect(typeof worker.posted.appWebRoot).toBe('string')
 	expect(progress).toEqual([0.5])
 	expect(worker.terminate).toHaveBeenCalledTimes(1)
 })

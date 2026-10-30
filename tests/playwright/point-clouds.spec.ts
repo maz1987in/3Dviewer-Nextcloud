@@ -265,3 +265,12 @@ test('a LAS survey opens Z up, in the unit its coordinate system names', async (
 	await expect(stats.locator('.stats-file-unit select')).toHaveCount(0)
 	expect(errors).toEqual([])
 })
+
+test('a LAZ scan is decoded in the worker and shown', async ({ page }) => {
+	const laz = { id: 7607, name: 'simple.laz', body: fs.readFileSync(path.join(FIXTURES, 'simple.laz')) }
+	const { errors } = await openViewer(page, server.url, laz)
+
+	expect(await scene(page)).toEqual({ points: true, count: 1065 })
+	await expect(page.locator('#tdv-colour-by')).toHaveValue('file')
+	expect(errors).toEqual([])
+})

@@ -5,12 +5,16 @@
  * they are computed in double precision and re-centred on the header's minimum before
  * they become 32-bit. The length unit comes from the coordinate system (lasCrsUnit.js).
  *
- * A compressed file (LAZ) is refused here.
+ * A compressed file (LAZ) is read chunk by chunk: where each chunk is comes from its chunk
+ * table (lazChunks.js), laz-perf decodes it into the same records, and the records are
+ * read as an uncompressed file's are. Point formats 4, 5, 9 and 10 (waveforms) aren't
+ * supported by laz-perf.
  */
 import { readRange, readWindows } from '../blobReader.js'
 import { crsUnit } from '../lasCrsUnit.js'
+import { laszipRecord, readChunkTable } from './lazChunks.js'
 import { PointSink } from '../pointSink.js'
-import { ScanError } from '../scanFormats.js'
+import { ScanError, abortError } from '../scanFormats.js'
 
 /** The longest header and VLRs read up front; a file with more is refused. */
 const PREAMBLE_MAX_BYTES = 16 * 1024 ** 2
@@ -216,7 +220,7 @@ export async function read(blob, { budget, onProgress = () => {}, signal }) {
 	const header = lasHeader(await readRange(blob, 0, first.offsetToPoints))
 	const unit = crsUnit([...header.vlrs, ...(header.evlrCount ? await readEvlrs(blob, header) : [])])
 	if (header.compressed) {
-		throw new ScanError('compressed LAS (LAZ) can\'t be read here')
+		return { sink: await readLaz(blob, header, { budget, onProgress, signal }), unit, format: 'laz' }
 	}
 	const layout = recordLayout(header)
 	const { recordLength, pointCount, offsetToPoints } = header
@@ -237,4 +241,87 @@ export async function read(blob, { budget, onProgress = () => {}, signal }) {
 		onProgress(Math.min(1, (offset + bytes.length - offsetToPoints) / Math.max(1, end - offsetToPoints)))
 	}
 	return { sink: sink.finish(), unit, format: 'las' }
+}
+
+/** The point formats laz-perf decodes. */
+const LAZ_FORMATS = new Set([0, 1, 2, 3, 6, 7, 8])
+
+/**
+ * A compressed file's points, chunk by chunk, so only one chunk is in memory at a time.
+ *
+ * @param {Blob} blob - The file
+ * @param {object} header - From lasHeader
+ * @param {object} options - As for read
+ * @return {Promise<object>} The finished sink
+ */
+async function readLaz(blob, header, { budget, onProgress, signal }) {
+	if (!LAZ_FORMATS.has(header.pointFormat)) {
+		throw new ScanError(`LAZ point format ${header.pointFormat} isn't supported`)
+	}
+	laszipRecord(header)
+	const layout = recordLayout(header)
+	if (signal?.aborted) {
+		throw abortError()
+	}
+	const chunks = await readChunkTable(blob, header)
+	// Only a compressed file needs the decoder
+	const { getLazPerf } = await import('../lazPerf.js')
+	const lazPerf = await getLazPerf()
+	const { recordLength } = header
+	const point = lazPerf._malloc(recordLength)
+	let sink = null
+	let add = null
+	try {
+		for (let c = 0; c < chunks.length; c++) {
+			if (signal?.aborted) {
+				throw abortError()
+			}
+			const { start, byteCount, pointCount } = chunks[c]
+			const bytes = new Uint8Array(await blob.slice(start, start + byteCount).arrayBuffer())
+			const records = decodeChunk(lazPerf, header, bytes, pointCount, point)
+			// The first records decide the attributes, as for an uncompressed file
+			if (!sink) {
+				const sampled = Math.min(SAMPLE, pointCount)
+				const attributes = attributesOf(new DataView(records.buffer, 0, sampled * recordLength), sampled, header, layout)
+				sink = new PointSink({ total: header.pointCount, budget, origin: header.min, attributes })
+				add = recordReader(header, layout, attributes, sink)
+			}
+			const view = new DataView(records.buffer)
+			for (let r = 0; r < pointCount; r++) {
+				add(view, r * recordLength)
+			}
+			onProgress((c + 1) / chunks.length)
+		}
+	} finally {
+		lazPerf._free(point)
+	}
+	return (sink ?? new PointSink({ total: 0, budget })).finish()
+}
+
+/**
+ * @param {object} lazPerf - The module
+ * @param {object} header - From lasHeader
+ * @param {Uint8Array} bytes - One compressed chunk
+ * @param {number} pointCount - Its points
+ * @param {number} point - A record's worth of the module's memory, for each point
+ * @return {Uint8Array} The chunk's records, uncompressed
+ */
+function decodeChunk(lazPerf, header, bytes, pointCount, point) {
+	const { recordLength, pointFormat } = header
+	const chunk = lazPerf._malloc(bytes.length)
+	const decoder = new lazPerf.ChunkDecoder()
+	try {
+		lazPerf.HEAPU8.set(bytes, chunk)
+		decoder.open(pointFormat, recordLength, chunk)
+		const records = new Uint8Array(pointCount * recordLength)
+		for (let r = 0; r < pointCount; r++) {
+			decoder.getPoint(point)
+			// HEAPU8 may be replaced as the module's memory grows: read it each time
+			records.set(lazPerf.HEAPU8.subarray(point, point + recordLength), r * recordLength)
+		}
+		return records
+	} finally {
+		decoder.delete()
+		lazPerf._free(chunk)
+	}
 }
