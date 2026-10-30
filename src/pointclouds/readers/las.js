@@ -269,8 +269,21 @@ async function readLaz(blob, header, { budget, onProgress, signal }) {
 	const lazPerf = await getLazPerf()
 	const { recordLength } = header
 	const point = lazPerf._malloc(recordLength)
+	// The first records, kept to decide the attributes; every point after goes straight
+	// from the decoder to the sink, so no chunk is ever held uncompressed
+	const sample = new Uint8Array(Math.min(SAMPLE, header.pointCount) * recordLength)
+	let sampled = 0
 	let sink = null
 	let add = null
+	const begin = () => {
+		const attributes = attributesOf(new DataView(sample.buffer, 0, sampled * recordLength), sampled, header, layout)
+		sink = new PointSink({ total: header.pointCount, budget, origin: header.min, attributes })
+		add = recordReader(header, layout, attributes, sink)
+		const view = new DataView(sample.buffer)
+		for (let r = 0; r < sampled; r++) {
+			add(view, r * recordLength)
+		}
+	}
 	try {
 		for (let c = 0; c < chunks.length; c++) {
 			if (signal?.aborted) {
@@ -278,24 +291,25 @@ async function readLaz(blob, header, { budget, onProgress, signal }) {
 			}
 			const { start, byteCount, pointCount } = chunks[c]
 			const bytes = new Uint8Array(await blob.slice(start, start + byteCount).arrayBuffer())
-			const records = decodeChunk(lazPerf, header, bytes, pointCount, point)
-			// The first records decide the attributes, as for an uncompressed file
-			if (!sink) {
-				const sampled = Math.min(SAMPLE, pointCount)
-				const attributes = attributesOf(new DataView(records.buffer, 0, sampled * recordLength), sampled, header, layout)
-				sink = new PointSink({ total: header.pointCount, budget, origin: header.min, attributes })
-				add = recordReader(header, layout, attributes, sink)
-			}
-			const view = new DataView(records.buffer)
-			for (let r = 0; r < pointCount; r++) {
-				add(view, r * recordLength)
-			}
+			decodeChunk(lazPerf, header, bytes, pointCount, point, (record) => {
+				if (sink) {
+					add(record, 0)
+				} else {
+					sample.set(new Uint8Array(record.buffer, record.byteOffset, recordLength), sampled * recordLength)
+					if (++sampled === sample.length / recordLength) {
+						begin()
+					}
+				}
+			})
 			onProgress((c + 1) / chunks.length)
+		}
+		if (!sink) {
+			begin()
 		}
 	} finally {
 		lazPerf._free(point)
 	}
-	return (sink ?? new PointSink({ total: 0, budget })).finish()
+	return sink.finish()
 }
 
 /**
@@ -304,22 +318,21 @@ async function readLaz(blob, header, { budget, onProgress, signal }) {
  * @param {Uint8Array} bytes - One compressed chunk
  * @param {number} pointCount - Its points
  * @param {number} point - A record's worth of the module's memory, for each point
- * @return {Uint8Array} The chunk's records, uncompressed
+ * @param {function(DataView): void} each - Given each record, uncompressed, in turn
  */
-function decodeChunk(lazPerf, header, bytes, pointCount, point) {
+function decodeChunk(lazPerf, header, bytes, pointCount, point, each) {
 	const { recordLength, pointFormat } = header
 	const chunk = lazPerf._malloc(bytes.length)
 	const decoder = new lazPerf.ChunkDecoder()
 	try {
 		lazPerf.HEAPU8.set(bytes, chunk)
 		decoder.open(pointFormat, recordLength, chunk)
-		const records = new Uint8Array(pointCount * recordLength)
 		for (let r = 0; r < pointCount; r++) {
 			decoder.getPoint(point)
 			// HEAPU8 may be replaced as the module's memory grows: read it each time
-			records.set(lazPerf.HEAPU8.subarray(point, point + recordLength), r * recordLength)
+			const heap = lazPerf.HEAPU8
+			each(new DataView(heap.buffer, heap.byteOffset + point, recordLength))
 		}
-		return records
 	} finally {
 		decoder.delete()
 		lazPerf._free(chunk)

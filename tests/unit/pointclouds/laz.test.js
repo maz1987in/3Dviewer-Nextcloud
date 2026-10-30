@@ -88,3 +88,21 @@ test('a compressed file without LASzip\'s record is refused', async () => {
 
 	await expect(read(new Blob([laz]), { budget: 10 })).rejects.toThrow('LASzip')
 })
+
+// Checked before anything is allocated or decoded: a crafted table can claim any count
+describe('chunks a file claims', () => {
+	const { checkChunks } = jest.requireActual('../../../src/pointclouds/readers/lazChunks.js')
+	const header = { pointCount: 1000 }
+
+	test('are accepted when they add up', () => {
+		expect(() => checkChunks([{ byteCount: 500, pointCount: 600 }, { byteCount: 400, pointCount: 400 }], header)).not.toThrow()
+	})
+
+	test('are refused when they hold more points than the file', () => {
+		expect(() => checkChunks([{ byteCount: 5000, pointCount: 600 }, { byteCount: 5000, pointCount: 600 }], header)).toThrow(ScanError)
+	})
+
+	test('are refused when a chunk claims more points than its bytes could hold', () => {
+		expect(() => checkChunks([{ byteCount: 1, pointCount: 1000 }], header)).toThrow(ScanError)
+	})
+})

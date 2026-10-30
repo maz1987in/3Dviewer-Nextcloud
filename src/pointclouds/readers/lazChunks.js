@@ -307,6 +307,30 @@ export function laszipRecord(header) {
 	return { compressor: view.getUint16(0, true), chunkSize: view.getUint32(12, true) }
 }
 
+/** The most points a compressed byte can hold: far more than LASzip ever packs. */
+const MAX_POINTS_PER_BYTE = 64
+
+/**
+ * The chunks a file claims, checked before any is decoded: together they hold no more
+ * points than the header says, and none claims more than its bytes could hold.
+ *
+ * @param {Array<{byteCount: number, pointCount: number}>} chunks - From the chunk table
+ * @param {{pointCount: number}} header - From lasHeader
+ * @throws {ScanError} When they don't add up
+ */
+export function checkChunks(chunks, header) {
+	let total = 0
+	for (const { byteCount, pointCount } of chunks) {
+		if (pointCount > byteCount * MAX_POINTS_PER_BYTE) {
+			throw new ScanError('its chunk table is damaged')
+		}
+		total += pointCount
+	}
+	if (total > header.pointCount) {
+		throw new ScanError('its chunk table is damaged')
+	}
+}
+
 /**
  * @param {Blob} blob - The file
  * @param {object} header - From lasHeader
@@ -351,5 +375,6 @@ export async function readChunkTable(blob, header) {
 		start += byteCount
 		remaining -= pointCount
 	}
+	checkChunks(chunks, header)
 	return chunks
 }
