@@ -124,7 +124,7 @@ async function readEvlrs(blob, header) {
 export function recordLayout(header) {
 	const format = header.pointFormat
 	if (!(format in MIN_RECORD)) {
-		throw new ScanError(`LAS point format ${format} doesn't exist`)
+		throw new ScanError('LAS point format {format} doesn\'t exist', { format })
 	}
 	if (header.recordLength < MIN_RECORD[format]) {
 		throw new ScanError('its point records are shorter than their format')
@@ -163,11 +163,28 @@ function attributesOf(view, records, header, layout) {
 		}
 	}
 	return {
-		color: layout.rgb !== undefined,
+		// A format with colour fields that a writer left blank has no colours
+		color: layout.rgb !== undefined && colourMax > 0,
 		colorShift: colourMax > 255 ? 8 : 0,
 		intensity: intensityMax > 0,
 		classification: classMax > 0,
 	}
+}
+
+/**
+ * Where to re-centre: the header's minimum, unless it can't be right for these points (a
+ * writer that left the bounds at zero, or wrote garbage), when the first point is used.
+ *
+ * @param {object} header - From lasHeader
+ * @param {DataView} first - The first record
+ * @return {?number[]} The origin, or null for the sink's own (the first point)
+ */
+function originFor(header, first) {
+	if (!header.min.every(Number.isFinite) || first.byteLength < 12) {
+		return null
+	}
+	const point = [0, 1, 2].map((a) => first.getInt32(a * 4, true) * header.scale[a] + header.offset[a])
+	return point.every((v, a) => Math.abs(v - header.min[a]) < 1000) ? header.min : null
 }
 
 /**
@@ -222,12 +239,14 @@ export async function read(blob, { budget, onProgress = () => {}, signal }) {
 		return { sink: await readLaz(blob, header, { budget, onProgress, signal }), unit, format: 'laz' }
 	}
 	const layout = recordLayout(header)
-	const { recordLength, pointCount, offsetToPoints } = header
-	const end = Math.min(blob.size, offsetToPoints + pointCount * recordLength)
+	const { recordLength, offsetToPoints } = header
+	// No more points than the file has room for, whatever its header says
+	const pointCount = Math.min(header.pointCount, Math.floor((blob.size - offsetToPoints) / recordLength))
+	const end = offsetToPoints + pointCount * recordLength
 
 	const sample = await readRange(blob, offsetToPoints, Math.min(SAMPLE, pointCount) * recordLength)
 	const attributes = attributesOf(sample, Math.floor(sample.byteLength / recordLength), header, layout)
-	const sink = new PointSink({ total: pointCount, budget, origin: header.min, attributes })
+	const sink = new PointSink({ total: pointCount, budget, origin: originFor(header, sample), attributes })
 	const add = recordReader(header, layout, attributes, sink)
 
 	const windowBytes = Math.max(1, Math.floor((16 * 1024 ** 2) / recordLength)) * recordLength
@@ -258,7 +277,7 @@ const LAZ_FORMATS = new Set([0, 1, 2, 3, 6, 7, 8])
  */
 async function readLaz(blob, header, { budget, onProgress, signal }) {
 	if (!LAZ_FORMATS.has(header.pointFormat)) {
-		throw new ScanError(`LAZ point format ${header.pointFormat} isn't supported`)
+		throw new ScanError('LAZ point format {format} isn\'t supported', { format: header.pointFormat })
 	}
 	laszipRecord(header)
 	const layout = recordLayout(header)
@@ -279,7 +298,7 @@ async function readLaz(blob, header, { budget, onProgress, signal }) {
 	let add = null
 	const begin = () => {
 		const attributes = attributesOf(new DataView(sample.buffer, 0, sampled * recordLength), sampled, header, layout)
-		sink = new PointSink({ total: header.pointCount, budget, origin: header.min, attributes })
+		sink = new PointSink({ total: chunks.reduce((n, c) => n + c.pointCount, 0), budget, origin: originFor(header, new DataView(sample.buffer, 0, sampled * recordLength)), attributes })
 		add = recordReader(header, layout, attributes, sink)
 		const view = new DataView(sample.buffer)
 		for (let r = 0; r < sampled; r++) {

@@ -182,12 +182,12 @@ export async function openViewer(page: Page, url: string, model: ViewerModel, vi
 		return { errors, unitPuts }
 	}
 	await page.goto(`${url}?page=${encodeURIComponent(key)}${viewer.query ? `&${viewer.query}` : ''}`)
+	if (viewer.loads === false) {
+		return { errors, unitPuts }
+	}
 	if (viewer.lite) {
 		// The light viewer shows its own buttons once the model is in
 		await page.waitForSelector('.viewer-bottom-actions', { timeout: 30000 })
-		return { errors, unitPuts }
-	}
-	if (viewer.loads === false) {
 		return { errors, unitPuts }
 	}
 	await page.waitForFunction(() => (window as any).__LOAD_COMPLETE === true, null, { timeout: 30000 })

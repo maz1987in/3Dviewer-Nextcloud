@@ -7,11 +7,17 @@
 
 export { isScanExtension, SCAN_EXTENSIONS } from './scanExtensions.js'
 
-/** The file is a scan, but this one can't be read; the message says why, in a few words. */
+/**
+ * The file is a scan, but this one can't be read. `reason` says why in a few words, with
+ * `{name}` placeholders for `vars`; the page translates it (scanReasons.js), since a
+ * worker has no translations. The message is the English, filled in.
+ */
 export class ScanError extends Error {
-	constructor(reason) {
-		super(reason)
+	constructor(reason, vars = {}) {
+		super(reason.replace(/{(\w+)}/g, (_, key) => String(vars[key] ?? `{${key}}`)))
 		this.name = 'ScanError'
+		this.reason = reason
+		this.vars = vars
 	}
 }
 
@@ -44,7 +50,7 @@ const READERS = {
 export async function readerFor(ext) {
 	const load = READERS[String(ext).toLowerCase()]
 	if (!load) {
-		throw new ScanError(`there is no reader for .${ext}`)
+		throw new ScanError('there is no reader for .{ext}', { ext })
 	}
 	return load()
 }

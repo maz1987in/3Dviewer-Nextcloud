@@ -61,6 +61,10 @@ export class PointSink {
 	 * @param {number} [classification] - A LAS class
 	 */
 	add(x, y, z, r, g, b, intensity, classification) {
+		// A point with no position (an empty one in an organised scan, a damaged record)
+		if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) {
+			return
+		}
 		const index = this.seen++
 		if (this.origin === null) {
 			this.origin = [x, y, z]

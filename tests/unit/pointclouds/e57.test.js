@@ -104,3 +104,21 @@ test('a scan claiming more records than its section can hold is refused', async 
 
 	await expect(read(new Blob([file]), { budget: 10 })).rejects.toThrow('more points than it holds')
 })
+
+test('a field whose range runs backwards is refused', async () => {
+	const fields = [...CARTESIAN, { name: 'intensity', type: 'Integer', min: 10, max: 5 }]
+	const file = e57File({ scans: [{ fields, records: [[0, 0, 0, 7]] }] })
+
+	await expect(read(new Blob([file]), { budget: 10 })).rejects.toBeInstanceOf(ScanError)
+})
+
+// One field's stream never arriving would otherwise hold every other one, whole
+test('fields that never line up into a record are refused, not held', async () => {
+	const fields = [...CARTESIAN, { name: 'intensity', type: 'Integer', min: 0, max: 255 }]
+	// Over a megabyte for each coordinate, in packets inside E57's 64 KiB
+	const records = Array.from({ length: 200000 }, (_, i) => [i, i, i, i % 256])
+	// Empty packets pad the section, so the record count alone can't give it away
+	const file = e57File({ scans: [{ fields, records, packets: 100, starve: 3, emptyPackets: 8 }] })
+
+	await expect(read(new Blob([file]), { budget: 10 })).rejects.toThrow('don\'t line up')
+})

@@ -8,7 +8,7 @@
  *
  * Text has no point count up front, so the sink thins by reservoir past the budget.
  */
-import { readWindows } from '../blobReader.js'
+import { checkLineLength, readWindows } from '../blobReader.js'
 import { PointSink } from '../pointSink.js'
 import { NotAScanError, ScanError } from '../scanFormats.js'
 
@@ -143,6 +143,7 @@ export async function read(blob, { budget, onProgress = () => {}, signal, window
 		const text = rest + decoder.decode(bytes, { stream: true })
 		const lines = text.split('\n')
 		rest = lines.pop()
+		checkLineLength(rest)
 		for (const text of lines) {
 			line(text)
 		}

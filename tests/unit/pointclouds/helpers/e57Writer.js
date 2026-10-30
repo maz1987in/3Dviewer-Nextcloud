@@ -50,7 +50,7 @@ const xmlField = (f) => {
  * @param {Array<{fields: object[], records: number[][], pose?: {rotation: number[], translation: number[]}, packets?: number, limits?: string}>} options.scans - Each scan's
  *   prototype, records (one value per field), optional pose, how many packets to split
  *   its streams into, extra XML (limits) for its vectorChild, and a recordCount to claim
- *   in place of the records' own
+ *   in place of the records' own; `starve` names a field whose stream gets no bytes; `emptyPackets` adds empty 64 KiB packets
  * @return {Uint8Array} The file
  */
 export function e57File({ scans }) {
@@ -66,7 +66,7 @@ export function e57File({ scans }) {
 		const dataAt = logical.length
 		for (let p = 0; p < packets; p++) {
 			// Each stream cut at the same fraction, so values straddle packets
-			const parts = streams.map((s) => s.slice(Math.floor((s.length * p) / packets), Math.floor((s.length * (p + 1)) / packets)))
+			const parts = streams.map((s, i) => (i === scan.starve ? new Uint8Array(0) : s.slice(Math.floor((s.length * p) / packets), Math.floor((s.length * (p + 1)) / packets))))
 			const headerLength = 6 + parts.length * 2
 			let length = headerLength + parts.reduce((n, b) => n + b.length, 0)
 			length = Math.ceil(length / 4) * 4
@@ -82,6 +82,14 @@ export function e57File({ scans }) {
 				at += b.length
 			}
 			push(packet)
+		}
+		// Empty packets, which a reader skips: they lengthen the section and hold nothing
+		for (let e = 0; e < (scan.emptyPackets ?? 0); e++) {
+			const empty = new Uint8Array(65536)
+			const view = new DataView(empty.buffer)
+			view.setUint8(0, 2)
+			view.setUint16(2, empty.length - 1, true)
+			push(empty)
 		}
 		const section = new DataView(new ArrayBuffer(32))
 		section.setUint8(0, 1)

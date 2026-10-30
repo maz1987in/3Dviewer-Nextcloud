@@ -43,8 +43,8 @@ class CspListener implements IEventListener
         $policy->allowEvalWasm(true);
         // Scans are read in a worker from the app's own files (src/pointclouds/). A share
         // page's policy has no worker-src, so the nonce-only script-src would refuse it.
-        // Same-origin only: user files are served with nosniff and no script type, so
-        // none of them can run as a worker.
+        // Same-origin only. Starting a worker takes script already running on the page,
+        // which script-src's nonces still decide, so this lets no new script run.
         $policy->addAllowedWorkerSrcDomain("'self'");
         $event->addPolicy($policy);
     }

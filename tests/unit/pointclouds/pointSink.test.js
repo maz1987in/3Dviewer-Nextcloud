@@ -110,3 +110,24 @@ test('bounds are the extremes, in re-centred space', () => {
 
 	expect(sink.finish().bounds).toEqual({ min: [0, 0, -1], max: [4, 2, 3] })
 })
+
+test('a point with no position (NaN or infinite) is left out, whatever the reader', () => {
+	const sink = new PointSink({ total: 4, budget: 10 })
+	sink.add(0, 0, 0)
+	sink.add(NaN, 1, 1)
+	sink.add(1, Infinity, 1)
+	sink.add(2, 2, 2)
+
+	const result = sink.finish()
+
+	expect(result.count).toBe(2)
+	expect(result.bounds).toEqual({ min: [0, 0, 0], max: [2, 2, 2] })
+})
+
+test('the origin is never a point with no position', () => {
+	const sink = new PointSink({ total: 2, budget: 10 })
+	sink.add(NaN, NaN, NaN)
+	sink.add(5, 5, 5)
+
+	expect(sink.finish().origin).toEqual([5, 5, 5])
+})

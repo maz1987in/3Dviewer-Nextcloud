@@ -63,3 +63,18 @@ test('vertices that come after another element are refused, not misread', async 
 
 	await expect(read(text(file), { budget: 10 })).rejects.toBeInstanceOf(ScanError)
 })
+
+test('a binary PLY claiming more vertices than it holds reads what is there', async () => {
+	const head = new TextEncoder().encode('ply\nformat binary_little_endian 1.0\nelement vertex 1000000\nproperty float x\nproperty float y\nproperty float z\nend_header\n')
+
+	// Thinned against the count it claims, the two real points would be thinned away
+	const { sink } = await read(new Blob([head, new Float32Array([1, 2, 3, 4, 5, 6])]), { budget: 10 })
+
+	expect(sink.count).toBe(2)
+})
+
+test('an ASCII PLY with no line breaks is refused', async () => {
+	const file = 'ply\nformat ascii 1.0\nelement vertex 40000\nproperty float x\nproperty float y\nproperty float z\nend_header\n' + '1 2 3\r'.repeat(40000)
+
+	await expect(read(text(file), { budget: 10 })).rejects.toThrow('line')
+})

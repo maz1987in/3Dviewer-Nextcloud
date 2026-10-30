@@ -22,8 +22,9 @@
 				{{ t('threedviewer', 'Only people who can edit this file can change this.') }}
 			</p>
 		</template>
-		<p v-if="state.status === 'saving'" class="tdv-secondary file-up-note" role="status">
-			{{ t('threedviewer', 'Saving…') }}
+		<!-- Always present, so a screen reader hears each change of it -->
+		<p class="tdv-secondary file-up-note" role="status">
+			{{ statusText }}
 		</p>
 	</div>
 </template>
@@ -48,6 +49,21 @@ export default {
 
 	data() {
 		return { ups: UPS }
+	},
+
+	computed: {
+		statusText() {
+			switch (this.state.status) {
+			case 'saving':
+				return this.t('threedviewer', 'Saving…')
+			case 'saved':
+				return this.t('threedviewer', 'Saved')
+			case 'failed':
+				return this.t('threedviewer', 'Couldn\'t save. Try again.')
+			default:
+				return ''
+			}
+		},
 	},
 
 	methods: {

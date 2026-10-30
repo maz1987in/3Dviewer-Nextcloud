@@ -27,10 +27,17 @@ test('an editor chooses which way is up, saved for everyone', async () => {
 	expect(events).toEqual([['set-up', ['-y']]])
 })
 
-test('saving is announced', () => {
-	mountSfc('FileUpControl', { state: state({ status: 'saving' }) }, MODULES)
+test('saving, saved and a failed save are announced, from a status that is always there', async () => {
+	const { props } = mountSfc('FileUpControl', { state: state() }, MODULES)
+	const status = document.querySelector('[role="status"]')
+	expect(status.textContent.trim()).toBe('')
 
-	expect(document.querySelector('[role="status"]').textContent.trim()).toBe('Saving…')
+	for (const [value, text] of [['saving', 'Saving…'], ['saved', 'Saved'], ['failed', 'Couldn\'t save. Try again.']]) {
+		props.state = state({ status: value })
+		await vue.nextTick()
+		expect(document.querySelector('[role="status"]')).toBe(status)
+		expect(status.textContent.trim()).toBe(text)
+	}
 })
 
 test('everyone else sees it, and why they can\'t change it', () => {

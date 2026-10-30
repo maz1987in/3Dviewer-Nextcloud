@@ -10,6 +10,7 @@ import { buildPointCloud } from '../../pointclouds/buildPointCloud.js'
 import { POINT_BUDGET } from '../../pointclouds/limits.js'
 import { parsePointCloud } from '../../pointclouds/parsePointCloud.js'
 import { NotAScanError, ScanError } from '../../pointclouds/scanFormats.js'
+import { translateReason } from '../../pointclouds/scanReasons.js'
 import { defaultUp } from '../../pointclouds/upAxis.js'
 
 /**
@@ -34,7 +35,7 @@ export async function loadPointCloud(loader, input, context) {
 			throw new Error(t('threedviewer', 'This .xyz file lists atoms, not a scan, so it can\'t be shown here.'), { cause: error })
 		}
 		if (error instanceof ScanError) {
-			throw new Error(t('threedviewer', 'This scan couldn\'t be read: {reason}', { reason: error.message }), { cause: error })
+			throw new Error(t('threedviewer', 'This scan couldn\'t be read: {reason}', { reason: translateReason(error.reason ?? error.message, error.vars) }), { cause: error })
 		}
 		throw error
 	}

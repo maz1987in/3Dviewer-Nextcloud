@@ -21,6 +21,6 @@ self.onmessage = async ({ data: { blob, ext, budget, appWebRoot } }) => {
 		self.postMessage({ type: 'done', result }, transfer)
 	} catch (error) {
 		const kind = error instanceof NotAScanError ? 'not-a-scan' : error instanceof ScanError ? 'scan' : 'other'
-		self.postMessage({ type: 'error', kind, message: String(error?.message ?? error) })
+		self.postMessage({ type: 'error', kind, message: String(error?.message ?? error), reason: error?.reason, vars: error?.vars })
 	}
 }

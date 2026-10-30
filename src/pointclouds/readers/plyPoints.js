@@ -6,7 +6,7 @@
  * Only a file whose vertices are its first element is read: anything before them would
  * have to be skipped record by record, and no scanner writes one.
  */
-import { readRange, readWindows } from '../blobReader.js'
+import { checkLineLength, readRange, readWindows } from '../blobReader.js'
 import { PointSink } from '../pointSink.js'
 import { ScanError } from '../scanFormats.js'
 
@@ -102,7 +102,7 @@ function layoutOf(properties) {
 	for (const property of properties) {
 		const type = TYPES[property.type]
 		if (!type) {
-			throw new ScanError(`a vertex property is of an unknown type, ${property.type}`)
+			throw new ScanError('a vertex property is of an unknown type, {type}', { type: property.type })
 		}
 		offsets.push(size)
 		size += type[0]
@@ -137,8 +137,17 @@ export async function read(blob, { budget, onProgress = () => {}, signal }) {
 	if (header.elements[0]?.name !== 'vertex') {
 		throw new ScanError('its vertices aren\'t its first element')
 	}
-	const { count, properties } = header.elements[0]
+	const { properties } = header.elements[0]
 	const layout = layoutOf(properties)
+	let { count } = header.elements[0]
+	if (!Number.isSafeInteger(count) || count < 0) {
+		throw new ScanError('its vertex count is damaged')
+	}
+	// No more vertices than a binary file has room for, whatever its header says
+	if (header.format !== 'ascii') {
+		count = Math.min(count, Math.floor((blob.size - header.headerLength) / layout.recordSize))
+		header.elements[0].count = count
+	}
 	const sink = new PointSink({ total: count, budget, attributes: { color: layout.color, intensity: layout.intensity } })
 	// A float intensity may be 0–1 or the scanner's own range: decided from the first values
 	let intensityScale = 1
@@ -161,7 +170,7 @@ export async function read(blob, { budget, onProgress = () => {}, signal }) {
 	} else if (header.format === 'binary_little_endian' || header.format === 'binary_big_endian') {
 		await readBinary(blob, header, layout, add, { onProgress, signal })
 	} else {
-		throw new ScanError(`its format, ${header.format || 'none'}, isn't one PLY has`)
+		throw new ScanError('its format, {format}, isn\'t one PLY has', { format: header.format || 'none' })
 	}
 	return { sink: sink.finish(), unit: null, format: 'ply' }
 }
@@ -182,6 +191,7 @@ async function readAscii(blob, start, count, add, { onProgress, signal }) {
 	for await (const { offset, bytes } of readWindows(blob, { start, windowBytes: 8 * 1024 ** 2, signal })) {
 		const lines = (rest + decoder.decode(bytes, { stream: true })).split('\n')
 		rest = lines.pop()
+		checkLineLength(rest)
 		lines.forEach(line)
 		onProgress(Math.min(1, (offset + bytes.length) / blob.size))
 		if (read >= count) {

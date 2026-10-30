@@ -4,6 +4,7 @@
  * significant bit first, and run on from one packet into the next; floats are 4 or 8
  * little-endian bytes. A field whose range is one value takes no bits at all.
  */
+import { ScanError } from '../scanFormats.js'
 
 export class FieldReader {
 	/**
@@ -12,6 +13,10 @@ export class FieldReader {
 	constructor(field) {
 		this.field = field
 		this.bits = field.type === 'Float' ? (field.single ? 32 : 64) : Math.ceil(Math.log2(field.max - field.min + 1))
+		// A range that runs backwards, or wider than 64 bits, is no field E57 can store
+		if (!Number.isInteger(this.bits) || this.bits < 0 || this.bits > 64) {
+			throw new ScanError('a point field\'s range is damaged')
+		}
 		this.buffer = new Uint8Array(0)
 		this.bit = 0
 	}
@@ -25,6 +30,11 @@ export class FieldReader {
 		joined.set(bytes, rest.length)
 		this.buffer = joined
 		this.bit -= start * 8
+	}
+
+	/** @return {number} Bytes buffered and not yet read */
+	buffered() {
+		return this.buffer.length - (this.bit >> 3)
 	}
 
 	/** @return {number} Whole values buffered */

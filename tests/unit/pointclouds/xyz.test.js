@@ -87,3 +87,9 @@ test('reports progress and stops when aborted', async () => {
 	controller.abort()
 	await expect(read(blob(lines), { budget: 10, signal: controller.signal })).rejects.toMatchObject({ name: 'AbortError' })
 })
+
+test('a file with no line breaks is refused, not held whole', async () => {
+	const oneLine = '1 2 3\r'.repeat(40000)
+
+	await expect(read(blob(oneLine), { budget: 10, windowBytes: 4096 })).rejects.toThrow('line')
+})

@@ -103,3 +103,33 @@ test('a compressed file needs the LAZ reader', async () => {
 test('a file that isn\'t LAS is refused', async () => {
 	await expect(read(new Blob(['not a las file at all'.repeat(20)]), { budget: 10 })).rejects.toThrow('isn\'t a LAS file')
 })
+
+// Review fixes
+test('blank colour fields mean no colours, not black', async () => {
+	const file = lasFile({ format: 3, points: [{ x: 0, y: 0, z: 0, rgb: [0, 0, 0] }, { x: 1, y: 1, z: 1, rgb: [0, 0, 0] }] })
+
+	const { sink } = await read(new Blob([file]), { budget: 10 })
+
+	expect(sink.colors).toBeUndefined()
+})
+
+test.each([['zeroed', 0], ['garbage', NaN]])('survey coordinates keep their millimetres when the header\'s bounds are %s', async (_, bound) => {
+	const file = lasFile({ format: 0, offset: [500000, 4500000, 0], points: [{ x: 500000.001, y: 4500000, z: 100 }, { x: 500000.002, y: 4500000, z: 100 }] })
+	const view = new DataView(file.buffer)
+	for (let at = 179; at < 227; at += 8) view.setFloat64(at, bound, true)
+
+	const { sink } = await read(new Blob([file]), { budget: 10 })
+
+	expect(Array.from(sink.positions).every(Number.isFinite)).toBe(true)
+	expect(sink.positions[3] - sink.positions[0]).toBeCloseTo(0.001, 6)
+})
+
+test('a header claiming more points than the file holds reads what is there', async () => {
+	const file = lasFile({ format: 0, points: [{ x: 0, y: 0, z: 0 }, { x: 1, y: 1, z: 1 }] })
+	new DataView(file.buffer).setUint32(107, 1_000_000, true)
+
+	// Thinned against the count it claims, the two real points would be thinned away
+	const { sink } = await read(new Blob([file]), { budget: 10 })
+
+	expect(sink.count).toBe(2)
+})

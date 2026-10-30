@@ -309,6 +309,8 @@ export function laszipRecord(header) {
 
 /** The most points a compressed byte can hold: far more than LASzip ever packs. */
 const MAX_POINTS_PER_BYTE = 64
+/** The most coded bytes one chunk's table entry takes: two 32-bit corrections and their models. */
+const MAX_TABLE_BYTES_PER_CHUNK = 16
 
 /**
  * The chunks a file claims, checked before any is decoded: together they hold no more
@@ -354,10 +356,12 @@ export async function readChunkTable(blob, header) {
 	const head = await readRange(blob, tableAt, 8)
 	const count = head.getUint32(4, true)
 	const variable = chunkSize === 0xffffffff
-	if (count === 0 || count > header.pointCount + 1) {
+	// Every chunk takes at least a byte between the data's start and the table, and its
+	// table entry a few bytes: anything more is a file claiming what it can't hold
+	if (count === 0 || count > header.pointCount + 1 || count > tableAt - dataStart) {
 		throw new ScanError('its chunk table is damaged')
 	}
-	const coded = new Uint8Array(await blob.slice(tableAt + 8).arrayBuffer())
+	const coded = new Uint8Array(await blob.slice(tableAt + 8, Math.min(blob.size, tableAt + 8 + count * MAX_TABLE_BYTES_PER_CHUNK + 64)).arrayBuffer())
 	const decoder = new ArithmeticDecoder(coded)
 	const ic = new IntegerDecompressor(decoder, 32, 2)
 	const chunks = []
@@ -368,7 +372,7 @@ export async function readChunkTable(blob, header) {
 	for (let i = 0; i < count; i++) {
 		const pointCount = variable ? (previousCount = ic.decompress(previousCount, 0)) : Math.min(chunkSize, remaining)
 		const byteCount = previousBytes = ic.decompress(previousBytes, 1)
-		if (byteCount <= 0 || start + byteCount > tableAt || pointCount < 0) {
+		if (byteCount <= 0 || start + byteCount > tableAt || pointCount < 0 || pointCount > byteCount * MAX_POINTS_PER_BYTE) {
 			throw new ScanError('its chunk table is damaged')
 		}
 		chunks.push({ start, byteCount, pointCount })

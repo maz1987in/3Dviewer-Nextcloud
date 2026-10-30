@@ -97,3 +97,25 @@ test('a compressed PCD over 1 GB once decompressed is refused', async () => {
 
 	await expect(read(big, { budget: 10 })).rejects.toThrow('too large')
 })
+
+test('a binary PCD claiming more points than it holds reads what is there', async () => {
+	const head = new TextEncoder().encode('FIELDS x y z\nSIZE 4 4 4\nTYPE F F F\nWIDTH 1000000\nHEIGHT 1\nPOINTS 1000000\nDATA binary\n')
+	const body = new Float32Array([1, 2, 3, 4, 5, 6])
+
+	// Thinned against the count it claims, the two real points would be thinned away
+	const { sink } = await read(new Blob([head, body]), { budget: 10 })
+
+	expect(sink.count).toBe(2)
+})
+
+test('a negative point count is refused, not a crash', async () => {
+	const file = 'FIELDS x y z\nSIZE 4 4 4\nTYPE F F F\nWIDTH 1\nHEIGHT 1\nPOINTS -5\nDATA ascii\n1 2 3\n'
+
+	await expect(read(new Blob([file]), { budget: 10 })).rejects.toBeInstanceOf(ScanError)
+})
+
+test('an ASCII PCD with no line breaks is refused', async () => {
+	const file = 'FIELDS x y z\nSIZE 4 4 4\nTYPE F F F\nWIDTH 40000\nHEIGHT 1\nPOINTS 40000\nDATA ascii\n' + '1 2 3\r'.repeat(40000)
+
+	await expect(read(blob(file), { budget: 10 })).rejects.toThrow('line')
+})

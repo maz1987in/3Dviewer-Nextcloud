@@ -441,6 +441,7 @@ export default {
 	},
 
 	beforeUnmount() {
+		this.loadController?.abort()
 		clearTimeout(this.linkCopiedTimer)
 		document.removeEventListener('fullscreenchange', this.onFullscreenChange)
 		// Restore console error handler
@@ -1108,7 +1109,10 @@ export default {
 				this.updateProgress(true, 0, this.t('threedviewer', 'Downloading model...'), this.filename, false)
 				// buildFileUrl resolves to the token-keyed public endpoint on a share
 				// page, where the session-authenticated route below would 404.
-				const response = await fetch(buildFileUrl(fileId))
+				// Closing the viewer stops the download and a scan's reader (beforeUnmount)
+				this.loadController = new AbortController()
+				const { signal } = this.loadController
+				const response = await fetch(buildFileUrl(fileId), { signal })
 
 				if (!response.ok) {
 					throw new Error(`Failed to fetch model: ${response.status} ${response.statusText}`)
@@ -1128,7 +1132,7 @@ export default {
 				if (isScanExtension(extension) || extension === 'ply') {
 					// A scan (a PLY may be one) stays a Blob, which the scan reader takes a window at a time
 					const { readScanBody } = await import('../pointclouds/blobReader.js')
-					arrayBuffer = await readScanBody(response, { onBytes: downloading })
+					arrayBuffer = await readScanBody(response, { onBytes: downloading, signal })
 				} else if (total > 0 && response.body) {
 					// Track download progress
 					const reader = response.body.getReader()
@@ -1173,6 +1177,7 @@ export default {
 					wireframe: false,
 					fileExtension: extension,
 					fileName: this.effectiveFilename,
+					abortController: this.loadController,
 					applyWireframe: (enabled) => {
 						// Simple wireframe toggle implementation
 						this.scene.traverse((child) => {

@@ -62,7 +62,7 @@ export async function parsePointCloud(blob, ext, { budget, onProgress = () => {}
 				resolve(data.result)
 			} else if (data.type === 'error') {
 				end()
-				reject(data.kind === 'not-a-scan' ? new NotAScanError(data.message) : data.kind === 'scan' ? new ScanError(data.message) : new Error(data.message))
+				reject(data.kind === 'not-a-scan' ? new NotAScanError(data.message) : data.kind === 'scan' ? new ScanError(data.reason ?? data.message, data.vars) : new Error(data.message))
 			}
 		}
 		worker.onerror = (event) => {

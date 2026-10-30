@@ -106,3 +106,47 @@ describe('chunks a file claims', () => {
 		expect(() => checkChunks([{ byteCount: 1, pointCount: 1000 }], header)).toThrow(ScanError)
 	})
 })
+
+describe('a chunk table that claims more than its file holds', () => {
+	const { readChunkTable } = jest.requireActual('../../../src/pointclouds/readers/lazChunks.js')
+
+	/** A LAZ whose table, 16 bytes past the points' start, claims `count` chunks. */
+	function lazWithTable(count) {
+		const vlr = new Uint8Array(34)
+		const v = new DataView(vlr.buffer)
+		v.setUint16(0, 2, true)
+		v.setUint32(12, 50000, true)
+		const body = lasFile({ version: [1, 4], format: 1, compressed: true, points: [], vlrs: [{ userId: 'laszip encoded', recordId: 22204, data: vlr }] })
+		const header = lasHeader(new DataView(body.buffer))
+		const tail = new Uint8Array(8 + 8 + 8 + 64)
+		const t = new DataView(tail.buffer)
+		t.setBigInt64(0, BigInt(header.offsetToPoints + 16), true)
+		t.setUint32(16 + 4, count, true)
+		const file = new Uint8Array(body.length + tail.length)
+		file.set(body)
+		file.set(tail, body.length)
+		new DataView(file.buffer).setBigUint64(247, 4_000_000_000n, true)
+		return file
+	}
+
+	test('is refused before its coded table is read', async () => {
+		const file = lazWithTable(1_000_000_000)
+		const head = lasHeader(new DataView(file.buffer))
+		const tableAt = head.offsetToPoints + 16
+		// A Blob that refuses to hand over anything past the table's own 8-byte header
+		const blob = new Blob([file])
+		const guarded = Object.create(Blob.prototype, {
+			size: { value: blob.size },
+			slice: {
+				value: (start, end = blob.size) => {
+					if (end > tableAt + 8) {
+						throw new Error(`read the coded table: ${start}–${end}`)
+					}
+					return blob.slice(start, end)
+				},
+			},
+		})
+
+		await expect(readChunkTable(guarded, head)).rejects.toThrow('chunk table is damaged')
+	})
+})

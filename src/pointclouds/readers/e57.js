@@ -16,6 +16,8 @@ import { PointSink } from '../pointSink.js'
 import { ScanError, abortError } from '../scanFormats.js'
 
 const XML_MAX_BYTES = 64 * 1024 ** 2
+/** The most one field may hold while waiting for the others to complete a record. */
+const FIELD_BUFFER_MAX_BYTES = 1024 ** 2
 const DATA_PACKET = 1
 const INDEX_PACKET = 0
 const EMPTY_PACKET = 2
@@ -61,7 +63,7 @@ export async function read(blob, { budget, onProgress = () => {}, signal }) {
 	for (const scan of scans) {
 		const names = new Set(scan.fields.map((f) => f.name))
 		if (!['cartesianX', 'cartesianY', 'cartesianZ'].every((n) => names.has(n))) {
-			throw new ScanError(names.has('sphericalRange') ? 'spherical E57 scans aren\'t supported yet' : 'a scan has no x, y and z')
+			throw names.has('sphericalRange') ? new ScanError('spherical E57 scans aren\'t supported yet') : new ScanError('a scan has no x, y and z')
 		}
 	}
 	const has = (name) => scans.every((scan) => scan.fields.some((f) => f.name === name))
@@ -146,6 +148,10 @@ async function readScan(blob, header, scan, sink, attributes, signal) {
 		}
 		// Every whole record the packets so far hold
 		let ready = Math.min(scan.recordCount - emitted, ...readers.map((r) => r.available()))
+		// A field that never catches up would have every other held, whole
+		if (ready === 0 && readers.some((r) => r.buffered() > FIELD_BUFFER_MAX_BYTES)) {
+			throw new ScanError('a scan\'s fields don\'t line up into points')
+		}
 		for (; ready > 0; ready--, emitted++) {
 			if ((emitted & 0xffff) === 0 && signal?.aborted) {
 				throw abortError()

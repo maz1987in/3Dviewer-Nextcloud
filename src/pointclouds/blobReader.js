@@ -6,7 +6,21 @@
 import { translate as t } from '@nextcloud/l10n'
 import { formatBytes } from '../utils/validation.js'
 import { SCAN_CEILING_BYTES } from './limits.js'
-import { abortError } from './scanFormats.js'
+import { ScanError, abortError } from './scanFormats.js'
+
+/** The longest line a text scan may have: far longer than any point's. */
+const LINE_MAX_CHARS = 64 * 1024
+
+/**
+ * @param {string} rest - What a text reader holds after a window's last line break
+ * @throws {ScanError} When it is longer than any line can be: a file with no line breaks
+ *   (binary content, or old CR-only endings) would otherwise be held whole
+ */
+export function checkLineLength(rest) {
+	if (rest.length > LINE_MAX_CHARS) {
+		throw new ScanError('a line is far longer than a point\'s; it may not be a text file')
+	}
+}
 
 /** A scan over the ceiling: the message says how big, and the most the viewer opens. */
 export class ScanTooLargeError extends Error {

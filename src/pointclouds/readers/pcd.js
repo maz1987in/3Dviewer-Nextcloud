@@ -9,7 +9,7 @@
  * (MIT), which reads a whole file into JS arrays; this writes into the sink instead, a
  * window at a time. A compressed file is one LZF stream, so it is decompressed whole.
  */
-import { readRange, readWindows } from '../blobReader.js'
+import { checkLineLength, readRange, readWindows } from '../blobReader.js'
 import { PointSink } from '../pointSink.js'
 import { ScanError } from '../scanFormats.js'
 
@@ -53,7 +53,7 @@ export function pcdHeader(bytes) {
 function getter(type, size) {
 	const name = { F: { 4: 'getFloat32', 8: 'getFloat64' }, I: { 1: 'getInt8', 2: 'getInt16', 4: 'getInt32' }, U: { 1: 'getUint8', 2: 'getUint16', 4: 'getUint32' } }[type]?.[size]
 	if (!name) {
-		throw new ScanError(`a field is of a type PCD doesn't have, ${type}${size}`)
+		throw new ScanError('a field is of a type PCD doesn\'t have, {type}', { type: `${type}${size}` })
 	}
 	return name
 }
@@ -118,6 +118,13 @@ const clamp = (v, max) => Math.min(max, Math.max(0, Math.round(v)))
 export async function read(blob, { budget, onProgress = () => {}, signal }) {
 	const header = pcdHeader(new Uint8Array(await blob.slice(0, HEADER_BYTES).arrayBuffer()))
 	const layout = layoutOf(header)
+	if (!Number.isSafeInteger(header.points) || header.points < 0) {
+		throw new ScanError('its point count is damaged')
+	}
+	// No more points than a binary file has room for, whatever its header says
+	if (header.data === 'binary') {
+		header.points = Math.min(header.points, Math.floor((blob.size - header.headerLength) / layout.record))
+	}
 	const sink = new PointSink({
 		total: header.points,
 		budget,
@@ -156,7 +163,7 @@ export async function read(blob, { budget, onProgress = () => {}, signal }) {
 			intensityScale = first.length && first.every((v) => v <= 1) ? 65535 : 1
 		}, { onProgress })
 	} else {
-		throw new ScanError(`its DATA, ${header.data}, isn't one PCD has`)
+		throw new ScanError('its DATA, {data}, isn\'t one PCD has', { data: header.data })
 	}
 	return { sink: sink.finish(), unit: null, format: 'pcd' }
 }
@@ -175,6 +182,7 @@ async function readAscii(blob, header, layout, add, { onProgress, signal }) {
 	for await (const { offset, bytes } of readWindows(blob, { start: header.headerLength, windowBytes: 8 * 1024 ** 2, signal })) {
 		const lines = (rest + decoder.decode(bytes, { stream: true })).split('\n')
 		rest = lines.pop()
+		checkLineLength(rest)
 		lines.forEach(line)
 		onProgress(Math.min(1, (offset + bytes.length) / blob.size))
 	}

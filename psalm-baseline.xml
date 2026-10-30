@@ -28,8 +28,9 @@
   <file src="lib/Constants/SupportedFormats.php">
     <PossiblyUnusedMethod>
       <code><![CDATA[getMimeTypes]]></code>
-      <code><![CDATA[getModelExtensions]]></code>
       <code><![CDATA[isModelFormat]]></code>
+      <code><![CDATA[mappableExtensions]]></code>
+      <code><![CDATA[readMapping]]></code>
     </PossiblyUnusedMethod>
   </file>
   <file src="lib/Controller/ApiController.php">
@@ -788,29 +789,22 @@
     <PossiblyUnusedMethod>
       <code><![CDATA[__construct]]></code>
     </PossiblyUnusedMethod>
-    <RedundantCondition>
-      <code><![CDATA[is_array($mimes)]]></code>
-    </RedundantCondition>
     <RiskyTruthyFalsyComparison>
       <code><![CDATA[empty($obj)]]></code>
     </RiskyTruthyFalsyComparison>
-    <TypeDoesNotContainType>
-      <code><![CDATA[[$mimes]]]></code>
-    </TypeDoesNotContainType>
     <UndefinedClass>
       <code><![CDATA[UpdateJS]]></code>
       <code><![CDATA[\OC]]></code>
       <code><![CDATA[\OC]]></code>
     </UndefinedClass>
     <UndefinedDocblockClass>
+      <code><![CDATA[$this->updateJS]]></code>
       <code><![CDATA[UpdateJS]]></code>
     </UndefinedDocblockClass>
     <UnusedMethod>
-      <code><![CDATA[appendToFileMapping]]></code>
+      <code><![CDATA[registerInFileCache]]></code>
+      <code><![CDATA[updateConfigFiles]]></code>
     </UnusedMethod>
-    <UnusedProperty>
-      <code><![CDATA[$updateJS]]></code>
-    </UnusedProperty>
   </file>
   <file src="lib/Repair/UnregisterThreeDMimeTypes.php">
     <MixedArrayAccess>
@@ -824,6 +818,7 @@
       <code><![CDATA[empty($obj)]]></code>
     </RiskyTruthyFalsyComparison>
     <UndefinedClass>
+      <code><![CDATA[$this->updateJS]]></code>
       <code><![CDATA[UpdateJS]]></code>
       <code><![CDATA[UpdateJS]]></code>
       <code><![CDATA[\OC]]></code>

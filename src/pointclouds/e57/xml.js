@@ -41,7 +41,7 @@ function fieldOf(element) {
 	if (type === 'Integer' || type === 'ScaledInteger') {
 		return { name: element.localName, type, min: attr('minimum', 0), max: attr('maximum', 0), scale: attr('scale', 1), offset: attr('offset', 0) }
 	}
-	throw new ScanError(`a point field is of a type E57 doesn't have points of, ${type}`)
+	throw new ScanError('a point field is of a type E57 doesn\'t have points of, {type}', { type })
 }
 
 /**

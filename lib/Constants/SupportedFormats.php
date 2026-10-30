@@ -164,6 +164,56 @@ class SupportedFormats
     ];
 
     /**
+     * The extensions this app may map, given a site's own mapping: all of EXT_MIME_MAP but
+     * those the site already maps to a type the app doesn't use (a chemistry server's
+     * .xyz as chemical/x-xyz, say). The repair steps neither claim nor reset those.
+     *
+     * @param array<array-key, mixed> $existing config/mimetypemapping.json, decoded
+     * @return array<string, list<string>>
+     */
+    public static function mappableExtensions(array $existing): array
+    {
+        $mappable = [];
+        foreach (self::EXT_MIME_MAP as $ext => $mimes) {
+            $theirs = self::firstMime($existing[$ext] ?? null);
+            if ($theirs === null || in_array($theirs, $mimes, true)) {
+                $mappable[$ext] = $mimes;
+            }
+        }
+
+        return $mappable;
+    }
+
+    /**
+     * @param mixed $mapping One extension's entry in a mimetypemapping.json
+     * @return ?string Its first MIME type, if it has one
+     * @psalm-suppress MixedInferredReturnType, MixedReturnStatement is_string() narrows $mapping[0]
+     */
+    private static function firstMime(mixed $mapping): ?string
+    {
+        if (is_string($mapping)) {
+            return $mapping;
+        }
+
+        return is_array($mapping) && isset($mapping[0]) && is_string($mapping[0]) ? $mapping[0] : null;
+    }
+
+    /**
+     * @param string $file A mimetypemapping.json
+     * @return array<array-key, mixed> Its mapping, or none when it is missing or unreadable
+     * @psalm-suppress MixedAssignment json_decode's result is checked before it is returned
+     */
+    public static function readMapping(string $file): array
+    {
+        if (!file_exists($file)) {
+            return [];
+        }
+        $decoded = json_decode((string) file_get_contents($file), true);
+
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    /**
      * List of all supported model file extensions (excluding textures and dependencies).
      *
      * @return list<string>

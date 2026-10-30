@@ -63,7 +63,7 @@ describe('ViewerComponent capture wiring', () => {
 		expect(awaited).toBeGreaterThan(-1)
 		expect(loadModel).not.toMatch(/startStatusFetch/)
 		expect(awaited).toBeLessThan(loadModel.indexOf('loadModelWithDependencies('))
-		expect(awaited).toBeLessThan(loadModel.indexOf('fetch(buildFileUrl(fileId))'))
+		expect(awaited).toBeLessThan(loadModel.indexOf('fetch(buildFileUrl(fileId)'))
 	})
 
 	test('the multi-file capture passes the companions, so a cached one skips it', () => {

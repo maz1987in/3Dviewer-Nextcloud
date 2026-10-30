@@ -285,3 +285,18 @@ test('an E57 laser scan opens in metres, from the file', async ({ page }) => {
 	await expect(page.locator('.model-stats-overlay .stats-file-unit')).toContainText('From the file')
 	expect(errors).toEqual([])
 })
+
+test('closing the light viewer stops a scan\'s download', async ({ page }) => {
+	let release: () => void = () => {}
+	const held = new Promise<void>((resolve) => { release = resolve })
+	const aborted: string[] = []
+	page.on('requestfailed', (request) => { if (request.url().includes('/public/file/')) aborted.push(request.failure()?.errorText ?? '') })
+	const downloading = page.waitForRequest((request) => request.url().includes('/public/file/'))
+	await openViewer(page, server.url, CUBE_RGB, { user: null, publicToken: 'closetok', lite: true, fileGate: held, loads: false })
+	await downloading
+
+	await page.evaluate(() => (document.querySelector('#threedviewer-public') as any).__vue_app__.unmount())
+	release()
+
+	await expect.poll(() => aborted.length).toBeGreaterThan(0)
+})

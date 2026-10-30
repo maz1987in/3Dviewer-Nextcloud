@@ -273,4 +273,19 @@ class SupportedFormatsTest extends TestCase
         $this->assertSame(0, preg_match($regex, 'text/plain'));
         $this->assertSame(0, preg_match($regex, 'image/png'));
     }
+
+    /**
+     * A site that already maps an extension to a type of its own (a chemistry server's
+     * .xyz as chemical/x-xyz) keeps it: the app neither claims nor resets it.
+     */
+    public function testExtensionsAnotherTypeClaimsAreLeftAlone(): void
+    {
+        $mappable = SupportedFormats::mappableExtensions(['xyz' => ['chemical/x-xyz'], 'stl' => ['model/stl'], 'pdf' => ['application/pdf']]);
+
+        $this->assertArrayNotHasKey('xyz', $mappable);
+        $this->assertSame(SupportedFormats::EXT_MIME_MAP['stl'], $mappable['stl']);
+        $this->assertArrayHasKey('las', $mappable);
+        $this->assertSame(SupportedFormats::EXT_MIME_MAP, SupportedFormats::mappableExtensions([]));
+        $this->assertSame(SupportedFormats::EXT_MIME_MAP, SupportedFormats::mappableExtensions(['xyz' => 'application/x-xyz-pointcloud']));
+    }
 }
