@@ -3,7 +3,7 @@
     "info": {
         "title": "threedviewer",
         "version": "0.0.1",
-        "description": "View, analyze & export 3D models across 20+ formats (mesh, CAD, BIM) with thumbnails, annotations & rendering",
+        "description": "View, analyze & export 3D models, scans and Gaussian splats across 25+ formats, with thumbnails, annotations & embedding",
         "license": {
             "name": "agpl"
         }
