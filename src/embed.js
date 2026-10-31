@@ -7,7 +7,6 @@
 
 // eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
 import { translate as t, translatePlural } from '@nextcloud/l10n'
-import '@nextcloud/dialogs/style.css'
 import './css/design-system.css'
 import './css/forced-colors.css'
 import './css/embed.css'

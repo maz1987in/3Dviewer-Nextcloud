@@ -7,7 +7,6 @@ import { ref, shallowRef, computed, readonly, markRaw, toRaw } from 'vue'
 import * as THREE from 'three'
 import { AnimationMixer, LoopRepeat } from 'three'
 import { generateUrl } from '@nextcloud/router'
-import { getFilePickerBuilder } from '@nextcloud/dialogs'
 import { loadModelByExtension } from '../loaders/registry.js'
 import { logger } from '../utils/logger.js'
 import { disposeObject } from '../utils/three-utils.js'
@@ -116,6 +115,9 @@ export function useComparison() {
 			// Build file picker with custom button
 			let selectedNodes = null
 
+			// Loaded here: from @nextcloud/dialogs 8 its entry brings the picker's
+			// breadcrumbs and empty state with it, 17 KB the app's chunk would carry
+			const { getFilePickerBuilder } = await import('@nextcloud/dialogs')
 			const picker = getFilePickerBuilder(t('threedviewer', 'Select 3D Model to Compare'))
 				.setMultiSelect(false)
 				.setMimeTypeFilter(mimeTypes)

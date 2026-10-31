@@ -42,8 +42,13 @@ const BUDGETS = [
   // with the rest of that feature still to come. Raw raised to 384 KB for "Copy embed
   // code": the control and its helpers load as their own chunks, only while embedding is
   // on, but the panel's slot for it, the copy handler and the two chunks' preload entries
-  // stay here, and put this at 381.7 KB raw / 104.3 KB gzip against 379.7 before.
-  { pattern: /^App-.*\.chunk\.mjs$/, name: 'app', maxRaw: 384000, maxGzip: 108000 },
+  // stay here, and put this at 381.7 KB raw / 104.3 KB gzip against 379.7 before. Raised
+  // to 397 KB raw / 112.5 KB gzip, by the size of the chunk that moved in, for
+  // @nextcloud/dialogs 8: its file picker uses the breadcrumbs and empty state
+  // FileBrowser does, so the 12.8 KB raw / 4.4 KB gzip chunk they had of their own, which
+  // this one imported and loaded with it every time, is now built into this one. The page
+  // loads no more than before; the picker itself loads only when it opens.
+  { pattern: /^App-.*\.chunk\.mjs$/, name: 'app', maxRaw: 397000, maxGzip: 112500 },
   { pattern: /^three-core-.*\.chunk\.mjs$/, name: 'three-core', maxRaw: 800000, maxGzip: 210000 }, // Three.js core
   // Three chunks are named index-<hash>: the main one, a ~280 KB one and a 250-byte one.
   // This used to separate them with /^index-[A-Z][a-z]/, written to exclude one specific
