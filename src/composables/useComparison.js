@@ -565,7 +565,7 @@ export function useComparison() {
 
 		if (result && result.object3D) {
 			comparisonModel.value = markRaw(result.object3D)
-			comparisonMillimetresPerUnit = millimetresPerUnit(filename, result.object3D)
+			comparisonMillimetresPerUnit = millimetresPerUnit(filename, result.object3D, context.fileUnit ?? null)
 
 			// Store animations if present
 			if (result.animations && result.animations.length > 0) {
@@ -1380,6 +1380,18 @@ export function useComparison() {
 	}
 
 	/**
+	 * The unit chosen for the open file changed. An earlier version of the same file is in
+	 * that unit too; a model from another file keeps its own.
+	 *
+	 * @param {?string} chosenUnit - A key of FILE_UNITS, or null (utils/sourceUnits.js)
+	 */
+	const setFileUnit = (chosenUnit) => {
+		if (comparisonSource.value === 'version' && comparisonModel.value) {
+			comparisonMillimetresPerUnit = millimetresPerUnit(comparisonFilename.value, comparisonModel.value, chosenUnit)
+		}
+	}
+
+	/**
 	 * Compute side-by-side and delta stats for the original + comparison models.
 	 * Result is stored in diffStats and consumed by the comparison diff overlay. Lengths
 	 * are in millimetres, each model's converted from its own unit, so the two sides
@@ -1707,6 +1719,7 @@ export function useComparison() {
 		updateComparisonAnimations,
 		disposeComparisonAnimations,
 		computeDiffStats,
+		setFileUnit,
 		dismissDiffOverlay,
 		showDiffOverlayPanel,
 		dispose,

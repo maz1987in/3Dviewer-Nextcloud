@@ -85,7 +85,7 @@ async function openPrintCheck(page: Page, model: keyof typeof MODELS) {
 test('a 20 mm cube fits, and a 10 mm custom printer reports 10 mm too wide, deep and tall', async ({ page }) => {
 	const { errors } = await openPrintCheck(page, 'cube20')
 	await expect(card(page)).toContainText('Fits the build volume')
-	await expect(card(page)).toContainText("Sizes assume millimetres, because this file doesn't record a unit.")
+	await expect(card(page).locator('#print-check-unit')).toHaveValue('mm')
 
 	await card(page).locator('#print-check-printer').selectOption('custom')
 	for (const side of ['width', 'depth', 'height']) {

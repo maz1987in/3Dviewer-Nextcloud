@@ -91,18 +91,22 @@
 				<!-- Geometry Section -->
 				<div class="stats-section">
 					<h4>{{ t('threedviewer', 'Geometry') }}</h4>
-					<div class="stat-row">
-						<span>{{ t('threedviewer', 'Vertices') }}:</span>
-						<span class="tdv-value stat-value">{{ modelStats.vertices.toLocaleString() }}</span>
-					</div>
-					<div class="stat-row">
-						<span>{{ t('threedviewer', 'Faces') }}:</span>
-						<span class="tdv-value stat-value">{{ modelStats.faces.toLocaleString() }}</span>
-					</div>
-					<div class="stat-row">
-						<span>{{ t('threedviewer', 'Meshes') }}:</span>
-						<span class="tdv-value stat-value">{{ modelStats.meshes }}</span>
-					</div>
+					<PointCloudStats v-if="modelStats.isPointCloud" :stats="modelStats" />
+					<SplatStats v-else-if="modelStats.isSplat" :stats="modelStats" />
+					<template v-else>
+						<div class="stat-row">
+							<span>{{ t('threedviewer', 'Vertices') }}:</span>
+							<span class="tdv-value stat-value">{{ modelStats.vertices.toLocaleString() }}</span>
+						</div>
+						<div class="stat-row">
+							<span>{{ t('threedviewer', 'Faces') }}:</span>
+							<span class="tdv-value stat-value">{{ modelStats.faces.toLocaleString() }}</span>
+						</div>
+						<div class="stat-row">
+							<span>{{ t('threedviewer', 'Meshes') }}:</span>
+							<span class="tdv-value stat-value">{{ modelStats.meshes }}</span>
+						</div>
+					</template>
 				</div>
 
 				<!-- Materials Section -->
@@ -162,8 +166,14 @@
 							</option>
 						</select>
 					</div>
-					<!-- Watertightness badge -->
-					<div class="stats-watertight-row">
+					<FileUnitControl v-if="fileUnitState"
+						class="stats-file-unit"
+						:unit="fileUnitState"
+						control-id="stats-file-unit"
+						select-class="stats-unit-select"
+						@set="onSetFileUnit" />
+					<!-- Watertightness badge; a scan has no surface -->
+					<div v-if="!modelStats.isPointCloud && !modelStats.isSplat" class="stats-watertight-row">
 						<span v-if="modelStats.allWatertight === true" class="stats-badge stats-badge-ok">
 							{{ t('threedviewer', 'Watertight — volume is reliable') }}
 						</span>
@@ -195,11 +205,11 @@
 						<span>{{ t('threedviewer', 'Depth (Z)') }}:</span>
 						<span class="tdv-value stat-value">{{ formatStatNumber(modelStats.boundingBox.z * statsLengthScale) }} {{ statsUnitConfig.suffix }}</span>
 					</div>
-					<div class="stat-row">
+					<div v-if="!modelStats.isPointCloud && !modelStats.isSplat" class="stat-row">
 						<span>{{ t('threedviewer', 'Surface Area') }}:</span>
 						<span class="tdv-value stat-value">{{ formatStatNumber(activeSurfaceArea * statsAreaScale) }} {{ statsUnitConfig.suffix }}²</span>
 					</div>
-					<div class="stat-row">
+					<div v-if="!modelStats.isPointCloud && !modelStats.isSplat" class="stat-row">
 						<span>{{ t('threedviewer', 'Mesh Volume') }}:</span>
 						<span class="tdv-value stat-value">{{ formatStatNumber(activeVolume * statsVolumeScale) }} {{ statsUnitConfig.suffix }}³</span>
 					</div>
@@ -232,7 +242,7 @@
 					</div>
 					<!-- Action bar: viewport pick + copy -->
 					<div class="stats-actions">
-						<button
+						<button v-if="!modelStats.isPointCloud && !modelStats.isSplat"
 							class="stats-action-btn"
 							type="button"
 							:class="{ 'is-active': statsIsPickingMesh }"
@@ -344,6 +354,7 @@
 			:state="printCheckState"
 			:class="{ 'beside-stats': showModelStats && !!modelStats }"
 			@close="printCheck.close()"
+			@set-unit="onSetFileUnit"
 			@set-printer="printCheck.setPrinter"
 			@set-custom="printCheck.setCustom"
 			@set-up="printCheck.setUp"
@@ -750,13 +761,34 @@
 				<p v-if="notesReadOnly" class="canvas-panel-hint">
 					{{ t('threedviewer', 'This model is view-only for you, so you can’t add annotations.') }}
 				</p>
-				<p class="canvas-panel-hint">
+				<!-- Opened by a note link: for reading, until the user asks to add notes -->
+				<button v-if="notePlacementHeld && notesCanEdit"
+					type="button"
+					class="canvas-panel-outline"
+					@click="notePlacementHeld = false">
+					{{ t('threedviewer', 'Add notes') }}
+				</button>
+				<p v-else-if="!notePlacementHeld" class="canvas-panel-hint">
 					{{ t('threedviewer', 'Click the model to place a note at that point.') }}
 				</p>
 				<div class="annotation-list">
-					<div v-for="(annotation, index) in annotations" :key="annotation.id" class="canvas-panel-card annotation-item">
+					<div v-for="(annotation, index) in annotations"
+						:key="annotation.id"
+						:data-note-id="annotation.meta?.noteId ?? null"
+						:class="{ 'is-highlighted': isHighlightedNote(annotation) }"
+						class="canvas-panel-card annotation-item"
+						tabindex="-1"
+						@click="onAnnotationCardClick(annotation)">
 						<div class="canvas-panel-card-header">
 							<span class="canvas-panel-card-title">{{ t('threedviewer', 'Annotation') }} {{ index + 1 }}</span>
+							<button v-if="isSharedNote(annotation)"
+								type="button"
+								class="tdv-btn tdv-btn--icon canvas-panel-link"
+								:aria-label="t('threedviewer', 'Copy link to this note: annotation {number}', { number: index + 1 })"
+								:title="t('threedviewer', 'Copy link to this note')"
+								@click.stop="copyNoteLink(annotation)">
+								<ViewerIcon name="copyLink" :size="16" />
+							</button>
 							<button v-if="canChangeNote(annotation)"
 								type="button"
 								class="tdv-btn tdv-btn--icon canvas-panel-delete"
@@ -831,6 +863,7 @@
 
 <script>
 import { ref, shallowRef, reactive, markRaw, toRaw, onMounted, onBeforeUnmount, watch, computed, nextTick, defineAsyncComponent } from 'vue'
+import { disposeSplat } from '../splats/disposeSplat.js'
 import ViewerIcon from './ViewerIcon.vue'
 import * as THREE from 'three'
 import { NcProgressBar, NcButton } from '@nextcloud/vue'
@@ -850,6 +883,12 @@ import { measurementNumbers, useMeasurement } from '../composables/useMeasuremen
 import { useAnnotation } from '../composables/useAnnotation.js'
 import { useSharedNotes } from '../composables/useSharedNotes.js'
 import { createNotesApi } from '../utils/notesApi.js'
+import { createFileSettingsApi } from '../utils/fileSettingsApi.js'
+import { useFileUnit } from '../composables/useFileUnit.js'
+import { useFileUp } from '../composables/useFileUp.js'
+import { applyUp } from '../pointclouds/upAxis.js'
+import { UPS } from '../pointclouds/upValues.js'
+import FileUnitControl from './FileUnitControl.vue'
 import { getPublicShareContext } from '../composables/usePublicShare.js'
 import { awaitStatusBeforeDownload, scheduleCapture } from '../thumbnails/captureFromViewer.js'
 import { measurementsFromJson, measurementsToJson } from '../utils/measurementJson.js'
@@ -864,12 +903,9 @@ import { useController } from '../composables/useController.js'
 import { useScreenshot } from '../composables/useScreenshot.js'
 import { useAnimation } from '../composables/useAnimation.js'
 import { useClippingPlane } from '../composables/useClippingPlane.js'
-import {
-	serializeCameraState,
-	readCameraStateFromUrl,
-	applyCameraState,
-	buildShareableUrl,
-} from '../utils/cameraUrlState.js'
+import { applyCameraState } from '../utils/cameraUrlState.js'
+import { copyText } from '../utils/clipboard.js'
+import { buildViewUrl, captureViewState, cameraToScene, isUsableCamera, takeViewFromUrl } from '../utils/viewLink.js'
 import { useLightingPresets } from '../composables/useLightingPresets.js'
 import { useBookmarks } from '../composables/useBookmarks.js'
 import { useExplodedView } from '../composables/useExplodedView.js'
@@ -881,12 +917,14 @@ import { logger } from '../utils/logger.js'
 import { setViewerWireframe } from '../utils/viewerMaterialProps.js'
 import { applyGcodeColorScheme } from '../utils/gcodeColorScheme.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
+import { POINT_SIZE } from '../pointclouds/limits.js'
 import { initCache, clearExpired, clearAll, getCacheStats } from '../utils/dependencyCache.js'
 
 export default {
 	name: 'ThreeViewer',
 	components: {
 		ViewerIcon,
+		FileUnitControl,
 		NcProgressBar,
 		NcButton,
 		CircularController,
@@ -894,6 +932,9 @@ export default {
 		VersionPickerDialog: defineAsyncComponent(() => import('./VersionPickerDialog.vue')),
 		// Loaded the first time someone opens Print check
 		PrintCheckCard: defineAsyncComponent(() => import('./PrintCheckCard.vue')),
+		// A scan's geometry rows, only when one opens
+		PointCloudStats: defineAsyncComponent(() => import('./PointCloudStats.vue')),
+		SplatStats: defineAsyncComponent(() => import('./SplatStats.vue')),
 		// Loaded the first time someone records a turntable
 		TurntableDialog: defineAsyncComponent(() => import('./TurntableDialog.vue')),
 	},
@@ -933,10 +974,25 @@ export default {
 	// Declared and never sent is as misleading as sent and never declared: nine of these
 	// named toolbar actions the viewer stopped emitting long ago, and among them sat the
 	// three mode toggles it did send and nothing received.
-	emits: ['model-loaded', 'error', 'measurement-active', 'annotation-active', 'comparison-active', 'print-check-active', 'cycle-performance-mode', 'push-toast', 'loading-state-changed', 'fps-updated', 'animations-initialized'],
+	emits: ['model-loaded', 'error', 'measurement-active', 'annotation-active', 'comparison-active', 'print-check-active', 'cycle-performance-mode', 'push-toast', 'loading-state-changed', 'fps-updated', 'animations-initialized', 'view-applied', 'point-cloud-changed', 'splat-changed'],
 	setup(props, { emit }) {
 		// Refs
 		const container = ref(null)
+		// A scan's colour by and point size; null for a mesh (pointclouds/buildPointCloud.js)
+		const pointCloud = ref(null)
+		// Loads by number, for Cancel loading (cancelLoad): the latest, the one in progress,
+		// and the one a cancel was pressed for
+		let loadSerial = 0
+		let activeLoad = null
+		let cancelledLoad = null
+		// A splat's state for the panel ({ upState }), or null; and Spark's renderer for it
+		const splat = ref(null)
+		let splatHost = null
+		let unmounted = false
+		const dropSplatHost = () => {
+			splatHost?.dispose()
+			splatHost = null
+		}
 		const scene = shallowRef(null)
 		const renderer = shallowRef(null)
 		const renderPaused = ref(false)
@@ -947,6 +1003,13 @@ export default {
 		// and per unit of its file (differs only when the loader rescaled the model)
 		const modelMillimetresPerUnit = ref(1)
 		const modelMillimetresPerFileUnit = ref(1)
+		// The unit the open file is in, and the one its editors chose (useFileUnit)
+		const fileUnit = useFileUnit()
+		// Which way is up for a scan, saved with the file like its unit
+		const fileUp = useFileUp()
+		// The file the statistics were last made for, to make them again once a scan turns
+		let statsFile = { filename: '', size: 0 }
+		let unitsFilename = null
 		const modelSourceFiles = shallowRef(null) // File[] for ZIP export
 		const aborting = ref(false)
 		const initializing = ref(true) // Show loading during initial setup
@@ -1041,19 +1104,42 @@ export default {
 		 * the model's own unit unless the user has picked one.
 		 * @param {?string} filename - The file the model came from
 		 * @param {?THREE.Object3D} root - The loaded model
+		 * @param {?string} [chosenUnit] - The unit chosen for the file (useFileUnit), if any
 		 */
-		const applySourceUnits = (filename, root) => {
-			const scale = millimetresPerUnit(filename, root)
-			const perFileUnit = millimetresPerFileUnit(filename, root)
+		const applySourceUnits = (filename, root, chosenUnit = null) => {
+			unitsFilename = filename
+			const scale = millimetresPerUnit(filename, root, chosenUnit)
+			const perFileUnit = millimetresPerFileUnit(filename, root, chosenUnit)
 			modelMillimetresPerUnit.value = scale
 			modelMillimetresPerFileUnit.value = perFileUnit
 			measurement.setModelScale(scale, perFileUnit)
 			modelStatsComposable.setModelScale(scale, perFileUnit)
 			// With no file, back to the configured default; a unit the user picked stays
-			const unit = defaultDisplayUnit(filename, root)
+			const unit = defaultDisplayUnit(filename, root, chosenUnit)
 			measurement.suggestUnit(unit)
 			modelStatsComposable.suggestUnit(unit)
 			logger.info('ThreeViewer', 'Source units', { filename, millimetresPerUnit: scale })
+		}
+
+		/** The unit chosen for the open file changed: everything that shows a size follows. */
+		const applyChosenUnit = () => {
+			applySourceUnits(unitsFilename, modelRoot.value, fileUnit.chosen.value)
+			printCheck.value?.unitChanged()
+			// A comparison on screen: its table is measured again in the new unit
+			if (comparison.diffStats.value) {
+				comparison.setFileUnit(fileUnit.chosen.value)
+				comparison.computeDiffStats(modelRoot.value, props.filename || '', modelMillimetresPerUnit.value, diffLabels())
+			}
+		}
+
+		/**
+		 * Save a unit for the open file, for everyone who can open it.
+		 * @param {string} key - A key of FILE_UNITS
+		 */
+		const onSetFileUnit = async (key) => {
+			if (await fileUnit.set(key)) {
+				applyChosenUnit()
+			}
 		}
 
 		// Methods
@@ -1150,6 +1236,10 @@ export default {
 				} else {
 					// Show demo scene when no file is specified
 					await createDemoScene()
+				}
+				// A Cancel pressed while getting ready was for this load; with no file, there was none
+				if (cancelledLoad > loadSerial) {
+					cancelledLoad = null
 				}
 
 				// Initialization complete - hide loading indicator
@@ -1409,7 +1499,12 @@ export default {
 		 * @param {string|number} fileId - Nextcloud file ID
 		 */
 		const loadModel = async (fileId) => {
+			const serial = ++loadSerial
+			activeLoad = serial
 			try {
+				if (cancelledLoad === serial) {
+					throw new DOMException('Aborted', 'AbortError')
+				}
 				// Reset auto performance flags for this load
 				performanceModeAutoApplied.value = false
 
@@ -1479,6 +1574,9 @@ export default {
 					propsDir: props.dir,
 				})
 
+				if (cancelledLoad === serial) {
+					throw new DOMException('Aborted', 'AbortError')
+				}
 				// Use the model loading composable which has proper progress tracking
 				const loadedModel = await modelLoading.loadModelFromFileId(fileId, fullPath, {
 					dirPath, // Pass the directory path explicitly
@@ -1500,13 +1598,57 @@ export default {
 				if (loadedModel && loadedModel.object3D) {
 					// Update cache stats immediately after model loads (files may have been cached)
 					await updateCacheStats()
+					// Cancelled once the file was read: it is never shown
+					if (cancelledLoad === serial) {
+						modelLoading.clearModel()
+						throw new DOMException('Aborted', 'AbortError')
+					}
 
 					// Store source files for ZIP export
 					modelSourceFiles.value = loadedModel.sourceFiles || null
 
 					// Add the loaded model to the scene first
 					modelRoot.value = markRaw(loadedModel.object3D)
+					// A scan's colour by and point size, before a linked view sets them
+					const cloud = modelRoot.value.userData?.tdvPointCloud ?? null
+					pointCloud.value = cloud ? { colourBy: cloud.colourBy, pointSize: modelRoot.value.material?.size ?? POINT_SIZE.initial, upState: null } : null
+					// Turned to its format's up before it is placed; the file's own, once read, turns it
+					// again. A scan or a splat (splats/loadSplat.js) can be turned
+					const turnable = cloud ?? modelRoot.value.userData?.tdvSplat ?? null
+					if (turnable) {
+						applyUp(modelRoot.value, turnable.up)
+						fileUp.describe(turnable.defaultUp)
+					} else {
+						fileUp.reset()
+					}
+					// A note a link marked belonged to the previous model
+					highlightedNoteId.value = null
+					notePlacementHeld.value = false
 					scene.value.add(modelRoot.value)
+					// A splat is drawn by Spark, with this viewer's renderer (splats/sparkHost.js).
+					// Another file may be picked, or the viewer closed, while it attaches: a host
+					// for a model no longer shown would draw the next splat a second time
+					dropSplatHost()
+					const shown = modelRoot.value
+					const splatMeta = shown.userData?.tdvSplat ?? null
+					splat.value = splatMeta ? { upState: null } : null
+					if (splatMeta) {
+						const { attachSpark } = await import('../splats/sparkHost.js')
+						const host = await attachSpark(scene.value, renderer.value)
+						if (unmounted || modelRoot.value !== shown || cancelledLoad === serial) {
+							host.dispose()
+							// Cancelled while it attached: the splat is taken back out
+							if (!unmounted && modelRoot.value === shown) {
+								scene.value.remove(shown)
+								modelRoot.value = null
+								splat.value = null
+								modelLoading.clearModel()
+							}
+							throw new DOMException('Aborted', 'AbortError')
+						}
+						dropSplatHost()
+						splatHost = host
+					}
 
 					// Apply current G-code color scheme if applicable
 					setGcodeColorScheme(props.gcodeColorMode, props.gcodeSingleColor)
@@ -1596,19 +1738,12 @@ export default {
 					const newCenter = newBox.getCenter(new THREE.Vector3())
 					camera.fitCameraToObject(modelRoot.value, newCenter)
 
-					// Shareable view link: if the page URL carries a `cam=...` param,
-					// restore that exact viewpoint AFTER fitCameraToObject so the
-					// auto-fit doesn't immediately stomp on it. The param is only
-					// read on the first successful load — navigating to a different
-					// file clears the URL before reaching this branch.
-					const sharedState = readCameraStateFromUrl()
-					let cameraFromUrl = false
-					if (sharedState && camera.camera?.value && camera.controls?.value) {
-						cameraFromUrl = applyCameraState(camera.camera.value, camera.controls.value, sharedState)
-						if (cameraFromUrl) {
-							logger.info('ThreeViewer', 'Restored camera view from cam URL parameter')
-						}
-					}
+					// A view link (utils/viewLink.js) applies to the first model this page
+					// shows, and only once: a retry or the next file frames as usual. Its
+					// camera goes on after fitCameraToObject, which would otherwise undo it;
+					// the rest waits until the tools it sets have taken this model.
+					const linkedView = takeViewFromUrl()
+					const cameraFromUrl = linkedView ? applyLinkedCamera(linkedView, newBox) : false
 
 					// Update grid size
 					updateGridSize(modelRoot.value)
@@ -1644,6 +1779,10 @@ export default {
 					// sees a change
 					if (props.wireframe) {
 						setViewerWireframe(modelRoot.value, true)
+					}
+
+					if (linkedView) {
+						applyLinkedView(linkedView, cameraFromUrl)
 					}
 
 					// Initialize animations if present
@@ -1684,7 +1823,9 @@ export default {
 						const progressTotal = modelLoading.progress.value.total || 0
 						if (progressTotal > 1000) fileSize = progressTotal
 					}
+					fileUnit.describe(filename, modelRoot.value)
 					applySourceUnits(filename, modelRoot.value)
+					statsFile = { filename, size: fileSize }
 					const stats = modelStatsComposable.analyzeModel(modelRoot.value, filename, fileSize)
 					evaluatePerformanceScaling(stats)
 
@@ -1730,7 +1871,12 @@ export default {
 						})
 					}
 
-					emit('model-loaded', { fileId, filename })
+					emit('model-loaded', {
+						fileId,
+						filename,
+						pointCloud: cloud ? { ...pointCloudSummary(cloud), ...pointCloud.value } : null,
+						splat: splatMeta ? { ...splatSummary(splatMeta), ...splat.value } : null,
+					})
 					logger.info('ThreeViewer', 'Model loaded successfully')
 
 					// Test harness hook
@@ -1747,9 +1893,21 @@ export default {
 					// fileId: the comparison model shares the scene but isn't annotatable.
 					if (fileId && fileId !== 'comparison') {
 						const share = getPublicShareContext()
-						sharedNotes.load(createNotesApi({ fileId, shareToken: share?.token ?? null })).catch((e) => {
-							logger.warn('ThreeViewer', 'Loading notes failed', e)
-						})
+						const linkedNote = linkedView?.note ?? null
+						sharedNotes.load(createNotesApi({ fileId, shareToken: share?.token ?? null }))
+							.then(() => { if (linkedNote) focusLinkedNote(linkedNote) })
+							.catch((e) => {
+								logger.warn('ThreeViewer', 'Loading notes failed', e)
+							})
+						// The unit chosen for a file that records none; an answer for a model
+						// since replaced is dropped by useFileUnit
+						const settingsApi = createFileSettingsApi({ fileId, shareToken: share?.token ?? null })
+						fileUnit.load(settingsApi)
+							.then((changed) => { if (changed) applyChosenUnit() })
+						// Which way is up for a scan or splat; an answer for a model since replaced is dropped
+						if (cloud || splatMeta) {
+							fileUp.load(settingsApi).then((changed) => { if (changed) turnModel(fileUp.state.value.up) })
+						}
 					}
 
 					// Capture a thumbnail once per file version (if enabled). It is rendered
@@ -1786,6 +1944,10 @@ export default {
 				}
 				// Re-throw error so caller knows it failed
 				throw error
+			} finally {
+				if (activeLoad === serial) {
+					activeLoad = null
+				}
 			}
 		}
 
@@ -1951,6 +2113,9 @@ export default {
 
 				// Analyze demo model for stats. It has no real size; read as before, a
 				// millimetre per unit.
+				fileUnit.reset()
+				fileUp.reset()
+				pointCloud.value = null
 				applySourceUnits(null, null)
 				modelStatsComposable.analyzeModel(modelRoot.value, 'demo-scene.glb', 0)
 
@@ -2229,7 +2394,7 @@ export default {
 			}
 
 			// Handle annotation clicks
-			if (annotation.isActive.value) {
+			if (annotation.isActive.value && !notePlacementHeld.value) {
 				annotation.handleClick(event, camera.camera.value)
 			}
 		}
@@ -2294,8 +2459,7 @@ export default {
 
 		/**
 		 * Copy the current measurement report (bbox, surface area, volume,
-		 * watertightness, per-mesh breakdown) to the clipboard using the same
-		 * secure-context + textarea fallback pattern as App.onCopyViewLink.
+		 * watertightness, per-mesh breakdown) to the clipboard.
 		 */
 		const copyMeasurementReport = async () => {
 			const text = modelStatsComposable.buildMeasurementReport()
@@ -2305,19 +2469,7 @@ export default {
 				return
 			}
 			try {
-				if (navigator.clipboard && window.isSecureContext) {
-					await navigator.clipboard.writeText(text)
-				} else {
-					const ta = document.createElement('textarea')
-					ta.value = text
-					ta.style.position = 'fixed'
-					ta.style.opacity = '0'
-					document.body.appendChild(ta)
-					ta.focus()
-					ta.select()
-					document.execCommand('copy')
-					document.body.removeChild(ta)
-				}
+				await copyText(text)
 				emit('push-toast', {
 					type: 'success',
 					title: tr('Measurements copied'),
@@ -2341,8 +2493,13 @@ export default {
 		}
 
 		// Loading methods
+		// Cancel shows while the viewer is still getting ready, before a load has a download
+		// to abort. Each load has a number, and a cancel is kept for the load it was pressed
+		// during, or, while the viewer is getting ready, for the load it is about to start;
+		// that load stops where it is, and a load started after it (Retry) is not touched
 		const cancelLoad = () => {
 			aborting.value = true
+			cancelledLoad = activeLoad ?? (initializing.value ? loadSerial + 1 : null)
 			modelLoading.cancelLoad()
 			// Reset aborting state after a short delay
 			setTimeout(() => {
@@ -2351,6 +2508,8 @@ export default {
 		}
 
 		const retryLoad = async () => {
+			// Retry asks for the model: a cancel still waiting for a load is not for this one
+			cancelledLoad = null
 			try {
 				await modelLoading.retryLoad(() => loadModel(props.fileId))
 			} catch (error) {
@@ -2382,18 +2541,312 @@ export default {
 			camera.resetView()
 		}
 
+		// The shared note a link points at, set when one is opened from a link or copied
+		const highlightedNoteId = ref(null)
+		// While a note link has the Annotations panel open for reading, a click on the
+		// model places nothing until the user asks to add notes
+		const notePlacementHeld = ref(false)
+
 		/**
-		 * Build a shareable viewer URL embedding the current camera
-		 * viewpoint. Returns null if the camera/controls aren't ready —
-		 * UI should disable the Copy link button in that case.
+		 * Put the camera where a view link says, in the projection it names. The link holds
+		 * it relative to the model (an older `cam=` link, in this viewer's scene). Skipped
+		 * when it no longer frames the model, which then keeps the usual framing.
+		 *
+		 * @param {object} view - a ViewState
+		 * @param {object} box - THREE.Box3 of the model as placed
+		 * @return {boolean} whether the camera was set
+		 */
+		const applyLinkedCamera = (view, box) => {
+			if (!camera.camera?.value || !camera.controls?.value || !modelRoot.value) return false
+			const linked = view.camera
+			const { position, target } = view.inScene ? linked : cameraToScene(linked, modelRoot.value)
+			if (!isUsableCamera(position, target, box)) return false
+			// Projection first: switching it afterwards would recompute the zoom
+			if ((linked.projection === 'orthographic') !== !!camera.camera.value.isOrthographicCamera) {
+				camera.toggleCameraProjection()
+			}
+			const [px, py, pz] = position
+			const [tx, ty, tz] = target
+			const applied = applyCameraState(camera.camera.value, camera.controls.value, {
+				position: { x: px, y: py, z: pz },
+				target: { x: tx, y: ty, z: tz },
+				zoom: linked.zoom,
+			})
+			if (!applied) return false
+			// The fit set the clipping range for its own distance, as fitCameraToObject does
+			const distance = camera.camera.value.position.distanceTo(camera.controls.value.target)
+			if (distance > 0 && !camera.camera.value.isOrthographicCamera) {
+				camera.camera.value.near = distance / 100
+				camera.camera.value.far = distance * 100
+				camera.camera.value.updateProjectionMatrix()
+			}
+			logger.info('ThreeViewer', 'Camera set from a view link')
+			return true
+		}
+
+		/**
+		 * Apply the rest of a view link: shading, lighting, the cut and the exploded view.
+		 * Wireframe is the app's to set, so it travels in `view-applied` with the rest; the
+		 * app mirrors all of it for the tools panel without saving any as a preference.
+		 *
+		 * @param {object} view - a ViewState
+		 * @param {boolean} cameraFromUrl - whether the link's camera was used
+		 */
+		const applyLinkedView = (view, cameraFromUrl) => {
+			// A link is a view of whatever the file is now: a scan or splat has no shading
+			// or wireframe, and a splat no cut or parts (utils/offTools.js)
+			const unshaded = Boolean(pointCloud.value || splat.value)
+			if (view.renderMode && !unshaded) setRenderMode(view.renderMode)
+			if (view.lighting) lightingPresets.applyPreset(view.lighting)
+			if (view.clipping && !splat.value) {
+				clippingPlane.setMode(view.clipping.mode)
+				if (view.clipping.mode === 'box') {
+					for (const [face, value] of Object.entries(view.clipping.offsets)) clippingPlane.setBoxOffset(face, value)
+				} else {
+					clippingPlane.setAxis(view.clipping.axis)
+					clippingPlane.setPosition(view.clipping.position)
+					if (clippingPlane.flipped.value !== view.clipping.flipped) clippingPlane.toggleFlip()
+				}
+				if (!clippingPlane.isActive.value) clippingPlane.toggle()
+			}
+			if (view.exploded !== undefined && explodedView.hasMeshes.value && !splat.value) {
+				if (!explodedView.isActive.value) explodedView.toggle()
+				explodedView.setFactor(view.exploded)
+				// Spread parts can leave a view fitted to them together
+				if (!cameraFromUrl) camera.fitCameraToObject(modelRoot.value)
+			}
+			if (view.colourBy && pointCloud.value) setColourBy(view.colourBy)
+			if (view.pointSize !== undefined && pointCloud.value) setPointSize(view.pointSize)
+			emit('view-applied', {
+				wireframe: unshaded ? undefined : view.wireframe,
+				projection: camera.camera?.value?.isOrthographicCamera ? 'orthographic' : 'perspective',
+			})
+		}
+
+		/**
+		 * The view this viewer is showing, as a link records it.
+		 *
+		 * @param {{position: number[], target: number[]}|null} [at] - another camera place,
+		 *   in this viewer's scene (a bookmark's); the current camera's by default
+		 * @return {object|null} a ViewState (utils/viewLink.js), null before a model is shown
+		 */
+		const getViewState = (at = null) => captureViewState({
+			camera: at && camera.camera?.value
+				? { position: new THREE.Vector3(...at.position), zoom: camera.camera.value.zoom, isOrthographicCamera: camera.camera.value.isOrthographicCamera }
+				: camera.camera?.value,
+			controls: at ? { target: new THREE.Vector3(...at.target) } : camera.controls?.value,
+			model: modelRoot.value,
+			renderMode: renderMode.mode.value,
+			wireframe: props.wireframe,
+			lightingPreset: lightingPresets.currentPreset.value,
+			clipping: {
+				isActive: clippingPlane.isActive.value,
+				mode: clippingPlane.mode.value,
+				axis: clippingPlane.axis.value,
+				position: clippingPlane.position.value,
+				flipped: clippingPlane.flipped.value,
+				boxOffsets: clippingPlane.boxOffsets.value,
+			},
+			exploded: { isActive: explodedView.isActive.value, factor: explodedView.factor.value },
+			highlightedNoteId: highlightedNoteId.value,
+			pointCloud: pointCloud.value,
+		})
+
+		/**
+		 * @param {object} meta - A splat's userData.tdvSplat
+		 * @return {object} What the tools panel shows of it
+		 */
+		const splatSummary = (meta) => ({
+			format: meta.format,
+			count: meta.count,
+			total: meta.total,
+			defaultUp: meta.defaultUp,
+			up: meta.up,
+		})
+
+		/**
+		 * @param {object} cloud - A scan's userData.tdvPointCloud
+		 * @return {object} What the tools panel shows of it: everything but the points
+		 */
+		const pointCloudSummary = (cloud) => ({
+			format: cloud.format,
+			count: cloud.count,
+			total: cloud.total,
+			attributes: { ...cloud.attributes },
+			unit: cloud.unit,
+			defaultUp: cloud.defaultUp,
+			up: cloud.up,
+		})
+
+		/**
+		 * Colour a scan by one of its attributes (pointclouds/colourBy.js). The cloud's
+		 * module came with the scan's loader, so this import costs nothing more.
+		 *
+		 * @param {string} mode - One of COLOUR_BY
+		 * @return {Promise<boolean>} Whether it changed; false for what the scan doesn't record
+		 */
+		const setColourBy = async (mode) => {
+			const root = modelRoot.value
+			if (!pointCloud.value || !root?.isPoints) {
+				return false
+			}
+			const { setColourBy: recolour } = await import('../pointclouds/buildPointCloud.js')
+			if (!recolour(root, mode)) {
+				return false
+			}
+			pointCloud.value = { ...pointCloud.value, colourBy: mode }
+			emit('point-cloud-changed', pointCloud.value)
+			return true
+		}
+
+		/**
+		 * Turn the scan or splat so `up` points up, put it back on the grid, and fit everything that
+		 * followed its shape to it again: the gizmo's Reset, the camera, the grid, the cut's
+		 * bounds, height colours and the statistics.
+		 *
+		 * @param {string} up - One of UPS
+		 */
+		const turnModel = async (up) => {
+			const root = modelRoot.value
+			const meta = root?.userData?.tdvPointCloud ?? root?.userData?.tdvSplat
+			if (!meta || !UPS.includes(up) || meta.up === up) {
+				return
+			}
+			applyUp(root, up)
+			meta.up = up
+			root.position.set(0, 0, 0)
+			root.updateMatrixWorld(true)
+			const box = new THREE.Box3().setFromObject(root)
+			const centre = box.getCenter(new THREE.Vector3())
+			root.position.set(-centre.x, -box.min.y, -centre.z)
+			root.updateMatrixWorld(true)
+			transformGizmo.rememberTransform(root)
+			const placed = new THREE.Box3().setFromObject(root)
+			camera.fitCameraToObject(root, placed.getCenter(new THREE.Vector3()))
+			updateGridSize(root)
+			clippingPlane.updateBounds(placed)
+			if (meta.colourBy === 'height') {
+				const { setColourBy: recolour } = await import('../pointclouds/buildPointCloud.js')
+				recolour(root, 'height')
+			}
+			modelStatsComposable.analyzeModel(root, statsFile.filename, statsFile.size)
+		}
+
+		/**
+		 * Choose which way is up for the file, for everyone: the scan or splat turns at once,
+		 * and back if the save is refused.
+		 *
+		 * @param {string} up - One of UPS
+		 */
+		const setUp = async (up) => {
+			if (!(pointCloud.value || splat.value) || !UPS.includes(up)) {
+				return
+			}
+			await turnModel(up)
+			await fileUp.set(up)
+			await turnModel(fileUp.state.value?.up ?? up)
+		}
+
+		// The panel shows which way is up, and whether it may be changed
+		watch(() => fileUp.state.value, (upState) => {
+			if (pointCloud.value) {
+				pointCloud.value = { ...pointCloud.value, upState }
+				emit('point-cloud-changed', pointCloud.value)
+			}
+			if (splat.value) {
+				splat.value = { ...splat.value, upState }
+				emit('splat-changed', splat.value)
+			}
+		})
+
+		/**
+		 * @param {number} px - A scan's point size, clamped to POINT_SIZE
+		 * @return {Promise<?number>} The size set, or null for a mesh
+		 */
+		const setPointSize = async (px) => {
+			const root = modelRoot.value
+			if (!pointCloud.value || !root?.isPoints) {
+				return null
+			}
+			const { setPointSize: resize } = await import('../pointclouds/buildPointCloud.js')
+			const size = resize(root, px)
+			pointCloud.value = { ...pointCloud.value, pointSize: size }
+			emit('point-cloud-changed', pointCloud.value)
+			return size
+		}
+
+		/**
+		 * A link to this file in the full viewer that reopens it as it is shown now. It is
+		 * the file's own address, so Nextcloud's access rules decide who can open it.
+		 * Null before a model is shown.
 		 *
 		 * @return {string|null}
 		 */
-		const getShareableViewLink = () => {
-			if (!camera.camera?.value || !camera.controls?.value) return null
-			const serialized = serializeCameraState(camera.camera.value, camera.controls.value)
-			if (!serialized) return null
-			return buildShareableUrl(serialized)
+		const getShareableViewLink = () => viewLinkFor(getViewState())
+
+		/**
+		 * A link to this file in the full viewer showing `view`.
+		 *
+		 * @param {object|null} view - a ViewState
+		 * @return {string|null} null without a view or a file
+		 */
+		const viewLinkFor = (view) => {
+			if (!view || props.fileId === null || props.fileId === undefined) return null
+			const base = window.location.origin + generateUrl('/apps/threedviewer/f/{fileId}', { fileId: props.fileId })
+			return buildViewUrl(base, view)
+		}
+
+		/**
+		 * Whether a note is shared and saved, so a link can name it: a private note's id
+		 * is not one anyone else can open, and an unsaved one has none yet.
+		 *
+		 * @param {object} note - an annotation
+		 * @return {boolean}
+		 */
+		const isSharedNote = (note) => Number.isSafeInteger(note?.meta?.noteId) && note.meta.noteId > 0
+
+		const isHighlightedNote = (note) => highlightedNoteId.value !== null && note?.meta?.noteId === highlightedNoteId.value
+
+		// Working on another note ends the highlight a link gave one
+		const onAnnotationCardClick = (note) => {
+			if (!isHighlightedNote(note)) highlightedNoteId.value = null
+		}
+
+		/**
+		 * Copy a link to the view as it is now, pointing at one note.
+		 *
+		 * @param {object} note - an annotation with a shared note behind it
+		 */
+		const copyNoteLink = async (note) => {
+			// Written as t('threedviewer', …) so scripts/check-i18n.mjs finds the strings
+			const t = (app, text) => (typeof window !== 'undefined' && window.t) ? window.t(app, text) : text
+			const view = getViewState()
+			const link = view && viewLinkFor({ ...view, note: note.meta.noteId })
+			try {
+				if (!link) throw new Error('No view to link to')
+				await copyText(link)
+				emit('push-toast', { type: 'success', title: t('threedviewer', 'Link copied'), message: t('threedviewer', 'The link opens the model here, with this note highlighted.'), timeout: 4000 })
+			} catch (err) {
+				logger.error('ThreeViewer', 'Failed to copy a note link', err)
+				emit('push-toast', { type: 'error', title: t('threedviewer', 'Copy failed') })
+			}
+		}
+
+		/**
+		 * Open Annotations on the note a link names, highlighted and focused. A note that
+		 * has been deleted, or isn't shared, is skipped: the link still opens the view.
+		 *
+		 * @param {number} noteId
+		 */
+		const focusLinkedNote = async (noteId) => {
+			if (!annotation.annotations.value.some((a) => a.meta?.noteId === noteId)) return
+			if (!annotation.isActive.value) toggleAnnotationMode()
+			highlightedNoteId.value = noteId
+			notePlacementHeld.value = true
+			await nextTick()
+			const card = container.value?.querySelector(`.annotation-item[data-note-id="${noteId}"]`)
+			card?.scrollIntoView?.({ block: 'nearest' })
+			card?.focus()
 		}
 
 		// Advanced feature methods
@@ -2448,7 +2901,14 @@ export default {
 		 * copy behind. Both happened. One watcher per mode says what is true.
 		 */
 		watch(() => measurement.isActive.value, (active) => emit('measurement-active', active))
-		watch(() => annotation.isActive.value, (active) => emit('annotation-active', active))
+		watch(() => annotation.isActive.value, (active) => {
+			emit('annotation-active', active)
+			// However the panel closes, what a link marked in it ends with it
+			if (!active) {
+				highlightedNoteId.value = null
+				notePlacementHeld.value = false
+			}
+		})
 		watch(() => comparison.comparisonMode.value, (active) => emit('comparison-active', active))
 
 		// Print check: fit, overhangs, filament and wall thickness for the open model. Loaded
@@ -2461,7 +2921,7 @@ export default {
 			const check = printCheck.value
 			return check && {
 				kind: check.kind.value,
-				assumesMm: check.assumesMm.value,
+				fileUnit: fileUnit.state.value,
 				settings: check.settings.value,
 				up: check.up.value,
 				fit: check.fit.value,
@@ -2518,6 +2978,9 @@ export default {
 			renderPaused,
 			// The viewer's loop, paused meanwhile, is what turns labels to face the camera
 			beforeRender: () => updateBillboards(),
+			// A splat is drawn in the order of a sort Spark runs for each view: finished
+			// for this frame's camera before the frame is drawn
+			prepareFrame: () => splatHost?.prepare(camera.camera.value),
 		}))
 		watch(turntable.isRecording, (recording) => {
 			if (!recording && resizeWhileRecording) {
@@ -2549,7 +3012,8 @@ export default {
 		}
 
 		const togglePrintCheck = async () => {
-			if (!printCheckActive.value && comparison.comparisonMode.value) {
+			// A scan has no surface to check (pointclouds/unavailable.js)
+			if (!printCheckActive.value && (comparison.comparisonMode.value || pointCloud.value)) {
 				return
 			}
 			const check = printCheck.value ?? await loadPrintCheck()
@@ -2872,6 +3336,10 @@ export default {
 		 * @param {string} format - Export format (glb, stl, obj, ply, 3mf, usdz, zip)
 		 */
 		const handleExport = async (format) => {
+			// Export saves meshes, and a scan is points (pointclouds/unavailable.js)
+			if (pointCloud.value) {
+				return
+			}
 			if (!modelRoot.value) {
 				logger.warn('ThreeViewer', 'No model loaded for export')
 				emit('push-toast', {
@@ -3293,6 +3761,8 @@ export default {
 				applyWireframe: props.wireframe,
 				ensurePlaceholderRemoved: () => {},
 				wireframe: props.wireframe,
+				// An earlier version of the same file is in the unit chosen for it
+				fileUnit: fileUnit.chosen.value,
 			}
 			try {
 				await comparison.loadComparisonModelFromVersion(version, { fileId: props.fileId, filename: props.filename || '', dirPath: props.dir }, context)
@@ -3985,24 +4455,29 @@ export default {
 					dir: newDir || props.dir,
 				})
 
-				// Clear previous model
+				// Clear previous model; a splat's splats are freed with it
+				dropSplatHost()
+				splat.value = null
 				if (modelRoot.value) {
 					scene.value.remove(modelRoot.value)
+					disposeSplat(modelRoot.value)
 					modelRoot.value = null
 					modelSourceFiles.value = null
 				}
 
 				// Clear model stats
 				modelStatsComposable.clearStats()
+				fileUnit.reset()
+				fileUp.reset()
+				pointCloud.value = null
 				applySourceUnits(null, null)
 
 				// Load new model (loadModel will use updated props.filename and props.dir)
 				try {
 					await loadModel(newFileId)
-				} catch (error) {
-					logger.error('ThreeViewer', 'Failed to load model after file selection', error)
-					emit('error', error)
-					// Don't show demo scene on error - let error state handle it
+				} catch {
+					// loadModel has logged and reported a failure already, and Cancel loading is
+					// none. Don't show demo scene on error - let error state handle it
 				}
 			}
 		}, { immediate: false })
@@ -4167,6 +4642,7 @@ export default {
 		})
 
 		onBeforeUnmount(() => {
+			unmounted = true
 			// Ends a running print-check worker and takes its overlays out of the scene
 			printCheckGone = true
 			printCheck.value?.dispose()
@@ -4213,6 +4689,7 @@ export default {
 			}
 
 			camera.dispose()
+			dropSplatHost()
 			modelLoading.clearModel()
 			comparison.clearComparison()
 
@@ -4245,6 +4722,10 @@ export default {
 			grid,
 			axes,
 			modelRoot,
+			pointCloud,
+			setColourBy,
+			setPointSize,
+			setUp,
 			aborting,
 			initializing,
 
@@ -4292,6 +4773,10 @@ export default {
 			printCheck,
 			printCheckActive,
 			printCheckState,
+			fileUnitState: fileUnit.state,
+			fileUnitChosen: fileUnit.chosen,
+			modelMillimetresPerUnit,
+			onSetFileUnit,
 			togglePrintCheck,
 			turntable,
 			turntableOpen,
@@ -4404,6 +4889,14 @@ export default {
 			resetView,
 			fitToView,
 			getShareableViewLink,
+			getViewState,
+			viewLinkFor,
+			highlightedNoteId,
+			notePlacementHeld,
+			isSharedNote,
+			isHighlightedNote,
+			onAnnotationCardClick,
+			copyNoteLink,
 			toggleMeasurementMode,
 			handleUnitChange,
 			deleteMeasurement,
@@ -4836,6 +5329,10 @@ export default {
 }
 
 .stats-watertight-row {
+	margin-bottom: 10px;
+}
+
+.stats-file-unit {
 	margin-bottom: 10px;
 }
 
@@ -5610,6 +6107,7 @@ export default {
 /* Doubled, like every button on this surface: Nextcloud's own button rule sets a
    background and a text colour through a selector a single class does not beat. */
 .canvas-panel-close.canvas-panel-close,
+.canvas-panel-link.canvas-panel-link,
 .canvas-panel-delete.canvas-panel-delete {
 	color: var(--tdv-hud-text-secondary);
 	border-radius: 4px;
@@ -5618,12 +6116,16 @@ export default {
 
 .canvas-panel-close.canvas-panel-close:hover,
 .canvas-panel-close.canvas-panel-close:focus,
-.canvas-panel-close.canvas-panel-close:focus-visible {
+.canvas-panel-close.canvas-panel-close:focus-visible,
+.canvas-panel-link.canvas-panel-link:hover,
+.canvas-panel-link.canvas-panel-link:focus,
+.canvas-panel-link.canvas-panel-link:focus-visible {
 	background: var(--tdv-hud-hover-bg);
 	color: var(--tdv-hud-text);
 }
 
-.canvas-panel-close.canvas-panel-close:active {
+.canvas-panel-close.canvas-panel-close:active,
+.canvas-panel-link.canvas-panel-link:active {
 	background: var(--tdv-hud-hover-bg) !important;
 	color: var(--tdv-hud-text) !important;
 }
@@ -5740,6 +6242,18 @@ export default {
 	padding: 12px 14px;
 	border: 1px solid var(--tdv-hud-border);
 	border-radius: 12px;
+}
+
+/* The note a link pointed at: drawn in the HUD's own foreground, and focused when the
+   panel opens on it, so a keyboard user starts from it too */
+.annotation-item.is-highlighted {
+	border-color: var(--tdv-hud-text);
+	box-shadow: inset 0 0 0 1px var(--tdv-hud-text);
+}
+
+.annotation-item:focus-visible {
+	outline: 2px solid var(--tdv-hud-text);
+	outline-offset: 2px;
 }
 
 .canvas-panel-card-header {

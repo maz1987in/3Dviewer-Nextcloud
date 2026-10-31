@@ -60,7 +60,9 @@ A comprehensive 3D model viewer application for Nextcloud that supports multiple
 ## ✨ Key Features
 
 - **Thumbnails in Files** - Models get a thumbnail while you browse a folder, without being opened. Your browser renders them in the background, one file at a time, within per-user limits on file size, time and download per folder. A thumbnail is kept per file version and shown to everyone who can see the file, including share recipients and public links
-- **Multi-Format Support** - 33 extensions across 22 formats: GLB, GLTF, OBJ (+MTL), STL, PLY, FBX, 3MF, 3DS, DAE, X3D, VRML, OFF, AMF, 3DM (Rhino), BIM (dotbim), IFC, STEP, IGES, BREP, FCSTD (FreeCAD), G-code (`.gcode`, `.gco`, `.nc`, `.acode`, `.g`, `.gx`, `.g3drem`, `.makerbot`, `.thing`)
+- **Multi-Format Support** - 40 extensions across 29 formats: GLB, GLTF, OBJ (+MTL), STL, PLY, FBX, 3MF, 3DS, DAE, X3D, VRML, OFF, AMF, 3DM (Rhino), BIM (dotbim), IFC, STEP, IGES, BREP, FCSTD (FreeCAD), G-code (`.gcode`, `.gco`, `.nc`, `.acode`, `.g`, `.gx`, `.g3drem`, `.makerbot`, `.thing`), the scan formats LAS, LAZ, E57, PCD and XYZ, and the Gaussian splat formats SPLAT and SPZ (and splat PLY)
+- **Point Clouds** - Laser, drone and phone scans open as points: coloured by the file's colours, height, intensity or classification, with a point size slider. Large scans are thinned to what the device can draw (a note says how much is shown), survey coordinates keep their millimetres, and "Which way is up" is saved with the file. Measurement snaps to points, and the cross-section cuts them
+- **Gaussian Splats** - The photo-real captures phone apps make (`.splat`, `.spz` and splat `.ply`) open as they were captured, drawn by [Spark](https://sparkjs.dev/). Orbit, bookmarks, view links, snapshots, turntable videos, thumbnails, public links and embedding all work; large captures are thinned to what the device can draw, with a note, and "Which way is up" is saved with the file. The tools that need a surface are off for a splat, each saying why
 - **G-code Toolpath Visualization** - View 3D printer and CNC toolpaths with smooth rainbow gradient coloring, intelligent travel/retraction filtering, and a layer slider to step through the print
 - **Enhanced File Loaders** - Significantly improved FBX, VRML, and DAE loaders with better material and texture support
 - **Multi-File Models** - Full support for OBJ+MTL+textures and GLTF+bins+images
@@ -189,6 +191,15 @@ The UI will also call `POST /apps/threedviewer/api/files/index` the first time i
 | BREP   | `.brep`, `.brp` | No | OpenCascade native B-Rep (shared OCCT WASM) |
 | FCSTD  | `.fcstd`  | No | FreeCAD document (ZIP containing BREP bodies, shared OCCT WASM); draws the objects FreeCAD shows |
 | G-code | `.gcode`, `.gco`, `.nc`, `.acode`, `.g`, `.gx`, `.g3drem`, `.makerbot`, `.thing` | No | 3D printer and CNC toolpaths, with a layer slider |
+| LAS    | `.las`    | No | LiDAR and survey point clouds, 1.0–1.4, point formats 0–10; the unit comes from the coordinate system |
+| LAZ    | `.laz`    | No | Compressed LAS (laz-perf WASM ~210 KB lazy-loaded), point formats 0–3 and 6–8 |
+| E57    | `.e57`    | No | Laser scans (ASTM E57), several scans placed by their poses; Cartesian scans |
+| PCD    | `.pcd`    | No | Point Cloud Library point clouds: ASCII, binary and binary_compressed |
+| XYZ    | `.xyz`    | No | Point clouds as text, with colours or an intensity; chemistry `.xyz` files are left alone |
+| SPLAT  | `.splat`  | No | Gaussian splats in antimatter15's layout (Spark ~2.7 MB lazy-loaded) |
+| SPZ    | `.spz`    | No | Compressed Gaussian splats (Niantic's SPZ) |
+
+> A PLY with no faces opens as a point cloud, and a PLY with Gaussian splat properties (`f_dc_0`, `scale_0`, `rot_0`, `opacity`, or SuperSplat's compressed layout) as a splat. Scans are read in a background worker and thinned to the device's point budget (20 million on a desktop, 4 million on a tablet, 2 million on a phone); files up to 2 GB open. Splats are thinned to 8 million splats on a desktop, 3 million on a tablet and 1.5 million on a phone; files up to 1 GB open on a desktop, 512 MB on a tablet and 256 MB on a phone.
 
 > WASM loaders are lazy-chunked — the 3–7 MB runtime only downloads when a user opens a file of that format.
 

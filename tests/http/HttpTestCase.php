@@ -7,10 +7,13 @@ namespace OCA\ThreeDViewer\Tests\Http;
 use GuzzleHttp\Client;
 use GuzzleHttp\Cookie\CookieJar;
 use OCA\ThreeDViewer\Db\NoteMapper;
+use OCA\ThreeDViewer\Service\EmbedOrigins;
 use OCP\Constants;
 use OCP\Files\File;
 use OCP\Files\IRootFolder;
 use OCP\Files\Node;
+use OCP\IAppConfig;
+use OCP\IGroupManager;
 use OCP\IUserManager;
 use OCP\Server;
 use OCP\Share\IManager as ShareManager;
@@ -30,9 +33,11 @@ use Psr\Http\Message\ResponseInterface;
 abstract class HttpTestCase extends TestCase
 {
     protected const PASSWORD = 'integration-suite-password-Aa1!';
+    protected const EMBED_ADMIN_URL = '/index.php/apps/threedviewer/admin/embed-origins';
 
     /** @var list<string> */
     private array $users = [];
+    private ?string $embedAdmin = null;
 
     protected static function base(): string
     {
@@ -166,6 +171,44 @@ abstract class HttpTestCase extends TestCase
         return [$client, $token];
     }
 
+    protected function newAdmin(): string
+    {
+        $uid = $this->newUser();
+        $user = Server::get(IUserManager::class)->get($uid);
+        self::assertNotNull($user);
+        Server::get(IGroupManager::class)->get('admin')?->addUser($user);
+
+        return $uid;
+    }
+
+    /**
+     * Set the sites allowed to embed through the admin route, not from this process: the
+     * server keeps app config in its local cache for a few seconds, and a value written
+     * here would not clear it.
+     *
+     * @param list<string> $origins
+     */
+    protected function setEmbedOrigins(array $origins): void
+    {
+        $this->embedAdmin ??= $this->newAdmin();
+        $response = $this->basic($this->embedAdmin)->put(self::EMBED_ADMIN_URL, ['json' => ['origins' => $origins]]);
+        self::assertSame(200, $response->getStatusCode(), 'the sites allowed to embed were saved');
+    }
+
+    /**
+     * The list as stored, read from the database: this process shares the database with
+     * the server but not its loaded values.
+     *
+     * @return list<string>
+     */
+    protected static function storedEmbedOrigins(): array
+    {
+        $config = Server::get(IAppConfig::class);
+        $config->clearCache(true);
+
+        return array_values(array_filter($config->getValueArray('threedviewer', EmbedOrigins::CONFIG_KEY), 'is_string'));
+    }
+
     protected static function notesUrl(int $fileId, ?int $noteId = null): string
     {
         return '/index.php/apps/threedviewer/api/notes/' . $fileId . ($noteId === null ? '' : '/' . $noteId);
@@ -174,6 +217,16 @@ abstract class HttpTestCase extends TestCase
     protected static function publicNotesUrl(string $token, int $fileId): string
     {
         return '/ocs/v2.php/apps/threedviewer/public/notes/' . $token . '/' . $fileId;
+    }
+
+    protected static function settingsUrl(int $fileId): string
+    {
+        return '/index.php/apps/threedviewer/api/file-settings/' . $fileId;
+    }
+
+    protected static function publicSettingsUrl(string $token, int $fileId): string
+    {
+        return '/ocs/v2.php/apps/threedviewer/public/file-settings/' . $token . '/' . $fileId;
     }
 
     /** @return array<string, mixed> */

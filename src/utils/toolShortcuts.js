@@ -14,6 +14,7 @@ export const TOOL_SHORTCUTS = [
 	{ key: 'm', event: 'toggle-measurement' },
 	{ key: 's', event: 'toggle-stats' },
 	{ key: 'p', event: 'take-screenshot' },
+	{ key: 'l', event: 'copy-view-link' },
 	{ key: '?', event: 'toggle-help' },
 ]
 

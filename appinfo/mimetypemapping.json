@@ -34,6 +34,13 @@
     "brep": "model/brep",
     "brp": "model/brep",
     "fcstd": "application/x-fcstd",
+    "xyz": "application/x-xyz-pointcloud",
+    "pcd": "application/x-pcd",
+    "las": "application/vnd.las",
+    "laz": "application/vnd.laszip",
+    "e57": "model/e57",
+    "splat": "model/x-gaussian-splat",
+    "spz": "model/x-spz",
     "mtl": "text/plain"
   }
 }

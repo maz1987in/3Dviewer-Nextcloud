@@ -426,8 +426,8 @@ function getCachedIntersectableObjects(scene, filterMesh, cacheKey) {
 	// Build cache
 	const intersectableObjects = []
 	scene.traverse((child) => {
-		// Early exit conditions for better performance
-		if (!child.isMesh || !child.visible || !child.geometry || !child.material) {
+		// Early exit conditions for better performance. A scan is picked like a mesh.
+		if (!(child.isMesh || child.isPoints) || !child.visible || !child.geometry || !child.material) {
 			return
 		}
 
@@ -499,6 +499,27 @@ export function updateTextMesh(mesh, text, options = {}) {
 	}
 }
 
+/** How near a click must land to a scan's point to pick it, in CSS px. */
+const POINT_PICK_PX = 5
+
+/**
+ * @param {THREE.Points} cloud - A scan
+ * @param {THREE.Camera} camera - The camera clicked through
+ * @param {number} heightPx - The canvas's height, in CSS px
+ * @return {number} How near a ray must pass a point to pick it: POINT_PICK_PX on screen,
+ *   in world units at the scan's distance, so a click lands at any scan size or zoom
+ */
+function pickingRadius(cloud, camera, heightPx) {
+	if (!cloud.geometry.boundingSphere) {
+		cloud.geometry.computeBoundingSphere()
+	}
+	const centre = cloud.geometry.boundingSphere.center.clone().applyMatrix4(cloud.matrixWorld)
+	const viewHeight = camera.isOrthographicCamera
+		? (camera.top - camera.bottom) / camera.zoom
+		: 2 * centre.distanceTo(camera.getWorldPosition(new THREE.Vector3())) * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) / camera.zoom
+	return Math.max((viewHeight / Math.max(heightPx, 1)) * POINT_PICK_PX, Number.EPSILON)
+}
+
 /**
  * Perform raycasting to find 3D intersection point from mouse click
  * Optimized version with caching and early exit conditions
@@ -544,7 +565,7 @@ export function raycastIntersection(event, camera, scene, options = {}) {
 		} else {
 			intersectableObjects = []
 			scene.traverse((child) => {
-				if (child.isMesh && child.visible && child.geometry && child.material && filterMesh(child)) {
+				if ((child.isMesh || child.isPoints) && child.visible && child.geometry && child.material && filterMesh(child)) {
 					intersectableObjects.push(child)
 				}
 			})
@@ -555,11 +576,22 @@ export function raycastIntersection(event, camera, scene, options = {}) {
 			return null
 		}
 
+		// A ray meets a point only within a distance of it: a few pixels on screen
+		const cloud = intersectableObjects.find((object) => object.isPoints)
+		if (cloud) {
+			raycaster.params.Points.threshold = pickingRadius(cloud, camera, rect.height)
+		}
+
 		// Perform raycasting
 		const intersects = raycaster.intersectObjects(intersectableObjects, recursive)
 
 		if (intersects.length > 0) {
-			return intersects[0].point.clone()
+			const [hit] = intersects
+			// On a scan, the point itself rather than where the ray passed it
+			if (hit.object.isPoints && hit.index !== undefined) {
+				return new THREE.Vector3().fromBufferAttribute(hit.object.geometry.getAttribute('position'), hit.index).applyMatrix4(hit.object.matrixWorld)
+			}
+			return hit.point.clone()
 		}
 
 		return null

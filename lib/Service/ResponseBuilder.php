@@ -8,6 +8,7 @@ use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\ContentSecurityPolicy;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\Http\StreamResponse;
+use OCP\AppFramework\Http\TemplateResponse;
 use OCP\Files\File;
 
 /**
@@ -270,6 +271,8 @@ class ResponseBuilder
         // and calling it fatals the request. `addAllowedWorkerSrcDomain()` has
         // existed since NC 17, so it is safe across the whole 31–34 range.
         $csp->addAllowedWorkerSrcDomain('blob:');
+        // And from the app's own files: the scan reader's worker (src/pointclouds/)
+        $csp->addAllowedWorkerSrcDomain("'self'");
 
         // Also allow blob: in script-src for dynamic imports if needed
         $csp->addAllowedScriptDomain('blob:');

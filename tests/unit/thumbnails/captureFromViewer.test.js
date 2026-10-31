@@ -77,6 +77,18 @@ describe('captureForCurrentVersion', () => {
 		expect(uploadThumbnail).toHaveBeenCalledWith(5, 'etag-1', PNG)
 	})
 
+	// A splat's render waits for Spark's sort, and the open viewer's model is lent to the
+	// render meanwhile: the background thumbnailer makes its thumbnail instead
+	test('leaves a splat to the background thumbnailer', async () => {
+		const splat = { isObject3D: true, userData: { tdvSplat: { count: 1000 } } }
+		const result = await captureForCurrentVersion({
+			fileId: 5, extension: 'spz', object3D: splat, statuses: statusPromise(status()),
+		})
+
+		expect(result).toBe('skipped')
+		expect(renderThumbnail).not.toHaveBeenCalled()
+	})
+
 	test('reports exists when the server already holds a thumbnail', async () => {
 		uploadThumbnail.mockResolvedValue('exists')
 

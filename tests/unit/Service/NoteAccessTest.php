@@ -40,6 +40,16 @@ class NoteAccessTest extends TestCase
         $this->assertTrue($result?->canEdit);
     }
 
+    /** The settings routes check the format by the name of the file the rights came from. */
+    public function testReportsTheNameOfTheFileItJudgedBy(): void
+    {
+        $result = $this->access([$this->file(false, 'shared.stl'), $this->file(true, 'own.stl')])->forUser(7, 'alice');
+        $this->assertSame('own.stl', $result?->fileName);
+
+        $readOnly = $this->access([$this->file(false, 'shared.obj')])->forUser(7, 'alice');
+        $this->assertSame('shared.obj', $readOnly?->fileName);
+    }
+
     public function testAnUnresolvableUserFolderMeansNoAccess(): void
     {
         $root = $this->createMock(IRootFolder::class);
@@ -79,10 +89,11 @@ class NoteAccessTest extends TestCase
         return new NoteAccess($root);
     }
 
-    private function file(bool $updateable): File
+    private function file(bool $updateable, string $name = 'model.stl'): File
     {
         $file = $this->createMock(File::class);
         $file->method('isUpdateable')->willReturn($updateable);
+        $file->method('getName')->willReturn($name);
 
         return $file;
     }

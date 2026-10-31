@@ -170,7 +170,7 @@ class SupportedFormatsTest extends TestCase
      */
     public function testUnsupportedExtensionsReturnDefault(): void
     {
-        $unsupportedExtensions = ['xyz', 'unknown', 'test'];
+        $unsupportedExtensions = ['qqq', 'unknown', 'test'];
 
         foreach ($unsupportedExtensions as $ext) {
             $this->assertFalse(
@@ -272,5 +272,39 @@ class SupportedFormatsTest extends TestCase
         $this->assertSame(0, preg_match($regex, 'application/octet-stream'));
         $this->assertSame(0, preg_match($regex, 'text/plain'));
         $this->assertSame(0, preg_match($regex, 'image/png'));
+    }
+
+    /**
+     * A site that already maps an extension to a type of its own (a chemistry server's
+     * .xyz as chemical/x-xyz) keeps it: the app neither claims nor resets it.
+     */
+    public function testExtensionsAnotherTypeClaimsAreLeftAlone(): void
+    {
+        $mappable = SupportedFormats::mappableExtensions(['xyz' => ['chemical/x-xyz'], 'stl' => ['model/stl'], 'pdf' => ['application/pdf']]);
+
+        $this->assertArrayNotHasKey('xyz', $mappable);
+        $this->assertSame(SupportedFormats::EXT_MIME_MAP['stl'], $mappable['stl']);
+        $this->assertArrayHasKey('las', $mappable);
+        $this->assertSame(SupportedFormats::EXT_MIME_MAP, SupportedFormats::mappableExtensions([]));
+        $this->assertSame(SupportedFormats::EXT_MIME_MAP, SupportedFormats::mappableExtensions(['xyz' => 'application/x-xyz-pointcloud']));
+    }
+
+    /** Gaussian splats: the antimatter15 .splat and Niantic's .spz (src/splats/). */
+    public function testSplatFormatsAreRegistered(): void
+    {
+        $this->assertSame(['model/x-gaussian-splat'], SupportedFormats::EXT_MIME_MAP['splat']);
+        $this->assertSame(['model/x-spz'], SupportedFormats::EXT_MIME_MAP['spz']);
+        $this->assertSame('model/x-gaussian-splat', SupportedFormats::CONTENT_TYPE_MAP['splat']);
+        $this->assertSame('model/x-spz', SupportedFormats::CONTENT_TYPE_MAP['spz']);
+        $this->assertSame(['splat', 'spz'], SupportedFormats::SPLAT_EXTENSIONS);
+        $this->assertSame(1024 ** 3, SupportedFormats::SPLAT_MAX_BYTES);
+    }
+
+    public function testASitesOwnSplatMappingIsLeftAlone(): void
+    {
+        $mappable = SupportedFormats::mappableExtensions(['splat' => ['application/x-other-splat']]);
+
+        $this->assertArrayNotHasKey('splat', $mappable);
+        $this->assertArrayHasKey('spz', $mappable);
     }
 }

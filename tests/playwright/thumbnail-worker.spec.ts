@@ -65,6 +65,22 @@ END-ISO-10303-21;
 `
 
 /**
+ * A .splat of `count` splats in a 2 × 1 m sheet, past the thumbnail's budget of 500,000,
+ * so the worker thins it (src/splats/thinSplats.js) before Spark draws it.
+ */
+function manySplats(count: number): Buffer {
+  const out = Buffer.alloc(count * 32)
+  for (let i = 0; i < count; i++) {
+    const at = i * 32
+    out.writeFloatLE((i % 1000) / 500, at)
+    out.writeFloatLE(Math.floor(i / 1000) / 520, at + 4)
+    for (let k = 0; k < 3; k++) out.writeFloatLE(0.003, at + 12 + k * 4)
+    out.set([200, 120, 40, 255, 255, 128, 128, 128], at + 24)
+  }
+  return out
+}
+
+/**
  * Samples no fixture covers, made from what node_modules has.
  *
  * The FCStd: occt-import-js's cube.FCStd stores its body as PartShape.brp, as FreeCAD
@@ -85,6 +101,7 @@ async function buildGeneratedSamples() {
   generated.set('part-design-no-gui.FCStd', partDesignFcstd(zipSync, cube['PartShape.brp'], assembly, false))
   generated.set('tip-only.FCStd', Buffer.from(zipSync({ 'Pocket.Shape.brp': cube['PartShape.brp'] })))
   generated.set('box.ifc', Buffer.from(BOX_IFC))
+  generated.set('many.splat', manySplats(520_000))
   generated.set('triangle.glb', gltfToGlb(fs.readFileSync(path.join(PROJECT_ROOT, FIXTURES, 'triangle.gltf'), 'utf8')))
   generated.set('outside.gltf', Buffer.from(JSON.stringify(gltfNamingOutsideFiles())))
   generated.set('triangle.3ds', triangle3ds())
@@ -506,6 +523,17 @@ const SAMPLES: Sample[] = [
   { name: 'dae', extension: 'dae', files: [`${GENERATED}triangle.dae`] },
   { name: 'amf', extension: 'amf', files: [`${GENERATED}triangle.amf`] },
   { name: '3mf', extension: '3mf', files: [`${GENERATED}triangle.3mf`] },
+  // Scans, read by the same readers the viewer's point-cloud worker uses
+  { name: 'xyz', extension: 'xyz', files: [`${FIXTURES}pointclouds/cube-rgb.xyz`] },
+  { name: 'pcd', extension: 'pcd', files: [`${FIXTURES}pointclouds/cube-compressed.pcd`] },
+  { name: 'las', extension: 'las', files: [`${FIXTURES}pointclouds/utm-1.2.las`] },
+  { name: 'laz', extension: 'laz', files: [`${FIXTURES}pointclouds/simple.laz`] },
+  { name: 'e57', extension: 'e57', files: [`${FIXTURES}pointclouds/tinyCartesianFloatRgb.e57`] },
+  // Gaussian splats, drawn by Spark inside the worker after its sort
+  { name: 'splat', extension: 'splat', files: [`${FIXTURES}splats/grid.splat`] },
+  { name: 'spz', extension: 'spz', files: [`${FIXTURES}splats/grid.spz`] },
+  { name: 'splat ply', extension: 'ply', files: [`${FIXTURES}splats/grid.ply`] },
+  { name: 'thinned splat', extension: 'splat', files: [`${GENERATED}many.splat`] },
 ]
 
 function startStaticServer(): Promise<{ origin: string, close: () => Promise<void> }> {
@@ -697,6 +725,15 @@ test.describe('thumbnail worker', () => {
 
   test.describe('every model format renders in the worker', () => {
     const appRoot = APP_ROOTS[0]
+
+    // A chemistry .xyz has the scan's extension but lists atoms: it fails, and says why
+    test('a chemistry xyz fails as not a scan', async ({ page }) => {
+      await openHarness(page, server.origin, appRoot)
+
+      const outcome = await renderSample(page, appRoot, { name: 'molecule', extension: 'xyz', files: [`${FIXTURES}pointclouds/molecule.xyz`] })
+
+      expect(outcome.error).toMatch(/lists atoms, not a scan/)
+    })
 
     for (const sample of SAMPLES) {
       test(sample.name, async ({ page }) => {

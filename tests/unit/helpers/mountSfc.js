@@ -12,19 +12,21 @@ const vue = require('vue')
 const { parse } = require('@vue/compiler-sfc')
 const { stripHtmlComments } = require('./stripHtmlComments.js')
 
-const COMPONENTS = join(__dirname, '..', '..', '..', 'src', 'components')
+const SRC = join(__dirname, '..', '..', '..', 'src')
 
 /**
  * The component's options, with its imports bound to `modules`.
  *
- * @param {string} name - File name in src/components, without `.vue`
+ * @param {string} name - File name in src/components, without `.vue`; or a path under
+ *   src with a folder, such as `views/AdminSettings`
  * @param {object} modules - Module specifier → its stand-in (named exports as keys, the
  *   default export under `default`)
  * @return {object} Component options, template included
  */
 function loadSfc(name, modules = {}) {
 	// Split into blocks by Vue's own SFC parser, as the build does
-	const { descriptor } = parse(readFileSync(join(COMPONENTS, `${name}.vue`), 'utf8'))
+	const file = name.includes('/') ? join(SRC, `${name}.vue`) : join(SRC, 'components', `${name}.vue`)
+	const { descriptor } = parse(readFileSync(file, 'utf8'))
 	const template = stripHtmlComments(descriptor.template.content)
 	let script = descriptor.script.content
 
@@ -56,7 +58,7 @@ function loadSfc(name, modules = {}) {
 /**
  * Mount a component with props held in a reactive object, so a test can change them.
  *
- * @param {string} name - File name in src/components, without `.vue`
+ * @param {string} name - As for loadSfc
  * @param {object} props - Initial props
  * @param {object} [modules] - Stand-ins for the component's imports
  * @return {{ host: HTMLElement, props: object, events: Array<[string, Array]>, unmount: Function }}

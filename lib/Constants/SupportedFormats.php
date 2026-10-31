@@ -60,6 +60,13 @@ class SupportedFormats
         'brep' => ['model/brep', 'application/x-brep'], // OpenCascade native B-Rep
         'brp' => ['model/brep', 'application/x-brep'], // BREP alternative extension
         'fcstd' => ['application/x-fcstd'], // FreeCAD native document (ZIP + BREP)
+        'xyz' => ['application/x-xyz-pointcloud'], // Point cloud as text; a chemistry .xyz is refused by the viewer
+        'pcd' => ['application/x-pcd'], // Point Cloud Library point cloud
+        'las' => ['application/vnd.las'], // ASPRS LAS survey / LiDAR point cloud
+        'laz' => ['application/vnd.laszip'], // LAS compressed with LASzip
+        'e57' => ['model/e57'], // ASTM E57 laser scan
+        'splat' => ['model/x-gaussian-splat'], // Gaussian splat, antimatter15's layout
+        'spz' => ['model/x-spz'], // Gaussian splat, Niantic's compressed SPZ
 
         // Material/texture files
         'mtl' => ['text/plain'],
@@ -106,6 +113,13 @@ class SupportedFormats
         'brep' => 'model/brep',
         'brp' => 'model/brep',
         'fcstd' => 'application/x-fcstd',
+        'xyz' => 'application/x-xyz-pointcloud',
+        'pcd' => 'application/x-pcd',
+        'las' => 'application/vnd.las',
+        'laz' => 'application/vnd.laszip',
+        'e57' => 'model/e57',
+        'splat' => 'model/x-gaussian-splat',
+        'spz' => 'model/x-spz',
 
         // Material file
         'mtl' => 'text/plain',
@@ -132,6 +146,26 @@ class SupportedFormats
      * Every entry must also appear in CONTENT_TYPE_MAP, since these are streamed;
      * FormatSyncTest holds that line.
      */
+    /**
+     * Formats that hold scans, which the viewer thins as it reads (src/pointclouds/limits.js),
+     * so they may run to SCAN_MAX_BYTES. A PLY may be a scan or a mesh; the viewer refuses
+     * a mesh PLY over the ordinary limit itself.
+     */
+    public const POINT_CLOUD_EXTENSIONS = ['las', 'laz', 'e57', 'pcd', 'xyz', 'ply'];
+
+    /** The largest scan the viewer opens; the viewer's SCAN_CEILING_BYTES. */
+    public const SCAN_MAX_BYTES = 2 * 1024 * 1024 * 1024;
+
+    /**
+     * Gaussian splats, which Spark reads whole before the viewer thins them
+     * (src/splats/limits.js), so they stop at SPLAT_MAX_BYTES. A splat PLY is a PLY, and
+     * keeps the scan limit; the viewer refuses one over SPLAT_MAX_BYTES itself.
+     */
+    public const SPLAT_EXTENSIONS = ['splat', 'spz'];
+
+    /** The largest splat the viewer opens; the viewer's SPLAT_CEILING_BYTES. */
+    public const SPLAT_MAX_BYTES = 1024 * 1024 * 1024;
+
     public const DEPENDENCY_EXTENSIONS = [
         'mtl',
         'bin',
@@ -142,6 +176,56 @@ class SupportedFormats
         'bmp',
         'webp',
     ];
+
+    /**
+     * The extensions this app may map, given a site's own mapping: all of EXT_MIME_MAP but
+     * those the site already maps to a type the app doesn't use (a chemistry server's
+     * .xyz as chemical/x-xyz, say). The repair steps neither claim nor reset those.
+     *
+     * @param array<array-key, mixed> $existing config/mimetypemapping.json, decoded
+     * @return array<string, list<string>>
+     */
+    public static function mappableExtensions(array $existing): array
+    {
+        $mappable = [];
+        foreach (self::EXT_MIME_MAP as $ext => $mimes) {
+            $theirs = self::firstMime($existing[$ext] ?? null);
+            if ($theirs === null || in_array($theirs, $mimes, true)) {
+                $mappable[$ext] = $mimes;
+            }
+        }
+
+        return $mappable;
+    }
+
+    /**
+     * @param mixed $mapping One extension's entry in a mimetypemapping.json
+     * @return ?string Its first MIME type, if it has one
+     * @psalm-suppress MixedInferredReturnType, MixedReturnStatement is_string() narrows $mapping[0]
+     */
+    private static function firstMime(mixed $mapping): ?string
+    {
+        if (is_string($mapping)) {
+            return $mapping;
+        }
+
+        return is_array($mapping) && isset($mapping[0]) && is_string($mapping[0]) ? $mapping[0] : null;
+    }
+
+    /**
+     * @param string $file A mimetypemapping.json
+     * @return array<array-key, mixed> Its mapping, or none when it is missing or unreadable
+     * @psalm-suppress MixedAssignment json_decode's result is checked before it is returned
+     */
+    public static function readMapping(string $file): array
+    {
+        if (!file_exists($file)) {
+            return [];
+        }
+        $decoded = json_decode((string) file_get_contents($file), true);
+
+        return is_array($decoded) ? $decoded : [];
+    }
 
     /**
      * List of all supported model file extensions (excluding textures and dependencies).

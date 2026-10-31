@@ -34,6 +34,15 @@ class ModelFileSupportTest extends TestCase
         $this->assertContains('fbx', $exts);
     }
 
+    public function testAModelIsOneTheViewerOpensOnItsOwn(): void
+    {
+        $this->assertTrue($this->support->isModel('STL'));
+        $this->assertTrue($this->support->isModel('glb'));
+        $this->assertFalse($this->support->isModel('png'));
+        $this->assertFalse($this->support->isModel('mtl'));
+        $this->assertFalse($this->support->isModel('txt'));
+    }
+
     public function testMapContentType(): void
     {
         $this->assertSame('model/gltf-binary', $this->support->mapContentType('glb'));

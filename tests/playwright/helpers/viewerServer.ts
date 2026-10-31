@@ -15,7 +15,38 @@ import { fileURLToPath } from 'url'
 export const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
 
 export type ViewerModel = { id: number, name: string, body: string | Buffer }
-export type Viewer = { user?: string | null, publicToken?: string | null, dir?: string }
+/**
+ * `query` is added to the page's own address, as a link's parameters would be; `notes`
+ * are the shared notes the server answers with for a logged-in user. The tools panel is
+ * opened once the model is in, unless `openPanel` is false: opening it moves the focus.
+ *
+ * `lite` serves the page a public link to a single file gets, where the light viewer
+ * (ViewerComponent) replaces the share page's content instead of the full app mounting.
+ *
+ * `unit` (and `up`, which way is up for a scan) is what is saved for the file, and `unitCanEdit` whether the user may change it
+ * (default: yes when logged in); `unitSaveStatus` makes a save fail with that status, and
+ * `unitGate` holds the unit's answer back until it resolves.
+ *
+ * `embed` serves the embed page at /index.php/apps/threedviewer/embed/{publicToken}, as
+ * another site frames it, and answers its data route with the model and these links;
+ * 'gone' answers it 404, as for a share that may no longer be embedded, and a number
+ * answers it with that status.
+ *
+ * `embedEnabled` is what the viewer page says about embedding: whether the admin lists
+ * any site (the `embed` initial state).
+ *
+ * `fileGate` holds the file's answer back until it resolves, and `loads: false` returns
+ * without waiting for a model, for a load that is cancelled or fails.
+ */
+export type Viewer = {
+	user?: string | null, publicToken?: string | null, dir?: string, query?: string, notes?: object[], openPanel?: boolean, lite?: boolean,
+	unit?: string | null, unitCanEdit?: boolean, unitSaveStatus?: number, unitGate?: Promise<void>, up?: string | null,
+	embed?: { shareUrl: string, downloadUrl: string | null } | 'gone' | number,
+	embedEnabled?: boolean,
+	fileGate?: Promise<void>, loads?: boolean,
+}
+
+const EMBED_PATH = '/index.php/apps/threedviewer/embed/'
 
 const pages = new Map<string, { model: ViewerModel, viewer: Viewer }>()
 
@@ -26,25 +57,33 @@ const pages = new Map<string, { model: ViewerModel, viewer: Viewer }>()
  */
 function html({ model, viewer }: { model: ViewerModel, viewer: Viewer }) {
 	const user = viewer.user ? ` data-user="${viewer.user}" data-user-displayname="${viewer.user}"` : ''
-	const share = viewer.publicToken
-		? `<input type="hidden" id="initial-state-threedviewer-publicShare" value="${Buffer.from(JSON.stringify({ token: viewer.publicToken, fileId: model.id, filename: model.name })).toString('base64')}">`
+	const share = viewer.publicToken && !viewer.embed
+		? `<input type="hidden" id="initial-state-threedviewer-publicShare" value="${Buffer.from(JSON.stringify({ token: viewer.publicToken, fileId: model.id, filename: model.name, ...(viewer.lite ? { isSingleFile: true, mime: 'application/octet-stream' } : {}) })).toString('base64')}">`
 		: ''
+	const embedState = viewer.embedEnabled === undefined
+		? ''
+		: `<input type="hidden" id="initial-state-threedviewer-embed" value="${Buffer.from(JSON.stringify({ enabled: viewer.embedEnabled })).toString('base64')}">`
 	return `<!doctype html><html><head${user}><meta charset="utf-8"><title>Viewer</title>
 	<meta name="requesttoken" content="test-token">
-	<link rel="stylesheet" href="/css/threedviewer-main.css">
+	<link rel="stylesheet" href="/css/threedviewer-${viewer.embed ? 'embed' : 'main'}.css">
 	<style>html, body { margin: 0; height: 100%; } #threedviewer { height: 100vh; }</style>
 	</head><body>
 	${share}
-	<div id="threedviewer" data-file-id="${model.id}" data-filename="${model.name}" data-dir="${viewer.dir ?? '/models'}"></div>
+	${embedState}
+	${viewer.lite || viewer.embed
+		? '<div id="content" style="height: 100vh"></div>'
+		: `<div id="threedviewer" data-file-id="${model.id}" data-filename="${model.name}" data-dir="${viewer.dir ?? '/models'}"></div>`}
 	<script>
 		window.t = function (_app, s, vars) { if (vars) { for (const k in vars) s = s.replace('{' + k + '}', vars[k]) } return s }
 		window.n = function (_app, s, p, n) { return (n === 1 ? s : p).replace('%n', n) }
+		// Nextcloud writes the web root on every page; without it @nextcloud/router guesses one from the path
+		window._oc_webroot = ''
 		window.OC = { config: { version: 'test' }, webroot: '', requestToken: 'test-token', filePath: function (_app, type, file) { return '/' + (type ? type + '/' : '') + file } }
 		window.OCA = {}
 		window.OCP = {}
 		window._oc_config = { session_lifetime: 0 }
 	</script>
-	<script type="module" src="/js/threedviewer-main.mjs"></script>
+	<script type="module" src="/js/threedviewer-${viewer.embed ? 'embed' : 'main'}.mjs"></script>
 	</body></html>`
 }
 
@@ -55,8 +94,11 @@ export function startServer(): Promise<{ url: string, close: () => Promise<void>
 	return new Promise((resolve) => {
 		const server = http.createServer((req, res) => {
 			const requestUrl = new URL(req.url || '/', 'http://x')
-			if (requestUrl.pathname === '/') {
-				const entry = pages.get(requestUrl.searchParams.get('page') || '')
+			const embedded = requestUrl.pathname.startsWith(EMBED_PATH)
+			if (requestUrl.pathname === '/' || embedded) {
+				const entry = pages.get(embedded
+					? `embed:${requestUrl.pathname.slice(EMBED_PATH.length)}`
+					: requestUrl.searchParams.get('page') || '')
 				res.writeHead(entry ? 200 : 404, { 'Content-Type': 'text/html; charset=utf-8' })
 				res.end(entry ? html(entry) : '')
 				return
@@ -90,25 +132,70 @@ export function startServer(): Promise<{ url: string, close: () => Promise<void>
 export async function openViewer(page: Page, url: string, model: ViewerModel, viewer: Viewer = { user: 'alice' }) {
 	const errors: string[] = []
 	page.on('pageerror', (err) => errors.push(err.message))
-	const key = `${model.id}-${viewer.user ?? 'anon'}-${viewer.publicToken ?? ''}`
+	const key = viewer.embed ? `embed:${viewer.publicToken}` : `${model.id}-${viewer.user ?? 'anon'}-${viewer.publicToken ?? ''}`
 	pages.set(key, { model, viewer })
 
 	const fileRoute = viewer.publicToken
 		? `**/apps/threedviewer/public/file/${viewer.publicToken}/${model.id}*`
 		: `**/apps/threedviewer/api/file/${model.id}*`
-	await page.route(fileRoute, (route) => route.fulfill({ status: 200, contentType: 'application/octet-stream', body: model.body }))
+	await page.route(fileRoute, async (route) => {
+		await viewer.fileGate
+		await route.fulfill({ status: 200, contentType: 'application/octet-stream', body: model.body })
+	})
 	// Unanswered, the viewer would report its shared notes as not loaded
 	await page.route(/\/(api|public)\/notes\//, (route) => route.fulfill({
 		status: 200,
 		contentType: 'application/json',
-		body: JSON.stringify(viewer.publicToken ? { ocs: { data: { canEdit: false, notes: [] } } } : { canEdit: true, notes: [], private: [] }),
+		body: JSON.stringify(viewer.publicToken ? { ocs: { data: { canEdit: false, notes: [] } } } : { canEdit: true, notes: viewer.notes ?? [], private: [] }),
 	}))
 
-	await page.goto(`${url}?page=${encodeURIComponent(key)}`)
+	// The file's saved unit and up; every save is recorded in `unitPuts`
+	const unitPuts: object[] = []
+	let savedUnit = viewer.unit ?? null
+	let savedUp = viewer.up ?? null
+	await page.route(/\/(api|public)\/file-settings\//, async (route) => {
+		const request = route.request()
+		if (request.method() === 'GET' && viewer.unitGate) {
+			await viewer.unitGate
+		}
+		const canEdit = !viewer.publicToken && (viewer.unitCanEdit ?? true)
+		if (request.method() === 'PUT') {
+			const body = request.postDataJSON()
+			unitPuts.push(body)
+			if (viewer.unitSaveStatus) {
+				return route.fulfill({ status: viewer.unitSaveStatus, contentType: 'application/json', body: '{"error":"Failed"}' })
+			}
+			// A save changes only what it carries
+			if ('unit' in body) savedUnit = body.unit
+			if ('up' in body) savedUp = body.up
+		}
+		return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ canEdit, unit: savedUnit, up: savedUp }) })
+	})
+
+	if (viewer.embed) {
+		const answer = viewer.embed
+		await page.route(`**/ocs/v2.php/apps/threedviewer/public/embed/${viewer.publicToken}*`, (route) => route.fulfill(typeof answer === 'object'
+			? { status: 200, contentType: 'application/json', body: JSON.stringify({ fileId: model.id, filename: model.name, mime: 'application/octet-stream', ...answer }) }
+			: { status: answer === 'gone' ? 404 : answer, contentType: 'application/json', body: '{"message":"Not found"}' }))
+		await page.goto(`${url}${EMBED_PATH.slice(1)}${viewer.publicToken}${viewer.query ? `?${viewer.query}` : ''}`)
+		await page.waitForSelector(typeof answer === 'object' ? '.viewer-bottom-actions' : '.threedviewer-embed-message', { timeout: 30000 })
+		return { errors, unitPuts }
+	}
+	await page.goto(`${url}?page=${encodeURIComponent(key)}${viewer.query ? `&${viewer.query}` : ''}`)
+	if (viewer.loads === false) {
+		return { errors, unitPuts }
+	}
+	if (viewer.lite) {
+		// The light viewer shows its own buttons once the model is in
+		await page.waitForSelector('.viewer-bottom-actions', { timeout: 30000 })
+		return { errors, unitPuts }
+	}
 	await page.waitForFunction(() => (window as any).__LOAD_COMPLETE === true, null, { timeout: 30000 })
-	await page.click('[aria-label="Toggle tools panel"]')
-	await page.waitForSelector('.slide-out-panel', { timeout: 5000 })
-	return { errors }
+	if (viewer.openPanel !== false) {
+		await page.click('[aria-label="Toggle tools panel"]')
+		await page.waitForSelector('.slide-out-panel', { timeout: 5000 })
+	}
+	return { errors, unitPuts }
 }
 
 /**

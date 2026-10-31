@@ -130,4 +130,17 @@ describe('usePublicShare', () => {
 			expect(m.isPublicShare()).toBe(false)
 		})
 	})
+
+	describe('on an embed page', () => {
+		it('uses the context the page sets', async () => {
+			const m = await withState(null)
+			const ctx = { token: 'AbC', fileId: 42, isSingleFile: true, filename: 'part.stl', mime: 'model/stl', embed: { shareUrl: 'https://cloud.example/s/AbC', downloadUrl: null } }
+
+			m.setPublicShareContext(ctx)
+
+			expect(m.getPublicShareContext()).toBe(ctx)
+			expect(m.isPublicShare()).toBe(true)
+			expect(m.buildFileUrl(42)).toBe('/ocs/v2.php/apps/threedviewer/public/file/AbC/42')
+		})
+	})
 })

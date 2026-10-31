@@ -1,5 +1,5 @@
 <template>
-	<div class="threedviewer-wrapper" :class="{ 'showing-progress': loadingProgress?.show }">
+	<div class="threedviewer-wrapper" :class="{ 'showing-progress': loadingProgress?.show, 'is-embed': embed }">
 		<canvas ref="canvas" class="threedviewer-canvas" />
 
 		<!-- Progress bar for loading states -->
@@ -76,9 +76,29 @@
 			<ViewerIcon :name="isAnimationPlayingComputed ? 'animationPause' : 'animationPlay'" :size="18" />
 		</NcButton>
 
-		<!-- Bottom-right action buttons -->
+		<!-- Bottom-right action buttons; an embed has its own few -->
 		<div v-if="hasLoaded" class="viewer-bottom-actions">
 			<button
+				v-if="embed && canFullscreen"
+				type="button"
+				class="viewer-action-btn"
+				:aria-label="t('threedviewer', 'Full screen')"
+				:aria-pressed="isFullscreen ? 'true' : 'false'"
+				:title="isFullscreen ? t('threedviewer', 'Exit full screen') : t('threedviewer', 'Full screen')"
+				@click.prevent="toggleFullscreen">
+				<ViewerIcon :name="isFullscreen ? 'fullscreenExit' : 'fullscreen'" :size="18" />
+			</button>
+			<a v-if="embed?.downloadUrl"
+				class="viewer-action-btn"
+				:href="embed.downloadUrl"
+				target="_blank"
+				rel="noopener noreferrer"
+				:aria-label="t('threedviewer', 'Download')"
+				:title="t('threedviewer', 'Download')">
+				<ViewerIcon name="download" :size="18" />
+			</a>
+			<button
+				v-if="!embed"
 				class="viewer-action-btn"
 				:aria-label="t('threedviewer', 'Screenshot')"
 				:title="t('threedviewer', 'Screenshot')"
@@ -86,6 +106,7 @@
 				<ViewerIcon name="camera" :size="18" />
 			</button>
 			<button
+				v-if="!embed"
 				class="viewer-action-btn"
 				:class="{ active: showStats }"
 				:aria-label="t('threedviewer', 'Model info')"
@@ -95,7 +116,26 @@
 				@click.prevent="showStats = !showStats">
 				<ViewerIcon name="statistics" :size="18" />
 			</button>
+			<button
+				v-if="!embed"
+				class="viewer-action-btn"
+				:aria-label="t('threedviewer', 'Copy link to this view')"
+				:title="t('threedviewer', 'Copy link to this view')"
+				@click.prevent="copyViewLink">
+				<ViewerIcon :name="linkCopied ? 'check' : 'copyLink'" :size="18" />
+			</button>
+			<!-- No toast reaches a share page, which mounts this viewer on its own -->
+			<span role="status" class="viewer-link-status">{{ linkStatus }}</span>
 		</div>
+
+		<!-- Where the embedded model lives, for whoever wants more than the frame -->
+		<a v-if="embed"
+			class="viewer-embed-open"
+			:href="embed.shareUrl"
+			target="_blank"
+			rel="noopener noreferrer">
+			{{ t('threedviewer', 'Open in Nextcloud') }}
+		</a>
 
 		<!-- Stats panel overlay -->
 		<div v-if="showStats && modelStats"
@@ -103,21 +143,27 @@
 			role="region"
 			:aria-label="t('threedviewer', 'Model statistics')"
 			class="viewer-stats-panel">
-			<div class="stats-row">
-				<span class="stats-label">{{ t('threedviewer', 'Meshes') }}</span>
-				<span class="stats-value">{{ modelStats.meshes }}</span>
+			<div v-if="modelStats.splats" class="stats-row">
+				<span class="stats-label">{{ t('threedviewer', 'Splats') }}</span>
+				<span class="stats-value">{{ formatNumber(modelStats.splats) }}</span>
 			</div>
-			<div class="stats-row">
-				<span class="stats-label">{{ t('threedviewer', 'Vertices') }}</span>
-				<span class="stats-value">{{ formatNumber(modelStats.vertices) }}</span>
-			</div>
-			<div class="stats-row">
-				<span class="stats-label">{{ t('threedviewer', 'Faces') }}</span>
-				<span class="stats-value">{{ formatNumber(modelStats.faces) }}</span>
-			</div>
+			<template v-else>
+				<div class="stats-row">
+					<span class="stats-label">{{ t('threedviewer', 'Meshes') }}</span>
+					<span class="stats-value">{{ modelStats.meshes }}</span>
+				</div>
+				<div class="stats-row">
+					<span class="stats-label">{{ t('threedviewer', 'Vertices') }}</span>
+					<span class="stats-value">{{ formatNumber(modelStats.vertices) }}</span>
+				</div>
+				<div class="stats-row">
+					<span class="stats-label">{{ t('threedviewer', 'Faces') }}</span>
+					<span class="stats-value">{{ formatNumber(modelStats.faces) }}</span>
+				</div>
+			</template>
 			<div class="stats-row">
 				<span class="stats-label">{{ t('threedviewer', 'Size') }}</span>
-				<span class="stats-value">{{ modelStats.dimensions }}</span>
+				<span class="stats-value">{{ sizeText }}</span>
 			</div>
 		</div>
 	</div>
@@ -140,6 +186,14 @@ import { awaitStatusBeforeDownload, scheduleCapture } from '../thumbnails/captur
 import { useScreenshot } from '../composables/useScreenshot.js'
 import { logger } from '../utils/logger.js'
 import { computeCameraFit } from '../thumbnails/cameraFit.js'
+import { buildViewUrl, cameraFromScene, cameraToScene, isUsableCamera, takeViewFromUrl, viewerLinkBase } from '../utils/viewLink.js'
+import { copyText } from '../utils/clipboard.js'
+import { createFileSettingsApi } from '../utils/fileSettingsApi.js'
+import { isScanExtension } from '../pointclouds/scanExtensions.js'
+import { isSplatExtension } from '../splats/splatExtensions.js'
+import { disposeSplat } from '../splats/disposeSplat.js'
+import { defaultDisplayUnit, displayLengthFactor, isUnitChangeable, millimetresPerFileUnit, millimetresPerUnit } from '../utils/sourceUnits.js'
+import { VIEWER_CONFIG } from '../config/viewer-config.js'
 
 export default {
 	name: 'ViewerComponent',
@@ -209,6 +263,10 @@ export default {
 
 	data() {
 		return {
+			// The model a view link's camera is held relative to (utils/viewLink.js)
+			linkModel: null,
+			linkCopied: false,
+			linkStatus: '',
 			scene: null,
 			camera: null,
 			renderer: null,
@@ -237,16 +295,48 @@ export default {
 			// Stats panel
 			showStats: false,
 			modelStats: null,
+			// The model's size in scene units, and the unit chosen for its file (if any)
+			modelSize: null,
+			chosenUnit: null,
+			// Full screen, offered in an embed only, where the frame may be small
+			canFullscreen: typeof document !== 'undefined' && document.fullscreenEnabled === true,
+			isFullscreen: false,
 		}
 	},
 
 	computed: {
+		/**
+		 * The model's size, in its file's unit: the one chosen for the file, or the one the
+		 * format records or assumes (utils/sourceUnits.js). Read-only here; it is chosen in
+		 * the full viewer.
+		 */
+		sizeText() {
+			if (!this.modelSize) {
+				return ''
+			}
+			const name = this.effectiveFilename
+			const root = this.linkModel
+			const display = VIEWER_CONFIG.measurement.unitScales[defaultDisplayUnit(name, root, this.chosenUnit)]
+			const factor = displayLengthFactor(display, millimetresPerUnit(name, root, this.chosenUnit), millimetresPerFileUnit(name, root, this.chosenUnit))
+			const fmt = (v) => v < 0.01 ? v.toExponential(1) : v.toFixed(2)
+			const { x, y, z } = this.modelSize
+			return `${fmt(x * factor)} × ${fmt(y * factor)} × ${fmt(z * factor)} ${display.suffix}`
+		},
+
 		/**
 		 * True on a public share page, where anything requiring a user account
 		 * must stay hidden rather than bouncing the visitor to a login screen.
 		 */
 		isPublic() {
 			return isPublicShare()
+		},
+
+		/**
+		 * The embed page's links, when this viewer is in a frame on another site: then it
+		 * shows only full screen, a download if the share allows one, and a link to the share.
+		 */
+		embed() {
+			return getPublicShareContext()?.embed ?? null
 		},
 
 		/**
@@ -343,6 +433,8 @@ export default {
 		// Set up CSP error listener to detect texture loading failures
 		this.setupCSPErrorListener()
 
+		document.addEventListener('fullscreenchange', this.onFullscreenChange)
+
 		// Check if we're already active on mount (initial file)
 		if (this.active) {
 			logger.info('ViewerComponent', 'Instance is active on mount, starting load', { filename: this.filename })
@@ -357,6 +449,10 @@ export default {
 	},
 
 	beforeUnmount() {
+		this.loadController?.abort()
+		this.dropSplatHost()
+		clearTimeout(this.linkCopiedTimer)
+		document.removeEventListener('fullscreenchange', this.onFullscreenChange)
 		// Restore console error handler
 		if (this.cspErrorListener && this.cspErrorListener.restore) {
 			this.cspErrorListener.restore()
@@ -413,6 +509,15 @@ export default {
 	},
 
 	methods: {
+		toggleFullscreen() {
+			const request = document.fullscreenElement ? document.exitFullscreen() : this.$el.requestFullscreen()
+			request?.catch((error) => logger.warn('ViewerComponent', 'Full screen was refused', error))
+		},
+
+		onFullscreenChange() {
+			this.isFullscreen = Boolean(document.fullscreenElement)
+		},
+
 		/**
 		 * Load the thumbnail setting from user preferences
 		 */
@@ -562,11 +667,26 @@ export default {
 			let meshes = 0
 			let vertices = 0
 			let faces = 0
+			let splats = 0
 			const box = new this._THREE.Box3()
 			let hasGeometry = false
 
 			this.scene.traverse((child) => {
-				if (child.isMesh && child.geometry) {
+				// A splat: its splats, and its size from the box that measures it
+				// (splats/loadSplat.js); Spark's renderer in the scene is no part of it
+				if (child.userData?.tdvSplat) {
+					splats += child.userData.tdvSplat.count
+				} else if (child.userData?.tdvBoundsProxy) {
+					box.expandByObject(child)
+					hasGeometry = true
+				} else if (child.name === 'tdv-spark') {
+					// Spark's renderer
+				} else if (child.isPoints && child.geometry) {
+					// A scan: its points, and its size
+					vertices += child.geometry.attributes.position?.count ?? 0
+					box.expandByObject(child)
+					hasGeometry = true
+				} else if (child.isMesh && child.geometry) {
 					meshes++
 					const pos = child.geometry.attributes.position
 					if (pos) vertices += pos.count
@@ -580,15 +700,75 @@ export default {
 				}
 			})
 
-			let dimensions = ''
+			this.modelSize = null
 			if (hasGeometry && !box.isEmpty()) {
 				const size = new this._THREE.Vector3()
 				box.getSize(size)
-				const fmt = (v) => v < 0.01 ? v.toExponential(1) : v.toFixed(2)
-				dimensions = `${fmt(size.x)} × ${fmt(size.y)} × ${fmt(size.z)}`
+				this.modelSize = { x: size.x, y: size.y, z: size.z }
 			}
 
-			this.modelStats = { meshes, vertices: Math.round(vertices), faces: Math.round(faces), dimensions }
+			this.modelStats = { meshes, vertices: Math.round(vertices), faces: Math.round(faces), splats }
+			this.loadChosenUnit()
+		},
+
+		/**
+		 * Ask for the unit chosen for the file, for a file that records none. An answer for
+		 * a file since replaced is dropped; a failed one leaves the format's own.
+		 */
+		async loadChosenUnit() {
+			this.chosenUnit = null
+			const share = getPublicShareContext()
+			const fileId = this.fileid || share?.fileId
+			if (!fileId || !isUnitChangeable(this.effectiveFilename, this.linkModel)) {
+				return
+			}
+			try {
+				const { unit } = await createFileSettingsApi({ fileId, shareToken: share?.token ?? null }).get()
+				if (fileId === (this.fileid || getPublicShareContext()?.fileId)) {
+					this.chosenUnit = unit
+				}
+			} catch (error) {
+				logger.warn('ViewerComponent', 'Could not read the file\'s unit', error)
+			}
+		},
+
+		/**
+		 * Turn a scan or splat the way its file's settings say is up (useFileUp in the full viewer),
+		 * for everyone who opens it, public-link visitors too. A failed read keeps the
+		 * format's own; an answer for a file since replaced is dropped.
+		 *
+		 * @param {object} object3D - The scan
+		 * @param {object} THREE - three.js
+		 */
+		async applySavedUp(object3D, THREE) {
+			const share = getPublicShareContext()
+			const fileId = this.fileid || share?.fileId
+			// A scan or a splat (splats/loadSplat.js)
+			const cloud = object3D.userData.tdvPointCloud ?? object3D.userData.tdvSplat
+			let up
+			try {
+				({ up } = await createFileSettingsApi({ fileId, shareToken: share?.token ?? null }).get())
+			} catch (error) {
+				logger.warn('ViewerComponent', 'Could not read which way is up', error)
+				return
+			}
+			if (!up || up === cloud.up || fileId !== (this.fileid || getPublicShareContext()?.fileId)) {
+				return
+			}
+			const { applyUp } = await import('../pointclouds/upAxis.js')
+			applyUp(object3D, up)
+			cloud.up = up
+			if (cloud.colourBy === 'height') {
+				const { setColourBy } = await import('../pointclouds/buildPointCloud.js')
+				setColourBy(object3D, 'height')
+			}
+			this.fitCameraToModel(object3D, THREE)
+		},
+
+		/** Let go of Spark's renderer for a splat that is no longer shown. */
+		dropSplatHost() {
+			this.splatHost?.dispose()
+			this.splatHost = null
 		},
 
 		formatNumber(n) {
@@ -956,7 +1136,10 @@ export default {
 				this.updateProgress(true, 0, this.t('threedviewer', 'Downloading model...'), this.filename, false)
 				// buildFileUrl resolves to the token-keyed public endpoint on a share
 				// page, where the session-authenticated route below would 404.
-				const response = await fetch(buildFileUrl(fileId))
+				// Closing the viewer stops the download and a scan's reader (beforeUnmount)
+				this.loadController = new AbortController()
+				const { signal } = this.loadController
+				const response = await fetch(buildFileUrl(fileId), { signal })
 
 				if (!response.ok) {
 					throw new Error(`Failed to fetch model: ${response.status} ${response.statusText}`)
@@ -966,8 +1149,29 @@ export default {
 				const contentLength = response.headers.get('content-length')
 				const total = contentLength ? parseInt(contentLength, 10) : 0
 
+				const downloading = (receivedLength) => {
+					// Progress 0-50% for download
+					const downloadProgress = total > 0 ? Math.round((receivedLength / total) * 50) : 0
+					this.updateProgress(true, downloadProgress, this.t('threedviewer', 'Downloading model...'), `${Math.round(receivedLength / 1024 / 1024 * 10) / 10} MB / ${Math.round(total / 1024 / 1024 * 10) / 10} MB`, false)
+				}
+
 				let arrayBuffer
-				if (total > 0 && response.body) {
+				if (isScanExtension(extension) || extension === 'ply') {
+					// A scan (a PLY may be one) stays a Blob, which the scan reader takes a window at a
+					// time; a PLY whose header says it is a splat is held to a splat's ceiling
+					const [{ readScanBody }, { plyDownloadLimit }] = await Promise.all([
+						import('../pointclouds/blobReader.js'),
+						import('../splats/downloadLimit.js'),
+					])
+					arrayBuffer = await readScanBody(response, { onBytes: downloading, ceilingFor: extension === 'ply' ? plyDownloadLimit : null, signal })
+				} else if (isSplatExtension(extension)) {
+					// A splat too, within this device's ceiling
+					const [{ readScanBody }, { splatDownloadLimit }] = await Promise.all([
+						import('../pointclouds/blobReader.js'),
+						import('../splats/downloadLimit.js'),
+					])
+					arrayBuffer = await readScanBody(response, { onBytes: downloading, ...splatDownloadLimit(), signal })
+				} else if (total > 0 && response.body) {
 					// Track download progress
 					const reader = response.body.getReader()
 					const chunks = []
@@ -980,10 +1184,7 @@ export default {
 
 						chunks.push(value)
 						receivedLength += value.length
-
-						// Update progress (0-50% for download)
-						const downloadProgress = Math.round((receivedLength / total) * 50)
-						this.updateProgress(true, downloadProgress, this.t('threedviewer', 'Downloading model...'), `${Math.round(receivedLength / 1024 / 1024 * 10) / 10} MB / ${Math.round(total / 1024 / 1024 * 10) / 10} MB`, false)
+						downloading(receivedLength)
 					}
 
 					// Combine chunks into array buffer
@@ -1000,7 +1201,7 @@ export default {
 					arrayBuffer = await response.arrayBuffer()
 				}
 
-				logger.info('ViewerComponent', 'Downloaded model data', { bytes: arrayBuffer.byteLength })
+				logger.info('ViewerComponent', 'Downloaded model data', { bytes: arrayBuffer.byteLength ?? arrayBuffer.size })
 
 				// Dynamically load the appropriate loader from registry
 				this.updateProgress(true, 50, this.t('threedviewer', 'Loading 3D loader...'), '', false)
@@ -1013,6 +1214,8 @@ export default {
 					renderer: this.renderer,
 					wireframe: false,
 					fileExtension: extension,
+					fileName: this.effectiveFilename,
+					abortController: this.loadController,
 					applyWireframe: (enabled) => {
 						// Simple wireframe toggle implementation
 						this.scene.traverse((child) => {
@@ -1031,13 +1234,35 @@ export default {
 				const result = await loadModelByExtension(extension, arrayBuffer, context)
 
 				if (result && result.object3D) {
+					// A scan or splat, turned to its format's up before it is shown
+					const cloud = result.object3D.userData?.tdvPointCloud ?? result.object3D.userData?.tdvSplat ?? null
+					if (cloud) {
+						const { applyUp } = await import('../pointclouds/upAxis.js')
+						applyUp(result.object3D, cloud.up)
+					}
 					// Add loaded model to scene
 					this.updateProgress(true, 80, this.t('threedviewer', 'Adding model to scene...'), '', false)
 					this.scene.add(result.object3D)
+					// A splat is drawn by Spark, with this viewer's renderer (splats/sparkHost.js).
+					// Closed while it attaches, the viewer has already been cleaned up
+					this.dropSplatHost()
+					if (result.object3D.userData?.tdvSplat) {
+						const { attachSpark } = await import('../splats/sparkHost.js')
+						const host = await attachSpark(this.scene, this.renderer)
+						if (signal.aborted) {
+							host.dispose()
+							return
+						}
+						this.dropSplatHost()
+						this.splatHost = markRaw(host)
+					}
 
 					// Auto-fit camera to model
 					this.updateProgress(true, 90, this.t('threedviewer', 'Positioning camera...'), '', false)
 					this.fitCameraToModel(result.object3D, THREE)
+					if (cloud) {
+						this.applySavedUp(result.object3D, THREE)
+					}
 
 					logger.info('ViewerComponent', 'Model loaded successfully')
 
@@ -1133,8 +1358,71 @@ export default {
 					center: { x: center.x.toFixed(2), y: center.y.toFixed(2), z: center.z.toFixed(2) },
 					distance: cameraDistance.toFixed(2),
 				})
+
+				// What a link's camera is held relative to, and copied relative to
+				this.linkModel = markRaw(object)
+				this.applyLinkedCamera(box)
 			} catch (error) {
 				logger.error('ViewerComponent', 'Failed to fit camera to model', error)
+			}
+		},
+
+		/**
+		 * Put the camera where a view link says, the first time this page shows a model
+		 * (utils/viewLink.js). This viewer has no shading modes, cut or exploded view, so
+		 * the camera is all of a link it applies; and it draws in perspective only, so an
+		 * orthographic link's zoom is left out. The link holds the camera relative to the
+		 * model; an older `cam=` link was in the full viewer's scene, which this viewer
+		 * doesn't share, so it is left alone, as it always was here. A camera that no
+		 * longer frames the model keeps the usual framing.
+		 *
+		 * @param {object} box - THREE.Box3 of the model
+		 */
+		applyLinkedCamera(box) {
+			const view = takeViewFromUrl()
+			if (!view || view.inScene || !this.linkModel) return
+			const linked = view.camera
+			const { position, target } = cameraToScene(linked, this.linkModel)
+			if (!isUsableCamera(position, target, box)) return
+			this.camera.position.set(...position)
+			this.controls?.target.set(...target)
+			this.camera.lookAt(...target)
+			if (linked.projection === 'perspective') this.camera.zoom = linked.zoom
+			// The fit set the clipping range for its own distance
+			const distance = this.camera.position.distanceTo(this.controls?.target ?? this.camera.position)
+			if (distance > 0) {
+				this.camera.near = distance / 100
+				this.camera.far = distance * 100
+			}
+			this.camera.updateProjectionMatrix()
+			this.controls?.update()
+			logger.info('ViewerComponent', 'Camera set from a view link')
+		},
+
+		/**
+		 * Copy a link to this model with the camera as it is now: the share link for a
+		 * visitor, the full viewer for a logged-in user.
+		 */
+		async copyViewLink() {
+			if (!this.camera || !this.controls) return
+			const view = { camera: cameraFromScene(this.camera, this.controls, this.linkModel) }
+			const base = viewerLinkBase({ isPublic: this.isPublic, pageUrl: window.location.href, origin: window.location.origin, fileId: this.fileid })
+			try {
+				await copyText(buildViewUrl(base, view))
+				this.linkCopied = true
+				this.linkStatus = this.t('threedviewer', 'Link copied')
+				clearTimeout(this.linkCopiedTimer)
+				this.linkCopiedTimer = setTimeout(() => {
+					this.linkCopied = false
+					this.linkStatus = ''
+				}, 2000)
+			} catch (error) {
+				logger.error('ViewerComponent', 'Failed to copy a view link', error)
+				this.linkCopied = false
+				// Emptied first, so a second failure is a change a screen reader announces
+				this.linkStatus = ''
+				await this.$nextTick()
+				this.linkStatus = this.t('threedviewer', 'Copy failed')
 			}
 		},
 
@@ -1186,8 +1474,10 @@ export default {
 		 */
 		cleanup() {
 			logger.info('ViewerComponent', 'Starting cleanup for model', { filename: this.filename })
+			this.dropSplatHost()
 
-			// Dispose of geometries, materials, and textures
+			// Dispose of geometries, materials, and textures; a splat's splats are Spark's
+			this.scene.children.forEach((child) => disposeSplat(child))
 			this.scene.traverse((object) => {
 				if (object.geometry) {
 					object.geometry.dispose()
@@ -1640,6 +1930,16 @@ export default {
 	z-index: 1000;
 }
 
+/* Read out, not shown: the button's icon turning into a tick says it visually */
+.viewer-link-status {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+}
+
 .viewer-action-btn.viewer-action-btn {
 	width: 40px;
 	height: 40px;
@@ -1662,6 +1962,34 @@ export default {
 
 .viewer-action-btn.viewer-action-btn.active {
 	background: var(--tdv-color-primary);
+}
+
+a.viewer-action-btn.viewer-action-btn {
+	text-decoration: none;
+}
+
+/* No Nextcloud footer under a frame's viewer */
+.is-embed .viewer-bottom-actions {
+	bottom: 16px;
+}
+
+.viewer-embed-open {
+	position: absolute;
+	bottom: 16px;
+	inset-inline-start: 16px;
+	z-index: 1000;
+	padding: 4px 10px;
+	border-radius: var(--tdv-radius-pill);
+	background: rgb(0, 0, 0, 0.55);
+	color: #fff;
+	font-size: var(--tdv-font-size-secondary);
+	text-decoration: none;
+}
+
+.viewer-embed-open:hover,
+.viewer-embed-open:focus-visible {
+	background: rgb(0, 0, 0, 0.75);
+	text-decoration: underline;
 }
 
 /* Stats panel — positioned above action buttons */

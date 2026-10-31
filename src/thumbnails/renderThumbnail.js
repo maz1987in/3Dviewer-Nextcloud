@@ -102,6 +102,9 @@ export async function renderThumbnail(object3D, { canvas, size = DEFAULT_SIZE, f
 	const originalIndex = originalParent ? originalParent.children.indexOf(object3D) : -1
 	const scene = new Scene()
 	let moved = false
+	// A splat is drawn by Spark, after its sort for the camera (splats/sparkHost.js)
+	const splat = Boolean(object3D.userData?.tdvSplat)
+	let spark = null
 
 	/**
 	 * Take the model out of the temporary scene and back under its original parent.
@@ -126,6 +129,7 @@ export async function renderThumbnail(object3D, { canvas, size = DEFAULT_SIZE, f
 		renderer.setPixelRatio(1)
 		renderer.setSize(size, size, false)
 
+		let camera = null
 		// Scene.add detaches the model from its parent, so its world matrix is now
 		// relative to the scene, which is what both the fit and the render use.
 		scene.add(object3D)
@@ -145,13 +149,21 @@ export async function renderThumbnail(object3D, { canvas, size = DEFAULT_SIZE, f
 
 			// Same near/far scaling the viewer applies after fitting
 			const distance = fit.position[2] - fit.target[2]
-			const camera = new PerspectiveCamera(fov, 1, distance / 100, distance * 100)
+			camera = new PerspectiveCamera(fov, 1, distance / 100, distance * 100)
 			camera.position.set(...fit.position)
 			camera.lookAt(...fit.target)
 			camera.updateMatrixWorld()
 
-			renderer.render(scene, camera)
+			if (!splat) {
+				renderer.render(scene, camera)
+			}
 		})
+		if (splat) {
+			const { attachSpark } = await import('../splats/sparkHost.js')
+			spark = await attachSpark(scene, renderer)
+			await spark.prepare(camera)
+			renderer.render(scene, camera)
+		}
 
 		// The render is synchronous and the encode snapshots the bitmap when it is
 		// called, so give a live model back to its parent before awaiting the encode:
@@ -162,6 +174,7 @@ export async function renderThumbnail(object3D, { canvas, size = DEFAULT_SIZE, f
 		// Encode before the context is lost, or the drawing buffer is gone
 		return await encoded
 	} finally {
+		spark?.dispose()
 		restoreModel()
 		scene.clear()
 		renderer.dispose()

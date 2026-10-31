@@ -62,6 +62,8 @@
 					:filename="currentFilename"
 					:passthrough-formats="slicerPassthroughFormats"
 					:export-format="slicerExportFormat"
+					:millimetres-per-unit="getModelMillimetresPerUnit()"
+					:unit-chosen="getModelUnitChosen()"
 					@close="showSlicerModal = false"
 					@success="onSlicerSuccess"
 					@error="onSlicerError" />
@@ -79,7 +81,7 @@
 					:is-gcode-model="isGcodeModel"
 					:gcode-color-mode="gcodeColorMode"
 					:gcode-single-color="gcodeSingleColor"
-					:webxr-supported="webxrSupported"
+					:webxr-supported="webxrSupported && !isOff('vr')"
 					:webxr-active="webxrActive"
 					@reset-view="onReset"
 					@fit-to-view="onFitToView"
@@ -123,6 +125,19 @@
 					:lighting-preset="lightingPreset"
 					:lighting-presets="lightingPresetsList"
 					:bookmarks="bookmarksList"
+					:public-shares="publicShares"
+					:embed-offered="embedOffered"
+					:point-cloud="pointCloud"
+					:splat="splat"
+					:off-tools="offTools"
+					:colour-by="pointColourBy"
+					:point-size="pointSize"
+					:up-state="pointUpState"
+					@set-up="$refs.viewer?.setUp($event)"
+					@set-colour-by="$refs.viewer?.setColourBy($event)"
+					@set-point-size="$refs.viewer?.setPointSize($event)"
+					:model-path="publicSharesPath"
+					:file-id="currentFileId"
 					:exploded-view-active="explodedViewActive"
 					:exploded-view-available="explodedViewAvailable"
 					:exploded-view-factor="explodedViewFactor"
@@ -148,9 +163,12 @@
 					@toggle-auto-rotate="onToggleAutoRotate"
 					@toggle-projection="onToggleProjection"
 					@copy-view-link="onCopyViewLink"
+					@copy-bookmark-link="onCopyBookmarkLink"
+					@copy-public-view-link="onCopyPublicViewLink"
+					@copy-embed-code="onCopyEmbedCode"
 					@toggle-grid="grid = !grid"
 					@toggle-axes="axes = !axes"
-					@toggle-wireframe="wireframe = !wireframe"
+					@toggle-wireframe="onToggleWireframe"
 					@toggle-measurement="onToggleMeasurement"
 					@toggle-annotation="onToggleAnnotation"
 					@toggle-comparison="onToggleComparison"
@@ -227,6 +245,9 @@
 					@comparison-active="comparisonMode = $event"
 					@print-check-active="printCheckActive = $event"
 					@model-loaded="onModelLoaded"
+					@view-applied="onViewApplied"
+					@point-cloud-changed="onPointCloudChanged"
+					@splat-changed="onSplatChanged"
 					@loading-state-changed="onLoadingStateChanged"
 					@fps-updated="onFpsUpdated"
 					@animations-initialized="onAnimationsInitialized"
@@ -239,11 +260,11 @@
 </template>
 
 <script>
+import { defineAsyncComponent } from 'vue'
 import ToastContainer from './components/ToastContainer.vue'
 import ThreeViewer from './components/ThreeViewer.vue'
 import MinimalTopBar from './components/MinimalTopBar.vue'
 import SlideOutToolPanel from './components/SlideOutToolPanel.vue'
-import HelpPanel from './components/HelpPanel.vue'
 import SlicerModal from './components/SlicerModal.vue'
 import FileNavigation from './components/FileNavigation.vue'
 import FileBrowser from './components/FileBrowser.vue'
@@ -257,6 +278,11 @@ import { applyCacheConfig } from './utils/dependencyCache.js'
 import { getCurrentUser } from '@nextcloud/auth'
 import { isPublicShare } from './composables/usePublicShare.js'
 import { canRecordVideo } from './utils/turntable.js'
+import { copyText } from './utils/clipboard.js'
+import { buildViewUrl } from './utils/viewLink.js'
+import { offToolsFor } from './utils/offTools.js'
+import { listLinkShares, modelPath, pickableShares } from './utils/linkShares.js'
+import { readInitialState } from './utils/initialState.js'
 
 export default {
 	name: 'App',
@@ -269,7 +295,8 @@ export default {
 		ThreeViewer,
 		MinimalTopBar,
 		SlideOutToolPanel,
-		HelpPanel,
+		// Opened with Help or ?, so it loads the first time it is
+		HelpPanel: defineAsyncComponent(() => import('./components/HelpPanel.vue')),
 		SlicerModal,
 	},
 	props: {
@@ -308,6 +335,9 @@ export default {
 			grid: true,
 			axes: true,
 			wireframe: false,
+			// The wireframe this user chose, which is what gets saved: a view link can show
+			// the model in wireframe without making it their preference
+			ownWireframe: false,
 			background: '#f5f5f5',
 			autoRotate: false,
 			autoRotateSpeed: 2.0,
@@ -330,12 +360,28 @@ export default {
 			persistControllerPosition: true,
 			lastError: null,
 			modelMeta: null,
+			// A scan's summary, and what it is coloured by and how big its points are; null for a mesh
+			pointCloud: null,
+			// A splat's summary, or null (ThreeViewer's model-loaded splat)
+			splat: null,
+			// The keys of the tools that are off for what is open (utils/offTools.js)
+			offTools: [],
+			pointColourBy: 'height',
+			pointSize: 2,
+			// Which way is up for it (useFileUp's state), once the server has answered
+			pointUpState: null,
 			modelLoaded: false,
 			hasMultipleSourceFiles: false,
 			// Advanced features
 			// Whether the tools panel is showing. It owns the right edge at 320px, so the
 			// panels opened from it move clear of it rather than under it.
 			toolsPanelOpen: false,
+			// The model's link shares this user manages, read when the tools panel first
+			// opens for it, and the path they were read for
+			publicShares: [],
+			publicSharesPath: null,
+			// Whether the admin lets public links be shown on other sites
+			embedEnabled: readInitialState('embed')?.enabled === true,
 			measurementMode: false,
 			annotationMode: false,
 			comparisonMode: false,
@@ -418,6 +464,12 @@ export default {
 			return !isPublicShare() && !!getCurrentUser()
 		},
 
+		// While the admin lists a site, to someone signed in who opened their own files, not
+		// a share: only they may have a link to embed. The control checks they may share it.
+		embedOffered() {
+			return this.embedEnabled && !isPublicShare() && !!getCurrentUser()
+		},
+
 		// Computed properties that return data properties (for reactivity)
 		hasAnimationsComputed() {
 			return this.hasAnimations
@@ -430,6 +482,7 @@ export default {
 		},
 	},
 	watch: {
+		toolsPanelOpen() { this.loadPublicShares() },
 		grid() { this.savePrefs() },
 		axes() { this.savePrefs() },
 		wireframe() { this.savePrefs() },
@@ -658,7 +711,7 @@ export default {
 				const data = {
 					grid: this.grid,
 					axes: this.axes,
-					wireframe: this.wireframe,
+					wireframe: this.ownWireframe,
 					background: this.background,
 					v: 1,
 				}
@@ -667,6 +720,91 @@ export default {
 		},
 		onReset() {
 			this.$refs.viewer?.resetView?.()
+		},
+		onPointCloudChanged(state) {
+			if (state) {
+				this.pointColourBy = state.colourBy
+				this.pointSize = state.pointSize
+			}
+			this.pointUpState = state?.upState ?? null
+		},
+		onSplatChanged(state) {
+			// A splat shares the panel's Which way is up with a scan
+			this.pointUpState = state?.upState ?? null
+		},
+
+		/**
+		 * @param {string} key - A key of utils/offTools.js
+		 * @return {boolean} Whether that tool is off for what is open
+		 */
+		isOff(key) {
+			return this.offTools.includes(key)
+		},
+
+		/**
+		 * A tool left on from the previous model is closed when it is off for this one: its
+		 * switch is gated now, so it could not be turned off, and a measurement or a note
+		 * would go on picking points on a splat's renderer. Shading is left as it is: it
+		 * changes nothing on a scan or a splat, and is the person's own for the next mesh.
+		 */
+		closeOffTools() {
+			const viewer = this.$refs.viewer
+			if (!viewer) {
+				return
+			}
+			if (this.isOff('measure') && this.measurementMode) {
+				viewer.toggleMeasurementMode?.()
+			}
+			if (this.isOff('notes') && this.annotationMode) {
+				viewer.toggleAnnotationMode?.()
+			}
+			if (this.isOff('compare') && this.comparisonMode) {
+				viewer.toggleComparisonMode?.()
+			}
+			if (this.isOff('printCheck') && this.printCheckActive) {
+				viewer.togglePrintCheck?.()
+			}
+			if (this.isOff('crossSection') && this.clippingActive && viewer.clippingPlane) {
+				viewer.clippingPlane.toggle()
+				this.clippingActive = viewer.clippingPlane.isActive.value ?? viewer.clippingPlane.isActive
+			}
+			if (this.isOff('transform') && this.transformGizmoActive && viewer.transformGizmo) {
+				viewer.toggleTransformGizmo()
+				this.transformGizmoActive = viewer.transformGizmo.isActive.value ?? viewer.transformGizmo.isActive
+			}
+			if (this.isOff('exploded') && this.explodedViewActive && viewer.explodedView) {
+				viewer.explodedView.toggle()
+				this.updateAnimationState()
+			}
+		},
+
+		onToggleWireframe() {
+			// Colour by takes the place of shading for a scan; a splat has none
+			if (this.isOff('shading')) return
+			this.wireframe = !this.wireframe
+			this.ownWireframe = this.wireframe
+		},
+		/**
+		 * A view link has been applied to the viewer: copy what it set into the state the
+		 * tools panel reads. None of it is saved as this user's preference.
+		 *
+		 * @param {{wireframe: (boolean|undefined), projection: string}} applied - what only the app can set
+		 */
+		onViewApplied({ wireframe, projection }) {
+			const viewer = this.$refs.viewer
+			if (!viewer) return
+			if (wireframe !== undefined) this.wireframe = wireframe
+			this.cameraType = projection
+			this.renderMode = viewer.renderMode.mode.value
+			this.lightingPreset = viewer.lightingPresets.currentPreset.value
+			const clip = viewer.clippingPlane
+			this.clippingActive = clip.isActive.value
+			this.clippingMode = clip.mode.value
+			this.clippingAxis = clip.axis.value
+			this.clippingPosition = clip.position.value
+			this.clippingFlipped = clip.flipped.value
+			this.clippingBoxOffsets = { ...clip.boxOffsets.value }
+			this.updateAnimationState()
 		},
 		onFitToView() {
 			this.$refs.viewer?.fitToView?.()
@@ -683,15 +821,74 @@ export default {
 			}
 		},
 		/**
-		 * Copy a shareable link to the current camera viewpoint.
-		 *
-		 * Recipients who open the link see the exact position/target/zoom
-		 * we're looking at right now. Requires a model to be loaded so the
-		 * camera/controls exist. Uses navigator.clipboard with a hidden
-		 * textarea fallback for older contexts.
+		 * Copy a link that reopens this file as it is shown now (utils/viewLink.js).
 		 */
 		async onCopyViewLink() {
-			const link = this.$refs.viewer?.getShareableViewLink?.()
+			await this.copyLink(this.$refs.viewer?.getShareableViewLink?.())
+		},
+		/**
+		 * Copy a link to this file showing a bookmark's camera, with everything else as it
+		 * is shown now.
+		 *
+		 * @param {number} index - the bookmark's position in the list
+		 */
+		async onCopyBookmarkLink(index) {
+			const viewer = this.$refs.viewer
+			const bookmark = this.bookmarksList[index]
+			// A bookmark holds the camera in the viewer's scene; the viewer turns it into
+			// the model-relative camera a link holds
+			const view = bookmark && viewer?.getViewState?.({
+				position: [bookmark.camera.x, bookmark.camera.y, bookmark.camera.z],
+				target: [bookmark.target.x, bookmark.target.y, bookmark.target.z],
+			})
+			await this.copyLink(view ? viewer.viewLinkFor(view) : null)
+		},
+		/**
+		 * Copy a public link of this model that opens it from the current angle. A public
+		 * page shows the camera and nothing else of a view, so the link carries only that.
+		 *
+		 * @param {string} shareId - one of publicShares
+		 */
+		async onCopyPublicViewLink(shareId) {
+			const share = this.publicShares.find((s) => s.id === shareId)
+			const view = this.$refs.viewer?.getViewState?.()
+			await this.copyLink(share && view ? buildViewUrl(share.url, { camera: view.camera }) : null,
+				this.t('threedviewer', 'Anyone with the public link will see the model from this angle.'))
+		},
+		/**
+		 * Read the model's link shares the first time the tools panel opens for it. Public
+		 * pages have no user to ask for, and nothing is asked while the panel is closed.
+		 */
+		async loadPublicShares() {
+			if (isPublicShare() || !this.modelLoaded || !this.toolsPanelOpen) return
+			const path = modelPath(this.currentDir, this.currentFilename)
+			if (!path || path === this.publicSharesPath) return
+			this.publicSharesPath = path
+			const shares = pickableShares(await listLinkShares(path))
+			// Another model may have opened while this was asked for
+			if (this.publicSharesPath === path) this.publicShares = shares
+		},
+		/**
+		 * Copy the code that shows this model on another site, through one of its public
+		 * links (EmbedCodeControl). The code's helpers load only when it is copied.
+		 *
+		 * @param {{token: string, width: number, height: number, includeView: boolean}} options - The frame
+		 */
+		async onCopyEmbedCode({ token, width, height, includeView }) {
+			const { buildEmbedCode, embedUrl } = await import('./utils/embedCode.js')
+			const view = includeView ? this.$refs.viewer?.getViewState?.() : null
+			const title = String(this.currentFilename || '').split('/').pop()
+			await this.copyLink(view || !includeView ? buildEmbedCode({ url: embedUrl(window.location.origin, token, view), width, height, title }) : null,
+				this.t('threedviewer', 'Paste it into the page that shows the model.'), this.t('threedviewer', 'Embed code copied'))
+		},
+		/**
+		 * Copy a view link and say how that went.
+		 *
+		 * @param {string|null} link - null when there is no model to link to
+		 * @param {string} [message] - what the copy does for whoever receives it
+		 * @param {string} [title] - the toast's title
+		 */
+		async copyLink(link, message = this.t('threedviewer', 'Anyone who can open this file will see it as you do.'), title = this.t('threedviewer', 'Link copied')) {
 			if (!link) {
 				this.pushToast({
 					type: 'error',
@@ -701,28 +898,11 @@ export default {
 				return
 			}
 			try {
-				// Prefer the modern async clipboard API. It requires a secure
-				// context (HTTPS or localhost) — both apply to Nextcloud.
-				if (navigator.clipboard && window.isSecureContext) {
-					await navigator.clipboard.writeText(link)
-				} else {
-					// Fallback: offscreen textarea + execCommand. Deprecated but
-					// still works in every browser shipped in the last decade,
-					// and is the only option on non-secure contexts.
-					const ta = document.createElement('textarea')
-					ta.value = link
-					ta.style.position = 'fixed'
-					ta.style.opacity = '0'
-					document.body.appendChild(ta)
-					ta.focus()
-					ta.select()
-					document.execCommand('copy')
-					document.body.removeChild(ta)
-				}
+				await copyText(link)
 				this.pushToast({
 					type: 'success',
-					title: this.t('threedviewer', 'Link copied'),
-					message: this.t('threedviewer', 'Share this link to send the exact viewpoint.'),
+					title,
+					message,
 					timeout: 4000,
 				})
 			} catch (error) {
@@ -754,19 +934,24 @@ export default {
 		 * whenever the viewer disagreed.
 		 */
 		onToggleMeasurement() {
+			if (this.isOff('measure')) return
 			this.$refs.viewer?.toggleMeasurementMode?.()
 		},
 
 		onToggleAnnotation() {
+			if (this.isOff('notes')) return
 			this.$refs.viewer?.toggleAnnotationMode?.()
 		},
 
 		onToggleComparison() {
+			// Comparing scans and splats isn't available yet
+			if (this.isOff('compare')) return
 			this.transformGizmoActive = false
 			this.$refs.viewer?.toggleComparisonMode?.()
 		},
 
 		onTogglePrintCheck() {
+			if (this.isOff('printCheck')) return
 			this.$refs.viewer?.togglePrintCheck?.()
 		},
 
@@ -775,11 +960,13 @@ export default {
 		},
 
 		onCompareVersion() {
+			if (this.isOff('compare')) return
 			this.transformGizmoActive = false
 			this.$refs.viewer?.startVersionComparison?.()
 		},
 
 		onToggleTransformGizmo() {
+			if (this.isOff('transform')) return
 			if (this.$refs.viewer?.transformGizmo) {
 				this.$refs.viewer.toggleTransformGizmo()
 				this.transformGizmoActive = this.$refs.viewer.transformGizmo.isActive.value ?? this.$refs.viewer.transformGizmo.isActive
@@ -856,6 +1043,7 @@ export default {
 		},
 
 		onSendToSlicer() {
+			if (this.isOff('export')) return
 			// Open the slicer modal
 			if (this.modelLoaded) {
 				this.showSlicerModal = true
@@ -871,6 +1059,14 @@ export default {
 		getModelObject() {
 			// Get the model object from the viewer
 			return this.$refs.viewer?.getModelObject?.() || null
+		},
+
+		getModelMillimetresPerUnit() {
+			return this.$refs.viewer?.modelMillimetresPerUnit ?? 1
+		},
+
+		getModelUnitChosen() {
+			return Boolean(this.$refs.viewer?.fileUnitChosen)
 		},
 
 		getModelName() {
@@ -958,6 +1154,7 @@ export default {
 			this.$refs.viewer?.handleScreenshot?.()
 		},
 		async onToggleVR() {
+			if (this.isOff('vr')) return
 			if (this.$refs.viewer?.toggleVR) {
 				await this.$refs.viewer.toggleVR()
 				// Sync state after the session settles
@@ -1016,10 +1213,20 @@ export default {
 		},
 		async onModelLoaded(meta) {
 			this.modelMeta = meta
+			this.pointCloud = meta.pointCloud ?? null
+			this.splat = meta.splat ?? null
+			this.offTools = offToolsFor(meta)
+			this.closeOffTools()
+			this.onPointCloudChanged(meta.pointCloud)
+			if (meta.splat) this.onSplatChanged(meta.splat)
 			this.lastError = null
 			this.isLoading = false
 			this.modelLoaded = true
 			this.hasMultipleSourceFiles = this.$refs.viewer?.hasMultipleSourceFiles ?? false
+			// A new model has its own shares, read now if the panel is already open
+			this.publicShares = []
+			this.publicSharesPath = null
+			this.loadPublicShares()
 
 			// Check if the loaded model is a G-code file
 			if (meta.filename) {
@@ -1421,6 +1628,7 @@ export default {
 		},
 		// Clipping plane
 		onToggleClipping() {
+			if (this.isOff('crossSection')) return
 			if (this.$refs.viewer?.clippingPlane) {
 				this.$refs.viewer.clippingPlane.toggle()
 				this.clippingActive = this.$refs.viewer.clippingPlane.isActive.value ?? this.$refs.viewer.clippingPlane.isActive
@@ -1477,6 +1685,7 @@ export default {
 		},
 		// Exploded view
 		onToggleExplodedView() {
+			if (this.isOff('exploded')) return
 			if (this.$refs.viewer?.explodedView) {
 				this.$refs.viewer.explodedView.toggle()
 				this.updateAnimationState()
@@ -1489,6 +1698,7 @@ export default {
 			}
 		},
 		onSetRenderMode(mode) {
+			if (this.isOff('shading')) return
 			const viewer = this.$refs.viewer
 			if (!viewer?.setRenderMode) return
 			viewer.setRenderMode(mode)
@@ -1533,7 +1743,10 @@ export default {
 				if (display) {
 					if (display.grid !== undefined) this.grid = display.grid
 					if (display.axes !== undefined) this.axes = display.axes
-					if (display.wireframe !== undefined) this.wireframe = display.wireframe
+					if (display.wireframe !== undefined) {
+						this.wireframe = display.wireframe
+						this.ownWireframe = display.wireframe
+					}
 					if (display.backgroundColor) this.background = display.backgroundColor
 				}
 			}

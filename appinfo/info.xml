@@ -92,6 +92,7 @@ Built with Three.js for high-performance WebGL rendering. ✨]]></description>
 	<background-jobs>
 		<job>OCA\ThreeDViewer\Cron\CleanupTempFiles</job>
 		<job>OCA\ThreeDViewer\Cron\CleanupOrphanNotes</job>
+		<job>OCA\ThreeDViewer\Cron\CleanupOrphanFileSettings</job>
 	</background-jobs>
 	<repair-steps>
 		<post-migration>
@@ -111,6 +112,8 @@ Built with Three.js for high-performance WebGL rendering. ✨]]></description>
 		<command>OCA\ThreeDViewer\Command\IndexFiles</command>
 	</commands>
 	<settings>
+		<admin>OCA\ThreeDViewer\Settings\Admin</admin>
+		<admin-section>OCA\ThreeDViewer\Settings\Section</admin-section>
 		<personal>OCA\ThreeDViewer\Settings\Personal</personal>
 		<personal-section>OCA\ThreeDViewer\Settings\Section</personal-section>
 	</settings>

@@ -8,11 +8,14 @@ import * as THREE from 'three'
 import { loadModelByExtension, isSupportedExtension } from '../loaders/registry.js'
 import { loadModelWithDependencies } from '../loaders/multiFileHelpers.js'
 import { buildFileUrl } from './usePublicShare.js'
+import { isScanExtension } from '../pointclouds/scanExtensions.js'
+import { isSplatExtension } from '../splats/splatExtensions.js'
 import { createErrorState } from '../utils/error-handler.js'
 import { logger } from '../utils/logger.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
 import { LOADING_STAGES } from '../constants/index.js'
 import { disposeObject } from '../utils/three-utils.js'
+import { disposeSplat } from '../splats/disposeSplat.js'
 
 export function useModelLoading() {
 	// Loading state
@@ -125,8 +128,11 @@ export function useModelLoading() {
 				throw error
 			}
 
-			// Create abort controller for this load operation
-			abortController.value = new AbortController()
+			// Create abort controller for this load operation. Its signal is kept here too:
+			// cancelLoad forgets the controller, and a read still running must see the abort
+			const controller = new AbortController()
+			abortController.value = controller
+			const { signal } = controller
 
 			loading.value = true
 			error.value = null
@@ -285,52 +291,69 @@ export function useModelLoading() {
 
 			// Get content length for progress tracking
 			const contentLength = parseInt(response.headers.get('content-length') || '0', 10)
+			const showDownloaded = (loaded) => {
+				// Without a content-length, just show bytes downloaded
+				progress.value = { loaded, total: contentLength > 0 ? contentLength : 0, message: 'Downloading model...' }
+			}
 
-			// Stream the response with progress tracking
-			const reader = response.body.getReader()
-			const chunks = []
+			// A scan is kept as a Blob, never one ArrayBuffer: the browser may hold a large
+			// one on disk, and the scan reader takes it a window at a time
+			let body
 			let receivedLength = 0
+			// A PLY may be a scan, and is read the same way until its header says; once the
+			// header says it is a splat, the download is held to a splat's ceiling
+			if (isScanExtension(extension) || extension === 'ply') {
+				const [{ readScanBody }, { plyDownloadLimit }] = await Promise.all([
+					import('../pointclouds/blobReader.js'),
+					import('../splats/downloadLimit.js'),
+				])
+				body = await readScanBody(response, { onBytes: showDownloaded, ceilingFor: extension === 'ply' ? plyDownloadLimit : null, signal })
+				receivedLength = body.size
+			} else if (isSplatExtension(extension)) {
+				// A splat too, within this device's ceiling: Spark is streamed the Blob
+				const [{ readScanBody }, { splatDownloadLimit }] = await Promise.all([
+					import('../pointclouds/blobReader.js'),
+					import('../splats/downloadLimit.js'),
+				])
+				body = await readScanBody(response, { onBytes: showDownloaded, ...splatDownloadLimit(), signal })
+				receivedLength = body.size
+			} else {
+				// Stream the response with progress tracking
+				const reader = response.body.getReader()
+				const chunks = []
 
-			while (true) {
-				const { done, value } = await reader.read()
+				while (true) {
+					const { done, value } = await reader.read()
 
-				if (done) break
+					if (done) break
 
-				chunks.push(value)
-				receivedLength += value.length
-
-				// Update progress
-				if (contentLength > 0) {
-					progress.value = {
-						loaded: receivedLength,
-						total: contentLength,
-						message: 'Downloading model...',
-					}
-				} else {
-					// If no content-length, just show bytes downloaded
-					progress.value = {
-						loaded: receivedLength,
-						total: 0,
-						message: 'Downloading model...',
-					}
+					chunks.push(value)
+					receivedLength += value.length
+					showDownloaded(receivedLength)
 				}
+
+				// Combine chunks into single ArrayBuffer
+				const bytes = new Uint8Array(receivedLength)
+				let position = 0
+				for (const chunk of chunks) {
+					bytes.set(chunk, position)
+					position += chunk.length
+				}
+				body = bytes.buffer
 			}
 
-			// Combine chunks into single ArrayBuffer
-			const arrayBuffer = new Uint8Array(receivedLength)
-			let position = 0
-			for (const chunk of chunks) {
-				arrayBuffer.set(chunk, position)
-				position += chunk.length
+			// Cancelled as the download finished: don't start the parse
+			if (signal.aborted) {
+				throw new DOMException('Aborted', 'AbortError')
 			}
-
 			progress.value = { loaded: receivedLength, total: receivedLength, message: 'Parsing model...' }
 
 			// Prepare context
 			const loadingContext = {
 				...context,
 				fileId,
-				abortController: abortController.value,
+				fileName: filename,
+				abortController: controller,
 				fileExtension: extension,
 				updateProgress,
 				hasDraco: hasDraco.value,
@@ -338,15 +361,17 @@ export function useModelLoading() {
 				hasMeshopt: hasMeshopt.value,
 			}
 
-			// Load the model (pass .buffer to get ArrayBuffer from Uint8Array)
-			const result = await loadModelByExtension(extension, arrayBuffer.buffer, loadingContext)
+			const result = await loadModelByExtension(extension, body, loadingContext)
 
 			if (result && result.object3D) {
 				modelRoot.value = markRaw(result.object3D)
 				currentFileId.value = fileId
 
-				// Attach source file for ZIP export (single-file models)
-				result.sourceFiles = [new File([arrayBuffer.buffer], filename)]
+				// Attach source file for ZIP export (single-file models). A splat has no export,
+				// and keeping its file would hold up to a gigabyte for nothing
+				if (!result.object3D.userData?.tdvSplat) {
+					result.sourceFiles = [new File([body], filename)]
+				}
 
 				// Clear loading state
 				loading.value = false
@@ -637,8 +662,9 @@ export function useModelLoading() {
 	 */
 	const clearModel = () => {
 		if (modelRoot.value) {
-			// Dispose of the model
+			// Dispose of the model; a splat's splats are Spark's, outside any geometry
 			disposeObject(modelRoot.value)
+			disposeSplat(modelRoot.value)
 			modelRoot.value = null
 		}
 

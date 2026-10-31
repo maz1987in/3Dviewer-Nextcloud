@@ -56,6 +56,62 @@ class WriteRoutesCsrfHttpTest extends HttpTestCase
         $this->assertSame('', $this->storedConfig($uid), 'a refused request stores none of its values');
     }
 
+    public function testSavingAFilesUnitNeedsTheRequestToken(): void
+    {
+        $uid = $this->newUser();
+        $model = $this->newModel($uid);
+        [$client, $token] = $this->session($uid);
+        $url = self::settingsUrl($model->getId());
+        $body = ['json' => ['unit' => 'in']];
+
+        $without = $client->put($url, $body);
+
+        $this->assertSame(412, $without->getStatusCode(), 'a failed CSRF check answers 412 Precondition Failed');
+        $this->assertNull(self::json($this->basic($uid)->get($url))['unit'], 'the rejected request must not have saved anything');
+
+        $with = $client->put($url, $body + ['headers' => ['requesttoken' => $token]]);
+
+        $this->assertSame(200, $with->getStatusCode(), 'the same session with its token is accepted');
+        $this->assertSame('in', self::json($this->basic($uid)->get($url))['unit']);
+    }
+
+    public function testSavingUpNeedsTheRequestToken(): void
+    {
+        $uid = $this->newUser();
+        $scan = $this->newModel($uid, 'scan.las');
+        [$client, $token] = $this->session($uid);
+        $url = self::settingsUrl($scan->getId());
+        $body = ['json' => ['up' => '+z']];
+
+        $this->assertSame(412, $client->put($url, $body)->getStatusCode());
+        $this->assertNull(self::json($this->basic($uid)->get($url))['up'], 'the rejected request must not have saved anything');
+
+        $this->assertSame(200, $client->put($url, $body + ['headers' => ['requesttoken' => $token]])->getStatusCode());
+        $this->assertSame('+z', self::json($this->basic($uid)->get($url))['up']);
+    }
+
+    public function testSavingTheEmbedSitesNeedsTheRequestToken(): void
+    {
+        $before = self::storedEmbedOrigins();
+        $this->setEmbedOrigins([]);
+        [$client, $token] = $this->session($this->newAdmin());
+        $body = ['json' => ['origins' => ['https://shop.example']]];
+
+        try {
+            $without = $client->put(self::EMBED_ADMIN_URL, $body);
+
+            $this->assertSame(412, $without->getStatusCode(), 'a failed CSRF check answers 412 Precondition Failed');
+            $this->assertSame([], self::storedEmbedOrigins(), 'the rejected request must not have saved anything');
+
+            $with = $client->put(self::EMBED_ADMIN_URL, $body + ['headers' => ['requesttoken' => $token]]);
+
+            $this->assertSame(200, $with->getStatusCode(), 'the same session with its token is accepted');
+            $this->assertSame(['https://shop.example'], self::storedEmbedOrigins());
+        } finally {
+            $this->setEmbedOrigins($before);
+        }
+    }
+
     public function testReindexingNeedsTheRequestToken(): void
     {
         $uid = $this->newUser();

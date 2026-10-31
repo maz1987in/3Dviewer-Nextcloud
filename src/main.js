@@ -8,6 +8,7 @@ import { translate, translatePlural } from '@nextcloud/l10n'
 // Import Nextcloud dialogs styles
 import '@nextcloud/dialogs/style.css'
 import { getPublicShareContext } from './composables/usePublicShare.js'
+import { mountPublicViewer } from './utils/publicViewer.js'
 
 // Design tokens and primitives for the viewer chrome. Themed values resolve to
 // Nextcloud variables, so a themed instance follows its own palette.
@@ -64,6 +65,13 @@ const SUPPORTED_MIMES = [
 	'model/brep', // .brep, .brp — OpenCascade native B-Rep
 	'application/x-brep', // BREP alternative MIME
 	'application/x-fcstd', // .fcstd — FreeCAD document
+	'application/x-xyz-pointcloud', // .xyz — point cloud as text
+	'application/x-pcd', // .pcd — Point Cloud Library point cloud
+	'application/vnd.las', // .las — LiDAR and survey point cloud
+	'application/vnd.laszip', // .laz — compressed LiDAR and survey point cloud
+	'model/e57', // .e57 — laser scan
+	'model/x-gaussian-splat', // .splat — Gaussian splat
+	'model/x-spz', // .spz — compressed Gaussian splat
 ]
 
 // Mode 1: Register simple viewer handler with Viewer API (modal preview)
@@ -116,34 +124,7 @@ const publicShare = getPublicShareContext()
 if (publicShare?.isSingleFile && publicShare.fileId) {
 	const content = document.getElementById('content')
 	if (content) {
-		const mount = document.createElement('div')
-		mount.id = 'threedviewer-public'
-		mount.style.width = '100%'
-		mount.style.height = '100%'
-		content.replaceChildren(mount)
-
-		Promise.all([
-			import('vue'),
-			import('./views/ViewerComponent.vue'),
-		]).then(([{ createApp, h }, { default: ViewerComponent }]) => {
-			const app = createApp({
-				render: () => h(ViewerComponent, {
-					// davPath is only consulted by the multi-file loader, which falls
-					// back to the id-based public routes on a share page.
-					davPath: '',
-					filename: publicShare.filename || '',
-					basename: publicShare.filename || '',
-					mime: publicShare.mime || '',
-					fileid: publicShare.fileId,
-					active: true,
-				}),
-			})
-			app.config.globalProperties.t = translate
-			app.config.globalProperties.n = translatePlural
-			app.mount('#threedviewer-public')
-		}).catch(err => {
-			console.error('[ThreeDViewer] Failed to mount public share viewer:', err)
-		})
+		mountPublicViewer(content, publicShare)
 	}
 }
 

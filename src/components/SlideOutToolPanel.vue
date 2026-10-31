@@ -70,17 +70,48 @@
 									<ViewerIcon class="tool-icon" name="projection" :size="17" />
 									<span class="tool-label">{{ cameraType === 'perspective' ? t('threedviewer', 'Perspective') : t('threedviewer', 'Orthographic') }}</span>
 								</button>
-								<!-- Copy shareable view link: encodes current camera state
-								     (position, target, zoom) into the URL as a `cam=...`
-								     parameter so others can open the same exact viewpoint.
+								<!-- Copies a link that reopens the model as it is shown now: camera,
+								     shading, lighting, cut and exploded view (utils/viewLink.js).
 								     Feedback is surfaced via a toast, not inline. -->
 								<button class="tool-btn"
 									:disabled="!modelLoaded"
-									:title="t('threedviewer', 'Copy a link to this exact viewpoint')"
+									:title="t('threedviewer', 'Copy a link that opens the model as you see it now')"
 									@click="emit('copy-view-link')">
 									<ViewerIcon class="tool-icon" name="copyLink" :size="17" />
-									<span class="tool-label">{{ t('threedviewer', 'Copy View Link') }}</span>
+									<span class="tool-label">{{ t('threedviewer', 'Copy link to this view') }}</span>
+									<span class="tool-hint">{{ shortcutKey('copy-view-link') }}</span>
 								</button>
+								<!-- The same view on a public link this user manages: the camera only,
+								     which is all a public page applies. With several, they choose. -->
+								<template v-if="modelLoaded && publicShares.length > 0">
+									<button ref="publicLinkOpener"
+										class="tool-btn"
+										:aria-expanded="publicShares.length > 1 ? String(showShareChoices) : undefined"
+										:aria-controls="publicShares.length > 1 ? 'public-link-choices' : undefined"
+										:title="t('threedviewer', 'Copy the public link, opening the model from this angle')"
+										@click="onCopyPublicLink">
+										<ViewerIcon class="tool-icon" name="copyLink" :size="17" />
+										<span class="tool-label">{{ t('threedviewer', 'Copy public link to this view') }}</span>
+									</button>
+									<!-- Escape closes the list only, not the whole panel -->
+									<div v-if="showShareChoices && publicShares.length > 1"
+										id="public-link-choices"
+										class="bookmark-list public-link-choices"
+										@keydown.esc.stop="closeShareChoices">
+										<button v-for="share in publicShares"
+											:key="share.id"
+											class="bookmark-name"
+											@click="chooseShare(share.id)">
+											{{ share.label || t('threedviewer', 'Public link') }} · {{ formatShareDate(share.created) }}
+										</button>
+									</div>
+								</template>
+								<!-- An iframe of a public link, for another site the admin lists -->
+								<EmbedCodeControl v-if="modelLoaded && embedOffered && modelPath"
+									:shares="publicShares"
+									:model-path="modelPath"
+									:file-id="fileId"
+									@copy="emit('copy-embed-code', $event)" />
 								<!-- Bookmarks -->
 								<div class="tool-group">
 									<label class="tool-label-small">{{ t('threedviewer', 'Bookmarks') }}</label>
@@ -95,6 +126,12 @@
 											<button class="bookmark-name" @click="emit('load-bookmark', i)">
 												{{ bm.name }}
 											</button>
+											<button class="bookmark-link"
+												:title="t('threedviewer', 'Copy link')"
+												:aria-label="`${t('threedviewer', 'Copy link')}: ${bm.name}`"
+												@click="emit('copy-bookmark-link', i)">
+												<ViewerIcon name="copyLink" :size="14" />
+											</button>
 											<button class="bookmark-delete"
 												:title="t('threedviewer', 'Remove')"
 												:aria-label="`${t('threedviewer', 'Remove')}: ${bm.name}`"
@@ -104,6 +141,50 @@
 										</div>
 									</div>
 								</div>
+							</div>
+						</section>
+
+						<!-- SCAN Section: a scan's own controls, and the tools that are off for it -->
+						<section v-if="pointCloud" class="panel-section">
+							<button class="section-header"
+								:aria-expanded="sections.scan"
+								aria-controls="panel-section-scan"
+								@click="toggleSection('scan')">
+								<span class="section-title">{{ t('threedviewer', 'Scan') }}</span>
+								<ViewerIcon class="expand-icon"
+									:class="{ collapsed: !sections.scan }"
+									name="chevron"
+									:size="15" />
+							</button>
+							<!-- v-show: the gated controls are described by lines inside, open or not -->
+							<div v-show="sections.scan" id="panel-section-scan" class="section-content">
+								<PointCloudControls :meta="pointCloud"
+									:colour-by="colourBy"
+									:point-size="pointSize"
+									:up-state="upState"
+									@set-up="emit('set-up', $event)"
+									@set-colour-by="emit('set-colour-by', $event)"
+									@set-point-size="emit('set-point-size', $event)" />
+							</div>
+						</section>
+
+						<!-- SPLAT Section: a splat's own controls, and the tools that are off for it -->
+						<section v-if="splat" class="panel-section">
+							<button class="section-header"
+								:aria-expanded="sections.splat"
+								aria-controls="panel-section-splat"
+								@click="toggleSection('splat')">
+								<span class="section-title">{{ t('threedviewer', 'Splat') }}</span>
+								<ViewerIcon class="expand-icon"
+									:class="{ collapsed: !sections.splat }"
+									name="chevron"
+									:size="15" />
+							</button>
+							<!-- v-show: the gated controls are described by lines inside, open or not -->
+							<div v-show="sections.splat" id="panel-section-splat" class="section-content">
+								<SplatControls :meta="splat"
+									:up-state="upState"
+									@set-up="emit('set-up', $event)" />
 							</div>
 						</section>
 
@@ -128,7 +209,8 @@
 									@toggle="emit('toggle-axes')" />
 								<ToggleSwitchRow :checked="wireframe"
 									:label="t('threedviewer', 'Wireframe')"
-									@toggle="emit('toggle-wireframe')" />
+									v-bind="unavailable('shading')"
+									@toggle="off('shading') || emit('toggle-wireframe')" />
 								<!-- Render mode: inspection shading in place of the model's materials -->
 								<div class="tool-group">
 									<!-- A heading for the group, not a <label>: there is no one control it names -->
@@ -141,7 +223,8 @@
 											:aria-pressed="renderMode === option.value ? 'true' : 'false'"
 											:title="option.title"
 											:disabled="!modelLoaded"
-											@click="emit('set-render-mode', option.value)">
+											v-bind="unavailable('shading')"
+											@click="off('shading') || emit('set-render-mode', option.value)">
 											{{ option.label }}
 										</button>
 									</div>
@@ -178,7 +261,8 @@
 							<div v-show="sections.analyze" id="panel-section-analyze" class="section-content">
 								<button class="tool-btn feature-btn"
 									:class="{ 'active': measurementMode }"
-									@click="emit('toggle-measurement')">
+									v-bind="unavailable('measure')"
+									@click="off('measure') || emit('toggle-measurement')">
 									<ViewerIcon class="tool-icon" name="measurement" :size="17" />
 									<span class="tool-label">{{ t('threedviewer', 'Measurement') }}</span>
 									<span v-if="measurementMode" class="active-badge">{{ t('threedviewer', 'Active') }}</span>
@@ -186,14 +270,16 @@
 								</button>
 								<button class="tool-btn feature-btn"
 									:class="{ 'active': annotationMode }"
-									@click="emit('toggle-annotation')">
+									v-bind="unavailable('notes')"
+									@click="off('notes') || emit('toggle-annotation')">
 									<ViewerIcon class="tool-icon" name="annotation" :size="17" />
 									<span class="tool-label">{{ t('threedviewer', 'Annotation') }}</span>
 									<span v-if="annotationMode" class="active-badge">{{ t('threedviewer', 'Active') }}</span>
 								</button>
 								<button class="tool-btn feature-btn"
 									:class="{ 'active': comparisonMode }"
-									@click="emit('toggle-comparison')">
+									v-bind="unavailable('compare')"
+									@click="off('compare') || emit('toggle-comparison')">
 									<ViewerIcon class="tool-icon" name="comparison" :size="17" />
 									<span class="tool-label">{{ t('threedviewer', 'Comparison') }}</span>
 									<span v-if="comparisonMode" class="active-badge">{{ t('threedviewer', 'Active') }}</span>
@@ -202,7 +288,8 @@
 									type="button"
 									class="tool-btn feature-btn"
 									:disabled="!modelLoaded || comparisonMode"
-									@click="emit('compare-version')">
+									v-bind="unavailable('compare')"
+									@click="off('compare') || emit('compare-version')">
 									<ViewerIcon class="tool-icon" name="history" :size="17" />
 									<span class="tool-label">{{ t('threedviewer', 'Compare with earlier version') }}</span>
 								</button>
@@ -210,7 +297,8 @@
 								<button class="tool-btn feature-btn"
 									:class="{ 'active': clippingActive }"
 									:disabled="!modelLoaded"
-									@click="emit('toggle-clipping')">
+									v-bind="unavailable('crossSection')"
+									@click="off('crossSection') || emit('toggle-clipping')">
 									<ViewerIcon class="tool-icon" name="crossSection" :size="17" />
 									<span class="tool-label">{{ t('threedviewer', 'Cross-Section') }}</span>
 									<span v-if="clippingActive" class="active-badge">{{ t('threedviewer', 'Active') }}</span>
@@ -220,7 +308,8 @@
 									:class="{ 'active': printCheckActive }"
 									:aria-pressed="printCheckActive ? 'true' : 'false'"
 									:disabled="!modelLoaded || comparisonMode"
-									@click="emit('toggle-print-check')">
+									v-bind="unavailable('printCheck')"
+									@click="off('printCheck') || emit('toggle-print-check')">
 									<ViewerIcon class="tool-icon" name="printer3d" :size="17" />
 									<span class="tool-label">{{ t('threedviewer', 'Print check') }}</span>
 									<span v-if="printCheckActive" class="active-badge">{{ t('threedviewer', 'Active') }}</span>
@@ -355,7 +444,8 @@
 								<button class="tool-btn feature-btn"
 									:class="{ 'active': transformGizmoActive }"
 									:disabled="!modelLoaded"
-									@click="emit('toggle-transform-gizmo')">
+									v-bind="unavailable('transform')"
+									@click="off('transform') || emit('toggle-transform-gizmo')">
 									<ViewerIcon class="tool-icon" name="transform" :size="17" />
 									<span class="tool-label">{{ t('threedviewer', 'Transform') }}</span>
 									<span v-if="transformGizmoActive" class="active-badge">{{ t('threedviewer', 'Active') }}</span>
@@ -542,7 +632,8 @@
 									<button type="button"
 										class="export-btn"
 										:disabled="!modelLoaded"
-										:aria-disabled="exporting ? 'true' : null"
+										:aria-disabled="exporting || off('export') ? 'true' : null"
+										:aria-describedby="off('export') ? 'tdv-unavailable-export' : null"
 										:aria-busy="exporting ? 'true' : 'false'"
 										@click="startExport">
 										{{ t('threedviewer', 'Export') }}
@@ -550,7 +641,8 @@
 								</div>
 								<button class="tool-btn"
 									:disabled="!modelLoaded"
-									@click="emit('send-to-slicer')">
+									v-bind="unavailable('export')"
+									@click="off('export') || emit('send-to-slicer')">
 									<ViewerIcon class="tool-icon" name="sendToSlicer" :size="17" />
 									<span class="tool-label">{{ t('threedviewer', 'Send to Slicer') }}</span>
 								</button>
@@ -665,7 +757,7 @@
 </template>
 
 <script>
-import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount, defineAsyncComponent } from 'vue'
 import ViewerIcon from './ViewerIcon.vue'
 import ToggleSwitchRow from './ToggleSwitchRow.vue'
 import { isShortcutBlocked, shortcutFor, shortcutKey, hasOpenModal } from '../utils/toolShortcuts.js'
@@ -673,12 +765,21 @@ import { VIEWER_CONFIG } from '../config/viewer-config.js'
 // eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
 import { translate as t } from '@nextcloud/l10n'
 
+// Loaded only while embedding is on: most viewers never show it
+const EmbedCodeControl = defineAsyncComponent(() => import('./EmbedCodeControl.vue'))
+// Only a scan needs these, so they load with the first one
+const PointCloudControls = defineAsyncComponent(() => import('./PointCloudControls.vue'))
+const SplatControls = defineAsyncComponent(() => import('./SplatControls.vue'))
+
 export default {
 	name: 'SlideOutToolPanel',
 
 	components: {
 		ViewerIcon,
 		ToggleSwitchRow,
+		EmbedCodeControl,
+		PointCloudControls,
+		SplatControls,
 	},
 
 	props: {
@@ -734,6 +835,24 @@ export default {
 
 		// Bookmarks
 		bookmarks: { type: Array, default: () => [] },
+		// Link shares of the model this user manages (utils/linkShares.js), newest first
+		publicShares: { type: Array, default: () => [] },
+		// "Copy embed code": offered while embedding is on and someone is signed in; the
+		// control itself asks whether they may share the model at modelPath
+		embedOffered: { type: Boolean, default: false },
+		// A scan's summary (ThreeViewer's model-loaded pointCloud), or null for a mesh
+		pointCloud: { type: Object, default: null },
+		colourBy: { type: String, default: 'height' },
+		pointSize: { type: Number, default: 2 },
+		// A splat's summary (ThreeViewer's model-loaded splat), or null
+		splat: { type: Object, default: null },
+		// The keys of the tools that are off for what is open (utils/offTools.js)
+		offTools: { type: Array, default: () => [] },
+		// Which way is up for the scan or splat (useFileUp's state), or null
+		upState: { type: Object, default: null },
+		modelPath: { type: String, default: null },
+		// The model's file id, for the link to its Sharing sidebar
+		fileId: { type: [Number, String], default: null },
 
 		// Exploded view
 		explodedViewActive: { type: Boolean, default: false },
@@ -766,6 +885,9 @@ export default {
 	},
 
 	emits: [
+		'set-up',
+		'set-colour-by',
+		'set-point-size',
 		'panel-opened',
 		'panel-closed',
 		'reset-view',
@@ -773,6 +895,9 @@ export default {
 		'toggle-auto-rotate',
 		'toggle-projection',
 		'copy-view-link',
+		'copy-bookmark-link',
+		'copy-public-view-link',
+		'copy-embed-code',
 		'toggle-grid',
 		'toggle-axes',
 		'toggle-wireframe',
@@ -826,6 +951,8 @@ export default {
 
 		// Section collapse states
 		const sections = ref({
+			scan: true,
+			splat: true,
 			view: true,
 			scene: true,
 			analyze: true,
@@ -908,9 +1035,26 @@ export default {
 			window.removeEventListener('keydown', handleKeyPress)
 		})
 
+		/**
+		 * @param {string} key - A key of utils/offTools.js
+		 * @return {boolean} Whether that tool is off for what is open
+		 */
+		const off = (key) => props.offTools.includes(key)
+
+		/**
+		 * What a control a scan or splat has turned off carries: it stays in its place, says
+		 * it is unavailable, and is described by the line saying why (PointCloudControls,
+		 * SplatControls).
+		 *
+		 * @param {string} key - A key of utils/offTools.js
+		 * @return {object} Its attributes, or none when the tool is on
+		 */
+		const unavailable = (key) => (off(key) ? { 'aria-disabled': 'true', 'aria-describedby': `tdv-unavailable-${key}` } : {})
+
 		const startExport = () => {
 			// aria-disabled does not stop a click, so an export already running does
-			if (props.exporting || !props.modelLoaded) return
+			// A scan or splat has nothing to export (utils/offTools.js)
+			if (props.exporting || !props.modelLoaded || off('export')) return
 			emit('export-model', exportFormat.value)
 		}
 
@@ -1002,8 +1146,41 @@ export default {
 			{ value: 'xray', label: t('threedviewer', 'X-ray'), title: t('threedviewer', 'See-through parts, to look inside assemblies') },
 		]
 
+		const showShareChoices = ref(false)
+		watch(() => props.publicShares, () => { showShareChoices.value = false })
+
+		// One share is copied at once; several are listed to choose from
+		const onCopyPublicLink = () => {
+			if (props.publicShares.length === 1) {
+				emit('copy-public-view-link', props.publicShares[0].id)
+			} else {
+				showShareChoices.value = !showShareChoices.value
+			}
+		}
+
+		const publicLinkOpener = ref(null)
+		const closeShareChoices = () => {
+			showShareChoices.value = false
+			publicLinkOpener.value?.focus()
+		}
+
+		const chooseShare = (id) => {
+			showShareChoices.value = false
+			emit('copy-public-view-link', id)
+		}
+
+		const formatShareDate = (seconds) => new Date(seconds * 1000).toLocaleDateString()
+
 		return {
 			t,
+			unavailable,
+			off,
+			showShareChoices,
+			publicLinkOpener,
+			closeShareChoices,
+			onCopyPublicLink,
+			chooseShare,
+			formatShareDate,
 			renderModeOptions,
 			gcodeLayerValueText,
 			gcodeLayerHeight,
@@ -1509,6 +1686,24 @@ export default {
 }
 
 .bookmark-name.bookmark-name:hover { background: var(--tdv-color-hover-bg); }
+
+/* Copy link sits beside Remove and must not look like it: no red on hover */
+.bookmark-link.bookmark-link {
+	display: inline-flex;
+	align-items: center;
+	padding: 2px 6px;
+	border: none;
+	border-radius: 4px;
+	background: transparent;
+	color: var(--tdv-color-text-secondary);
+	cursor: pointer;
+}
+
+.bookmark-link.bookmark-link:hover,
+.bookmark-link.bookmark-link:focus-visible {
+	background: var(--tdv-color-hover-bg);
+	color: var(--tdv-color-text);
+}
 
 .bookmark-delete.bookmark-delete {
 	background: transparent;

@@ -55,8 +55,12 @@ class UnregisterThreeDMimeTypes implements IRepairStep
     {
         $output->info('Unregistering 3D model MIME types...');
 
-        $this->unregisterInFileCache($output);
-        $this->updateConfigFiles($output);
+        $mimetypemappingFile = \OC::$configDir . self::CUSTOM_MIMETYPEMAPPING;
+        // Only what this app mapped: an extension the site maps to a type of its own keeps it
+        $mappable = SupportedFormats::mappableExtensions(SupportedFormats::readMapping($mimetypemappingFile));
+
+        $this->unregisterInFileCache($output, $mappable);
+        $this->updateConfigFiles($output, $mimetypemappingFile, $mappable);
 
         $output->info('...done. MIME types unregistered successfully.');
         $output->info('NOTE: Files will now download instead of opening in viewer.');
@@ -65,12 +69,15 @@ class UnregisterThreeDMimeTypes implements IRepairStep
     /**
      * Reset MIME types in database to application/octet-stream (downloadable).
      */
-    private function unregisterInFileCache(IOutput $output): void
+    /**
+     * @param array<string, list<string>> $mappable From SupportedFormats::mappableExtensions
+     */
+    private function unregisterInFileCache(IOutput $output, array $mappable): void
     {
         // Force back to downloadable type in cache
         $defaultMimeTypeId = $this->mimeTypeLoader->getId('application/octet-stream');
 
-        foreach (array_keys(SupportedFormats::EXT_MIME_MAP) as $ext) {
+        foreach (array_keys($mappable) as $ext) {
             $this->mimeTypeLoader->updateFilecache($ext, $defaultMimeTypeId);
             $output->info("  ✓ Reset: .{$ext} => application/octet-stream");
         }
@@ -79,13 +86,13 @@ class UnregisterThreeDMimeTypes implements IRepairStep
     /**
      * Remove entries from config files and regenerate JavaScript.
      */
-    private function updateConfigFiles(IOutput $output): void
+    /**
+     * @param array<string, list<string>> $mappable From SupportedFormats::mappableExtensions
+     */
+    private function updateConfigFiles(IOutput $output, string $mimetypemappingFile, array $mappable): void
     {
-        $configDir = \OC::$configDir;
-        $mimetypemappingFile = $configDir . self::CUSTOM_MIMETYPEMAPPING;
-
         // Remove from mimetypemapping.json
-        $this->removeFromFileMapping($mimetypemappingFile, SupportedFormats::EXT_MIME_MAP);
+        $this->removeFromFileMapping($mimetypemappingFile, $mappable);
         if (file_exists($mimetypemappingFile)) {
             $output->info("  ✓ Updated: {$mimetypemappingFile}");
         }

@@ -89,8 +89,8 @@ export function stripDynamicExecution(code) {
  *
  * @param {object} [options] - Options
  * @param {?RegExp} [options.exemptEntry] - A build of a module matching this has no glue
- *   to rewrite and is not expected to: the print-check worker, which shares the worker
- *   plugins with the thumbnail worker but bundles no loader that uses OCCT
+ *   to rewrite and is not expected to: the print-check and point-cloud workers, which
+ *   share the worker plugins with the thumbnail worker but bundle no loader that uses OCCT
  * @return {import('vite').Plugin}
  */
 export function occtNoEval({ exemptEntry = null } = {}) {

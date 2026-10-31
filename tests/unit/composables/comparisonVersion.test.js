@@ -163,3 +163,29 @@ test('a download stopped by axios reads as cancelled, not as a failure', async (
 	await expect(loading).rejects.toMatchObject({ name: 'AbortError' })
 	expect(comparison.comparisonError.value).toBeNull()
 })
+
+test("a version is sized in the unit chosen for the file", async () => {
+	fetchVersion.mockResolvedValue(VERSION_BYTES)
+	loadModelByExtension.mockResolvedValue(loadedModel())
+	const comparison = useComparison()
+	const original = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial())
+
+	await comparison.loadComparisonModelFromVersion(VERSION, { fileId: 154, filename: 'a.stl', dirPath: '/models' }, { ...context(), fileUnit: 'in' })
+	const diff = comparison.computeDiffStats(original, 'a.stl', 25.4)
+
+	expect(diff.comparison.bbox.x).toBeCloseTo(25.4, 6)
+	expect(diff.delta.bbox.x).toBeCloseTo(0, 6)
+})
+
+test('a version follows a unit chosen while it is shown', async () => {
+	fetchVersion.mockResolvedValue(VERSION_BYTES)
+	loadModelByExtension.mockResolvedValue(loadedModel())
+	const comparison = useComparison()
+	const original = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial())
+	await comparison.loadComparisonModelFromVersion(VERSION, { fileId: 154, filename: 'a.stl', dirPath: '/models' }, context())
+	expect(comparison.computeDiffStats(original, 'a.stl', 1).comparison.bbox.x).toBeCloseTo(1, 6)
+
+	comparison.setFileUnit('in')
+
+	expect(comparison.computeDiffStats(original, 'a.stl', 25.4).comparison.bbox.x).toBeCloseTo(25.4, 6)
+})

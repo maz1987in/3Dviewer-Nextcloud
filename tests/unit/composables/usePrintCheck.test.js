@@ -29,7 +29,7 @@ function deferred() {
 }
 
 /** A 10 mm cube resting on y = 0, in a scene, with a camera and orbit controls. */
-function setup({ filename = 'cube.stl', size = 10, fileId = 1 } = {}) {
+function setup({ filename = 'cube.stl', size = 10, fileId = 1, mmPerUnit = () => 1 } = {}) {
 	const cameras = { current: null }
 	const scene = new THREE.Scene()
 	const root = new THREE.Group()
@@ -54,7 +54,7 @@ function setup({ filename = 'cube.stl', size = 10, fileId = 1 } = {}) {
 		modelRoot,
 		camera: () => cameras.current,
 		controls: () => controls,
-		mmPerUnit: () => 1,
+		mmPerUnit,
 		filename: () => filename,
 		fileId: () => fileId,
 	})
@@ -192,6 +192,21 @@ test('a late worker result after close is ignored', async () => {
 
 	expect(printCheck.closed.value).toBeNull()
 	expect(printCheck.estimate.value).toBeNull()
+})
+
+test('refits and re-estimates when the unit changes', async () => {
+	const unit = ref(1)
+	const { printCheck } = setup({ mmPerUnit: unit })
+	printCheck.open()
+	await flush()
+	expect(printCheck.fit.value.size.width).toBeCloseTo(10, 6)
+	const grams = printCheck.estimate.value.grams
+
+	unit.value = 25.4
+	printCheck.unitChanged()
+
+	expect(printCheck.fit.value.size.width).toBeCloseTo(254, 6)
+	expect(printCheck.estimate.value.grams).toBeGreaterThan(grams * 1000)
 })
 
 test('gizmo change recomputes the fit, debounced', async () => {

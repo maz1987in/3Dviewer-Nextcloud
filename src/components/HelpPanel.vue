@@ -401,6 +401,7 @@ export default {
 				'toggle-measurement': t('threedviewer', 'Toggle measurement mode'),
 				'toggle-stats': t('threedviewer', 'Toggle model statistics'),
 				'take-screenshot': t('threedviewer', 'Take a screenshot'),
+				'copy-view-link': t('threedviewer', 'Copy a link to this view'),
 				'toggle-help': t('threedviewer', 'Open this help'),
 			},
 		}

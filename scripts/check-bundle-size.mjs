@@ -24,6 +24,9 @@ const BUDGETS = [
   // shares them. 5800 and 2100 since version comparison: the viewer chunk names one more
   // dependency in its preload list, which this file carries (+13 B raw at the time).
   { pattern: /^threedviewer-main\.mjs$/, name: 'main', maxRaw: 5800, maxGzip: 2100 },
+  // The embed page's entry: the token, one request, then the light viewer the share page
+  // mounts. No more than main's, which does the same and more.
+  { pattern: /^threedviewer-embed\.mjs$/, name: 'embed', maxRaw: 5800, maxGzip: 2100 },
   { pattern: /^gltf-.*\.chunk\.mjs$/, name: 'gltf-loader', maxRaw: 22000, maxGzip: 6000 }, // GLTF loader chunk (includes decoder worker pool tuning via setWorkerLimit)
   // Main app component. Bumped 360 KB → 370 KB in v3.3.0 for the 9 new viewer-config
   // entries, and unchanged by the redesign: replacing every emoji control with a Material
@@ -33,8 +36,14 @@ const BUDGETS = [
   // drawn by one component instead, which costs 3.4 KB for the same ten and lands the
   // emoji it replaces back on the credit side. Bumped again to 380 KB raw / 104 KB gzip
   // for shared annotations and measurements (useSharedNotes, the notes API client and the
-  // panel's author/retry UI), which put it at 362.0 KB raw / 100.3 KB gzip.
-  { pattern: /^App-.*\.chunk\.mjs$/, name: 'app', maxRaw: 380000, maxGzip: 104000 },
+  // panel's author/retry UI), which put it at 362.0 KB raw / 100.3 KB gzip. Gzip raised
+  // to 108 KB for view links (reading, checking and applying a view, and copying links to
+  // notes, bookmarks and public shares), which put it at 367.4 KB raw / 102.8 KB gzip
+  // with the rest of that feature still to come. Raw raised to 384 KB for "Copy embed
+  // code": the control and its helpers load as their own chunks, only while embedding is
+  // on, but the panel's slot for it, the copy handler and the two chunks' preload entries
+  // stay here, and put this at 381.7 KB raw / 104.3 KB gzip against 379.7 before.
+  { pattern: /^App-.*\.chunk\.mjs$/, name: 'app', maxRaw: 384000, maxGzip: 108000 },
   { pattern: /^three-core-.*\.chunk\.mjs$/, name: 'three-core', maxRaw: 800000, maxGzip: 210000 }, // Three.js core
   // Three chunks are named index-<hash>: the main one, a ~280 KB one and a 250-byte one.
   // This used to separate them with /^index-[A-Z][a-z]/, written to exclude one specific
@@ -49,6 +58,15 @@ const BUDGETS = [
   // three-mesh-bvh and the parts of three.js they use. Loaded only when someone opens Print
   // check. 142.1 KB raw / 41.3 KB gzip when added, budgeted at that plus 10%.
   { pattern: /^print-check-worker-[\w-]+\.mjs$/, name: 'print-check-worker', maxRaw: 156000, maxGzip: 45500 },
+  // The point-cloud worker's entry: it picks a reader for the file and sends the points
+  // back. Each reader is a chunk of its own, loaded for its format only.
+  { pattern: /^point-cloud-worker-[\w-]+\.mjs$/, name: 'point-cloud-worker', maxRaw: 40000, maxGzip: 14000 },
+  // Spark (@sparkjsdev/spark 2.4.0), the Gaussian splat renderer, with its WebAssembly and
+  // workers inlined. Loaded only when a splat opens, and by the thumbnail worker for one.
+  // 2,698,993 B raw / 950,652 B gzip (page) and 2,672,666 / 944,150 (worker) when added,
+  // budgeted at that plus 5 percent.
+  { pattern: /^spark-[\w-]+\.chunk\.mjs$/, name: 'spark', maxRaw: 2834000, maxGzip: 999000 },
+  { pattern: /^thumbnail-worker-spark\.module-[\w-]+\.chunk\.mjs$/, name: 'thumbnail-worker-spark', maxRaw: 2807000, maxGzip: 992000 },
 ];
 
 const buildDir = path.resolve(process.cwd(), 'js');

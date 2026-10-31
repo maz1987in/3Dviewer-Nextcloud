@@ -10,7 +10,7 @@ use OCP\Files\Node;
 use OCP\Files\NotPermittedException;
 
 /**
- * Rights over a model's notes, derived from the model file on every request.
+ * Rights over a model's notes and settings, derived from the model file on every request.
  *
  * Never from the note: a note has no permissions of its own, so anything that asked the
  * note would be asking the wrong thing.
@@ -47,10 +47,10 @@ class NoteAccess
 
         foreach ($files as $file) {
             if ($file->isUpdateable()) {
-                return new NoteAccessResult(true);
+                return new NoteAccessResult(true, $file->getName());
             }
         }
 
-        return new NoteAccessResult(false);
+        return new NoteAccessResult(false, reset($files)->getName());
     }
 }

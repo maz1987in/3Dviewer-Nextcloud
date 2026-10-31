@@ -21,6 +21,13 @@
  *                    for 3,000 mm, the same as one written in metres.
  *   x3d, wrl, vrml   metres by specification; both loaders keep the file's values.
  *   bim              dotbim is metres by specification.
+ *   xyz, pcd, las, laz
+ *                    scans; scanners write metres. A LAS or LAZ whose coordinate system
+ *                    names a unit records it.
+ *   e57              a laser scan, in metres by the standard, which the file records. Any scan (a PLY with no faces too)
+ *                    is metres unless its file records a unit; see `scanUnit`.
+ *   splat, spz       Gaussian splats record no unit; the phone apps that make them work in
+ *                    metres. A splat PLY too (`splatOf`), and its unit can be chosen.
  *
  * millimetres
  *   stl, obj, ply, off, 3ds
@@ -50,6 +57,13 @@
  *                    userData.threeMFUnit; see `threeMFUnit`.
  *
  * Anything not listed is taken as millimetres.
+ *
+ * a unit chosen for the file
+ *   A file that records no unit (STL, OBJ, PLY, OFF, 3DS, and an FBX without a
+ *   UnitScaleFactor) can have one chosen for it, saved with the file for everyone who can
+ *   open it (`isUnitChangeable`, `FILE_UNITS`). It replaces the format's default above and
+ *   nothing else: the viewer's own rescale is still divided out. A unit chosen for a file
+ *   that records its own is ignored, whatever reaches the viewer.
  */
 
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
@@ -87,9 +101,36 @@ export const SOURCE_UNITS = Object.freeze({
 	brep: MILLIMETRE,
 	brp: MILLIMETRE,
 	fcstd: MILLIMETRE,
+	// Scans: scanners write metres
+	xyz: METRE,
+	pcd: METRE,
+	las: METRE,
+	laz: METRE,
+	e57: METRE,
+	// Splats: captures are made in metres
+	splat: METRE,
+	spz: METRE,
 	fbx: CENTIMETRE,
 	gcode: MILLIMETRE,
 })
+
+/**
+ * The units a file that records none can be said to be in: millimetres per unit, the
+ * suffix the panels write, and the display unit (a key of
+ * VIEWER_CONFIG.measurement.unitScales) its readings start in. US survey feet read in
+ * international feet, which differ by two parts per million.
+ */
+export const FILE_UNITS = Object.freeze({
+	mm: Object.freeze({ millimetres: MILLIMETRE, suffix: 'mm', display: 'millimeters' }),
+	cm: Object.freeze({ millimetres: CENTIMETRE, suffix: 'cm', display: 'centimeters' }),
+	m: Object.freeze({ millimetres: METRE, suffix: 'm', display: 'meters' }),
+	in: Object.freeze({ millimetres: 25.4, suffix: 'in', display: 'inches' }),
+	ft: Object.freeze({ millimetres: 304.8, suffix: 'ft', display: 'feet' }),
+	'us-ft': Object.freeze({ millimetres: 1200000 / 3937, suffix: 'ft (US)', display: 'feet' }),
+})
+
+// Recorded units the list above doesn't offer, for naming them
+const OTHER_SUFFIXES = [[0.001, 'µm'], [100, 'dm'], [1e6, 'km'], [914.4, 'yd']]
 
 // Rhino's UnitSystem values (rhino3dm's UnitSystem enum) in millimetres
 const RHINO_UNITS = {
@@ -198,19 +239,109 @@ export function viewerScale(root) {
 	return isLength(scale) ? scale : 1
 }
 
-// Formats whose files never say what unit they are in, and which slicers read as millimetres
-const UNITLESS_MILLIMETRE_FORMATS = new Set(['stl', 'obj', 'ply', 'off', '3ds', 'gcode'])
+// Formats whose files never record a unit, so one can be chosen for them (and FBX, when
+// the file has no UnitScaleFactor, and a scan whose coordinate system names none)
+const CHANGEABLE_FORMATS = new Set(['stl', 'obj', 'ply', 'off', '3ds', 'las', 'laz', 'pcd', 'xyz', 'splat', 'spz'])
 
 /**
- * Whether a file's sizes are millimetres only by assumption: its format records no unit,
- * so the viewer reads it as slicers do. Print check says so beside its sizes.
+ * A splat's record of itself (splats/loadSplat.js); a PLY is one only when its header says
+ * so, so this, not the extension, says a model is a splat.
+ *
+ * @param {?THREE.Object3D} root - The loaded model
+ * @return {?object} Its userData.tdvSplat, or null
+ */
+function splatOf(root) {
+	return recorded(root, (data) => data.tdvSplat) ?? null
+}
+
+/**
+ * A scan's record of itself (pointclouds/buildPointCloud.js); a PLY is one only when it
+ * has no faces, so this, not the extension, says a model is a scan.
+ *
+ * @param {?THREE.Object3D} root - The loaded model
+ * @return {?object} Its userData.tdvPointCloud, or null for a mesh
+ */
+function pointCloudOf(root) {
+	return recorded(root, (data) => data.tdvPointCloud) ?? null
+}
+
+/**
+ * The unit a scan's file records: from a LAS's coordinate system, or metres for E57.
+ *
+ * @param {?THREE.Object3D} root - The loaded model
+ * @return {?number} Millimetres per unit, or null when it records none
+ */
+function scanUnit(root) {
+	const unit = pointCloudOf(root)?.unit
+	return typeof unit === 'string' && Object.hasOwn(FILE_UNITS, unit) ? FILE_UNITS[unit].millimetres : null
+}
+
+/**
+ * @param {?string} filename - The file (a path is fine)
+ * @return {string} Its lower-case extension
+ */
+function extensionOf(filename) {
+	return String(filename ?? '').split('/').pop().split('.').pop().toLowerCase()
+}
+
+/**
+ * Whether a unit can be chosen for a file: its format records none.
  *
  * @param {?string} filename - The file (a path is fine)
- * @return {boolean} True for STL, OBJ, PLY, OFF, 3DS and G-code
+ * @param {?THREE.Object3D} [root] - The loaded model, read for an FBX's unit scale
+ * @return {boolean}
  */
-export function assumesMillimetres(filename) {
-	const extension = String(filename ?? '').split('/').pop().split('.').pop().toLowerCase()
-	return Boolean(filename) && UNITLESS_MILLIMETRE_FORMATS.has(extension)
+export function isUnitChangeable(filename, root = null) {
+	if (!filename) {
+		return false
+	}
+	const extension = extensionOf(filename)
+	if (pointCloudOf(root)) {
+		return scanUnit(root) === null
+	}
+	if (splatOf(root)) {
+		return true
+	}
+	return CHANGEABLE_FORMATS.has(extension) || (extension === 'fbx' && fbxUnit(root) === null)
+}
+
+/**
+ * Millimetres per unit of a chosen unit, when it applies to the file.
+ *
+ * @param {?string} filename - The file (a path is fine)
+ * @param {?THREE.Object3D} root - The loaded model
+ * @param {?string} chosenUnit - A key of FILE_UNITS, or null
+ * @return {?number} Null when none was chosen, it is not a unit, or the file records its own
+ */
+function chosenMillimetres(filename, root, chosenUnit) {
+	if (typeof chosenUnit !== 'string' || !Object.hasOwn(FILE_UNITS, chosenUnit) || !isUnitChangeable(filename, root)) {
+		return null
+	}
+	return FILE_UNITS[chosenUnit].millimetres
+}
+
+/**
+ * @param {number} millimetres - Millimetres per unit
+ * @return {?string} The key of FILE_UNITS for that unit, or null when it isn't one
+ */
+export function fileUnitKey(millimetres) {
+	const match = Object.entries(FILE_UNITS).find(([, unit]) => Math.abs(unit.millimetres - millimetres) < 1e-9 * unit.millimetres)
+	return match ? match[0] : null
+}
+
+/**
+ * How the panels write a unit: its suffix, or its size in millimetres for a unit with none.
+ *
+ * @param {number} millimetres - Millimetres per unit
+ * @return {string} `in`, `µm`, `2.000 mm`, …
+ */
+export function unitSuffix(millimetres) {
+	const key = fileUnitKey(millimetres)
+	if (key) {
+		return FILE_UNITS[key].suffix
+	}
+	const other = OTHER_SUFFIXES.find(([size]) => Math.abs(size - millimetres) < 1e-9 * size)
+	return other ? other[1] : `${formatLength(millimetres)} mm`
 }
 
 /**
@@ -219,10 +350,23 @@ export function assumesMillimetres(filename) {
  *
  * @param {?string} filename - The file the model was loaded from (a path is fine)
  * @param {?THREE.Object3D} [root] - The loaded model, read for formats that record a unit
+ * @param {?string} [chosenUnit] - A key of FILE_UNITS chosen for the file, or null
  * @return {number} Millimetres per file unit
  */
-export function millimetresPerFileUnit(filename, root = null) {
-	const extension = String(filename ?? '').split('/').pop().split('.').pop().toLowerCase()
+export function millimetresPerFileUnit(filename, root = null, chosenUnit = null) {
+	const chosen = chosenMillimetres(filename, root, chosenUnit)
+	if (chosen !== null) {
+		return chosen
+	}
+	// A scan: the unit its file records, or metres, which scanners write
+	if (pointCloudOf(root)) {
+		return scanUnit(root) ?? METRE
+	}
+	// A splat, a splat PLY too: metres
+	if (splatOf(root)) {
+		return METRE
+	}
+	const extension = extensionOf(filename)
 	if (extension === '3dm') {
 		return rhinoUnit(root) ?? MILLIMETRE
 	}
@@ -240,15 +384,16 @@ export function millimetresPerFileUnit(filename, root = null) {
  *
  * @param {?string} filename - The file the model was loaded from (a path is fine)
  * @param {?THREE.Object3D} [root] - The loaded model, read for formats that record a unit
+ * @param {?string} [chosenUnit] - A key of FILE_UNITS chosen for the file, or null
  * @return {number} Millimetres per unit
  */
-export function millimetresPerUnit(filename, root = null) {
-	const millimetres = millimetresPerFileUnit(filename, root) / viewerScale(root)
+export function millimetresPerUnit(filename, root = null, chosenUnit = null) {
+	const millimetres = millimetresPerFileUnit(filename, root, chosenUnit) / viewerScale(root)
 	if (isLength(millimetres)) {
 		return millimetres
 	}
 	// Only crafted values get here (a vanishing rescale, say): the format's own default
-	const extension = String(filename ?? '').split('/').pop().split('.').pop().toLowerCase()
+	const extension = extensionOf(filename)
 	return SOURCE_UNITS[extension] ?? MILLIMETRE
 }
 
@@ -260,11 +405,15 @@ export function millimetresPerUnit(filename, root = null) {
  *
  * @param {?string} filename - The file the model was loaded from (a path is fine)
  * @param {?THREE.Object3D} [root] - The loaded model, read for formats that record a unit
+ * @param {?string} [chosenUnit] - A key of FILE_UNITS chosen for the file, or null
  * @return {string} A key of VIEWER_CONFIG.measurement.unitScales
  */
-export function defaultDisplayUnit(filename, root = null) {
+export function defaultDisplayUnit(filename, root = null, chosenUnit = null) {
 	if (!filename) {
 		return VIEWER_CONFIG.measurement.defaultUnit
+	}
+	if (chosenMillimetres(filename, root, chosenUnit) !== null) {
+		return FILE_UNITS[chosenUnit].display
 	}
 	const fileUnit = millimetresPerFileUnit(filename, root)
 	const match = Object.entries(VIEWER_CONFIG.measurement.unitScales)

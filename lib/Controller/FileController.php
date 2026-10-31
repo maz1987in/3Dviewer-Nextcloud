@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace OCA\ThreeDViewer\Controller;
 
+use OCA\ThreeDViewer\Constants\SupportedFormats;
 use OCA\ThreeDViewer\Db\FileIndexMapper;
 use OCA\ThreeDViewer\Service\FileIndexService;
 use OCA\ThreeDViewer\Service\ModelFileSupport;
@@ -196,14 +197,19 @@ class FileController extends BaseController
                 $this->validateFile($file);
             }
 
-            // Check file size
-            if (!$this->isFileSizeAcceptable($file)) {
+            // Check file size: scans and splats are thinned, so they may be larger
+            $maxSize = match (true) {
+                in_array($extension, SupportedFormats::POINT_CLOUD_EXTENSIONS, true) => SupportedFormats::SCAN_MAX_BYTES,
+                in_array($extension, SupportedFormats::SPLAT_EXTENSIONS, true) => SupportedFormats::SPLAT_MAX_BYTES,
+                default => 500 * 1024 * 1024,
+            };
+            if (!$this->isFileSizeAcceptable($file, $maxSize)) {
                 return $this->responseBuilder->createErrorResponse(
                     'File too large',
                     Http::STATUS_REQUEST_ENTITY_TOO_LARGE,
                     [
                         'file_size' => $this->formatFileSize($file->getSize()),
-                        'max_size' => $this->formatFileSize(500 * 1024 * 1024),
+                        'max_size' => $this->formatFileSize($maxSize),
                     ]
                 );
             }

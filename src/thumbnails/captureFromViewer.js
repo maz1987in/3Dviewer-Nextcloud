@@ -109,7 +109,9 @@ export async function awaitStatusBeforeDownload({ fileId, extension, timeoutMs =
  * @return {Promise<'stored'|'exists'|'skipped'>} What happened
  */
 export async function captureForCurrentVersion({ fileId, extension, object3D, statuses }) {
-	if (!isThumbnailFormat(extension)) {
+	// A splat's render waits for Spark's sort, with the open viewer's model lent to it all
+	// the while; the background thumbnailer, which has a model of its own, makes it instead
+	if (!isThumbnailFormat(extension) || object3D?.userData?.tdvSplat) {
 		return 'skipped'
 	}
 

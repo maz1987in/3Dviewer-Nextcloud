@@ -31,6 +31,9 @@ const sources = {
   // OpenCascade WASM used by the STEP/IGES/BREP/FCSTD loaders. One WASM
   // file, one JS glue — shared across all four loaders via occt-runtime.js.
   occt: path.join(root, 'node_modules/occt-import-js/dist'),
+  // laz-perf's WASM for LAZ scans; its glue is bundled (src/pointclouds/lazPerf.js), so
+  // only the binary is served, from lazperf/.
+  lazperf: path.join(root, 'node_modules/laz-perf/lib/worker'),
 }
 
 // Files we care about (kept small to avoid shipping unneeded encoders)
@@ -58,6 +61,9 @@ const fileGlobs = {
   ],
   occt: [
     'occt-import-js.wasm',
+  ],
+  lazperf: [
+    'laz-perf.wasm',
   ],
 }
 

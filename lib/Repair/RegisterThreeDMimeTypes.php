@@ -54,11 +54,15 @@ class RegisterThreeDMimeTypes implements IRepairStep
     {
         $output->info('Installing 3D model MIME types...');
 
+        $mimetypemappingFile = \OC::$configDir . self::CUSTOM_MIMETYPEMAPPING;
+        // An extension the site already maps to a type of its own keeps it
+        $mappable = SupportedFormats::mappableExtensions(SupportedFormats::readMapping($mimetypemappingFile));
+
         // Step 1: Register MIME types in database and update file cache
-        $this->registerInFileCache($output);
+        $this->registerInFileCache($output, $mappable);
 
         // Step 2: Create/update config files
-        $this->updateConfigFiles($output);
+        $this->updateConfigFiles($output, $mimetypemappingFile, $mappable);
 
         $output->info('...done. MIME types registered successfully.');
         $output->info('NOTE: Existing files may need to be rescanned with: php occ files:scan --all');
@@ -66,12 +70,12 @@ class RegisterThreeDMimeTypes implements IRepairStep
 
     /**
      * Register MIME types in Nextcloud's database and update file cache.
+     *
+     * @param array<string, list<string>> $mappable From SupportedFormats::mappableExtensions
      */
-    private function registerInFileCache(IOutput $output): void
+    private function registerInFileCache(IOutput $output, array $mappable): void
     {
-        foreach (SupportedFormats::EXT_MIME_MAP as $ext => $mimes) {
-            $mimes = is_array($mimes) ? $mimes : [$mimes];
-
+        foreach ($mappable as $ext => $mimes) {
             foreach ($mimes as $mime) {
                 try {
                     // Get or create the MIME type ID
@@ -90,14 +94,13 @@ class RegisterThreeDMimeTypes implements IRepairStep
 
     /**
      * Create or update config/mimetypemapping.json.
+     *
+     * @param array<string, list<string>> $mappable From SupportedFormats::mappableExtensions
      */
-    private function updateConfigFiles(IOutput $output): void
+    private function updateConfigFiles(IOutput $output, string $mimetypemappingFile, array $mappable): void
     {
-        $configDir = \OC::$configDir;
-        $mimetypemappingFile = $configDir . self::CUSTOM_MIMETYPEMAPPING;
-
         // Update mimetypemapping.json (extension => [mime types])
-        $this->appendToFileMapping($mimetypemappingFile, SupportedFormats::EXT_MIME_MAP);
+        $this->appendToFileMapping($mimetypemappingFile, $mappable);
         $output->info("  ✓ Updated: $mimetypemappingFile");
 
         // Regenerate JavaScript MIME type mappings

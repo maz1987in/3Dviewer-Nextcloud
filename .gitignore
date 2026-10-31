@@ -74,6 +74,7 @@ rhino3dm/*.wasm
 rhino3dm/*.js
 web-ifc/*.wasm
 occt/*.wasm
+lazperf/*.wasm
 
 # Keep decoder JS files for production
 # draco/*.js

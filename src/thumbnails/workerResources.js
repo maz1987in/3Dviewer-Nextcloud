@@ -13,14 +13,14 @@
  * - data: URLs, and blob: URLs the worker itself made (loaders make them for embedded
  *   images, and decoders for their own workers)
  * - the decoder assets the app ships, under its own web root (draco/, basis/,
- *   rhino3dm/, occt/, web-ifc/), on the worker's own origin
+ *   rhino3dm/, occt/, web-ifc/, lazperf/), on the worker's own origin
  *
  * Anything else is refused before any request is made, and recorded, so the job fails
  * as a load error even when the loader would have shrugged off a missing texture.
  */
 
 /** The app's decoder directories; see appAssetPath.js and scripts/copy-decoders.mjs. */
-export const DECODER_DIRS = Object.freeze(['draco', 'basis', 'rhino3dm', 'occt', 'web-ifc'])
+export const DECODER_DIRS = Object.freeze(['draco', 'basis', 'rhino3dm', 'occt', 'web-ifc', 'lazperf'])
 
 /** Longest stretch of a refused URL kept in a message. */
 const MAX_URL_IN_MESSAGE = 120

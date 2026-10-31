@@ -38,6 +38,13 @@ const loaders = {
 	brep: () => import('./types/brep.js'),
 	brp: () => import('./types/brep.js'), // BREP alternative extension
 	fcstd: () => import('./types/fcstd.js'),
+	xyz: () => import('./types/xyz.js'),
+	pcd: () => import('./types/pcd.js'),
+	las: () => import('./types/las.js'),
+	laz: () => import('./types/las.js'),
+	e57: () => import('./types/e57.js'),
+	splat: () => import('./types/splat.js'),
+	spz: () => import('./types/spz.js'),
 }
 
 export async function loadModelByExtension(ext, arrayBuffer, context) {

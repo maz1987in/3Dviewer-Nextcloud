@@ -52,6 +52,16 @@ export function getPublicShareContext() {
 }
 
 /**
+ * Set the context for a page that has no initial state to read it from: the embed page,
+ * which learns its share from the server after loading. Nothing else sets it.
+ *
+ * @param {{token: string, fileId: number, isSingleFile: boolean, filename: string, mime: string, embed: object}} ctx - The share
+ */
+export function setPublicShareContext(ctx) {
+	cached = ctx
+}
+
+/**
  * @return {boolean} whether the viewer is running on a public share page.
  */
 export function isPublicShare() {
