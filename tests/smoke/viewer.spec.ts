@@ -42,7 +42,7 @@ function buildHtml() {
   const fixtureContent = fs.readFileSync(fixturePath, 'utf8')
   return `<!DOCTYPE html><html><head><meta charset='utf-8'><title>Viewer Smoke</title><style>html, body { height: 100%; margin: 0; padding: 0; }</style></head>
   <body>
-  <div id="threedviewer" style="height: 100vh;"></div>
+  <div id="skip-actions" style="position: absolute; top: -999px; overflow: hidden"></div><div id="threedviewer" style="height: 100vh;"></div>
   <script>
   const FIXTURE = ${JSON.stringify(fixtureContent)};
   const blob = new Blob([FIXTURE], { type: 'model/gltf+json' });
@@ -163,7 +163,7 @@ test('draco gltf loads when decoder present (soft)', async ({ page }) => {
   const dracoWasmPath = path.resolve(process.cwd(), 'draco', 'draco_decoder.wasm')
   if (!fs.existsSync(dracoWasmPath)) test.skip()
   const dracoFixture = fs.readFileSync(path.resolve(process.cwd(), 'tests/fixtures/triangle-draco.gltf'), 'utf8')
-  const html = `<!DOCTYPE html><html><head><meta charset='utf-8'><title>DRACO Test</title><style>html, body { height: 100%; margin: 0; padding: 0; }</style></head><body><div id="threedviewer" style="height: 100vh;"></div>
+  const html = `<!DOCTYPE html><html><head><meta charset='utf-8'><title>DRACO Test</title><style>html, body { height: 100%; margin: 0; padding: 0; }</style></head><body><div id="skip-actions" style="position: absolute; top: -999px; overflow: hidden"></div><div id="threedviewer" style="height: 100vh;"></div>
   <script>
   const FIXTURE = ${JSON.stringify(dracoFixture)};
   const blob = new Blob([FIXTURE], { type: 'model/gltf+json' });
@@ -205,7 +205,7 @@ test('draco gltf loads when decoder present (soft)', async ({ page }) => {
 // Abort test: simulate slow fetch and cancel
 
 test('abort cancels load (stable)', async ({ page }) => {
-  const html = `<!DOCTYPE html><html><head><meta charset='utf-8'><title>Abort Test</title><style>html, body { height: 100%; margin: 0; padding: 0; }</style></head><body><div id="threedviewer" style="height: 100vh;"></div>
+  const html = `<!DOCTYPE html><html><head><meta charset='utf-8'><title>Abort Test</title><style>html, body { height: 100%; margin: 0; padding: 0; }</style></head><body><div id="skip-actions" style="position: absolute; top: -999px; overflow: hidden"></div><div id="threedviewer" style="height: 100vh;"></div>
   <script>
   window.__TEST_FILE_ID = 777;
   window.__ABORTED = false;
@@ -270,7 +270,7 @@ test('retry succeeds after user cancel', async ({ page }) => {
     })
   })
 
-  const html = `<!DOCTYPE html><html><head><meta charset='utf-8'><title>Retry Test</title><style>html, body { height: 100%; margin: 0; padding: 0; }</style></head><body><div id="threedviewer" style="height: 100vh;"></div>
+  const html = `<!DOCTYPE html><html><head><meta charset='utf-8'><title>Retry Test</title><style>html, body { height: 100%; margin: 0; padding: 0; }</style></head><body><div id="skip-actions" style="position: absolute; top: -999px; overflow: hidden"></div><div id="threedviewer" style="height: 100vh;"></div>
   <script>
   window.__TEST_FILE_ID = 4242;
   window.history.replaceState({}, '', '?fileId=' + window.__TEST_FILE_ID);
@@ -308,7 +308,7 @@ test('network drop surfaces a load error', async ({ page }) => {
     await route.abort('failed')
   })
 
-  const html = `<!DOCTYPE html><html><head><meta charset='utf-8'><title>Network Drop Test</title><style>html, body { height: 100%; margin: 0; padding: 0; }</style></head><body><div id="threedviewer" style="height: 100vh;"></div>
+  const html = `<!DOCTYPE html><html><head><meta charset='utf-8'><title>Network Drop Test</title><style>html, body { height: 100%; margin: 0; padding: 0; }</style></head><body><div id="skip-actions" style="position: absolute; top: -999px; overflow: hidden"></div><div id="threedviewer" style="height: 100vh;"></div>
   <script>
   window.__TEST_FILE_ID = 9999;
   window.history.replaceState({}, '', '?fileId=' + window.__TEST_FILE_ID);

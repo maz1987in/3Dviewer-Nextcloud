@@ -9,7 +9,7 @@ const FILE_ID = 4242
 
 const HTML = `<!DOCTYPE html><html><head><meta charset="utf-8">
 <meta name="requesttoken" content="test-token"></head>
-<body><div id="threedviewer" style="height:100vh"></div>
+<body><div id="skip-actions" style="position: absolute; top: -999px; overflow: hidden"></div><div id="threedviewer" style="height:100vh"></div>
 <script>
   window.OCA = { Viewer: { handlers: {}, registerHandler(h) { this.handlers[h.id || 'threedviewer'] = h }, open() {} } };
   window.OC = { webroot: '', appswebroots: {}, filePath: (a, t, p) => '/' + String(p).replace(/^\\//, ''),
