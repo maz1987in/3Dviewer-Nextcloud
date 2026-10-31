@@ -512,6 +512,10 @@ const SAMPLES: Sample[] = [
   { name: 'las', extension: 'las', files: [`${FIXTURES}pointclouds/utm-1.2.las`] },
   { name: 'laz', extension: 'laz', files: [`${FIXTURES}pointclouds/simple.laz`] },
   { name: 'e57', extension: 'e57', files: [`${FIXTURES}pointclouds/tinyCartesianFloatRgb.e57`] },
+  // Gaussian splats, drawn by Spark inside the worker after its sort
+  { name: 'splat', extension: 'splat', files: [`${FIXTURES}splats/grid.splat`] },
+  { name: 'spz', extension: 'spz', files: [`${FIXTURES}splats/grid.spz`] },
+  { name: 'splat ply', extension: 'ply', files: [`${FIXTURES}splats/grid.ply`] },
 ]
 
 function startStaticServer(): Promise<{ origin: string, close: () => Promise<void> }> {

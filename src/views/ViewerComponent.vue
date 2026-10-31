@@ -143,18 +143,24 @@
 			role="region"
 			:aria-label="t('threedviewer', 'Model statistics')"
 			class="viewer-stats-panel">
-			<div class="stats-row">
-				<span class="stats-label">{{ t('threedviewer', 'Meshes') }}</span>
-				<span class="stats-value">{{ modelStats.meshes }}</span>
+			<div v-if="modelStats.splats" class="stats-row">
+				<span class="stats-label">{{ t('threedviewer', 'Splats') }}</span>
+				<span class="stats-value">{{ formatNumber(modelStats.splats) }}</span>
 			</div>
-			<div class="stats-row">
-				<span class="stats-label">{{ t('threedviewer', 'Vertices') }}</span>
-				<span class="stats-value">{{ formatNumber(modelStats.vertices) }}</span>
-			</div>
-			<div class="stats-row">
-				<span class="stats-label">{{ t('threedviewer', 'Faces') }}</span>
-				<span class="stats-value">{{ formatNumber(modelStats.faces) }}</span>
-			</div>
+			<template v-else>
+				<div class="stats-row">
+					<span class="stats-label">{{ t('threedviewer', 'Meshes') }}</span>
+					<span class="stats-value">{{ modelStats.meshes }}</span>
+				</div>
+				<div class="stats-row">
+					<span class="stats-label">{{ t('threedviewer', 'Vertices') }}</span>
+					<span class="stats-value">{{ formatNumber(modelStats.vertices) }}</span>
+				</div>
+				<div class="stats-row">
+					<span class="stats-label">{{ t('threedviewer', 'Faces') }}</span>
+					<span class="stats-value">{{ formatNumber(modelStats.faces) }}</span>
+				</div>
+			</template>
 			<div class="stats-row">
 				<span class="stats-label">{{ t('threedviewer', 'Size') }}</span>
 				<span class="stats-value">{{ sizeText }}</span>
@@ -184,6 +190,7 @@ import { buildViewUrl, cameraFromScene, cameraToScene, isUsableCamera, takeViewF
 import { copyText } from '../utils/clipboard.js'
 import { createFileSettingsApi } from '../utils/fileSettingsApi.js'
 import { isScanExtension } from '../pointclouds/scanExtensions.js'
+import { isSplatExtension } from '../splats/splatExtensions.js'
 import { defaultDisplayUnit, displayLengthFactor, isUnitChangeable, millimetresPerFileUnit, millimetresPerUnit } from '../utils/sourceUnits.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
 
@@ -442,6 +449,7 @@ export default {
 
 	beforeUnmount() {
 		this.loadController?.abort()
+		this.dropSplatHost()
 		clearTimeout(this.linkCopiedTimer)
 		document.removeEventListener('fullscreenchange', this.onFullscreenChange)
 		// Restore console error handler
@@ -658,12 +666,22 @@ export default {
 			let meshes = 0
 			let vertices = 0
 			let faces = 0
+			let splats = 0
 			const box = new this._THREE.Box3()
 			let hasGeometry = false
 
 			this.scene.traverse((child) => {
-				// A scan: its points, and its size
-				if (child.isPoints && child.geometry) {
+				// A splat: its splats, and its size from the box that measures it
+				// (splats/loadSplat.js); Spark's renderer in the scene is no part of it
+				if (child.userData?.tdvSplat) {
+					splats += child.userData.tdvSplat.count
+				} else if (child.userData?.tdvBoundsProxy) {
+					box.expandByObject(child)
+					hasGeometry = true
+				} else if (child.name === 'tdv-spark') {
+					// Spark's renderer
+				} else if (child.isPoints && child.geometry) {
+					// A scan: its points, and its size
 					vertices += child.geometry.attributes.position?.count ?? 0
 					box.expandByObject(child)
 					hasGeometry = true
@@ -688,7 +706,7 @@ export default {
 				this.modelSize = { x: size.x, y: size.y, z: size.z }
 			}
 
-			this.modelStats = { meshes, vertices: Math.round(vertices), faces: Math.round(faces) }
+			this.modelStats = { meshes, vertices: Math.round(vertices), faces: Math.round(faces), splats }
 			this.loadChosenUnit()
 		},
 
@@ -714,7 +732,7 @@ export default {
 		},
 
 		/**
-		 * Turn a scan the way its file's settings say is up (useFileUp in the full viewer),
+		 * Turn a scan or splat the way its file's settings say is up (useFileUp in the full viewer),
 		 * for everyone who opens it, public-link visitors too. A failed read keeps the
 		 * format's own; an answer for a file since replaced is dropped.
 		 *
@@ -724,7 +742,8 @@ export default {
 		async applySavedUp(object3D, THREE) {
 			const share = getPublicShareContext()
 			const fileId = this.fileid || share?.fileId
-			const cloud = object3D.userData.tdvPointCloud
+			// A scan or a splat (splats/loadSplat.js)
+			const cloud = object3D.userData.tdvPointCloud ?? object3D.userData.tdvSplat
 			let up
 			try {
 				({ up } = await createFileSettingsApi({ fileId, shareToken: share?.token ?? null }).get())
@@ -735,13 +754,20 @@ export default {
 			if (!up || up === cloud.up || fileId !== (this.fileid || getPublicShareContext()?.fileId)) {
 				return
 			}
-			const [{ applyUp }, { setColourBy }] = await Promise.all([import('../pointclouds/upAxis.js'), import('../pointclouds/buildPointCloud.js')])
+			const { applyUp } = await import('../pointclouds/upAxis.js')
 			applyUp(object3D, up)
 			cloud.up = up
 			if (cloud.colourBy === 'height') {
+				const { setColourBy } = await import('../pointclouds/buildPointCloud.js')
 				setColourBy(object3D, 'height')
 			}
 			this.fitCameraToModel(object3D, THREE)
+		},
+
+		/** Let go of Spark's renderer for a splat that is no longer shown. */
+		dropSplatHost() {
+			this.splatHost?.dispose()
+			this.splatHost = null
 		},
 
 		formatNumber(n) {
@@ -1133,6 +1159,14 @@ export default {
 					// A scan (a PLY may be one) stays a Blob, which the scan reader takes a window at a time
 					const { readScanBody } = await import('../pointclouds/blobReader.js')
 					arrayBuffer = await readScanBody(response, { onBytes: downloading, signal })
+				} else if (isSplatExtension(extension)) {
+					// A splat too, within its own ceiling
+					const [{ readScanBody }, { SPLAT_CEILING_BYTES }, { SplatTooLargeError }] = await Promise.all([
+						import('../pointclouds/blobReader.js'),
+						import('../splats/limits.js'),
+						import('../splats/splatErrors.js'),
+					])
+					arrayBuffer = await readScanBody(response, { onBytes: downloading, ceiling: SPLAT_CEILING_BYTES, tooLarge: (size) => new SplatTooLargeError(size), signal })
 				} else if (total > 0 && response.body) {
 					// Track download progress
 					const reader = response.body.getReader()
@@ -1196,8 +1230,8 @@ export default {
 				const result = await loadModelByExtension(extension, arrayBuffer, context)
 
 				if (result && result.object3D) {
-					// A scan, turned to its format's up before it is shown
-					const cloud = result.object3D.userData?.tdvPointCloud ?? null
+					// A scan or splat, turned to its format's up before it is shown
+					const cloud = result.object3D.userData?.tdvPointCloud ?? result.object3D.userData?.tdvSplat ?? null
 					if (cloud) {
 						const { applyUp } = await import('../pointclouds/upAxis.js')
 						applyUp(result.object3D, cloud.up)
@@ -1205,6 +1239,12 @@ export default {
 					// Add loaded model to scene
 					this.updateProgress(true, 80, this.t('threedviewer', 'Adding model to scene...'), '', false)
 					this.scene.add(result.object3D)
+					// A splat is drawn by Spark, with this viewer's renderer (splats/sparkHost.js)
+					this.dropSplatHost()
+					if (result.object3D.userData?.tdvSplat) {
+						const { attachSpark } = await import('../splats/sparkHost.js')
+						this.splatHost = markRaw(await attachSpark(this.scene, this.renderer))
+					}
 
 					// Auto-fit camera to model
 					this.updateProgress(true, 90, this.t('threedviewer', 'Positioning camera...'), '', false)
@@ -1423,6 +1463,7 @@ export default {
 		 */
 		cleanup() {
 			logger.info('ViewerComponent', 'Starting cleanup for model', { filename: this.filename })
+			this.dropSplatHost()
 
 			// Dispose of geometries, materials, and textures
 			this.scene.traverse((object) => {

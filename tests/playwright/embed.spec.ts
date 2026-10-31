@@ -4,6 +4,7 @@
  * shares may be shown and who may frame them, is pinned by the PHP HTTP tests.
  */
 import { test, expect, type Page } from '@playwright/test'
+import fs from 'node:fs'
 import { startServer, openViewer, stlCube, type Viewer } from './helpers/viewerServer'
 
 const MODEL = { id: 7501, name: 'cube.stl', body: stlCube(10) }
@@ -86,4 +87,22 @@ test('full screen from the keyboard', async ({ page }) => {
 	await expect(button).toHaveAttribute('aria-pressed', 'true')
 	await page.keyboard.press('Enter')
 	await expect(button).toHaveAttribute('aria-pressed', 'false')
+})
+
+// Spark draws a splat with workers it starts from blob: URLs, which the embed page's
+// policy allows (lib/Listener/CspListener.php); none of it may be refused
+test('a splat embeds', async ({ page }) => {
+	const policy: string[] = []
+	page.on('console', (message) => { if (message.text().includes('Content Security Policy')) policy.push(message.text()) })
+	const splat = { id: 7511, name: 'grid.spz', body: fs.readFileSync('tests/fixtures/splats/grid.spz') }
+	const { errors } = await openViewer(page, server.url, splat, EMBED)
+
+	await expect.poll(() => page.evaluate(() => {
+		const viewer = (document.querySelector('#threedviewer-public') as any)?._vnode?.component?.subTree?.component?.proxy
+		let count = null
+		viewer?.scene?.traverse((child: any) => { if (child.userData?.tdvSplat) count = child.userData.tdvSplat.count })
+		return { count, spark: Boolean(viewer?.scene?.getObjectByName('tdv-spark')) }
+	}), { timeout: 20000 }).toEqual({ count: 1000, spark: true })
+	expect(policy).toEqual([])
+	expect(errors).toEqual([])
 })

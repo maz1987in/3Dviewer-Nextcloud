@@ -1,6 +1,9 @@
 import * as THREE from 'three'
 import { renderThumbnail, EmptyModelError } from '../../../src/thumbnails/renderThumbnail.js'
 import { LIGHTING_PRESETS } from '../../../src/config/lightingPresets.js'
+import { attachSpark } from '../../../src/splats/sparkHost.js'
+
+jest.mock('../../../src/splats/sparkHost.js', () => ({ attachSpark: jest.fn() }))
 
 const mockRenderers = []
 
@@ -288,4 +291,38 @@ describe('renderThumbnail', () => {
 		expect(documentSpy).not.toHaveBeenCalled()
 		documentSpy.mockRestore()
 	})
+})
+
+// A splat is drawn in the order of a sort Spark runs for the camera: the thumbnail is drawn
+// once that sort has finished, by a SparkRenderer of the thumbnail's own renderer
+test('a splat is drawn after its sort, and Spark is let go after', async () => {
+	const order = []
+	let finish
+	const host = {
+		prepare: jest.fn(() => new Promise((resolve) => { order.push('prepare'); finish = resolve })),
+		dispose: jest.fn(() => order.push('dispose')),
+	}
+	attachSpark.mockResolvedValue(host)
+	const root = cube()
+	root.userData.tdvSplat = { count: 1000 }
+
+	const rendering = renderThumbnail(root, { canvas: offscreenCanvas() })
+	await new Promise((resolve) => setTimeout(resolve, 0))
+	const renderer = mockRenderers.at(-1)
+	renderer.render.mockImplementation(() => order.push('render'))
+	expect(attachSpark).toHaveBeenCalledWith(expect.any(THREE.Scene), renderer)
+	expect(renderer.render).not.toHaveBeenCalled()
+
+	finish()
+	await rendering
+	expect(order).toEqual(['prepare', 'render', 'dispose'])
+	expect(host.prepare.mock.calls[0][0]).toBeInstanceOf(THREE.PerspectiveCamera)
+})
+
+test('a mesh never asks for Spark', async () => {
+	attachSpark.mockClear()
+
+	await renderThumbnail(cube(), { canvas: offscreenCanvas() })
+
+	expect(attachSpark).not.toHaveBeenCalled()
 })

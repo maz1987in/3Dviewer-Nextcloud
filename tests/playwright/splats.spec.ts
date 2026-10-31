@@ -246,3 +246,17 @@ test('a view-only colleague sees which way is up for a splat, and can\'t change 
 	await expect(page.locator('#tdv-up')).toHaveCount(0)
 	await expect.poll(() => rotationX(page)).toBeCloseTo(-Math.PI / 2)
 })
+
+test('a public link shows a splat, turned the way the file says', async ({ page }) => {
+	const { errors } = await openViewer(page, server.url, { ...GRID.splat, id: 7771 }, { user: null, publicToken: 'splattok', lite: true, up: '-y' })
+
+	const shown = () => page.evaluate(() => {
+		const viewer = (document.querySelector('#threedviewer-public') as any)._vnode.component.subTree.component.proxy
+		let found = null
+		viewer.scene.traverse((child: any) => { if (child.userData?.tdvSplat) found = { count: child.userData.tdvSplat.count, x: child.rotation.x } })
+		return { ...found, spark: Boolean(viewer.scene.getObjectByName('tdv-spark')), splats: viewer.modelStats?.splats ?? null }
+	})
+	await expect.poll(async () => (await shown()).x).toBeCloseTo(Math.PI)
+	expect(await shown()).toMatchObject({ count: 1000, spark: true, splats: 1000 })
+	expect(errors).toEqual([])
+})
