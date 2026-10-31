@@ -741,6 +741,43 @@ export default {
 			return this.offTools.includes(key)
 		},
 
+		/**
+		 * A tool left on from the previous model is closed when it is off for this one: its
+		 * switch is gated now, so it could not be turned off, and a measurement or a note
+		 * would go on picking points on a splat's renderer. Shading is left as it is: it
+		 * changes nothing on a scan or a splat, and is the person's own for the next mesh.
+		 */
+		closeOffTools() {
+			const viewer = this.$refs.viewer
+			if (!viewer) {
+				return
+			}
+			if (this.isOff('measure') && this.measurementMode) {
+				viewer.toggleMeasurementMode?.()
+			}
+			if (this.isOff('notes') && this.annotationMode) {
+				viewer.toggleAnnotationMode?.()
+			}
+			if (this.isOff('compare') && this.comparisonMode) {
+				viewer.toggleComparisonMode?.()
+			}
+			if (this.isOff('printCheck') && this.printCheckActive) {
+				viewer.togglePrintCheck?.()
+			}
+			if (this.isOff('crossSection') && this.clippingActive && viewer.clippingPlane) {
+				viewer.clippingPlane.toggle()
+				this.clippingActive = viewer.clippingPlane.isActive.value ?? viewer.clippingPlane.isActive
+			}
+			if (this.isOff('transform') && this.transformGizmoActive && viewer.transformGizmo) {
+				viewer.toggleTransformGizmo()
+				this.transformGizmoActive = viewer.transformGizmo.isActive.value ?? viewer.transformGizmo.isActive
+			}
+			if (this.isOff('exploded') && this.explodedViewActive && viewer.explodedView) {
+				viewer.explodedView.toggle()
+				this.updateAnimationState()
+			}
+		},
+
 		onToggleWireframe() {
 			// Colour by takes the place of shading for a scan; a splat has none
 			if (this.isOff('shading')) return
@@ -1179,6 +1216,7 @@ export default {
 			this.pointCloud = meta.pointCloud ?? null
 			this.splat = meta.splat ?? null
 			this.offTools = offToolsFor(meta)
+			this.closeOffTools()
 			this.onPointCloudChanged(meta.pointCloud)
 			if (meta.splat) this.onSplatChanged(meta.splat)
 			this.lastError = null

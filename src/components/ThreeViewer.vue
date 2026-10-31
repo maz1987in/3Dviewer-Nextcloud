@@ -863,6 +863,7 @@
 
 <script>
 import { ref, shallowRef, reactive, markRaw, toRaw, onMounted, onBeforeUnmount, watch, computed, nextTick, defineAsyncComponent } from 'vue'
+import { disposeSplat } from '../splats/disposeSplat.js'
 import ViewerIcon from './ViewerIcon.vue'
 import * as THREE from 'three'
 import { NcProgressBar, NcButton } from '@nextcloud/vue'
@@ -987,6 +988,7 @@ export default {
 		// A splat's state for the panel ({ upState }), or null; and Spark's renderer for it
 		const splat = ref(null)
 		let splatHost = null
+		let unmounted = false
 		const dropSplatHost = () => {
 			splatHost?.dispose()
 			splatHost = null
@@ -1234,6 +1236,10 @@ export default {
 				} else {
 					// Show demo scene when no file is specified
 					await createDemoScene()
+				}
+				// A Cancel pressed while getting ready was for this load; with no file, there was none
+				if (cancelledLoad > loadSerial) {
+					cancelledLoad = null
 				}
 
 				// Initialization complete - hide loading indicator
@@ -1592,6 +1598,11 @@ export default {
 				if (loadedModel && loadedModel.object3D) {
 					// Update cache stats immediately after model loads (files may have been cached)
 					await updateCacheStats()
+					// Cancelled once the file was read: it is never shown
+					if (cancelledLoad === serial) {
+						modelLoading.clearModel()
+						throw new DOMException('Aborted', 'AbortError')
+					}
 
 					// Store source files for ZIP export
 					modelSourceFiles.value = loadedModel.sourceFiles || null
@@ -1614,13 +1625,29 @@ export default {
 					highlightedNoteId.value = null
 					notePlacementHeld.value = false
 					scene.value.add(modelRoot.value)
-					// A splat is drawn by Spark, with this viewer's renderer (splats/sparkHost.js)
+					// A splat is drawn by Spark, with this viewer's renderer (splats/sparkHost.js).
+					// Another file may be picked, or the viewer closed, while it attaches: a host
+					// for a model no longer shown would draw the next splat a second time
 					dropSplatHost()
-					const splatMeta = modelRoot.value.userData?.tdvSplat ?? null
+					const shown = modelRoot.value
+					const splatMeta = shown.userData?.tdvSplat ?? null
 					splat.value = splatMeta ? { upState: null } : null
 					if (splatMeta) {
 						const { attachSpark } = await import('../splats/sparkHost.js')
-						splatHost = await attachSpark(scene.value, renderer.value)
+						const host = await attachSpark(scene.value, renderer.value)
+						if (unmounted || modelRoot.value !== shown || cancelledLoad === serial) {
+							host.dispose()
+							// Cancelled while it attached: the splat is taken back out
+							if (!unmounted && modelRoot.value === shown) {
+								scene.value.remove(shown)
+								modelRoot.value = null
+								splat.value = null
+								modelLoading.clearModel()
+							}
+							throw new DOMException('Aborted', 'AbortError')
+						}
+						dropSplatHost()
+						splatHost = host
 					}
 
 					// Apply current G-code color scheme if applicable
@@ -2468,11 +2495,11 @@ export default {
 		// Loading methods
 		// Cancel shows while the viewer is still getting ready, before a load has a download
 		// to abort. Each load has a number, and a cancel is kept for the load it was pressed
-		// during, or for the next one when none has started; that load stops before it
-		// downloads, and a load started after it (Retry) is not touched
+		// during, or, while the viewer is getting ready, for the load it is about to start;
+		// that load stops where it is, and a load started after it (Retry) is not touched
 		const cancelLoad = () => {
 			aborting.value = true
-			cancelledLoad = activeLoad ?? loadSerial + 1
+			cancelledLoad = activeLoad ?? (initializing.value ? loadSerial + 1 : null)
 			modelLoading.cancelLoad()
 			// Reset aborting state after a short delay
 			setTimeout(() => {
@@ -4428,11 +4455,12 @@ export default {
 					dir: newDir || props.dir,
 				})
 
-				// Clear previous model
+				// Clear previous model; a splat's splats are freed with it
 				dropSplatHost()
 				splat.value = null
 				if (modelRoot.value) {
 					scene.value.remove(modelRoot.value)
+					disposeSplat(modelRoot.value)
 					modelRoot.value = null
 					modelSourceFiles.value = null
 				}
@@ -4447,10 +4475,9 @@ export default {
 				// Load new model (loadModel will use updated props.filename and props.dir)
 				try {
 					await loadModel(newFileId)
-				} catch (error) {
-					logger.error('ThreeViewer', 'Failed to load model after file selection', error)
-					emit('error', error)
-					// Don't show demo scene on error - let error state handle it
+				} catch {
+					// loadModel has logged and reported a failure already, and Cancel loading is
+					// none. Don't show demo scene on error - let error state handle it
 				}
 			}
 		}, { immediate: false })
@@ -4615,6 +4642,7 @@ export default {
 		})
 
 		onBeforeUnmount(() => {
+			unmounted = true
 			// Ends a running print-check worker and takes its overlays out of the scene
 			printCheckGone = true
 			printCheck.value?.dispose()
