@@ -70,6 +70,8 @@ const SUPPORTED_MIMES = [
 	'application/vnd.las', // .las — LiDAR and survey point cloud
 	'application/vnd.laszip', // .laz — compressed LiDAR and survey point cloud
 	'model/e57', // .e57 — laser scan
+	'model/x-gaussian-splat', // .splat — Gaussian splat
+	'model/x-spz', // .spz — compressed Gaussian splat
 ]
 
 // Mode 1: Register simple viewer handler with Viewer API (modal preview)

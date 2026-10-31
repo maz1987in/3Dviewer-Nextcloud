@@ -168,3 +168,20 @@ describe('scans', () => {
 		expect(isUnitChangeable('site.pcd', cloud())).toBe(true)
 	})
 })
+
+describe('splats', () => {
+	const splat = (format) => {
+		const root = new THREE.Group()
+		root.userData.tdvSplat = { format, unit: 'm' }
+		return root
+	}
+
+	it('default to metres, and a unit can be chosen', () => {
+		for (const name of ['room.splat', 'room.spz', 'room.ply']) {
+			const root = splat(name.split('.').pop())
+			expect(millimetresPerFileUnit(name, root)).toBe(1000)
+			expect(isUnitChangeable(name, root)).toBe(true)
+			expect(millimetresPerFileUnit(name, root, 'cm')).toBe(10)
+		}
+	})
+})

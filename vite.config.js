@@ -69,6 +69,9 @@ const appConfig = createAppConfig(
             manualChunks: {
               // Three.js core (large but commonly used)
               'three-core': ['three'],
+
+              // Spark, the Gaussian splat renderer: loaded only when a splat opens
+              spark: ['@sparkjsdev/spark'],
               
               // Three.js loaders (split by type for better caching)
               'three-loaders': [

@@ -755,6 +755,24 @@ export const SUPPORTED_FORMATS = {
 		displayOrder: 38,
 		icon: imagePath('threedviewer', 'filetypes/e57.svg'),
 	},
+	splat: {
+		name: 'SPLAT',
+		description: 'Gaussian splat',
+		mimeType: 'model/x-gaussian-splat',
+		features: ['splat'],
+		multiFile: false,
+		displayOrder: 39,
+		icon: imagePath('threedviewer', 'filetypes/splat.svg'),
+	},
+	spz: {
+		name: 'SPZ',
+		description: 'Compressed Gaussian splat',
+		mimeType: 'model/x-spz',
+		features: ['splat'],
+		multiFile: false,
+		displayOrder: 40,
+		icon: imagePath('threedviewer', 'filetypes/spz.svg'),
+	},
 }
 
 /**

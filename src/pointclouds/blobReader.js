@@ -63,15 +63,16 @@ export async function readRange(blob, start, length) {
  *
  * @param {function(number): void} onBytes - Told the running total
  * @param {number} [limit] - Bytes allowed
+ * @param {function(number): Error} [tooLarge] - The error past the limit
  * @return {TransformStream} The counter
  */
-export function byteCounter(onBytes, limit = Infinity) {
+export function byteCounter(onBytes, limit = Infinity, tooLarge = (size) => new ScanTooLargeError(size)) {
 	let received = 0
 	return new TransformStream({
 		transform(chunk, controller) {
 			received += chunk.byteLength
 			if (received > limit) {
-				controller.error(new ScanTooLargeError(received))
+				controller.error(tooLarge(received))
 				return
 			}
 			onBytes(received)
@@ -88,19 +89,21 @@ export function byteCounter(onBytes, limit = Infinity) {
  * @param {object} [options] - How to read it
  * @param {function(number): void} [options.onBytes] - Told the bytes received so far
  * @param {number} [options.ceiling] - Bytes allowed
+ * @param {function(number): Error} [options.tooLarge] - The refusal past the ceiling; a
+ *   splat's has its own words
  * @param {AbortSignal} [options.signal] - The fetch's: a body cut short by it is a cancellation
  * @return {Promise<Blob>} The file
  */
-export async function readScanBody(response, { onBytes = () => {}, ceiling = SCAN_CEILING_BYTES, signal } = {}) {
+export async function readScanBody(response, { onBytes = () => {}, ceiling = SCAN_CEILING_BYTES, tooLarge = (size) => new ScanTooLargeError(size), signal } = {}) {
 	const length = parseInt(response.headers.get('content-length') || '0', 10)
 	if (length > ceiling) {
-		throw new ScanTooLargeError(length)
+		throw tooLarge(length)
 	}
 	try {
 		if (!response.body) {
 			return await response.blob()
 		}
-		return await new Response(response.body.pipeThrough(byteCounter(onBytes, ceiling))).blob()
+		return await new Response(response.body.pipeThrough(byteCounter(onBytes, ceiling, tooLarge))).blob()
 	} catch (error) {
 		// Some browsers fail a body cut short by an abort with a network error instead
 		throw signal?.aborted ? abortError() : error

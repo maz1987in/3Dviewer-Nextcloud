@@ -43,6 +43,8 @@ const loaders = {
 	las: () => import('./types/las.js'),
 	laz: () => import('./types/las.js'),
 	e57: () => import('./types/e57.js'),
+	splat: () => import('./types/splat.js'),
+	spz: () => import('./types/spz.js'),
 }
 
 export async function loadModelByExtension(ext, arrayBuffer, context) {

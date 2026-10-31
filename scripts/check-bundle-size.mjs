@@ -61,6 +61,12 @@ const BUDGETS = [
   // The point-cloud worker's entry: it picks a reader for the file and sends the points
   // back. Each reader is a chunk of its own, loaded for its format only.
   { pattern: /^point-cloud-worker-[\w-]+\.mjs$/, name: 'point-cloud-worker', maxRaw: 40000, maxGzip: 14000 },
+  // Spark (@sparkjsdev/spark 2.4.0), the Gaussian splat renderer, with its WebAssembly and
+  // workers inlined. Loaded only when a splat opens, and by the thumbnail worker for one.
+  // 2,698,993 B raw / 950,652 B gzip (page) and 2,672,666 / 944,150 (worker) when added,
+  // budgeted at that plus 5 percent.
+  { pattern: /^spark-[\w-]+\.chunk\.mjs$/, name: 'spark', maxRaw: 2834000, maxGzip: 999000 },
+  { pattern: /^thumbnail-worker-spark\.module-[\w-]+\.chunk\.mjs$/, name: 'thumbnail-worker-spark', maxRaw: 2807000, maxGzip: 992000 },
 ];
 
 const buildDir = path.resolve(process.cwd(), 'js');

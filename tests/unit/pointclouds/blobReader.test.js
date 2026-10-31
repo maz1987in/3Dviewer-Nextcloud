@@ -71,6 +71,14 @@ test('a scan that sends no length is stopped once it passes the ceiling', async 
 	await expect(readScanBody(response, { ceiling: 32 })).rejects.toBeInstanceOf(ScanTooLargeError)
 })
 
+test('a custom refusal, whether the length is sent or not', async () => {
+	class Refusal extends Error {}
+	const tooLarge = (size) => new Refusal(`too large: ${size}`)
+
+	await expect(readScanBody(new Response('x', { headers: { 'content-length': '64' } }), { ceiling: 32, tooLarge })).rejects.toThrow('too large: 64')
+	await expect(readScanBody(new Response(new Blob([bytes(64)])), { ceiling: 32, tooLarge })).rejects.toBeInstanceOf(Refusal)
+})
+
 // A fetch cancelled part way through its body fails the stream with a network error in
 // some browsers, not an AbortError; the viewer must still take it as a cancellation
 test('a download cancelled part way is a cancellation, not a failure', async () => {

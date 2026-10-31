@@ -26,6 +26,8 @@
  *                    names a unit records it.
  *   e57              a laser scan, in metres by the standard, which the file records. Any scan (a PLY with no faces too)
  *                    is metres unless its file records a unit; see `scanUnit`.
+ *   splat, spz       Gaussian splats record no unit; the phone apps that make them work in
+ *                    metres. A splat PLY too (`splatOf`), and its unit can be chosen.
  *
  * millimetres
  *   stl, obj, ply, off, 3ds
@@ -105,6 +107,9 @@ export const SOURCE_UNITS = Object.freeze({
 	las: METRE,
 	laz: METRE,
 	e57: METRE,
+	// Splats: captures are made in metres
+	splat: METRE,
+	spz: METRE,
 	fbx: CENTIMETRE,
 	gcode: MILLIMETRE,
 })
@@ -236,7 +241,18 @@ export function viewerScale(root) {
 
 // Formats whose files never record a unit, so one can be chosen for them (and FBX, when
 // the file has no UnitScaleFactor, and a scan whose coordinate system names none)
-const CHANGEABLE_FORMATS = new Set(['stl', 'obj', 'ply', 'off', '3ds', 'las', 'laz', 'pcd', 'xyz'])
+const CHANGEABLE_FORMATS = new Set(['stl', 'obj', 'ply', 'off', '3ds', 'las', 'laz', 'pcd', 'xyz', 'splat', 'spz'])
+
+/**
+ * A splat's record of itself (splats/loadSplat.js); a PLY is one only when its header says
+ * so, so this, not the extension, says a model is a splat.
+ *
+ * @param {?THREE.Object3D} root - The loaded model
+ * @return {?object} Its userData.tdvSplat, or null
+ */
+function splatOf(root) {
+	return recorded(root, (data) => data.tdvSplat) ?? null
+}
 
 /**
  * A scan's record of itself (pointclouds/buildPointCloud.js); a PLY is one only when it
@@ -282,6 +298,9 @@ export function isUnitChangeable(filename, root = null) {
 	const extension = extensionOf(filename)
 	if (pointCloudOf(root)) {
 		return scanUnit(root) === null
+	}
+	if (splatOf(root)) {
+		return true
 	}
 	return CHANGEABLE_FORMATS.has(extension) || (extension === 'fbx' && fbxUnit(root) === null)
 }
@@ -342,6 +361,10 @@ export function millimetresPerFileUnit(filename, root = null, chosenUnit = null)
 	// A scan: the unit its file records, or metres, which scanners write
 	if (pointCloudOf(root)) {
 		return scanUnit(root) ?? METRE
+	}
+	// A splat, a splat PLY too: metres
+	if (splatOf(root)) {
+		return METRE
 	}
 	const extension = extensionOf(filename)
 	if (extension === '3dm') {

@@ -9,6 +9,7 @@ import { loadModelByExtension, isSupportedExtension } from '../loaders/registry.
 import { loadModelWithDependencies } from '../loaders/multiFileHelpers.js'
 import { buildFileUrl } from './usePublicShare.js'
 import { isScanExtension } from '../pointclouds/scanExtensions.js'
+import { isSplatExtension } from '../splats/splatExtensions.js'
 import { createErrorState } from '../utils/error-handler.js'
 import { logger } from '../utils/logger.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
@@ -302,6 +303,15 @@ export function useModelLoading() {
 			if (isScanExtension(extension) || extension === 'ply') {
 				const { readScanBody } = await import('../pointclouds/blobReader.js')
 				body = await readScanBody(response, { onBytes: showDownloaded, signal })
+				receivedLength = body.size
+			} else if (isSplatExtension(extension)) {
+				// A splat too: Spark is handed its bytes once the download is in
+				const [{ readScanBody }, { SPLAT_CEILING_BYTES }, { SplatTooLargeError }] = await Promise.all([
+					import('../pointclouds/blobReader.js'),
+					import('../splats/limits.js'),
+					import('../splats/splatErrors.js'),
+				])
+				body = await readScanBody(response, { onBytes: showDownloaded, ceiling: SPLAT_CEILING_BYTES, tooLarge: (size) => new SplatTooLargeError(size), signal })
 				receivedLength = body.size
 			} else {
 				// Stream the response with progress tracking

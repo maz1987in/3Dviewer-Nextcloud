@@ -977,6 +977,13 @@ export default {
 		const container = ref(null)
 		// A scan's colour by and point size; null for a mesh (pointclouds/buildPointCloud.js)
 		const pointCloud = ref(null)
+		// A splat's state for the panel ({ upState }), or null; and Spark's renderer for it
+		const splat = ref(null)
+		let splatHost = null
+		const dropSplatHost = () => {
+			splatHost?.dispose()
+			splatHost = null
+		}
 		const scene = shallowRef(null)
 		const renderer = shallowRef(null)
 		const renderPaused = ref(false)
@@ -1480,6 +1487,9 @@ export default {
 		 */
 		const loadModel = async (fileId) => {
 			try {
+				if (cancelPending) {
+					throw new DOMException('Aborted', 'AbortError')
+				}
 				// Reset auto performance flags for this load
 				performanceModeAutoApplied.value = false
 
@@ -1549,6 +1559,9 @@ export default {
 					propsDir: props.dir,
 				})
 
+				if (cancelPending) {
+					throw new DOMException('Aborted', 'AbortError')
+				}
 				// Use the model loading composable which has proper progress tracking
 				const loadedModel = await modelLoading.loadModelFromFileId(fileId, fullPath, {
 					dirPath, // Pass the directory path explicitly
@@ -1590,6 +1603,14 @@ export default {
 					highlightedNoteId.value = null
 					notePlacementHeld.value = false
 					scene.value.add(modelRoot.value)
+					// A splat is drawn by Spark, with this viewer's renderer (splats/sparkHost.js)
+					dropSplatHost()
+					const splatMeta = modelRoot.value.userData?.tdvSplat ?? null
+					splat.value = splatMeta ? { upState: null } : null
+					if (splatMeta) {
+						const { attachSpark } = await import('../splats/sparkHost.js')
+						splatHost = await attachSpark(scene.value, renderer.value)
+					}
 
 					// Apply current G-code color scheme if applicable
 					setGcodeColorScheme(props.gcodeColorMode, props.gcodeSingleColor)
@@ -1812,7 +1833,12 @@ export default {
 						})
 					}
 
-					emit('model-loaded', { fileId, filename, pointCloud: cloud ? { ...pointCloudSummary(cloud), ...pointCloud.value } : null })
+					emit('model-loaded', {
+						fileId,
+						filename,
+						pointCloud: cloud ? { ...pointCloudSummary(cloud), ...pointCloud.value } : null,
+						splat: splatMeta ? { ...splatSummary(splatMeta), ...splat.value } : null,
+					})
 					logger.info('ThreeViewer', 'Model loaded successfully')
 
 					// Test harness hook
@@ -1880,6 +1906,9 @@ export default {
 				}
 				// Re-throw error so caller knows it failed
 				throw error
+			} finally {
+				// A cancel belongs to the load it stopped, not to the next one
+				cancelPending = false
 			}
 		}
 
@@ -2425,8 +2454,12 @@ export default {
 		}
 
 		// Loading methods
+		// Cancel shows while the viewer is still getting ready, before a load has a download
+		// to abort; such a cancel is kept here, and the load stops before it downloads
+		let cancelPending = false
 		const cancelLoad = () => {
 			aborting.value = true
+			cancelPending = true
 			modelLoading.cancelLoad()
 			// Reset aborting state after a short delay
 			setTimeout(() => {
@@ -2572,6 +2605,18 @@ export default {
 			exploded: { isActive: explodedView.isActive.value, factor: explodedView.factor.value },
 			highlightedNoteId: highlightedNoteId.value,
 			pointCloud: pointCloud.value,
+		})
+
+		/**
+		 * @param {object} meta - A splat's userData.tdvSplat
+		 * @return {object} What the tools panel shows of it
+		 */
+		const splatSummary = (meta) => ({
+			format: meta.format,
+			count: meta.count,
+			total: meta.total,
+			defaultUp: meta.defaultUp,
+			up: meta.up,
 		})
 
 		/**
@@ -4359,6 +4404,8 @@ export default {
 				})
 
 				// Clear previous model
+				dropSplatHost()
+				splat.value = null
 				if (modelRoot.value) {
 					scene.value.remove(modelRoot.value)
 					modelRoot.value = null
@@ -4589,6 +4636,7 @@ export default {
 			}
 
 			camera.dispose()
+			dropSplatHost()
 			modelLoading.clearModel()
 			comparison.clearComparison()
 
