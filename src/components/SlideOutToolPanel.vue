@@ -168,6 +168,26 @@
 							</div>
 						</section>
 
+						<!-- SPLAT Section: a splat's own controls, and the tools that are off for it -->
+						<section v-if="splat" class="panel-section">
+							<button class="section-header"
+								:aria-expanded="sections.splat"
+								aria-controls="panel-section-splat"
+								@click="toggleSection('splat')">
+								<span class="section-title">{{ t('threedviewer', 'Splat') }}</span>
+								<ViewerIcon class="expand-icon"
+									:class="{ collapsed: !sections.splat }"
+									name="chevron"
+									:size="15" />
+							</button>
+							<!-- v-show: the gated controls are described by lines inside, open or not -->
+							<div v-show="sections.splat" id="panel-section-splat" class="section-content">
+								<SplatControls :meta="splat"
+									:up-state="upState"
+									@set-up="emit('set-up', $event)" />
+							</div>
+						</section>
+
 						<!-- SCENE Section (was Display) -->
 						<section class="panel-section">
 							<button class="section-header"
@@ -190,7 +210,7 @@
 								<ToggleSwitchRow :checked="wireframe"
 									:label="t('threedviewer', 'Wireframe')"
 									v-bind="unavailable('shading')"
-									@toggle="pointCloud || emit('toggle-wireframe')" />
+									@toggle="off('shading') || emit('toggle-wireframe')" />
 								<!-- Render mode: inspection shading in place of the model's materials -->
 								<div class="tool-group">
 									<!-- A heading for the group, not a <label>: there is no one control it names -->
@@ -204,7 +224,7 @@
 											:title="option.title"
 											:disabled="!modelLoaded"
 											v-bind="unavailable('shading')"
-											@click="pointCloud || emit('set-render-mode', option.value)">
+											@click="off('shading') || emit('set-render-mode', option.value)">
 											{{ option.label }}
 										</button>
 									</div>
@@ -241,7 +261,8 @@
 							<div v-show="sections.analyze" id="panel-section-analyze" class="section-content">
 								<button class="tool-btn feature-btn"
 									:class="{ 'active': measurementMode }"
-									@click="emit('toggle-measurement')">
+									v-bind="unavailable('measure')"
+									@click="off('measure') || emit('toggle-measurement')">
 									<ViewerIcon class="tool-icon" name="measurement" :size="17" />
 									<span class="tool-label">{{ t('threedviewer', 'Measurement') }}</span>
 									<span v-if="measurementMode" class="active-badge">{{ t('threedviewer', 'Active') }}</span>
@@ -249,7 +270,8 @@
 								</button>
 								<button class="tool-btn feature-btn"
 									:class="{ 'active': annotationMode }"
-									@click="emit('toggle-annotation')">
+									v-bind="unavailable('notes')"
+									@click="off('notes') || emit('toggle-annotation')">
 									<ViewerIcon class="tool-icon" name="annotation" :size="17" />
 									<span class="tool-label">{{ t('threedviewer', 'Annotation') }}</span>
 									<span v-if="annotationMode" class="active-badge">{{ t('threedviewer', 'Active') }}</span>
@@ -257,7 +279,7 @@
 								<button class="tool-btn feature-btn"
 									:class="{ 'active': comparisonMode }"
 									v-bind="unavailable('compare')"
-									@click="pointCloud || emit('toggle-comparison')">
+									@click="off('compare') || emit('toggle-comparison')">
 									<ViewerIcon class="tool-icon" name="comparison" :size="17" />
 									<span class="tool-label">{{ t('threedviewer', 'Comparison') }}</span>
 									<span v-if="comparisonMode" class="active-badge">{{ t('threedviewer', 'Active') }}</span>
@@ -267,7 +289,7 @@
 									class="tool-btn feature-btn"
 									:disabled="!modelLoaded || comparisonMode"
 									v-bind="unavailable('compare')"
-									@click="pointCloud || emit('compare-version')">
+									@click="off('compare') || emit('compare-version')">
 									<ViewerIcon class="tool-icon" name="history" :size="17" />
 									<span class="tool-label">{{ t('threedviewer', 'Compare with earlier version') }}</span>
 								</button>
@@ -275,7 +297,8 @@
 								<button class="tool-btn feature-btn"
 									:class="{ 'active': clippingActive }"
 									:disabled="!modelLoaded"
-									@click="emit('toggle-clipping')">
+									v-bind="unavailable('crossSection')"
+									@click="off('crossSection') || emit('toggle-clipping')">
 									<ViewerIcon class="tool-icon" name="crossSection" :size="17" />
 									<span class="tool-label">{{ t('threedviewer', 'Cross-Section') }}</span>
 									<span v-if="clippingActive" class="active-badge">{{ t('threedviewer', 'Active') }}</span>
@@ -286,7 +309,7 @@
 									:aria-pressed="printCheckActive ? 'true' : 'false'"
 									:disabled="!modelLoaded || comparisonMode"
 									v-bind="unavailable('printCheck')"
-									@click="pointCloud || emit('toggle-print-check')">
+									@click="off('printCheck') || emit('toggle-print-check')">
 									<ViewerIcon class="tool-icon" name="printer3d" :size="17" />
 									<span class="tool-label">{{ t('threedviewer', 'Print check') }}</span>
 									<span v-if="printCheckActive" class="active-badge">{{ t('threedviewer', 'Active') }}</span>
@@ -421,7 +444,8 @@
 								<button class="tool-btn feature-btn"
 									:class="{ 'active': transformGizmoActive }"
 									:disabled="!modelLoaded"
-									@click="emit('toggle-transform-gizmo')">
+									v-bind="unavailable('transform')"
+									@click="off('transform') || emit('toggle-transform-gizmo')">
 									<ViewerIcon class="tool-icon" name="transform" :size="17" />
 									<span class="tool-label">{{ t('threedviewer', 'Transform') }}</span>
 									<span v-if="transformGizmoActive" class="active-badge">{{ t('threedviewer', 'Active') }}</span>
@@ -608,8 +632,8 @@
 									<button type="button"
 										class="export-btn"
 										:disabled="!modelLoaded"
-										:aria-disabled="exporting || pointCloud ? 'true' : null"
-										:aria-describedby="pointCloud ? 'tdv-unavailable-export' : null"
+										:aria-disabled="exporting || off('export') ? 'true' : null"
+										:aria-describedby="off('export') ? 'tdv-unavailable-export' : null"
 										:aria-busy="exporting ? 'true' : 'false'"
 										@click="startExport">
 										{{ t('threedviewer', 'Export') }}
@@ -618,7 +642,7 @@
 								<button class="tool-btn"
 									:disabled="!modelLoaded"
 									v-bind="unavailable('export')"
-									@click="pointCloud || emit('send-to-slicer')">
+									@click="off('export') || emit('send-to-slicer')">
 									<ViewerIcon class="tool-icon" name="sendToSlicer" :size="17" />
 									<span class="tool-label">{{ t('threedviewer', 'Send to Slicer') }}</span>
 								</button>
@@ -745,6 +769,7 @@ import { translate as t } from '@nextcloud/l10n'
 const EmbedCodeControl = defineAsyncComponent(() => import('./EmbedCodeControl.vue'))
 // Only a scan needs these, so they load with the first one
 const PointCloudControls = defineAsyncComponent(() => import('./PointCloudControls.vue'))
+const SplatControls = defineAsyncComponent(() => import('./SplatControls.vue'))
 
 export default {
 	name: 'SlideOutToolPanel',
@@ -754,6 +779,7 @@ export default {
 		ToggleSwitchRow,
 		EmbedCodeControl,
 		PointCloudControls,
+		SplatControls,
 	},
 
 	props: {
@@ -818,7 +844,11 @@ export default {
 		pointCloud: { type: Object, default: null },
 		colourBy: { type: String, default: 'height' },
 		pointSize: { type: Number, default: 2 },
-		// Which way is up for the scan (useFileUp's state), or null
+		// A splat's summary (ThreeViewer's model-loaded splat), or null
+		splat: { type: Object, default: null },
+		// The keys of the tools that are off for what is open (utils/offTools.js)
+		offTools: { type: Array, default: () => [] },
+		// Which way is up for the scan or splat (useFileUp's state), or null
 		upState: { type: Object, default: null },
 		modelPath: { type: String, default: null },
 		// The model's file id, for the link to its Sharing sidebar
@@ -922,6 +952,7 @@ export default {
 		// Section collapse states
 		const sections = ref({
 			scan: true,
+			splat: true,
 			view: true,
 			scene: true,
 			analyze: true,
@@ -1005,18 +1036,25 @@ export default {
 		})
 
 		/**
-		 * What a control the scan has turned off carries: it stays in its place, says it is
-		 * unavailable, and is described by the line saying why (PointCloudControls).
-		 *
-		 * @param {string} key - A key of POINT_CLOUD_UNAVAILABLE
-		 * @return {object} Its attributes, or none for a mesh
+		 * @param {string} key - A key of utils/offTools.js
+		 * @return {boolean} Whether that tool is off for what is open
 		 */
-		const unavailable = (key) => (props.pointCloud ? { 'aria-disabled': 'true', 'aria-describedby': `tdv-unavailable-${key}` } : {})
+		const off = (key) => props.offTools.includes(key)
+
+		/**
+		 * What a control a scan or splat has turned off carries: it stays in its place, says
+		 * it is unavailable, and is described by the line saying why (PointCloudControls,
+		 * SplatControls).
+		 *
+		 * @param {string} key - A key of utils/offTools.js
+		 * @return {object} Its attributes, or none when the tool is on
+		 */
+		const unavailable = (key) => (off(key) ? { 'aria-disabled': 'true', 'aria-describedby': `tdv-unavailable-${key}` } : {})
 
 		const startExport = () => {
 			// aria-disabled does not stop a click, so an export already running does
-			// A scan has nothing to export (pointclouds/unavailable.js)
-			if (props.exporting || !props.modelLoaded || props.pointCloud) return
+			// A scan or splat has nothing to export (utils/offTools.js)
+			if (props.exporting || !props.modelLoaded || off('export')) return
 			emit('export-model', exportFormat.value)
 		}
 
@@ -1136,6 +1174,7 @@ export default {
 		return {
 			t,
 			unavailable,
+			off,
 			showShareChoices,
 			publicLinkOpener,
 			closeShareChoices,

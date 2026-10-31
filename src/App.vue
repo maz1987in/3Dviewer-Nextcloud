@@ -81,7 +81,7 @@
 					:is-gcode-model="isGcodeModel"
 					:gcode-color-mode="gcodeColorMode"
 					:gcode-single-color="gcodeSingleColor"
-					:webxr-supported="webxrSupported"
+					:webxr-supported="webxrSupported && !isOff('vr')"
 					:webxr-active="webxrActive"
 					@reset-view="onReset"
 					@fit-to-view="onFitToView"
@@ -128,6 +128,8 @@
 					:public-shares="publicShares"
 					:embed-offered="embedOffered"
 					:point-cloud="pointCloud"
+					:splat="splat"
+					:off-tools="offTools"
 					:colour-by="pointColourBy"
 					:point-size="pointSize"
 					:up-state="pointUpState"
@@ -277,6 +279,7 @@ import { isPublicShare } from './composables/usePublicShare.js'
 import { canRecordVideo } from './utils/turntable.js'
 import { copyText } from './utils/clipboard.js'
 import { buildViewUrl } from './utils/viewLink.js'
+import { offToolsFor } from './utils/offTools.js'
 import { listLinkShares, modelPath, pickableShares } from './utils/linkShares.js'
 import { readInitialState } from './utils/initialState.js'
 
@@ -358,6 +361,10 @@ export default {
 			modelMeta: null,
 			// A scan's summary, and what it is coloured by and how big its points are; null for a mesh
 			pointCloud: null,
+			// A splat's summary, or null (ThreeViewer's model-loaded splat)
+			splat: null,
+			// The keys of the tools that are off for what is open (utils/offTools.js)
+			offTools: [],
 			pointColourBy: 'height',
 			pointSize: 2,
 			// Which way is up for it (useFileUp's state), once the server has answered
@@ -721,9 +728,17 @@ export default {
 			this.pointUpState = state?.upState ?? null
 		},
 
+		/**
+		 * @param {string} key - A key of utils/offTools.js
+		 * @return {boolean} Whether that tool is off for what is open
+		 */
+		isOff(key) {
+			return this.offTools.includes(key)
+		},
+
 		onToggleWireframe() {
-			// Colour by takes the place of shading for a scan
-			if (this.pointCloud) return
+			// Colour by takes the place of shading for a scan; a splat has none
+			if (this.isOff('shading')) return
 			this.wireframe = !this.wireframe
 			this.ownWireframe = this.wireframe
 		},
@@ -877,21 +892,24 @@ export default {
 		 * whenever the viewer disagreed.
 		 */
 		onToggleMeasurement() {
+			if (this.isOff('measure')) return
 			this.$refs.viewer?.toggleMeasurementMode?.()
 		},
 
 		onToggleAnnotation() {
+			if (this.isOff('notes')) return
 			this.$refs.viewer?.toggleAnnotationMode?.()
 		},
 
 		onToggleComparison() {
-			// Comparing scans isn't available yet
-			if (this.pointCloud) return
+			// Comparing scans and splats isn't available yet
+			if (this.isOff('compare')) return
 			this.transformGizmoActive = false
 			this.$refs.viewer?.toggleComparisonMode?.()
 		},
 
 		onTogglePrintCheck() {
+			if (this.isOff('printCheck')) return
 			this.$refs.viewer?.togglePrintCheck?.()
 		},
 
@@ -900,12 +918,13 @@ export default {
 		},
 
 		onCompareVersion() {
-			if (this.pointCloud) return
+			if (this.isOff('compare')) return
 			this.transformGizmoActive = false
 			this.$refs.viewer?.startVersionComparison?.()
 		},
 
 		onToggleTransformGizmo() {
+			if (this.isOff('transform')) return
 			if (this.$refs.viewer?.transformGizmo) {
 				this.$refs.viewer.toggleTransformGizmo()
 				this.transformGizmoActive = this.$refs.viewer.transformGizmo.isActive.value ?? this.$refs.viewer.transformGizmo.isActive
@@ -982,6 +1001,7 @@ export default {
 		},
 
 		onSendToSlicer() {
+			if (this.isOff('export')) return
 			// Open the slicer modal
 			if (this.modelLoaded) {
 				this.showSlicerModal = true
@@ -1092,6 +1112,7 @@ export default {
 			this.$refs.viewer?.handleScreenshot?.()
 		},
 		async onToggleVR() {
+			if (this.isOff('vr')) return
 			if (this.$refs.viewer?.toggleVR) {
 				await this.$refs.viewer.toggleVR()
 				// Sync state after the session settles
@@ -1151,6 +1172,8 @@ export default {
 		async onModelLoaded(meta) {
 			this.modelMeta = meta
 			this.pointCloud = meta.pointCloud ?? null
+			this.splat = meta.splat ?? null
+			this.offTools = offToolsFor(meta)
 			this.onPointCloudChanged(meta.pointCloud)
 			this.lastError = null
 			this.isLoading = false
@@ -1561,6 +1584,7 @@ export default {
 		},
 		// Clipping plane
 		onToggleClipping() {
+			if (this.isOff('crossSection')) return
 			if (this.$refs.viewer?.clippingPlane) {
 				this.$refs.viewer.clippingPlane.toggle()
 				this.clippingActive = this.$refs.viewer.clippingPlane.isActive.value ?? this.$refs.viewer.clippingPlane.isActive
@@ -1617,6 +1641,7 @@ export default {
 		},
 		// Exploded view
 		onToggleExplodedView() {
+			if (this.isOff('exploded')) return
 			if (this.$refs.viewer?.explodedView) {
 				this.$refs.viewer.explodedView.toggle()
 				this.updateAnimationState()
@@ -1629,7 +1654,7 @@ export default {
 			}
 		},
 		onSetRenderMode(mode) {
-			if (this.pointCloud) return
+			if (this.isOff('shading')) return
 			const viewer = this.$refs.viewer
 			if (!viewer?.setRenderMode) return
 			viewer.setRenderMode(mode)

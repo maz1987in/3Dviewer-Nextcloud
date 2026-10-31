@@ -132,3 +132,77 @@ test('cancel before the download starts leaves no model and no error', async ({ 
 	expect(await held(page)).toMatchObject({ splat: null, spark: false })
 	expect(errors).toEqual([])
 })
+
+// A link is a view of whatever its file is now; what is off for a splat stays off
+test('a link\'s shading, cut and wireframe are not applied to a splat', async ({ page }) => {
+	const view = `1.${Buffer.from(JSON.stringify({ c: { p: [3, 2, 3], t: [0, 0.5, 0], z: 1, o: 0 }, r: 'clay', k: { m: 'p', a: 'x', s: 0.25, f: 1 }, w: 1 })).toString('base64url')}`
+	const { errors } = await openViewer(page, server.url, { ...GRID.spz, id: 7741 }, { user: 'alice', openPanel: false, query: `view=${view}` })
+
+	const state = await page.evaluate(() => {
+		const app = (window as any).__THREEDVIEWER_APP.$.subTree.component.proxy
+		const viewer = app.$refs.viewer
+		return { renderMode: viewer.renderMode.mode.value, clipping: viewer.clippingPlane.isActive.value, wireframe: app.wireframe, camera: viewer.camera.camera.value.position.toArray() }
+	})
+	expect(state.renderMode).not.toBe('clay')
+	expect(state.clipping).toBe(false)
+	expect(state.wireframe).toBe(false)
+	expect(errors).toEqual([])
+})
+
+test('the tools a splat has no use for are off, and say why', async ({ page }) => {
+	const { errors } = await openViewer(page, server.url, { ...GRID.splat, id: 7751 })
+	const panel = page.locator('.slide-out-panel')
+	const tool = (name: string) => panel.locator('button', { has: page.locator('.tool-label', { hasText: new RegExp(`^${name}$`) }) })
+	const describedBy = async (name: string, key: string) => {
+		await expect(tool(name)).toHaveAttribute('aria-disabled', 'true')
+		await expect(tool(name)).toHaveAttribute('aria-describedby', `tdv-unavailable-${key}`)
+	}
+
+	await expect(page.locator('#tdv-unavailable-heading')).toHaveText('Not available for splats')
+	await describedBy('Measurement', 'measure')
+	await describedBy('Annotation', 'notes')
+	await describedBy('Comparison', 'compare')
+	await describedBy('Cross-Section', 'crossSection')
+	await describedBy('Print check', 'printCheck')
+	await describedBy('Transform', 'transform')
+	await describedBy('Send to Slicer', 'export')
+	for (const mode of ['Clay', 'Normals', 'X-ray']) {
+		await expect(panel.getByRole('button', { name: mode, exact: true })).toHaveAttribute('aria-describedby', 'tdv-unavailable-shading')
+	}
+	await expect(panel.getByRole('switch', { name: 'Wireframe' })).toHaveAttribute('aria-describedby', 'tdv-unavailable-shading')
+	await expect(page.locator('#tdv-unavailable-measure')).toHaveText('Measurement: A splat has no real surface to measure.')
+
+	// Pressing one does nothing, by its button or by its shortcut; it stays focusable, so a
+	// keyboard user can hear why
+	await tool('Cross-Section').focus()
+	await page.keyboard.press('Enter')
+	await page.locator('body').focus()
+	await page.keyboard.press('m')
+	const app = await page.evaluate(() => {
+		const proxy = (window as any).__THREEDVIEWER_APP.$.subTree.component.proxy
+		return { measuring: proxy.measurementMode, clipping: proxy.$refs.viewer.clippingPlane.isActive.value }
+	})
+	expect(app).toMatchObject({ measuring: false, clipping: false })
+	// A browser that could enter VR: the button stays hidden for a splat all the same
+	await page.evaluate(() => { (window as any).__THREEDVIEWER_APP.$.subTree.component.proxy.webxrSupported = true })
+	await expect(page.getByRole('button', { name: 'Enter VR' })).toHaveCount(0)
+
+	// What still works for one is on
+	await expect(panel.locator('[aria-describedby^="tdv-unavailable-"]', { hasText: 'Bookmark' })).toHaveCount(0)
+	expect(errors).toEqual([])
+})
+
+test('a splat\'s statistics: its splats and its size', async ({ page }) => {
+	await openViewer(page, server.url, { ...GRID.ply, id: 7752 }, { user: 'alice', openPanel: false })
+	await page.keyboard.press('s')
+
+	const stats = page.locator('.stats-panel-content')
+	await expect(stats).toContainText('Splats:')
+	await expect(stats).toContainText('1,000')
+	await expect(stats).not.toContainText('Surface Area')
+	await expect(stats).not.toContainText('Vertices')
+	const size = await page.evaluate(() => (window as any).__THREEDVIEWER_APP.$.subTree.component.proxy.$refs.viewer.modelStats.boundingBox)
+	expect(size.x).toBeCloseTo(2, 2)
+	expect(size.y).toBeCloseTo(1, 2)
+	expect(size.z).toBeCloseTo(0.5, 2)
+})

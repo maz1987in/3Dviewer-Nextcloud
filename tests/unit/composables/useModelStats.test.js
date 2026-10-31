@@ -34,3 +34,24 @@ test('a mesh is not a scan', () => {
 	expect(stats.pointCount).toBe(0)
 	expect(stats.faces).toBe(12)
 })
+
+test('a splat reports its splats and its extent, and not the box that measures it', () => {
+	const root = new THREE.Group()
+	const proxy = new THREE.Mesh(new THREE.BoxGeometry(2, 1, 0.5), new THREE.MeshBasicMaterial({ visible: false }))
+	proxy.userData.tdvBoundsProxy = true
+	root.add(new THREE.Object3D(), proxy)
+	root.userData.tdvSplat = { format: 'spz', count: 1000, total: 4000, unit: 'm', defaultUp: '+y', up: '+y' }
+
+	const stats = useModelStats().analyzeModel(root, 'room.spz', 100)
+
+	expect(stats.isSplat).toBe(true)
+	expect(stats.splatCount).toBe(1000)
+	expect(stats.splatTotal).toBe(4000)
+	expect(stats.isPointCloud).toBe(false)
+	expect(stats.vertices).toBe(0)
+	expect(stats.faces).toBe(0)
+	expect(stats.meshes).toBe(0)
+	expect(stats.materialCount).toBe(0)
+	expect(stats.boundingBox.x).toBeCloseTo(2)
+	expect(stats.boundingBox.y).toBeCloseTo(1)
+})

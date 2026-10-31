@@ -41,7 +41,8 @@ export function useModelStats() {
 		const materials = new Map()
 
 		object3D.traverse((child) => {
-			if (child.isMesh && child.material) {
+			// A splat's invisible bounds box (splats/loadSplat.js) is no part of the model
+			if (child.isMesh && child.material && !child.userData?.tdvBoundsProxy) {
 				const mats = Array.isArray(child.material) ? child.material : [child.material]
 				mats.forEach((mat) => {
 					if (!materials.has(mat.uuid)) {
@@ -70,7 +71,7 @@ export function useModelStats() {
 		let missingCount = 0
 
 		object3D.traverse((child) => {
-			if (child.material) {
+			if (child.material && !child.userData?.tdvBoundsProxy) {
 				const mats = Array.isArray(child.material) ? child.material : [child.material]
 				mats.forEach((mat) => {
 					// Check all material properties for textures
@@ -148,7 +149,9 @@ export function useModelStats() {
 		let points = 0
 
 		object3D.traverse((child) => {
-			if (child.isPoints) {
+			if (child.userData?.tdvBoundsProxy) {
+				// A splat's bounds box: measured for its extent, never counted
+			} else if (child.isPoints) {
 				// A scan: points, never faces
 				points += child.geometry?.attributes.position?.count ?? 0
 			} else if (child.isMesh) {
@@ -296,7 +299,7 @@ export function useModelStats() {
 		const perMesh = []
 
 		object3D.traverse((child) => {
-			if (!child.isMesh || !child.geometry) return
+			if (!child.isMesh || !child.geometry || child.userData?.tdvBoundsProxy) return
 			// Skip internal helper meshes (TransformControls, annotation markers, etc.)
 			const name = child.name || ''
 			if (name === 'TransformControlsPlane' || name.startsWith('__helper')) return
@@ -409,8 +412,10 @@ export function useModelStats() {
 			// Reset selection on fresh analysis
 			selectedMeshUuid.value = null
 
-			// A scan's own account of itself (pointclouds/buildPointCloud.js)
+			// A scan's own account of itself (pointclouds/buildPointCloud.js), and a splat's
+			// (splats/loadSplat.js)
 			const cloud = object3D.userData?.tdvPointCloud ?? null
+			const splat = object3D.userData?.tdvSplat ?? null
 
 			// Create statistics object
 			const stats = {
@@ -424,6 +429,11 @@ export function useModelStats() {
 				pointCount: geometryStats.points,
 				pointTotal: cloud?.total ?? geometryStats.points,
 				pointAttributes: cloud ? ['color', 'intensity', 'classification'].filter((key) => cloud.attributes[key]) : [],
+
+				// A splat: splats drawn, and splats in the file
+				isSplat: splat !== null,
+				splatCount: splat?.count ?? 0,
+				splatTotal: splat?.total ?? 0,
 
 				// Materials
 				materials: materials.slice(0, 10), // Limit to 10 for display

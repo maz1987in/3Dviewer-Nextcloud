@@ -92,6 +92,7 @@
 				<div class="stats-section">
 					<h4>{{ t('threedviewer', 'Geometry') }}</h4>
 					<PointCloudStats v-if="modelStats.isPointCloud" :stats="modelStats" />
+					<SplatStats v-else-if="modelStats.isSplat" :stats="modelStats" />
 					<template v-else>
 						<div class="stat-row">
 							<span>{{ t('threedviewer', 'Vertices') }}:</span>
@@ -172,7 +173,7 @@
 						select-class="stats-unit-select"
 						@set="onSetFileUnit" />
 					<!-- Watertightness badge; a scan has no surface -->
-					<div v-if="!modelStats.isPointCloud" class="stats-watertight-row">
+					<div v-if="!modelStats.isPointCloud && !modelStats.isSplat" class="stats-watertight-row">
 						<span v-if="modelStats.allWatertight === true" class="stats-badge stats-badge-ok">
 							{{ t('threedviewer', 'Watertight — volume is reliable') }}
 						</span>
@@ -204,11 +205,11 @@
 						<span>{{ t('threedviewer', 'Depth (Z)') }}:</span>
 						<span class="tdv-value stat-value">{{ formatStatNumber(modelStats.boundingBox.z * statsLengthScale) }} {{ statsUnitConfig.suffix }}</span>
 					</div>
-					<div v-if="!modelStats.isPointCloud" class="stat-row">
+					<div v-if="!modelStats.isPointCloud && !modelStats.isSplat" class="stat-row">
 						<span>{{ t('threedviewer', 'Surface Area') }}:</span>
 						<span class="tdv-value stat-value">{{ formatStatNumber(activeSurfaceArea * statsAreaScale) }} {{ statsUnitConfig.suffix }}²</span>
 					</div>
-					<div v-if="!modelStats.isPointCloud" class="stat-row">
+					<div v-if="!modelStats.isPointCloud && !modelStats.isSplat" class="stat-row">
 						<span>{{ t('threedviewer', 'Mesh Volume') }}:</span>
 						<span class="tdv-value stat-value">{{ formatStatNumber(activeVolume * statsVolumeScale) }} {{ statsUnitConfig.suffix }}³</span>
 					</div>
@@ -241,7 +242,7 @@
 					</div>
 					<!-- Action bar: viewport pick + copy -->
 					<div class="stats-actions">
-						<button v-if="!modelStats.isPointCloud"
+						<button v-if="!modelStats.isPointCloud && !modelStats.isSplat"
 							class="stats-action-btn"
 							type="button"
 							:class="{ 'is-active': statsIsPickingMesh }"
@@ -932,6 +933,7 @@ export default {
 		PrintCheckCard: defineAsyncComponent(() => import('./PrintCheckCard.vue')),
 		// A scan's geometry rows, only when one opens
 		PointCloudStats: defineAsyncComponent(() => import('./PointCloudStats.vue')),
+		SplatStats: defineAsyncComponent(() => import('./SplatStats.vue')),
 		// Loaded the first time someone records a turntable
 		TurntableDialog: defineAsyncComponent(() => import('./TurntableDialog.vue')),
 	},
@@ -977,6 +979,11 @@ export default {
 		const container = ref(null)
 		// A scan's colour by and point size; null for a mesh (pointclouds/buildPointCloud.js)
 		const pointCloud = ref(null)
+		// Loads by number, for Cancel loading (cancelLoad): the latest, the one in progress,
+		// and the one a cancel was pressed for
+		let loadSerial = 0
+		let activeLoad = null
+		let cancelledLoad = null
 		// A splat's state for the panel ({ upState }), or null; and Spark's renderer for it
 		const splat = ref(null)
 		let splatHost = null
@@ -1486,8 +1493,10 @@ export default {
 		 * @param {string|number} fileId - Nextcloud file ID
 		 */
 		const loadModel = async (fileId) => {
+			const serial = ++loadSerial
+			activeLoad = serial
 			try {
-				if (cancelPending) {
+				if (cancelledLoad === serial) {
 					throw new DOMException('Aborted', 'AbortError')
 				}
 				// Reset auto performance flags for this load
@@ -1559,7 +1568,7 @@ export default {
 					propsDir: props.dir,
 				})
 
-				if (cancelPending) {
+				if (cancelledLoad === serial) {
 					throw new DOMException('Aborted', 'AbortError')
 				}
 				// Use the model loading composable which has proper progress tracking
@@ -1907,8 +1916,9 @@ export default {
 				// Re-throw error so caller knows it failed
 				throw error
 			} finally {
-				// A cancel belongs to the load it stopped, not to the next one
-				cancelPending = false
+				if (activeLoad === serial) {
+					activeLoad = null
+				}
 			}
 		}
 
@@ -2455,11 +2465,12 @@ export default {
 
 		// Loading methods
 		// Cancel shows while the viewer is still getting ready, before a load has a download
-		// to abort; such a cancel is kept here, and the load stops before it downloads
-		let cancelPending = false
+		// to abort. Each load has a number, and a cancel is kept for the load it was pressed
+		// during, or for the next one when none has started; that load stops before it
+		// downloads, and a load started after it (Retry) is not touched
 		const cancelLoad = () => {
 			aborting.value = true
-			cancelPending = true
+			cancelledLoad = activeLoad ?? loadSerial + 1
 			modelLoading.cancelLoad()
 			// Reset aborting state after a short delay
 			setTimeout(() => {
@@ -2468,6 +2479,8 @@ export default {
 		}
 
 		const retryLoad = async () => {
+			// Retry asks for the model: a cancel still waiting for a load is not for this one
+			cancelledLoad = null
 			try {
 				await modelLoading.retryLoad(() => loadModel(props.fileId))
 			} catch (error) {
@@ -2551,9 +2564,12 @@ export default {
 		 * @param {boolean} cameraFromUrl - whether the link's camera was used
 		 */
 		const applyLinkedView = (view, cameraFromUrl) => {
-			if (view.renderMode) setRenderMode(view.renderMode)
+			// A link is a view of whatever the file is now: a scan or splat has no shading
+			// or wireframe, and a splat no cut or parts (utils/offTools.js)
+			const unshaded = Boolean(pointCloud.value || splat.value)
+			if (view.renderMode && !unshaded) setRenderMode(view.renderMode)
 			if (view.lighting) lightingPresets.applyPreset(view.lighting)
-			if (view.clipping) {
+			if (view.clipping && !splat.value) {
 				clippingPlane.setMode(view.clipping.mode)
 				if (view.clipping.mode === 'box') {
 					for (const [face, value] of Object.entries(view.clipping.offsets)) clippingPlane.setBoxOffset(face, value)
@@ -2564,7 +2580,7 @@ export default {
 				}
 				if (!clippingPlane.isActive.value) clippingPlane.toggle()
 			}
-			if (view.exploded !== undefined && explodedView.hasMeshes.value) {
+			if (view.exploded !== undefined && explodedView.hasMeshes.value && !splat.value) {
 				if (!explodedView.isActive.value) explodedView.toggle()
 				explodedView.setFactor(view.exploded)
 				// Spread parts can leave a view fitted to them together
@@ -2573,7 +2589,7 @@ export default {
 			if (view.colourBy && pointCloud.value) setColourBy(view.colourBy)
 			if (view.pointSize !== undefined && pointCloud.value) setPointSize(view.pointSize)
 			emit('view-applied', {
-				wireframe: view.wireframe,
+				wireframe: unshaded ? undefined : view.wireframe,
 				projection: camera.camera?.value?.isOrthographicCamera ? 'orthographic' : 'perspective',
 			})
 		}
