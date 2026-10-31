@@ -24,7 +24,7 @@ test.describe('ThreeDViewer basic mount', () => {
   const html = `<!DOCTYPE html><html><head><meta charset=\"utf-8\" />
     <base href=\"/\" />
     <title>Viewer Test</title></head><body>
-    <div id=\"threedviewer\"></div>
+    <div id=\"skip-actions\" style=\"position: absolute; top: -999px; overflow: hidden\"></div><div id=\"threedviewer\"></div>
     <script>window.__THREEDVIEWER_NO_AUTOMOUNT=true;</script>
     <script type=module>
       // Mock OCS fetch for model load

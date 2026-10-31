@@ -158,7 +158,7 @@ function buildHtmlWrapper() {
   <!-- Simulated minimal Nextcloud layout -->
   <div id="body-user">
     <div id="header"></div>
-    <div id="content">
+    <div id="skip-actions" style="position: absolute; top: -999px; overflow: hidden"></div><div id="content">
       <div id="app-content">
         <div id="threedviewer"></div>
       </div>

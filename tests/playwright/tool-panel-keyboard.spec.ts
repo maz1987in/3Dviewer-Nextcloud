@@ -111,7 +111,7 @@ function html(model: { id: number, name: string }) {
 	<link rel="stylesheet" href="/css/threedviewer-main.css">
 	<style>html, body { margin: 0; height: 100%; } #threedviewer { height: 100vh; }</style>
 	</head><body>
-	<div id="threedviewer" data-file-id="${model.id}" data-filename="${model.name}" data-dir="/"></div>
+	<div id="skip-actions" style="position: absolute; top: -999px; overflow: hidden"></div><div id="threedviewer" data-file-id="${model.id}" data-filename="${model.name}" data-dir="/"></div>
 	<script>
 		window.t = function (_app, s, vars) { if (vars) { for (const k in vars) s = s.replace('{' + k + '}', vars[k]) } return s }
 		window.n = function (_app, s, n) { return n + ' ' + s }

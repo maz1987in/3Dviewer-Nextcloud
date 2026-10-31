@@ -45,7 +45,7 @@ function harness(): string {
 <link rel="stylesheet" href="/css/threedviewer-main.css">
 <style>html, body, #content, #threedviewer { margin: 0; width: 100%; height: 100%; }</style>
 </head><body>
-<div id="content"><div id="threedviewer" data-file-id="42" data-filename="room.dae" data-dir="/scenes"></div></div>
+<div id="skip-actions" style="position: absolute; top: -999px; overflow: hidden"></div><div id="content"><div id="threedviewer" data-file-id="42" data-filename="room.dae" data-dir="/scenes"></div></div>
 <script>
   window.t = (_app, s) => s
   window.n = (_app, s) => s
