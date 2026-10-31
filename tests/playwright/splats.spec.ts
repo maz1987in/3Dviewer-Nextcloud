@@ -206,3 +206,43 @@ test('a splat\'s statistics: its splats and its size', async ({ page }) => {
 	expect(size.y).toBeCloseTo(1, 2)
 	expect(size.z).toBeCloseTo(0.5, 2)
 })
+
+const rotationX = (page: Page) => page.evaluate(() => (window as any).__THREEDVIEWER_APP.$.subTree.component.proxy.$refs.viewer.modelRoot.rotation.x)
+/** The splat's height as it is placed, from the box that measures it. */
+const placedHeight = (page: Page) => page.evaluate(() => {
+	const root = (window as any).__THREEDVIEWER_APP.$.subTree.component.proxy.$refs.viewer.modelRoot
+	root.updateMatrixWorld(true)
+	const proxy = root.getObjectByName('tdv-splat-bounds')
+	proxy.geometry.computeBoundingBox()
+	const b = proxy.geometry.boundingBox.clone().applyMatrix4(proxy.matrixWorld)
+	return { height: b.max.y - b.min.y, bottom: b.min.y }
+})
+
+test('an editor turns a splat, saved for the file', async ({ page }) => {
+	const { unitPuts } = await openViewer(page, server.url, { ...GRID.splat, id: 7761 })
+	await expect(page.locator('#tdv-up')).toHaveValue('+y')
+	expect((await placedHeight(page)).height).toBeCloseTo(1, 3)
+
+	await page.locator('#tdv-up').selectOption('+z')
+
+	await expect.poll(() => rotationX(page)).toBeCloseTo(-Math.PI / 2)
+	await expect.poll(() => unitPuts).toContainEqual({ up: '+z' })
+	const placed = await placedHeight(page)
+	expect(placed.height).toBeCloseTo(0.5, 3)
+	expect(placed.bottom).toBeCloseTo(0, 3)
+})
+
+test('the up saved for a splat turns it when it opens', async ({ page }) => {
+	await openViewer(page, server.url, { ...GRID.spz, id: 7762 }, { user: 'alice', up: '-y' })
+
+	await expect.poll(() => rotationX(page)).toBeCloseTo(Math.PI)
+	await expect(page.locator('#tdv-up')).toHaveValue('-y')
+})
+
+test('a view-only colleague sees which way is up for a splat, and can\'t change it', async ({ page }) => {
+	await openViewer(page, server.url, { ...GRID.ply, id: 7763 }, { user: 'bob', up: '+z', unitCanEdit: false })
+
+	await expect(page.locator('.file-up-control')).toContainText('+Z up')
+	await expect(page.locator('#tdv-up')).toHaveCount(0)
+	await expect.poll(() => rotationX(page)).toBeCloseTo(-Math.PI / 2)
+})

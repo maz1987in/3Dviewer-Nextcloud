@@ -35,9 +35,12 @@ const read = (source) => (isRef(source) ? source.value : (typeof source === 'fun
  * @param {function(): void} [viewer.beforeRender] - Runs before each frame is drawn, once
  *   the camera is in place: what the viewer's own loop would do, such as turning labels
  *   to face the camera
+ * @param {function(): (Promise<void>|void)} [viewer.prepareFrame] - Awaited after
+ *   beforeRender and before the frame is drawn: a splat's sort for this camera
+ *   (splats/sparkHost.js), so no frame shows the order of the one before
  * @return {object} The recording's state and methods
  */
-export function useTurntable({ renderer, scene, camera, controls, renderPaused, raf = null, now = null, beforeRender = null }) {
+export function useTurntable({ renderer, scene, camera, controls, renderPaused, raf = null, now = null, beforeRender = null, prepareFrame = null }) {
 	const schedule = raf ?? ((callback) => window.requestAnimationFrame(callback))
 	const clock = now ?? (() => window.performance.now())
 
@@ -158,7 +161,7 @@ export function useTurntable({ renderer, scene, camera, controls, renderPaused, 
 			let frame = 0
 			let last = -Infinity
 			await new Promise((resolve, reject) => {
-				const step = (time) => {
+				const step = async (time) => {
 					try {
 						if (recorder.state === 'inactive') {
 							endedEarly ??= new Error('The recorder stopped before the turn was done')
@@ -175,6 +178,8 @@ export function useTurntable({ renderer, scene, camera, controls, renderPaused, 
 							cam.position.copy(orbitPosition(start, target, cam.up, frame / frames, direction))
 							cam.lookAt(target)
 							beforeRender?.()
+							// The next frame is not asked for until this one is drawn
+							await prepareFrame?.()
 							glRenderer.render(scene3d, cam)
 							track?.requestFrame?.()
 							frame++

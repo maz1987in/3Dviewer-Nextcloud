@@ -9,6 +9,7 @@ import fs from 'fs'
 import { startServer, openViewer, stlCube } from './helpers/viewerServer'
 
 const MODEL = { id: 7171, name: 'cube.stl', body: stlCube(10) }
+const SPLAT = { id: 7172, name: 'grid.splat', body: fs.readFileSync('tests/fixtures/splats/grid.splat') }
 
 let server: { url: string, close: () => Promise<void> }
 test.beforeAll(async () => { server = await startServer() })
@@ -21,8 +22,8 @@ test.afterAll(async () => { await server.close() })
 const panelButton = (page: Page) => page.locator('.slide-out-panel').getByRole('button', { name: 'Record turntable' })
 
 /** Open the model, and the panel's Export section, where the button is. */
-async function open(page: Page, viewer?: Parameters<typeof openViewer>[3]) {
-	const result = await openViewer(page, server.url, MODEL, viewer)
+async function open(page: Page, viewer?: Parameters<typeof openViewer>[3], model: Parameters<typeof openViewer>[2] = MODEL) {
+	const result = await openViewer(page, server.url, model, viewer)
 	const header = page.locator('.slide-out-panel .section-header[aria-controls="panel-section-export"]')
 	if (await header.getAttribute('aria-expanded') !== 'true') {
 		await header.click()
@@ -220,4 +221,33 @@ test('a model at the root of the user\'s files can be saved next to itself', asy
 	await dialog(page).getByRole('button', { name: 'Save next to the model' }).click()
 	await expect.poll(() => puts.length).toBe(1)
 	expect(puts[0]).toMatch(/\/remote\.php\/dav\/files\/alice\/cube-turntable%20\(2\)\.webm$/)
+})
+
+// Spark sorts a splat for each view in a worker; every recorded frame is drawn after the
+// sort for its own camera has finished, never with the order of the frame before
+test('records a splat, each frame drawn after its own sort', async ({ page }) => {
+	const { errors } = await open(page, undefined, SPLAT)
+	await page.evaluate(() => {
+		const viewer = (window as any).__THREEDVIEWER_APP.$.subTree.component.proxy.$refs.viewer
+		const spark = viewer.scene.getObjectByName('tdv-spark')
+		const renderer = viewer.renderer
+		const log: string[] = []
+		;(window as any).__ORDER = log
+		const update = spark.update.bind(spark)
+		spark.update = async (args: object) => { await update(args); log.push('sorted') }
+		const render = renderer.render.bind(renderer)
+		// A frame of the recording, or one of the viewer's own loop
+		renderer.render = (...args: unknown[]) => { log.push(viewer.turntable.isRecording.value ? 'frame' : 'render'); return render(...args) }
+	})
+
+	await recordFourSeconds(page)
+
+	const order: string[] = await page.evaluate(() => (window as any).__ORDER)
+	// Each frame's draws (Spark's own and the frame's, one run) come after a finished sort
+	// for that frame: 120 such runs, one a frame. The viewer's loop may draw once more as
+	// the recording starts, with no sort before it.
+	const runs = order.map((entry, i) => (entry === 'frame' && order[i - 1] !== 'frame' ? order[i - 1] : null)).filter((before) => before !== null)
+	expect(runs.filter((before) => before === 'sorted')).toHaveLength(120)
+	expect(runs.length).toBeLessThanOrEqual(121)
+	expect(errors).toEqual([])
 })

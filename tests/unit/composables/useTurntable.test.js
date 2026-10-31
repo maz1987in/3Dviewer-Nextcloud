@@ -25,7 +25,7 @@ class FakeRecorder {
 	}
 }
 
-function setup({ camera: givenCamera = null, beforeRender = undefined } = {}) {
+function setup({ camera: givenCamera = null, beforeRender = undefined, prepareFrame = undefined } = {}) {
 	const track = { requestFrame: jest.fn(), stop: jest.fn() }
 	const canvas = { width: 801, height: 601, style: { width: '800px' }, captureStream: jest.fn(() => ({ getVideoTracks: () => [track], getTracks: () => [track] })) }
 	const size = { x: 800, y: 600 }
@@ -52,6 +52,7 @@ function setup({ camera: givenCamera = null, beforeRender = undefined } = {}) {
 		raf: (callback) => setTimeout(() => callback((time += 34)), 0),
 		now: () => time,
 		beforeRender,
+		prepareFrame,
 	})
 	return { turntable, renderer, camera, controls, renderPaused, track, canvas, size }
 }
@@ -220,4 +221,46 @@ test('a viewer loop that was already paused stays paused afterwards', async () =
 	renderPaused.value = true
 	await turntable.record({ seconds: 4, size: '720p', direction: 'cw' })
 	expect(renderPaused.value).toBe(true)
+})
+
+// A splat is drawn in the order of a sort that runs in a worker (splats/sparkHost.js):
+// each frame waits for the sort of its own view, so none shows the last frame's order
+test('awaits prepareFrame before each frame is drawn', async () => {
+	const order = []
+	let finish = null
+	const prepareFrame = jest.fn(() => new Promise((resolve) => {
+		order.push('prepare')
+		finish = resolve
+	}))
+	const { turntable, renderer, camera } = setup({ prepareFrame })
+	const angles = []
+	renderer.render.mockImplementation(() => {
+		order.push('render')
+		angles.push(camera.position.clone())
+	})
+
+	const recording = turntable.record({ seconds: 4, size: '720p', direction: 'cw' })
+	await new Promise((resolve) => setTimeout(resolve, 5))
+	expect(prepareFrame).toHaveBeenCalledTimes(1)
+	expect(renderer.render).not.toHaveBeenCalled()
+	// The camera is already in place for the frame being prepared
+	const placed = camera.position.clone()
+
+	// The rest of the turn prepares at once
+	prepareFrame.mockImplementation(() => { order.push('prepare') })
+	finish()
+	await recording
+	expect(angles[0].equals(placed)).toBe(true)
+	expect(renderer.render).toHaveBeenCalledTimes(120)
+	expect(prepareFrame).toHaveBeenCalledTimes(120)
+	expect(order.slice(0, 6)).toEqual(['prepare', 'render', 'prepare', 'render', 'prepare', 'render'])
+})
+
+test('a frame that cannot be prepared ends the recording, and puts the viewer back', async () => {
+	const { turntable, renderer, renderPaused } = setup({ prepareFrame: () => Promise.reject(new Error('sort failed')) })
+
+	await expect(turntable.record({ seconds: 4 })).rejects.toThrow('sort failed')
+	expect(renderer.render).not.toHaveBeenCalled()
+	expect(renderPaused.value).toBe(false)
+	expect(turntable.isRecording.value).toBe(false)
 })

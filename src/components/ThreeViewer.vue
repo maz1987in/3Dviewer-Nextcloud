@@ -973,7 +973,7 @@ export default {
 	// Declared and never sent is as misleading as sent and never declared: nine of these
 	// named toolbar actions the viewer stopped emitting long ago, and among them sat the
 	// three mode toggles it did send and nothing received.
-	emits: ['model-loaded', 'error', 'measurement-active', 'annotation-active', 'comparison-active', 'print-check-active', 'cycle-performance-mode', 'push-toast', 'loading-state-changed', 'fps-updated', 'animations-initialized', 'view-applied', 'point-cloud-changed'],
+	emits: ['model-loaded', 'error', 'measurement-active', 'annotation-active', 'comparison-active', 'print-check-active', 'cycle-performance-mode', 'push-toast', 'loading-state-changed', 'fps-updated', 'animations-initialized', 'view-applied', 'point-cloud-changed', 'splat-changed'],
 	setup(props, { emit }) {
 		// Refs
 		const container = ref(null)
@@ -1601,10 +1601,12 @@ export default {
 					// A scan's colour by and point size, before a linked view sets them
 					const cloud = modelRoot.value.userData?.tdvPointCloud ?? null
 					pointCloud.value = cloud ? { colourBy: cloud.colourBy, pointSize: modelRoot.value.material?.size ?? POINT_SIZE.initial, upState: null } : null
-					// Turned to its format's up before it is placed; the file's own, once read, turns it again
-					if (cloud) {
-						applyUp(modelRoot.value, cloud.up)
-						fileUp.describe(cloud.defaultUp)
+					// Turned to its format's up before it is placed; the file's own, once read, turns it
+					// again. A scan or a splat (splats/loadSplat.js) can be turned
+					const turnable = cloud ?? modelRoot.value.userData?.tdvSplat ?? null
+					if (turnable) {
+						applyUp(modelRoot.value, turnable.up)
+						fileUp.describe(turnable.defaultUp)
 					} else {
 						fileUp.reset()
 					}
@@ -1875,9 +1877,9 @@ export default {
 						const settingsApi = createFileSettingsApi({ fileId, shareToken: share?.token ?? null })
 						fileUnit.load(settingsApi)
 							.then((changed) => { if (changed) applyChosenUnit() })
-						// Which way is up for a scan; an answer for a scan since replaced is dropped
-						if (cloud) {
-							fileUp.load(settingsApi).then((changed) => { if (changed) turnScan(fileUp.state.value.up) })
+						// Which way is up for a scan or splat; an answer for a model since replaced is dropped
+						if (cloud || splatMeta) {
+							fileUp.load(settingsApi).then((changed) => { if (changed) turnModel(fileUp.state.value.up) })
 						}
 					}
 
@@ -2671,15 +2673,15 @@ export default {
 		}
 
 		/**
-		 * Turn the scan so `up` points up, put it back on the grid, and fit everything that
+		 * Turn the scan or splat so `up` points up, put it back on the grid, and fit everything that
 		 * followed its shape to it again: the gizmo's Reset, the camera, the grid, the cut's
 		 * bounds, height colours and the statistics.
 		 *
 		 * @param {string} up - One of UPS
 		 */
-		const turnScan = async (up) => {
+		const turnModel = async (up) => {
 			const root = modelRoot.value
-			const meta = root?.userData?.tdvPointCloud
+			const meta = root?.userData?.tdvPointCloud ?? root?.userData?.tdvSplat
 			if (!meta || !UPS.includes(up) || meta.up === up) {
 				return
 			}
@@ -2704,18 +2706,18 @@ export default {
 		}
 
 		/**
-		 * Choose which way is up for the file, for everyone: the scan turns at once, and
-		 * back if the save is refused.
+		 * Choose which way is up for the file, for everyone: the scan or splat turns at once,
+		 * and back if the save is refused.
 		 *
 		 * @param {string} up - One of UPS
 		 */
 		const setUp = async (up) => {
-			if (!pointCloud.value || !UPS.includes(up)) {
+			if (!(pointCloud.value || splat.value) || !UPS.includes(up)) {
 				return
 			}
-			await turnScan(up)
+			await turnModel(up)
 			await fileUp.set(up)
-			await turnScan(fileUp.state.value?.up ?? up)
+			await turnModel(fileUp.state.value?.up ?? up)
 		}
 
 		// The panel shows which way is up, and whether it may be changed
@@ -2723,6 +2725,10 @@ export default {
 			if (pointCloud.value) {
 				pointCloud.value = { ...pointCloud.value, upState }
 				emit('point-cloud-changed', pointCloud.value)
+			}
+			if (splat.value) {
+				splat.value = { ...splat.value, upState }
+				emit('splat-changed', splat.value)
 			}
 		})
 
@@ -2945,6 +2951,9 @@ export default {
 			renderPaused,
 			// The viewer's loop, paused meanwhile, is what turns labels to face the camera
 			beforeRender: () => updateBillboards(),
+			// A splat is drawn in the order of a sort Spark runs for each view: finished
+			// for this frame's camera before the frame is drawn
+			prepareFrame: () => splatHost?.prepare(camera.camera.value),
 		}))
 		watch(turntable.isRecording, (recording) => {
 			if (!recording && resizeWhileRecording) {

@@ -247,6 +247,7 @@
 					@model-loaded="onModelLoaded"
 					@view-applied="onViewApplied"
 					@point-cloud-changed="onPointCloudChanged"
+					@splat-changed="onSplatChanged"
 					@loading-state-changed="onLoadingStateChanged"
 					@fps-updated="onFpsUpdated"
 					@animations-initialized="onAnimationsInitialized"
@@ -727,6 +728,10 @@ export default {
 			}
 			this.pointUpState = state?.upState ?? null
 		},
+		onSplatChanged(state) {
+			// A splat shares the panel's Which way is up with a scan
+			this.pointUpState = state?.upState ?? null
+		},
 
 		/**
 		 * @param {string} key - A key of utils/offTools.js
@@ -1175,6 +1180,7 @@ export default {
 			this.splat = meta.splat ?? null
 			this.offTools = offToolsFor(meta)
 			this.onPointCloudChanged(meta.pointCloud)
+			if (meta.splat) this.onSplatChanged(meta.splat)
 			this.lastError = null
 			this.isLoading = false
 			this.modelLoaded = true
