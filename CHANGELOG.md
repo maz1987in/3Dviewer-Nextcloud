@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- Cleared the `minimatch` globparts DoS ([GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249)) from the production graph: `overrides.webdav.minimatch` moves from `^10.2.3` to `^11.0.1`, taking `npm audit --omit=dev` from six moderate to zero. `webdav` only matches globs when a directory listing is asked for with one, which neither the viewer nor `@nextcloud/files` does, and the browser bundle uses `webdav`'s prebuilt web build, whose own copy no lockfile change reaches.
+
 ## [3.10.0] - 2026-10-31
 
 Scans and Gaussian splats open in the viewer: laser, drone and phone scans as points, and the photo-real captures phone apps make as they were captured, each thinned to what the device can draw. A link can now reopen a model exactly as you see it, or open one of its notes. Files that record no unit can be given one, saved for everyone. And once an admin lists the sites allowed, a public link's model can be shown on another website.
