@@ -6,7 +6,6 @@
 import { translate, translatePlural } from '@nextcloud/l10n'
 
 // Import Nextcloud dialogs styles
-import '@nextcloud/dialogs/style.css'
 import { getPublicShareContext } from './composables/usePublicShare.js'
 import { mountPublicViewer } from './utils/publicViewer.js'
 
