@@ -16,25 +16,31 @@ import { POINT_BUDGET } from './limits.js'
  * @param {boolean} [env.coarsePointer] - matchMedia('(pointer: coarse)').matches
  * @param {number} [env.screenMin] - The screen's shorter side, in CSS px
  * @param {number} [env.deviceMemory] - navigator.deviceMemory, in GB
- * @return {number} Points to draw at most
+ * @return {'desktop'|'tablet'|'phone'} The kind of device, for its budgets; one with
+ *   little memory is at most a tablet
  */
-export function pointBudget({ userAgentData = null, userAgent = '', maxTouchPoints = 0, coarsePointer = false, screenMin = Infinity, deviceMemory } = {}) {
-	let budget = POINT_BUDGET.desktop
+export function deviceClass({ userAgentData = null, userAgent = '', maxTouchPoints = 0, coarsePointer = false, screenMin = Infinity, deviceMemory } = {}) {
 	if (userAgentData?.mobile === true || (coarsePointer && screenMin < 600)) {
-		budget = POINT_BUDGET.phone
-	} else if (coarsePointer || (maxTouchPoints > 1 && /Macintosh/.test(userAgent))) {
-		budget = POINT_BUDGET.tablet
+		return 'phone'
 	}
-	if (typeof deviceMemory === 'number' && deviceMemory <= 4) {
-		budget = Math.min(budget, POINT_BUDGET.tablet)
+	if (coarsePointer || (maxTouchPoints > 1 && /Macintosh/.test(userAgent))) {
+		return 'tablet'
 	}
-	return budget
+	return typeof deviceMemory === 'number' && deviceMemory <= 4 ? 'tablet' : 'desktop'
 }
 
 /**
- * @return {number} This device's budget
+ * @param {object} env - What the browser says about the device, as for deviceClass
+ * @return {number} Points to draw at most
  */
-export function currentBudget() {
+export function pointBudget(env = {}) {
+	return POINT_BUDGET[deviceClass(env)]
+}
+
+/**
+ * @return {object} What this browser says about its device, for deviceClass
+ */
+function currentEnv() {
 	const nav = globalThis.navigator ?? {}
 	const screen = globalThis.screen
 	let coarsePointer = false
@@ -43,14 +49,28 @@ export function currentBudget() {
 	} catch {
 		// No media queries here: assume a mouse
 	}
-	return pointBudget({
+	return {
 		userAgentData: nav.userAgentData ?? null,
 		userAgent: nav.userAgent ?? '',
 		maxTouchPoints: nav.maxTouchPoints ?? 0,
 		coarsePointer,
 		screenMin: screen ? Math.min(screen.width, screen.height) : Infinity,
 		deviceMemory: nav.deviceMemory,
-	})
+	}
+}
+
+/**
+ * @return {'desktop'|'tablet'|'phone'} This device's kind
+ */
+export function currentDeviceClass() {
+	return deviceClass(currentEnv())
+}
+
+/**
+ * @return {number} This device's budget
+ */
+export function currentBudget() {
+	return POINT_BUDGET[currentDeviceClass()]
 }
 
 /**

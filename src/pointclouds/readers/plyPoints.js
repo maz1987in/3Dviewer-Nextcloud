@@ -6,6 +6,7 @@
  * Only a file whose vertices are its first element is read: anything before them would
  * have to be skipped record by record, and no scanner writes one.
  */
+import { isSplatPly } from '../../splats/splatPly.js'
 import { checkLineLength, readRange, readWindows } from '../blobReader.js'
 import { PointSink } from '../pointSink.js'
 import { ScanError } from '../scanFormats.js'
@@ -70,7 +71,8 @@ export function plyHeader(bytes) {
 export function isPointCloudPly(header) {
 	const faces = header.elements.some(({ name, count }) => (name === 'face' || name === 'tristrips') && count > 0)
 	const vertex = header.elements.find(({ name }) => name === 'vertex')
-	const splat = vertex?.properties.some(({ name }) => name === 'f_dc_0')
+	// A PLY with spherical-harmonic colours is a splat, or near enough to be no scan
+	const splat = isSplatPly(header) || vertex?.properties.some(({ name }) => name === 'f_dc_0')
 	return Boolean(vertex) && !faces && !splat
 }
 

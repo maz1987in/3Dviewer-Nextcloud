@@ -3,6 +3,8 @@ import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader.js'
 import { translate as t } from '@nextcloud/l10n'
 import { BaseLoader } from '../BaseLoader.js'
 import { loadPointCloud } from './pointCloud.js'
+import { loadSplatModel } from './splatModel.js'
+import { isSplatPly } from '../../splats/splatPly.js'
 import { isPointCloudPly, plyHeader } from '../../pointclouds/readers/plyPoints.js'
 import { PLY_MESH_CEILING_BYTES } from '../../pointclouds/limits.js'
 import { formatBytes } from '../../utils/validation.js'
@@ -18,7 +20,8 @@ class PlyLoader extends BaseLoader {
 	}
 
 	/**
-	 * Load a PLY: a mesh, or a scan when it has no faces (pointclouds/readers/plyPoints.js).
+	 * Load a PLY: a Gaussian splat when its header says so (splats/splatPly.js), else a
+	 * scan when it has no faces (pointclouds/readers/plyPoints.js), else a mesh.
 	 * The page passes a Blob; the thumbnailer an ArrayBuffer.
 	 *
 	 * @param {Blob|ArrayBuffer} input - File data
@@ -32,6 +35,9 @@ class PlyLoader extends BaseLoader {
 			header = plyHeader(new Uint8Array(await blob.slice(0, 64 * 1024).arrayBuffer()))
 		} catch {
 			// Not a header the scan reader knows: PLYLoader says what is wrong with it
+		}
+		if (header && isSplatPly(header)) {
+			return loadSplatModel(this, blob, { ...context, fileExtension: 'ply' })
 		}
 		if (header && isPointCloudPly(header)) {
 			return loadPointCloud(this, blob, { ...context, fileExtension: 'ply' })
