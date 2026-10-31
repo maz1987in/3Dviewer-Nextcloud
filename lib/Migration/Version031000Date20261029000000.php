@@ -38,7 +38,8 @@ class Version031000Date20261029000000 extends SimpleMigrationStep
         $table->addColumn('unit', Types::STRING, ['notnull' => false, 'length' => 8]);
         $table->addColumn('updated_by', Types::STRING, ['notnull' => true, 'length' => 64]);
         $table->addColumn('updated_at', Types::BIGINT, ['notnull' => true]);
-        $table->setPrimaryKey(['id']);
+        // Named: Nextcloud 31 and 32 refuse the default name on a table name this long
+        $table->setPrimaryKey(['id'], 'tdv_fset_pk');
         $table->addUniqueIndex(['file_id'], 'tdv_fset_file');
 
         return $schema;
