@@ -34,25 +34,31 @@ export function abortError() {
 	return new DOMException('Aborted', 'AbortError')
 }
 
-// A Map, not an object: an extension such as `constructor` must not find a property every
-// object has
-const READERS = new Map([
-	['xyz', () => import('./readers/xyz.js')],
-	['ply', () => import('./readers/plyPoints.js')],
-	['pcd', () => import('./readers/pcd.js')],
-	['las', () => import('./readers/las.js')],
-	['laz', () => import('./readers/las.js')],
-	['e57', () => import('./readers/e57.js')],
-])
+/**
+ * @param {string} ext - A lower-case extension
+ * @return {?Promise<object>} Its reader module, or null. A switch, not a lookup: an
+ *   extension such as `constructor` must not find a property every object has
+ */
+function importReader(ext) {
+	switch (ext) {
+	case 'xyz': return import('./readers/xyz.js')
+	case 'ply': return import('./readers/plyPoints.js')
+	case 'pcd': return import('./readers/pcd.js')
+	case 'las':
+	case 'laz': return import('./readers/las.js')
+	case 'e57': return import('./readers/e57.js')
+	default: return null
+	}
+}
 
 /**
  * @param {string} ext - A scan's extension
  * @return {Promise<{read: function(Blob, object): Promise<object>}>} Its reader
  */
 export async function readerFor(ext) {
-	const load = READERS.get(String(ext).toLowerCase())
-	if (!load) {
+	const reader = importReader(String(ext).toLowerCase())
+	if (!reader) {
 		throw new ScanError('there is no reader for .{ext}', { ext })
 	}
-	return load()
+	return reader
 }
