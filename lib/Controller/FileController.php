@@ -197,8 +197,12 @@ class FileController extends BaseController
                 $this->validateFile($file);
             }
 
-            // Check file size: scans are thinned as they are read, so they may be larger
-            $maxSize = in_array($extension, SupportedFormats::POINT_CLOUD_EXTENSIONS, true) ? SupportedFormats::SCAN_MAX_BYTES : 500 * 1024 * 1024;
+            // Check file size: scans and splats are thinned, so they may be larger
+            $maxSize = match (true) {
+                in_array($extension, SupportedFormats::POINT_CLOUD_EXTENSIONS, true) => SupportedFormats::SCAN_MAX_BYTES,
+                in_array($extension, SupportedFormats::SPLAT_EXTENSIONS, true) => SupportedFormats::SPLAT_MAX_BYTES,
+                default => 500 * 1024 * 1024,
+            };
             if (!$this->isFileSizeAcceptable($file, $maxSize)) {
                 return $this->responseBuilder->createErrorResponse(
                     'File too large',

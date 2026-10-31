@@ -23,15 +23,16 @@ class FileSettingsService
     /**
      * Formats whose files record no unit. An FBX may record one, and so may a LAS or LAZ
      * whose coordinate system names it; the viewer reads that from the file and ignores a
-     * unit stored here, so they are accepted. E57 always stores metres.
+     * unit stored here, so they are accepted. E57 always stores metres. A splat records
+     * none; the viewer takes it as metres.
      */
-    public const UNITLESS_FORMATS = ['stl', 'obj', 'ply', 'off', '3ds', 'fbx', 'las', 'laz', 'pcd', 'xyz'];
+    public const UNITLESS_FORMATS = ['stl', 'obj', 'ply', 'off', '3ds', 'fbx', 'las', 'laz', 'pcd', 'xyz', 'splat', 'spz'];
 
     /** Which way is up; the viewer's UPS (pointclouds/upAxis.js). */
     public const UPS = ['+y', '-y', '+z', '-z'];
 
-    /** Formats that can be turned: scans, which come out of scanners and apps every way up. */
-    public const UP_FORMATS = ['las', 'laz', 'e57', 'pcd', 'xyz', 'ply'];
+    /** Formats that can be turned: scans and splats, which come out of scanners and apps every way up. */
+    public const UP_FORMATS = ['las', 'laz', 'e57', 'pcd', 'xyz', 'ply', 'splat', 'spz'];
 
     /** @psalm-suppress PossiblyUnusedMethod Constructed by the DI container */
     public function __construct(

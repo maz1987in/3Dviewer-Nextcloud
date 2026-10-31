@@ -126,6 +126,23 @@ class FileControllerTest extends TestCase
         $this->assertSame(413, $this->serveSized('scan.las', 'las', 3 * 1024 ** 3)->getStatus());
     }
 
+    /** A splat is read whole by Spark and then thinned, so it stops at 1 GB (src/splats/limits.js). */
+    public function testASplatUpToAGigabyteIsServed(): void
+    {
+        $this->responseBuilder->method('buildStreamResponse')->willReturn(new StreamResponse(fopen('php://memory', 'r')));
+
+        $this->assertInstanceOf(StreamResponse::class, $this->serveSized('room.spz', 'spz', 900 * 1024 ** 2));
+    }
+
+    public function testASplatOverAGigabyteIsRefused(): void
+    {
+        $this->responseBuilder->expects($this->once())->method('createErrorResponse')
+            ->with('File too large', 413, $this->callback(fn (array $details) => $details['max_size'] === '1 GB'))
+            ->willReturn(new \OCP\AppFramework\Http\JSONResponse([], 413));
+
+        $this->assertSame(413, $this->serveSized('room.splat', 'splat', (int) (1.1 * 1024 ** 3))->getStatus());
+    }
+
     public function testAMeshOverFiveHundredMegabytesIsStillRefused(): void
     {
         $this->responseBuilder->expects($this->once())->method('createErrorResponse')

@@ -65,6 +65,8 @@ class SupportedFormats
         'las' => ['application/vnd.las'], // ASPRS LAS survey / LiDAR point cloud
         'laz' => ['application/vnd.laszip'], // LAS compressed with LASzip
         'e57' => ['model/e57'], // ASTM E57 laser scan
+        'splat' => ['model/x-gaussian-splat'], // Gaussian splat, antimatter15's layout
+        'spz' => ['model/x-spz'], // Gaussian splat, Niantic's compressed SPZ
 
         // Material/texture files
         'mtl' => ['text/plain'],
@@ -116,6 +118,8 @@ class SupportedFormats
         'las' => 'application/vnd.las',
         'laz' => 'application/vnd.laszip',
         'e57' => 'model/e57',
+        'splat' => 'model/x-gaussian-splat',
+        'spz' => 'model/x-spz',
 
         // Material file
         'mtl' => 'text/plain',
@@ -151,6 +155,16 @@ class SupportedFormats
 
     /** The largest scan the viewer opens; the viewer's SCAN_CEILING_BYTES. */
     public const SCAN_MAX_BYTES = 2 * 1024 * 1024 * 1024;
+
+    /**
+     * Gaussian splats, which Spark reads whole before the viewer thins them
+     * (src/splats/limits.js), so they stop at SPLAT_MAX_BYTES. A splat PLY is a PLY, and
+     * keeps the scan limit; the viewer refuses one over SPLAT_MAX_BYTES itself.
+     */
+    public const SPLAT_EXTENSIONS = ['splat', 'spz'];
+
+    /** The largest splat the viewer opens; the viewer's SPLAT_CEILING_BYTES. */
+    public const SPLAT_MAX_BYTES = 1024 * 1024 * 1024;
 
     public const DEPENDENCY_EXTENSIONS = [
         'mtl',

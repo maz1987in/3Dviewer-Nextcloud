@@ -288,4 +288,23 @@ class SupportedFormatsTest extends TestCase
         $this->assertSame(SupportedFormats::EXT_MIME_MAP, SupportedFormats::mappableExtensions([]));
         $this->assertSame(SupportedFormats::EXT_MIME_MAP, SupportedFormats::mappableExtensions(['xyz' => 'application/x-xyz-pointcloud']));
     }
+
+    /** Gaussian splats: the antimatter15 .splat and Niantic's .spz (src/splats/). */
+    public function testSplatFormatsAreRegistered(): void
+    {
+        $this->assertSame(['model/x-gaussian-splat'], SupportedFormats::EXT_MIME_MAP['splat']);
+        $this->assertSame(['model/x-spz'], SupportedFormats::EXT_MIME_MAP['spz']);
+        $this->assertSame('model/x-gaussian-splat', SupportedFormats::CONTENT_TYPE_MAP['splat']);
+        $this->assertSame('model/x-spz', SupportedFormats::CONTENT_TYPE_MAP['spz']);
+        $this->assertSame(['splat', 'spz'], SupportedFormats::SPLAT_EXTENSIONS);
+        $this->assertSame(1024 ** 3, SupportedFormats::SPLAT_MAX_BYTES);
+    }
+
+    public function testASitesOwnSplatMappingIsLeftAlone(): void
+    {
+        $mappable = SupportedFormats::mappableExtensions(['splat' => ['application/x-other-splat']]);
+
+        $this->assertArrayNotHasKey('splat', $mappable);
+        $this->assertArrayHasKey('spz', $mappable);
+    }
 }

@@ -113,6 +113,19 @@ class FileSettingsHttpTest extends HttpTestCase
         $this->assertSame(403, $this->basic($reader)->put(self::settingsUrl($scan->getId()), ['json' => ['up' => '-y']])->getStatusCode());
     }
 
+    public function testAnEditorTurnsASplatAndAViewerReadsIt(): void
+    {
+        $owner = $this->newUser();
+        $reader = $this->newUser();
+        $splat = $this->newModel($owner, 'capture.splat');
+        $this->shareWithUser($splat, $owner, $reader, Constants::PERMISSION_READ);
+
+        $saved = $this->basic($owner)->put(self::settingsUrl($splat->getId()), ['json' => ['up' => '-y']]);
+        $this->assertSame(['canEdit' => true, 'unit' => null, 'up' => '-y'], self::json($saved));
+
+        $this->assertSame(['canEdit' => false, 'unit' => null, 'up' => '-y'], self::json($this->basic($reader)->get(self::settingsUrl($splat->getId()))));
+    }
+
     public function testUpCannotBeSetOnAMesh(): void
     {
         $owner = $this->newUser();

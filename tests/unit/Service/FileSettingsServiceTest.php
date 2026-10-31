@@ -142,6 +142,19 @@ class FileSettingsServiceTest extends TestCase
         $this->assertSame(['unit' => 'us-ft', 'up' => '+z'], $this->service->settings(7));
     }
 
+    public function testASplatCanBeTurnedAndGivenAUnit(): void
+    {
+        $this->mapper->method('findByFile')->willReturn(null);
+        $this->mapper->method('insert')->willReturnArgument(0);
+
+        $this->assertSame('-y', $this->service->set(7, 'capture.splat', ['up' => '-y'], 'alice')['up']);
+        $this->assertSame('cm', $this->service->set(8, 'capture.spz', ['unit' => 'cm'], 'alice')['unit']);
+        foreach (['splat', 'spz'] as $ext) {
+            $this->assertContains($ext, FileSettingsService::UP_FORMATS, $ext);
+            $this->assertContains($ext, FileSettingsService::UNITLESS_FORMATS, $ext);
+        }
+    }
+
     public function testScanFormatsAreUnitless(): void
     {
         foreach (['las', 'laz', 'pcd', 'xyz', 'ply'] as $ext) {
