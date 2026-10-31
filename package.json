@@ -90,7 +90,7 @@
     "postcss": "^8.4.49",
     "fast-xml-parser": ">=5.5.7",
     "webdav": {
-      "minimatch": "^10.2.3"
+      "minimatch": "^11.0.1"
     }
   },
   "resolutions": {
