@@ -48,6 +48,9 @@ class CspListener implements IEventListener
         $policy->addAllowedWorkerSrcDomain("'self'");
         // Splats are drawn by Spark (src/splats/), which starts its sort and parse workers
         // from blob: URLs. Only script already on the page can make one, likewise.
+        // The event is fired for every page the server builds, not only this app's, so
+        // both sources reach every app's pages; neither lets a page run script it could
+        // not already run.
         $policy->addAllowedWorkerSrcDomain('blob:');
         $event->addPolicy($policy);
     }

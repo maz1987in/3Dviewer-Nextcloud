@@ -199,7 +199,7 @@ The UI will also call `POST /apps/threedviewer/api/files/index` the first time i
 | SPLAT  | `.splat`  | No | Gaussian splats in antimatter15's layout (Spark ~2.7 MB lazy-loaded) |
 | SPZ    | `.spz`    | No | Compressed Gaussian splats (Niantic's SPZ) |
 
-> A PLY with no faces opens as a point cloud, and a PLY with Gaussian splat properties (`f_dc_0`, `scale_0`, `rot_0`, `opacity`, or SuperSplat's compressed layout) as a splat. Scans are read in a background worker and thinned to the device's point budget (20 million on a desktop, 4 million on a tablet, 2 million on a phone); files up to 2 GB open. Splats are thinned to 8 million splats on a desktop, 3 million on a tablet and 1.5 million on a phone; files up to 1 GB open.
+> A PLY with no faces opens as a point cloud, and a PLY with Gaussian splat properties (`f_dc_0`, `scale_0`, `rot_0`, `opacity`, or SuperSplat's compressed layout) as a splat. Scans are read in a background worker and thinned to the device's point budget (20 million on a desktop, 4 million on a tablet, 2 million on a phone); files up to 2 GB open. Splats are thinned to 8 million splats on a desktop, 3 million on a tablet and 1.5 million on a phone; files up to 1 GB open on a desktop, 512 MB on a tablet and 256 MB on a phone.
 
 > WASM loaders are lazy-chunked — the 3–7 MB runtime only downloads when a user opens a file of that format.
 
