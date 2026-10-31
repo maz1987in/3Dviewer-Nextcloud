@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.0] - 2026-10-31
+
+Scans and Gaussian splats open in the viewer: laser, drone and phone scans as points, and the photo-real captures phone apps make as they were captured, each thinned to what the device can draw. A link can now reopen a model exactly as you see it, or open one of its notes. Files that record no unit can be given one, saved for everyone. And once an admin lists the sites allowed, a public link's model can be shown on another website.
+
 ### Added
 - Links to a view: "Copy link to this view" in the tools panel (or the L key) copies a link that reopens the model as you see it, with the same camera, shading, lighting, cross-section and exploded view. Each annotation has "Copy link to this note", which opens the Annotations panel on that note, and each bookmark has "Copy link". The link points at the file, so only people who can open it see it. On a public link, and in the viewer opened from Files, a link sets the camera, and those viewers have a "Copy link to this view" button of their own; if you manage a public link of a file, "Copy public link to this view" copies that link with the camera. The tools panel's "Copy View Link", which carried the camera only, is now this, and its links still open.
 - Units for files that don't record one: STL, OBJ, PLY, OFF and 3DS files, and FBX files without a unit, can be marked as drawn in millimetres, centimetres, metres, inches, feet or US survey feet, under "File units" in the model statistics or the Print check card. The unit is saved with the file for everyone who can open it, on public links too; only people who can edit the file can change it. Sizes, measurements, Print check and Send to Slicer follow it, and the file itself is left as it is. Files that record their unit, such as 3MF, glTF or STEP, show it.
