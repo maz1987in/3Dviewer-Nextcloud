@@ -51,8 +51,9 @@ class Version031000Date20261029000000Test extends TestCase
             }
         );
         $table->method('setPrimaryKey')->willReturnCallback(
-            function (array $columns) use (&$recorded, $table) {
+            function (array $columns, $name = false) use (&$recorded, $table) {
                 $recorded['primary'] = $columns;
+                $recorded['primaryName'] = $name;
 
                 return $table;
             }
@@ -82,6 +83,10 @@ class Version031000Date20261029000000Test extends TestCase
         $this->assertFalse($recorded['columns']['unit']['spec']['notnull']);
         $this->assertSame(64, $recorded['columns']['updated_by']['spec']['length']);
         $this->assertSame(['id'], $recorded['primary']);
+        // Nextcloud 31 and 32 refuse the default primary key name on a table whose name,
+        // without the prefix, is 23 characters or more, and any name past 30
+        $this->assertIsString($recorded['primaryName']);
+        $this->assertLessThanOrEqual(30, strlen($recorded['primaryName']));
         $this->assertSame(['file_id'], $recorded['unique']['tdv_fset_file']);
     }
 
