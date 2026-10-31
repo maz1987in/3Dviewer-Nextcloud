@@ -101,8 +101,9 @@ class EmbedPageHttpTest extends HttpTestCase
     private static function comparable(ResponseInterface $response): string
     {
         return (string) preg_replace(
-            ['/data-requesttoken="[^"]*"/', '/nonce="[^"]*"/'],
-            ['data-requesttoken=""', 'nonce=""'],
+            // nc_pageLoad is the second the page was made: two requests can straddle one
+            ['/data-requesttoken="[^"]*"/', '/nonce="[^"]*"/', '/var nc_pageLoad=\d+;/'],
+            ['data-requesttoken=""', 'nonce=""', 'var nc_pageLoad=0;'],
             (string) $response->getBody(),
         );
     }

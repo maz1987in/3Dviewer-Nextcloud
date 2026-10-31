@@ -68,6 +68,8 @@ function html({ model, viewer }: { model: ViewerModel, viewer: Viewer }) {
 	<link rel="stylesheet" href="/css/threedviewer-${viewer.embed ? 'embed' : 'main'}.css">
 	<style>html, body { margin: 0; height: 100%; } #threedviewer { height: 100vh; }</style>
 	</head><body>
+	<!-- Nextcloud's layouts have this, off-screen until focused; NcContent's skip links go in it -->
+	<div id="skip-actions" style="position: absolute; top: -999px; overflow: hidden"></div>
 	${share}
 	${embedState}
 	${viewer.lite || viewer.embed
