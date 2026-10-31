@@ -58,6 +58,19 @@ class CspListenerTest extends TestCase
         $this->assertMatchesRegularExpression("/worker-src\\s+'self'/", $manager->policies[0]->buildPolicy());
     }
 
+    /**
+     * Spark, the splat renderer, starts its sort and parse workers from blob: URLs
+     * (src/splats/). Only script already running on the page can make one.
+     */
+    public function testAllowsBlobWorkers(): void
+    {
+        $manager = new ContentSecurityPolicyManager();
+
+        (new CspListener())->handle(new AddContentSecurityPolicyEvent($manager));
+
+        $this->assertMatchesRegularExpression("/worker-src\\s+'self'\\s+blob:/", $manager->policies[0]->buildPolicy());
+    }
+
     public function testNeverAsksForJavaScriptEval(): void
     {
         $manager = new ContentSecurityPolicyManager();
@@ -81,7 +94,7 @@ class CspListenerTest extends TestCase
         $this->assertMatchesRegularExpression("/script-src\s+'wasm-unsafe-eval';/", $built);
         $this->assertSame(
             (new EmptyContentSecurityPolicy())->buildPolicy(),
-            preg_replace(["/script-src\s+'wasm-unsafe-eval';/", "/;?worker-src\s+'self';?/"], '', $built),
+            preg_replace(["/script-src\s+'wasm-unsafe-eval';/", "/;?worker-src\s+'self'\s+blob:;?/"], '', $built),
         );
     }
 
