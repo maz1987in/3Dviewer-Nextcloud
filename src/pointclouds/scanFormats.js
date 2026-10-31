@@ -34,21 +34,23 @@ export function abortError() {
 	return new DOMException('Aborted', 'AbortError')
 }
 
-const READERS = {
-	xyz: () => import('./readers/xyz.js'),
-	ply: () => import('./readers/plyPoints.js'),
-	pcd: () => import('./readers/pcd.js'),
-	las: () => import('./readers/las.js'),
-	laz: () => import('./readers/las.js'),
-	e57: () => import('./readers/e57.js'),
-}
+// A Map, not an object: an extension such as `constructor` must not find a property every
+// object has
+const READERS = new Map([
+	['xyz', () => import('./readers/xyz.js')],
+	['ply', () => import('./readers/plyPoints.js')],
+	['pcd', () => import('./readers/pcd.js')],
+	['las', () => import('./readers/las.js')],
+	['laz', () => import('./readers/las.js')],
+	['e57', () => import('./readers/e57.js')],
+])
 
 /**
  * @param {string} ext - A scan's extension
  * @return {Promise<{read: function(Blob, object): Promise<object>}>} Its reader
  */
 export async function readerFor(ext) {
-	const load = READERS[String(ext).toLowerCase()]
+	const load = READERS.get(String(ext).toLowerCase())
 	if (!load) {
 		throw new ScanError('there is no reader for .{ext}', { ext })
 	}
