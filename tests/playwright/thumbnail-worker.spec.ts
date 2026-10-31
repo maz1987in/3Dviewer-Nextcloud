@@ -65,6 +65,22 @@ END-ISO-10303-21;
 `
 
 /**
+ * A .splat of `count` splats in a 2 × 1 m sheet, past the thumbnail's budget of 500,000,
+ * so the worker thins it (src/splats/thinSplats.js) before Spark draws it.
+ */
+function manySplats(count: number): Buffer {
+  const out = Buffer.alloc(count * 32)
+  for (let i = 0; i < count; i++) {
+    const at = i * 32
+    out.writeFloatLE((i % 1000) / 500, at)
+    out.writeFloatLE(Math.floor(i / 1000) / 520, at + 4)
+    for (let k = 0; k < 3; k++) out.writeFloatLE(0.003, at + 12 + k * 4)
+    out.set([200, 120, 40, 255, 255, 128, 128, 128], at + 24)
+  }
+  return out
+}
+
+/**
  * Samples no fixture covers, made from what node_modules has.
  *
  * The FCStd: occt-import-js's cube.FCStd stores its body as PartShape.brp, as FreeCAD
@@ -85,6 +101,7 @@ async function buildGeneratedSamples() {
   generated.set('part-design-no-gui.FCStd', partDesignFcstd(zipSync, cube['PartShape.brp'], assembly, false))
   generated.set('tip-only.FCStd', Buffer.from(zipSync({ 'Pocket.Shape.brp': cube['PartShape.brp'] })))
   generated.set('box.ifc', Buffer.from(BOX_IFC))
+  generated.set('many.splat', manySplats(520_000))
   generated.set('triangle.glb', gltfToGlb(fs.readFileSync(path.join(PROJECT_ROOT, FIXTURES, 'triangle.gltf'), 'utf8')))
   generated.set('outside.gltf', Buffer.from(JSON.stringify(gltfNamingOutsideFiles())))
   generated.set('triangle.3ds', triangle3ds())
@@ -516,6 +533,7 @@ const SAMPLES: Sample[] = [
   { name: 'splat', extension: 'splat', files: [`${FIXTURES}splats/grid.splat`] },
   { name: 'spz', extension: 'spz', files: [`${FIXTURES}splats/grid.spz`] },
   { name: 'splat ply', extension: 'ply', files: [`${FIXTURES}splats/grid.ply`] },
+  { name: 'thinned splat', extension: 'splat', files: [`${GENERATED}many.splat`] },
 ]
 
 function startStaticServer(): Promise<{ origin: string, close: () => Promise<void> }> {

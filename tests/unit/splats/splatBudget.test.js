@@ -3,13 +3,21 @@
  * is thinned.
  */
 import { SPLAT_BUDGET } from '../../../src/splats/limits.js'
-import { splatBudgetFor, splatThinningNote } from '../../../src/splats/splatBudget.js'
+import { splatBudgetFor, splatCeilingFor, splatThinningNote } from '../../../src/splats/splatBudget.js'
 
 test('a budget for each kind of device', () => {
 	expect(splatBudgetFor('desktop')).toBe(8_000_000)
 	expect(splatBudgetFor('tablet')).toBe(3_000_000)
 	expect(splatBudgetFor('phone')).toBe(1_500_000)
 	expect(SPLAT_BUDGET.thumbnail).toBe(500_000)
+})
+
+// Spark reads the whole file before it is thinned, so a phone or a tablet opens less of one
+test('the largest splat each kind of device opens', () => {
+	expect(splatCeilingFor('desktop')).toBe(1024 ** 3)
+	expect(splatCeilingFor('tablet')).toBe(512 * 1024 ** 2)
+	expect(splatCeilingFor('phone')).toBe(256 * 1024 ** 2)
+	expect(splatCeilingFor('unknown')).toBe(1024 ** 3)
 })
 
 test('the thinning note', () => {

@@ -19,6 +19,8 @@ jest.mock('@sparkjsdev/spark', () => {
 			this.options = options
 			this.updates = []
 			this.disposed = false
+			this.sorting = false
+			this.sortDirty = false
 			SparkRenderer.made.push(this)
 		}
 
@@ -66,6 +68,45 @@ test('prepare waits for the sort of that camera\'s view', async () => {
 	host.spark.updates[0].finish()
 	await preparing
 	expect(done).toBe(true)
+})
+
+// Spark's update returns at once while a sort is already running, and that sort is for the
+// view it began with; a frame drawn on purpose waits for it and sorts again
+test('prepare waits out a sort already running, then sorts for this view', async () => {
+	const scene = new THREE.Scene()
+	const camera = new THREE.PerspectiveCamera()
+	const host = await attachSpark(scene, {})
+	const spark = host.spark
+
+	let done = false
+	const preparing = host.prepare(camera).then(() => { done = true })
+	await Promise.resolve()
+	spark.sorting = true
+	spark.updates[0].finish()
+	await new Promise((resolve) => setTimeout(resolve, 60))
+	expect(done).toBe(false)
+
+	// The old sort ends with this view still to sort
+	spark.sorting = false
+	spark.sortDirty = true
+	while (spark.updates.length < 2) {
+		await new Promise((resolve) => setTimeout(resolve, 5))
+	}
+	expect(spark.updates[1].args).toEqual({ scene, camera })
+	spark.sortDirty = false
+	spark.updates.slice(1).forEach(({ finish }) => finish())
+	await preparing
+	expect(done).toBe(true)
+})
+
+test('prepare gives up waiting on a sort that never settles', async () => {
+	const host = await attachSpark(new THREE.Scene(), {})
+	host.spark.update = () => { host.spark.sortDirty = true; return Promise.resolve() }
+
+	const started = Date.now()
+	await host.prepare(new THREE.PerspectiveCamera())
+
+	expect(Date.now() - started).toBeLessThan(5000)
 })
 
 test('dispose takes it out of the scene and frees it', async () => {

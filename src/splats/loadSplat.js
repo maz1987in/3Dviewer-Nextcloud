@@ -1,9 +1,9 @@
 /**
  * Read a Gaussian splat with Spark and make it a model the viewer can place.
  *
- * Spark parses in its own workers, so the page's thread only waits. Over the device's
- * budget the splats are thinned with Spark's own `extractSplats`, an even stride through
- * them. A SplatMesh has no geometry, so the root also holds an invisible box where the
+ * Spark parses in its own workers, so the page's thread only waits; a download is streamed
+ * to them, so the page never holds a copy of the whole file. Over the device's budget the
+ * splats are thinned by an even stride through them (thinSplats.js). A SplatMesh has no geometry, so the root also holds an invisible box where the
  * splat is (splatBounds.js): the camera fit, the grid, the statistics and the thumbnail
  * framing all measure the root with Box3.setFromObject, and find it. The box is on layer
  * 31, which no camera or raycaster here uses.
@@ -15,6 +15,7 @@ import * as THREE from 'three'
 import { abortError } from '../pointclouds/scanFormats.js'
 import { evenIndices, splatBounds } from './splatBounds.js'
 import { EmptySplatError, SplatError } from './splatErrors.js'
+import { thinSplats } from './thinSplats.js'
 
 /**
  * @param {Promise<object>} ready - Resolves to something with dispose()
@@ -29,6 +30,10 @@ function abortable(ready, signal) {
 		const onAbort = () => {
 			reject(abortError())
 			ready.then((late) => late.dispose(), () => {})
+		}
+		if (signal.aborted) {
+			onAbort()
+			return
 		}
 		signal.addEventListener('abort', onAbort, { once: true })
 		ready.then(
@@ -60,14 +65,31 @@ function boundsBox(box) {
 }
 
 /**
- * @param {Uint8Array} bytes - The file
+ * @param {Promise<object>} ready - Spark's wait
+ * @param {AbortSignal} [signal] - Stops the wait
+ * @return {Promise<object>} What `ready` resolves to; Spark's refusal as a SplatError
+ */
+async function sparkWait(ready, signal) {
+	try {
+		return await abortable(ready, signal)
+	} catch (error) {
+		if (error?.name === 'AbortError') {
+			throw error
+		}
+		throw new SplatError(error)
+	}
+}
+
+/**
+ * @param {Blob|Uint8Array} input - The file: a download, streamed to Spark, or the
+ *   thumbnailer's bytes
  * @param {object} options - How to read it
  * @param {string} options.format - 'splat', 'spz' or 'ply'
  * @param {number} options.budget - Splats drawn at most
  * @param {AbortSignal} [options.signal] - Cancels the load
  * @return {Promise<THREE.Group>} The model root, with userData.tdvSplat
  */
-export async function loadSplat(bytes, { format, budget, signal }) {
+export async function loadSplat(input, { format, budget, signal }) {
 	if (signal?.aborted) {
 		throw abortError()
 	}
@@ -77,19 +99,11 @@ export async function loadSplat(bytes, { format, budget, signal }) {
 	}
 	// Spark can't tell a .splat from its bytes; it recognises .spz and .ply
 	const read = new PackedSplats({
-		fileBytes: bytes,
+		...(input instanceof Blob ? { stream: input.stream(), streamLength: input.size } : { fileBytes: input }),
 		fileType: format === 'splat' ? SplatFileType.SPLAT : undefined,
 		fileName: `splat.${format}`,
 	})
-	let packed
-	try {
-		packed = await abortable(read.initialized, signal)
-	} catch (error) {
-		if (error?.name === 'AbortError') {
-			throw error
-		}
-		throw new SplatError(error)
-	}
+	let packed = await sparkWait(read.initialized, signal)
 
 	const total = packed.numSplats
 	if (!total) {
@@ -97,13 +111,21 @@ export async function loadSplat(bytes, { format, budget, signal }) {
 		throw new EmptySplatError()
 	}
 	if (total > budget) {
-		const thinned = packed.extractSplats(evenIndices(total, budget), false)
+		const thinned = thinSplats(packed, evenIndices(total, budget), PackedSplats)
 		packed.dispose()
 		packed = thinned
 	}
 
 	const mesh = new SplatMesh({ packedSplats: packed })
-	await abortable(mesh.initialized, signal)
+	try {
+		await sparkWait(mesh.initialized, signal)
+	} catch (error) {
+		// Cancelled, the mesh is freed when Spark is done with it (abortable)
+		if (error.name !== 'AbortError') {
+			packed.dispose()
+		}
+		throw error
+	}
 
 	const root = new THREE.Group()
 	root.name = 'tdv-splat'

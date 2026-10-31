@@ -9,8 +9,10 @@ import { loadSplatModel } from '../../../src/loaders/types/splatModel.js'
 import { SPLAT_BUDGET } from '../../../src/splats/limits.js'
 import { loadSplat } from '../../../src/splats/loadSplat.js'
 import { EmptySplatError, SplatError } from '../../../src/splats/splatErrors.js'
+import { currentDeviceClass } from '../../../src/pointclouds/budget.js'
 
 jest.mock('../../../src/splats/loadSplat.js', () => ({ loadSplat: jest.fn() }))
+jest.mock('../../../src/pointclouds/budget.js', () => ({ currentDeviceClass: jest.fn(() => 'desktop') }))
 
 const root = { userData: { tdvSplat: { count: 1 } } }
 const loader = { processModel: jest.fn((object3D) => ({ object3D })) }
@@ -19,24 +21,35 @@ const context = (extra = {}) => ({ fileExtension: 'spz', ...extra })
 beforeEach(() => {
 	loadSplat.mockReset()
 	loader.processModel.mockClear()
+	currentDeviceClass.mockReturnValue('desktop')
 })
 
 test('a splat over 1 GB is refused before it is read', async () => {
 	const big = new Blob([new Uint8Array(4)])
 	Object.defineProperty(big, 'size', { value: 1.1 * 1024 ** 3 })
 
-	await expect(loadSplatModel(loader, big, context())).rejects.toThrow('This splat is 1.1 GB. The viewer opens splats up to 1 GB.')
+	await expect(loadSplatModel(loader, big, context())).rejects.toThrow('This splat is 1.1 GB. The viewer opens splats up to 1 GB on this device.')
 	expect(loadSplat).not.toHaveBeenCalled()
 })
 
-test('the bytes go to the splat reader with this device\'s budget, and the root to processModel', async () => {
+test('a phone refuses a splat past its own ceiling', async () => {
+	currentDeviceClass.mockReturnValue('phone')
+	const big = new Blob([new Uint8Array(4)])
+	Object.defineProperty(big, 'size', { value: 300 * 1024 ** 2 })
+
+	await expect(loadSplatModel(loader, big, context())).rejects.toThrow('This splat is 300 MB. The viewer opens splats up to 256 MB on this device.')
+	expect(loadSplat).not.toHaveBeenCalled()
+})
+
+test('the download goes to the splat reader as it is, with this device\'s budget, and the root to processModel', async () => {
 	loadSplat.mockResolvedValue(root)
 	const controller = new AbortController()
+	const blob = new Blob([new Uint8Array([1, 2, 3])])
 
-	const result = await loadSplatModel(loader, new Blob([new Uint8Array([1, 2, 3])]), context({ abortController: controller }))
+	const result = await loadSplatModel(loader, blob, context({ abortController: controller }))
 
-	const [bytes, options] = loadSplat.mock.calls[0]
-	expect(Array.from(bytes)).toEqual([1, 2, 3])
+	const [input, options] = loadSplat.mock.calls[0]
+	expect(input).toBe(blob)
 	expect(options.format).toBe('spz')
 	expect(options.signal).toBe(controller.signal)
 	expect(options.budget).toBeGreaterThan(0)

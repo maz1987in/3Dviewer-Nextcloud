@@ -1,13 +1,14 @@
 /**
- * What every splat loader shares: refuse a file past the ceiling, read it with Spark
- * (splats/loadSplat.js) at this device's budget, and hand it to the viewer like any other
- * model. The page passes a Blob; the thumbnailer an ArrayBuffer, with its own budget.
+ * What every splat loader shares: refuse a file past this device's ceiling, read it with
+ * Spark (splats/loadSplat.js) at this device's budget, and hand it to the viewer like any
+ * other model. The page passes a Blob, streamed to Spark as it is; the thumbnailer an
+ * ArrayBuffer, with its own budget.
  */
 // eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
 import { translate as t } from '@nextcloud/l10n'
-import { SPLAT_BUDGET, SPLAT_CEILING_BYTES } from '../../splats/limits.js'
+import { SPLAT_BUDGET } from '../../splats/limits.js'
 import { loadSplat } from '../../splats/loadSplat.js'
-import { splatBudget } from '../../splats/splatBudget.js'
+import { splatBudget, splatCeiling } from '../../splats/splatBudget.js'
 import { EmptySplatError, SplatError, SplatTooLargeError } from '../../splats/splatErrors.js'
 
 /**
@@ -18,13 +19,13 @@ import { EmptySplatError, SplatError, SplatTooLargeError } from '../../splats/sp
  */
 export async function loadSplatModel(loader, input, context) {
 	const size = input instanceof Blob ? input.size : input.byteLength
-	if (size > SPLAT_CEILING_BYTES) {
-		throw new SplatTooLargeError(size)
+	const ceiling = splatCeiling()
+	if (size > ceiling) {
+		throw new SplatTooLargeError(size, ceiling)
 	}
-	const bytes = new Uint8Array(input instanceof Blob ? await input.arrayBuffer() : input)
 	let root
 	try {
-		root = await loadSplat(bytes, {
+		root = await loadSplat(input instanceof Blob ? input : new Uint8Array(input), {
 			format: String(context.fileExtension).toLowerCase(),
 			budget: context.thumbnail ? SPLAT_BUDGET.thumbnail : splatBudget(),
 			signal: context.abortController?.signal,

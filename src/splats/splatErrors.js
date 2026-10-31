@@ -30,14 +30,15 @@ export class EmptySplatError extends Error {
 
 }
 
-/** Past SPLAT_CEILING_BYTES, refused before it is read. */
+/** Past this device's ceiling (limits.js SPLAT_CEILING), refused before it is read. */
 export class SplatTooLargeError extends Error {
 
 	/**
 	 * @param {number} size - The file's size, in bytes
+	 * @param {number} ceiling - The largest this device opens
 	 */
-	constructor(size) {
-		super(t('threedviewer', 'This splat is {size}. The viewer opens splats up to 1 GB.', { size: formatBytes(size) }))
+	constructor(size, ceiling) {
+		super(t('threedviewer', 'This splat is {size}. The viewer opens splats up to {limit} on this device.', { size: formatBytes(size), limit: formatBytes(ceiling) }))
 		this.name = 'SplatTooLargeError'
 	}
 

@@ -36,8 +36,10 @@ class PlyLoader extends BaseLoader {
 		} catch {
 			// Not a header the scan reader knows: PLYLoader says what is wrong with it
 		}
+		// The page's Blob is streamed to Spark; the thumbnailer's bytes are handed over as
+		// they are, as a stream would ask the worker's loading manager for a file by URL
 		if (header && isSplatPly(header)) {
-			return loadSplatModel(this, blob, { ...context, fileExtension: 'ply' })
+			return loadSplatModel(this, input, { ...context, fileExtension: 'ply' })
 		}
 		if (header && isPointCloudPly(header)) {
 			return loadPointCloud(this, blob, { ...context, fileExtension: 'ply' })

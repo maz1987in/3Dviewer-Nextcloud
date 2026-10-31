@@ -69,3 +69,14 @@ test('routes a splat PLY to the splat loader before the scan reader', async () =
 	expect(loadSplatModel.mock.calls[0][1]).toBeInstanceOf(Blob)
 	expect(parsePointCloud).not.toHaveBeenCalled()
 })
+
+// Streamed, Spark would ask the thumbnail worker's loading manager for a file by URL,
+// which the worker refuses
+test('a splat PLY the thumbnailer passes as bytes reaches the splat loader as bytes', async () => {
+	loadSplatModel.mockResolvedValue({ object3D: new THREE.Group() })
+	const buffer = new Uint8Array(bytes('splats/grid.ply')).buffer
+
+	await loadModelByExtension('ply', buffer, context())
+
+	expect(loadSplatModel.mock.calls[0][1]).toBe(buffer)
+})

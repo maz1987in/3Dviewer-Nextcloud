@@ -675,7 +675,7 @@
     "This scan couldn't be read: {reason}": "This scan couldn't be read: {reason}",
     "This scan is {size}. The viewer opens scans up to 2 GB.": "This scan is {size}. The viewer opens scans up to 2 GB.",
     "This splat couldn't be read.": "This splat couldn't be read.",
-    "This splat is {size}. The viewer opens splats up to 1 GB.": "This splat is {size}. The viewer opens splats up to 1 GB.",
+    "This splat is {size}. The viewer opens splats up to {limit} on this device.": "This splat is {size}. The viewer opens splats up to {limit} on this device.",
     "This version": "This version",
     "Thumbnails": "Thumbnails",
     "Tip:": "Tip:",

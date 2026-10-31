@@ -81,6 +81,38 @@ test('a custom refusal, whether the length is sent or not', async () => {
 
 // A fetch cancelled part way through its body fails the stream with a network error in
 // some browsers, not an AbortError; the viewer must still take it as a cancellation
+// A PLY is a splat or not by its header: once the header is in, the download can be held
+// to a splat's lower ceiling, rather than read whole and refused after
+test('the ceiling can be narrowed once the head of the file is in', async () => {
+	class Refusal extends Error {}
+	const heads = []
+	const ceilingFor = (head) => {
+		heads.push(head.length)
+		return head[0] === 1 ? { ceiling: 100 * 1024, tooLarge: (size) => new Refusal(`too large: ${size}`) } : null
+	}
+	const chunks = (first) => new ReadableStream({
+		start(stream) {
+			for (let i = 0; i < 8; i++) {
+				const chunk = new Uint8Array(32 * 1024)
+				chunk[0] = first
+				stream.enqueue(chunk)
+			}
+			stream.close()
+		},
+	})
+
+	await expect(readScanBody(new Response(chunks(1)), { ceilingFor })).rejects.toBeInstanceOf(Refusal)
+	expect(heads).toEqual([64 * 1024])
+	expect((await readScanBody(new Response(chunks(2)), { ceilingFor })).size).toBe(256 * 1024)
+})
+
+test('a file shorter than the head is never narrowed', async () => {
+	const ceilingFor = jest.fn(() => ({ ceiling: 1, tooLarge: () => new Error('no') }))
+
+	expect((await readScanBody(new Response(new Blob([bytes(10)])), { ceilingFor })).size).toBe(10)
+	expect(ceilingFor).not.toHaveBeenCalled()
+})
+
 test('a download cancelled part way is a cancellation, not a failure', async () => {
 	const controller = new AbortController()
 	const body = new ReadableStream({

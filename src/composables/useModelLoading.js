@@ -15,6 +15,7 @@ import { logger } from '../utils/logger.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
 import { LOADING_STAGES } from '../constants/index.js'
 import { disposeObject } from '../utils/three-utils.js'
+import { disposeSplat } from '../splats/disposeSplat.js'
 
 export function useModelLoading() {
 	// Loading state
@@ -299,19 +300,22 @@ export function useModelLoading() {
 			// one on disk, and the scan reader takes it a window at a time
 			let body
 			let receivedLength = 0
-			// A PLY may be a scan, and is read the same way until its header says
+			// A PLY may be a scan, and is read the same way until its header says; once the
+			// header says it is a splat, the download is held to a splat's ceiling
 			if (isScanExtension(extension) || extension === 'ply') {
-				const { readScanBody } = await import('../pointclouds/blobReader.js')
-				body = await readScanBody(response, { onBytes: showDownloaded, signal })
+				const [{ readScanBody }, { plyDownloadLimit }] = await Promise.all([
+					import('../pointclouds/blobReader.js'),
+					import('../splats/downloadLimit.js'),
+				])
+				body = await readScanBody(response, { onBytes: showDownloaded, ceilingFor: extension === 'ply' ? plyDownloadLimit : null, signal })
 				receivedLength = body.size
 			} else if (isSplatExtension(extension)) {
-				// A splat too: Spark is handed its bytes once the download is in
-				const [{ readScanBody }, { SPLAT_CEILING_BYTES }, { SplatTooLargeError }] = await Promise.all([
+				// A splat too, within this device's ceiling: Spark is streamed the Blob
+				const [{ readScanBody }, { splatDownloadLimit }] = await Promise.all([
 					import('../pointclouds/blobReader.js'),
-					import('../splats/limits.js'),
-					import('../splats/splatErrors.js'),
+					import('../splats/downloadLimit.js'),
 				])
-				body = await readScanBody(response, { onBytes: showDownloaded, ceiling: SPLAT_CEILING_BYTES, tooLarge: (size) => new SplatTooLargeError(size), signal })
+				body = await readScanBody(response, { onBytes: showDownloaded, ...splatDownloadLimit(), signal })
 				receivedLength = body.size
 			} else {
 				// Stream the response with progress tracking
@@ -363,8 +367,11 @@ export function useModelLoading() {
 				modelRoot.value = markRaw(result.object3D)
 				currentFileId.value = fileId
 
-				// Attach source file for ZIP export (single-file models)
-				result.sourceFiles = [new File([body], filename)]
+				// Attach source file for ZIP export (single-file models). A splat has no export,
+				// and keeping its file would hold up to a gigabyte for nothing
+				if (!result.object3D.userData?.tdvSplat) {
+					result.sourceFiles = [new File([body], filename)]
+				}
 
 				// Clear loading state
 				loading.value = false
@@ -655,8 +662,9 @@ export function useModelLoading() {
 	 */
 	const clearModel = () => {
 		if (modelRoot.value) {
-			// Dispose of the model
+			// Dispose of the model; a splat's splats are Spark's, outside any geometry
 			disposeObject(modelRoot.value)
+			disposeSplat(modelRoot.value)
 			modelRoot.value = null
 		}
 

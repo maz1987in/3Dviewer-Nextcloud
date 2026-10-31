@@ -1,11 +1,11 @@
 /**
- * How many splats this device is asked to draw: the scans' kinds of device
- * (pointclouds/budget.js), with budgets of their own.
+ * How many splats this device is asked to draw, and the largest file it opens: the scans'
+ * kinds of device (pointclouds/budget.js), with numbers of their own.
  */
 // eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
 import { translate as t } from '@nextcloud/l10n'
 import { currentDeviceClass } from '../pointclouds/budget.js'
-import { SPLAT_BUDGET } from './limits.js'
+import { SPLAT_BUDGET, SPLAT_CEILING } from './limits.js'
 
 /**
  * @param {'desktop'|'tablet'|'phone'} kind - From deviceClass
@@ -20,6 +20,21 @@ export function splatBudgetFor(kind) {
  */
 export function splatBudget() {
 	return splatBudgetFor(currentDeviceClass())
+}
+
+/**
+ * @param {'desktop'|'tablet'|'phone'} kind - From deviceClass
+ * @return {number} The largest splat it opens, in bytes
+ */
+export function splatCeilingFor(kind) {
+	return SPLAT_CEILING[kind] ?? SPLAT_CEILING.desktop
+}
+
+/**
+ * @return {number} This device's ceiling
+ */
+export function splatCeiling() {
+	return splatCeilingFor(currentDeviceClass())
 }
 
 /**

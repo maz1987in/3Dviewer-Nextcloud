@@ -9,7 +9,30 @@
  * Spark sorts the splats for the view in a worker and draws the last sort it has, so in an
  * ordinary render loop the order lags a frame. A frame drawn on purpose (a turntable frame,
  * a thumbnail) awaits `prepare(camera)` first, which finishes the sort for that camera.
+ * Spark's update returns at once while a sort is already running, and that sort is for the
+ * view it began with: prepare waits it out and sorts again, for as long as SETTLE_MS.
  */
+
+/** The longest prepare waits for the sorts to settle; a frame is drawn either way. */
+const SETTLE_MS = 2000
+
+/** How often prepare looks again while a sort runs. */
+const POLL_MS = 16
+
+/**
+ * @param {object} spark - Spark's renderer
+ * @param {import('three').Scene} scene - The scene the splat is in
+ * @param {import('three').Camera} camera - The view to sort for
+ * @return {Promise<void>} Once a sort for this view is done
+ */
+async function settle(spark, scene, camera) {
+	const until = Date.now() + SETTLE_MS
+	await spark.update({ scene, camera })
+	while ((spark.sorting || spark.sortDirty) && Date.now() < until) {
+		await new Promise((resolve) => setTimeout(resolve, POLL_MS))
+		await spark.update({ scene, camera })
+	}
+}
 
 /**
  * @param {import('three').Scene} scene - The scene the splat is in
@@ -23,7 +46,7 @@ export async function attachSpark(scene, renderer) {
 	scene.add(spark)
 	return {
 		spark,
-		prepare: (camera) => spark.update({ scene, camera }),
+		prepare: (camera) => settle(spark, scene, camera),
 		dispose: () => {
 			spark.removeFromParent()
 			spark.dispose()

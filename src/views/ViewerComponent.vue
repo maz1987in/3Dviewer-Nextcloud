@@ -191,6 +191,7 @@ import { copyText } from '../utils/clipboard.js'
 import { createFileSettingsApi } from '../utils/fileSettingsApi.js'
 import { isScanExtension } from '../pointclouds/scanExtensions.js'
 import { isSplatExtension } from '../splats/splatExtensions.js'
+import { disposeSplat } from '../splats/disposeSplat.js'
 import { defaultDisplayUnit, displayLengthFactor, isUnitChangeable, millimetresPerFileUnit, millimetresPerUnit } from '../utils/sourceUnits.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
 
@@ -1156,17 +1157,20 @@ export default {
 
 				let arrayBuffer
 				if (isScanExtension(extension) || extension === 'ply') {
-					// A scan (a PLY may be one) stays a Blob, which the scan reader takes a window at a time
-					const { readScanBody } = await import('../pointclouds/blobReader.js')
-					arrayBuffer = await readScanBody(response, { onBytes: downloading, signal })
-				} else if (isSplatExtension(extension)) {
-					// A splat too, within its own ceiling
-					const [{ readScanBody }, { SPLAT_CEILING_BYTES }, { SplatTooLargeError }] = await Promise.all([
+					// A scan (a PLY may be one) stays a Blob, which the scan reader takes a window at a
+					// time; a PLY whose header says it is a splat is held to a splat's ceiling
+					const [{ readScanBody }, { plyDownloadLimit }] = await Promise.all([
 						import('../pointclouds/blobReader.js'),
-						import('../splats/limits.js'),
-						import('../splats/splatErrors.js'),
+						import('../splats/downloadLimit.js'),
 					])
-					arrayBuffer = await readScanBody(response, { onBytes: downloading, ceiling: SPLAT_CEILING_BYTES, tooLarge: (size) => new SplatTooLargeError(size), signal })
+					arrayBuffer = await readScanBody(response, { onBytes: downloading, ceilingFor: extension === 'ply' ? plyDownloadLimit : null, signal })
+				} else if (isSplatExtension(extension)) {
+					// A splat too, within this device's ceiling
+					const [{ readScanBody }, { splatDownloadLimit }] = await Promise.all([
+						import('../pointclouds/blobReader.js'),
+						import('../splats/downloadLimit.js'),
+					])
+					arrayBuffer = await readScanBody(response, { onBytes: downloading, ...splatDownloadLimit(), signal })
 				} else if (total > 0 && response.body) {
 					// Track download progress
 					const reader = response.body.getReader()
@@ -1239,11 +1243,18 @@ export default {
 					// Add loaded model to scene
 					this.updateProgress(true, 80, this.t('threedviewer', 'Adding model to scene...'), '', false)
 					this.scene.add(result.object3D)
-					// A splat is drawn by Spark, with this viewer's renderer (splats/sparkHost.js)
+					// A splat is drawn by Spark, with this viewer's renderer (splats/sparkHost.js).
+					// Closed while it attaches, the viewer has already been cleaned up
 					this.dropSplatHost()
 					if (result.object3D.userData?.tdvSplat) {
 						const { attachSpark } = await import('../splats/sparkHost.js')
-						this.splatHost = markRaw(await attachSpark(this.scene, this.renderer))
+						const host = await attachSpark(this.scene, this.renderer)
+						if (signal.aborted) {
+							host.dispose()
+							return
+						}
+						this.dropSplatHost()
+						this.splatHost = markRaw(host)
 					}
 
 					// Auto-fit camera to model
@@ -1465,7 +1476,8 @@ export default {
 			logger.info('ViewerComponent', 'Starting cleanup for model', { filename: this.filename })
 			this.dropSplatHost()
 
-			// Dispose of geometries, materials, and textures
+			// Dispose of geometries, materials, and textures; a splat's splats are Spark's
+			this.scene.children.forEach((child) => disposeSplat(child))
 			this.scene.traverse((object) => {
 				if (object.geometry) {
 					object.geometry.dispose()
