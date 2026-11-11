@@ -72,7 +72,8 @@ class PublicEmbedHttpTest extends HttpTestCase
         $this->assertSame(404, $response->getStatusCode());
         $body = (string) $response->getBody();
         $this->assertStringNotContainsString('secret-part', $body);
-        $this->assertStringNotContainsString((string) $model->getId(), $body);
+        // As a whole number: a short id also turns up inside the page's timestamps and tokens
+        $this->assertDoesNotMatchRegularExpression('/\b' . $model->getId() . '\b/', $body);
     }
 
     public function testADeletedShareIsGone(): void
