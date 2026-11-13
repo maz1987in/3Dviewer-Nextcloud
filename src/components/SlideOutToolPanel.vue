@@ -1773,6 +1773,9 @@ export default {
 	display: flex;
 	align-items: center;
 	gap: 12px;
+
+	/* A row that is a div (Export's) is otherwise its padding wider than the panel */
+	box-sizing: border-box;
 	width: 100%;
 	padding: 12px 16px;
 	margin-bottom: 6px;
