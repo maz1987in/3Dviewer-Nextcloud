@@ -23,6 +23,11 @@ export const POINT_CLOUD_UNAVAILABLE = Object.freeze([
 		note: t('threedviewer', 'A scan is a single cloud of points, with no parts to pull apart.'),
 	},
 	{
+		key: 'parts',
+		label: t('threedviewer', 'Parts'),
+		note: t('threedviewer', 'A scan is a single cloud of points, with no parts to list or hide.'),
+	},
+	{
 		key: 'compare',
 		label: t('threedviewer', 'Comparison'),
 		note: t('threedviewer', 'Comparing scans isn\'t available yet.'),

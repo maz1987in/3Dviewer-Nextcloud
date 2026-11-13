@@ -974,7 +974,7 @@ export default {
 	// Declared and never sent is as misleading as sent and never declared: nine of these
 	// named toolbar actions the viewer stopped emitting long ago, and among them sat the
 	// three mode toggles it did send and nothing received.
-	emits: ['model-loaded', 'error', 'measurement-active', 'annotation-active', 'comparison-active', 'print-check-active', 'cycle-performance-mode', 'push-toast', 'loading-state-changed', 'fps-updated', 'animations-initialized', 'view-applied', 'point-cloud-changed', 'splat-changed'],
+	emits: ['model-loaded', 'error', 'measurement-active', 'annotation-active', 'comparison-active', 'print-check-active', 'cycle-performance-mode', 'push-toast', 'loading-state-changed', 'fps-updated', 'animations-initialized', 'view-applied', 'point-cloud-changed', 'splat-changed', 'parts-ready'],
 	setup(props, { emit }) {
 		// Refs
 		const container = ref(null)
@@ -1052,6 +1052,9 @@ export default {
 		const explodedView = useExplodedView()
 		const gcodeLayers = useGcodeLayers()
 		const renderMode = useRenderMode()
+		// The Parts panel's state (composables/usePartsTree.js), loaded as its own chunk
+		// the first time its section is opened on a model with parts
+		const partsApi = shallowRef(null)
 		const transformGizmo = useTransformGizmo()
 		const webxr = useWebXR()
 
@@ -1775,6 +1778,9 @@ export default {
 					// Keep the render mode the viewer was in for the new model
 					clippingPlane.aroundMaterialSwap(() => renderMode.init(modelRoot.value))
 
+					// The Parts panel's tree of this model, if the panel has loaded it
+					syncParts()
+
 					// And Wireframe, which the toggle still shows as on; the watcher only
 					// sees a change
 					if (props.wireframe) {
@@ -2348,6 +2354,7 @@ export default {
 			// Add click handler for measurement and annotation
 			if (renderer.value && renderer.value.domElement) {
 				renderer.value.domElement.addEventListener('click', onCanvasClick)
+				renderer.value.domElement.addEventListener('pointerdown', onCanvasPointerDown)
 			}
 		}
 
@@ -2397,6 +2404,18 @@ export default {
 			if (annotation.isActive.value && !notePlacementHeld.value) {
 				annotation.handleClick(event, camera.camera.value)
 			}
+
+			// A click on a part chooses it in the Parts panel, while the panel's list is on
+			// screen and no tool is using clicks
+			if (partsApi.value && partsApi.value.active
+				&& !measurement.isActive.value && !annotation.isActive.value
+				&& !transformGizmo.isActive.value && !comparison.comparisonMode.value) {
+				partsApi.value.handleClick(event, camera.camera.value)
+			}
+		}
+
+		const onCanvasPointerDown = (event) => {
+			partsApi.value?.notePointerDown(event)
 		}
 
 		/**
@@ -2539,6 +2558,53 @@ export default {
 
 		const resetView = () => {
 			camera.resetView()
+		}
+
+		// The model the Parts panel's tree was made for
+		let partsRoot = null
+		let partsLoading = false
+
+		/**
+		 * Give the Parts panel the model now open, once. A scan or a splat has no parts, and
+		 * a toolpath has its layer slider.
+		 */
+		const syncParts = () => {
+			const api = partsApi.value
+			const root = modelRoot.value
+			if (!api || !root || partsRoot === root || pointCloud.value || splat.value || root.name === 'GCodeToolpath') {
+				return
+			}
+			partsRoot = root
+			api.init(root, scene.value)
+		}
+
+		const loadParts = async () => {
+			if (partsApi.value || partsLoading) {
+				return
+			}
+			partsLoading = true
+			try {
+				const { usePartsTree } = await import('../composables/usePartsTree.js')
+				if (unmounted) {
+					return
+				}
+				partsApi.value = usePartsTree({
+					// What the panel needs of the viewer: the camera, to move it to a part, and
+					// the model's own file, to read an IFC element's properties from
+					camera: () => ({ camera: camera.camera.value, controls: camera.controls.value }),
+					animateCamera: animateCameraToPosition,
+					sourceFile: () => {
+						const files = modelSourceFiles.value || []
+						return files.find((candidate) => /\.ifc$/i.test(candidate.name)) ?? files[0] ?? null
+					},
+				})
+				emit('parts-ready', partsApi.value)
+				syncParts()
+			} catch (error) {
+				logger.warn('ThreeViewer', 'Could not load the parts panel', error)
+			} finally {
+				partsLoading = false
+			}
 		}
 
 		// The shared note a link points at, set when one is opened from a link or copied
@@ -3367,6 +3433,8 @@ export default {
 				? clippingPlane.aroundMaterialSwap(() => renderMode.suspend())
 				: null
 			const explosionToken = setsExplosionAside ? explodedView.suspend() : null
+			// Every part is exported, whatever the Parts panel has hidden
+			const partsToken = partsApi.value ? partsApi.value.suspend() : null
 
 			try {
 				logger.info('ThreeViewer', 'Starting export', { format })
@@ -3478,6 +3546,9 @@ export default {
 				}
 				if (setsExplosionAside) {
 					explodedView.resume(explosionToken)
+				}
+				if (partsToken !== null) {
+					partsApi.value?.resume(partsToken)
 				}
 			}
 		}
@@ -4464,6 +4535,8 @@ export default {
 					modelRoot.value = null
 					modelSourceFiles.value = null
 				}
+				partsApi.value?.clear()
+				partsRoot = null
 
 				// Clear model stats
 				modelStatsComposable.clearStats()
@@ -4682,6 +4755,7 @@ export default {
 			// Remove canvas click listener - check domElement exists
 			if (renderer.value?.domElement) {
 				renderer.value.domElement.removeEventListener('click', onCanvasClick)
+				renderer.value.domElement.removeEventListener('pointerdown', onCanvasPointerDown)
 			}
 
 			if (renderer.value) {
@@ -4704,6 +4778,7 @@ export default {
 			lightingPresets.dispose()
 			bookmarksComposable.dispose()
 			explodedView.dispose()
+			partsApi.value?.dispose()
 			gcodeLayers.dispose()
 			renderMode.dispose()
 			transformGizmo.dispose()
@@ -4834,6 +4909,8 @@ export default {
 
 			// Exploded view
 			explodedView,
+			partsApi,
+			loadParts,
 			gcodeLayers,
 			renderMode,
 			setRenderMode,

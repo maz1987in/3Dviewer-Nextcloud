@@ -1,7 +1,6 @@
 import * as THREE from 'three'
-import * as WebIFC from 'web-ifc'
-import { appAssetPath } from '../appAssetPath.js'
 import { BaseLoader } from '../BaseLoader.js'
+import { createIfcApi } from '../ifcRuntime.js'
 
 /**
  * IFC (Industry Foundation Classes) loader.
@@ -18,7 +17,10 @@ import { BaseLoader } from '../BaseLoader.js'
  * straightforward: stream all tessellated meshes, deinterleave positions
  * from the `[px,py,pz,nx,ny,nz]` vertex layout, apply the placed-geometry
  * transform, and attach the per-geometry color. One Three.js mesh per
- * (ifc element × geometry) instance.
+ * (ifc element × geometry) instance, carrying its express ID in `userData.ifc`.
+ * Nothing else is read about an element here: its name, type, storey and properties are
+ * read from the file by the Parts panel when it is first opened (ifcProperties.js), so
+ * opening an IFC costs what it did before the panel existed.
  *
  * Memory: IfcAPI holds C++ state internally. We call `CloseModel` and
  * `geometry.delete()` on every emitted geometry to release the WASM-side
@@ -32,10 +34,7 @@ class IfcLoader extends BaseLoader {
 	}
 
 	async loadModel(arrayBuffer, context) {
-		this.ifcApi = new WebIFC.IfcAPI()
-		// `true` as 2nd arg = use path as absolute (don't prepend script URL).
-		this.ifcApi.SetWasmPath(appAssetPath('web-ifc'), true)
-		await this.ifcApi.Init()
+		this.ifcApi = await createIfcApi()
 
 		const uint8 = new Uint8Array(arrayBuffer)
 		const modelID = this.ifcApi.OpenModel(uint8)

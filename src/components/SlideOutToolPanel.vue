@@ -491,6 +491,34 @@
 							</div>
 						</section>
 
+						<!-- PARTS Section: the model's parts, to hide, show alone, find and read about.
+						     Not for a toolpath, which has the layer slider. -->
+						<section v-if="partsAvailable" class="panel-section">
+							<button class="section-header"
+								:aria-expanded="sections.parts"
+								aria-controls="panel-section-parts"
+								@click="toggleSection('parts')">
+								<span class="section-title">{{ t('threedviewer', 'Parts') }}</span>
+								<ViewerIcon class="expand-icon"
+									:class="{ collapsed: !sections.parts }"
+									name="chevron"
+									:size="15" />
+							</button>
+							<div v-show="sections.parts" id="panel-section-parts" class="section-content">
+								<!-- A scan or splat has no parts; the line saying why is in its own section -->
+								<button v-if="off('parts')"
+									type="button"
+									class="tool-btn feature-btn"
+									v-bind="unavailable('parts')">
+									<span class="tool-label">{{ t('threedviewer', 'Part list') }}</span>
+								</button>
+								<!-- v-if: the tree and its chunk load the first time the section is opened -->
+								<PartsTree v-else-if="sections.parts"
+									:parts="parts"
+									:is-mobile="isMobile" />
+							</div>
+						</section>
+
 						<!-- ANIMATION Section (conditional) -->
 						<section v-if="hasAnimations" class="panel-section">
 							<button class="section-header"
@@ -770,6 +798,8 @@ const EmbedCodeControl = defineAsyncComponent(() => import('./EmbedCodeControl.v
 // Only a scan needs these, so they load with the first one
 const PointCloudControls = defineAsyncComponent(() => import('./PointCloudControls.vue'))
 const SplatControls = defineAsyncComponent(() => import('./SplatControls.vue'))
+// The part tree loads when the Parts section is first opened
+const PartsTree = defineAsyncComponent(() => import('./PartsTree.vue'))
 
 export default {
 	name: 'SlideOutToolPanel',
@@ -780,6 +810,7 @@ export default {
 		EmbedCodeControl,
 		PointCloudControls,
 		SplatControls,
+		PartsTree,
 	},
 
 	props: {
@@ -846,6 +877,10 @@ export default {
 		pointSize: { type: Number, default: 2 },
 		// A splat's summary (ThreeViewer's model-loaded splat), or null
 		splat: { type: Object, default: null },
+		// Whether the model is one with parts to list: not a toolpath, which has layers
+		partsAvailable: { type: Boolean, default: false },
+		// usePartsTree's API, or null until the viewer has loaded it
+		parts: { type: Object, default: null },
 		// The keys of the tools that are off for what is open (utils/offTools.js)
 		offTools: { type: Array, default: () => [] },
 		// Which way is up for the scan or splat (useFileUp's state), or null
@@ -942,6 +977,7 @@ export default {
 		'set-gcode-layer',
 		'toggle-gcode-single-layer',
 		'set-render-mode',
+		'load-parts',
 	],
 
 	setup(props, { emit }) {
@@ -956,6 +992,7 @@ export default {
 			view: true,
 			scene: true,
 			analyze: true,
+			parts: false,
 			animation: true,
 			export: false,
 			settings: false,
@@ -974,6 +1011,13 @@ export default {
 			emit(open ? 'panel-opened' : 'panel-closed')
 			try { localStorage.setItem('3dviewer-panel-open', String(open)) } catch { /* ignore */ }
 		})
+
+		// The Parts chunk is asked for when its section is on screen, not before
+		const partsShown = computed(() => isOpen.value && sections.value.parts && props.partsAvailable
+			&& props.modelLoaded && !props.offTools.includes('parts'))
+		watch(partsShown, (shown) => {
+			if (shown) emit('load-parts')
+		}, { immediate: true })
 
 		const togglePanel = () => {
 			isOpen.value = !isOpen.value

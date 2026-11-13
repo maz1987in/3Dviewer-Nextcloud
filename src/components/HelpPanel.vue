@@ -188,6 +188,13 @@
 								</div>
 							</div>
 							<div class="help-item">
+								<ViewerIcon class="help-icon" name="isolate" :size="18" />
+								<div class="help-text">
+									<h4>{{ t('threedviewer', 'Parts') }}</h4>
+									<p>{{ t('threedviewer', 'Open the Parts section to list a model\'s parts. Hide a part, show only one with Isolate, or zoom to it, and click a part in the model to find it in the list. For IFC files, a chosen element shows its type, storey and properties. In the list, arrow keys move, Enter chooses, and H, I and Z hide, isolate and zoom.') }}</p>
+								</div>
+							</div>
+							<div class="help-item">
 								<ViewerIcon class="help-icon" name="visibility" :size="18" />
 								<div class="help-text">
 									<h4>{{ t('threedviewer', 'G-code Layers') }}</h4>

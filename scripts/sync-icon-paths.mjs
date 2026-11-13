@@ -33,6 +33,9 @@ export const ICONS = {
 	package: 'Package',
 	texture: 'ImageOutline',
 	visibility: 'Eye',
+	// The Parts panel: hidden, and show only this part
+	visibilityOff: 'EyeOff',
+	isolate: 'Target',
 	check: 'Check',
 	copy: 'ContentCopy',
 	faceLabels: 'LabelOutline',

@@ -129,6 +129,8 @@
 					:embed-offered="embedOffered"
 					:point-cloud="pointCloud"
 					:splat="splat"
+					:parts-available="modelLoaded && !isGcodeModel"
+					:parts="partsApi"
 					:off-tools="offTools"
 					:colour-by="pointColourBy"
 					:point-size="pointSize"
@@ -208,6 +210,7 @@
 					@set-gcode-layer="onSetGcodeLayer"
 					@toggle-gcode-single-layer="onToggleGcodeSingleLayer"
 					@set-render-mode="onSetRenderMode"
+					@load-parts="$refs.viewer?.loadParts?.()"
 					@add-bookmark="onAddBookmark"
 					@load-bookmark="onLoadBookmark"
 					@remove-bookmark="onRemoveBookmark" />
@@ -248,6 +251,7 @@
 					@view-applied="onViewApplied"
 					@point-cloud-changed="onPointCloudChanged"
 					@splat-changed="onSplatChanged"
+					@parts-ready="partsApi = $event"
 					@loading-state-changed="onLoadingStateChanged"
 					@fps-updated="onFpsUpdated"
 					@animations-initialized="onAnimationsInitialized"
@@ -437,6 +441,8 @@ export default {
 			animationDuration: 0,
 			animationClipNames: [],
 			animationActiveClipIndex: 0,
+			// The Parts panel's state (usePartsTree's API), once the viewer has loaded it
+			partsApi: null,
 			// Exploded view
 			explodedViewActive: false,
 			explodedViewAvailable: false,
