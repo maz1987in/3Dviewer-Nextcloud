@@ -216,6 +216,9 @@ async function longestSince(page: Page, since: number) {
 }
 
 test('opening print check on 240,000 triangles shows the card at once and never stops the page', async ({ page }) => {
+	// Loading 240,000 triangles on a CI runner's software renderer takes most of the default
+	// 30 s before the check even opens (27 s in a passing run), so the clicks after it ran out
+	test.slow()
 	await watchMainThread(page)
 	await openPrintCheck(page, 'big')
 	await expect(card(page)).toContainText('of the surface overhangs')
