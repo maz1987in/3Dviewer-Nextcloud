@@ -13,14 +13,14 @@
 			</button>
 
 			<button :aria-label="t('threedviewer', 'Fit to view')"
-				class="tdv-btn tdv-btn--icon tdv-btn--on-canvas"
+				class="tdv-btn tdv-btn--icon tdv-btn--on-canvas fit-btn"
 				:title="t('threedviewer', 'Fit model to view')"
 				@click="$emit('fit-to-view')">
 				<ViewerIcon name="fitToView" :size="20" />
 			</button>
 
 			<button :aria-label="t('threedviewer', 'Take screenshot')"
-				class="tdv-btn tdv-btn--icon tdv-btn--on-canvas"
+				class="tdv-btn tdv-btn--icon tdv-btn--on-canvas screenshot-btn"
 				:title="t('threedviewer', 'Take screenshot')"
 				@click="$emit('take-screenshot')">
 				<ViewerIcon name="camera" :size="20" />
@@ -84,6 +84,24 @@
 				<ViewerIcon name="controller" :size="20" />
 			</button>
 
+			<!--
+				View in AR, one tap from the model on a phone or tablet that can show it in the room:
+				in the tools panel it sat under Export, folded away at the bottom. Hidden where the
+				device has no way, as Enter VR is; while it works it is aria-disabled, and when a
+				file waits for a second tap ("Open in AR") it is highlighted.
+			-->
+			<button v-if="arPath"
+				type="button"
+				:aria-label="arLabel"
+				class="tdv-btn tdv-btn--icon tdv-btn--on-canvas"
+				:class="{ 'is-active': arState === 'ready' }"
+				:title="arLabel"
+				:aria-busy="arState === 'preparing' ? 'true' : 'false'"
+				:aria-disabled="arBusy ? 'true' : null"
+				@click="onViewInAr">
+				<ViewerIcon name="ar" :size="20" />
+			</button>
+
 			<button v-if="webxrSupported"
 				:aria-label="webxrActive ? t('threedviewer', 'Exit VR') : t('threedviewer', 'Enter VR')"
 				class="tdv-btn tdv-btn--icon tdv-btn--on-canvas"
@@ -117,6 +135,7 @@ import { computed } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
 import ViewerIcon from './ViewerIcon.vue'
 import { getFormatLabel } from '../utils/fileHelpers.js'
+import { arButtonLabel, isArBusy } from '../utils/viewInAr.js'
 
 /** Below this the frame budget is missed often enough to be felt as stutter. */
 const FPS_DEGRADED = 45
@@ -142,6 +161,9 @@ export default {
 		isAnimationPlaying: { type: Boolean, default: false },
 		webxrSupported: { type: Boolean, default: false },
 		webxrActive: { type: Boolean, default: false },
+		// View in AR: the device's way (utils/viewInAr.js AR_PATH), or null for none, and useViewInAR's state
+		arPath: { type: String, default: null },
+		arState: { type: String, default: 'idle' },
 		// G-code toolpath color controls
 		isGcodeModel: { type: Boolean, default: false },
 		gcodeColorMode: { type: String, default: 'single' }, // 'single' | 'gradient'
@@ -155,6 +177,7 @@ export default {
 		'toggle-controller',
 		'take-screenshot',
 		'toggle-vr',
+		'view-in-ar',
 		'toggle-help',
 		'toggle-tools',
 		'toggle-animation-play',
@@ -163,7 +186,14 @@ export default {
 		'change-gcode-color',
 	],
 
-	setup(props) {
+	setup(props, { emit }) {
+		const arLabel = computed(() => arButtonLabel(props.arState))
+		const arBusy = computed(() => isArBusy(props.arState))
+		const onViewInAr = () => {
+			if (!arBusy.value) {
+				emit('view-in-ar')
+			}
+		}
 		const performanceText = computed(() => {
 			if (!props.fps) return t('threedviewer', 'Performance info')
 			return t('threedviewer', 'FPS: {fps}', { fps: Math.round(props.fps) })
@@ -190,6 +220,9 @@ export default {
 
 		return {
 			t,
+			arLabel,
+			arBusy,
+			onViewInAr,
 			performanceText,
 			modelFormat,
 			fpsHealth,
@@ -398,8 +431,32 @@ export default {
 		padding: 0 4px 0 45px;
 	}
 
+	/* The health dot alone: the number is in its label and in the panel it opens. The bar
+	   has View in AR and Enter VR to fit beside Help and Tools on a 360 px phone. */
 	.fps-badge.fps-badge {
-		padding: 0 8px;
+		justify-content: center;
+		min-width: var(--tdv-hit-target);
+		padding: 0;
+	}
+
+	.fps-value {
+		display: none;
+	}
+}
+
+/* Narrower still, the screenshot button goes: Screenshot is in the tools panel's Export
+   section (P), and a phone takes a screenshot of its own. Tools must never be pushed off. */
+@media (width <= 400px) {
+	.screenshot-btn {
+		display: none;
+	}
+}
+
+/* And on the narrowest phones (360 px, with View in AR and Enter VR), Fit to view, which
+   is in the tools panel's View section (F) beside Reset view */
+@media (width <= 380px) {
+	.fit-btn {
+		display: none;
 	}
 }
 

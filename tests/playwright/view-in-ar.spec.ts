@@ -197,3 +197,37 @@ test('a splat has the button off, and the panel says why', async ({ page }) => {
 	expect(await page.evaluate(() => (window as any).__arClicks.length)).toBe(0)
 	await expect(page.locator('.toast')).toHaveCount(0)
 })
+
+/** The toolbar's View in AR: one tap from the model, without the tools panel. */
+const toolbarAr = (page: Page) => page.locator('.minimal-top-bar').getByRole('button', { name: /AR$/ })
+
+test('on a phone the toolbar offers View in AR in one tap, with the tools panel closed', async ({ page }) => {
+	await asIPhone(page)
+	await openViewer(page, server.url, CUBE, { user: 'alice', openPanel: false })
+	await expect(page.locator('.slide-out-panel')).toHaveCount(0)
+	const button = toolbarAr(page)
+	await expect(button).toBeVisible()
+	await expect(button).toHaveAttribute('title', 'View in AR')
+
+	await button.click()
+	await page.waitForFunction(() => (window as any).__arClicks.length === 1, null, { timeout: 20000 })
+	const opened = await page.evaluate(() => (window as any).__arClicks[0])
+	expect(opened.rel).toBe('ar')
+	// The same file the panel's button makes: 10 mm is a centimetre in the room
+	expect(extentInMetres(usda(opened.bytes))).toBeCloseTo(0.01, 9)
+	await expect(button).toHaveAttribute('title', 'View in AR')
+})
+
+test('on Android the toolbar\'s View in AR starts the WebXR session', async ({ page }) => {
+	await asAndroid(page)
+	await openViewer(page, server.url, CUBE, { user: 'alice', openPanel: false })
+	await toolbarAr(page).click()
+	await page.waitForFunction(() => (window as any).__xrRequests.length === 1, null, { timeout: 20000 })
+	expect(await page.evaluate(() => (window as any).__xrRequests[0].mode)).toBe('immersive-ar')
+})
+
+test('a splat has no View in AR in the toolbar; the panel says why', async ({ page }) => {
+	await asIPhone(page)
+	await open(page, SPLAT)
+	await expect(toolbarAr(page)).toHaveCount(0)
+})
