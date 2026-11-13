@@ -27,6 +27,16 @@ const BUDGETS = [
   // The embed page's entry: the token, one request, then the light viewer the share page
   // mounts. No more than main's, which does the same and more.
   { pattern: /^threedviewer-embed\.mjs$/, name: 'embed', maxRaw: 5800, maxGzip: 2100 },
+  // The card for a link to a model, loaded on every page that can show link previews (Talk,
+  // Text, Collectives, Files). Plain DOM and no imports: 2.9 KB raw / 1.3 KB gzip when
+  // added. The budget is tight on purpose, so pulling in Vue, the l10n library or three.js
+  // fails the build instead of landing on every chat page.
+  { pattern: /^threedviewer-reference\.mjs$/, name: 'reference', maxRaw: 4500, maxGzip: 2000 },
+  // The card's stylesheet: css/threedviewer-reference.css and every file it @imports,
+  // counted together, since a page loads them all. Its own rules on Nextcloud's variables,
+  // 2,482 B raw / 840 B gzip; it used to import the app's design system, 13.1 KB raw /
+  // 2.8 KB gzip in all. The budget stops that coming back.
+  { css: 'threedviewer-reference.css', name: 'reference-css', maxRaw: 2800, maxGzip: 1000 },
   { pattern: /^gltf-.*\.chunk\.mjs$/, name: 'gltf-loader', maxRaw: 22000, maxGzip: 6000 }, // GLTF loader chunk (includes decoder worker pool tuning via setWorkerLimit)
   // Main app component. Bumped 360 KB → 370 KB in v3.3.0 for the 9 new viewer-config
   // entries, and unchanged by the redesign: replacing every emoji control with a Material
@@ -84,6 +94,20 @@ const BUDGETS = [
 ];
 
 const buildDir = path.resolve(process.cwd(), 'js');
+const cssDir = path.resolve(process.cwd(), 'css');
+
+/**
+ * A CSS entry and every file it pulls in with `@import './file.css'`, as the browser loads
+ * them: the entry vite writes is only a list of imports of the real chunks.
+ */
+function cssWithImports(file, seen = new Set()) {
+  if (seen.has(file)) return [];
+  seen.add(file);
+  const full = path.join(cssDir, file);
+  const content = fs.readFileSync(full);
+  const imports = [...content.toString('utf8').matchAll(/@import\s+(?:url\()?['"]\.\/([^'"]+)['"]/g)].map(m => m[1]);
+  return [content, ...imports.flatMap(f => cssWithImports(f, seen))];
+}
 const historyFile = path.resolve(process.cwd(), 'bundle-sizes.json');
 
 if (!fs.existsSync(buildDir)) {
@@ -155,6 +179,24 @@ async function run() {
   
   // Check all budgets
   for (const budget of BUDGETS) {
+    if (budget.css) {
+      // A named stylesheet the build must produce: missing is a failure, not a skip
+      const parts = fs.existsSync(path.join(cssDir, budget.css)) ? cssWithImports(budget.css) : null;
+      const raw = parts ? parts.reduce((sum, b) => sum + b.length, 0) : Infinity;
+      const gzip = parts ? await gzipSizeSync(Buffer.concat(parts)) : Infinity;
+      const result = { file: budget.css, name: budget.name, raw, gzip, maxRaw: budget.maxRaw, maxGzip: budget.maxGzip, passed: raw <= budget.maxRaw && gzip <= budget.maxGzip };
+      results.push(result);
+      if (!result.passed) {
+        failed = true;
+        console.error(`[size-check] FAIL css/${budget.css} (${budget.name}) ` + (parts
+          ? `raw: ${formatBytes(raw)} (max ${formatBytes(budget.maxRaw)}), gzip: ${formatBytes(gzip)} (max ${formatBytes(budget.maxGzip)}), from ${parts.length} file(s)`
+          : 'not built'));
+      } else {
+        currentSizes[budget.name] = { raw, gzip };
+        console.log(`[size-check] OK   css/${budget.css} (${budget.name}) raw=${formatBytes(raw)} gzip=${formatBytes(gzip)}, ${parts.length} file(s)`);
+      }
+      continue;
+    }
     let matched = files.filter(f => budget.pattern.test(f));
     if (matched.length === 0) continue;
 

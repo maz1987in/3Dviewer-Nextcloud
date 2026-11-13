@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OCA\ThreeDViewer\Controller;
 
 use OCA\ThreeDViewer\Constants\SupportedFormats;
+use OCA\ThreeDViewer\Reference\ModelReferenceProvider;
 use OCA\ThreeDViewer\Service\ModelFileSupport;
 use OCA\ThreeDViewer\Service\NoteAccess;
 use OCA\ThreeDViewer\Service\ResponseBuilder;
@@ -14,6 +15,7 @@ use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\FrontpageRoute;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\JSONResponse;
+use OCP\Collaboration\Reference\IReferenceManager;
 use OCP\Files\File;
 use OCP\Files\IRootFolder;
 use OCP\ICacheFactory;
@@ -49,7 +51,8 @@ class ThumbnailController extends BaseController
         ResponseBuilder $responseBuilder,
         ModelFileSupport $modelFileSupport,
         LoggerInterface $logger,
-        ICacheFactory $cacheFactory
+        ICacheFactory $cacheFactory,
+        private readonly IReferenceManager $referenceManager
     ) {
         parent::__construct($appName, $request, $responseBuilder, $modelFileSupport, $logger, $cacheFactory);
         $this->rootFolder = $rootFolder;
@@ -114,6 +117,10 @@ class ThumbnailController extends BaseController
             return $this->responseBuilder->createErrorResponse('Failed to store thumbnail', Http::STATUS_INTERNAL_SERVER_ERROR);
         }
 
+        if ($result === ThumbnailStoreResult::Stored) {
+            $this->forgetCards($fileId);
+        }
+
         return match ($result) {
             ThumbnailStoreResult::Stored => new JSONResponse(['status' => 'stored'], Http::STATUS_CREATED),
             ThumbnailStoreResult::Exists => new JSONResponse(['status' => 'exists'], Http::STATUS_CONFLICT),
@@ -175,6 +182,23 @@ class ThumbnailController extends BaseController
 
         // An empty PHP array would encode as `[]`; the client reads this as a map.
         return new JSONResponse(['files' => (object) $files]);
+    }
+
+    /**
+     * Drop the cached link previews of a model: one resolved before its thumbnail was stored
+     * was made without it. The thumbnail is stored by now, so a failure here is not the
+     * caller's; the previews catch up when Nextcloud's cache expires.
+     */
+    private function forgetCards(int $fileId): void
+    {
+        try {
+            $this->referenceManager->invalidateCache(ModelReferenceProvider::cachePrefixFor($fileId));
+        } catch (\Throwable $e) {
+            $this->logger->warning('ThumbnailController: Could not clear the cached link previews', [
+                'fileId' => $fileId,
+                'exception' => $e,
+            ]);
+        }
     }
 
     /**

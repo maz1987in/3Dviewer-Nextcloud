@@ -996,6 +996,14 @@
       <code><![CDATA[PublicEmbedHttpTest]]></code>
     </UnusedClass>
   </file>
+  <file src="tests/http/ReferenceHttpTest.php">
+    <MissingDependency>
+      <code><![CDATA[HttpTestCase]]></code>
+    </MissingDependency>
+    <UnusedClass>
+      <code><![CDATA[ReferenceHttpTest]]></code>
+    </UnusedClass>
+  </file>
   <file src="tests/http/WriteRoutesCsrfHttpTest.php">
     <MissingDependency>
       <code><![CDATA[HttpTestCase]]></code>
@@ -1262,6 +1270,22 @@
       <code><![CDATA[LoadPublicShareListenerTest]]></code>
     </UnusedClass>
   </file>
+  <file src="tests/unit/Listener/ReferenceInvalidationListenerTest.php">
+    <UndefinedClass>
+      <code><![CDATA[TestCase]]></code>
+    </UndefinedClass>
+    <UnusedClass>
+      <code><![CDATA[ReferenceInvalidationListenerTest]]></code>
+    </UnusedClass>
+  </file>
+  <file src="tests/unit/Listener/RenderReferenceListenerTest.php">
+    <UndefinedClass>
+      <code><![CDATA[TestCase]]></code>
+    </UndefinedClass>
+    <UnusedClass>
+      <code><![CDATA[RenderReferenceListenerTest]]></code>
+    </UnusedClass>
+  </file>
   <file src="tests/unit/Listener/ThumbnailInvalidationListenerTest.php">
     <UndefinedClass>
       <code><![CDATA[TestCase]]></code>
@@ -1343,12 +1367,28 @@
       <code><![CDATA[RecordingProvider]]></code>
     </UnusedClass>
   </file>
+  <file src="tests/unit/Reference/ModelReferenceProviderTest.php">
+    <UndefinedClass>
+      <code><![CDATA[TestCase]]></code>
+    </UndefinedClass>
+    <UnusedClass>
+      <code><![CDATA[ModelReferenceProviderTest]]></code>
+    </UnusedClass>
+  </file>
   <file src="tests/unit/Repair/RemoveLegacyThumbnailsTest.php">
     <UndefinedClass>
       <code><![CDATA[TestCase]]></code>
     </UndefinedClass>
     <UnusedClass>
       <code><![CDATA[RemoveLegacyThumbnailsTest]]></code>
+    </UnusedClass>
+  </file>
+  <file src="tests/unit/Search/ModelSearchProviderTest.php">
+    <UndefinedClass>
+      <code><![CDATA[TestCase]]></code>
+    </UndefinedClass>
+    <UnusedClass>
+      <code><![CDATA[ModelSearchProviderTest]]></code>
     </UnusedClass>
   </file>
   <file src="tests/unit/Service/EmbedOriginsTest.php">

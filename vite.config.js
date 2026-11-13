@@ -22,6 +22,8 @@ const appConfig = createAppConfig(
     'settings-personal': 'src/settings-personal.js',
     'settings-admin': 'src/settings-admin.js',
     embed: 'src/embed.js',
+    // The card for a link to a model, loaded where apps render link previews (no three.js)
+    reference: 'src/reference.js',
   },
   {
     createEmptyCSSEntryPoints: true,

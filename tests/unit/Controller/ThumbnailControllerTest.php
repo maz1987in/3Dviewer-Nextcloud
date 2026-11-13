@@ -13,6 +13,7 @@ use OCA\ThreeDViewer\Service\ThumbnailService;
 use OCA\ThreeDViewer\Service\ThumbnailStoreResult;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
+use OCP\Collaboration\Reference\IReferenceManager;
 use OCP\Files\File;
 use OCP\Files\Folder;
 use OCP\Files\IRootFolder;
@@ -34,6 +35,7 @@ class ThumbnailControllerTest extends TestCase
     private Folder&MockObject $home;
     private IRequest&MockObject $request;
     private LoggerInterface&MockObject $logger;
+    private IReferenceManager&MockObject $references;
     private IUserSession&MockObject $session;
     private ThumbnailController $controller;
 
@@ -43,6 +45,7 @@ class ThumbnailControllerTest extends TestCase
         $this->access = $this->createMock(NoteAccess::class);
         $this->request = $this->createMock(IRequest::class);
         $this->logger = $this->createMock(LoggerInterface::class);
+        $this->references = $this->createMock(IReferenceManager::class);
 
         $this->home = $this->createMock(Folder::class);
         $this->home->method('getRelativePath')->willReturnCallback(static fn (string $p): string => preg_replace('#^/alice/files#', '', $p));
@@ -62,7 +65,7 @@ class ThumbnailControllerTest extends TestCase
         $cacheFactory = $this->createMock(ICacheFactory::class);
         $cacheFactory->method('createDistributed')->willReturn($this->createMock(ICache::class));
 
-        return new class ('threedviewer', $this->request, $rootFolder, $this->session, $this->thumbnails, $this->access, new ResponseBuilder($this->createMock(ModelFileSupport::class)), $this->createMock(ModelFileSupport::class), $this->logger, $cacheFactory, $body) extends ThumbnailController {
+        return new class ('threedviewer', $this->request, $rootFolder, $this->session, $this->thumbnails, $this->access, new ResponseBuilder($this->createMock(ModelFileSupport::class)), $this->createMock(ModelFileSupport::class), $this->logger, $cacheFactory, $this->references, $body) extends ThumbnailController {
             public function __construct(
                 string $appName,
                 IRequest $request,
@@ -74,9 +77,10 @@ class ThumbnailControllerTest extends TestCase
                 ModelFileSupport $modelFileSupport,
                 LoggerInterface $logger,
                 ICacheFactory $cacheFactory,
+                IReferenceManager $referenceManager,
                 private readonly string $body,
             ) {
-                parent::__construct($appName, $request, $rootFolder, $userSession, $thumbnailService, $noteAccess, $responseBuilder, $modelFileSupport, $logger, $cacheFactory);
+                parent::__construct($appName, $request, $rootFolder, $userSession, $thumbnailService, $noteAccess, $responseBuilder, $modelFileSupport, $logger, $cacheFactory, $referenceManager);
             }
 
             protected function readBody(): string
@@ -114,6 +118,37 @@ class ThumbnailControllerTest extends TestCase
 
         $this->assertSame(201, $response->getStatus());
         $this->assertSame(['status' => 'stored'], $response->getData());
+    }
+
+    public function testStoringAThumbnailDropsTheModelsCachedLinkPreviews(): void
+    {
+        $this->filesById([7 => [$this->file('a.glb')]]);
+        $this->access->method('forUser')->willReturn(new NoteAccessResult(true));
+        $this->thumbnails->method('store')->willReturn(ThumbnailStoreResult::Stored);
+        // The cards are cached under the file id, so that is the prefix to clear
+        $this->references->expects($this->once())->method('invalidateCache')->with('7');
+
+        $this->controller->storeThumbnail(7, '"e1"');
+    }
+
+    public function testAFailureToDropTheCachedPreviewsDoesNotFailTheStore(): void
+    {
+        $this->filesById([7 => [$this->file('a.glb')]]);
+        $this->access->method('forUser')->willReturn(new NoteAccessResult(true));
+        $this->thumbnails->method('store')->willReturn(ThumbnailStoreResult::Stored);
+        $this->references->method('invalidateCache')->willThrowException(new \RuntimeException('cache down'));
+
+        $this->assertSame(201, $this->controller->storeThumbnail(7, '"e1"')->getStatus());
+    }
+
+    public function testPreviewsAreLeftAloneWhenNothingWasStored(): void
+    {
+        $this->filesById([7 => [$this->file('a.glb')]]);
+        $this->access->method('forUser')->willReturn(new NoteAccessResult(true));
+        $this->thumbnails->method('store')->willReturn(ThumbnailStoreResult::Exists);
+        $this->references->expects($this->never())->method('invalidateCache');
+
+        $this->controller->storeThumbnail(7, '"e1"');
     }
 
     public function testStaleEtagIsRejected(): void
