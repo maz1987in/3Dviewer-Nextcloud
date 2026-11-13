@@ -16,8 +16,8 @@ import { fileURLToPath } from 'node:url'
 //   - How Windows HC themes map Canvas/CanvasText/Highlight in practice
 //     (Playwright's forced-colors emulation uses a neutral palette).
 //   - Visual regressions that only show up with real GPU compositing.
-// Those still require the interactive Windows HC walkthrough noted in
-// TODO.md — this spec closes the gap for keyboard/CSS correctness.
+// Those still require the Windows High Contrast walkthrough in docs/TESTING.md
+// (Manual Checks); this spec closes the gap for keyboard and CSS correctness.
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const FORCED_COLORS_CSS = readFileSync(

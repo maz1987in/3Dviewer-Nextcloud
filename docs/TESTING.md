@@ -94,6 +94,12 @@ npx playwright test --debug tests/playwright/viewer-smoke.spec.js
 - DRACO compressed glTF test
 - Abort loading test
 
+### Manual Checks
+
+Some things no automated test here can see:
+
+- **Windows High Contrast themes.** `tests/playwright/a11y-forced-colors.spec.ts` emulates `forced-colors: active`, but Playwright uses a neutral palette. How the real Windows themes map `Canvas`, `CanvasText` and `Highlight`, and any problem that shows only with GPU compositing, needs a walkthrough on a Windows machine with a High Contrast theme switched on.
+
 ### Smoke Tests
 
 Minimal Playwright tests ensuring critical functionality:
