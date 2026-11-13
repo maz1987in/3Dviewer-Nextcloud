@@ -60,6 +60,17 @@ test('a model that fits says so, and one that does not says by how much', () => 
 	expect(text()).not.toContain('too deep')
 })
 
+test('says what is still being measured, and when it could not be', () => {
+	mount(meshState({ fit: null, overhang: null, closed: 'checking', estimate: null }))
+	expect(text().match(/Measuring…/g)).toHaveLength(2)
+	expect(text()).toContain('Checking…')
+	expect(text()).not.toContain('Fits the build volume')
+	document.body.replaceChildren()
+
+	mount(meshState({ fit: null, overhang: null, measureFailed: true }))
+	expect(text().match(/Could not measure the model/g)).toHaveLength(2)
+})
+
 test('overhang share, closed state and estimate read as a person would', () => {
 	mount(meshState())
 	expect(text()).toContain('12 % of the surface overhangs')

@@ -5,11 +5,17 @@
 import * as THREE from 'three'
 import { ref, nextTick } from 'vue'
 import { usePrintCheck } from '../../../src/composables/usePrintCheck.js'
-import { checkClosed, measureThickness } from '../../../src/printCheck/printCheckClient.js'
+import { openSurfaceSession, measureThickness } from '../../../src/printCheck/printCheckClient.js'
+import { measureSurface } from '../../../src/printCheck/surfaceMeasures.js'
 import { loadPrintCheckSettings, savePrintCheckSettings, flushPrintCheckSettings } from '../../../src/printCheck/printCheckSettings.js'
 import { PRINT_CHECK_DEFAULTS } from '../../../src/printCheck/printers.js'
 
-jest.mock('../../../src/printCheck/printCheckClient.js', () => ({ checkClosed: jest.fn(), measureThickness: jest.fn() }))
+jest.mock('../../../src/printCheck/printCheckClient.js', () => ({ openSurfaceSession: jest.fn(), measureThickness: jest.fn() }))
+
+// The worker's session, answered on the page with the worker's own measurements
+const checkClosed = jest.fn()
+const closeSession = jest.fn()
+const measureRequests = []
 jest.mock('../../../src/printCheck/printCheckSettings.js', () => ({
 	loadPrintCheckSettings: jest.fn(),
 	savePrintCheckSettings: jest.fn(() => Promise.resolve()),
@@ -29,7 +35,7 @@ function deferred() {
 }
 
 /** A 10 mm cube resting on y = 0, in a scene, with a camera and orbit controls. */
-function setup({ filename = 'cube.stl', size = 10, fileId = 1, mmPerUnit = () => 1 } = {}) {
+function setup({ filename = 'cube.stl', size = 10, fileId = 1, mmPerUnit = () => 1, renderer = null } = {}) {
 	const cameras = { current: null }
 	const scene = new THREE.Scene()
 	const root = new THREE.Group()
@@ -57,6 +63,7 @@ function setup({ filename = 'cube.stl', size = 10, fileId = 1, mmPerUnit = () =>
 		mmPerUnit,
 		filename: () => filename,
 		fileId: () => fileId,
+		renderer: () => renderer,
 	})
 	return { scene, root, mesh, camera, cameras, controls, modelRoot, printCheck }
 }
@@ -67,11 +74,26 @@ function overlays(scene, root) {
 }
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0))
+// For a test on fake timers: let the session's answers in
+const settle = async () => {
+	for (let i = 0; i < 5; i++) {
+		await Promise.resolve()
+	}
+}
 
 beforeEach(() => {
 	jest.clearAllMocks()
 	loadPrintCheckSettings.mockReturnValue({ ...PRINT_CHECK_DEFAULTS, custom: { ...PRINT_CHECK_DEFAULTS.custom } })
 	checkClosed.mockResolvedValue([CLOSED])
+	measureRequests.length = 0
+	openSurfaceSession.mockImplementation((parts) => ({
+		measure: (request) => {
+			measureRequests.push(request)
+			return Promise.resolve(measureSurface(parts, request))
+		},
+		checkClosed: () => checkClosed(parts),
+		close: closeSession,
+	}))
 })
 
 test('open adds overlays to the scene, none under the model root', async () => {
@@ -104,7 +126,7 @@ test("a cube that doesn't fit turns the box red", async () => {
 	expect(printCheck.fit.value.fits).toBe(false)
 	expect(printCheck.fit.value.over.width).toBeCloseTo(10, 6)
 	const box = overlays(scene, root).find((object) => object.isLineSegments)
-	expect(box.material.color.getHex()).toBe(0xe53935)
+	expect(box.material.uniforms.uColor.value.getHex()).toBe(0xe53935)
 	expect(savePrintCheckSettings).toHaveBeenCalled()
 })
 
@@ -164,17 +186,16 @@ test('open model gives no estimate and counts open parts', async () => {
 	expect(printCheck.estimate.value).toBeNull()
 })
 
-test('switching model cancels the running check', async () => {
+test('switching model ends the worker and its running check', async () => {
 	const check = deferred()
-	let signal
-	checkClosed.mockImplementation((parts, options) => { signal = options.signal; return check.promise })
+	checkClosed.mockReturnValue(check.promise)
 	const { scene, root, modelRoot, printCheck } = setup()
 	printCheck.open()
 
 	modelRoot.value = new THREE.Group()
 	await nextTick()
 
-	expect(signal.aborted).toBe(true)
+	expect(closeSession).toHaveBeenCalledTimes(1)
 	expect(overlays(scene, root)).toEqual([])
 	expect(printCheck.active.value).toBe(false)
 	expect(printCheck.closed.value).toBeNull()
@@ -213,14 +234,18 @@ test('gizmo change recomputes the fit, debounced', async () => {
 	jest.useFakeTimers()
 	const { root, printCheck } = setup()
 	printCheck.open()
+	await settle()
 	expect(printCheck.fit.value.size.width).toBeCloseTo(10, 6)
 
 	root.scale.setScalar(3)
 	printCheck.modelMoved()
 	printCheck.modelMoved()
+	await settle()
 	expect(printCheck.fit.value.size.width).toBeCloseTo(10, 6)
 	jest.advanceTimersByTime(200)
+	await settle()
 	expect(printCheck.fit.value.size.width).toBeCloseTo(30, 6)
+	expect(measureRequests).toHaveLength(2)
 	jest.useRealTimers()
 })
 
@@ -286,7 +311,7 @@ test('thickness on an open model carries the warning', async () => {
 	expect(printCheck.thickness.value.share).toBe(0)
 })
 
-test('a model that moved is noticed on the next frame, whatever moved it', () => {
+test('a model that moved is noticed on the next frame, whatever moved it', async () => {
 	jest.useFakeTimers()
 	const { root, printCheck } = setup()
 	printCheck.open()
@@ -295,6 +320,7 @@ test('a model that moved is noticed on the next frame, whatever moved it', () =>
 	root.updateMatrixWorld(true)
 	printCheck.onFrame()
 	jest.advanceTimersByTime(200)
+	await settle()
 	expect(printCheck.fit.value.size.width).toBeCloseTo(20, 6)
 	jest.useRealTimers()
 })
@@ -371,4 +397,148 @@ test('closing the viewer sends a settings change still waiting to be saved', () 
 	printCheck.setInfill(40)
 	printCheck.dispose()
 	expect(flushPrintCheckSettings).toHaveBeenCalled()
+})
+
+describe('nothing per vertex on the page', () => {
+	/** What Print check draws, visible or not. */
+	const drawn = (scene, root) => overlays(scene, root).map((object) => object.visible)
+
+	test('the card has its state at once; the fit and overhangs come from the worker', async () => {
+		const { printCheck } = setup()
+		printCheck.open()
+
+		expect(printCheck.active.value).toBe(true)
+		expect(printCheck.fit.value).toBeNull()
+		expect(printCheck.overhang.value).toBeNull()
+		expect(openSurfaceSession).toHaveBeenCalledTimes(1)
+		expect(measureRequests).toHaveLength(1)
+		await flush()
+		expect(printCheck.fit.value.size.width).toBeCloseTo(10, 6)
+		expect(printCheck.overhang.value.share).toBe(0)
+	})
+
+	test('the build volume and shading stay hidden until their shaders are compiled', async () => {
+		jest.useFakeTimers()
+		// No KHR_parallel_shader_compile: compiled, then given time
+		const renderer = { compile: jest.fn(), extensions: { has: () => false } }
+		const { scene, root, printCheck } = setup({ renderer })
+		printCheck.open()
+		await settle()
+
+		expect(printCheck.fit.value).not.toBeNull()
+		expect(drawn(scene, root)).toEqual([false, false, false])
+		// The box, the bed and the overhang overlay share one shader, compiled once
+		expect(renderer.compile).toHaveBeenCalledTimes(1)
+		printCheck.onFrame()
+		expect(drawn(scene, root)).toEqual([false, false, false])
+
+		jest.advanceTimersByTime(1500)
+		await settle()
+		printCheck.onFrame()
+		expect(drawn(scene, root)).toEqual([true, true, true])
+		printCheck.close()
+		jest.useRealTimers()
+	})
+
+	test('with KHR_parallel_shader_compile they show when the driver says the shaders are ready', async () => {
+		const ready = deferred()
+		const renderer = { compile: jest.fn(), compileAsync: jest.fn(() => ready.promise), extensions: { has: (name) => name === 'KHR_parallel_shader_compile' } }
+		const { scene, root, printCheck } = setup({ renderer })
+		printCheck.open()
+		await flush()
+		expect(drawn(scene, root)).toEqual([false, false, false])
+		expect(renderer.compile).not.toHaveBeenCalled()
+
+		ready.resolve()
+		await flush()
+		expect(drawn(scene, root)).toEqual([true, true, true])
+	})
+
+	test('closing while the worker measures leaves nothing behind, and its late answer is dropped', async () => {
+		const answer = deferred()
+		openSurfaceSession.mockImplementation(() => ({ measure: () => answer.promise, checkClosed: () => new Promise(() => {}), close: closeSession }))
+		const { scene, root, printCheck } = setup()
+		printCheck.open()
+		expect(overlays(scene, root)).toHaveLength(3)
+
+		printCheck.close()
+		expect(closeSession).toHaveBeenCalledTimes(1)
+		expect(overlays(scene, root)).toEqual([])
+
+		answer.resolve({ extent: { min: [0, 0, 0], max: [1, 1, 1] }, overhangArea: 1, totalArea: 2, volume: 1, area: 6 })
+		await flush()
+		expect(printCheck.fit.value).toBeNull()
+		expect(printCheck.overhang.value).toBeNull()
+		expect(overlays(scene, root)).toEqual([])
+	})
+
+	test('only the latest of several measurements counts', async () => {
+		const answers = []
+		openSurfaceSession.mockImplementation(() => ({
+			measure: () => new Promise((resolve) => answers.push(resolve)),
+			checkClosed: () => Promise.resolve([CLOSED]),
+			close: closeSession,
+		}))
+		const { printCheck } = setup({ fileId: 42 })
+		printCheck.open()
+		printCheck.setUp('z')
+		answers[1]({ extent: { min: [0, 0, 0], max: [3, 3, 3] }, overhangArea: 0, totalArea: 1, volume: 1, area: 6 })
+		await flush()
+		answers[0]({ extent: { min: [0, 0, 0], max: [1, 1, 1] }, overhangArea: 0, totalArea: 1, volume: 1, area: 6 })
+		await flush()
+		expect(printCheck.fit.value.size.width).toBe(3)
+	})
+
+	test('a worker that cannot measure says so', async () => {
+		openSurfaceSession.mockImplementation(() => ({ measure: () => Promise.reject(new Error('out of memory')), checkClosed: () => Promise.resolve([CLOSED]), close: closeSession }))
+		const { printCheck } = setup()
+		printCheck.open()
+		await flush()
+		expect(printCheck.measureFailed.value).toBe(true)
+		expect(printCheck.fit.value).toBeNull()
+	})
+
+	test('Z up is measured along Z, and the Y-up numbers are not shown meanwhile', async () => {
+		// A file of its own: the up axis is remembered per file
+		const { printCheck } = setup({ fileId: 41 })
+		printCheck.open()
+		await flush()
+		printCheck.setUp('z')
+		expect(printCheck.fit.value).toBeNull()
+		expect(printCheck.overhang.value).toBeNull()
+		expect(measureRequests.at(-1).axes.up).toEqual([0, 0, 1])
+		await flush()
+		expect(printCheck.fit.value.size.height).toBeCloseTo(10, 6)
+	})
+
+	test('a new angle is measured after the slider settles; a new printer needs no measuring', async () => {
+		jest.useFakeTimers()
+		const { printCheck } = setup()
+		printCheck.open()
+		await settle()
+		printCheck.setPrinter('custom')
+		expect(measureRequests).toHaveLength(1)
+
+		printCheck.setOverhangAngle(30)
+		printCheck.setOverhangAngle(31)
+		expect(measureRequests).toHaveLength(1)
+		jest.advanceTimersByTime(200)
+		expect(measureRequests).toHaveLength(2)
+		expect(measureRequests[1].thresholdDeg).toBe(31)
+		jest.useRealTimers()
+	})
+
+	test('the estimate follows the model when it is scaled', async () => {
+		jest.useFakeTimers()
+		const { root, printCheck } = setup()
+		printCheck.open()
+		await settle()
+		const grams = printCheck.estimate.value.grams
+		root.scale.setScalar(2)
+		printCheck.modelMoved()
+		jest.advanceTimersByTime(200)
+		await settle()
+		expect(printCheck.estimate.value.grams).toBeGreaterThan(grams * 4)
+		jest.useRealTimers()
+	})
 })

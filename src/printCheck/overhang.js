@@ -111,9 +111,14 @@ uniform float uBedHeight;
 uniform float uBedEpsilon;
 uniform vec3 uColor;
 uniform float uOpacity;
+uniform bool uFlat;
 varying vec3 vWorldPosition;
 void main() {
 	#include <clipping_planes_fragment>
+	if (uFlat) {
+		gl_FragColor = vec4(uColor, uOpacity);
+		return;
+	}
 	// The triangle's own flat normal, facing the camera: the side drawn is the outside
 	vec3 normal = normalize(cross(dFdx(vWorldPosition), dFdy(vWorldPosition)));
 	if (dot(normal, -uUp) <= uCosLimit) discard;
@@ -143,6 +148,7 @@ export function createOverhangMaterial({ up, thresholdDeg, bedHeight, bedEpsilon
 			uBedEpsilon: { value: bedEpsilon },
 			uColor: { value: new THREE.Color(0xe53935) },
 			uOpacity: { value: 0.6 },
+			uFlat: { value: false },
 		},
 		vertexShader: VERTEX_SHADER,
 		fragmentShader: FRAGMENT_SHADER,
@@ -168,4 +174,23 @@ export function createOverhangMaterial({ up, thresholdDeg, bedHeight, bedEpsilon
  */
 export function setOverhangThreshold(material, thresholdDeg) {
 	material.uniforms.uCosLimit.value = Math.cos((90 - thresholdDeg) / DEGREES)
+}
+
+/**
+ * A material that draws one flat colour, for the build box and bed. It is the overhang
+ * material with its rule switched off, so it shares that material's shader: each shader a
+ * page draws for the first time has to be compiled, which on a software renderer takes
+ * long enough to notice, and Print check opens with one rather than three.
+ *
+ * @param {object} options - Options
+ * @param {number} options.color - The colour, as 0xRRGGBB
+ * @param {number} options.opacity - 0 to 1
+ * @return {THREE.ShaderMaterial} The material; its colour is `uniforms.uColor.value`
+ */
+export function createFlatMaterial({ color, opacity }) {
+	const material = createOverhangMaterial({ up: new THREE.Vector3(0, 1, 0), thresholdDeg: 45, bedHeight: 0, bedEpsilon: 0 })
+	material.uniforms.uFlat.value = true
+	material.uniforms.uColor.value.setHex(color)
+	material.uniforms.uOpacity.value = opacity
+	return material
 }

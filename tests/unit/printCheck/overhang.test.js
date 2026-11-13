@@ -4,7 +4,7 @@
  * bed.
  */
 import * as THREE from 'three'
-import { overhangAngleDeg, overhangShare, createOverhangMaterial } from '../../../src/printCheck/overhang.js'
+import { overhangAngleDeg, overhangShare, createOverhangMaterial, createFlatMaterial } from '../../../src/printCheck/overhang.js'
 
 const UP = new THREE.Vector3(0, 1, 0)
 
@@ -128,4 +128,16 @@ describe('createOverhangMaterial', () => {
 		const material = createOverhangMaterial({ up: UP, thresholdDeg: 45, bedHeight: 0, bedEpsilon: 0.05 })
 		expect(material.clipping).toBe(true)
 	})
+})
+
+test('the build volume\'s flat material shares the overhang material\'s shader, so it adds none to compile', () => {
+	const overhang = createOverhangMaterial({ up: UP, thresholdDeg: 45, bedHeight: 0, bedEpsilon: 0 })
+	const flat = createFlatMaterial({ color: 0x9e9e9e, opacity: 0.15 })
+	expect(flat.vertexShader).toBe(overhang.vertexShader)
+	expect(flat.fragmentShader).toBe(overhang.fragmentShader)
+	expect(flat.side).toBe(overhang.side)
+	expect(flat.uniforms.uFlat.value).toBe(true)
+	expect(overhang.uniforms.uFlat.value).toBe(false)
+	expect(flat.uniforms.uColor.value.getHex()).toBe(0x9e9e9e)
+	expect(flat.uniforms.uOpacity.value).toBe(0.15)
 })
