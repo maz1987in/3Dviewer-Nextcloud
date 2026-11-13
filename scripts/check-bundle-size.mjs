@@ -52,7 +52,12 @@ const BUDGETS = [
   // three chunks of their own (usePartsTree, PartsTree, ifcProperties) that load when the
   // section is first opened, so what is left here is the section's slot in the panel, the
   // viewer's click and export hooks and two icons, 2.8 KB raw / 0.8 KB gzip.
-  { pattern: /^App-.*\.chunk\.mjs$/, name: 'app', maxRaw: 399000, maxGzip: 112500 },
+  // Raised to 402 KB raw / 114 KB gzip for View in AR, which came in beside Parts: its
+  // button, state, the check of which way the device has and the help entry stay here
+  // (+3.2 KB raw / +1.0 KB gzip); the Quick Look file, the WebXR session, the size limits
+  // and every message load as their own chunks when the button is pressed. With both, this
+  // was 400.9 KB raw / 113.3 KB gzip.
+  { pattern: /^App-.*\.chunk\.mjs$/, name: 'app', maxRaw: 402000, maxGzip: 114000 },
   { pattern: /^three-core-.*\.chunk\.mjs$/, name: 'three-core', maxRaw: 800000, maxGzip: 210000 }, // Three.js core
   // Three chunks are named index-<hash>: the main one, a ~280 KB one and a 250-byte one.
   // This used to separate them with /^index-[A-Z][a-z]/, written to exclude one specific

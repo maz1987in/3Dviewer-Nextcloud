@@ -160,6 +160,8 @@
 					:can-compare-versions="canCompareVersions"
 					:print-check-active="printCheckActive"
 					:can-record-video="canRecordVideo"
+					:ar-path="arPath"
+					:ar-state="arState"
 					@reset-view="onReset"
 					@fit-to-view="onFitToView"
 					@toggle-auto-rotate="onToggleAutoRotate"
@@ -177,6 +179,7 @@
 					@compare-version="onCompareVersion"
 					@toggle-print-check="onTogglePrintCheck"
 					@record-turntable="onRecordTurntable"
+					@view-in-ar="onViewInAR"
 					@toggle-transform-gizmo="onToggleTransformGizmo"
 					@set-transform-mode="onSetTransformMode"
 					@reset-transform="onResetTransform"
@@ -252,6 +255,8 @@
 					@point-cloud-changed="onPointCloudChanged"
 					@splat-changed="onSplatChanged"
 					@parts-ready="partsApi = $event"
+					@ar-path-changed="arPath = $event"
+					@ar-state-changed="arState = $event"
 					@loading-state-changed="onLoadingStateChanged"
 					@fps-updated="onFpsUpdated"
 					@animations-initialized="onAnimationsInitialized"
@@ -459,6 +464,10 @@ export default {
 			// WebXR
 			webxrSupported: false,
 			webxrActive: false,
+			// View in AR: the way this device has ('quick-look', 'webxr') or null, and its state
+			// ('idle', 'preparing', 'ready', 'active'); both from the viewer
+			arPath: null,
+			arState: 'idle',
 		}
 	},
 	computed: {
@@ -1167,6 +1176,10 @@ export default {
 				const viewer = this.$refs.viewer
 				this.webxrActive = viewer.webxrActive?.value ?? viewer.webxrActive ?? false
 			}
+		},
+		onViewInAR() {
+			if (this.isOff('ar')) return
+			this.$refs.viewer?.startViewInAR?.()
 		},
 		onToggleHelp() {
 			// Toggle help panel visibility

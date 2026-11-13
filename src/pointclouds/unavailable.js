@@ -37,4 +37,9 @@ export const POINT_CLOUD_UNAVAILABLE = Object.freeze([
 		label: t('threedviewer', 'Export'),
 		note: t('threedviewer', 'Export saves meshes, and a scan is points.'),
 	},
+	{
+		key: 'ar',
+		label: t('threedviewer', 'View in AR'),
+		note: t('threedviewer', 'A scan is points, with no surface to stand in a room.'),
+	},
 ])

@@ -12,7 +12,7 @@ test('each list matches the lines that say why', () => {
 })
 
 test('a splat turns off every tool that needs a surface', () => {
-	expect(SPLAT_OFF).toEqual(['shading', 'measure', 'notes', 'compare', 'crossSection', 'printCheck', 'exploded', 'parts', 'transform', 'export', 'vr'])
+	expect(SPLAT_OFF).toEqual(['shading', 'measure', 'notes', 'compare', 'crossSection', 'printCheck', 'exploded', 'parts', 'transform', 'export', 'vr', 'ar'])
 })
 
 test('what is open decides the list', () => {
@@ -30,4 +30,13 @@ test('every splat line says why', () => {
 	expect(notes.vr).toBe('VR isn\'t available for splats.')
 	expect(SPLAT_UNAVAILABLE.find((u) => u.key === 'notes').label).toBe('Annotation')
 	expect(SPLAT_UNAVAILABLE.find((u) => u.key === 'crossSection').label).toBe('Cross-Section')
+})
+
+test('a scan and a splat have no surface to stand in a room, and each line says so', () => {
+	expect(POINT_CLOUD_OFF).toContain('ar')
+	expect(SPLAT_OFF).toContain('ar')
+	const note = (list) => list.find((u) => u.key === 'ar')
+	expect(note(POINT_CLOUD_UNAVAILABLE)).toEqual({ key: 'ar', label: 'View in AR', note: 'A scan is points, with no surface to stand in a room.' })
+	expect(note(SPLAT_UNAVAILABLE)).toEqual({ key: 'ar', label: 'View in AR', note: 'A splat has no real surface to stand in a room.' })
+	expect(offToolsFor({})).not.toContain('ar')
 })

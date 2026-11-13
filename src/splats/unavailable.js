@@ -63,4 +63,9 @@ export const SPLAT_UNAVAILABLE = Object.freeze([
 		label: t('threedviewer', 'VR'),
 		note: t('threedviewer', 'VR isn\'t available for splats.'),
 	},
+	{
+		key: 'ar',
+		label: t('threedviewer', 'View in AR'),
+		note: t('threedviewer', 'A splat has no real surface to stand in a room.'),
+	},
 ])

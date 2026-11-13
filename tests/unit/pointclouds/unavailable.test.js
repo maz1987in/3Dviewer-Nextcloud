@@ -5,7 +5,7 @@
 import { POINT_CLOUD_UNAVAILABLE } from '../../../src/pointclouds/unavailable.js'
 
 test('each tool that is off, with the note saying why', () => {
-	expect(POINT_CLOUD_UNAVAILABLE.map(({ key }) => key)).toEqual(['printCheck', 'shading', 'exploded', 'parts', 'compare', 'export'])
+	expect(POINT_CLOUD_UNAVAILABLE.map(({ key }) => key)).toEqual(['printCheck', 'shading', 'exploded', 'parts', 'compare', 'export', 'ar'])
 	expect(Object.fromEntries(POINT_CLOUD_UNAVAILABLE.map(({ key, note }) => [key, note]))).toEqual({
 		printCheck: 'A scan is a cloud of points with no closed surface, so there\'s nothing to check for printing.',
 		shading: 'Colour by takes the place of shading for a scan.',
@@ -13,6 +13,7 @@ test('each tool that is off, with the note saying why', () => {
 		parts: 'A scan is a single cloud of points, with no parts to list or hide.',
 		compare: 'Comparing scans isn\'t available yet.',
 		export: 'Export saves meshes, and a scan is points.',
+		ar: 'A scan is points, with no surface to stand in a room.',
 	})
 	expect(POINT_CLOUD_UNAVAILABLE.every(({ label }) => typeof label === 'string' && label.length > 0)).toBe(true)
 })
