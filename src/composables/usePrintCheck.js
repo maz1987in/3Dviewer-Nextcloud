@@ -11,17 +11,23 @@
  * so exports, thumbnails and render modes never see them. Sizes are measured the way an
  * export writes the model: parts together, placed as the user placed it. Everything is let
  * go of when Print check closes or the model changes, and a worker still running is ended.
+ *
+ * Nothing that goes through every vertex or triangle runs on the page's thread: the card
+ * opens at once, and the fit, overhangs and filament fill in as the print-check worker
+ * answers (printCheckClient.openSurfaceSession). The shading's shaders are compiled before
+ * they are first drawn (surfaceOverlay.compileQuietly), so no step stops the page.
  */
 
 import { ref, shallowRef, isRef, toRaw, watch } from 'vue'
 import * as THREE from 'three'
-import { bedAxes, modelExtentMm, fitReport } from '../printCheck/buildVolume.js'
-import { overhangShare, createOverhangMaterial, setOverhangThreshold } from '../printCheck/overhang.js'
-import { createOverlaySet } from '../printCheck/surfaceOverlay.js'
+import { bedAxes, fitReport } from '../printCheck/buildVolume.js'
+import { createOverhangMaterial, createFlatMaterial, setOverhangThreshold } from '../printCheck/overhang.js'
+import { createOverlaySet, compileQuietly } from '../printCheck/surfaceOverlay.js'
 import { modelClosed } from '../printCheck/closedMesh.js'
-import { estimateFilament, modelVolumeAndArea } from '../printCheck/filament.js'
+import { estimateFilament } from '../printCheck/filament.js'
 import { findSlicerSummary } from '../printCheck/slicerSummary.js'
-import { checkClosed, measureThickness } from '../printCheck/printCheckClient.js'
+import { openSurfaceSession, measureThickness } from '../printCheck/printCheckClient.js'
+import { measuredObjects, surfacePart } from '../printCheck/surfaceMeasures.js'
 import { loadPrintCheckSettings, savePrintCheckSettings, flushPrintCheckSettings, sanitizePrintCheckSettings } from '../printCheck/printCheckSettings.js'
 import { PRINTERS, MATERIALS, NEAR_THIN_FACTOR, BED_EPSILON_MM } from '../printCheck/printers.js'
 import { withPartsTogether } from '../utils/viewerTransforms.js'
@@ -178,9 +184,11 @@ function createThicknessMaterial(minimum, clippingPlanes = null) {
  * @param {unknown} viewer.mmPerUnit - Millimetres per scene unit
  * @param {unknown} viewer.filename - The open file's name
  * @param {unknown} viewer.fileId - The open file's id
+ * @param {unknown} [viewer.renderer] - The renderer, to compile the shading's shaders
+ *   before it is first drawn
  * @return {object} Print check's state and methods
  */
-export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, filename, fileId }) {
+export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, filename, fileId, renderer = null }) {
 	const active = ref(false)
 	const settings = ref(null)
 	const up = ref('y')
@@ -191,15 +199,25 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 	const openParts = ref(0)
 	const estimate = ref(null)
 	const slicerSummary = shallowRef(null)
+	// The worker could not measure the model: the fit and overhangs will not come
+	const measureFailed = ref(false)
 	const thickness = ref({ state: 'idle', progress: 0, share: 0, sampled: false, warnOpen: false })
 
 	// What open() made, all of it let go of by teardown()
 	let helpers = []
+	let buildBox = null
+	let buildBed = null
 	let overhangSet = null
+	// The worker holding the model, what was measured on it last, and which request that is
+	let session = null
+	let sessionObjects = []
+	let measured = null
+	let measureRequest = 0
+	// The build volume and shading are drawn once their shaders are compiled
+	let shadersReady = false
 	let thicknessSet = null
 	let thicknessResults = null
 	let thicknessParts = []
-	let controller = null
 	let thicknessController = null
 	let recomputeTimer = null
 	let savedUp = null
@@ -228,15 +246,69 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 		helpers = []
 	}
 
+	const updateEstimate = () => {
+		if (closed.value !== 'closed' || !measured) {
+			estimate.value = null
+			return
+		}
+		// As filament.modelVolumeAndArea gives them, from the worker's measurement in scene units
+		const unit = read(mmPerUnit) || 1
+		const volumeMm3 = measured.volume * unit ** 3
+		const areaMm2 = measured.area * unit ** 2
+		const density = MATERIALS.find((material) => material.id === settings.value.material)?.density ?? MATERIALS[0].density
+		estimate.value = estimateFilament({ volumeMm3, areaMm2, infillPercent: settings.value.infill, density })
+	}
+
 	/**
-	 * Draw the build box and the bed around the model's footprint, resting at its lowest point.
-	 * @param {object} extent - From modelExtentMm
+	 * The build box and the bed: made once, hidden until there is something to show, and
+	 * moved after that, so measuring again never makes a shader to compile.
+	 */
+	const makeBuildVolume = () => {
+		const target = read(scene)
+		if (!target) {
+			return
+		}
+		// Drawn with the overhang shading's own shader (createFlatMaterial): one to compile, not three
+		buildBox = new THREE.LineSegments(
+			new THREE.BufferGeometry().setFromPoints(Array.from({ length: 24 }, () => new THREE.Vector3())),
+			createFlatMaterial({ color: FIT_COLOUR, opacity: 1 }),
+		)
+		// Both faces of the plate as triangles of their own: a material drawing both sides
+		// would be a shader of its own
+		buildBed = new THREE.Mesh(
+			new THREE.BufferGeometry().setFromPoints(Array.from({ length: 12 }, () => new THREE.Vector3())),
+			createFlatMaterial({ color: FIT_COLOUR, opacity: 0.15 }),
+		)
+		for (const object of [buildBox, buildBed]) {
+			object.userData.viewerOverlay = true
+			object.name = 'Print check build volume'
+			object.visible = false
+			target.add(object)
+			helpers.push(object)
+		}
+	}
+
+	/**
+	 * Show the build volume and the shading once both their shaders and a measurement are in.
+	 */
+	const reveal = () => {
+		if (!shadersReady || !measured) {
+			return
+		}
+		if (buildBox && buildBed) {
+			buildBox.visible = true
+			buildBed.visible = true
+		}
+		overhangSet?.hold(false)
+	}
+
+	/**
+	 * Put the build box and the bed around the model's footprint, resting at its lowest point.
+	 * @param {object} extent - As from modelExtentMm
 	 * @param {object} axes - From bedAxes
 	 */
 	const drawBuildVolume = (extent, axes) => {
-		disposeHelpers()
-		const target = read(scene)
-		if (!target) {
+		if (!buildBox || !buildBed) {
 			return
 		}
 		const unit = read(mmPerUnit) || 1
@@ -254,68 +326,108 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 		const corners = [[-1, 0, -1], [1, 0, -1], [1, 0, 1], [-1, 0, 1], [-1, 1, -1], [1, 1, -1], [1, 1, 1], [-1, 1, 1]].map(([sw, su, sd]) => at(sw, su, sd))
 		const edges = [[0, 1], [1, 2], [2, 3], [3, 0], [4, 5], [5, 6], [6, 7], [7, 4], [0, 4], [1, 5], [2, 6], [3, 7]]
 
-		const box = new THREE.LineSegments(
-			new THREE.BufferGeometry().setFromPoints(edges.flatMap(([a, b]) => [corners[a], corners[b]])),
-			new THREE.LineBasicMaterial({ color: fit.value?.fits === false ? OVER_COLOUR : FIT_COLOUR }),
-		)
-		const plate = new THREE.BufferGeometry().setFromPoints([corners[0], corners[1], corners[2], corners[0], corners[2], corners[3]])
-		const bedMesh = new THREE.Mesh(plate, new THREE.MeshBasicMaterial({ color: FIT_COLOUR, transparent: true, opacity: 0.15, side: THREE.DoubleSide, depthWrite: false }))
-		for (const object of [box, bedMesh]) {
-			object.userData.viewerOverlay = true
-			object.name = 'Print check build volume'
-			target.add(object)
-			helpers.push(object)
+		buildBox.geometry.setFromPoints(edges.flatMap(([a, b]) => [corners[a], corners[b]]))
+		const [c0, c1, c2, c3] = corners
+		buildBed.geometry.setFromPoints([c0, c1, c2, c0, c2, c3, c0, c2, c1, c0, c3, c2])
+		for (const object of [buildBox, buildBed]) {
+			// Culling goes by the bounding sphere, which moving the points leaves where it was
+			object.geometry.computeBoundingSphere()
 		}
+		buildBox.material.uniforms.uColor.value.setHex(fit.value?.fits === false ? OVER_COLOUR : FIT_COLOUR)
 	}
 
 	/**
-	 * Measure the fit and the overhangs again, and redraw the box.
+	 * The last measured extent in millimetres, as `modelExtentMm` gives it.
+	 * @return {object} Sizes in mm, and `min` and `max` along the bed's axes in scene units
+	 */
+	const extentMm = () => {
+		const unit = read(mmPerUnit) || 1
+		const extent = measured.extent
+		if (!extent) {
+			return { width: 0, depth: 0, height: 0, min: new THREE.Vector3(), max: new THREE.Vector3() }
+		}
+		const min = new THREE.Vector3().fromArray(extent.min)
+		const max = new THREE.Vector3().fromArray(extent.max)
+		return { width: (max.x - min.x) * unit, depth: (max.z - min.z) * unit, height: (max.y - min.y) * unit, min, max }
+	}
+
+	/**
+	 * Hold the last measured size against the chosen printer, and redraw the box.
+	 */
+	const showFit = () => {
+		if (!active.value || !measured || kind.value === 'gcode') {
+			return
+		}
+		const extent = extentMm()
+		fit.value = { size: { width: extent.width, depth: extent.depth, height: extent.height }, ...fitReport(extent, volume()) }
+		drawBuildVolume(extent, bedAxes(measured.up))
+	}
+
+	/**
+	 * Take in what the worker measured.
+	 * @param {object} result - From surfaceMeasures.measureSurface
+	 * @param {object} request - What was asked: `up`, `bedEpsilon`
+	 */
+	const applyMeasurement = (result, request) => {
+		measured = { ...result, up: request.up }
+		measureFailed.value = false
+		showFit()
+		if (kind.value === 'mesh') {
+			const { overhangArea, totalArea } = result
+			overhang.value = { share: totalArea > 0 ? overhangArea / totalArea : 0 }
+			const axes = bedAxes(request.up)
+			const bedHeight = result.extent ? result.extent.min[1] : 0
+			overhangSet?.overlays.forEach(({ object }) => {
+				object.material.uniforms.uUp.value.copy(axes.up)
+				object.material.uniforms.uBedHeight.value = bedHeight
+				object.material.uniforms.uBedEpsilon.value = request.bedEpsilon
+				setOverhangThreshold(object.material, settings.value.overhangAngle)
+			})
+			updateEstimate()
+		}
+		reveal()
+	}
+
+	/**
+	 * Measure the fit and the overhangs again, in the worker; the card keeps what it shows
+	 * until the answer comes.
 	 */
 	const recompute = () => {
 		const root = read(modelRoot)
-		if (!active.value || !root || kind.value === 'gcode') {
+		if (!active.value || !root || !session || kind.value === 'gcode') {
 			return
 		}
 		const axes = bedAxes(up.value)
 		const unit = read(mmPerUnit) || 1
-		const extent = modelExtentMm(root, axes, unit)
+		const matrices = withPartsTogether(root, () => {
+			root.updateMatrixWorld(true)
+			return sessionObjects.map((object) => Float64Array.from(object.matrixWorld.elements))
+		})
 		lastPlacement.copy(root.matrixWorld)
-		fit.value = { size: { width: extent.width, depth: extent.depth, height: extent.height }, ...fitReport(extent, volume()) }
-		drawBuildVolume(extent, axes)
-
-		if (kind.value === 'mesh') {
-			const bedEpsilon = BED_EPSILON_MM / unit
-			const { overhangArea, totalArea } = withPartsTogether(root, () => {
-				root.updateMatrixWorld(true)
-				return overhangShare(partsOf(root), axes.up, settings.value.overhangAngle, extent.min.y, bedEpsilon)
-			})
-			overhang.value = { share: totalArea > 0 ? overhangArea / totalArea : 0 }
-			overhangSet?.overlays.forEach(({ object }) => {
-				object.material.uniforms.uUp.value.copy(axes.up)
-				object.material.uniforms.uBedHeight.value = extent.min.y
-				object.material.uniforms.uBedEpsilon.value = bedEpsilon
-				setOverhangThreshold(object.material, settings.value.overhangAngle)
-			})
-		}
+		const request = { up: up.value, bedEpsilon: BED_EPSILON_MM / unit }
+		const asked = ++measureRequest
+		const opened = generation
+		session.measure({
+			matrices,
+			axes: { up: axes.up.toArray(), width: axes.width.toArray(), depth: axes.depth.toArray() },
+			thresholdDeg: settings.value.overhangAngle,
+			bedEpsilon: request.bedEpsilon,
+		}).then((result) => {
+			// A later request's answer is on its way, and is the one that counts
+			if (opened === generation && asked === measureRequest) {
+				applyMeasurement(result, request)
+			}
+		}, (error) => {
+			if (opened === generation && asked === measureRequest && error?.name !== 'AbortError') {
+				logger.warn('usePrintCheck', 'Could not measure the model', error)
+				measureFailed.value = true
+			}
+		})
 	}
 
 	const recomputeSoon = () => {
 		clearTimeout(recomputeTimer)
 		recomputeTimer = setTimeout(recompute, RECOMPUTE_DELAY_MS)
-	}
-
-	const updateEstimate = () => {
-		const root = read(modelRoot)
-		if (closed.value !== 'closed' || !root) {
-			estimate.value = null
-			return
-		}
-		const { volumeMm3, areaMm2 } = withPartsTogether(root, () => {
-			root.updateMatrixWorld(true)
-			return modelVolumeAndArea(partsOf(root), read(mmPerUnit) || 1)
-		})
-		const density = MATERIALS.find((material) => material.id === settings.value.material)?.density ?? MATERIALS[0].density
-		estimate.value = estimateFilament({ volumeMm3, areaMm2, infillPercent: settings.value.infill, density })
 	}
 
 	/**
@@ -358,12 +470,17 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 	const teardown = () => {
 		followCamera()
 		generation++
-		controller?.abort()
 		thicknessController?.abort()
-		controller = null
 		thicknessController = null
+		session?.close()
+		session = null
+		sessionObjects = []
+		measured = null
+		shadersReady = false
 		clearTimeout(recomputeTimer)
 		disposeHelpers()
+		buildBox = null
+		buildBed = null
 		overhangSet?.dispose()
 		thicknessSet?.dispose()
 		overhangSet = null
@@ -382,6 +499,7 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 		openParts.value = 0
 		estimate.value = null
 		slicerSummary.value = null
+		measureFailed.value = false
 		thickness.value = { state: 'idle', progress: 0, share: 0, sampled: false, warnOpen: false }
 	}
 
@@ -416,7 +534,9 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 			orbitAbout(new THREE.Vector3(0, 0, 1))
 		}
 
+		makeBuildVolume()
 		if (kind.value === 'mesh') {
+			// Held out of sight until it has a bed to measure from and its shader is compiled
 			overhangSet = createOverlaySet(target, root, (mesh) => {
 				const material = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material
 				return createOverhangMaterial({
@@ -426,15 +546,23 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 					bedEpsilon: 0,
 					clippingPlanes: material?.clippingPlanes ?? null,
 				})
-			})
+			}, undefined, { held: true })
 		}
+		compileQuietly(read(renderer), read(camera), target, [...helpers, ...(overhangSet?.overlays.map(({ object }) => object) ?? [])]).then(() => {
+			if (opened === generation) {
+				shadersReady = true
+				reveal()
+			}
+		})
+
+		// The worker gets a copy of the model once, and measures it for every request after
+		sessionObjects = measuredObjects(root)
+		session = openSurfaceSession(sessionObjects.map(surfacePart))
 		recompute()
 
 		if (kind.value === 'mesh') {
 			closed.value = 'checking'
-			controller = new AbortController()
-			const parts = meshes.map((mesh) => ({ positions: positionsOf(mesh), index: mesh.geometry.index?.array ?? null }))
-			checkClosed(parts, { signal: controller.signal })
+			session.checkClosed()
 				.then((reports) => {
 					if (opened !== generation) {
 						return
@@ -494,13 +622,14 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 		savePrintCheckSettings(settings.value)
 	}
 
+	// The size is measured already: only what it is held against changes
 	const setPrinter = (id) => {
 		change({ printerId: id })
-		recompute()
+		showFit()
 	}
 	const setCustom = (size) => {
 		change({ custom: { ...settings.value.custom, ...size } })
-		recompute()
+		showFit()
 	}
 	const setOverhangAngle = (degrees) => {
 		change({ overhangAngle: degrees })
@@ -538,9 +667,11 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 		if (!active.value) {
 			return
 		}
-		recompute()
+		// Sizes and filament scale at once; what counts as resting on the bed is measured again
+		showFit()
 		updateEstimate()
 		applyThicknessLimits()
+		recompute()
 	}
 
 	const setUp = (axis) => {
@@ -551,6 +682,11 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 		up.value = axis
 		upChoices.set(fileKey(), axis)
 		orbitAbout(axis === 'z' ? new THREE.Vector3(0, 0, 1) : (savedUp ?? new THREE.Vector3(0, 1, 0)))
+		// What was measured along the other axis is not shown meanwhile
+		if (measured && measured.up !== axis) {
+			fit.value = null
+			overhang.value = null
+		}
 		recompute()
 	}
 
@@ -591,9 +727,17 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 			const unit = read(mmPerUnit) || 1
 			const minimum = settings.value.minThickness / unit
 			const byMesh = new Map(meshes.map((mesh, i) => [mesh, results[i]]))
-			thicknessSet = createOverlaySet(read(scene), root,
+			const colours = createOverlaySet(read(scene), root,
 				(mesh) => createThicknessMaterial(minimum, (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material)?.clippingPlanes ?? null),
-				(mesh) => ({ thickness: new THREE.BufferAttribute(colourData(byMesh.get(mesh)?.thickness, mesh.geometry.attributes.position.count), 1) }))
+				(mesh) => ({ thickness: new THREE.BufferAttribute(colourData(byMesh.get(mesh)?.thickness, mesh.geometry.attributes.position.count), 1) }),
+				{ held: true })
+			thicknessSet = colours
+			// Shown once its shader is compiled, as the overhang shading is
+			compileQuietly(read(renderer), read(camera), read(scene), colours.overlays.map(({ object }) => object)).then(() => {
+				if (thicknessSet === colours) {
+					colours.hold(false)
+				}
+			})
 			thickness.value = {
 				state: 'done',
 				progress: 1,
@@ -681,6 +825,7 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 		openParts,
 		estimate,
 		slicerSummary,
+		measureFailed,
 		thickness,
 		open,
 		close,

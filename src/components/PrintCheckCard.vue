@@ -86,7 +86,10 @@
 						</button>
 					</div>
 					<div aria-live="polite">
-						<p v-if="state.fit" class="print-check-fit" :class="{ 'print-check-warn': !state.fit.fits }">
+						<p v-if="!state.fit" class="tdv-secondary">
+							{{ measuringText }}
+						</p>
+						<p v-else class="print-check-fit" :class="{ 'print-check-warn': !state.fit.fits }">
 							<template v-if="state.fit.fits">
 								{{ t('threedviewer', 'Fits the build volume') }}
 							</template>
@@ -114,6 +117,9 @@
 						<div aria-live="polite">
 							<p v-if="state.overhang">
 								{{ t('threedviewer', '{percent} % of the surface overhangs', { percent: Math.round(state.overhang.share * 100) }) }}
+							</p>
+							<p v-else class="tdv-secondary">
+								{{ measuringText }}
 							</p>
 						</div>
 					</div>
@@ -254,6 +260,13 @@ export default {
 		hasSlicerNumbers() {
 			const { printSeconds, filamentMm, filamentGrams } = this.summary
 			return printSeconds !== null || filamentMm !== null || filamentGrams !== null
+		},
+
+		// The fit and the overhangs are measured in a worker, and fill in when it answers
+		measuringText() {
+			return this.state.measureFailed
+				? this.t('threedviewer', 'Could not measure the model')
+				: this.t('threedviewer', 'Measuring…')
 		},
 
 		overLines() {

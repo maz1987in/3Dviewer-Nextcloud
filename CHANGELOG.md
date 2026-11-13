@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - On a narrow phone the viewer's toolbar makes room so Tools is never pushed off the screen: from 480 px the frame-rate badge shows only its coloured dot (the number is in its label and in the panel it opens), from 400 px the Screenshot button is left to the tools panel's Export section (P), and from 380 px so is Fit to view (View section, F). A 360 px Android phone with View in AR and Enter VR, which already ran past its edge with Enter VR alone, now fits.
 
+### Fixed
+- Opening Print check on a large model no longer freezes the page. The card now shows at once, and the fit, overhangs and filament estimate fill in a moment later ("Measuring…" until then): the model is measured in the background, as the closed-model check already was, and the overhang shading appears once its shader is ready. On a 240,000-triangle model the page used to stop for about half a second on a fast computer, and for several seconds on a slow one; now Print check's own work holds it for a few milliseconds at most. (Where the browser draws without a graphics card, the page can still pause once, when the shading is first drawn.) Switching to Z up and moving the overhang angle no longer stop it either (Z up used to hold it for 0.8 s), and the filament estimate now follows the model when it is scaled with the transform tool.
+
 ## [3.11.0] - 2026-11-13
 
 Models get easier to work with together and to show off. A Parts panel lists a model's parts as a tree to hide, isolate and find them, and IFC buildings show each element's properties. View in AR puts the model in your room at its real size, on an iPhone, an iPad or an Android phone. A link to a model in Talk, Text, Collectives or Deck now shows as a card, and the Smart Picker can insert one. When someone adds a note to a model, its owner and the people who wrote notes on it are notified, and the Activity stream records it.

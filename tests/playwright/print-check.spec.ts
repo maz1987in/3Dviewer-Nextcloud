@@ -66,6 +66,10 @@ const MODELS = {
 	big: { id: 6565, name: 'sphere.stl', body: bigSphereStl(400, 300) },
 }
 
+// The longest any of the page's own code may run at once while print check opens and
+// measures: a frame's work is a few milliseconds, so this leaves room for a slow CI runner
+const SCRIPT_LIMIT_MS = 200
+
 let server: { url: string, close: () => Promise<void> }
 test.beforeAll(async () => { server = await startServer() })
 test.afterAll(async () => { await server.close() })
@@ -130,9 +134,6 @@ test('a 0.5 mm slab is flagged thin', async ({ page }) => {
 })
 
 test('cancelling a running check stops it', async ({ page }) => {
-	// Opening the check lays its overlays over 240,000 triangles on the page's own thread
-	// before the card draws: seconds on a CI runner's software renderer
-	test.slow()
 	// A check runs in a worker of its own. Hold the second worker's script back (the first
 	// is the closed-model check), so the thickness check is still running when Cancel is
 	// pressed: on a fast machine even a large model finishes before a click lands.
@@ -144,8 +145,8 @@ test('cancelling a running check stops it', async ({ page }) => {
 		}
 		await route.continue().catch(() => {})
 	})
-	await openPrintCheck(page, 'big', 20000)
-	await expect(card(page)).toContainText('of filament (estimate)', { timeout: 15000 })
+	await openPrintCheck(page, 'big')
+	await expect(card(page)).toContainText('of filament (estimate)', { timeout: 10000 })
 	await card(page).getByRole('button', { name: 'Check wall thickness' }).click()
 	const cancel = card(page).getByRole('button', { name: 'Cancel' })
 	await expect(cancel).toBeVisible()
@@ -153,6 +154,124 @@ test('cancelling a running check stops it', async ({ page }) => {
 	await expect(card(page).getByRole('button', { name: 'Check wall thickness' })).toBeVisible()
 	await page.waitForTimeout(4500)
 	await expect(card(page)).not.toContainText('of the surface is thinner')
+})
+
+/**
+ * Record, from before the page loads, every stretch of the page's own code that ran for long
+ * (Long Animation Frames: each event handler, timer or frame callback in a slow frame), and
+ * when the Print check button is clicked and the card appears.
+ *
+ * Long tasks would count the wait for the compositor too: on a CI runner's software
+ * renderer, every frame with a change on the page waits while the GPU draws 240,000
+ * triangles, however little the page's code did. A script's time does include a wait it
+ * caused, such as for a shader compile it asked for.
+ */
+async function watchMainThread(page: Page) {
+	await page.addInitScript(() => {
+		const watch = {
+			scripts: [] as Array<{ start: number, duration: number, invoker: string }>,
+			longTasks: [] as Array<{ start: number, duration: number }>,
+			clicked: null as number | null,
+			card: null as number | null,
+		}
+		;(window as any).__printCheckWatch = watch
+		new PerformanceObserver((list) => {
+			for (const frame of list.getEntries() as any[]) {
+				for (const script of frame.scripts) {
+					watch.scripts.push({ start: script.startTime, duration: script.duration, invoker: script.invoker })
+				}
+			}
+		}).observe({ type: 'long-animation-frame', buffered: true })
+		new PerformanceObserver((list) => {
+			for (const entry of list.getEntries()) {
+				watch.longTasks.push({ start: entry.startTime, duration: entry.duration })
+			}
+		}).observe({ type: 'longtask', buffered: true })
+		window.addEventListener('click', (event) => {
+			if (watch.clicked === null && (event.target as Element)?.closest?.('.slide-out-panel')) {
+				watch.clicked = performance.now()
+			}
+		}, true)
+		new MutationObserver(() => {
+			if (watch.clicked !== null && watch.card === null && document.querySelector('.print-check-card')) {
+				watch.card = performance.now()
+			}
+		}).observe(document, { childList: true, subtree: true })
+	})
+}
+
+/**
+ * @param page - The page
+ * @param since - From when, in the page's time
+ * @return The longest script since then, and the longest task, for the log
+ */
+async function longestSince(page: Page, since: number) {
+	return page.evaluate((from) => {
+		const watch = (window as any).__printCheckWatch
+		const scripts = watch.scripts.filter((script: { start: number, duration: number }) => script.start + script.duration >= from)
+		const longest = scripts.reduce((top: any, script: any) => (script.duration > (top?.duration ?? 0) ? script : top), null)
+		const task = Math.max(0, ...watch.longTasks.filter((entry: { start: number, duration: number }) => entry.start + entry.duration >= from).map((entry: { duration: number }) => entry.duration))
+		return { script: longest ? Math.round(longest.duration) : 0, invoker: longest?.invoker ?? '', task: Math.round(task) }
+	}, since)
+}
+
+test('opening print check on 240,000 triangles shows the card at once and never stops the page', async ({ page }) => {
+	await watchMainThread(page)
+	await openPrintCheck(page, 'big')
+	await expect(card(page)).toContainText('of the surface overhangs')
+	await expect(card(page)).toContainText('of filament (estimate)', { timeout: 10000 })
+	const measured = await page.evaluate(() => performance.now())
+	const watch = await page.evaluate(() => (window as any).__printCheckWatch)
+	const opening = await longestSince(page, watch.clicked)
+	console.log(`print check on 240,000 triangles: card ${Math.round(watch.card - watch.clicked)} ms after the click, measured ${Math.round(measured - watch.clicked)} ms after it; longest script ${opening.script} ms (${opening.invoker}), longest task ${opening.task} ms`)
+	// The card is drawn in the click's own task, with nothing per vertex in it
+	expect(watch.card - watch.clicked).toBeLessThan(1000)
+	// Before the work moved to the worker, the click went through every triangle and the
+	// first frame after it compiled the shading's shaders: 0.5 to 0.9 s on a fast machine
+	expect(opening.script).toBeLessThan(SCRIPT_LIMIT_MS)
+
+	// The shading is drawn once its shader has had time to compile (1.5 s without
+	// KHR_parallel_shader_compile, which a software renderer lacks). There, the first frame
+	// that draws a new shader still waits for the renderer to catch up once: logged, not held
+	// to the limit
+	await page.waitForTimeout(3000)
+	const shading = await longestSince(page, measured)
+	console.log(`the shading's first frame: longest script ${shading.script} ms (${shading.invoker})`)
+
+	// Neither turning the bed nor a new angle stops the page
+	const mark = await page.evaluate(() => performance.now())
+	await card(page).getByRole('button', { name: 'Z up' }).click()
+	await card(page).locator('#print-check-angle').evaluate((input: HTMLInputElement) => {
+		input.value = '60'
+		input.dispatchEvent(new Event('input', { bubbles: true }))
+	})
+	await expect(card(page)).toContainText('of the surface overhangs')
+	await page.waitForTimeout(1000)
+	const changing = await longestSince(page, mark)
+	console.log(`Z up and a new angle: longest script ${changing.script} ms (${changing.invoker}), longest task ${changing.task} ms`)
+	expect(changing.script).toBeLessThan(SCRIPT_LIMIT_MS)
+})
+
+test('closing print check while it measures stops the worker and leaves nothing behind', async ({ page }) => {
+	// Hold the worker's script back, so the measuring is still under way when Close is pressed
+	await page.route('**/js/print-check-worker-*.mjs', async (route) => {
+		await new Promise((resolve) => setTimeout(resolve, 3000))
+		await route.continue().catch(() => {})
+	})
+	const { errors } = await openPrintCheck(page, 'big')
+	await expect(card(page)).toContainText('Measuring…')
+	await card(page).getByRole('button', { name: 'Close' }).click()
+	await expect(card(page)).toBeHidden()
+	await page.waitForTimeout(3500)
+	const overlays = await page.evaluate(() => {
+		const viewer = (window as any).__THREEDVIEWER_APP.$.subTree.component.proxy.$refs.viewer
+		let count = 0
+		viewer.scene.traverse((child: any) => { if (child.userData?.viewerOverlay) count++ })
+		return count
+	})
+	expect(overlays).toBe(0)
+	expect(page.workers().filter((worker) => worker.url().includes('print-check-worker'))).toEqual([])
+	expect(errors).toEqual([])
 })
 
 test('STL export with print check on is byte-identical to export with it off', async ({ page }) => {

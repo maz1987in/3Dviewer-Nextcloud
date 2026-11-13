@@ -3004,6 +3004,7 @@ export default {
 				openParts: check.openParts.value,
 				estimate: check.estimate.value,
 				slicerSummary: check.slicerSummary.value,
+				measureFailed: check.measureFailed.value,
 				thickness: check.thickness.value,
 				hoverMm: printCheckHoverMm.value,
 			}
@@ -3031,6 +3032,7 @@ export default {
 						mmPerUnit: modelMillimetresPerUnit,
 						filename: () => props.filename,
 						fileId: () => props.fileId,
+						renderer: () => renderer.value,
 					}))
 				}
 				return printCheck.value
