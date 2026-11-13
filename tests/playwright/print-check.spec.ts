@@ -134,6 +134,9 @@ test('a 0.5 mm slab is flagged thin', async ({ page }) => {
 })
 
 test('cancelling a running check stops it', async ({ page }) => {
+	// Loads the 240,000-triangle sphere, which takes most of the default 30 s on a CI runner's
+	// software renderer (see the test below that opens print check on it)
+	test.slow()
 	// A check runs in a worker of its own. Hold the second worker's script back (the first
 	// is the closed-model check), so the thickness check is still running when Cancel is
 	// pressed: on a fast machine even a large model finishes before a click lands.
@@ -256,6 +259,9 @@ test('opening print check on 240,000 triangles shows the card at once and never 
 })
 
 test('closing print check while it measures stops the worker and leaves nothing behind', async ({ page }) => {
+	// Loads the 240,000-triangle sphere, which takes most of the default 30 s on a CI runner's
+	// software renderer (see the test below that opens print check on it)
+	test.slow()
 	// Hold the worker's script back, so the measuring is still under way when Close is pressed
 	await page.route('**/js/print-check-worker-*.mjs', async (route) => {
 		await new Promise((resolve) => setTimeout(resolve, 3000))
