@@ -41,7 +41,7 @@ A comprehensive 3D model viewer application for Nextcloud that supports multiple
 - **3D Camera Controller**: Intuitive circular controller for precise camera navigation
 - **Face Labels**: Orientation markers on model faces (TOP, BOTTOM, FRONT, BACK, LEFT, RIGHT)
 - **Export functionality**: Export models to GLB, STL, OBJ, 3MF, PLY and USDZ formats
-- **View in AR**: Put the model in your room at its real size on an iPhone, iPad or Android phone
+- **View in AR**: Put the model in your room at its real size on an iPhone, iPad or Android phone, also from a public link
 - **Camera projection toggle**: Switch between perspective and orthographic views
 - **Performance optimization**: Dynamic imports, decoder auto-detection (DRACO/Basis)
 - **Theme integration**: Works with light/dark themes, ARIA roles
