@@ -4,7 +4,8 @@
  * Its own entry, loaded by RenderReferenceListener only on pages that fire
  * RenderReferenceEvent (Talk, Text, Collectives, Files). It registers one widget and holds no
  * three.js and no viewer code, so a page showing a preview never downloads the viewer; the
- * card's button is a plain link that opens the viewer in its own tab.
+ * card's button is a plain link that opens the viewer in its own tab. Its stylesheet is its
+ * own too (src/css/reference-card.css, on Nextcloud's variables), not the app's design system.
  *
  * The widget goes into the registry `@nextcloud/vue` keeps on `window` for exactly this, the
  * way its own `registerWidget` does, rather than through that function: importing it from
@@ -15,7 +16,6 @@
  * tests/unit/modelCardRegistration.test.js renders one through the real `renderWidget`.
  */
 
-import './css/design-system.css'
 import './css/reference-card.css'
 import { WIDGET_ID, renderModelCard, destroyModelCard } from './reference/modelCard.js'
 import { registerModelWidget } from './reference/registerWidget.js'

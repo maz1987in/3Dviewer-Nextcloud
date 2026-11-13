@@ -185,4 +185,29 @@ describe('the 3D model card', () => {
 		// A copy nothing compares against drifts (see iconPaths.test.js)
 		expect(paths).toEqual([CUBE_ICON_PATH])
 	})
+
+	describe('its stylesheet', () => {
+		const css = readFileSync(join(ROOT, 'src', 'css', 'reference-card.css'), 'utf8')
+		const entry = readFileSync(join(ROOT, 'src', 'reference.js'), 'utf8')
+
+		it('is the only one the card brings, not the app\'s design system', () => {
+			expect([...entry.matchAll(/^import\s+'([^']+\.css)'/gm)].map((m) => m[1])).toEqual(['./css/reference-card.css'])
+		})
+
+		it('themes with Nextcloud\'s variables and none of the app\'s tokens', () => {
+			expect(css).not.toMatch(/--tdv-/)
+			expect(css).toMatch(/var\(--color-main-background\b/)
+			expect(css).toMatch(/var\(--color-primary-element\b/)
+		})
+
+		it('styles only the card\'s own classes', () => {
+			const selectors = css.replace(/\/\*[\s\S]*?\*\//g, '').match(/[^{}]+(?=\{)/g)
+				.map((selector) => selector.trim())
+				.filter((selector) => !selector.startsWith('@'))
+			expect(selectors.length).toBeGreaterThan(0)
+			for (const selector of selectors.flatMap((s) => s.split(','))) {
+				expect(selector.trim()).toMatch(/^\.threedviewer-reference\b/)
+			}
+		})
+	})
 })

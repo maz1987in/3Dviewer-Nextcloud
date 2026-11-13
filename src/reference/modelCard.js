@@ -173,7 +173,7 @@ export function renderModelCard(el, { richObject } = {}) {
 	if (model.hasView) {
 		body.appendChild(element('p', 'threedviewer-reference-details', model.labels.view))
 	}
-	const open = element('a', 'tdv-btn tdv-btn--primary threedviewer-reference-open', model.labels.open)
+	const open = element('a', 'threedviewer-reference-open', model.labels.open)
 	open.href = model.link
 	open.target = '_blank'
 	open.rel = 'noopener noreferrer'

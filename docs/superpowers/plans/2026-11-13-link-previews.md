@@ -13,7 +13,7 @@
 
 ## Global constraints
 
-- The card's entry imports nothing but its own modules and CSS; `scripts/check-bundle-size.mjs` gives it a budget of its own.
+- The card's entry imports nothing but its own modules and its own stylesheet; `scripts/check-bundle-size.mjs` gives the script and the stylesheet budgets of their own.
 - Nothing about a file is read for a reader who cannot open it.
 - Server strings go through `IL10N`; `l10n/en.json` is synced with `scripts/check-i18n.mjs --sync-en`.
 
@@ -27,3 +27,4 @@
 - [x] HTTP: `tests/http/ReferenceHttpTest.php` through `/ocs/v2.php/references/resolve` (owner, share recipient, stranger, non-model, Files link beside viewer link, view link beside plain link).
 - [x] Real server: `tests/e2e-nextcloud/link-previews.spec.ts` (resolve endpoint, built script and stylesheet served from custom_apps, card drawn).
 - [x] Bundle budget, CHANGELOG, README, `l10n/en.json`.
+- [x] Review change: the card's stylesheet is self-contained on Nextcloud's variables, without the app's design system, with a CSS budget that counts the entry and its imports.

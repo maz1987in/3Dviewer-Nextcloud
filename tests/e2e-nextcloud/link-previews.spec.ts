@@ -47,7 +47,20 @@ test('a link to a model is drawn as a card with a button that opens it', async (
 	await expect(open).toHaveAttribute('href', link)
 	// The stylesheet's rules reached the card: a flex row, not three stacked inline boxes
 	expect(await card.evaluate((element) => getComputedStyle(element).display)).toBe('flex')
+	// Its colours are the server's theme: the button is Nextcloud's primary element colour
+	const colours = await open.evaluate((element) => {
+		const probe = document.createElement('span')
+		probe.style.backgroundColor = 'var(--color-primary-element)'
+		document.body.append(probe)
+		const theme = getComputedStyle(probe).backgroundColor
+		probe.remove()
+		return { button: getComputedStyle(element).backgroundColor, theme }
+	})
+	expect(colours.theme).not.toBe('rgba(0, 0, 0, 0)')
+	expect(colours.button).toBe(colours.theme)
 
 	expectServed(guard, SCRIPT)
 	expectServed(guard, STYLE)
+	// Self-contained: the card does not bring the app's design system onto the page
+	expect([...guard.assets.keys()].filter((asset) => /design-system/.test(asset))).toEqual([])
 })
