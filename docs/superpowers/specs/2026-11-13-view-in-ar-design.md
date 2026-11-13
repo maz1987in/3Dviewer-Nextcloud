@@ -19,7 +19,7 @@ Someone who opens a chair, a part or a room model on their phone often wants to 
 
 - Scene Viewer (Android's intent URL). See Decisions.
 - Placing a model on a wall, anchoring it across sessions, shadows or light estimation, turning or resizing it in the room. A tap places it, a tap elsewhere moves it.
-- AR in the light viewer of a public link (it has no tools panel) or in embeds. The button lives in the panel; a public link opened in the full viewer has it.
+- AR in the light viewer of a public link (it has no tools panel) or in embeds. The button lives in the panel; a public link opened in the full viewer has it. (Since added to the light viewer, not to embeds: see [View in AR on public links](2026-11-13-ar-light-viewer-design.md).)
 - Animated models: AR shows the pose the model is in.
 
 ## Design
