@@ -233,7 +233,7 @@
 								<ViewerIcon class="help-icon" name="ar" :size="18" />
 								<div class="help-text">
 									<h4>{{ t('threedviewer', 'View in AR') }}</h4>
-									<p>{{ t('threedviewer', 'Show the model in your room at its real size, on an iPhone, iPad or Android phone with Chrome. On Android, tap the floor to place it and tap again to move it. Not for scans or splats.') }}</p>
+									<p>{{ t('threedviewer', 'Show the model in your room at its real size, on an iPhone, iPad or Android phone with Chrome: the AR button in the toolbar, or View in AR under Export in the tools panel. On Android, tap the floor to place it and tap again to move it. Not for scans or splats.') }}</p>
 								</div>
 							</div>
 							<div class="help-item">

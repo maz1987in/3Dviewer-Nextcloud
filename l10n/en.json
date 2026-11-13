@@ -654,7 +654,7 @@
     "Show public links to 3D files on other websites, such as a shop or a blog. Only the sites listed here can show them; with none listed, embedding is off.": "Show public links to 3D files on other websites, such as a shop or a blog. Only the sites listed here can show them; with none listed, embedding is off.",
     "Show the earlier version on top of this one": "Show the earlier version on top of this one",
     "Show the model from this angle": "Show the model from this angle",
-    "Show the model in your room at its real size, on an iPhone, iPad or Android phone with Chrome. On Android, tap the floor to place it and tap again to move it. Not for scans or splats.": "Show the model in your room at its real size, on an iPhone, iPad or Android phone with Chrome. On Android, tap the floor to place it and tap again to move it. Not for scans or splats.",
+    "Show the model in your room at its real size, on an iPhone, iPad or Android phone with Chrome: the AR button in the toolbar, or View in AR under Export in the tools panel. On Android, tap the floor to place it and tap again to move it. Not for scans or splats.": "Show the model in your room at its real size, on an iPhone, iPad or Android phone with Chrome: the AR button in the toolbar, or View in AR under Export in the tools panel. On Android, tap the floor to place it and tap again to move it. Not for scans or splats.",
     "Showing 1 in {n} points": "Showing 1 in {n} points",
     "Showing 1 in {n} splats": "Showing 1 in {n} splats",
     "Showing {kept} of {total} points": "Showing {kept} of {total} points",
