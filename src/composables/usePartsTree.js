@@ -23,6 +23,20 @@ import { createPartHighlight } from '../utils/partHighlight.js'
 import { createPartsModel, createPartsVisibility, ifcElementOf, isRenderable } from '../utils/partsTree.js'
 
 /**
+ * @param {THREE.Object3D} root - A model
+ * @return {boolean} Whether it has IFC elements the loader has not named yet
+ */
+function needsNames(root) {
+	let found = false
+	root.traverse((node) => {
+		if (!found && node.isMesh && Number.isFinite(node.userData?.ifc?.expressID) && node.userData.ifc.typeLabel === undefined) {
+			found = true
+		}
+	})
+	return found
+}
+
+/**
  * @param {THREE.Object3D} node - A node
  * @param {THREE.Object3D} root - A node it may be under
  * @return {boolean} Whether `root` is `node` or above it
@@ -64,6 +78,11 @@ export function usePartsTree({ camera = null, animateCamera = null, sourceFile =
 	// Whether the list is on screen: a click on the viewport chooses a part only then
 	const active = ref(false)
 	const ifc = shallowRef({ id: null, state: 'idle', data: null })
+
+	// Whether an IFC model's elements are being named, before the list can show
+	const preparing = ref(false)
+	// Which model the list is being made for: a model replaced meanwhile is not shown
+	let generation = 0
 
 	let model = null
 	let visibility = null
@@ -146,6 +165,7 @@ export function usePartsTree({ camera = null, animateCamera = null, sourceFile =
 		revision.value
 		return {
 			loaded: model !== null,
+			preparing: preparing.value,
 			parts: model ? model.parts : 0,
 			hidden: visibility ? visibility.hiddenCount : 0,
 			isolated: visibility ? visibility.isolatedId !== null : false,
@@ -193,20 +213,21 @@ export function usePartsTree({ camera = null, animateCamera = null, sourceFile =
 		clearRaycastCache()
 	}
 
-	// An IFC element's properties, from the model's own file, which is opened the first
-	// time one is asked for and freed when the model goes
+	// What an IFC file says about its elements, read from the model's own file, which is
+	// opened the first time the list is shown for the model and freed when the model goes
 	let opening = null
-	const readProperties = readIfcProperties ?? (async (expressID) => {
+	const getReader = () => {
 		if (!opening) {
 			const file = sourceFile ? sourceFile() : null
 			if (!file) {
-				throw new Error('There is no IFC file to read properties from')
+				return Promise.reject(new Error('There is no IFC file to read from'))
 			}
 			opening = import('../loaders/ifcProperties.js').then(({ openIfcProperties }) => openIfcProperties(file))
 			opening.catch(() => { opening = null })
 		}
-		return (await opening).read(expressID)
-	})
+		return opening
+	}
+	const readProperties = readIfcProperties ?? (async (expressID) => (await getReader()).read(expressID))
 	const closeProperties = () => {
 		const pending = opening
 		opening = null
@@ -374,6 +395,31 @@ export function usePartsTree({ camera = null, animateCamera = null, sourceFile =
 		if (!root) {
 			return
 		}
+		const token = ++generation
+		if (sourceFile && needsNames(root)) {
+			// An IFC model is drawn from its geometry alone: its elements are named, and
+			// grouped by storey, from the file, before the list shows
+			preparing.value = true
+			getReader()
+				.then(async (reader) => {
+					const ids = new Set()
+					root.traverse((node) => { if (node.isMesh && Number.isFinite(node.userData?.ifc?.expressID)) ids.add(node.userData.ifc.expressID) })
+					const { applyIfcStructure } = await import('../loaders/ifcStructure.js')
+					applyIfcStructure(root, reader.describe(ids))
+				})
+				.catch((error) => logger.warn('usePartsTree', 'Could not name the IFC elements', error))
+				.finally(() => {
+					if (token === generation) {
+						preparing.value = false
+						startModel(root, scene)
+					}
+				})
+			return
+		}
+		startModel(root, scene)
+	}
+
+	const startModel = (root, scene) => {
 		sceneRef = scene
 		model = createPartsModel(root)
 		visibility = createPartsVisibility(model)
@@ -389,6 +435,8 @@ export function usePartsTree({ camera = null, animateCamera = null, sourceFile =
 
 	/** Forget the model, putting back whatever was hidden. */
 	function clear() {
+		generation++
+		preparing.value = false
 		closeProperties()
 		highlight?.dispose()
 		visibility?.dispose()

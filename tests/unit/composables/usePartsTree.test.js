@@ -7,10 +7,13 @@
 import * as THREE from 'three'
 import { nextTick } from 'vue'
 import { usePartsTree } from '../../../src/composables/usePartsTree.js'
+import { openIfcProperties } from '../../../src/loaders/ifcProperties.js'
 
 jest.mock('../../../src/utils/logger.js', () => ({
 	logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() },
 }))
+
+jest.mock('../../../src/loaders/ifcProperties.js', () => ({ openIfcProperties: jest.fn() }))
 
 const box = (name, x) => {
 	const mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial())
@@ -425,5 +428,83 @@ describe('IFC properties', () => {
 		parts.init(root, world)
 		parts.select(parts.rows[1].id)
 		expect(parts.selection.ifc).toBeNull()
+	})
+})
+
+describe('an IFC model drawn from geometry alone', () => {
+	const drawn = () => {
+		const root = new THREE.Group()
+		for (const [expressID, x] of [[26, 0], [30, 2], [50, 4]]) {
+			const mesh = box(`IFC_${expressID}_1`, x)
+			mesh.userData.ifc = { expressID, geometryExpressID: 1 }
+			root.add(mesh)
+		}
+		const world = new THREE.Scene()
+		world.add(root)
+		world.updateMatrixWorld(true)
+		return { world, root }
+	}
+	const reader = () => ({
+		describe: jest.fn(() => ({
+			elements: new Map([
+				[26, { expressID: 26, typeLabel: 'Wall', name: 'North wall', globalId: '' }],
+				[30, { expressID: 30, typeLabel: 'Wall', name: 'South wall', globalId: '' }],
+				[50, { expressID: 50, typeLabel: 'Slab', name: 'Slab 1', globalId: '' }],
+			]),
+			containerOf: new Map([[26, 17], [30, 17]]),
+			containers: new Map([[17, { expressID: 17, typeLabel: 'Building Storey', name: 'Level 1' }]]),
+		})),
+		read: jest.fn().mockResolvedValue({ sets: [] }),
+		dispose: jest.fn(),
+	})
+
+	it('opens the file, and names and groups the elements, only when the list is made', async () => {
+		const file = {}
+		const r = reader()
+		openIfcProperties.mockResolvedValue(r)
+		const { world, root } = drawn()
+		const parts = usePartsTree({ sourceFile: () => file })
+		expect(openIfcProperties).not.toHaveBeenCalled()
+
+		parts.init(root, world)
+		expect(parts.summary.preparing).toBe(true)
+		expect(parts.rows).toEqual([])
+		await new Promise((resolve) => setTimeout(resolve))
+
+		expect(openIfcProperties).toHaveBeenCalledWith(file)
+		expect(r.describe).toHaveBeenCalledWith(new Set([26, 30, 50]))
+		expect(parts.summary.preparing).toBe(false)
+		expect(labels(parts)).toEqual(['Slab 1', 'Level 1'])
+		// The same file reads the properties of the element chosen: it is not opened again
+		parts.toggleExpanded(parts.rows[1].id, true)
+		parts.select(parts.rows[2].id)
+		await new Promise((resolve) => setTimeout(resolve))
+		expect(r.read).toHaveBeenCalledWith(26)
+		expect(openIfcProperties).toHaveBeenCalledTimes(1)
+
+		parts.clear()
+		await new Promise((resolve) => setTimeout(resolve))
+		expect(r.dispose).toHaveBeenCalled()
+	})
+
+	it('shows the elements by their express IDs when the file cannot be read', async () => {
+		openIfcProperties.mockRejectedValue(new Error('no wasm'))
+		const { world, root } = drawn()
+		const parts = usePartsTree({ sourceFile: () => ({}) })
+		parts.init(root, world)
+		await new Promise((resolve) => setTimeout(resolve))
+		expect(parts.summary.preparing).toBe(false)
+		expect(labels(parts)).toEqual(['IFC_26_1', 'IFC_30_1', 'IFC_50_1'])
+	})
+
+	it('shows nothing for a model replaced while it was being named', async () => {
+		openIfcProperties.mockResolvedValue(reader())
+		const { world, root } = drawn()
+		const parts = usePartsTree({ sourceFile: () => ({}) })
+		parts.init(root, world)
+		const next = scene()
+		parts.init(next.root, next.world)
+		await new Promise((resolve) => setTimeout(resolve))
+		expect(labels(parts)).toEqual(['Assembly', 'Pin'])
 	})
 })

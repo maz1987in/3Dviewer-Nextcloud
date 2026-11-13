@@ -2,18 +2,18 @@
  * SPDX-FileCopyrightText: 2026 Nextcloud contributors
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
- * An IFC element's properties, read when it is chosen in the Parts panel.
+ * What an IFC file says about its elements, read when the Parts panel asks.
  *
- * The loader reads an element's name and type, which is all the tree needs, and closes
- * the model. The rest of what an IFC file says about an element (its property sets and
- * quantities) lives in lines the loader never touches, and reading them for every element
- * of a building would be most of the file. This opens the file again, once, the first
- * time an element is chosen, and reads only the lines that belong to that element.
+ * The loader reads geometry and nothing else, so opening a model costs what it always did.
+ * This opens the file again, once, when the Parts panel is first shown for it, and reads
+ * what the tree needs to name and group the elements (`describe`: name, type and storey),
+ * then, only for an element that is chosen, its property sets and quantities (`read`).
  */
 
 // eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
 import { translate as t } from '@nextcloud/l10n'
-import { createIfcApi } from './ifcRuntime.js'
+import { IFCRELCONTAINEDINSPATIALSTRUCTURE } from 'web-ifc'
+import { createIfcApi, ifcTypeLabel } from './ifcRuntime.js'
 
 /** A model with more property sets or properties than this is read to here only. */
 const MAX_SETS = 40
@@ -75,9 +75,10 @@ export function propertyRow(line) {
  * Open an IFC file to read element properties from.
  *
  * @param {Blob} file - The IFC file
- * @return {Promise<{read: (expressID: number) => Promise<object>, dispose: () => void}>} `read(expressID)` resolves to
- *   `{sets: [{name, fromType, properties: [{name, value}]}]}`; `dispose()` frees the
- *   model, which holds the file's memory
+ * @return {Promise<{describe: Function, read: (expressID: number) => Promise<object>, dispose: () => void}>}
+ *   `describe(expressIDs)` gives what the tree names and groups elements by;
+ *   `read(expressID)` resolves to `{sets: [{name, fromType, properties: [{name, value}]}]}`;
+ *   `dispose()` frees the model, which holds the file's memory
  */
 export async function openIfcProperties(file) {
 	const api = await createIfcApi()
@@ -102,7 +103,73 @@ export async function openIfcProperties(file) {
 		return properties.length > 0 ? { name, fromType, properties } : null
 	}
 
+	/**
+	 * @param {number} expressID - A line of the file
+	 * @return {string} Its type in words, such as "Wall"
+	 */
+	const typeLabelOf = (expressID) => {
+		try {
+			return ifcTypeLabel(api.GetNameFromTypeCode(api.GetLineType(modelID, expressID)))
+		} catch {
+			return ''
+		}
+	}
+
 	return {
+		/**
+		 * The name, type and global ID of each element, and which storey, building or space
+		 * contains it. One relation lists many elements, so the containers are a handful of
+		 * lines, not one per element.
+		 *
+		 * @param {Iterable<number>} expressIDs - The elements the model drew
+		 * @return {{elements: Map<number, object>, containerOf: Map<number, number>, containers: Map<number, object>}} The elements,
+		 *   the container of each, and each container's name and type
+		 */
+		describe(expressIDs) {
+			const elements = new Map()
+			const containerOf = new Map()
+			const containers = new Map()
+			if (!open) {
+				return { elements, containerOf, containers }
+			}
+			for (const expressID of expressIDs) {
+				let line = null
+				try {
+					line = api.GetLine(modelID, expressID, false)
+				} catch { /* a line it cannot read is listed by its type */ }
+				elements.set(expressID, {
+					expressID,
+					typeLabel: typeLabelOf(expressID),
+					name: typeof line?.Name?.value === 'string' ? line.Name.value : '',
+					globalId: typeof line?.GlobalId?.value === 'string' ? line.GlobalId.value : '',
+				})
+			}
+			try {
+				const relations = api.GetLineIDsWithType(modelID, IFCRELCONTAINEDINSPATIALSTRUCTURE)
+				for (let i = 0; i < relations.size(); i++) {
+					const relation = api.GetLine(modelID, relations.get(i), false)
+					const container = relation?.RelatingStructure?.value
+					if (!Number.isFinite(container)) {
+						continue
+					}
+					if (!containers.has(container)) {
+						const line = api.GetLine(modelID, container, false)
+						containers.set(container, {
+							expressID: container,
+							typeLabel: typeLabelOf(container),
+							name: line?.Name?.value || line?.LongName?.value || typeLabelOf(container),
+						})
+					}
+					for (const element of relation.RelatedElements ?? []) {
+						containerOf.set(element.value, container)
+					}
+				}
+			} catch {
+				// Without the spatial structure the elements are listed flat
+			}
+			return { elements, containerOf, containers }
+		},
+
 		async read(expressID) {
 			if (!open) {
 				return { sets: [] }

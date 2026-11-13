@@ -3,6 +3,10 @@
 		<p v-if="!parts" class="tdv-secondary parts-note" role="status">
 			{{ t('threedviewer', 'Loading parts…') }}
 		</p>
+		<!-- An IFC model is named from its file the first time the list is shown -->
+		<p v-else-if="summary.preparing" class="tdv-secondary parts-note" role="status">
+			{{ t('threedviewer', 'Reading the model\'s elements…') }}
+		</p>
 		<template v-else>
 			<input :value="parts.filter"
 				type="search"
@@ -219,7 +223,7 @@ export default {
 
 		const rowHeight = computed(() => (props.isMobile ? 40 : 32))
 		const rows = computed(() => props.parts?.rows ?? [])
-		const summary = computed(() => props.parts?.summary ?? { hidden: 0, isolated: false, searching: false, matches: 0, truncated: false, parts: 0 })
+		const summary = computed(() => props.parts?.summary ?? { preparing: false, hidden: 0, isolated: false, searching: false, matches: 0, truncated: false, parts: 0 })
 		const selection = computed(() => props.parts?.selection ?? null)
 		const treeHeight = computed(() => Math.min(rows.value.length, props.isMobile ? VISIBLE_ROWS_MOBILE : VISIBLE_ROWS) * rowHeight.value)
 

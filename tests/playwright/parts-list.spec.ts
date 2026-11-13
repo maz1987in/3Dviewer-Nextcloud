@@ -476,7 +476,16 @@ test.describe('IFC', () => {
 
 	test('groups elements by storey, and reads an element\'s properties when it is chosen', async ({ page }) => {
 		const { errors } = await openViewer(page, server.url, IFC)
+		// Opening the model reads its geometry and nothing else about its elements: they
+		// are named, and put under their storeys, when the list is first shown
+		const names = () => page.evaluate(() => {
+			const viewer = (window as any).__THREEDVIEWER_APP.$.subTree.component.proxy.$refs.viewer
+			return viewer.modelRoot.children.map((child: any) => child.name)
+		})
+		expect((await names()).every((name: string) => name.startsWith('IFC_'))).toBe(true)
 		await openParts(page)
+		await expect(row(page, /^Level 1/)).toBeVisible()
+		expect(await names()).toEqual(['Level 1', 'Level 2'])
 
 		// Elements are grouped by the storey that holds them; a storey with one element is one row
 		await expect(tree(page).getByRole('treeitem')).toHaveCount(2)
