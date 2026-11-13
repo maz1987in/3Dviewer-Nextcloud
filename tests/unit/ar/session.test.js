@@ -16,7 +16,11 @@ jest.mock('../../../src/utils/logger.js', () => ({
 /** A session that is an event target, as the browser's is. */
 function fakeSession() {
 	const session = new EventTarget()
-	session.end = jest.fn(async () => { session.dispatchEvent(new Event('end')) })
+	// The browser fires `end`; the session hands the viewer back on the task after
+	session.end = jest.fn(async () => {
+		session.dispatchEvent(new Event('end'))
+		await nextTask()
+	})
 	session.requestReferenceSpace = jest.fn(async () => ({ viewer: true }))
 	session.hitTestSource = { cancel: jest.fn() }
 	session.requestHitTestSource = jest.fn(async () => session.hitTestSource)
@@ -24,6 +28,8 @@ function fakeSession() {
 	session.requestHitTestSourceForTransientInput = jest.fn(async () => session.touchSource)
 	return session
 }
+
+const nextTask = () => new Promise((resolve) => setTimeout(resolve, 0))
 
 /** A select from a finger on the screen, as the browser sends one. */
 function tap(session, inputSource = FINGER) {
@@ -66,10 +72,16 @@ function viewer(millimetres = 10) {
 	scene.add(model, grid, light)
 	const session = fakeSession()
 	const xr = { requestSession: jest.fn(async () => session) }
+	// As three.js's WebXRManager: presenting from setSession, and its own `end` listener,
+	// added after the session's, is what stops it
 	const renderer = {
 		xr: {
+			isPresenting: false,
 			setReferenceSpaceType: jest.fn(),
-			setSession: jest.fn(async () => {}),
+			setSession: jest.fn(async (s) => {
+				renderer.xr.isPresenting = true
+				s.addEventListener('end', () => { renderer.xr.isPresenting = false })
+			}),
 			getReferenceSpace: jest.fn(() => ({ local: true })),
 		},
 		setAnimationLoop: jest.fn(),
@@ -313,6 +325,23 @@ describe('when the session ends', () => {
 		expect(camera.quaternion.angleTo(before.quaternion)).toBeLessThan(1e-9)
 	})
 
+	it('hands the viewer back only once the renderer has let the session go, so its first frame keeps the camera', async () => {
+		const v = viewer()
+		const camera = new THREE.PerspectiveCamera()
+		camera.position.set(20, 15, 30)
+		const phone = new THREE.Vector3(0.1, 1.4, 0.2)
+		// The viewer draws a frame when it gets the renderer back; three.js puts the camera
+		// at the phone on any frame drawn while a session is presenting
+		const onEnd = jest.fn(() => {
+			if (v.renderer.xr.isPresenting) camera.position.copy(phone)
+		})
+		const { running } = await start(v, { camera, onEnd })
+		camera.position.copy(phone)
+		await running.end()
+		expect(onEnd).toHaveBeenCalledTimes(1)
+		expect(camera.position.toArray()).toEqual([20, 15, 30])
+	})
+
 	it('puts a model that was hidden before back hidden', async () => {
 		const v = viewer()
 		v.model.visible = false
@@ -327,6 +356,7 @@ describe('when the session ends', () => {
 		const exit = [...document.querySelectorAll('button')].find((b) => b.textContent === 'Exit AR')
 		exit.click()
 		expect(v.session.end).toHaveBeenCalled()
+		await nextTask()
 		expect(onEnd).toHaveBeenCalledTimes(1)
 	})
 
@@ -335,6 +365,7 @@ describe('when the session ends', () => {
 		const { onEnd } = await start(v)
 		v.session.dispatchEvent(new Event('end'))
 		v.session.dispatchEvent(new Event('end'))
+		await nextTask()
 		expect(onEnd).toHaveBeenCalledTimes(1)
 	})
 })

@@ -198,7 +198,10 @@ export async function startArSession({ renderer, scene, model, metresPerUnit, re
 		if (announced) {
 			announced = false
 			logger.info('ar', 'AR session ended')
-			onEnd()
+			// three.js's own `end` listener, added after this one, is what stops the renderer
+			// presenting. A frame drawn before it runs puts the camera back at the phone, so
+			// the viewer, which draws as soon as it is handed back, waits for the next task.
+			setTimeout(onEnd, 0)
 		}
 	})
 
