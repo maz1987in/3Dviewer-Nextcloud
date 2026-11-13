@@ -280,7 +280,7 @@ Scans and Gaussian splats have no parts, and their Parts row says so.
 
 On a phone or tablet that can do it, the **AR** button in the viewer's toolbar (or **View in AR** in the tools panel's Export section) puts the open model in your room at its real size, taken from the file's unit: a 100 mm part is 100 mm on your table. On a public link and in the Files preview, **View in AR** is the first of the buttons at the bottom right, so someone you share a model with can see it in their room without an account.
 
-- **iPhone and iPad:** the model opens in AR Quick Look. If preparing a large model takes long enough that Safari no longer counts your tap, the button changes to **Open in AR**; tap it again.
+- **iPhone and iPad (Safari):** the model opens in AR Quick Look. Use Safari: other iPhone browsers, Brave among them, do not offer AR Quick Look to web pages, so the button is not shown in them. If preparing a large model takes long enough that Safari no longer counts your tap, the button changes to **Open in AR**; tap it again.
 - **Android (Chrome):** point the phone at the floor and move it slowly until it says "Tap to place the model". Tap the floor to place the model, tap somewhere else to move it, and press **Exit AR** to go back to the viewer.
 
 The button is not shown on desktops, and it is off for scans and splats. A model over a million triangles on an iPhone (three million on Android) is turned down with a message. A model embedded on another website does not offer View in AR, because the website would have to allow it; the frame's **Open in Nextcloud** link leads to the share page, which does.
