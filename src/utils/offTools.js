@@ -6,10 +6,10 @@
  */
 
 /** A scan: no closed surface to check, colour by for shading, one cloud, and only points. */
-export const POINT_CLOUD_OFF = Object.freeze(['printCheck', 'shading', 'exploded', 'compare', 'export'])
+export const POINT_CLOUD_OFF = Object.freeze(['printCheck', 'shading', 'exploded', 'parts', 'compare', 'export'])
 
 /** A splat: no real surface, so every tool that needs one, and VR. */
-export const SPLAT_OFF = Object.freeze(['shading', 'measure', 'notes', 'compare', 'crossSection', 'printCheck', 'exploded', 'transform', 'export', 'vr'])
+export const SPLAT_OFF = Object.freeze(['shading', 'measure', 'notes', 'compare', 'crossSection', 'printCheck', 'exploded', 'parts', 'transform', 'export', 'vr'])
 
 const NONE = Object.freeze([])
 

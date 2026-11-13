@@ -44,6 +44,11 @@ export const SPLAT_UNAVAILABLE = Object.freeze([
 		note: t('threedviewer', 'A splat is a single capture, with no parts to pull apart.'),
 	},
 	{
+		key: 'parts',
+		label: t('threedviewer', 'Parts'),
+		note: t('threedviewer', 'A splat is a single capture, with no parts to list or hide.'),
+	},
+	{
 		key: 'transform',
 		label: t('threedviewer', 'Transform'),
 		note: t('threedviewer', 'A splat is for looking at. Which way is up turns it the right way.'),

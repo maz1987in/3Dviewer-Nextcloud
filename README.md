@@ -74,6 +74,7 @@ A comprehensive 3D model viewer application for Nextcloud that supports multiple
 - **Lighting Presets** - Quick-switch between Default, Studio, Outdoor, Dramatic, and Flat lighting setups
 - **View Bookmarks** - Save and restore camera positions with display state (grid, axes, wireframe, background)
 - **Exploded View** - Animate multi-mesh models outward from centroid with adjustable factor slider for assembly inspection
+- **Parts Panel** - A tree of the model's parts: hide a part, show only one, zoom to it, and click a part in the model to find it in the list. IFC elements are listed by storey, and choosing one shows its type and property sets. Works from the keyboard, and opens large assemblies and buildings without drawing every row
 - **Performance Scaling** - Automatic performance mode suggestions for large models with configurable triangle count thresholds
 - **Cache Insights** - Live dependency cache statistics (size, entries, hit rate) visible in viewer and tools panel
 - **Enhanced Security** - Every action that changes data checks Nextcloud's request token, password-protected shares stay protected (checked by a test over every public route), and slicer temp files have size limits, MIME validation and rolling expiration

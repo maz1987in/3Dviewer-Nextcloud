@@ -31,6 +31,9 @@ import { MARKER_COLORS } from '../config/viewer-config.js'
 export function isHelperMesh(obj) {
 	if (!obj) return false
 
+	// A tint or an outline a tool draws over the model, marked as such by the tool
+	if (obj.userData?.tdvHelper) return true
+
 	const name = obj.name || ''
 	if (name.startsWith('annotation') || name.startsWith('measurement')) return true
 
@@ -405,6 +408,23 @@ export function clearRaycastCache(sceneId = null) {
 }
 
 /**
+ * Whether an object is drawn: it, and every node above it, is visible. A ray does not
+ * ask: Raycaster tests every object it is given, so a part hidden in the Parts panel, or
+ * inside a group that is, would still be picked unless the list is made without it.
+ *
+ * @param {THREE.Object3D} object - The object
+ * @return {boolean} true if nothing hides it
+ */
+function isDrawn(object) {
+	for (let node = object; node; node = node.parent) {
+		if (!node.visible) {
+			return false
+		}
+	}
+	return true
+}
+
+/**
  * Get cached intersectable objects for a scene
  * @param {THREE.Scene} scene - Scene to cache objects for
  * @param {Function} filterMesh - Filter function for meshes
@@ -427,7 +447,7 @@ function getCachedIntersectableObjects(scene, filterMesh, cacheKey) {
 	const intersectableObjects = []
 	scene.traverse((child) => {
 		// Early exit conditions for better performance. A scan is picked like a mesh.
-		if (!(child.isMesh || child.isPoints) || !child.visible || !child.geometry || !child.material) {
+		if (!(child.isMesh || child.isPoints) || !isDrawn(child) || !child.geometry || !child.material) {
 			return
 		}
 
@@ -521,7 +541,7 @@ function pickingRadius(cloud, camera, heightPx) {
 }
 
 /**
- * Perform raycasting to find 3D intersection point from mouse click
+ * Cast a ray through a mouse click and return the nearest thing it meets.
  * Optimized version with caching and early exit conditions
  *
  * @param {MouseEvent} event - Mouse click event
@@ -532,9 +552,9 @@ function pickingRadius(cloud, camera, heightPx) {
  * @param {boolean} options.recursive - Recursive intersection (default: true)
  * @param {boolean} options.useCache - Whether to use object caching (default: true)
  * @param {number} options.maxDistance - Maximum raycast distance (default: 1000)
- * @return {THREE.Vector3|null} Intersection point or null if no intersection
+ * @return {THREE.Intersection|null} The nearest intersection or null if there is none
  */
-export function raycastIntersection(event, camera, scene, options = {}) {
+export function raycastHit(event, camera, scene, options = {}) {
 	const {
 		filterMesh = (mesh) => mesh.isMesh && mesh.visible,
 		recursive = true,
@@ -565,7 +585,7 @@ export function raycastIntersection(event, camera, scene, options = {}) {
 		} else {
 			intersectableObjects = []
 			scene.traverse((child) => {
-				if ((child.isMesh || child.isPoints) && child.visible && child.geometry && child.material && filterMesh(child)) {
+				if ((child.isMesh || child.isPoints) && isDrawn(child) && child.geometry && child.material && filterMesh(child)) {
 					intersectableObjects.push(child)
 				}
 			})
@@ -585,19 +605,44 @@ export function raycastIntersection(event, camera, scene, options = {}) {
 		// Perform raycasting
 		const intersects = raycaster.intersectObjects(intersectableObjects, recursive)
 
-		if (intersects.length > 0) {
-			const [hit] = intersects
-			// On a scan, the point itself rather than where the ray passed it
-			if (hit.object.isPoints && hit.index !== undefined) {
-				return new THREE.Vector3().fromBufferAttribute(hit.object.geometry.getAttribute('position'), hit.index).applyMatrix4(hit.object.matrixWorld)
-			}
-			return hit.point.clone()
-		}
-
-		return null
+		return intersects.length > 0 ? intersects[0] : null
 
 	} catch (error) {
 		logError('modelScaleUtils', 'Failed to perform raycasting', error)
 		return null
 	}
+}
+
+/**
+ * Perform raycasting to find 3D intersection point from mouse click
+ *
+ * @param {MouseEvent} event - Mouse click event
+ * @param {THREE.Camera} camera - Camera for raycasting
+ * @param {THREE.Scene} scene - Scene to raycast against
+ * @param {object} options - See `raycastHit`
+ * @return {THREE.Vector3|null} Intersection point or null if no intersection
+ */
+export function raycastIntersection(event, camera, scene, options = {}) {
+	const hit = raycastHit(event, camera, scene, options)
+	if (!hit) {
+		return null
+	}
+	// On a scan, the point itself rather than where the ray passed it
+	if (hit.object.isPoints && hit.index !== undefined) {
+		return new THREE.Vector3().fromBufferAttribute(hit.object.geometry.getAttribute('position'), hit.index).applyMatrix4(hit.object.matrixWorld)
+	}
+	return hit.point.clone()
+}
+
+/**
+ * Perform raycasting to find which object a mouse click lands on
+ *
+ * @param {MouseEvent} event - Mouse click event
+ * @param {THREE.Camera} camera - Camera for raycasting
+ * @param {THREE.Scene} scene - Scene to raycast against
+ * @param {object} options - See `raycastHit`
+ * @return {THREE.Object3D|null} The nearest mesh the click lands on, or null
+ */
+export function raycastObject(event, camera, scene, options = {}) {
+	return raycastHit(event, camera, scene, options)?.object ?? null
 }

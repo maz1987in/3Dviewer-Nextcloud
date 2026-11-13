@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Parts: a new section in the tools panel lists the model's parts as a tree, so assemblies can be worked on part by part. Choose a part to tint it in the model, hide it or show it again, show only that part (Isolate), or move the camera to it (Zoom to). Click a part in the model and it is chosen in the list, with the rows above it opened. A filter finds parts by name anywhere in the tree, and Show all brings everything back. Parts with no name are called "Mesh 3" or "Group 2" (with their material's name beside them when they have one), and a chain of groups with one thing in each is one row. The list is made as it is opened and draws only the rows in view, so a building with thousands of elements opens as quickly as a bracket. It works from the keyboard as a tree: arrow keys move, Right and Left open and close, Enter chooses, and H, I and Z hide, isolate and zoom. A hidden part stays hidden through Clay, Normals and X-ray and while Exploded view moves the parts, and cannot be measured or clicked; exports and thumbnails still show every part. A scan or a splat has no parts, and its Parts row says so.
+- IFC files list their elements under the storey, building or space that holds them, named as the file names them, and choosing an element shows its type, storey and property sets and quantities, read from the file when it is chosen.
+
 ### Security
 - Cleared the `minimatch` globparts DoS ([GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249)) from the production graph: `overrides.webdav.minimatch` moves from `^10.2.3` to `^11.0.1`, taking `npm audit --omit=dev` from six moderate to zero. `webdav` only matches globs when a directory listing is asked for with one, which neither the viewer nor `@nextcloud/files` does, and the browser bundle uses `webdav`'s prebuilt web build, whose own copy no lockfile change reaches.
 

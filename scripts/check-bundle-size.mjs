@@ -47,8 +47,12 @@ const BUDGETS = [
   // @nextcloud/dialogs 8: its file picker uses the breadcrumbs and empty state
   // FileBrowser does, so the 12.8 KB raw / 4.4 KB gzip chunk they had of their own, which
   // this one imported and loaded with it every time, is now built into this one. The page
-  // loads no more than before; the picker itself loads only when it opens.
-  { pattern: /^App-.*\.chunk\.mjs$/, name: 'app', maxRaw: 397000, maxGzip: 112500 },
+  // loads no more than before; the picker itself loads only when it opens. Raw raised to
+  // 399 KB for the Parts panel: its state, its tree and the IFC properties reader are
+  // three chunks of their own (usePartsTree, PartsTree, ifcProperties) that load when the
+  // section is first opened, so what is left here is the section's slot in the panel, the
+  // viewer's click and export hooks and two icons, 2.8 KB raw / 0.8 KB gzip.
+  { pattern: /^App-.*\.chunk\.mjs$/, name: 'app', maxRaw: 399000, maxGzip: 112500 },
   { pattern: /^three-core-.*\.chunk\.mjs$/, name: 'three-core', maxRaw: 800000, maxGzip: 210000 }, // Three.js core
   // Three chunks are named index-<hash>: the main one, a ~280 KB one and a 250-byte one.
   // This used to separate them with /^index-[A-Z][a-z]/, written to exclude one specific

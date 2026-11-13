@@ -12,7 +12,7 @@ test('each list matches the lines that say why', () => {
 })
 
 test('a splat turns off every tool that needs a surface', () => {
-	expect(SPLAT_OFF).toEqual(['shading', 'measure', 'notes', 'compare', 'crossSection', 'printCheck', 'exploded', 'transform', 'export', 'vr'])
+	expect(SPLAT_OFF).toEqual(['shading', 'measure', 'notes', 'compare', 'crossSection', 'printCheck', 'exploded', 'parts', 'transform', 'export', 'vr'])
 })
 
 test('what is open decides the list', () => {
