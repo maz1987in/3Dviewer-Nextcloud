@@ -73,12 +73,12 @@ test.afterAll(async () => { await server.close() })
 const panelButton = (page: Page) => page.locator('.slide-out-panel').getByRole('button', { name: /^Print check/ })
 const card = (page: Page) => page.locator('.print-check-card')
 
-async function openPrintCheck(page: Page, model: keyof typeof MODELS) {
+async function openPrintCheck(page: Page, model: keyof typeof MODELS, timeout = 5000) {
 	// Settings are read once from the server; unanswered, the viewer uses its defaults
 	await page.route('**/apps/threedviewer/settings', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ settings: {} }) }))
 	const { errors } = await openViewer(page, server.url, MODELS[model])
 	await panelButton(page).click()
-	await expect(card(page)).toBeVisible()
+	await expect(card(page)).toBeVisible({ timeout })
 	return { errors }
 }
 
@@ -130,6 +130,9 @@ test('a 0.5 mm slab is flagged thin', async ({ page }) => {
 })
 
 test('cancelling a running check stops it', async ({ page }) => {
+	// Opening the check lays its overlays over 240,000 triangles on the page's own thread
+	// before the card draws: seconds on a CI runner's software renderer
+	test.slow()
 	// A check runs in a worker of its own. Hold the second worker's script back (the first
 	// is the closed-model check), so the thickness check is still running when Cancel is
 	// pressed: on a fast machine even a large model finishes before a click lands.
@@ -141,7 +144,7 @@ test('cancelling a running check stops it', async ({ page }) => {
 		}
 		await route.continue().catch(() => {})
 	})
-	await openPrintCheck(page, 'big')
+	await openPrintCheck(page, 'big', 20000)
 	await expect(card(page)).toContainText('of filament (estimate)', { timeout: 15000 })
 	await card(page).getByRole('button', { name: 'Check wall thickness' }).click()
 	const cancel = card(page).getByRole('button', { name: 'Cancel' })
