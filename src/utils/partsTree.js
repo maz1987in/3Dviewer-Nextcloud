@@ -334,6 +334,9 @@ export function ifcElementOf(record) {
 	return null
 }
 
+/** A layer no camera of the viewer's draws: what isolating moves a holding mesh to. */
+export const NOT_DRAWN_LAYER = 31
+
 /**
  * What hiding and isolating do to a model.
  *
@@ -348,6 +351,20 @@ export function ifcElementOf(record) {
 export function createPartsVisibility(model) {
 	// node -> its visibility before this tool first changed it
 	const own = new Map()
+	// A mesh that holds the isolated part keeps `visible`, or the part inside it would not
+	// be drawn, but its own geometry is moved to a layer no camera draws (layers, unlike
+	// `visible`, do not pass to children, and a ray cast skips it too): node -> its layers
+	const ownGeometryOff = new Map()
+	const offOwnGeometry = (node) => {
+		if (!ownGeometryOff.has(node)) {
+			ownGeometryOff.set(node, node.layers.mask)
+			node.layers.set(NOT_DRAWN_LAYER)
+		}
+	}
+	const restoreOwnGeometry = () => {
+		ownGeometryOff.forEach((mask, node) => { node.layers.mask = mask })
+		ownGeometryOff.clear()
+	}
 	let isolated = null
 	// How many exports have everything shown, and the nodes put back after the last
 	let suspended = 0
@@ -454,6 +471,15 @@ export function createPartsVisibility(model) {
 				row.parent.chain.forEach((node) => touch(node, true))
 			}
 			record.chain.forEach((node) => touch(node, true))
+			// A mesh above it, a row or the model's own root, is drawn without its geometry
+			for (let node = record.head.parent; node; node = node.parent) {
+				if (isRenderable(node)) {
+					offOwnGeometry(node)
+				}
+				if (node === model.root) {
+					break
+				}
+			}
 			// Whatever the user hid inside it comes back
 			record.head.traverse((node) => {
 				if (own.has(node) && !node.visible && own.get(node)) {
@@ -470,6 +496,7 @@ export function createPartsVisibility(model) {
 			isolated.undo.forEach((was, node) => {
 				setVisible(node, was)
 			})
+			restoreOwnGeometry()
 			isolated = null
 		},
 
@@ -477,6 +504,7 @@ export function createPartsVisibility(model) {
 		showAll() {
 			own.forEach((was, node) => restoreOwn(node))
 			own.clear()
+			restoreOwnGeometry()
 			isolated = null
 		},
 
@@ -495,6 +523,7 @@ export function createPartsVisibility(model) {
 						node.visible = true
 					}
 				})
+				ownGeometryOff.forEach((mask, node) => { node.layers.mask = mask })
 			}
 			return generation
 		},
@@ -513,6 +542,7 @@ export function createPartsVisibility(model) {
 					node.visible = false
 				})
 				hiddenByExport = []
+				ownGeometryOff.forEach((mask, node) => node.layers.set(NOT_DRAWN_LAYER))
 			}
 		},
 
@@ -520,6 +550,7 @@ export function createPartsVisibility(model) {
 		dispose() {
 			own.forEach((was, node) => restoreOwn(node))
 			own.clear()
+			restoreOwnGeometry()
 			isolated = null
 			suspended = 0
 			hiddenByExport = []

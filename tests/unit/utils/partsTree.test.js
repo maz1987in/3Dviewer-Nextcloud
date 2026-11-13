@@ -297,6 +297,71 @@ describe('hiding and isolating', () => {
 		expect(shaft.visible).toBe(false)
 	})
 
+	it('isolates a part inside a mesh without drawing that mesh: only its children show', () => {
+		// As glTF exports often have it: the car's body is a mesh, and every other part is under it
+		const wheel = mesh('Wheel')
+		const door = mesh('Door')
+		door.position.x = 5
+		const body = mesh('Body')
+		body.add(wheel, door)
+		const root = group('', body)
+		const model = createPartsModel(root)
+		const visibility = createPartsVisibility(model)
+		// A model whose top is one mesh lists what is in it as its first rows
+		const wheelRow = model.topLevel().find((row) => row.label === 'Wheel')
+		const camera = new THREE.PerspectiveCamera()
+		const drawn = (node) => node.visible && node.layers.test(camera.layers)
+
+		visibility.isolate(wheelRow)
+
+		// The body stays visible so the wheel under it is drawn, but its own geometry is not
+		expect(body.visible).toBe(true)
+		expect(drawn(body)).toBe(false)
+		expect(drawn(wheel)).toBe(true)
+		expect(door.visible).toBe(false)
+		// and a click passes through it
+		const raycaster = new THREE.Raycaster(new THREE.Vector3(0, 0, 10), new THREE.Vector3(0, 0, -1))
+		root.updateMatrixWorld(true)
+		const hits = raycaster.intersectObject(root, true).map((hit) => hit.object.name)
+		expect(hits.length).toBeGreaterThan(0)
+		expect(new Set(hits)).toEqual(new Set(['Wheel']))
+
+		// An export shows every part, the body's own geometry too
+		const token = visibility.suspend()
+		expect(drawn(body)).toBe(true)
+		visibility.resume(token)
+		expect(drawn(body)).toBe(false)
+
+		visibility.unisolate()
+		expect(drawn(body)).toBe(true)
+		expect(drawn(door)).toBe(true)
+
+		visibility.isolate(wheelRow)
+		visibility.showAll()
+		expect(drawn(body)).toBe(true)
+		visibility.isolate(wheelRow)
+		visibility.dispose()
+		expect(drawn(body)).toBe(true)
+	})
+
+	it('draws a mesh that is isolated itself, children and all', () => {
+		const wheel = mesh('Wheel')
+		const body = mesh('Body')
+		body.add(wheel, mesh('Hub'))
+		const other = mesh('Other')
+		const root = group('', body, other)
+		const model = createPartsModel(root)
+		const visibility = createPartsVisibility(model)
+		const bodyRow = model.topLevel().find((row) => row.label === 'Body')
+		const camera = new THREE.PerspectiveCamera()
+
+		visibility.isolate(bodyRow)
+
+		expect(body.visible && body.layers.test(camera.layers)).toBe(true)
+		expect(wheel.visible).toBe(true)
+		expect(other.visible).toBe(false)
+	})
+
 	it('puts back what was showing before when the isolation ends', () => {
 		const { root, lid, base, bolt, shaft } = assembly()
 		const model = createPartsModel(root)
