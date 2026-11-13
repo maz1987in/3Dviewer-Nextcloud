@@ -122,6 +122,17 @@ Built with Three.js for high-performance WebGL rendering. ✨]]></description>
 		<personal>OCA\ThreeDViewer\Settings\Personal</personal>
 		<personal-section>OCA\ThreeDViewer\Settings\Section</personal-section>
 	</settings>
+	<activity>
+		<settings>
+			<setting>OCA\ThreeDViewer\Activity\Setting</setting>
+		</settings>
+		<filters>
+			<filter>OCA\ThreeDViewer\Activity\Filter</filter>
+		</filters>
+		<providers>
+			<provider>OCA\ThreeDViewer\Activity\Provider</provider>
+		</providers>
+	</activity>
 	<navigations>
 		<navigation>
 			<name>3D Viewer</name>

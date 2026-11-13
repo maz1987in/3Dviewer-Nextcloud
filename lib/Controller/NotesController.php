@@ -9,6 +9,8 @@ use OCA\ThreeDViewer\Service\Exception\NoteLimitException;
 use OCA\ThreeDViewer\Service\ModelFileSupport;
 use OCA\ThreeDViewer\Service\NoteAccess;
 use OCA\ThreeDViewer\Service\NoteAccessResult;
+use OCA\ThreeDViewer\Service\NoteActor;
+use OCA\ThreeDViewer\Service\NoteChangePublisher;
 use OCA\ThreeDViewer\Service\NotesService;
 use OCA\ThreeDViewer\Service\ResponseBuilder;
 use OCP\AppFramework\Db\DoesNotExistException;
@@ -39,6 +41,7 @@ class NotesController extends BaseController
         private readonly IUserSession $userSession,
         private readonly NoteAccess $access,
         private readonly NotesService $notes,
+        private readonly NoteChangePublisher $changes,
         ResponseBuilder $responseBuilder,
         ModelFileSupport $modelFileSupport,
         LoggerInterface $logger,
@@ -88,6 +91,8 @@ class NotesController extends BaseController
             return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
         }
 
+        $this->changes->added($access->file, $note, NoteActor::user($uid));
+
         return new JSONResponse($this->notes->serialize($note, true), Http::STATUS_CREATED);
     }
 
@@ -98,7 +103,7 @@ class NotesController extends BaseController
     #[FrontpageRoute(verb: 'PATCH', url: '/api/notes/{fileId}/{noteId}')]
     public function update(int $fileId, int $noteId, mixed $payload = null): JSONResponse
     {
-        [, $access] = $this->resolve($fileId);
+        [$uid, $access] = $this->resolve($fileId);
         if ($access === null) {
             return $this->notFound();
         }
@@ -107,12 +112,15 @@ class NotesController extends BaseController
         }
 
         try {
+            $previousUpdatedAt = $this->notes->find($fileId, $noteId)->getUpdatedAt();
             $note = $this->notes->update($fileId, $noteId, $payload);
         } catch (DoesNotExistException) {
             return $this->notFound();
         } catch (InvalidNoteException $e) {
             return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
         }
+
+        $this->changes->changed($access->file, $note, NoteActor::user($uid), $previousUpdatedAt);
 
         return new JSONResponse($this->notes->serialize($note, true));
     }
@@ -121,7 +129,7 @@ class NotesController extends BaseController
     #[FrontpageRoute(verb: 'DELETE', url: '/api/notes/{fileId}/{noteId}')]
     public function destroy(int $fileId, int $noteId): Response
     {
-        [, $access] = $this->resolve($fileId);
+        [$uid, $access] = $this->resolve($fileId);
         if ($access === null) {
             return $this->notFound();
         }
@@ -134,6 +142,7 @@ class NotesController extends BaseController
         } catch (DoesNotExistException) {
             return $this->notFound();
         }
+        $this->changes->deleted($access->file, $noteId, NoteActor::user($uid));
 
         // A plain Response: a JSONResponse would send the body `null` with a 204.
         $response = new Response();

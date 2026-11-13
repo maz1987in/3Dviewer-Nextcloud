@@ -2631,7 +2631,7 @@ export default {
 		 * @return {boolean} whether the camera was set
 		 */
 		const applyLinkedCamera = (view, box) => {
-			if (!camera.camera?.value || !camera.controls?.value || !modelRoot.value) return false
+			if (!view.camera || !camera.camera?.value || !camera.controls?.value || !modelRoot.value) return false
 			const linked = view.camera
 			const { position, target } = view.inScene ? linked : cameraToScene(linked, modelRoot.value)
 			if (!isUsableCamera(position, target, box)) return false

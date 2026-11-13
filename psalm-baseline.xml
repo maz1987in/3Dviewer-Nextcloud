@@ -1062,6 +1062,30 @@
       <code><![CDATA[__construct]]></code>
     </PossiblyUnusedMethod>
   </file>
+  <file src="tests/unit/Activity/NoteActivityPublisherTest.php">
+    <UndefinedClass>
+      <code><![CDATA[TestCase]]></code>
+    </UndefinedClass>
+    <UnusedClass>
+      <code><![CDATA[NoteActivityPublisherTest]]></code>
+    </UnusedClass>
+  </file>
+  <file src="tests/unit/Activity/ProviderTest.php">
+    <UndefinedClass>
+      <code><![CDATA[TestCase]]></code>
+    </UndefinedClass>
+    <UnusedClass>
+      <code><![CDATA[ProviderTest]]></code>
+    </UnusedClass>
+  </file>
+  <file src="tests/unit/Activity/SettingAndFilterTest.php">
+    <UndefinedClass>
+      <code><![CDATA[TestCase]]></code>
+    </UndefinedClass>
+    <UnusedClass>
+      <code><![CDATA[SettingAndFilterTest]]></code>
+    </UnusedClass>
+  </file>
   <file src="tests/unit/Constants/SupportedFormatsTest.php">
     <UndefinedClass>
       <code><![CDATA[TestCase]]></code>
@@ -1294,6 +1318,22 @@
       <code><![CDATA[NoPrivateServerApiTest]]></code>
     </UnusedClass>
   </file>
+  <file src="tests/unit/Notification/NoteNotificationPublisherTest.php">
+    <UndefinedClass>
+      <code><![CDATA[TestCase]]></code>
+    </UndefinedClass>
+    <UnusedClass>
+      <code><![CDATA[NoteNotificationPublisherTest]]></code>
+    </UnusedClass>
+  </file>
+  <file src="tests/unit/Notification/NotifierTest.php">
+    <UndefinedClass>
+      <code><![CDATA[TestCase]]></code>
+    </UndefinedClass>
+    <UnusedClass>
+      <code><![CDATA[NotifierTest]]></code>
+    </UnusedClass>
+  </file>
   <file src="tests/unit/Preview/ModelPreviewProviderTest.php">
     <UndefinedClass>
       <code><![CDATA[TestCase]]></code>
@@ -1407,12 +1447,36 @@
       <code><![CDATA[NoteAccessTest]]></code>
     </UnusedClass>
   </file>
+  <file src="tests/unit/Service/NoteActorTest.php">
+    <UndefinedClass>
+      <code><![CDATA[TestCase]]></code>
+    </UndefinedClass>
+    <UnusedClass>
+      <code><![CDATA[NoteActorTest]]></code>
+    </UnusedClass>
+  </file>
+  <file src="tests/unit/Service/NoteChangePublisherTest.php">
+    <UndefinedClass>
+      <code><![CDATA[TestCase]]></code>
+    </UndefinedClass>
+    <UnusedClass>
+      <code><![CDATA[NoteChangePublisherTest]]></code>
+    </UnusedClass>
+  </file>
   <file src="tests/unit/Service/NotePayloadTest.php">
     <UndefinedClass>
       <code><![CDATA[TestCase]]></code>
     </UndefinedClass>
     <UnusedClass>
       <code><![CDATA[NotePayloadTest]]></code>
+    </UnusedClass>
+  </file>
+  <file src="tests/unit/Service/NoteRecipientsTest.php">
+    <UndefinedClass>
+      <code><![CDATA[TestCase]]></code>
+    </UndefinedClass>
+    <UnusedClass>
+      <code><![CDATA[NoteRecipientsTest]]></code>
     </UnusedClass>
   </file>
   <file src="tests/unit/Service/NotesServiceTest.php">

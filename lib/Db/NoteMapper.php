@@ -54,6 +54,43 @@ class NoteMapper extends QBMapper
         return $this->findEntity($qb);
     }
 
+    /**
+     * The newest notes one author made on a model, newest first.
+     *
+     * @return Note[]
+     */
+    public function findRecentByAuthor(int $fileId, string $authorUid, int $limit): array
+    {
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('*')
+            ->from($this->getTableName())
+            ->where($qb->expr()->eq('file_id', $qb->createNamedParameter($fileId, IQueryBuilder::PARAM_INT)))
+            ->andWhere($qb->expr()->eq('author_uid', $qb->createNamedParameter($authorUid)))
+            ->orderBy('id', 'DESC')
+            ->setMaxResults($limit);
+
+        return $this->findEntities($qb);
+    }
+
+    /**
+     * Everyone who has made a note on a model, once each.
+     *
+     * @return list<string>
+     */
+    public function findAuthorUids(int $fileId): array
+    {
+        $qb = $this->db->getQueryBuilder();
+        $qb->selectDistinct('author_uid')
+            ->from($this->getTableName())
+            ->where($qb->expr()->eq('file_id', $qb->createNamedParameter($fileId, IQueryBuilder::PARAM_INT)));
+
+        $result = $qb->executeQuery();
+        $uids = array_map(static fn (mixed $uid): string => is_scalar($uid) ? (string) $uid : '', $result->fetchAll(\PDO::FETCH_COLUMN));
+        $result->closeCursor();
+
+        return array_values(array_filter($uids, static fn (string $uid): bool => $uid !== ''));
+    }
+
     public function countByFile(int $fileId): int
     {
         $qb = $this->db->getQueryBuilder();
@@ -66,6 +103,27 @@ class NoteMapper extends QBMapper
         $result->closeCursor();
 
         return $count;
+    }
+
+    /**
+     * The ids of the notes deleteOrphans() would delete, so what refers to them — a
+     * notification — can be removed as well.
+     *
+     * @return int[]
+     */
+    public function findOrphanNoteIds(): array
+    {
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('n.id')
+            ->from($this->getTableName(), 'n')
+            ->leftJoin('n', 'filecache', 'f', $qb->expr()->eq('n.file_id', 'f.fileid'))
+            ->where($qb->expr()->isNull('f.fileid'));
+
+        $result = $qb->executeQuery();
+        $ids = array_map('intval', $result->fetchAll(\PDO::FETCH_COLUMN));
+        $result->closeCursor();
+
+        return $ids;
     }
 
     /**

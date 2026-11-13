@@ -12,6 +12,7 @@ use OCA\ThreeDViewer\Listener\LoadFilesListener;
 use OCA\ThreeDViewer\Listener\LoadPublicShareListener;
 use OCA\ThreeDViewer\Listener\LoadViewerListener;
 use OCA\ThreeDViewer\Listener\ThumbnailInvalidationListener;
+use OCA\ThreeDViewer\Notification\Notifier;
 use OCA\ThreeDViewer\Preview\ModelPreviewProvider;
 use OCA\ThreeDViewer\Repair\RegisterThreeDMimeTypes;
 use OCA\ThreeDViewer\Settings\Personal;
@@ -92,6 +93,10 @@ class Application extends App implements IBootstrap
         // The one exception is WebAssembly: the viewer opens inside the Files app, whose
         // policy is the server's, so that has to be contributed through the additive event.
         $context->registerEventListener(AddContentSecurityPolicyEvent::class, CspListener::class);
+
+        // The bell's text for a note added to a model. The Activity app's setting, filter
+        // and provider for the same news are declared in info.xml.
+        $context->registerNotifierService(Notifier::class);
     }
 
     public function boot(IBootContext $context): void

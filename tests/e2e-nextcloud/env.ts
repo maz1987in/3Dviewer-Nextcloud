@@ -16,6 +16,10 @@ export const STATE_FILE = path.join(STATE_DIR, 'state.json')
 export const BASE_URL = process.env.E2E_BASE_URL ?? 'http://localhost:8080'
 export const USER = process.env.E2E_USER ?? 'e2e-user'
 export const PASSWORD = process.env.E2E_PASSWORD ?? 'e2e-user-Pass-Aa1'
+/** A second account, which the first shares a model with, to write notes on it */
+export const EDITOR = process.env.E2E_EDITOR ?? 'e2e-editor'
+export const EDITOR_PASSWORD = process.env.E2E_EDITOR_PASSWORD ?? 'e2e-editor-Pass-Aa1'
+export const EDITOR_DISPLAY_NAME = process.env.E2E_EDITOR_DISPLAY_NAME ?? 'E2E Editor'
 
 // Nextcloud is served by `php -S`, which applies no .htaccess, so every page is addressed
 // through index.php, as a server without pretty URLs would be.

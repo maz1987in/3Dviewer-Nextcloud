@@ -16,6 +16,11 @@
  *
  * The older `cam=` links, which carried the camera alone, are still read
  * (`cameraUrlState.js`). Those were in the full viewer's scene, and say so (`inScene`).
+ *
+ * A link that names a note and nothing else, `?note=<id>`, is read too: it is what the
+ * server writes into a notification, and the server has no camera to put in it. Such a
+ * view has no `camera`, so the viewer frames the model as it usually does and focuses the
+ * note.
  */
 
 import { Vector3 } from 'three'
@@ -27,6 +32,8 @@ import { COLOUR_BY } from '../pointclouds/colourModes.js'
 import { POINT_SIZE } from '../pointclouds/limits.js'
 
 export const VIEW_PARAM = 'view'
+/** A link to a note alone (`?note=<id>`), as the server writes one into a notification */
+export const NOTE_PARAM = 'note'
 export const VIEW_VERSION = 1
 
 /** Coordinates past this are not a camera anyone placed by orbiting a model. */
@@ -42,7 +49,7 @@ const isVector = (v) => Array.isArray(v) && v.length === 3 && v.every((n) => isN
 
 /**
  * @typedef {object} ViewState
- * @property {{position: number[], target: number[], zoom: number, projection: ('perspective'|'orthographic')}} camera
+ * @property {{position: number[], target: number[], zoom: number, projection: ('perspective'|'orthographic')}} [camera] - missing from a link that only names a note
  * @property {string} [renderMode] - one of RENDER_MODES
  * @property {boolean} [wireframe]
  * @property {string} [lighting] - a key of LIGHTING_PRESETS
@@ -160,7 +167,8 @@ export function decodeView(raw) {
 }
 
 /**
- * The view the page's URL carries: `view`, or else the older camera-only `cam`.
+ * The view the page's URL carries: `view`, or else the older camera-only `cam`, or else
+ * a bare `note`.
  *
  * @param {string} [search] - a query string; the page's own by default
  * @return {ViewState|null}
@@ -172,7 +180,11 @@ export function readViewFromUrl(search = (typeof window !== 'undefined' ? window
 		if (view) return view
 	}
 	const legacy = parseCameraState(params.get(CAMERA_URL_PARAM) ?? '')
-	if (!legacy) return null
+	if (!legacy) {
+		// Digits only: Number() would also take '1e3', '0x10' and ' 7 ' for an id
+		const noteId = /^[0-9]{1,15}$/.test(params.get(NOTE_PARAM) ?? '') ? Number(params.get(NOTE_PARAM)) : 0
+		return noteId > 0 ? { note: noteId } : null
+	}
 	const { position: p, target: t } = legacy
 	return {
 		camera: {
