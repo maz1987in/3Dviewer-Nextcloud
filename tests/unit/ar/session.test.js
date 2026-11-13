@@ -20,15 +20,35 @@ function fakeSession() {
 	session.requestReferenceSpace = jest.fn(async () => ({ viewer: true }))
 	session.hitTestSource = { cancel: jest.fn() }
 	session.requestHitTestSource = jest.fn(async () => session.hitTestSource)
+	session.touchSource = { cancel: jest.fn() }
+	session.requestHitTestSourceForTransientInput = jest.fn(async () => session.touchSource)
 	return session
 }
 
-/** A frame in which the floor is `at` (metres, in the session's space) and the head is at `head`. */
-function frameWith(at, head = { x: 0, y: 1.5, z: 0 }) {
-	const matrix = new THREE.Matrix4().makeTranslation(at?.x ?? 0, at?.y ?? 0, at?.z ?? 0).toArray()
+/** A select from a finger on the screen, as the browser sends one. */
+function tap(session, inputSource = FINGER) {
+	const event = new Event('select')
+	event.inputSource = inputSource
+	session.dispatchEvent(event)
+}
+
+const FINGER = { targetRayMode: 'screen' }
+
+/** A pose at a point, as a hit test result gives it. */
+function hitAt(at) {
+	const matrix = new THREE.Matrix4().makeTranslation(at.x, at.y, at.z).toArray()
+	return { getPose: () => ({ transform: { matrix } }) }
+}
+
+/**
+ * A frame in which the floor under the ring is `at` (metres, in the session's space), the
+ * head is at `head`, and a finger on the screen, if any, is over the floor at `touch`.
+ */
+function frameWith(at, head = { x: 0, y: 1.5, z: 0 }, touch = null) {
 	return {
 		getViewerPose: () => ({ transform: { position: head } }),
-		getHitTestResults: () => (at ? [{ getPose: () => ({ transform: { matrix } }) }] : []),
+		getHitTestResults: () => (at ? [hitAt(at)] : []),
+		getHitTestResultsForTransientInput: () => (touch ? [{ inputSource: FINGER, results: [hitAt(touch)] }] : []),
 	}
 }
 
@@ -72,7 +92,7 @@ async function start(v, extra = {}) {
 		...extra,
 	})
 	// The loop the session gave the renderer: (time, frame) => void
-	const frame = (at, head) => v.renderer.setAnimationLoop.mock.calls.at(-1)[0](1000, frameWith(at, head))
+	const frame = (at, head, touch) => v.renderer.setAnimationLoop.mock.calls.at(-1)[0](1000, frameWith(at, head, touch))
 	return { running, renderFrame, onEnd, frame }
 }
 
@@ -140,7 +160,7 @@ describe('while the session runs', () => {
 		expect(document.querySelector('[role="status"]').textContent).toBe('Tap to place the model.')
 		expect(v.model.visible).toBe(false)
 
-		v.session.dispatchEvent(new Event('select'))
+		tap(v.session)
 		v.scene.updateMatrixWorld(true)
 
 		expect(v.model.visible).toBe(true)
@@ -162,20 +182,54 @@ describe('while the session runs', () => {
 		const v = viewer()
 		const { frame } = await start(v)
 		frame({ x: 0, y: 0, z: -1 })
-		v.session.dispatchEvent(new Event('select'))
+		tap(v.session)
 		frame({ x: 2, y: 0, z: -3 })
-		v.session.dispatchEvent(new Event('select'))
+		tap(v.session)
 		v.scene.updateMatrixWorld(true)
 		const centre = new THREE.Box3().setFromObject(v.model).getCenter(new THREE.Vector3())
 		expect(centre.x).toBeCloseTo(2, 9)
 		expect(centre.z).toBeCloseTo(-3, 9)
 	})
 
+	it('puts the model where the finger touched, not where the ring is', async () => {
+		const v = viewer()
+		const { frame } = await start(v)
+		// The ring is ahead; the finger is on a patch of floor off to the left
+		frame({ x: 0, y: 0, z: -1 }, undefined, { x: -1.5, y: 0, z: -2 })
+		tap(v.session)
+		v.scene.updateMatrixWorld(true)
+		const centre = new THREE.Box3().setFromObject(v.model).getCenter(new THREE.Vector3())
+		expect(centre.x).toBeCloseTo(-1.5, 9)
+		expect(centre.z).toBeCloseTo(-2, 9)
+	})
+
+	it('uses the ring when the browser cannot say what is under the finger', async () => {
+		const v = viewer()
+		delete v.session.requestHitTestSourceForTransientInput
+		const { frame } = await start(v)
+		frame({ x: 0.5, y: 0, z: -1 }, undefined, { x: -1.5, y: 0, z: -2 })
+		tap(v.session)
+		v.scene.updateMatrixWorld(true)
+		const centre = new THREE.Box3().setFromObject(v.model).getCenter(new THREE.Vector3())
+		expect(centre.x).toBeCloseTo(0.5, 9)
+		expect(centre.z).toBeCloseTo(-1, 9)
+	})
+
+	it('uses the ring when no floor is under the finger', async () => {
+		const v = viewer()
+		const { frame } = await start(v)
+		frame({ x: 0.5, y: 0, z: -1 })
+		tap(v.session)
+		v.scene.updateMatrixWorld(true)
+		const centre = new THREE.Box3().setFromObject(v.model).getCenter(new THREE.Vector3())
+		expect(centre.x).toBeCloseTo(0.5, 9)
+	})
+
 	it('places nothing for a tap where no floor was found', async () => {
 		const v = viewer()
 		const { frame } = await start(v)
 		frame(null)
-		v.session.dispatchEvent(new Event('select'))
+		tap(v.session)
 		expect(v.model.visible).toBe(false)
 		expect(v.scene.scale.x).toBe(1)
 	})
@@ -184,7 +238,7 @@ describe('while the session runs', () => {
 		const v = viewer(2)
 		const { frame } = await start(v, { metresPerUnit: 1 })
 		frame({ x: 0, y: 0, z: -1 })
-		v.session.dispatchEvent(new Event('select'))
+		tap(v.session)
 		v.scene.updateMatrixWorld(true)
 		expect(new THREE.Box3().setFromObject(v.model).getSize(new THREE.Vector3()).x).toBeCloseTo(2, 9)
 	})
@@ -205,7 +259,7 @@ describe('while the session runs', () => {
 		const v = viewer()
 		const { frame } = await start(v)
 		frame({ x: 0, y: 0, z: -1 })
-		v.session.dispatchEvent(new Event('select'))
+		tap(v.session)
 		frame({ x: 1, y: -1, z: -2 })
 		v.scene.updateMatrixWorld(true)
 		const ring = v.scene.getObjectByName('ar-reticle')
@@ -222,7 +276,7 @@ describe('when the session ends', () => {
 		const v = viewer()
 		const { frame, onEnd } = await start(v)
 		frame({ x: 1, y: 0, z: -2 })
-		v.session.dispatchEvent(new Event('select'))
+		tap(v.session)
 		const added = v.scene.children.length
 
 		await v.session.end()
@@ -242,6 +296,21 @@ describe('when the session ends', () => {
 		expect(v.renderer.setAnimationLoop).toHaveBeenLastCalledWith(null)
 		expect(v.renderer.xr.setReferenceSpaceType).toHaveBeenLastCalledWith('local-floor')
 		expect(document.body.querySelector('[role="region"]')).toBeNull()
+	})
+
+	it('puts the viewer\'s camera back where it was, though the session moved it to the phone', async () => {
+		const v = viewer()
+		const camera = new THREE.PerspectiveCamera()
+		camera.position.set(20, 15, 30)
+		camera.lookAt(3, 5, 3)
+		const before = { position: camera.position.clone(), quaternion: camera.quaternion.clone() }
+		const { running } = await start(v, { camera })
+		// What the browser does on each frame of the session: the camera is the phone
+		camera.position.set(0.1, 1.4, 0.2)
+		camera.quaternion.set(0, 0.7, 0, 0.7)
+		await running.end()
+		expect(camera.position.distanceTo(before.position)).toBeLessThan(1e-9)
+		expect(camera.quaternion.angleTo(before.quaternion)).toBeLessThan(1e-9)
 	})
 
 	it('puts a model that was hidden before back hidden', async () => {

@@ -3223,6 +3223,7 @@ export default {
 				xr: {
 					renderer: renderer.value,
 					scene: scene.value,
+					camera: camera.camera.value,
 					renderFrame: (time) => animate(time),
 					// The session has given the renderer back: the page draws its own frames again
 					onEnd: () => {

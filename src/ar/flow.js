@@ -55,7 +55,7 @@ function open(url, openQuickLook) {
  *   shading and exploded view aside for it; returns the call that puts them back
  * @param {Function} [options.notify] - (type, message) => void, told in words what is
  *   happening or why not; `type` is 'info', 'warning' or 'error'
- * @param {object} [options.xr] - For WebXR: { renderer, scene, renderFrame, onEnd }
+ * @param {object} [options.xr] - For WebXR: { renderer, scene, camera, renderFrame, onEnd }
  * @return {Promise<{status: string}>} `status` is one of: 'opened' (Quick Look was
  *   opened), 'ready' (a file waits for a tap), 'session' (a WebXR session runs),
  *   'unavailable', 'busy', 'too-large' (with `triangles` and `limit`), 'no-surfaces',
@@ -99,6 +99,7 @@ export async function runViewInAR(view, { object, millimetresPerUnit, triangles,
 				model: object,
 				renderer: xr.renderer,
 				scene: xr.scene,
+				camera: xr.camera,
 				renderFrame: xr.renderFrame,
 				metresPerUnit: metresPerUnit(millimetresPerUnit),
 				onEnd: () => {

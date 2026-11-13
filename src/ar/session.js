@@ -3,9 +3,10 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
  * View in AR on Android Chrome and other WebXR browsers: a live `immersive-ar` session.
- * The camera shows through, a ring follows the floor (WebXR hit-test), a tap puts the open
- * model there at its real size, and a tap somewhere else moves it. Loaded when the button
- * is pressed.
+ * The camera shows through, a ring follows the floor (WebXR hit-test), a tap on the floor
+ * puts the open model there at its real size, and a tap somewhere else moves it. A tap
+ * goes where the finger touched; where the browser cannot say what is under a finger, it
+ * goes where the ring is. Loaded when the button is pressed.
  *
  * The model is not moved out of the viewer's scene. The scene itself is scaled to metres
  * and moved to the spot, and put back when the session ends, so every tool that holds the
@@ -119,13 +120,16 @@ export function createOverlay(doc, onExit) {
  * @param {number} options.metresPerUnit - Metres a scene unit is (utils/viewInAr.js)
  * @param {Function} options.renderFrame - Draws a frame, as the viewer's loop does: (time) => void
  * @param {Function} options.onEnd - Called once the session is over and the scene is back
+ * @param {THREE.Camera} [options.camera] - The viewer's camera. The session moves it to
+ *   the phone's place in the room on every frame and the browser leaves it there, so it
+ *   is put back where the viewer had it.
  * @param {object} [options.xr] - `navigator.xr`
  * @param {Document} [options.doc] - The page
  * @return {Promise<{end: Function}>} The running session
  * @throws {Error} When the browser refuses the session, or it fails to come up; the scene
  *   is as it was
  */
-export async function startArSession({ renderer, scene, model, metresPerUnit, renderFrame, onEnd, xr = navigator.xr, doc = document }) {
+export async function startArSession({ renderer, scene, model, metresPerUnit, renderFrame, onEnd, camera = null, xr = navigator.xr, doc = document }) {
 	const overlay = createOverlay(doc, () => session?.end())
 	doc.body.appendChild(overlay.root)
 
@@ -146,9 +150,15 @@ export async function startArSession({ renderer, scene, model, metresPerUnit, re
 		scale: scene.scale.clone(),
 		modelVisible: model.visible,
 		hidden: [],
+		camera: camera && {
+			position: camera.position.clone(),
+			quaternion: camera.quaternion.clone(),
+			scale: camera.scale.clone(),
+		},
 	}
 	const added = []
 	let hitTestSource = null
+	let touchSource = null
 	let cleaned = false
 	let announced = false
 
@@ -156,6 +166,7 @@ export async function startArSession({ renderer, scene, model, metresPerUnit, re
 		if (cleaned) return
 		cleaned = true
 		hitTestSource?.cancel?.()
+		touchSource?.cancel?.()
 		renderer.setAnimationLoop(null)
 		added.forEach((object) => {
 			scene.remove(object)
@@ -172,6 +183,12 @@ export async function startArSession({ renderer, scene, model, metresPerUnit, re
 		scene.scale.copy(kept.scale)
 		scene.updateMatrix()
 		scene.updateMatrixWorld(true)
+		if (kept.camera) {
+			camera.position.copy(kept.camera.position)
+			camera.quaternion.copy(kept.camera.quaternion)
+			camera.scale.copy(kept.camera.scale)
+			camera.updateMatrixWorld(true)
+		}
 		renderer.xr.setReferenceSpaceType('local-floor')
 		overlay.root.remove()
 	}
@@ -198,6 +215,14 @@ export async function startArSession({ renderer, scene, model, metresPerUnit, re
 		await renderer.xr.setSession(session)
 		const viewerSpace = await session.requestReferenceSpace('viewer')
 		hitTestSource = await session.requestHitTestSource({ space: viewerSpace })
+		// What is under a finger on the screen, so a tap places the model there and not only
+		// where the ring is. Optional: without it, a tap goes to the ring.
+		try {
+			touchSource = await session.requestHitTestSourceForTransientInput?.({ profile: 'generic-touchscreen' }) ?? null
+		} catch (error) {
+			logger.warn('ar', 'No hit test for touches; a tap places the model at the ring', error)
+			touchSource = null
+		}
 
 		scene.background = null
 		scene.fog = null
@@ -227,6 +252,9 @@ export async function startArSession({ renderer, scene, model, metresPerUnit, re
 
 		const hit = new Matrix4()
 		const spot = new Vector3()
+		// The floor under each finger now on the screen, from the last frame. A select comes
+		// between frames, and its own frame cannot be asked for hit results.
+		const touched = new Map()
 		const viewer = new Vector3()
 		const sceneInverse = new Matrix4()
 		let hasHit = false
@@ -242,9 +270,10 @@ export async function startArSession({ renderer, scene, model, metresPerUnit, re
 		}
 		say('looking', t('threedviewer', 'Move your phone slowly to find the floor.'))
 
-		const onSelect = () => {
-			if (!hasHit) return
-			const { position, quaternion } = scenePlacement(box, metresPerUnit, spot, yawToward(spot, hasViewer ? viewer : null))
+		const onSelect = (event) => {
+			const target = touched.get(event?.inputSource) ?? (hasHit ? spot : null)
+			if (!target) return
+			const { position, quaternion } = scenePlacement(box, metresPerUnit, target, yawToward(target, hasViewer ? viewer : null))
 			scene.scale.setScalar(metresPerUnit)
 			scene.position.copy(position)
 			scene.quaternion.copy(quaternion)
@@ -264,6 +293,15 @@ export async function startArSession({ renderer, scene, model, metresPerUnit, re
 			if (viewerPose) {
 				const { x, y, z } = viewerPose.transform.position
 				viewer.set(x, y, z)
+			}
+			touched.clear()
+			if (space && touchSource && frame.getHitTestResultsForTransientInput) {
+				for (const { inputSource, results } of frame.getHitTestResultsForTransientInput(touchSource)) {
+					const touchPose = results[0]?.getPose(space)
+					if (touchPose) {
+						touched.set(inputSource, new Vector3().setFromMatrixPosition(new Matrix4().fromArray(touchPose.transform.matrix)))
+					}
+				}
 			}
 			const result = space ? frame.getHitTestResults(hitTestSource)[0] : null
 			const pose = result?.getPose(space)
