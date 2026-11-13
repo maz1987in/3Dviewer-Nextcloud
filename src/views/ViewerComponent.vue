@@ -97,6 +97,25 @@
 				:title="t('threedviewer', 'Download')">
 				<ViewerIcon name="download" :size="18" />
 			</a>
+			<!--
+				View in AR, only where the device has a way (a phone or tablet) and not in a
+				frame on another site (utils/viewInAr.js). It says what it does, unlike the
+				icons beside it: on a phone it is the one a visitor came for, and "Open in AR"
+				has to be read to be pressed. aria-disabled while it works, so focus stays; a
+				scan or splat has it off, described by the line saying why.
+			-->
+			<button
+				v-if="showAr"
+				type="button"
+				class="viewer-action-btn viewer-ar-btn"
+				:aria-busy="arState === 'preparing' ? 'true' : 'false'"
+				:aria-disabled="arOff || arBusy ? 'true' : null"
+				:aria-describedby="arOff ? arOffId : null"
+				@click.prevent="startViewInAR">
+				<ViewerIcon name="ar" :size="18" />
+				<span>{{ arLabel }}</span>
+			</button>
+			<span v-if="showAr && arOff" :id="arOffId" class="viewer-link-status">{{ arOffNote }}</span>
 			<button
 				v-if="!embed"
 				class="viewer-action-btn"
@@ -126,6 +145,19 @@
 			</button>
 			<!-- No toast reaches a share page, which mounts this viewer on its own -->
 			<span role="status" class="viewer-link-status">{{ linkStatus }}</span>
+		</div>
+
+		<!--
+			What View in AR is doing, or why not. No toast reaches a share page, so the viewer
+			says it itself. Both are always there, so a screen reader hears each change.
+		-->
+		<div v-if="hasLoaded && showAr" class="viewer-ar-messages">
+			<p role="status" class="viewer-ar-message" :class="{ shown: arMessage.status }">
+				{{ arMessage.status }}
+			</p>
+			<p role="alert" class="viewer-ar-message viewer-ar-message--error" :class="{ shown: arMessage.alert }">
+				{{ arMessage.alert }}
+			</p>
 		</div>
 
 		<!-- Where the embedded model lives, for whoever wants more than the frame -->
@@ -170,7 +202,7 @@
 </template>
 
 <script>
-import { markRaw } from 'vue'
+import { markRaw, toRaw } from 'vue'
 import ViewerIcon from '../components/ViewerIcon.vue'
 import { NcProgressBar, NcButton } from '@nextcloud/vue'
 import { generateUrl } from '@nextcloud/router'
@@ -194,6 +226,12 @@ import { isSplatExtension } from '../splats/splatExtensions.js'
 import { disposeSplat } from '../splats/disposeSplat.js'
 import { defaultDisplayUnit, displayLengthFactor, isUnitChangeable, millimetresPerFileUnit, millimetresPerUnit } from '../utils/sourceUnits.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
+import { useViewInAR } from '../composables/useViewInAR.js'
+import { AR_PATH, arButtonLabel, isArBusy, lightViewerOffersAr } from '../utils/viewInAr.js'
+import { offToolsFor } from '../utils/offTools.js'
+
+/** How long a View in AR message stays, in ms; an error stays longer, to be read */
+const AR_MESSAGE_MS = { status: 6000, alert: 10000 }
 
 export default {
 	name: 'ViewerComponent',
@@ -251,6 +289,8 @@ export default {
 		const cameraComposable = useCamera()
 		const animationComposable = useAnimation()
 		const screenshotComposable = useScreenshot()
+		// View in AR, as the full viewer has it (useViewInAR); the template reads its path and state
+		const viewInAR = useViewInAR()
 
 		// Return composables for use in Options API methods
 		return {
@@ -258,6 +298,9 @@ export default {
 			cameraComposable,
 			animationComposable,
 			screenshotComposable,
+			viewInAR,
+			arPath: viewInAR.path,
+			arState: viewInAR.state,
 		}
 	},
 
@@ -301,6 +344,10 @@ export default {
 			// Full screen, offered in an embed only, where the frame may be small
 			canFullscreen: typeof document !== 'undefined' && document.fullscreenEnabled === true,
 			isFullscreen: false,
+			// What View in AR says on this page, in a polite line and an urgent one
+			arMessage: { status: '', alert: '' },
+			// Why View in AR is off for a scan or splat (pointclouds/unavailable.js, splats/unavailable.js)
+			arOffNote: '',
 		}
 	},
 
@@ -337,6 +384,30 @@ export default {
 		 */
 		embed() {
 			return getPublicShareContext()?.embed ?? null
+		},
+
+		/** View in AR is offered: a phone or tablet with a way, and not in a frame on another site */
+		showAr() {
+			return lightViewerOffersAr(this.arPath, { embedded: Boolean(this.embed) })
+		},
+
+		/** A scan or a splat has no surface to stand in a room (utils/offTools.js) */
+		arOff() {
+			const data = this.linkModel?.userData
+			return offToolsFor({ pointCloud: data?.tdvPointCloud, splat: data?.tdvSplat }).includes('ar')
+		},
+
+		arBusy() {
+			return isArBusy(this.arState)
+		},
+
+		arLabel() {
+			return arButtonLabel(this.arState)
+		},
+
+		/** The Files viewer mounts one of these per file, so the id is this instance's own */
+		arOffId() {
+			return `viewer-ar-off-${this.$.uid}`
 		},
 
 		/**
@@ -435,6 +506,11 @@ export default {
 
 		document.addEventListener('fullscreenchange', this.onFullscreenChange)
 
+		// Whether this device can show a model in the room; not asked in a frame, which never offers it
+		if (!this.embed) {
+			this.viewInAR.detect()
+		}
+
 		// Check if we're already active on mount (initial file)
 		if (this.active) {
 			logger.info('ViewerComponent', 'Instance is active on mount, starting load', { filename: this.filename })
@@ -452,6 +528,10 @@ export default {
 		this.loadController?.abort()
 		this.dropSplatHost()
 		clearTimeout(this.linkCopiedTimer)
+		clearTimeout(this.arMessageTimers?.status)
+		clearTimeout(this.arMessageTimers?.alert)
+		// Ends a session and lets go of a file that waits for a tap
+		this.viewInAR.dispose()
 		document.removeEventListener('fullscreenchange', this.onFullscreenChange)
 		// Restore console error handler
 		if (this.cspErrorListener && this.cspErrorListener.restore) {
@@ -709,13 +789,138 @@ export default {
 
 			this.modelStats = { meshes, vertices: Math.round(vertices), faces: Math.round(faces), splats }
 			this.loadChosenUnit()
+			this.loadArOffNote()
+		},
+
+		/**
+		 * The line saying why View in AR is off, for a scan or splat on a device that has a
+		 * way. Its words load with it, as the full viewer's panel loads them.
+		 */
+		async loadArOffNote() {
+			this.arOffNote = ''
+			if (!this.arOff) {
+				return
+			}
+			const root = this.linkModel
+			const list = root?.userData?.tdvSplat
+				? (await import('../splats/unavailable.js')).SPLAT_UNAVAILABLE
+				: (await import('../pointclouds/unavailable.js')).POINT_CLOUD_UNAVAILABLE
+			if (root === this.linkModel) {
+				this.arOffNote = list.find((entry) => entry.key === 'ar')?.note ?? ''
+			}
+		},
+
+		/**
+		 * Say what View in AR is doing or why not: on the page, as no toast reaches a share
+		 * page (useViewInAR's `notify`). An error goes in the urgent line.
+		 *
+		 * @param {string} type - 'info', 'warning' or 'error'
+		 * @param {string} message - The words
+		 */
+		showArMessage(type, message) {
+			const line = type === 'error' ? 'alert' : 'status'
+			this.arMessageTimers = this.arMessageTimers ?? {}
+			clearTimeout(this.arMessageTimers[line])
+			this.arMessage[line] = message
+			this.arMessageTimers[line] = setTimeout(() => {
+				this.arMessage[line] = ''
+			}, AR_MESSAGE_MS[line])
+		},
+
+		/** Clear what View in AR said last, for a new press. */
+		clearArMessages() {
+			for (const line of ['status', 'alert']) {
+				clearTimeout(this.arMessageTimers?.[line])
+				this.arMessage[line] = ''
+			}
+		},
+
+		/**
+		 * View in AR: put the open model in the room at real size (useViewInAR, the same
+		 * flow as the full viewer's). On an iPhone or iPad this opens AR Quick Look with a
+		 * USDZ file made here; on Android Chrome it starts a WebXR session over the camera
+		 * with this viewer's renderer, scene and camera, and hands the frames back after.
+		 */
+		async startViewInAR() {
+			if (!this.showAr || this.arBusy) {
+				return
+			}
+			// A scan or a splat: say why, since a tap on a phone shows no description
+			if (this.arOff) {
+				this.showArMessage('info', this.arOffNote)
+				return
+			}
+			const renderer = toRaw(this.renderer)
+			const model = this.linkModel
+			if (!renderer || !model || !this.scene || !this.camera || renderer.xr.isPresenting) {
+				return
+			}
+			this.clearArMessages()
+			// The size chosen for the file, if it is still being asked for. A second tap
+			// meanwhile is the same press.
+			if (this.arWaiting) {
+				return
+			}
+			this.arWaiting = true
+			try {
+				await this.chosenUnitLoad
+			} finally {
+				this.arWaiting = false
+			}
+			if (toRaw(this.renderer) !== renderer || this.linkModel !== model) {
+				return
+			}
+			if (this.arPath === AR_PATH.WEBXR) {
+				// Needed before a session can draw; drawing outside one is unchanged
+				renderer.xr.enabled = true
+			}
+
+			const result = await this.viewInAR.start({
+				object: model,
+				millimetresPerUnit: millimetresPerUnit(this.effectiveFilename, model, this.chosenUnit),
+				triangles: this.modelStats?.faces ?? 0,
+				notify: (type, message) => this.showArMessage(type, message),
+				xr: {
+					renderer,
+					scene: this.scene,
+					camera: this.camera,
+					// The session's loop draws; the orbit controls rest, as the phone is the camera
+					renderFrame: () => this.drawFrame({ controls: false }),
+					// The session has given the renderer back: the page draws its own frames
+					// again, unless the viewer has since moved on to another file or closed
+					onEnd: () => {
+						if (toRaw(this.renderer) !== renderer) {
+							return
+						}
+						if (this.animationFrameId !== null) {
+							cancelAnimationFrame(this.animationFrameId)
+						}
+						this.animate()
+					},
+				},
+			})
+
+			// The session draws the frames now
+			if (result.status === 'session' && this.animationFrameId !== null) {
+				cancelAnimationFrame(this.animationFrameId)
+				this.animationFrameId = null
+			}
 		},
 
 		/**
 		 * Ask for the unit chosen for the file, for a file that records none. An answer for
-		 * a file since replaced is dropped; a failed one leaves the format's own.
+		 * a file since replaced is dropped; a failed one leaves the format's own. View in AR
+		 * waits for the answer, so the model is put in the room at the size chosen for it.
+		 *
+		 * @return {Promise<void>} Settled once the answer is in, or there is none to ask for
 		 */
-		async loadChosenUnit() {
+		loadChosenUnit() {
+			this.chosenUnitLoad = this.readChosenUnit()
+			return this.chosenUnitLoad
+		},
+
+		/** loadChosenUnit's request */
+		async readChosenUnit() {
 			this.chosenUnit = null
 			const share = getPublicShareContext()
 			const fileId = this.fileid || share?.fileId
@@ -799,6 +1004,11 @@ export default {
 				}
 
 				this.updateProgress(true, 0, this.t('threedviewer', 'Initializing 3D viewer...'), '', false)
+
+				// View in AR was for the previous model: its session ends, its file is let go
+				this.viewInAR.stop().catch((error) => logger.warn('ViewerComponent', 'The AR session was already over', error))
+				this.viewInAR.dropReady()
+				this.clearArMessages()
 
 				// Clean up any existing WebGL context first
 				this.cleanupWebGLContext()
@@ -1436,6 +1646,20 @@ export default {
 			}
 
 			this.animationFrameId = requestAnimationFrame(this.animate)
+			this.drawFrame()
+		},
+
+		/**
+		 * Draw one frame: the page's loop does each frame, and a View in AR session does
+		 * while it runs (without the orbit controls, as the phone is the camera then).
+		 *
+		 * @param {object} [options] - Options
+		 * @param {boolean} [options.controls] - Let the orbit controls move the camera
+		 */
+		drawFrame({ controls = true } = {}) {
+			if (!this.renderer || !this.scene || !this.camera) {
+				return
+			}
 
 			// Update animation mixer if animations are active
 			if (this.animationComposable.mixer.value && this.animationComposable.isPlaying.value) {
@@ -1462,7 +1686,7 @@ export default {
 				}
 			}
 
-			if (this.controls) {
+			if (controls && this.controls) {
 				this.controls.update()
 			}
 
@@ -1966,6 +2190,55 @@ export default {
 
 a.viewer-action-btn.viewer-action-btn {
 	text-decoration: none;
+}
+
+/* View in AR says what it does: a pill with its words beside the icon */
+.viewer-action-btn.viewer-action-btn.viewer-ar-btn {
+	width: auto;
+	gap: 6px;
+	padding-block: 0;
+	padding-inline: 12px 16px;
+	border-radius: var(--tdv-radius-pill);
+	font-size: var(--tdv-font-size-secondary);
+	font-weight: bold;
+	white-space: nowrap;
+}
+
+.viewer-action-btn.viewer-action-btn.viewer-ar-btn[aria-disabled='true'] {
+	opacity: 0.6;
+	cursor: default;
+}
+
+/* What View in AR is doing, or why not, above the buttons */
+.viewer-ar-messages {
+	position: absolute;
+	bottom: 104px;
+	inset-inline-end: 16px;
+	z-index: 1000;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	gap: 6px;
+	max-width: min(360px, calc(100% - 32px));
+	pointer-events: none;
+}
+
+.viewer-ar-message {
+	margin: 0;
+}
+
+.viewer-ar-message.shown {
+	padding: 8px 12px;
+	border-radius: var(--border-radius-large, 8px);
+	background: rgb(0, 0, 0, 0.75);
+	color: #fff;
+	font-size: var(--tdv-font-size-secondary);
+	line-height: 1.4;
+	box-shadow: 0 2px 8px rgb(0 0 0 / 30%);
+}
+
+.viewer-ar-message--error.shown {
+	border-inline-start: 4px solid var(--tdv-color-error);
 }
 
 /* No Nextcloud footer under a frame's viewer */

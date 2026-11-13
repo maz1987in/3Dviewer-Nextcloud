@@ -3,7 +3,7 @@
  * a scene unit is in metres, and when a model is too heavy to try (utils/viewInAr.js and
  * ar/limits.js).
  */
-import { AR_PATH, detectArPath, supportsQuickLook, supportsWebXrAr } from '../../../src/utils/viewInAr.js'
+import { AR_PATH, arButtonLabel, detectArPath, isArBusy, lightViewerOffersAr, supportsQuickLook, supportsWebXrAr } from '../../../src/utils/viewInAr.js'
 import { AR_TRIANGLES, arSizeVerdict, metresPerUnit } from '../../../src/ar/limits.js'
 
 /** A page whose links do, or do not, open in Quick Look. */
@@ -82,5 +82,40 @@ describe('when a model is too heavy for a phone', () => {
 
 	it('is the stricter limit for a way it does not know', () => {
 		expect(arSizeVerdict(AR_TRIANGLES[AR_PATH.QUICK_LOOK].refuse + 1, 'other').verdict).toBe('refuse')
+	})
+})
+
+describe('the button', () => {
+	it('says what a press will do, by state', () => {
+		expect(arButtonLabel('idle')).toBe('View in AR')
+		expect(arButtonLabel('active')).toBe('View in AR')
+		expect(arButtonLabel('preparing')).toBe('Preparing AR…')
+		// A file waits for a tap Safari will count
+		expect(arButtonLabel('ready')).toBe('Open in AR')
+	})
+
+	it('ignores a press while a file is written or a session runs, not while a file waits', () => {
+		expect(isArBusy('preparing')).toBe(true)
+		expect(isArBusy('active')).toBe(true)
+		expect(isArBusy('idle')).toBe(false)
+		expect(isArBusy('ready')).toBe(false)
+	})
+})
+
+describe('the light viewer', () => {
+	it('offers View in AR on a share page and in the Files preview, on a device with a way', () => {
+		expect(lightViewerOffersAr(AR_PATH.QUICK_LOOK)).toBe(true)
+		expect(lightViewerOffersAr(AR_PATH.WEBXR, { embedded: false })).toBe(true)
+	})
+
+	it('does not where the device has none', () => {
+		expect(lightViewerOffersAr(null)).toBe(false)
+		expect(lightViewerOffersAr(undefined)).toBe(false)
+		expect(lightViewerOffersAr('scene-viewer')).toBe(false)
+	})
+
+	it('does not in a frame on another site, which cannot grant it', () => {
+		expect(lightViewerOffersAr(AR_PATH.QUICK_LOOK, { embedded: true })).toBe(false)
+		expect(lightViewerOffersAr(AR_PATH.WEBXR, { embedded: true })).toBe(false)
 	})
 })

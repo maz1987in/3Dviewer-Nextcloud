@@ -805,6 +805,7 @@ import ViewerIcon from './ViewerIcon.vue'
 import ToggleSwitchRow from './ToggleSwitchRow.vue'
 import { isShortcutBlocked, shortcutFor, shortcutKey, hasOpenModal } from '../utils/toolShortcuts.js'
 import { VIEWER_CONFIG } from '../config/viewer-config.js'
+import { arButtonLabel, isArBusy } from '../utils/viewInAr.js'
 // eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
 import { translate as t } from '@nextcloud/l10n'
 
@@ -1119,14 +1120,11 @@ export default {
 		// is off for (utils/offTools.js), does nothing
 		const arAttributes = () => {
 			if (off('ar')) return unavailable('ar')
-			return props.arState === 'preparing' || props.arState === 'active' ? { 'aria-disabled': 'true' } : {}
+			return isArBusy(props.arState) ? { 'aria-disabled': 'true' } : {}
 		}
-		const arLabel = computed(() => {
-			if (props.arState === 'preparing') return t('threedviewer', 'Preparing AR…')
-			return props.arState === 'ready' ? t('threedviewer', 'Open in AR') : t('threedviewer', 'View in AR')
-		})
+		const arLabel = computed(() => arButtonLabel(props.arState))
 		const startViewInAr = () => {
-			if (!props.modelLoaded || off('ar') || props.arState === 'preparing' || props.arState === 'active') return
+			if (!props.modelLoaded || off('ar') || isArBusy(props.arState)) return
 			emit('view-in-ar')
 		}
 

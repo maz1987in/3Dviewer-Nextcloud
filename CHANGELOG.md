@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- View in AR on public links: someone you share a model with by link can now put it in their room on an iPhone, an iPad or an Android phone with Chrome, without an account. "View in AR" is the first of the viewer's buttons at the bottom right, beside Screenshot, and it works the same as in the full viewer, at the real size from the file's unit (including a unit chosen for the file). The Files app's preview has it too. It shows only on phones and tablets that can do it, is off for scans and splats with a note saying why, and says on the page what is happening or why AR could not start. A model embedded on another website does not offer it, since the website would have to allow it; the frame's "Open in Nextcloud" link leads to the share page, which does.
+
 ## [3.11.0] - 2026-11-13
 
 Models get easier to work with together and to show off. A Parts panel lists a model's parts as a tree to hide, isolate and find them, and IFC buildings show each element's properties. View in AR puts the model in your room at its real size, on an iPhone, an iPad or an Android phone. A link to a model in Talk, Text, Collectives or Deck now shows as a card, and the Smart Picker can insert one. When someone adds a note to a model, its owner and the people who wrote notes on it are notified, and the Activity stream records it.
