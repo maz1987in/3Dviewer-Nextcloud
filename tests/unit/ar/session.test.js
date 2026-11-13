@@ -24,6 +24,11 @@ function fakeSession() {
 	session.requestReferenceSpace = jest.fn(async () => ({ viewer: true }))
 	session.hitTestSource = { cancel: jest.fn() }
 	session.requestHitTestSource = jest.fn(async () => session.hitTestSource)
+	return session
+}
+
+/** The session can also say what is under a finger, as Chrome on Android can. */
+function withTouch(session) {
 	session.touchSource = { cancel: jest.fn() }
 	session.requestHitTestSourceForTransientInput = jest.fn(async () => session.touchSource)
 	return session
@@ -205,6 +210,7 @@ describe('while the session runs', () => {
 
 	it('puts the model where the finger touched, not where the ring is', async () => {
 		const v = viewer()
+		withTouch(v.session)
 		const { frame } = await start(v)
 		// The ring is ahead; the finger is on a patch of floor off to the left
 		frame({ x: 0, y: 0, z: -1 }, undefined, { x: -1.5, y: 0, z: -2 })
@@ -215,9 +221,24 @@ describe('while the session runs', () => {
 		expect(centre.z).toBeCloseTo(-2, 9)
 	})
 
+	it('waits for the frame after the tap to learn what was under the finger, as Chrome tells it', async () => {
+		const v = viewer()
+		withTouch(v.session)
+		const { frame } = await start(v)
+		// Chrome sends the select first, and the finger's floor in the next frame
+		frame({ x: 0, y: 0, z: -1 })
+		tap(v.session)
+		expect(v.model.visible).toBe(false)
+		frame({ x: 0, y: 0, z: -1 }, undefined, { x: -1.5, y: 0, z: -2 })
+		v.scene.updateMatrixWorld(true)
+		expect(v.model.visible).toBe(true)
+		const centre = new THREE.Box3().setFromObject(v.model).getCenter(new THREE.Vector3())
+		expect(centre.x).toBeCloseTo(-1.5, 9)
+		expect(centre.z).toBeCloseTo(-2, 9)
+	})
+
 	it('uses the ring when the browser cannot say what is under the finger', async () => {
 		const v = viewer()
-		delete v.session.requestHitTestSourceForTransientInput
 		const { frame } = await start(v)
 		frame({ x: 0.5, y: 0, z: -1 }, undefined, { x: -1.5, y: 0, z: -2 })
 		tap(v.session)
@@ -227,14 +248,34 @@ describe('while the session runs', () => {
 		expect(centre.z).toBeCloseTo(-1, 9)
 	})
 
-	it('uses the ring when no floor is under the finger', async () => {
+	it('uses where the ring was at the tap when no floor turns up under the finger', async () => {
 		const v = viewer()
+		withTouch(v.session)
 		const { frame } = await start(v)
 		frame({ x: 0.5, y: 0, z: -1 })
 		tap(v.session)
+		// The ring moves on while the session waits for the finger; the tap meant where it was
+		frame({ x: 3, y: 0, z: -3 })
+		frame({ x: 3, y: 0, z: -3 })
+		frame({ x: 3, y: 0, z: -3 })
 		v.scene.updateMatrixWorld(true)
+		expect(v.model.visible).toBe(true)
 		const centre = new THREE.Box3().setFromObject(v.model).getCenter(new THREE.Vector3())
 		expect(centre.x).toBeCloseTo(0.5, 9)
+		expect(centre.z).toBeCloseTo(-1, 9)
+	})
+
+	it('places nothing when there is floor neither under the finger nor at the ring', async () => {
+		const v = viewer()
+		withTouch(v.session)
+		const { frame } = await start(v)
+		frame(null)
+		tap(v.session)
+		frame(null)
+		frame(null)
+		frame(null)
+		frame(null)
+		expect(v.model.visible).toBe(false)
 	})
 
 	it('places nothing for a tap where no floor was found', async () => {

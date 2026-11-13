@@ -31,6 +31,13 @@ import { logger } from '../utils/logger.js'
 
 const UP = new Vector3(0, 1, 0)
 
+/**
+ * How many frames a tap waits for what is under the finger. Chrome sends the select when
+ * the finger lifts and has the finger's floor only in the frame after; past this, the tap
+ * goes where the ring was.
+ */
+const TOUCH_WAIT_FRAMES = 3
+
 /** Radii of the ring that follows the floor, in metres. */
 const RETICLE = Object.freeze({ inner: 0.12, outer: 0.15 })
 
@@ -273,9 +280,13 @@ export async function startArSession({ renderer, scene, model, metresPerUnit, re
 		}
 		say('looking', t('threedviewer', 'Move your phone slowly to find the floor.'))
 
-		const onSelect = (event) => {
-			const target = touched.get(event?.inputSource) ?? (hasHit ? spot : null)
-			if (!target) return
+		// A tap still waiting for what is under its finger: { inputSource, ring, frames }
+		let pending = null
+
+		/** The floor under a finger, from the last frame: this finger's, or the only one there. */
+		const underFinger = (inputSource) => touched.get(inputSource) ?? (touched.size === 1 ? touched.values().next().value : null)
+
+		const placeAt = (target) => {
 			const { position, quaternion } = scenePlacement(box, metresPerUnit, target, yawToward(target, hasViewer ? viewer : null))
 			scene.scale.setScalar(metresPerUnit)
 			scene.position.copy(position)
@@ -285,6 +296,18 @@ export async function startArSession({ renderer, scene, model, metresPerUnit, re
 			model.visible = true
 			placed = true
 			say('placed', t('threedviewer', 'Placed at real size. Tap somewhere else to move it.'))
+		}
+
+		const onSelect = (event) => {
+			const finger = underFinger(event?.inputSource)
+			if (finger) {
+				placeAt(finger)
+			} else if (touchSource) {
+				// The finger's floor comes in a frame or two (onFrame)
+				pending = { inputSource: event?.inputSource, ring: hasHit ? spot.clone() : null, frames: 0 }
+			} else if (hasHit) {
+				placeAt(spot)
+			}
 		}
 		session.addEventListener('select', onSelect)
 
@@ -304,6 +327,16 @@ export async function startArSession({ renderer, scene, model, metresPerUnit, re
 					if (touchPose) {
 						touched.set(inputSource, new Vector3().setFromMatrixPosition(new Matrix4().fromArray(touchPose.transform.matrix)))
 					}
+				}
+			}
+			if (pending) {
+				const finger = underFinger(pending.inputSource)
+				if (finger) {
+					placeAt(finger)
+					pending = null
+				} else if (++pending.frames >= TOUCH_WAIT_FRAMES) {
+					if (pending.ring) placeAt(pending.ring)
+					pending = null
 				}
 			}
 			const result = space ? frame.getHitTestResults(hitTestSource)[0] : null
