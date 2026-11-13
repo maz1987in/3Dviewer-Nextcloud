@@ -19,6 +19,10 @@ This document provides comprehensive technical information about the 3D Viewer f
 - [Embedding](#embedding)
 - [Point Clouds](#point-clouds)
 - [Gaussian Splats](#gaussian-splats)
+- [Parts](#parts)
+- [View in AR](#view-in-ar)
+- [Link Previews](#link-previews)
+- [Note Notifications and Activity](#note-notifications-and-activity)
 
 ## System Architecture
 
@@ -2138,3 +2142,40 @@ LAS, LAZ, E57, PCD and XYZ files, and a PLY with no faces, open as scans: one `T
 - **The tools that are off.** `utils/offTools.js` holds the keys of the tools that are off for what is open (`POINT_CLOUD_OFF`, `SPLAT_OFF`, `offToolsFor(meta)`), read by the App's handlers and the panel's gating; the words saying why are in the async controls (`SPLAT_UNAVAILABLE` in `splats/unavailable.js`, shown by `SplatControls.vue`). For a splat these are measurement, annotations, comparison and version comparison, the cross-section, Print check, exploded view, transform, export and Send to Slicer, shading and wireframe, and VR, whose button is hidden. A view link's shading, cut and exploded view are not applied to a splat.
 - **Which way is up and the unit.** As for scans: `+y`, `-y`, `+z` or `-z` turns the root, saved per file (`useFileUp`), applied by the light viewer too. Splats default to Y up. A splat records no unit and is taken as metres, which can be changed (`sourceUnits.js`, `splatOf`).
 - **Fixtures.** `scripts/make-splat-fixtures.mjs` writes the same 1,000-splat grid as `.splat`, `.spz` and `.ply` (degree 0 and 3) into `tests/fixtures/splats/`. `scripts/live-splat-check.mjs` opens them in a running Nextcloud and fails on any policy refusal.
+
+## Parts
+
+The Parts section of the tools panel lists the model's parts. The design and the choices behind it are in [the Parts spec](superpowers/specs/2026-11-13-parts-list-design.md).
+
+- **The tree.** `utils/partsTree.js` builds it from the model root as rows are opened (`createPartsModel`). A row stands for a chain of single-child nodes, and a model whose top is one mesh lists that mesh's children as its first rows. `components/PartsTree.vue` draws only the rows in view, as a WAI-ARIA tree, and `composables/usePartsTree.js` holds its state. All three are chunks that load when the section is first opened.
+- **Hiding and isolating.** `createPartsVisibility` sets each part's own `visible` flag and remembers what the file had, so Show all restores the file's own hidden bodies, as FreeCAD stores them. To isolate a part inside a mesh, that mesh stays `visible` but its own geometry moves to layer 31 (`NOT_DRAWN_LAYER`), which no camera draws and ray casts skip; layers do not pass to children. Exports and thumbnails show every part through `suspend()`/`resume()`.
+- **Choosing.** A chosen part is tinted with a translucent copy of its mesh, so materials are never swapped and render modes and Exploded view are left alone. A click in the viewport goes through the same ray cast as measurement.
+- **IFC.** The loader keeps each mesh's express ID and nothing else, so opening an IFC costs no more than before. When Parts is first shown for an IFC, `loaders/ifcStructure.js` opens the file once and names and groups the elements by storey. `loaders/ifcProperties.js` reads an element's property sets when it is chosen.
+
+## View in AR
+
+"View in AR" puts the open model in the room at its real size. The design is in [the View in AR spec](superpowers/specs/2026-11-13-view-in-ar-design.md).
+
+- **Which way.** `utils/viewInAr.js` picks AR Quick Look where `document.createElement('a').relList.supports('ar')`, then WebXR `immersive-ar` where `navigator.xr.isSessionSupported` says so. On a device with neither, the button is not shown. Scale is metres per scene unit, from the file's unit (`useFileUnit`).
+- **iPhone and iPad.** `ar/quickLook.js` writes a USDZ in metres (`utils/usdz.js`, shared with the USDZ download) and opens it through an off-screen `<a rel="ar" href="blob:…#allowsContentScaling=0">` holding an `<img>`. If Safari no longer counts the tap by the time the file is ready, the button becomes "Open in AR" and the next tap opens it.
+- **Android.** `ar/session.js` starts `immersive-ar` with `hit-test` and a DOM overlay. It scales and moves the viewer's scene, not the model, and puts back the scene and the viewer's camera when the session ends. Chrome sends a `select` when the finger lifts and has that finger's hit test result (`requestHitTestSourceForTransientInput`, `generic-touchscreen`) only in the next frame, so a tap waits up to three frames for it, then falls back to the ring at the centre. The viewer is handed back on the task after `end`, once three.js has stopped presenting; a frame drawn before that would put the camera back at the phone.
+- **Limits.** `ar/limits.js`: a warning past 250k triangles on iOS (1M on Android), and a refusal past 1M (3M). Scans and splats are off (`offTools.js`).
+
+## Link Previews
+
+Links to a model show as a card in apps that draw link previews. The design is in [the link previews spec](superpowers/specs/2026-11-13-link-previews-design.md).
+
+- **Provider.** `Reference/ModelReferenceProvider` is an `ADiscoverableReferenceProvider` and `ISearchableReferenceProvider`. It claims the app's viewer links (`/apps/threedviewer/f/{id}`, with or without `index.php`, under the instance's web root, with a view-link query or not) and leaves Files links to core's provider. It resolves the id in the reader's own user folder, and anything that isn't a readable model file resolves to nothing.
+- **Cache.** The prefix is the file id, as core's Files provider uses it, so what core clears on delete, rename and share clears these cards too. The key is the reader plus the link. The cards are also cleared when the model is written and when its thumbnail is stored.
+- **Card.** `src/reference.js` builds `js/threedviewer-reference.mjs`, a plain-DOM widget loaded by a `RenderReferenceEvent` listener. It has its own budgets: 4500 B raw for the script, and 2800 B raw for the stylesheet, which uses Nextcloud's CSS variables and draws no frame, since `NcReferenceWidget` draws one.
+- **Smart Picker.** "3D models" searches the reader's model files by name through `ModelSearchProvider`, which is not listed in the unified search bar.
+
+## Note Notifications and Activity
+
+Adding, changing and deleting shared notes now notifies people and is recorded in the Activity stream. The design is in [the notifications spec](superpowers/specs/2026-11-13-notes-notifications-design.md).
+
+- **Publishing.** `Service/NoteChangePublisher` runs after a note is saved and can never fail the request: each channel and each recipient is in its own try/catch.
+- **Who.** `Service/NoteRecipients`: the file's owner and earlier note authors are notified, minus the author and anyone `NoteAccess` no longer lets open the file. Stream entries go to the file's access list (`IShareHelper::getPathsForAccessList`). Past 500 users, an entry goes only to the owner and the author.
+- **Bursts.** Notes by one author on one file, each within 10 minutes of the last, are one notification, worked out from the notes themselves (`NoteMapper::findRecentByAuthor`). The notification's object is the burst's first note.
+- **Wording.** `Notification/Notifier` and `Activity/Provider` build every subject when it is read, in the reader's language, from stored ids and a count. A note's text is never stored with them. The link is `/apps/threedviewer/f/{fileId}?note={noteId}`, which `viewLink.js` reads as a view with that note in focus.
+- **Settings.** The `Activity/Setting` is on for the stream and off for email by default. `Activity/Filter` adds the "3D Viewer" filter.

@@ -1,6 +1,6 @@
 # 3D Viewer for Nextcloud
 
-[![Version](https://img.shields.io/badge/version-3.10.0-blue)](https://github.com/maz1987in/3Dviewer-Nextcloud/releases)
+[![Version](https://img.shields.io/badge/version-3.11.0-blue)](https://github.com/maz1987in/3Dviewer-Nextcloud/releases)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-orange)](LICENSE)
 [![Nextcloud](https://img.shields.io/badge/Nextcloud-31--35-0082c9)](https://nextcloud.com)
 [![Update nextcloud/ocp](https://github.com/maz1987in/3Dviewer-Nextcloud/actions/workflows/update-nextcloud-ocp-matrix.yml/badge.svg)](https://github.com/maz1987in/3Dviewer-Nextcloud/actions/workflows/update-nextcloud-ocp-matrix.yml)
@@ -47,7 +47,21 @@ A comprehensive 3D model viewer application for Nextcloud that supports multiple
       Hand a model to PrusaSlicer, Cura, BambuStudio and others over a temporary share link
     </td>
   </tr>
+  <tr>
+    <td align="center">
+      <img src="img/screenshots/07-parts-panel.png" alt="The Parts section of the tools panel filtered to 'Rim', listing the four wheel rims of a concept car, with the front-left rim chosen and isolated so it is the only part drawn" width="400"/><br/>
+      <b>Parts</b><br/>
+      Find a part by name, then hide it, show only it or zoom to it; IFC elements list by storey with their properties
+    </td>
+    <td align="center">
+      <img src="img/screenshots/08-link-preview.png" alt="A Text document in Nextcloud with a link to CarConcept.glb shown as a card: the model's thumbnail, its name, GLB and 11.2 MB, and an Open in 3D Viewer button" width="400"/><br/>
+      <b>Link Previews</b><br/>
+      A link to a model in Text, Talk, Collectives or Deck shows as a card for everyone who can open it
+    </td>
+  </tr>
 </table>
+
+<sub>Car Concept by Eric Chadwick, © 2024 Darmstadt Graphics Group GmbH, from the <a href="https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/CarConcept">Khronos glTF Sample Assets</a>, <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>.</sub>
 
 ## 📚 Documentation
 
@@ -84,7 +98,7 @@ A comprehensive 3D model viewer application for Nextcloud that supports multiple
 - **Model Comparison** - Side-by-side model viewing with synchronized controls, against another file or an earlier version of the same file
 - **Compare with an Earlier Version** - Pick one of the versions Nextcloud kept and see it beside the current model with what changed, or as a see-through ghost over it
 - **Print Check** - See whether a model fits your printer's build volume (common printers or your own size), which surfaces overhang past an angle you choose, roughly how much filament it needs, and which walls are thinner than a minimum you set; for G-code, the print time and filament the slicer worked out
-- **View in AR** - On an iPhone or iPad (AR Quick Look) or an Android phone with Chrome (a live camera view), put the open model in your room at its real size, from the file's unit: a 100 mm part is 100 mm on your table. The button shows only on devices that can do it; it is off for scans and splats, and refuses models too heavy for a phone
+- **View in AR** - On an iPhone or iPad (AR Quick Look) or an Android phone with Chrome (a live camera view), put the open model in your room at its real size, from the file's unit: a 100 mm part is 100 mm on your table. The button shows only on devices that can do it, in the full viewer's tools panel; it is off for scans and splats, and refuses models too heavy for a phone
 - **Turntable Video** - Record one full turn around the model (4–15 s, at 720p, 1080p or your window's size) and download it as WebM or MP4, or save it next to the model in your Nextcloud
 - **Links to a View** - "Copy link to this view" (or the L key) copies a link that reopens the model as you see it: the same camera, shading, lighting, cross-section and exploded view. Notes and bookmarks have links of their own. The link points at the file, so only people who can open it see it
 - **Link Previews** - A link to a model in Talk, Text, Collectives or Deck shows as a card with its thumbnail, name, format and size and an "Open in 3D Viewer" button, for people who can open the file. "3D models" in the Smart Picker finds a model by name and inserts its link
@@ -249,34 +263,32 @@ This project is licensed under the **AGPL-3.0 License**. See [LICENSE](LICENSE) 
 
 ## 📊 Version
 
-**Current Version**: 3.10.0
-**Released**: October 31, 2026
+**Current Version**: 3.11.0
+**Released**: November 13, 2026
 **Requires**: Nextcloud 31 -- 35
 
-### What's New in 3.10.0
+### What's New in 3.11.0
 
-**Point clouds:**
-- LAS, LAZ, E57, PCD and XYZ scans, and PLY files with no faces, open as points, coloured by the file's colours, height, intensity or classification
-- Scans up to 2 GB open, thinned to what the device can draw, with survey coordinates kept to the millimetre; measurement snaps to points and the cross-section cuts them
+**Parts:**
+- A new Parts section in the tools panel lists the model's parts as a tree: choose one to tint it, hide it, show only it (Isolate) or zoom to it, and click a part in the model to find it in the list
+- A filter finds parts by name, the list works from the keyboard, and buildings with thousands of elements open as quickly as a bracket
+- IFC elements are listed under their storey, and choosing one shows its type, storey, property sets and quantities
 
-**Gaussian splats:**
-- `.splat`, `.spz` and splat `.ply` captures open as they were captured, drawn by Spark, with thumbnails, view links, turntable videos, public links and embedding
-- Large captures are thinned to what the device can draw, keeping the colour that changes with the view
+**View in AR:**
+- Put the open model in your room at its real size, from the file's unit: AR Quick Look on an iPhone or iPad, the camera view in Chrome on an Android phone
+- On Android, tap the floor to place the model and tap somewhere else to move it
 
-**Links to a view:**
-- "Copy link to this view" (or the L key) copies a link that reopens the model with the same camera, shading, lighting, cross-section and exploded view; notes and bookmarks have links of their own
+**Link previews:**
+- A link to a model in Talk, Text, Collectives or Deck shows as a card with its thumbnail, name, format and size and an "Open in 3D Viewer" button, only for people who can open the file
+- "3D models" in the Smart Picker finds a model by name and inserts its link
 
-**File units:**
-- STL, OBJ, PLY, OFF and 3DS files, and FBX files without a unit, can be marked as millimetres, centimetres, metres, inches, feet or US survey feet, saved with the file for everyone
-
-**Embedding:**
-- Once an admin lists the sites allowed, "Copy embed code" copies a frame that shows a public link's model on another website
-
-**Which way is up:**
-- Scans and splats can be turned the right way up, saved with the file for everyone
+**Note notifications:**
+- When someone adds a note to a model, its owner and the people who wrote notes on it are notified; a run of notes is one notification, and it opens the model at the note
+- Adding, changing and deleting notes shows in the Activity stream under a "3D Viewer" filter, never with the note's text
 
 ### Recent releases
 
+- **3.10.0:** point clouds (LAS, LAZ, E57, PCD, XYZ) and Gaussian splats, links to a view, file units, embedding on other websites, and "Which way is up"
 - **3.9.0:** compare with an earlier version of a file, Print check, and turntable video
 - **3.8.1:** thumbnails show the model as its file has it, every tools panel control works from the keyboard, textures named by a path above the model's folder are found, and every write route checks the request token
 - **3.8.0:** angle measurement, a G-code layer slider, Clay, Normals and X-ray shading, export to 3MF, PLY and USDZ, and measurements in each model's real unit

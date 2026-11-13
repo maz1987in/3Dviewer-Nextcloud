@@ -26,7 +26,9 @@
 - 🎯 3D Camera Controller: Enhanced intuitive circular controller for precise camera navigation with improved controls
 - 🔄 Model comparison: Side-by-side viewing with synchronized controls, against another file or an earlier version of the same file
 - 🕘 Compare with an earlier version: Pick one of the versions Nextcloud kept and see what changed, side by side or as a see-through ghost over the current model
-- 📝 Annotations: Add notes and markers to specific points on models (always readable, faces camera) with customizable visual sizing controls
+- 🧩 Parts: A tree of the model's parts: hide a part, show only one, zoom to it, or find it by name, and click a part in the model to find it in the list. IFC elements are listed by storey, with their type and property sets
+- 📝 Shared notes: Annotations and measurements are saved with the model and shown to everyone who can open it
+- 🔔 Note notifications: When someone adds a note, the model's owner and earlier note authors are notified, and changes show in the Activity stream under a "3D Viewer" filter
 - 📏 Measurements: Distance and angle measurement tools (with billboard text) with per-user sizing controls for point size, line thickness, and label width
 - 🎬 Animation Controls: Play/pause controls for animated models with loop toggle, timeline scrubber, and frame stepping
 - ✂️ Cross-Section: Interactive clipping plane to slice models along X/Y/Z axes for interior inspection
@@ -57,6 +59,7 @@
 **⚡ Export & Tools:**
 - 📷 Screenshot capture: Take high-quality PNG/JPEG screenshots of your models
 - 🎥 Turntable video: Record one full turn around the model and download it, or save it next to the model in your Nextcloud
+- 🥽 View in AR: Put the open model in your room at its real size, on an iPhone or iPad (AR Quick Look) or an Android phone with Chrome
 - 💾 Export models to GLB, STL, OBJ, 3MF, PLY and USDZ formats
 - 🖨️ Slicer integration: Send models directly to PrusaSlicer, Cura, BambuStudio, OrcaSlicer, Simplify3D, Eufy Studio, and AnycubicSlicer with enhanced security (file size limits, MIME validation, rolling expiration)
 - 📊 Model statistics panel with detailed information
@@ -65,7 +68,7 @@
 - ❓ Help panel with comprehensive in-app documentation
 
 **🚀 Performance & UX:**
-- 🖼️ Automatic thumbnails: Smart thumbnail generation with content-aware cropping (configurable in settings)
+- 🖼️ Thumbnails in Files: Models get a thumbnail while you browse a folder, kept per file version and shown to everyone who can see the file
 - 🖼️ Progressive texture loading for improved performance
 - 💿 Dependency caching using IndexedDB for faster multi-file loading with live cache statistics (size, entries, hit rate)
 - ⚙️ Performance modes with visual quality overlay and automatic suggestions for large models
@@ -75,10 +78,11 @@
 - 🌓 Light and dark theme support with RTL layout
 - 🔗 Works with public shares and authenticated users
 - 🌐 Embedding: Once an admin lists the sites allowed, show a public link's model in a frame on another website
+- 💬 Link previews: A link to a model in Talk, Text, Collectives or Deck shows as a card with its thumbnail and an "Open in 3D Viewer" button, and "3D models" in the Smart Picker inserts one
 - ♿ Accessibility features with keyboard navigation and ARIA labels
 
 Built with Three.js for high-performance WebGL rendering. ✨]]></description>
-	<version>3.10.0</version>
+	<version>3.11.0</version>
 	<licence>agpl</licence>
 	<author mail="maz1987in@gmail.com" homepage="https://github.com/maz1987in">Mazin Al Saadi</author>
 	<namespace>ThreeDViewer</namespace>
@@ -87,9 +91,12 @@ Built with Three.js for high-performance WebGL rendering. ✨]]></description>
 	<bugs>https://github.com/maz1987in/3Dviewer-Nextcloud/issues</bugs>
 	<screenshot>https://raw.githubusercontent.com/maz1987in/3Dviewer-Nextcloud/main/img/screenshots/01-main-viewer.png</screenshot>
 	<screenshot>https://raw.githubusercontent.com/maz1987in/3Dviewer-Nextcloud/main/img/screenshots/02-files-integration.png</screenshot>
-	<screenshot>https://raw.githubusercontent.com/maz1987in/3Dviewer-Nextcloud/main/img/screenshots/03-toolbar-features.png</screenshot>
-	<screenshot>https://raw.githubusercontent.com/maz1987in/3Dviewer-Nextcloud/main/img/screenshots/04-multi-file-support.png</screenshot>
-	<screenshot>https://raw.githubusercontent.com/maz1987in/3Dviewer-Nextcloud/main/img/screenshots/05-dark-theme.png</screenshot>
+	<screenshot>https://raw.githubusercontent.com/maz1987in/3Dviewer-Nextcloud/main/img/screenshots/03-tools-panel.png</screenshot>
+	<screenshot>https://raw.githubusercontent.com/maz1987in/3Dviewer-Nextcloud/main/img/screenshots/04-dark-theme.png</screenshot>
+	<screenshot>https://raw.githubusercontent.com/maz1987in/3Dviewer-Nextcloud/main/img/screenshots/05-help-and-shortcuts.png</screenshot>
+	<screenshot>https://raw.githubusercontent.com/maz1987in/3Dviewer-Nextcloud/main/img/screenshots/06-send-to-slicer.png</screenshot>
+	<screenshot>https://raw.githubusercontent.com/maz1987in/3Dviewer-Nextcloud/main/img/screenshots/07-parts-panel.png</screenshot>
+	<screenshot>https://raw.githubusercontent.com/maz1987in/3Dviewer-Nextcloud/main/img/screenshots/08-link-preview.png</screenshot>
 	<donation title="Donate to the developers with PayPal" type="paypal">https://www.paypal.com/ncp/payment/KZCB3XTCHGKZC</donation>
 	<dependencies>
 		<nextcloud min-version="31" max-version="35"/>

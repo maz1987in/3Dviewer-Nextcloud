@@ -33,13 +33,15 @@ A comprehensive 3D model viewer application for Nextcloud that supports multiple
 ## ✨ Features
 
 ### Core Capabilities
-- **Multi-format support**: GLB, GLTF, OBJ (+MTL), STL, PLY, FBX, 3MF, 3DS, DAE, X3D, VRML/WRL
+- **Multi-format support**: 40 extensions across 29 formats, from meshes (GLB, GLTF, OBJ, STL, PLY, FBX, 3MF…) to CAD (STEP, IGES, BREP, FreeCAD), BIM (IFC, dotbim, Rhino 3DM), G-code, point clouds (LAS, LAZ, E57, PCD, XYZ) and Gaussian splats; the full list is in the [main README](../README.md#-supported-formats)
 - **Dynamic grid system**: Automatically adapts to model size and position
 - **Model comparison**: Load a second model, position side-by-side, fit both to view
-- **Measurement and annotations**: Create distance measurements and text notes
+- **Measurement and annotations**: Distance and angle measurements and text notes, saved with the model as shared notes
+- **Parts**: A tree of the model's parts to hide, isolate, zoom to and find by name; IFC elements by storey with their properties
 - **3D Camera Controller**: Intuitive circular controller for precise camera navigation
 - **Face Labels**: Orientation markers on model faces (TOP, BOTTOM, FRONT, BACK, LEFT, RIGHT)
-- **Export functionality**: Export models to GLB, STL, and OBJ formats
+- **Export functionality**: Export models to GLB, STL, OBJ, 3MF, PLY and USDZ formats
+- **View in AR**: Put the model in your room at its real size on an iPhone, iPad or Android phone
 - **Camera projection toggle**: Switch between perspective and orthographic views
 - **Performance optimization**: Dynamic imports, decoder auto-detection (DRACO/Basis)
 - **Theme integration**: Works with light/dark themes, ARIA roles
@@ -49,6 +51,8 @@ A comprehensive 3D model viewer application for Nextcloud that supports multiple
 - **Multi-file loading**: Automatic MTL/texture loading for OBJ models
 - **Performance monitoring**: Real-time FPS, memory usage, quality settings
 - **Slicer Integration**: Open models directly in desktop slicing software (Cura, PrusaSlicer, etc.)
+- **Link previews**: Links to a model show as a card in Talk, Text, Collectives and Deck, and the Smart Picker can insert one
+- **Note notifications**: The owner and earlier note authors are notified of a new note, and the Activity stream records note changes
 - **Personal Settings**: Customize appearance, controls, and performance preferences
 - **Mobile support**: Touch gestures, responsive design
 - **Error handling**: Graceful degradation, retry mechanisms
@@ -250,11 +254,48 @@ Export models in various formats:
 - **GLB**: Binary glTF format (recommended)
 - **STL**: 3D printing format
 - **OBJ**: Wavefront format with materials
+- **3MF**: For slicers, with the model's unit
+- **PLY**: For scans, with vertex colours
+- **USDZ**: Apple's AR format
 
 #### Usage
-1. **Open Export**: Click the export button in the toolbar
-2. **Select Format**: Choose GLB, STL, or OBJ
-3. **Download**: File downloads automatically
+1. **Open Export**: Open the tools panel (Tools) and its Export section
+2. **Select Format**: Choose a format from the list
+3. **Download**: Press Export and the file downloads
+
+### Parts
+
+The Parts section of the tools panel lists the model's parts as a tree. Parts without a name are called "Mesh 3" or "Group 2", with their material's name beside them when they have one.
+
+- **Choose** a row to tint that part in the model. Clicking a part in the model chooses it in the list.
+- **Hide** a part or show it again; a hidden part cannot be measured or clicked, but exports and thumbnails still show every part.
+- **Isolate** shows only the chosen part. **Zoom to** moves the camera to it, and **Show all** brings everything back.
+- **Filter** finds parts by name anywhere in the tree.
+- From the keyboard: the arrow keys move, Right and Left open and close a row, Enter chooses, and H, I and Z hide, isolate and zoom.
+- **IFC files** list their elements under the storey, building or space that holds them. Choosing one shows its type, storey, property sets and quantities.
+
+Scans and Gaussian splats have no parts, and their Parts row says so.
+
+### View in AR
+
+On a phone or tablet that can do it, **View in AR** in the Export section puts the open model in your room at its real size, taken from the file's unit: a 100 mm part is 100 mm on your table.
+
+- **iPhone and iPad:** the model opens in AR Quick Look. If preparing a large model takes long enough that Safari no longer counts your tap, the button changes to **Open in AR**; tap it again.
+- **Android (Chrome):** point the phone at the floor and move it slowly until it says "Tap to place the model". Tap the floor to place the model, tap somewhere else to move it, and press **Exit AR** to go back to the viewer.
+
+The button is not shown on desktops, and it is off for scans and splats. A model over a million triangles on an iPhone (three million on Android) is turned down with a message. View in AR is in the full viewer; the viewer that public links and the Files preview open does not offer it yet.
+
+### Link Previews and the Smart Picker
+
+Paste a link to a model into Talk, Text, Collectives, Deck or another app that shows link previews, and it shows as a card: the model's thumbnail, its name, format and size, and an **Open in 3D Viewer** button. A link made with "Copy link to this view" opens at that view. Only people who can open the file see the card; for anyone else the link stays a plain link.
+
+To insert a model without copying its link, choose **3D models** in the Smart Picker and search by name.
+
+### Note Notifications and Activity
+
+When someone adds a note to a model, the model's owner and everyone who has written a note on it before get a notification, which opens the model at that note. A run of notes by one person on one model, each within ten minutes of the last, is one notification that counts them. Nobody is told about their own notes.
+
+Adding, changing and deleting notes also shows in the Activity stream of everyone who can open the model, under the **3D Viewer** filter and on the file's Activity tab. Notifications and stream entries name the person and the file, never what the note says. Under **Settings › Notifications**, the 3D Viewer activity can be turned off in the stream or turned on for email.
 
 ### Camera Projection Toggle
 
