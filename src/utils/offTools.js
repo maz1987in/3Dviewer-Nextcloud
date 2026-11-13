@@ -5,11 +5,11 @@
  * under the same keys, in the same order (tests/unit/utils/offTools.test.js).
  */
 
-/** A scan: no closed surface to check, colour by for shading, one cloud, and only points. */
-export const POINT_CLOUD_OFF = Object.freeze(['printCheck', 'shading', 'exploded', 'parts', 'compare', 'export'])
+/** A scan: no closed surface to check, colour by for shading, one cloud, only points, and no surface to stand in a room. */
+export const POINT_CLOUD_OFF = Object.freeze(['printCheck', 'shading', 'exploded', 'parts', 'compare', 'export', 'ar'])
 
-/** A splat: no real surface, so every tool that needs one, and VR. */
-export const SPLAT_OFF = Object.freeze(['shading', 'measure', 'notes', 'compare', 'crossSection', 'printCheck', 'exploded', 'parts', 'transform', 'export', 'vr'])
+/** A splat: no real surface, so every tool that needs one (View in AR too), and VR. */
+export const SPLAT_OFF = Object.freeze(['shading', 'measure', 'notes', 'compare', 'crossSection', 'printCheck', 'exploded', 'parts', 'transform', 'export', 'vr', 'ar'])
 
 const NONE = Object.freeze([])
 

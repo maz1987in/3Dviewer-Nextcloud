@@ -913,6 +913,7 @@ import { useGcodeLayers } from '../composables/useGcodeLayers.js'
 import { useRenderMode } from '../composables/useRenderMode.js'
 import { useTransformGizmo } from '../composables/useTransformGizmo.js'
 import { useWebXR } from '../composables/useWebXR.js'
+import { useViewInAR } from '../composables/useViewInAR.js'
 import { logger } from '../utils/logger.js'
 import { setViewerWireframe } from '../utils/viewerMaterialProps.js'
 import { applyGcodeColorScheme } from '../utils/gcodeColorScheme.js'
@@ -974,7 +975,7 @@ export default {
 	// Declared and never sent is as misleading as sent and never declared: nine of these
 	// named toolbar actions the viewer stopped emitting long ago, and among them sat the
 	// three mode toggles it did send and nothing received.
-	emits: ['model-loaded', 'error', 'measurement-active', 'annotation-active', 'comparison-active', 'print-check-active', 'cycle-performance-mode', 'push-toast', 'loading-state-changed', 'fps-updated', 'animations-initialized', 'view-applied', 'point-cloud-changed', 'splat-changed', 'parts-ready'],
+	emits: ['model-loaded', 'error', 'measurement-active', 'annotation-active', 'comparison-active', 'print-check-active', 'cycle-performance-mode', 'push-toast', 'loading-state-changed', 'fps-updated', 'animations-initialized', 'view-applied', 'point-cloud-changed', 'splat-changed', 'parts-ready', 'ar-path-changed', 'ar-state-changed'],
 	setup(props, { emit }) {
 		// Refs
 		const container = ref(null)
@@ -1057,6 +1058,10 @@ export default {
 		const partsApi = shallowRef(null)
 		const transformGizmo = useTransformGizmo()
 		const webxr = useWebXR()
+		// View in AR on a phone (Quick Look on iOS, a WebXR session on Android)
+		const viewInAR = useViewInAR()
+		watch(viewInAR.path, (path) => emit('ar-path-changed', path))
+		watch(viewInAR.state, (state) => emit('ar-state-changed', state))
 
 		// Computed properties
 		const isMobile = computed(() => camera.isMobile.value)
@@ -1250,6 +1255,7 @@ export default {
 
 				// Detect WebXR availability for the VR button
 				webxr.checkSupport()
+				viewInAR.detect()
 
 				// Start animation loop
 				animate()
@@ -1611,6 +1617,8 @@ export default {
 					modelSourceFiles.value = loadedModel.sourceFiles || null
 
 					// Add the loaded model to the scene first
+					// A file made for the previous model is not this one's
+					viewInAR.dropReady()
 					modelRoot.value = markRaw(loadedModel.object3D)
 					// A scan's colour by and point size, before a linked view sets them
 					const cloud = modelRoot.value.userData?.tdvPointCloud ?? null
@@ -3178,6 +3186,60 @@ export default {
 		}
 
 		/**
+		 * Set the viewer's own shading and exploded view aside, as an export does, so
+		 * View in AR shows the model's own materials with its parts together.
+		 * @return {Function} Puts them back; safe to call once
+		 */
+		const holdModelAsExported = () => {
+			const modeToken = clippingPlane.aroundMaterialSwap(() => renderMode.suspend())
+			const explosionToken = explodedView.suspend()
+			return () => {
+				clippingPlane.aroundMaterialSwap(() => renderMode.resume(modeToken))
+				explodedView.resume(explosionToken)
+			}
+		}
+
+		/**
+		 * View in AR: put the open model in the room at real size (useViewInAR). On an
+		 * iPhone or iPad this opens AR Quick Look with a USDZ file made here; on Android
+		 * Chrome it starts a WebXR session over the camera.
+		 */
+		const startViewInAR = async () => {
+			// A scan or a splat has no surface to stand in a room (utils/offTools.js)
+			if (!viewInAR.path.value || !modelRoot.value || !renderer.value || pointCloud.value || splat.value) {
+				return
+			}
+			// A VR session already has the renderer
+			if (renderer.value.xr.isPresenting) {
+				return
+			}
+
+			const result = await viewInAR.start({
+				object: modelRoot.value,
+				millimetresPerUnit: modelMillimetresPerUnit.value,
+				triangles: getGeometryStats(modelRoot.value).triangles,
+				hold: holdModelAsExported,
+				notify: (type, message) => emit('push-toast', { type, title: t('threedviewer', 'View in AR'), message }),
+				xr: {
+					renderer: renderer.value,
+					scene: scene.value,
+					renderFrame: (time) => animate(time),
+					// The session has given the renderer back: the page draws its own frames again
+					onEnd: () => {
+						onWindowResize()
+						animate()
+					},
+				},
+			})
+
+			// The session draws the frames now
+			if (result.status === 'session' && animationFrameId.value !== null) {
+				cancelAnimationFrame(animationFrameId.value)
+				animationFrameId.value = null
+			}
+		}
+
+		/**
 		 * Format a number for the stats panel — scientific notation for very large values,
 		 * locale-formatted for large ones, and at least three significant figures below.
 		 * @param {number} value - Number to format
@@ -4733,6 +4795,7 @@ export default {
 			if (webxr.isSessionActive.value) {
 				webxr.exitVR()
 			}
+			viewInAR.dispose()
 			if (renderer.value?.xr?.enabled) {
 				renderer.value.setAnimationLoop(null)
 			}
@@ -5011,6 +5074,7 @@ export default {
 			annotationSyncLabel,
 			annotationSyncTooltip,
 			toggleVR,
+			startViewInAR,
 			webxrSupported: webxr.isSupported,
 			webxrActive: webxr.isSessionActive,
 			handleExport,

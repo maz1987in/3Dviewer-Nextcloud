@@ -93,6 +93,7 @@ export const ICONS = {
 	tools: 'Tune',
 	transform: 'AxisArrow',
 	vr: 'Glasses',
+	ar: 'AugmentedReality',
 }
 
 const PACKAGE = resolve(process.cwd(), 'node_modules/vue-material-design-icons')

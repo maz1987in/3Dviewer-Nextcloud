@@ -616,6 +616,21 @@
 									<span class="tool-label">{{ t('threedviewer', 'Record turntable') }}</span>
 								</button>
 								<!--
+									Only where the device can show a model in the room (a phone or tablet), and
+									there as aria-disabled while it works, so the keyboard user who pressed it
+									keeps their place. A scan or splat has none to show, and says why.
+								-->
+								<button v-if="arPath"
+									type="button"
+									class="tool-btn"
+									:disabled="!modelLoaded"
+									:aria-busy="arState === 'preparing' ? 'true' : 'false'"
+									v-bind="arAttributes()"
+									@click="startViewInAr">
+									<ViewerIcon class="tool-icon" name="ar" :size="17" />
+									<span class="tool-label">{{ arLabel }}</span>
+								</button>
+								<!--
 									Choosing a format does not start an export: a change of setting must not
 									have an effect the user was not told of (WCAG 3.2.2). Arrowing through the
 									list in a closed select fires `change` on every step in Chrome and Firefox
@@ -832,6 +847,10 @@ export default {
 		printCheckActive: { type: Boolean, default: false },
 		// False where MediaRecorder or canvas streams are missing
 		canRecordVideo: { type: Boolean, default: false },
+		// How this device can show the model in the room ('quick-look', 'webxr'), or null
+		// where it cannot, and where that stands ('idle', 'preparing', 'ready', 'active')
+		arPath: { type: String, default: null },
+		arState: { type: String, default: 'idle' },
 		transformGizmoActive: { type: Boolean, default: false },
 		transformGizmoMode: { type: String, default: 'translate' },
 		modelLoaded: { type: Boolean, default: false },
@@ -951,6 +970,7 @@ export default {
 		'toggle-stats',
 		'take-screenshot',
 		'record-turntable',
+		'view-in-ar',
 		'export-model',
 		'send-to-slicer',
 		'clear-cache',
@@ -1095,6 +1115,21 @@ export default {
 		 */
 		const unavailable = (key) => (off(key) ? { 'aria-disabled': 'true', 'aria-describedby': `tdv-unavailable-${key}` } : {})
 
+		// aria-disabled does not stop a click, so a press while it works, or for a model it
+		// is off for (utils/offTools.js), does nothing
+		const arAttributes = () => {
+			if (off('ar')) return unavailable('ar')
+			return props.arState === 'preparing' || props.arState === 'active' ? { 'aria-disabled': 'true' } : {}
+		}
+		const arLabel = computed(() => {
+			if (props.arState === 'preparing') return t('threedviewer', 'Preparing AR…')
+			return props.arState === 'ready' ? t('threedviewer', 'Open in AR') : t('threedviewer', 'View in AR')
+		})
+		const startViewInAr = () => {
+			if (!props.modelLoaded || off('ar') || props.arState === 'preparing' || props.arState === 'active') return
+			emit('view-in-ar')
+		}
+
 		const startExport = () => {
 			// aria-disabled does not stop a click, so an export already running does
 			// A scan or splat has nothing to export (utils/offTools.js)
@@ -1237,6 +1272,9 @@ export default {
 			closePanel,
 			toggleSection,
 			startExport,
+			arAttributes,
+			arLabel,
+			startViewInAr,
 			cyclePerformanceMode,
 			getPerformanceModeText,
 			cycleTheme,

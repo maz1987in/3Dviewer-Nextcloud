@@ -4,8 +4,8 @@
  */
 
 import { ref, readonly } from 'vue'
-import { Group } from 'three'
 import { NothingToExportError } from '../utils/exportErrors.js'
+import { buildUsdz, hasSurfaces } from '../utils/usdz.js'
 import { withExportState } from '../utils/ownDisplayState.js'
 import { logger } from '../utils/logger.js'
 
@@ -348,26 +348,6 @@ export function useExport() {
 	}
 
 	/**
-	 * Whether anything under `object` that the viewer shows can go into a file of
-	 * surfaces: a mesh with at least one triangle's worth of vertices, or, for formats
-	 * that hold point clouds, a point.
-	 * @param {THREE.Object3D} object - The model
-	 * @param {object} [options] - Options
-	 * @param {boolean} [options.points] - Count point clouds too
-	 * @return {boolean}
-	 */
-	const hasSurfaces = (object, { points = false } = {}) => {
-		let found = false
-		// What the viewer shows: a mesh inside a hidden group does not count
-		const walk = typeof object.traverseVisible === 'function' ? 'traverseVisible' : 'traverse'
-		object[walk]((child) => {
-			const count = child.geometry?.attributes?.position?.count ?? 0
-			if ((child.isMesh && count >= 3) || (points && child.isPoints && count > 0)) found = true
-		})
-		return found
-	}
-
-	/**
 	 * Run one export: produce the file's bytes, then hand them to the browser as a
 	 * download, tracking progress and errors the same way for every format.
 	 * @param {object} spec
@@ -494,21 +474,7 @@ export function useExport() {
 		filename,
 		extension: 'usdz',
 		mimeType: 'model/vnd.usdz+zip',
-		produce: async (obj) => {
-			const { USDZExporter } = await import('three/examples/jsm/exporters/USDZExporter.js')
-			const metresPerUnit = millimetresPerUnit / 1000
-			if (metresPerUnit === 1) {
-				return new USDZExporter().parseAsync(obj)
-			}
-			const inMetres = new Group()
-			inMetres.name = 'Model'
-			inMetres.scale.setScalar(metresPerUnit)
-			inMetres.updateMatrix()
-			// Listed as its child for the exporter only, which reads each object's local
-			// matrix and its children; the model is not moved out of the scene.
-			inMetres.children = [obj]
-			return new USDZExporter().parseAsync(inMetres)
-		},
+		produce: (obj) => buildUsdz(obj, { millimetresPerUnit }),
 	})
 
 	/**
