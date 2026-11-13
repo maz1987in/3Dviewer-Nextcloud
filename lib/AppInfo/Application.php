@@ -11,10 +11,14 @@ use OCA\ThreeDViewer\Listener\FileIndexListener;
 use OCA\ThreeDViewer\Listener\LoadFilesListener;
 use OCA\ThreeDViewer\Listener\LoadPublicShareListener;
 use OCA\ThreeDViewer\Listener\LoadViewerListener;
+use OCA\ThreeDViewer\Listener\ReferenceInvalidationListener;
+use OCA\ThreeDViewer\Listener\RenderReferenceListener;
 use OCA\ThreeDViewer\Listener\ThumbnailInvalidationListener;
 use OCA\ThreeDViewer\Notification\Notifier;
 use OCA\ThreeDViewer\Preview\ModelPreviewProvider;
+use OCA\ThreeDViewer\Reference\ModelReferenceProvider;
 use OCA\ThreeDViewer\Repair\RegisterThreeDMimeTypes;
+use OCA\ThreeDViewer\Search\ModelSearchProvider;
 use OCA\ThreeDViewer\Settings\Personal;
 use OCA\ThreeDViewer\Settings\Section;
 use OCP\AppFramework\App;
@@ -22,6 +26,7 @@ use OCP\AppFramework\Bootstrap\IBootContext;
 use OCP\AppFramework\Bootstrap\IBootstrap;
 use OCP\AppFramework\Bootstrap\IRegistrationContext;
 use OCP\AppFramework\Http\Events\BeforeTemplateRenderedEvent;
+use OCP\Collaboration\Reference\RenderReferenceEvent;
 use OCP\Files\Events\Node\NodeCreatedEvent;
 use OCP\Files\Events\Node\NodeDeletedEvent;
 use OCP\Files\Events\Node\NodeWrittenEvent;
@@ -87,6 +92,16 @@ class Application extends App implements IBootstrap
         // Thumbnails are stored per file version; drop them when the file changes or goes
         $context->registerEventListener(NodeWrittenEvent::class, ThumbnailInvalidationListener::class);
         $context->registerEventListener(NodeDeletedEvent::class, ThumbnailInvalidationListener::class);
+
+        // Links to a model show as a card where apps render link previews, and "3D models"
+        // is in the Smart Picker. The provider claims the app's own viewer links only, not
+        // Files links, which core's Files provider answers for (see ModelReferenceProvider).
+        $context->registerReferenceProvider(ModelReferenceProvider::class);
+        $context->registerSearchProvider(ModelSearchProvider::class);
+        // The card itself is a script of its own, added only to pages that render previews
+        $context->registerEventListener(RenderReferenceEvent::class, RenderReferenceListener::class);
+        // A card is cached for an hour; core drops it on delete, rename and share, this on write
+        $context->registerEventListener(NodeWrittenEvent::class, ReferenceInvalidationListener::class);
 
         // Source allowances (blob:, data:) are only applied to 3D viewer routes via
         // ResponseBuilder, which prevents conflicts with other apps' CSP requirements.

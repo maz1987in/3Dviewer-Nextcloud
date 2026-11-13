@@ -27,6 +27,11 @@ const BUDGETS = [
   // The embed page's entry: the token, one request, then the light viewer the share page
   // mounts. No more than main's, which does the same and more.
   { pattern: /^threedviewer-embed\.mjs$/, name: 'embed', maxRaw: 5800, maxGzip: 2100 },
+  // The card for a link to a model, loaded on every page that can show link previews (Talk,
+  // Text, Collectives, Files). Plain DOM and no imports: 2.9 KB raw / 1.3 KB gzip when
+  // added. The budget is tight on purpose, so pulling in Vue, the l10n library or three.js
+  // fails the build instead of landing on every chat page.
+  { pattern: /^threedviewer-reference\.mjs$/, name: 'reference', maxRaw: 4500, maxGzip: 2000 },
   { pattern: /^gltf-.*\.chunk\.mjs$/, name: 'gltf-loader', maxRaw: 22000, maxGzip: 6000 }, // GLTF loader chunk (includes decoder worker pool tuning via setWorkerLimit)
   // Main app component. Bumped 360 KB → 370 KB in v3.3.0 for the 9 new viewer-config
   // entries, and unchanged by the redesign: replacing every emoji control with a Material
