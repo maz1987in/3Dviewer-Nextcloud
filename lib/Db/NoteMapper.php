@@ -109,7 +109,7 @@ class NoteMapper extends QBMapper
      * The ids of the notes deleteOrphans() would delete, so what refers to them — a
      * notification — can be removed as well.
      *
-     * @return list<int>
+     * @return int[]
      */
     public function findOrphanNoteIds(): array
     {
@@ -123,7 +123,7 @@ class NoteMapper extends QBMapper
         $ids = array_map('intval', $result->fetchAll(\PDO::FETCH_COLUMN));
         $result->closeCursor();
 
-        return array_values($ids);
+        return $ids;
     }
 
     /**

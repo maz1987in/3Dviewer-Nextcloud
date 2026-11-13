@@ -97,7 +97,7 @@ class NoteNotificationPublisher
     /**
      * The notifications of notes that were removed in bulk, because their model is gone.
      *
-     * @param list<int> $noteIds
+     * @param int[] $noteIds
      */
     public function notesDeleted(array $noteIds): void
     {

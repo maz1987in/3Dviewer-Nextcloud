@@ -149,11 +149,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Notifications needs its PHP dependencies (web push) to boot; its scripts would install
-      # its development tools as well, which nothing here uses.
+      # Notifications needs its PHP dependencies (web push) to answer at all, under its own
+      # namespace: its install scripts copy them into lib/Vendor/ with Mozart, which comes from
+      # its development tools, so this is a full install, scripts included.
       - name: Install the Notifications app's dependencies
         working-directory: apps/notifications
-        run: composer install --no-dev --no-scripts --prefer-dist --no-interaction --no-progress
+        run: composer install --prefer-dist --no-interaction --no-progress
 
       - name: Install dependencies
         working-directory: threedviewer-src

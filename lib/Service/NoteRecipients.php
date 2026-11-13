@@ -48,12 +48,7 @@ class NoteRecipients
      */
     public function forStream(File $file): array
     {
-        $access = $this->shares->getPathsForAccessList($file);
-        $users = isset($access['users']) && is_array($access['users']) ? $access['users'] : [];
-        $paths = array_filter(
-            array_map(static fn (mixed $path): string => is_string($path) ? '/' . ltrim($path, '/') : '', $users),
-            static fn (string $path): bool => $path !== '',
-        );
+        $paths = self::userPaths($this->shares->getPathsForAccessList($file));
 
         if (count($paths) <= self::MAX_STREAM_RECIPIENTS) {
             return $paths;
@@ -90,6 +85,23 @@ class NoteRecipients
     }
 
     /**
+     * The `users` part of what getPathsForAccessList() answers, each path with a leading
+     * slash. Taken as `mixed` because the server's own description of that answer differs
+     * between versions, from a bare `array` to a typed shape.
+     *
+     * @return array<array-key, string>
+     */
+    private static function userPaths(mixed $access): array
+    {
+        if (!is_array($access) || !isset($access['users']) || !is_array($access['users'])) {
+            return [];
+        }
+        $paths = array_map(static fn (mixed $path): string => is_string($path) ? '/' . ltrim($path, '/') : '', $access['users']);
+
+        return array_filter($paths, static fn (string $path): bool => $path !== '');
+    }
+
+    /**
      * The owner of the file and everyone who has made a note on it, once each.
      *
      * @return list<string>
@@ -98,7 +110,7 @@ class NoteRecipients
     {
         $uids = $this->mapper->findAuthorUids($file->getId());
         $owner = $file->getOwner()?->getUID();
-        if ($owner !== null && $owner !== '') {
+        if ($owner !== null) {
             array_unshift($uids, $owner);
         }
 
