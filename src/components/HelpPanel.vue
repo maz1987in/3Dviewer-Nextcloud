@@ -96,6 +96,13 @@
 								</div>
 							</div>
 							<div class="help-item">
+								<ViewerIcon class="help-icon" name="copyLink" :size="18" />
+								<div class="help-text">
+									<h4>{{ t('threedviewer', 'Copy link to this view') }}</h4>
+									<p>{{ t('threedviewer', 'Copy a link (L) that reopens the model as you see it: the same camera, shading, lighting, cross-section and exploded view. Only people who can open the file can use it.') }}</p>
+								</div>
+							</div>
+							<div class="help-item">
 								<ViewerIcon class="help-icon" name="autoRotate" :size="18" />
 								<div class="help-text">
 									<h4>{{ t('threedviewer', 'Auto-Rotate') }}</h4>
@@ -163,7 +170,7 @@
 								<ViewerIcon class="help-icon" name="annotation" :size="18" />
 								<div class="help-text">
 									<h4>{{ t('threedviewer', 'Annotation') }}</h4>
-									<p>{{ t('threedviewer', 'Click on the model to add text notes. Edit or delete annotations as needed.') }}</p>
+									<p>{{ t('threedviewer', 'Click on the model to add a note. Notes and measurements are saved with the model and shown to everyone who can open it. When someone adds a note, the model\'s owner and earlier note authors are notified, and the Activity stream records it.') }}</p>
 								</div>
 							</div>
 							<div class="help-item">
@@ -178,6 +185,13 @@
 								<div class="help-text">
 									<h4>{{ t('threedviewer', 'Cross-Section') }}</h4>
 									<p>{{ t('threedviewer', 'Slice through the model along X, Y, or Z axes. Adjust position with the slider and flip direction to view either side.') }}</p>
+								</div>
+							</div>
+							<div class="help-item">
+								<ViewerIcon class="help-icon" name="printer3d" :size="18" />
+								<div class="help-text">
+									<h4>{{ t('threedviewer', 'Print check') }}</h4>
+									<p>{{ t('threedviewer', 'See whether the model fits your printer, which surfaces overhang past an angle you choose, roughly how much filament it needs and which walls are too thin. For G-code, the print time and filament the slicer worked out.') }}</p>
 								</div>
 							</div>
 							<div class="help-item">
@@ -237,6 +251,20 @@
 								</div>
 							</div>
 							<div class="help-item">
+								<ViewerIcon class="help-icon" name="videoRecord" :size="18" />
+								<div class="help-text">
+									<h4>{{ t('threedviewer', 'Record turntable') }}</h4>
+									<p>{{ t('threedviewer', 'Record one full turn around the model (4 to 15 seconds) and download it as a video, or save it next to the model in your Nextcloud.') }}</p>
+								</div>
+							</div>
+							<div class="help-item">
+								<ViewerIcon class="help-icon" name="embedCode" :size="18" />
+								<div class="help-text">
+									<h4>{{ t('threedviewer', 'Copy embed code') }}</h4>
+									<p>{{ t('threedviewer', 'Once an admin lists the sites allowed, copy a frame that shows a public link\'s model on another website.') }}</p>
+								</div>
+							</div>
+							<div class="help-item">
 								<ViewerIcon class="help-icon" name="camera" :size="18" />
 								<div class="help-text">
 									<h4>{{ t('threedviewer', 'Screenshot') }}</h4>
@@ -255,6 +283,27 @@
 								<div class="help-text">
 									<h4>{{ t('threedviewer', 'Performance') }}</h4>
 									<p>{{ t('threedviewer', 'Cycle through quality modes: Auto (detects your device), Low, Balanced, High, Ultra. Affects rendering quality and frame rate.') }}</p>
+								</div>
+							</div>
+							<div class="help-item">
+								<ViewerIcon class="help-icon" name="statistics" :size="18" />
+								<div class="help-text">
+									<h4>{{ t('threedviewer', 'File unit') }}</h4>
+									<p>{{ t('threedviewer', 'A file that records no unit (STL, OBJ, PLY, OFF, 3DS) can be marked as millimetres, centimetres, metres, inches or feet in Model Statistics or Print check. It is saved for everyone who can open the file.') }}</p>
+								</div>
+							</div>
+							<div class="help-item">
+								<ViewerIcon class="help-icon" name="recenter" :size="18" />
+								<div class="help-text">
+									<h4>{{ t('threedviewer', 'Which way is up') }}</h4>
+									<p>{{ t('threedviewer', 'Scans and splats can be turned the right way up, saved with the file for everyone who can open it.') }}</p>
+								</div>
+							</div>
+							<div class="help-item">
+								<ViewerIcon class="help-icon" name="openExternal" :size="18" />
+								<div class="help-text">
+									<h4>{{ t('threedviewer', 'Link previews') }}</h4>
+									<p>{{ t('threedviewer', 'A link to a model in Talk, Text, Collectives or Deck shows as a card with its thumbnail, for people who can open the file. In the Smart Picker, choose 3D models to insert one.') }}</p>
 								</div>
 							</div>
 							<div class="help-item">
