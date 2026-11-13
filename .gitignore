@@ -269,3 +269,5 @@ jspm_packages/
 
 # ---- Bundle size tracking ----
 bundle-sizes.json
+# Session and uploads the real-Nextcloud suite records between its setup and its specs
+tests/e2e-nextcloud/.state/

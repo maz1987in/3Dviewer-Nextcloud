@@ -18,6 +18,7 @@ The 3D Viewer uses a comprehensive testing strategy covering:
 - **PHP Unit Tests** - Backend controllers and services
 - **JavaScript Tests** - Frontend components and utilities (Jest)
 - **End-to-End Tests** - User flows with Playwright
+- **Real-Nextcloud Browser Tests** - The built app in `custom_apps/` of a real server, with its Content-Security-Policy
 - **Smoke Tests** - Critical functionality verification
 - **Bundle Size Monitoring** - Performance budget enforcement
 
@@ -127,6 +128,57 @@ npm run test:smoke
 2. Add spec in `tests/smoke/` (TypeScript or JS)
 3. Assert emitted DOM events (`threedviewer:model-loaded`, etc.)
 4. Use internal static server for throttling if needed
+
+### Real-Nextcloud browser tests
+
+The Playwright and smoke suites above serve the built bundle from a static stand-in page with a
+fake `OCA`. They cannot see a Content-Security-Policy, and they cannot see where the app is
+installed, which is how four bugs reached users: STEP needing CSP `unsafe-eval` (#169), the WASM
+URLs hard-coded to `/apps/threedviewer/` on an App Store install (#188), rhino3dm's
+`new Function` blocked by the CSP (#204), and the navigation icon 404ing on `custom_apps` (#211).
+
+`tests/e2e-nextcloud/` runs a browser against a real Nextcloud server with the app installed in
+`custom_apps/threedviewer`, built from the branch and packaged as `release.yml` packages it. It has
+its own config (`tests/e2e-nextcloud/playwright.config.ts`); the root config ignores the directory.
+
+What it does:
+
+- Uploads `triangle.stl`, `cube.step` and `shapes.3dm` over WebDAV and makes public links to the
+  STL and the STEP file.
+- Opens each model from the Files app and on the app's own page (`/apps/threedviewer/f/{id}`), and
+  opens the STL and STEP file through a public link with no session. A model counts as loaded when
+  the viewer says so and its model-info panel reports faces.
+- Fails any test on a Content-Security-Policy violation (a `securitypolicyviolation` event, or a
+  console message about the policy, including a worker's) and on any 404 or failed request for a
+  file under `/custom_apps/threedviewer/` or `/apps/threedviewer/`.
+- Checks that the STEP and 3DM tests fetched their decoder from `/custom_apps/threedviewer/occt/`
+  and `/custom_apps/threedviewer/rhino3dm/`, and that the navigation icon is served.
+
+CI runs it as `.github/workflows/test-e2e-nextcloud.yml`: it checks out `nextcloud/server` at the
+newest branch `info.xml` supports, adds the Viewer app (a separate repository, bundled with
+releases), installs on SQLite with `custom_apps/` as the writable apps root, serves with
+`php -S`, and uploads Playwright's report and the server logs as an artifact when a test fails.
+
+To run it yourself, install the app into a Nextcloud's `custom_apps/` (copy a built package, never
+bind-mount the working tree into a `nextcloud` image), create a user, and point the suite at it:
+
+```bash
+npm run build
+# ... package the app into <server>/custom_apps/threedviewer, enable it, add the user ...
+E2E_BASE_URL=http://localhost:8080 E2E_USER=e2e-user E2E_PASSWORD='...' npm run test:e2e:nextcloud
+```
+
+Pages are addressed through `index.php`, because `php -S` applies no `.htaccess`. The
+`firstrunwizard` app puts a dialog over the Files app and must be disabled on a server that has it
+(a server built from a git checkout does not).
+
+The test user has "Create thumbnails while browsing Files" switched off
+(`occ user:setting <user> threedviewer user_preferences '{"thumbnails":{"background":false}}'`):
+the Files page otherwise renders every model's thumbnail in WebGL, and on a software renderer that
+stalled the first model a test opened.
+
+Tracing is limited to the network log, console and actions on purpose: DOM snapshots and the
+screencast read the WebGL canvas back, which stalls the software renderer for a minute.
 
 ## Bundle Size Monitoring
 

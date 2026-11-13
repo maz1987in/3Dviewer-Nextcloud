@@ -24,6 +24,7 @@
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:report": "playwright show-report",
+    "test:e2e:nextcloud": "playwright test -c tests/e2e-nextcloud/playwright.config.ts",
     "test:smoke": "npm run build && playwright test tests/smoke",
     "test:smoke:headed": "npm run build && playwright test tests/smoke --headed",
     "size:check": "node scripts/check-bundle-size.mjs",

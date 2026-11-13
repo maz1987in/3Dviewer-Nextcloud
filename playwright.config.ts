@@ -16,6 +16,9 @@ const WEBGL_FLAGS = [
 export default defineConfig({
   testDir: 'tests',
   testMatch: /.*\.spec\.(ts|js)/,
+  // These need a real Nextcloud server and have a config of their own
+  // (tests/e2e-nextcloud/playwright.config.ts); here they would run with none.
+  testIgnore: '**/e2e-nextcloud/**',
   retries: 0,
   reporter: [['list']],
   use: {
