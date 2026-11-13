@@ -1,6 +1,6 @@
 # 3D Viewer for Nextcloud
 
-[![Version](https://img.shields.io/badge/version-3.11.0-blue)](https://github.com/maz1987in/3Dviewer-Nextcloud/releases)
+[![Version](https://img.shields.io/badge/version-3.12.0-blue)](https://github.com/maz1987in/3Dviewer-Nextcloud/releases)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-orange)](LICENSE)
 [![Nextcloud](https://img.shields.io/badge/Nextcloud-31--35-0082c9)](https://nextcloud.com)
 [![Update nextcloud/ocp](https://github.com/maz1987in/3Dviewer-Nextcloud/actions/workflows/update-nextcloud-ocp-matrix.yml/badge.svg)](https://github.com/maz1987in/3Dviewer-Nextcloud/actions/workflows/update-nextcloud-ocp-matrix.yml)
@@ -37,7 +37,7 @@ A comprehensive 3D model viewer application for Nextcloud that supports multiple
   </tr>
   <tr>
     <td align="center">
-      <img src="img/screenshots/05-help-and-shortcuts.png" alt="The help dialog listing the controller, view and display controls, each with the icon its control uses" width="400"/><br/>
+      <img src="img/screenshots/05-help-and-shortcuts.png" alt="The help dialog listing the controller and view controls, among them Copy link to this view, each with the icon its control uses" width="400"/><br/>
       <b>Help and Shortcuts</b><br/>
       Every control explained, each row drawn with the icon that control uses
     </td>
@@ -263,31 +263,29 @@ This project is licensed under the **AGPL-3.0 License**. See [LICENSE](LICENSE) 
 
 ## 📊 Version
 
-**Current Version**: 3.11.0
+**Current Version**: 3.12.0
 **Released**: November 13, 2026
 **Requires**: Nextcloud 31 -- 35
 
-### What's New in 3.11.0
+### What's New in 3.12.0
 
-**Parts:**
-- A new Parts section in the tools panel lists the model's parts as a tree: choose one to tint it, hide it, show only it (Isolate) or zoom to it, and click a part in the model to find it in the list
-- A filter finds parts by name, the list works from the keyboard, and buildings with thousands of elements open as quickly as a bracket
-- IFC elements are listed under their storey, and choosing one shows its type, storey, property sets and quantities
+**View in AR on public links:**
+- Someone you share a model with by link can put it in their room on an iPhone, an iPad or an Android phone with Chrome, without an account; the Files preview offers it too
+- It is at the real size from the file's unit, including a unit chosen for the file
 
-**View in AR:**
-- Put the open model in your room at its real size, from the file's unit: AR Quick Look on an iPhone or iPad, the camera view in Chrome on an Android phone
-- On Android, tap the floor to place the model and tap somewhere else to move it
+**View in AR in the toolbar:**
+- On a phone or tablet that can show a model in the room, the full viewer has an AR button beside Help, one tap from the model
+- On a narrow phone the toolbar makes room so Tools always stays on screen
 
-**Link previews:**
-- A link to a model in Talk, Text, Collectives or Deck shows as a card with its thumbnail, name, format and size and an "Open in 3D Viewer" button, only for people who can open the file
-- "3D models" in the Smart Picker finds a model by name and inserts its link
+**Print check without freezing:**
+- Print check opens at once on large models and measures in the background; on a 240,000-triangle model the page no longer stops
 
-**Note notifications:**
-- When someone adds a note to a model, its owner and the people who wrote notes on it are notified; a run of notes is one notification, and it opens the model at the note
-- Adding, changing and deleting notes shows in the Activity stream under a "3D Viewer" filter, never with the note's text
+**Help:**
+- The in-app help covers Print check, Record turntable, Copy link to this view, Copy embed code, file units, Which way is up and link previews
 
 ### Recent releases
 
+- **3.11.0:** a Parts panel with IFC properties, View in AR, link previews in Talk, Text, Collectives and Deck, and notifications for notes
 - **3.10.0:** point clouds (LAS, LAZ, E57, PCD, XYZ) and Gaussian splats, links to a view, file units, embedding on other websites, and "Which way is up"
 - **3.9.0:** compare with an earlier version of a file, Print check, and turntable video
 - **3.8.1:** thumbnails show the model as its file has it, every tools panel control works from the keyboard, textures named by a path above the model's folder are found, and every write route checks the request token

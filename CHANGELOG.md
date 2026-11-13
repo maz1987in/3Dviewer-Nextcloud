@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.12.0] - 2026-11-13
+
+View in AR reaches more people and is easier to find. Someone you share a model with by link can put it in their room on their phone, without an account, and the Files preview offers it too. On a phone, the full viewer has an AR button of its own in its toolbar. Print check opens at once on large models instead of freezing the page, and the in-app help now covers the tools added since 3.8.
+
 ### Added
 - View in AR has a button of its own in the full viewer's toolbar on a phone or tablet that can show a model in the room, beside Help, so it is one tap from the model. It was only in the tools panel's Export section, folded away at the bottom of the panel, where it was easy to miss. It says "Preparing AR…" and "Open in AR" as the panel's does, is highlighted when a file waits for a second tap, and is not shown for scans and splats or on desktops.
 - View in AR on public links: someone you share a model with by link can now put it in their room on an iPhone, an iPad or an Android phone with Chrome, without an account. "View in AR" is the first of the viewer's buttons at the bottom right, beside Screenshot, and it works the same as in the full viewer, at the real size from the file's unit (including a unit chosen for the file). The Files app's preview has it too. It shows only on phones and tablets that can do it, is off for scans and splats with a note saying why, and says on the page what is happening or why AR could not start. A model embedded on another website does not offer it, since the website would have to allow it; the frame's "Open in Nextcloud" link leads to the share page, which does.
