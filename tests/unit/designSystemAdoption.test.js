@@ -27,6 +27,20 @@ const SRC = join(__dirname, '..', '..', 'src')
 const TOKEN_LAYER = join(SRC, 'css', 'design-system.css')
 
 /**
+ * The link preview card's stylesheet. It is drawn in other apps' pages (Talk, Text), where
+ * the token layer is not loaded and must not be: it would put 11 KB of the viewer's styles on
+ * every chat page. So the card maps the few Nextcloud colours it uses itself, in one palette
+ * block, and the test below holds each of those to the token layer's fallback for the same
+ * variable, so the two cannot drift apart.
+ */
+const CARD_LAYER = join(SRC, 'css', 'reference-card.css')
+
+/** `--name: var(--color-x, fallback)` declarations, as [nextcloud variable, fallback] pairs. */
+function mappings(text) {
+	return [...text.matchAll(/--[a-z-]+:\s*var\(\s*(--color-[a-z-]+)\s*,\s*([^)]+)\)/g)].map((m) => [m[1], m[2].trim()])
+}
+
+/**
  * Every file under src that can carry a style, minus the token layer itself.
  *
  * @param {string} dir - directory to walk
@@ -38,7 +52,7 @@ function styleFilesUnder(dir) {
 		if (statSync(full).isDirectory()) {
 			return styleFilesUnder(full)
 		}
-		return /\.(vue|css|js)$/.test(full) && full !== TOKEN_LAYER ? [full] : []
+		return /\.(vue|css|js)$/.test(full) && full !== TOKEN_LAYER && full !== CARD_LAYER ? [full] : []
 	})
 }
 
@@ -64,6 +78,26 @@ describe('design system adoption', () => {
 			expect([...text.matchAll(RAW_PRIMARY)].map((m) => m[0])).toEqual([])
 		},
 	)
+
+	describe('the link preview card', () => {
+		const card = readFileSync(CARD_LAYER, 'utf8')
+		const tokens = new Map(mappings(readFileSync(TOKEN_LAYER, 'utf8')))
+		const palette = mappings(card)
+
+		it('maps its colours in its palette and nowhere else', () => {
+			expect(palette.length).toBeGreaterThan(0)
+			expect([...card.matchAll(DIRECT_REFERENCE)].length).toBe(palette.length)
+		})
+
+		it.each(palette)('falls back for %s as the token layer does', (variable, fallback) => {
+			expect(tokens.has(variable)).toBe(true)
+			expect(fallback).toBe(tokens.get(variable))
+		})
+
+		it('asks for the contrast-corrected primary, not the raw one', () => {
+			expect([...card.matchAll(RAW_PRIMARY)].map((m) => m[0])).toEqual([])
+		})
+	})
 
 	it.each(files.map((f) => f.name))(
 		'%s takes its colours from the token layer',

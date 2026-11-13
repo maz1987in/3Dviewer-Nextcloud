@@ -34,9 +34,9 @@ const BUDGETS = [
   { pattern: /^threedviewer-reference\.mjs$/, name: 'reference', maxRaw: 4500, maxGzip: 2000 },
   // The card's stylesheet: css/threedviewer-reference.css and every file it @imports,
   // counted together, since a page loads them all. Its own rules on Nextcloud's variables,
-  // 2.2 KB raw / 0.8 KB gzip; it used to import the app's design system, 13.1 KB raw /
+  // 2,482 B raw / 840 B gzip; it used to import the app's design system, 13.1 KB raw /
   // 2.8 KB gzip in all. The budget stops that coming back.
-  { css: 'threedviewer-reference.css', name: 'reference-css', maxRaw: 3000, maxGzip: 1200 },
+  { css: 'threedviewer-reference.css', name: 'reference-css', maxRaw: 2800, maxGzip: 1000 },
   { pattern: /^gltf-.*\.chunk\.mjs$/, name: 'gltf-loader', maxRaw: 22000, maxGzip: 6000 }, // GLTF loader chunk (includes decoder worker pool tuning via setWorkerLimit)
   // Main app component. Bumped 360 KB → 370 KB in v3.3.0 for the 9 new viewer-config
   // entries, and unchanged by the redesign: replacing every emoji control with a Material
