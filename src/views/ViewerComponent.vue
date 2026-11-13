@@ -1380,7 +1380,7 @@ export default {
 		 */
 		applyLinkedCamera(box) {
 			const view = takeViewFromUrl()
-			if (!view || view.inScene || !this.linkModel) return
+			if (!view?.camera || view.inScene || !this.linkModel) return
 			const linked = view.camera
 			const { position, target } = cameraToScene(linked, this.linkModel)
 			if (!isUsableCamera(position, target, box)) return

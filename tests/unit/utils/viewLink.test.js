@@ -142,6 +142,25 @@ describe('reading the view from the page URL', () => {
 		expect(readViewFromUrl('?fileId=3')).toBeNull()
 		expect(readViewFromUrl('?view=1.zzz')).toBeNull()
 	})
+
+	describe('a link to a note alone, as a notification carries', () => {
+		it('reads the note and no camera', () => {
+			expect(readViewFromUrl('?note=42')).toEqual({ note: 42 })
+		})
+
+		it('lets a view or a cam win, which carry more', () => {
+			expect(readViewFromUrl(`?note=7&view=${encodeView(full)}`).note).toBe(42)
+			expect(readViewFromUrl('?note=7&cam=1,2,3,0,0,0,1').camera).toBeDefined()
+		})
+
+		it('also serves a broken view that came with a note', () => {
+			expect(readViewFromUrl('?view=1.zzz&note=5')).toEqual({ note: 5 })
+		})
+
+		it.each(['', '0', '-3', '1.5', '1e3', '0x10', ' 7', 'abc', '9999999999999999'])('ignores %j as a note id', (value) => {
+			expect(readViewFromUrl(`?note=${encodeURIComponent(value)}`)).toBeNull()
+		})
+	})
 })
 
 describe('building a link', () => {

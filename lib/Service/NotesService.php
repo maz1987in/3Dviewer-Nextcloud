@@ -48,6 +48,14 @@ class NotesService
     }
 
     /**
+     * @throws DoesNotExistException when the note isn't on that model
+     */
+    public function find(int $fileId, int $noteId): Note
+    {
+        return $this->mapper->findInFile($fileId, $noteId);
+    }
+
+    /**
      * The limit is checked before the insert rather than enforced by the database, so two
      * simultaneous creates can land one over it. It exists to stop a runaway client, not
      * to count exactly.

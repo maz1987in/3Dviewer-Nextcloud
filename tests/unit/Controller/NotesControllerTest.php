@@ -11,11 +11,14 @@ use OCA\ThreeDViewer\Service\Exception\NoteLimitException;
 use OCA\ThreeDViewer\Service\ModelFileSupport;
 use OCA\ThreeDViewer\Service\NoteAccess;
 use OCA\ThreeDViewer\Service\NoteAccessResult;
+use OCA\ThreeDViewer\Service\NoteActor;
+use OCA\ThreeDViewer\Service\NoteChangePublisher;
 use OCA\ThreeDViewer\Service\NotesService;
 use OCA\ThreeDViewer\Service\ResponseBuilder;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\JSONResponse;
+use OCP\Files\File;
 use OCP\ICache;
 use OCP\ICacheFactory;
 use OCP\IRequest;
@@ -29,12 +32,14 @@ class NotesControllerTest extends TestCase
 {
     private NoteAccess&MockObject $access;
     private NotesService&MockObject $notes;
+    private NoteChangePublisher&MockObject $changes;
     private NotesController $controller;
 
     protected function setUp(): void
     {
         $this->access = $this->createMock(NoteAccess::class);
         $this->notes = $this->createMock(NotesService::class);
+        $this->changes = $this->createMock(NoteChangePublisher::class);
         $this->notes->method('serialize')->willReturnCallback(fn (Note $n) => ['id' => $n->getId()]);
 
         $user = $this->createMock(IUser::class);
@@ -51,6 +56,7 @@ class NotesControllerTest extends TestCase
             $session,
             $this->access,
             $this->notes,
+            $this->changes,
             new ResponseBuilder($this->createMock(ModelFileSupport::class)),
             $this->createMock(ModelFileSupport::class),
             $this->createMock(LoggerInterface::class),
@@ -146,6 +152,76 @@ class NotesControllerTest extends TestCase
         $this->assertSame(204, $response->getStatus());
         $this->assertNotInstanceOf(JSONResponse::class, $response, 'a 204 carries no body, not the JSON `null`');
         $this->assertSame('', $response->render());
+    }
+
+    public function testANewNoteIsAnnouncedAsTheSignedInUsersWithTheFileTheyOpenedIt(): void
+    {
+        $file = $this->createMock(File::class);
+        $this->access->method('forUser')->willReturn(new NoteAccessResult(true, 'a.stl', $file));
+        $note = $this->note(4);
+        $this->notes->method('create')->willReturn($note);
+        $this->changes->expects($this->once())->method('added')
+            ->with($file, $note, $this->callback(fn (NoteActor $actor) => $actor->isUser() && $actor->value === 'alice'));
+
+        $this->controller->create(7, 'annotation', ['p']);
+    }
+
+    public function testAnEditIsAnnouncedWithWhenTheNoteWasLastTouched(): void
+    {
+        $file = $this->createMock(File::class);
+        $this->access->method('forUser')->willReturn(new NoteAccessResult(true, 'a.stl', $file));
+        $before = $this->note(4);
+        $before->setUpdatedAt(1_000);
+        $after = $this->note(4);
+        $this->notes->method('find')->willReturn($before);
+        $this->notes->method('update')->willReturn($after);
+        $this->changes->expects($this->once())->method('changed')
+            ->with($file, $after, $this->callback(fn (NoteActor $actor) => $actor->value === 'alice'), 1_000);
+
+        $this->controller->update(7, 4, ['p']);
+    }
+
+    public function testADeletionIsAnnounced(): void
+    {
+        $file = $this->createMock(File::class);
+        $this->access->method('forUser')->willReturn(new NoteAccessResult(true, 'a.stl', $file));
+        $this->changes->expects($this->once())->method('deleted')
+            ->with($file, 4, $this->callback(fn (NoteActor $actor) => $actor->value === 'alice'));
+
+        $this->controller->destroy(7, 4);
+    }
+
+    /** Nothing is announced for a change that was refused or never made. */
+    public function testNothingIsAnnouncedForARefusedOrFailedChange(): void
+    {
+        $this->changes->expects($this->never())->method('added');
+        $this->changes->expects($this->never())->method('changed');
+        $this->changes->expects($this->never())->method('deleted');
+
+        $this->access->method('forUser')->willReturnOnConsecutiveCalls(
+            null,
+            null,
+            null,
+            new NoteAccessResult(false),
+            new NoteAccessResult(false),
+            new NoteAccessResult(false),
+            new NoteAccessResult(true),
+            new NoteAccessResult(true),
+            new NoteAccessResult(true),
+        );
+        $this->notes->method('create')->willThrowException(new InvalidNoteException('Bad'));
+        $this->notes->method('find')->willThrowException(new DoesNotExistException(''));
+        $this->notes->method('delete')->willThrowException(new DoesNotExistException(''));
+
+        $this->controller->create(7, 'annotation', []);
+        $this->controller->update(7, 1, []);
+        $this->controller->destroy(7, 1);
+        $this->controller->create(7, 'annotation', []);
+        $this->controller->update(7, 1, []);
+        $this->controller->destroy(7, 1);
+        $this->controller->create(7, 'annotation', []);
+        $this->controller->update(7, 1, []);
+        $this->controller->destroy(7, 1);
     }
 
     private function note(int $id): Note

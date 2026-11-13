@@ -153,14 +153,19 @@ What it does:
   file under `/custom_apps/threedviewer/` or `/apps/threedviewer/`.
 - Checks that the STEP and 3DM tests fetched their decoder from `/custom_apps/threedviewer/occt/`
   and `/custom_apps/threedviewer/rhino3dm/`, and that the navigation icon is served.
+- Shares a fresh model with a second account (`E2E_EDITOR`), which adds two notes to it through the
+  notes API. The owner must then have one notification counting both, with no note text in it, two
+  entries under the Activity app's "3D Viewer" filter, and a line in the bell that opens the model on
+  the app's own page with the newer note in focus.
 
 CI runs it as `.github/workflows/test-e2e-nextcloud.yml`: it checks out `nextcloud/server` at the
-newest branch `info.xml` supports, adds the Viewer app (a separate repository, bundled with
-releases), installs on SQLite with `custom_apps/` as the writable apps root, serves with
+newest branch `info.xml` supports, adds the Viewer, Notifications and Activity apps (separate
+repositories, bundled with releases), installs on SQLite with `custom_apps/` as the writable apps root, serves with
 `php -S`, and uploads Playwright's report and the server logs as an artifact when a test fails.
 
 To run it yourself, install the app into a Nextcloud's `custom_apps/` (copy a built package, never
-bind-mount the working tree into a `nextcloud` image), create a user, and point the suite at it:
+bind-mount the working tree into a `nextcloud` image), create a user and a second one for the notes spec (`E2E_EDITOR`, `E2E_EDITOR_PASSWORD`, with the
+display name `E2E Editor`), enable Notifications and Activity, and point the suite at it:
 
 ```bash
 npm run build

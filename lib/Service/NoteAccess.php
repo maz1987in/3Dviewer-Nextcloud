@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OCA\ThreeDViewer\Service;
 
 use OCP\Files\File;
+use OCP\Files\Folder;
 use OCP\Files\IRootFolder;
 use OCP\Files\Node;
 use OCP\Files\NotPermittedException;
@@ -47,10 +48,15 @@ class NoteAccess
 
         foreach ($files as $file) {
             if ($file->isUpdateable()) {
-                return new NoteAccessResult(true, $file->getName());
+                return $this->result($home, true, $file);
             }
         }
 
-        return new NoteAccessResult(false, reset($files)->getName());
+        return $this->result($home, false, reset($files));
+    }
+
+    private function result(Folder $home, bool $canEdit, File $file): NoteAccessResult
+    {
+        return new NoteAccessResult($canEdit, $file->getName(), $file, ltrim((string) $home->getRelativePath($file->getPath()), '/'));
     }
 }

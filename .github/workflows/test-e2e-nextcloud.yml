@@ -72,6 +72,8 @@ jobs:
       E2E_PORT: 8080
       E2E_USER: e2e-user
       E2E_PASSWORD: e2e-user-Pass-Aa1
+      E2E_EDITOR: e2e-editor
+      E2E_EDITOR_PASSWORD: e2e-editor-Pass-Aa1
 
     steps:
       - name: Checkout server
@@ -91,6 +93,25 @@ jobs:
           repository: nextcloud/viewer
           ref: ${{ needs.matrix.outputs.branch-max }}
           path: apps/viewer
+          persist-credentials: false
+
+      # Notifications and Activity are bundled with a release too, and are repositories of their
+      # own as well. The notes spec reads what a note sends through both, as the bell and the
+      # stream show it. Their stable branches carry the built JavaScript.
+      - name: Checkout Notifications
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: nextcloud/notifications
+          ref: ${{ needs.matrix.outputs.branch-max }}
+          path: apps/notifications
+          persist-credentials: false
+
+      - name: Checkout Activity
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: nextcloud/activity
+          ref: ${{ needs.matrix.outputs.branch-max }}
+          path: apps/activity
           persist-credentials: false
 
       # Outside the server tree: this is the source, and what is installed is a copy of it
@@ -127,6 +148,12 @@ jobs:
           ini-values: disable_functions=
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Notifications needs its PHP dependencies (web push) to boot; its scripts would install
+      # its development tools as well, which nothing here uses.
+      - name: Install the Notifications app's dependencies
+        working-directory: apps/notifications
+        run: composer install --no-dev --no-scripts --prefer-dist --no-interaction --no-progress
 
       - name: Install dependencies
         working-directory: threedviewer-src
@@ -186,8 +213,12 @@ jobs:
             --admin-pass=e2e-suite-admin-Aa1
           php occ config:system:set appstoreenabled --type=boolean --value=false
           php occ app:enable --force viewer
+          php occ app:enable --force notifications
+          php occ app:enable --force activity
           php occ app:enable --force threedviewer
           OC_PASS="$E2E_PASSWORD" php occ user:add --password-from-env --display-name="E2E User" "$E2E_USER"
+          # The account the notes spec shares a model with, to write notes on it
+          OC_PASS="$E2E_EDITOR_PASSWORD" php occ user:add --password-from-env --display-name="E2E Editor" "$E2E_EDITOR"
           # The Files page renders thumbnails of the folder's models in the background, in
           # WebGL. On the software renderer a runner has, that stalled the first model the
           # user opened for a minute. What this suite checks is opening a model, so the user
@@ -207,7 +238,7 @@ jobs:
           esac
           test ! -e apps/threedviewer
           test -f custom_apps/threedviewer/js/threedviewer-main.mjs
-          php occ app:list | grep -E "viewer|threedviewer"
+          php occ app:list | grep -E "viewer|threedviewer|notifications|activity"
 
       # php -S applies no .htaccess, so pages are addressed through index.php (the specs do).
       # Several workers, because a page makes many requests at once and a single-threaded

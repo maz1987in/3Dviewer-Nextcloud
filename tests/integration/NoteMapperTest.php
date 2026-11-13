@@ -79,13 +79,53 @@ class NoteMapperTest extends TestCase
         $this->assertSame($kept->getId(), $this->mapper->findInFile($this->fileId, $kept->getId())->getId());
     }
 
-    private function insert(int $fileId, string $text): Note
+    public function testFindsTheNewestNotesOfOneAuthorOnOneFile(): void
+    {
+        $older = $this->insert($this->fileId, 'older');
+        $this->insert($this->fileId, 'by someone else', 'someone-else');
+        $newer = $this->insert($this->fileId, 'newer');
+        $newest = $this->insert($this->fileId, 'newest');
+        $this->insert(self::MISSING_FILE_ID, 'elsewhere');
+
+        $ids = array_map(fn (Note $n) => $n->getId(), $this->mapper->findRecentByAuthor($this->fileId, $this->uid, 2));
+
+        $this->assertSame([$newest->getId(), $newer->getId()], $ids);
+        $this->assertCount(3, $this->mapper->findRecentByAuthor($this->fileId, $this->uid, 10));
+        $this->assertNotContains($older->getId(), $ids);
+    }
+
+    public function testFindsEachAuthorOfAFileOnce(): void
+    {
+        $this->insert($this->fileId, 'one');
+        $this->insert($this->fileId, 'two');
+        // A user id that is all digits: PHP would make it an int key, and it must come back a string
+        $this->insert($this->fileId, 'three', '12345');
+        $this->insert(self::MISSING_FILE_ID, 'elsewhere', 'only-elsewhere');
+
+        $uids = $this->mapper->findAuthorUids($this->fileId);
+        sort($uids);
+
+        $this->assertSame(['12345', $this->uid], $uids);
+    }
+
+    public function testFindsTheIdsOfOrphanNotesOnly(): void
+    {
+        $kept = $this->insert($this->fileId, 'kept');
+        $orphan = $this->insert(self::MISSING_FILE_ID, 'orphan');
+
+        $ids = $this->mapper->findOrphanNoteIds();
+
+        $this->assertContains($orphan->getId(), $ids);
+        $this->assertNotContains($kept->getId(), $ids);
+    }
+
+    private function insert(int $fileId, string $text, ?string $author = null): Note
     {
         $note = new Note();
         $note->setFileId($fileId);
         $note->setType('annotation');
         $note->setPayload(json_encode(['space' => 'model', 'point' => ['x' => 0.0, 'y' => 0.0, 'z' => 0.0], 'text' => $text]));
-        $note->setAuthorUid($this->uid);
+        $note->setAuthorUid($author ?? $this->uid);
         $note->setCreatedAt(time());
         $note->setUpdatedAt(time());
 
