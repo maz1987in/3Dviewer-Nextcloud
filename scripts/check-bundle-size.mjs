@@ -67,7 +67,14 @@ const BUDGETS = [
   // (+3.2 KB raw / +1.0 KB gzip); the Quick Look file, the WebXR session, the size limits
   // and every message load as their own chunks when the button is pressed. With both, this
   // was 400.9 KB raw / 113.3 KB gzip.
-  { pattern: /^App-.*\.chunk\.mjs$/, name: 'app', maxRaw: 402000, maxGzip: 114000 },
+  // Raised to 410 KB raw / 117 KB gzip for note review (resolving, replies, @mentions): the
+  // filter, the thread, the mention field, the review calls and the routes they use are
+  // chunks of their own (NoteReviewBar, NoteThread, NoteMentionField, noteReviewActions,
+  // notesReviewApi), loaded when a notes panel opens or a note is resolved or replied to.
+  // What stays here is what every model needs to draw its notes: each note's state and
+  // thread as the server sent them, the marker of a resolved note, the names in a label,
+  // and the slots for the three components. 398.6 KB raw / 112.7 KB gzip against 392.0 / 110.3.
+  { pattern: /^App-.*\.chunk\.mjs$/, name: 'app', maxRaw: 410000, maxGzip: 117000 },
   { pattern: /^three-core-.*\.chunk\.mjs$/, name: 'three-core', maxRaw: 800000, maxGzip: 210000 }, // Three.js core
   // Three chunks are named index-<hash>: the main one, a ~280 KB one and a 250-byte one.
   // This used to separate them with /^index-[A-Z][a-z]/, written to exclude one specific

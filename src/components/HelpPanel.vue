@@ -170,7 +170,7 @@
 								<ViewerIcon class="help-icon" name="annotation" :size="18" />
 								<div class="help-text">
 									<h4>{{ t('threedviewer', 'Annotation') }}</h4>
-									<p>{{ t('threedviewer', 'Click on the model to add a note. Notes and measurements are saved with the model and shown to everyone who can open it. When someone adds a note, the model\'s owner and earlier note authors are notified, and the Activity stream records it.') }}</p>
+									<p>{{ t('threedviewer', 'Click on the model to add a note. Notes and measurements are saved with the model and shown to everyone who can open it. When someone adds a note, the model\'s owner and earlier note authors are notified, and the Activity stream records it. Mark a note Resolved when it is dealt with (its marker hides until you tick Show resolved notes in the scene), answer it with Reply, and type @ to mention a colleague, who is notified.') }}</p>
 								</div>
 							</div>
 							<div class="help-item">

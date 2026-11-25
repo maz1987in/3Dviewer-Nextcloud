@@ -17,6 +17,7 @@ import { generateOcsUrl, generateUrl } from '@nextcloud/router'
 export function createNotesApi({ fileId, shareToken = null }) {
 	const base = generateUrl('/apps/threedviewer/api/notes/{fileId}', { fileId })
 	const readOnly = shareToken !== null
+	let reviewApi = null
 
 	const refuseOnPublicLink = () => {
 		if (readOnly) {
@@ -56,6 +57,17 @@ export function createNotesApi({ fileId, shareToken = null }) {
 		async remove(noteId) {
 			refuseOnPublicLink()
 			await axios.delete(`${base}/${noteId}`)
+		},
+
+		/**
+		 * The routes of note review — state, replies, people to mention. Loaded the first time
+		 * one is needed: reading a model's notes needs none of it.
+		 *
+		 * @return {Promise<object>} the review API client, from notesReviewApi.js
+		 */
+		review() {
+			reviewApi ??= import('./notesReviewApi.js').then((module) => module.createReviewApi(base, readOnly))
+			return reviewApi
 		},
 	}
 }

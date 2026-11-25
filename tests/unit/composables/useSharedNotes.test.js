@@ -1,5 +1,5 @@
 const THREE = require('three')
-const { reactive } = require('vue')
+const { reactive, readonly } = require('vue')
 const { useSharedNotes, TEXT_SAVE_DEBOUNCE_MS } = require('../../../src/composables/useSharedNotes.js')
 
 /*
@@ -33,6 +33,12 @@ function fakeTool(kind) {
 		userEditText: (item, text) => { item.text = text; hooks.changed?.(item) },
 		deleteAnnotation: remove,
 		deleteMeasurement: remove,
+		annotations: { value: items },
+		measurements: { value: items },
+		looks: new Map(),
+		setMarkerLook(id, look) { this.looks.set(id, look) },
+		setLabelFormatter(fn) { this.labelFormatter = fn },
+		refreshAnnotationLabel: jest.fn(),
 		userDelete: (item) => remove(item.id),
 		clearAllAnnotations: ({ silent = false } = {}) => { [...items].forEach(i => remove(i.id, { silent })) },
 		clearAllMeasurements: ({ silent = false } = {}) => { [...items].forEach(i => remove(i.id, { silent })) },
@@ -467,7 +473,7 @@ describe('angles', () => {
 		expect(angle.vertex.x).toBeCloseTo(10)
 		expect(angle.point1.x).toBeCloseTo(11)
 		expect(angle.point2.y).toBeCloseTo(1)
-		expect(angle.meta).toEqual({ noteId: 7, author: { uid: 'bob', displayName: 'Bob' }, saveState: 'shared' })
+		expect(angle.meta).toMatchObject({ noteId: 7, author: { uid: 'bob', displayName: 'Bob' }, saveState: 'shared', state: 'open', replies: [] })
 	})
 
 	test('a failed angle save retries as an angle', async () => {
@@ -486,5 +492,224 @@ describe('angles', () => {
 		await notes.retry('measurement', item)
 		expect(api.create).toHaveBeenLastCalledWith('angle', expect.objectContaining({ space: 'model' }))
 		expect(item.meta.saveState).toBe('saved')
+	})
+})
+
+describe('note review', () => {
+	const annotationNote = (id, extra = {}) => ({
+		id, type: 'annotation', payload: { space: 'model', point: { x: 0, y: 0, z: 0 }, text: `Note ${id}` }, author: { uid: 'bob', displayName: 'Bob' }, ...extra,
+	})
+	const measurementNote = (id, extra = {}) => ({
+		id, type: 'measurement', payload: { space: 'model', points: [{ x: 0, y: 0, z: 0 }, { x: 1, y: 0, z: 0 }] }, author: null, ...extra,
+	})
+	const resolvedNote = { state: 'resolved', resolvedBy: { uid: 'omar', displayName: 'Omar' }, resolvedAt: 1_800_000_000 }
+
+	// The review calls live on the api's lazily loaded review client
+	const REVIEW = ['setState', 'addReply', 'updateReply', 'removeReply', 'people']
+
+	async function loaded(notesList, apiOverrides = {}) {
+		const ctx = setup()
+		const review = Object.fromEntries(REVIEW.filter((name) => name in apiOverrides).map((name) => [name, apiOverrides[name]]))
+		const rest = Object.fromEntries(Object.entries(apiOverrides).filter(([name]) => !REVIEW.includes(name)))
+		const api = fakeApi({
+			list: jest.fn().mockResolvedValue({ canEdit: true, notes: notesList, private: [] }),
+			review: jest.fn().mockResolvedValue(review),
+			...rest,
+		})
+		await ctx.notes.load(api)
+		return { ...ctx, api }
+	}
+
+	test('notes that came without a state are open, with no thread', async () => {
+		const { annotation } = await loaded([annotationNote(1)])
+
+		expect(annotation.items[0].meta).toMatchObject({ state: 'open', resolvedBy: null, resolvedAt: null, replies: [], mentions: {} })
+	})
+
+	test('a resolved note comes with who resolved it and when, and its thread', async () => {
+		const reply = { id: 5, text: 'Done', author: { uid: 'omar', displayName: 'Omar' }, createdAt: 2, updatedAt: 2, mentions: [] }
+		const { annotation } = await loaded([annotationNote(1, { ...resolvedNote, replies: [reply], mentions: { sara: 'Sara' } })])
+
+		expect(annotation.items[0].meta).toMatchObject({ state: 'resolved', resolvedBy: { uid: 'omar' }, resolvedAt: 1_800_000_000, replies: [reply], mentions: { sara: 'Sara' } })
+	})
+
+	test('an empty mentions list from the server is no names', async () => {
+		const { annotation } = await loaded([annotationNote(1, { mentions: [] })])
+
+		expect(annotation.items[0].meta.mentions).toEqual({})
+	})
+
+	test('markers of resolved notes are hidden, and shown dimmed on request', async () => {
+		const { annotation, measurement, notes } = await loaded([
+			annotationNote(1, resolvedNote),
+			annotationNote(2),
+			measurementNote(3, resolvedNote),
+		])
+		const [resolvedAnnotation, openAnnotation] = annotation.items
+		const [resolvedMeasurement] = measurement.items
+
+		expect(annotation.looks.get(resolvedAnnotation.id)).toBe('hidden')
+		expect(annotation.looks.get(openAnnotation.id)).toBe('normal')
+		expect(measurement.looks.get(resolvedMeasurement.id)).toBe('hidden')
+
+		notes.setShowResolved(true)
+
+		expect(notes.showResolved.value).toBe(true)
+		expect(annotation.looks.get(resolvedAnnotation.id)).toBe('dim')
+		expect(annotation.looks.get(openAnnotation.id)).toBe('normal')
+
+		notes.setShowResolved(false)
+		expect(measurement.looks.get(resolvedMeasurement.id)).toBe('hidden')
+	})
+
+	test('the label in the scene shows a mentioned person by name', async () => {
+		const { annotation } = await loaded([annotationNote(1, { payload: { space: 'model', point: { x: 0, y: 0, z: 0 }, text: 'Ask @sara' }, mentions: { sara: 'Sara Ahmed' } })])
+
+		expect(annotation.labelFormatter(annotation.items[0])).toBe('Ask @Sara Ahmed')
+	})
+
+	test('resolving goes to the server and is drawn from its answer', async () => {
+		const setState = jest.fn().mockResolvedValue({ ...annotationNote(1, resolvedNote), replies: [] })
+		const { annotation, notes } = await loaded([annotationNote(1)], { setState })
+		const item = annotation.items[0]
+
+		const done = await notes.setState('annotation', item, 'resolved')
+
+		expect(done).toBe(true)
+		expect(setState).toHaveBeenCalledWith(1, 'resolved')
+		expect(item.meta).toMatchObject({ state: 'resolved', resolvedBy: { uid: 'omar' } })
+		expect(annotation.looks.get(item.id)).toBe('hidden')
+	})
+
+	test('reopening brings the marker back', async () => {
+		const setState = jest.fn().mockResolvedValue({ ...annotationNote(1), state: 'open', resolvedBy: null, resolvedAt: null })
+		const { annotation, notes } = await loaded([annotationNote(1, resolvedNote)], { setState })
+		const item = annotation.items[0]
+
+		await notes.setState('annotation', item, 'open')
+
+		expect(item.meta).toMatchObject({ state: 'open', resolvedBy: null, resolvedAt: null })
+		expect(annotation.looks.get(item.id)).toBe('normal')
+	})
+
+	test('a refused state change leaves the note as it was and says so', async () => {
+		const setState = jest.fn().mockRejectedValue(new Error('403'))
+		const { annotation, notes, notify } = await loaded([annotationNote(1)], { setState })
+		const item = annotation.items[0]
+
+		const done = await notes.setState('annotation', item, 'resolved')
+
+		expect(done).toBe(false)
+		expect(item.meta.state).toBe('open')
+		expect(notify).toHaveBeenCalledWith(expect.objectContaining({ type: 'error', title: 'The note was not changed' }))
+	})
+
+	test('a note not yet saved has nothing to resolve', async () => {
+		const setState = jest.fn()
+		// The server has not answered the create yet, so the note has no id
+		const { annotation, notes } = await loaded([], { setState, create: jest.fn(() => new Promise(() => {})) })
+		const item = annotation.userAdd({ point: new THREE.Vector3(), text: 'New' })
+
+		expect(await notes.setState('annotation', item, 'resolved')).toBe(false)
+		expect(setState).not.toHaveBeenCalled()
+	})
+
+	test('a reply is added to the thread from the server\'s answer, and a resolved note stays resolved', async () => {
+		const reply = { id: 8, text: 'Thanks', author: { uid: 'alice', displayName: 'Alice' }, createdAt: 3, updatedAt: 3, mentions: {} }
+		const addReply = jest.fn().mockResolvedValue(reply)
+		const { annotation, notes } = await loaded([annotationNote(1, resolvedNote)], { addReply })
+		const item = annotation.items[0]
+
+		expect(await notes.addReply(item, 'Thanks')).toBe(true)
+
+		expect(addReply).toHaveBeenCalledWith(1, 'Thanks')
+		expect(item.meta.replies).toEqual([reply])
+		expect(item.meta.state).toBe('resolved')
+		expect(annotation.looks.get(item.id)).toBe('hidden')
+	})
+
+	test('a failed reply is not added', async () => {
+		const addReply = jest.fn().mockRejectedValue(new Error('down'))
+		const { annotation, notes, notify } = await loaded([annotationNote(1)], { addReply })
+
+		expect(await notes.addReply(annotation.items[0], 'Hi')).toBe(false)
+
+		expect(annotation.items[0].meta.replies).toEqual([])
+		expect(notify).toHaveBeenCalledWith(expect.objectContaining({ title: 'Reply not saved' }))
+	})
+
+	test('a reply is replaced on edit and dropped on delete', async () => {
+		const one = { id: 1, text: 'One', mentions: {} }
+		const two = { id: 2, text: 'Two', mentions: {} }
+		const updateReply = jest.fn().mockResolvedValue({ id: 2, text: 'Two, edited', mentions: {} })
+		const removeReply = jest.fn().mockResolvedValue(undefined)
+		const { annotation, notes } = await loaded([annotationNote(1, { replies: [one, two] })], { updateReply, removeReply })
+		const item = annotation.items[0]
+
+		await notes.updateReply(item, 2, 'Two, edited')
+		expect(item.meta.replies.map((r) => r.text)).toEqual(['One', 'Two, edited'])
+		expect(updateReply).toHaveBeenCalledWith(1, 2, 'Two, edited')
+
+		await notes.removeReply(item, 1)
+		expect(item.meta.replies.map((r) => r.id)).toEqual([2])
+		expect(removeReply).toHaveBeenCalledWith(1, 1)
+	})
+
+	test('people to mention are asked of the model the note belongs to, and a failure is no people', async () => {
+		const people = jest.fn().mockResolvedValueOnce([{ id: 'sara', label: 'Sara' }]).mockRejectedValueOnce(new Error('down'))
+		const { annotation, notes } = await loaded([annotationNote(1)], { people })
+
+		expect(await notes.findPeople(annotation.items[0], 'sa')).toEqual([{ id: 'sara', label: 'Sara' }])
+		expect(await notes.findPeople(annotation.items[0], 'sa')).toEqual([])
+	})
+
+	test('a mention chosen in the editor is remembered, and the label redrawn', async () => {
+		const { annotation, notes } = await loaded([annotationNote(1)])
+		const item = annotation.items[0]
+
+		notes.learnMentions(item, { sara: 'Sara Ahmed' })
+
+		expect(item.meta.mentions).toEqual({ sara: 'Sara Ahmed' })
+		expect(annotation.refreshAnnotationLabel).toHaveBeenCalledWith(item.id)
+	})
+
+	test('saving the text brings back the names of whoever it mentions', async () => {
+		jest.useFakeTimers()
+		const update = jest.fn().mockResolvedValue({ mentions: { sara: 'Sara Ahmed' } })
+		const { annotation, notes } = await loaded([annotationNote(1)], { update })
+		const item = annotation.items[0]
+
+		annotation.userEditText(item, 'Ask @sara ')
+		jest.advanceTimersByTime(TEXT_SAVE_DEBOUNCE_MS + 1)
+		jest.useRealTimers()
+		await flushPromises()
+
+		expect(item.meta.mentions).toEqual({ sara: 'Sara Ahmed' })
+		expect(annotation.refreshAnnotationLabel).toHaveBeenCalledWith(item.id)
+		expect(notes.status.value).toBe('saved')
+	})
+
+	test('a note made here is open once the server has it', async () => {
+		const { annotation } = await loaded([], { create: jest.fn().mockResolvedValue({ id: 31, author: null, state: 'open', replies: [], mentions: [] }) })
+		const item = annotation.userAdd({ point: new THREE.Vector3(), text: 'New' })
+		await flushPromises()
+
+		expect(item.meta).toMatchObject({ noteId: 31, state: 'open', replies: [] })
+	})
+
+	test('a read-only view of a note, as the panel holds, changes the note itself', async () => {
+		const setState = jest.fn().mockResolvedValue({ ...annotationNote(1, resolvedNote), replies: [] })
+		const addReply = jest.fn().mockResolvedValue({ id: 8, text: 'Thanks', mentions: {} })
+		const { annotation, notes } = await loaded([annotationNote(1)], { setState, addReply })
+		const entry = annotation.items[0]
+		const view = readonly(entry)
+
+		await notes.setState('annotation', view, 'resolved')
+		await notes.addReply(view, 'Thanks')
+		notes.learnMentions(view, { sara: 'Sara Ahmed' })
+
+		expect(entry.meta.state).toBe('resolved')
+		expect(entry.meta.replies).toHaveLength(1)
+		expect(entry.meta.mentions).toEqual({ sara: 'Sara Ahmed' })
 	})
 })
