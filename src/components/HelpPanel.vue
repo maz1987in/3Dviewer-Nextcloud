@@ -307,6 +307,13 @@
 								</div>
 							</div>
 							<div class="help-item">
+								<ViewerIcon class="help-icon" name="statistics" :size="18" />
+								<div class="help-text">
+									<h4>{{ t('threedviewer', '3D tab in Files') }}</h4>
+									<p>{{ t('threedviewer', 'In the Files app, open a model\'s details (right sidebar) and choose the 3D tab: its size in the file\'s unit, triangles, parts, materials, textures and notes, and an Open in 3D Viewer button. A model nobody has measured is measured in your browser, within the size and time limits in Personal Settings, and the numbers are kept for everyone who can open the file.') }}</p>
+								</div>
+							</div>
+							<div class="help-item">
 								<ViewerIcon class="help-icon" name="themeAuto" :size="18" />
 								<div class="help-text">
 									<h4>{{ t('threedviewer', 'Theme') }}</h4>
