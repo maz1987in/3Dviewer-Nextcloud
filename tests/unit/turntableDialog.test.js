@@ -6,7 +6,14 @@ const { nextTick } = require('vue')
 const { mountSfc } = require('./helpers/mountSfc.js')
 const turntable = require('../../src/utils/turntable.js')
 
-const davFiles = { canCreateIn: jest.fn(), listNames: jest.fn(), putFile: jest.fn() }
+const davFiles = { canCreateIn: jest.fn(), listNames: jest.fn(), putFile: jest.fn(), saveNewFile: jest.fn() }
+// saveNewFile's own retries are tested in utils/davFiles.test.js: here it names the file
+// from one listing and writes it once
+const saveOnce = async (userId, dirPath, nameFor, blob) => {
+	const name = nameFor(await davFiles.listNames(userId, dirPath))
+	await davFiles.putFile(userId, dirPath, name, blob)
+	return name
+}
 const MODULES = {
 	'./ViewerIcon.vue': { default: { name: 'ViewerIcon', props: ['name', 'size'], template: '<i />' } },
 	'../composables/useFocusTrap.js': { useFocusTrap: () => ({ activate: jest.fn(), deactivate: jest.fn() }) },
@@ -39,6 +46,7 @@ beforeEach(() => {
 	davFiles.canCreateIn.mockResolvedValue(true)
 	davFiles.listNames.mockResolvedValue(['cube-turntable.webm'])
 	davFiles.putFile.mockResolvedValue()
+	davFiles.saveNewFile.mockImplementation(saveOnce)
 })
 afterEach(() => document.body.replaceChildren())
 
@@ -227,13 +235,8 @@ test('a dialog that is gone when the recording ends asks nothing of the server',
 	expect(davFiles.canCreateIn).not.toHaveBeenCalled()
 })
 
-test('a name taken between the listing and the save is not overwritten: the next free one is used', async () => {
-	davFiles.listNames
-		.mockResolvedValueOnce(['cube-turntable.webm'])
-		.mockResolvedValueOnce(['cube-turntable.webm', 'cube-turntable (2).webm'])
-	davFiles.putFile
-		.mockRejectedValueOnce(Object.assign(new Error('Precondition Failed'), { response: { status: 412 } }))
-		.mockResolvedValueOnce()
+test('the save is named from the folder as it is, so a name taken there is not used', async () => {
+	davFiles.listNames.mockResolvedValue(['cube-turntable.webm', 'cube-turntable (2).webm'])
 	const { events } = mount({ recorder: recorderStub() })
 	button('Record').click()
 	await flush()
@@ -242,6 +245,7 @@ test('a name taken between the listing and the save is not overwritten: the next
 	await flush()
 	await flush()
 	await flush()
-	expect(davFiles.putFile.mock.calls.map((call) => call[2])).toEqual(['cube-turntable (2).webm', 'cube-turntable (3).webm'])
+	expect(davFiles.saveNewFile).toHaveBeenCalledWith('alice', '/models', expect.any(Function), expect.any(Blob))
+	expect(davFiles.putFile.mock.calls.map((call) => call[2])).toEqual(['cube-turntable (3).webm'])
 	expect(events).toContainEqual(['saved', ['cube-turntable (3).webm']])
 })

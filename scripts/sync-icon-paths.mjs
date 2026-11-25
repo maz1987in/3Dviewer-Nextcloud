@@ -84,6 +84,8 @@ export const ICONS = {
 	annotation: 'Pencil',
 	resetView: 'Refresh',
 	saveView: 'Pin',
+	// Save an export into the model's folder, beside Export's download
+	saveToFolder: 'FolderDownload',
 	// The mockup's cube-being-sent is not in this package version.
 	sendToSlicer: 'Printer3d',
 	statistics: 'ChartBar',

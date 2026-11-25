@@ -120,3 +120,49 @@ export async function putFile(userId, dirPath, name, blob) {
 	const path = `${String(dirPath || '').replace(/\/+$/, '')}/${name}`
 	await axios.put(userFilesUrl(userId, path), blob, { headers: { 'Content-Type': blob.type || 'application/octet-stream', 'If-None-Match': '*' } })
 }
+
+/**
+ * The first of `base.ext`, `base (2).ext`, `base (3).ext`… that no entry of the folder
+ * has, letters' case aside, as Nextcloud names a copy.
+ *
+ * @param {string} base - The name without its extension
+ * @param {string} extension - The extension, without the dot
+ * @param {string[]} existingNames - What the folder holds
+ * @return {string} A free name
+ */
+export function freeName(base, extension, existingNames) {
+	const stem = String(base || '').trim() || 'model'
+	const taken = new Set(existingNames.map((name) => name.toLowerCase()))
+	let name = `${stem}.${extension}`
+	for (let n = 2; taken.has(name.toLowerCase()); n++) {
+		name = `${stem} (${n}).${extension}`
+	}
+	return name
+}
+
+/**
+ * Write a new file into a folder under a name nothing there has. A file given that name
+ * between the listing and the write (another device, another tab) makes the write fail
+ * with 412, and the folder is listed again for another name; nothing is replaced.
+ *
+ * @param {string} userId - The logged-in user
+ * @param {string} dirPath - The folder
+ * @param {function(string[]): string} nameFor - Picks a free name from the folder's entries
+ * @param {Blob} blob - The content
+ * @param {object} [options] - Options
+ * @param {number} [options.attempts] - How many names to try
+ * @return {Promise<string>} The name it was saved as
+ */
+export async function saveNewFile(userId, dirPath, nameFor, blob, { attempts = 3 } = {}) {
+	for (let attempt = 1; ; attempt++) {
+		const name = nameFor(await listNames(userId, dirPath))
+		try {
+			await putFile(userId, dirPath, name, blob)
+			return name
+		} catch (error) {
+			if (error?.response?.status !== 412 || attempt >= attempts) {
+				throw error
+			}
+		}
+	}
+}

@@ -128,10 +128,7 @@ import { ref, computed, unref, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import ViewerIcon from './ViewerIcon.vue'
 import { useFocusTrap } from '../composables/useFocusTrap.js'
 import { TURNTABLE_DEFAULTS, TURNTABLE_SECONDS, turntableFileName } from '../utils/turntable.js'
-import { canCreateIn, listNames, putFile } from '../utils/davFiles.js'
-
-// Tries at a free name when another file keeps taking the chosen one
-const SAVE_ATTEMPTS = 3
+import { canCreateIn, saveNewFile } from '../utils/davFiles.js'
 
 export default {
 	name: 'TurntableDialog',
@@ -228,19 +225,9 @@ export default {
 		const save = async () => {
 			saving.value = true
 			try {
-				// A name taken between the listing and the write fails with 412: list again
-				for (let attempt = 1; ; attempt++) {
-					const name = turntableFileName(props.modelName, result.value.extension, await listNames(props.userId, props.dirPath))
-					try {
-						await putFile(props.userId, props.dirPath, name, result.value.blob)
-						emit('saved', name)
-						break
-					} catch (error) {
-						if (error?.response?.status !== 412 || attempt >= SAVE_ATTEMPTS) {
-							throw error
-						}
-					}
-				}
+				const { extension, blob } = result.value
+				const name = await saveNewFile(props.userId, props.dirPath, (existing) => turntableFileName(props.modelName, extension, existing), blob)
+				emit('saved', name)
 			} catch (error) {
 				emit('save-failed', error)
 			} finally {

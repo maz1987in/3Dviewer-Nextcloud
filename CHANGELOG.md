@@ -7,8 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Save an export next to the model: under the tools panel's export format list, "Save STL next to the model" (or GLB, OBJ, 3MF, PLY, USDZ, ZIP, as chosen) writes the export into the model's own folder in Nextcloud instead of downloading it, so a STEP file can be turned into an STL beside it for the slicer, or a USDZ kept for a colleague. A file already there by that name is never replaced: the copy is called "bracket (2).stl". The button shows only to someone logged in who may add files to that folder, as Record turntable's save does; a public link and a folder shared read-only keep the download alone. A failed save says why (no space left, no permission any more) and Export still downloads.
+
 ### Changed
 - On an iPhone or iPad, browsers other than Safari (Brave, Chrome, Firefox, and the browsers inside other apps) now show the View in AR button too, and pressing it says to open the page in Safari. Apple lets only Safari open AR Quick Look from a web page, and the button used to be missing from these browsers with nothing to say why. It is the same in the full viewer, on public links and in the Files preview.
+
+### Fixed
+- An export of a file with a dot in its name lost everything after the first dot: "bracket.v2.stl" was exported as "bracket.glb". It is now "bracket.v2.glb".
 
 ## [3.12.0] - 2026-11-13
 

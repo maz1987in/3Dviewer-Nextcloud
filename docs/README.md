@@ -40,7 +40,7 @@ A comprehensive 3D model viewer application for Nextcloud that supports multiple
 - **Parts**: A tree of the model's parts to hide, isolate, zoom to and find by name; IFC elements by storey with their properties
 - **3D Camera Controller**: Intuitive circular controller for precise camera navigation
 - **Face Labels**: Orientation markers on model faces (TOP, BOTTOM, FRONT, BACK, LEFT, RIGHT)
-- **Export functionality**: Export models to GLB, STL, OBJ, 3MF, PLY and USDZ formats
+- **Export functionality**: Export models to GLB, STL, OBJ, 3MF, PLY and USDZ formats, as a download or saved next to the model in Nextcloud
 - **View in AR**: Put the model in your room at its real size on an iPhone, iPad or Android phone, also from a public link
 - **Camera projection toggle**: Switch between perspective and orthographic views
 - **Performance optimization**: Dynamic imports, decoder auto-detection (DRACO/Basis)
@@ -262,6 +262,11 @@ Export models in various formats:
 1. **Open Export**: Open the tools panel (Tools) and its Export section
 2. **Select Format**: Choose a format from the list
 3. **Download**: Press Export and the file downloads
+
+#### Save Next to the Model
+To keep the export in Nextcloud instead, press **Save {format} next to the model** under the format list (for example "Save STL next to the model"). The file is written into the model's own folder, so your desktop sync client brings it to the computer running your slicer, and others who can open the folder find it there. If a file of that name is already there, the copy is called "bracket (2).stl" and nothing is replaced.
+
+The button is shown only when you are logged in and may add files to the model's folder; on a public link, or in a folder shared with you read-only, Export downloads as before. If the save fails (no space left, say), the viewer says why, and Export still downloads.
 
 ### Parts
 

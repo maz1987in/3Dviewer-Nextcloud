@@ -240,7 +240,7 @@
 								<ViewerIcon class="help-icon" name="exportModel" :size="18" />
 								<div class="help-text">
 									<h4>{{ t('threedviewer', 'Export Model') }}</h4>
-									<p>{{ t('threedviewer', 'Download the model as GLB (with textures), STL or 3MF (for 3D printing), OBJ (universal format), PLY (scans with vertex colors), or USDZ (AR on iPhone and iPad). Large models show a triangle count warning before export.') }}</p>
+									<p>{{ t('threedviewer', 'Download the model as GLB (with textures), STL or 3MF (for 3D printing), OBJ (universal format), PLY (scans with vertex colors), or USDZ (AR on iPhone and iPad), or save it next to the model in its folder. Large models show a triangle count warning before export.') }}</p>
 								</div>
 							</div>
 							<div class="help-item">

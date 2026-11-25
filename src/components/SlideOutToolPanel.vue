@@ -682,6 +682,22 @@
 										{{ t('threedviewer', 'Export') }}
 									</button>
 								</div>
+								<!--
+									The chosen format, saved into the model's own folder under a name nothing
+									there has, for someone who may add files to it. aria-disabled while an
+									export runs, as Export is, so focus stays.
+								-->
+								<button v-if="canSaveExport"
+									type="button"
+									class="tool-btn"
+									:disabled="!modelLoaded"
+									:aria-disabled="exporting || off('export') ? 'true' : null"
+									:aria-describedby="off('export') ? 'tdv-unavailable-export' : null"
+									:aria-busy="exporting ? 'true' : 'false'"
+									@click="saveExport">
+									<ViewerIcon class="tool-icon" name="saveToFolder" :size="17" />
+									<span class="tool-label">{{ t('threedviewer', 'Save {format} next to the model', { format: exportFormat.toUpperCase() }) }}</span>
+								</button>
 								<button class="tool-btn"
 									:disabled="!modelLoaded"
 									v-bind="unavailable('export')"
@@ -922,6 +938,8 @@ export default {
 		renderMode: { type: String, default: 'standard' },
 		// An export is running
 		exporting: { type: Boolean, default: false },
+		// Whether the logged-in user may add files to the model's folder, for "Save next to the model"
+		canSaveExport: { type: Boolean, default: false },
 
 		// Mobile detection
 		isMobile: { type: Boolean, default: false },
@@ -973,6 +991,7 @@ export default {
 		'record-turntable',
 		'view-in-ar',
 		'export-model',
+		'save-export',
 		'send-to-slicer',
 		'clear-cache',
 		'toggle-help',
@@ -1135,6 +1154,12 @@ export default {
 			emit('export-model', exportFormat.value)
 		}
 
+		// The same export, written into the model's folder instead of downloaded
+		const saveExport = () => {
+			if (props.exporting || !props.modelLoaded || off('export') || !props.canSaveExport) return
+			emit('save-export', exportFormat.value)
+		}
+
 		// The ZIP entry is there only while the model has more than one source file
 		watch(() => props.hasMultipleSourceFiles, (multiple) => {
 			if (!multiple && exportFormat.value === 'zip') exportFormat.value = 'glb'
@@ -1270,6 +1295,7 @@ export default {
 			closePanel,
 			toggleSection,
 			startExport,
+			saveExport,
 			arAttributes,
 			arLabel,
 			startViewInAr,

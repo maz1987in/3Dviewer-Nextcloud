@@ -152,6 +152,7 @@
 					:gcode-single-layer="gcodeSingleLayer"
 					:render-mode="renderMode"
 					:exporting="exporting"
+					:can-save-export="canSaveExport"
 					:is-mobile="isMobile"
 					:cache-stats="cacheStats"
 					:custom-palette="customPalette"
@@ -193,6 +194,7 @@
 					@toggle-stats="onToggleStats"
 					@take-screenshot="onTakeScreenshot"
 					@export-model="onExportModel"
+					@save-export="onSaveExport"
 					@send-to-slicer="onSendToSlicer"
 					@clear-cache="onClearCache"
 					@reindex-files="onReindexFiles"
@@ -259,6 +261,7 @@
 					@splat-changed="onSplatChanged"
 					@parts-ready="partsApi = $event"
 					@ar-path-changed="arPath = $event"
+					@export-save-changed="canSaveExport = $event"
 					@ar-state-changed="arState = $event"
 					@loading-state-changed="onLoadingStateChanged"
 					@fps-updated="onFpsUpdated"
@@ -464,6 +467,8 @@ export default {
 			renderMode: 'standard',
 			// An export is running; the panel's format menu waits for it
 			exporting: false,
+			// Whether an export can be saved into the model's folder (ThreeViewer asks the server)
+			canSaveExport: false,
 			// WebXR
 			webxrSupported: false,
 			webxrActive: false,
@@ -1048,16 +1053,20 @@ export default {
 			this.$refs.viewer?.toggleModelStats?.()
 		},
 
-		async onExportModel(format) {
+		async onExportModel(format, { save = false } = {}) {
 			// Trigger export on the viewer. The format menu is disabled until it is done, so a
 			// second export cannot start under the first.
 			if (this.exporting) return
+			if (save && !this.canSaveExport) return
 			this.exporting = true
 			try {
-				await this.$refs.viewer?.handleExport?.(format)
+				await this.$refs.viewer?.handleExport?.(format, { save })
 			} finally {
 				this.exporting = false
 			}
+		},
+		onSaveExport(format) {
+			return this.onExportModel(format, { save: true })
 		},
 
 		onSendToSlicer() {
