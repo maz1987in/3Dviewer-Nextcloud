@@ -40,6 +40,11 @@ import { PRINTERS, MATERIALS, NEAR_THIN_FACTOR, BED_EPSILON_MM } from '../printC
 import { withPartsTogether } from '../utils/viewerTransforms.js'
 import { logger } from '../utils/logger.js'
 
+// A model with more triangles than this is checked for mesh problems when asked, not when
+// Print check opens: the analysis goes through every triangle in the worker the first
+// measurement is waiting on, and on a large model it would compete with drawing it
+const AUTO_ANALYSIS_TRIANGLES = 100000
+
 const FIT_COLOUR = 0x9e9e9e
 const OVER_COLOUR = 0xe53935
 // The faces a repair added to fill holes
@@ -558,6 +563,32 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 	}
 
 	/**
+	 * Find what is wrong with the mesh, in the worker, once for the model that is open: a
+	 * setting that changes, or the model moving, does not ask again.
+	 */
+	const runAnalysis = () => {
+		if (!session || kind.value !== 'mesh' || !['waiting', 'error'].includes(problems.value.state)) {
+			return
+		}
+		const opened = generation
+		problems.value = { state: 'checking', report: null }
+		// Each part's own unit, in millimetres
+		const unit = read(mmPerUnit) || 1
+		session.analyze(sessionObjects.map((object) => unit * object.matrixWorld.getMaxScaleOnAxis()))
+			.then((reports) => {
+				if (opened === generation) {
+					problems.value = { state: 'done', report: combineReports(reports) }
+				}
+			})
+			.catch((error) => {
+				if (opened === generation && error?.name !== 'AbortError') {
+					logger.warn('usePrintCheck', 'Could not check the mesh for problems', error)
+					problems.value = { state: 'error', report: null }
+				}
+			})
+	}
+
+	/**
 	 * Open Print check on the model now open.
 	 */
 	const open = () => {
@@ -633,21 +664,17 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 					}
 				})
 
-			// What is wrong with the mesh, in each part's own units' millimetres
-			problems.value = { state: 'checking', report: null }
-			const unit = read(mmPerUnit) || 1
-			session.analyze(sessionObjects.map((object) => unit * object.matrixWorld.getMaxScaleOnAxis()))
-				.then((reports) => {
-					if (opened === generation) {
-						problems.value = { state: 'done', report: combineReports(reports) }
-					}
-				})
-				.catch((error) => {
-					if (opened === generation && error?.name !== 'AbortError') {
-						logger.warn('usePrintCheck', 'Could not check the mesh for problems', error)
-						problems.value = { state: 'error', report: null }
-					}
-				})
+			// What is wrong with the mesh: now, or on request for a large model
+			problems.value = { state: 'waiting', report: null }
+			let triangles = 0
+			sessionObjects.forEach((object) => {
+				if (object.isMesh) {
+					triangles += (object.geometry.index ?? object.geometry.attributes.position).count / 3
+				}
+			})
+			if (triangles <= AUTO_ANALYSIS_TRIANGLES) {
+				runAnalysis()
+			}
 		}
 	}
 
@@ -1035,12 +1062,13 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 
 	/**
 	 * What the card's repair controls ask for.
-	 * @param {string} action - 'run', 'cancel', 'undo', 'highlight', 'save' or 'download'
+	 * @param {string} action - 'check', 'run', 'cancel', 'undo', 'highlight', 'save' or 'download'
 	 * @param {boolean|string} [value] - What goes with it: whether to show the green faces, or a file format
 	 * @return {?Promise<void>} Settled when it is done, for the ones that take time
 	 */
 	const repairAction = (action, value) => {
 		switch (action) {
+		case 'check': return runAnalysis()
 		case 'run': return runRepair()
 		case 'cancel': return cancelRepair()
 		case 'undo': return undoRepair()

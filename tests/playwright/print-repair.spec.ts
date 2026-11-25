@@ -16,6 +16,33 @@ const BROKEN = { id: 7301, name: 'broken.stl', body: fixture('broken-cube.stl') 
 const INSIDE_OUT = { id: 7302, name: 'inside-out.stl', body: fixture('inside-out-cube.stl') }
 const CLOSED = { id: 7303, name: 'cube.stl', body: stlCube(10) }
 
+/** A binary STL sphere of `rings x segments x 2` triangles, every face with its own corners. */
+function bigSphereStl(rings: number, segments: number): Buffer {
+	const point = (r: number, s: number) => {
+		const theta = (r / rings) * Math.PI
+		const phi = (s / segments) * Math.PI * 2
+		return [20 * Math.sin(theta) * Math.cos(phi), 20 * Math.cos(theta), 20 * Math.sin(theta) * Math.sin(phi)]
+	}
+	const triangles: number[][][] = []
+	for (let r = 0; r < rings; r++) {
+		for (let s = 0; s < segments; s++) {
+			const a = point(r, s)
+			const b = point(r + 1, s)
+			const c = point(r + 1, s + 1)
+			const d = point(r, s + 1)
+			triangles.push([a, b, c], [a, c, d])
+		}
+	}
+	const buffer = Buffer.alloc(84 + triangles.length * 50)
+	buffer.writeUInt32LE(triangles.length, 80)
+	triangles.forEach((triangle, i) => {
+		triangle.flat().forEach((value, j) => buffer.writeFloatLE(value, 84 + i * 50 + 12 + j * 4))
+	})
+	return buffer
+}
+
+const BIG = { id: 7304, name: 'sphere.stl', body: bigSphereStl(200, 300) }
+
 let server: { url: string, close: () => Promise<void> }
 test.beforeAll(async () => { server = await startServer() })
 test.afterAll(async () => { await server.close() })
@@ -205,5 +232,21 @@ test('a closed model has no problems and no Repair', async ({ page }) => {
 	await expect(card(page)).toContainText('28 vertices repeat another one\'s place, as in most STL files')
 	await expect(card(page)).toContainText('About 1.0 g · 0.32 m of filament (estimate)', { timeout: 10000 })
 	await expect(button(page, 'Repair')).toHaveCount(0)
+	expect(errors).toEqual([])
+})
+
+test('a large model is checked for problems when asked, so opening Print check stays as light as ever', async ({ page }) => {
+	// 120,000 triangles are over the limit for checking on opening, and take a while to load on a software renderer
+	test.slow()
+	const { errors } = await openPrintCheck(page, BIG)
+	await expect(card(page)).toContainText('On a large model this is checked when you ask.', { timeout: 20000 })
+	await expect(card(page)).not.toContainText('Checking…')
+	await expect(button(page, 'Repair')).toHaveCount(0)
+
+	await button(page, 'Check the mesh for problems').click()
+	// Closed, but with every face pointing in
+	await expect(card(page)).toContainText('1 part is inside out', { timeout: 30000 })
+	await expect(button(page, 'Check the mesh for problems')).toHaveCount(0)
+	await expect(button(page, 'Repair')).toBeVisible()
 	expect(errors).toEqual([])
 })

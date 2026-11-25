@@ -237,6 +237,14 @@ describe('mesh problems and repair', () => {
 		expect(button('Repair')).toBeUndefined()
 	})
 
+	test('on a large model the check waits to be asked for', () => {
+		const { events } = mount(meshState({ problems: { state: 'waiting', report: null } }))
+		expect(text()).toContain('On a large model this is checked when you ask.')
+		expect(button('Repair')).toBeUndefined()
+		button('Check the mesh for problems').click()
+		expect(events).toEqual([['repair', ['check']]])
+	})
+
 	test('a model with nothing wrong says so and offers no repair', () => {
 		mount(meshState({ problems: { state: 'done', report: report({ joinableVertices: 28 }) } }))
 		expect(text()).toContain('No problems found')

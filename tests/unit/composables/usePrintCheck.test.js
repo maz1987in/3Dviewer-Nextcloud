@@ -928,3 +928,72 @@ describe('handing over the repaired file', () => {
 		expect(allowed.printCheck.repair.value.canSave).toBe(true)
 	})
 })
+
+describe('when the mesh is checked for problems', () => {
+	test('once for the model, whatever setting changes or wherever it moves', async () => {
+		jest.useFakeTimers()
+		const { root, printCheck } = setup()
+		printCheck.open()
+		await settle()
+		expect(analyze).toHaveBeenCalledTimes(1)
+
+		printCheck.setOverhangAngle(60)
+		printCheck.setUp('z')
+		printCheck.setPrinter('custom')
+		printCheck.setInfill(30)
+		printCheck.setMaterial('petg')
+		printCheck.unitChanged()
+		root.scale.setScalar(2)
+		printCheck.modelMoved()
+		jest.advanceTimersByTime(500)
+		await settle()
+
+		// The measurements were asked for again, the mesh analysis was not
+		expect(measureRequests.length).toBeGreaterThan(2)
+		expect(analyze).toHaveBeenCalledTimes(1)
+		expect(printCheck.problems.value.state).toBe('done')
+		jest.useRealTimers()
+	})
+
+	test('a large model is checked when asked, once', async () => {
+		const { mesh, printCheck } = setup()
+		// 230 x 230 squares: 105,800 triangles, over the limit for checking on opening
+		mesh.geometry = new THREE.PlaneGeometry(10, 10, 230, 230)
+		printCheck.open()
+		await flush()
+		expect(analyze).not.toHaveBeenCalled()
+		expect(printCheck.problems.value).toEqual({ state: 'waiting', report: null })
+
+		printCheck.repairAction('check')
+		expect(printCheck.problems.value.state).toBe('checking')
+		printCheck.repairAction('check')
+		await flush()
+		expect(analyze).toHaveBeenCalledTimes(1)
+		expect(printCheck.problems.value.state).toBe('done')
+		printCheck.repairAction('check')
+		expect(analyze).toHaveBeenCalledTimes(1)
+	})
+
+	test('a model of 100,000 triangles or fewer is checked on opening', async () => {
+		const { mesh, printCheck } = setup()
+		// 223 x 223 squares: 99,458 triangles
+		mesh.geometry = new THREE.PlaneGeometry(10, 10, 223, 223)
+		printCheck.open()
+		await flush()
+		expect(analyze).toHaveBeenCalledTimes(1)
+	})
+
+	test('a check that failed can be asked for again, and one asked for after closing does nothing', async () => {
+		analyze.mockRejectedValueOnce(new Error('out of memory'))
+		const { printCheck } = setup()
+		printCheck.open()
+		await flush()
+		expect(printCheck.problems.value.state).toBe('error')
+		printCheck.repairAction('check')
+		await flush()
+		expect(printCheck.problems.value.state).toBe('done')
+		printCheck.close()
+		printCheck.repairAction('check')
+		expect(printCheck.problems.value.state).toBe('idle')
+	})
+})

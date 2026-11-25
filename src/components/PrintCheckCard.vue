@@ -169,6 +169,9 @@
 							<p v-if="state.problems?.state === 'checking'" class="tdv-secondary">
 								{{ t('threedviewer', 'Checking…') }}
 							</p>
+							<p v-else-if="state.problems?.state === 'waiting'" class="tdv-secondary">
+								{{ t('threedviewer', 'On a large model this is checked when you ask.') }}
+							</p>
 							<p v-else-if="state.problems?.state === 'error'" class="print-check-warn">
 								{{ t('threedviewer', 'Could not check the mesh for problems') }}
 							</p>
@@ -219,6 +222,12 @@
 								{{ t('threedviewer', 'Cancel') }}
 							</button>
 						</div>
+						<button v-else-if="state.problems?.state === 'waiting'"
+							type="button"
+							class="tdv-btn tdv-btn--secondary print-check-run"
+							@click="$emit('repair', 'check')">
+							{{ t('threedviewer', 'Check the mesh for problems') }}
+						</button>
 						<button v-else-if="canRepair"
 							type="button"
 							class="tdv-btn tdv-btn--secondary print-check-run"
@@ -363,7 +372,7 @@ export default {
 
 	emits: ['close', 'set-unit', 'set-printer', 'set-custom', 'set-up', 'set-overhang-angle', 'set-infill', 'set-material', 'set-min-thickness', 'run-thickness', 'cancel-thickness',
 		// One event for the repair's controls: its action ('run', 'cancel', 'undo', 'highlight',
-		// 'save', 'download') and the value that goes with it, a format or whether to show
+		// 'save', 'download', 'check') and the value that goes with it, a format or whether to show
 		'repair'],
 
 	data() {
