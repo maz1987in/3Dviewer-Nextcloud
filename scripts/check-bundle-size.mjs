@@ -73,7 +73,8 @@ const BUDGETS = [
   // notesReviewApi), loaded when a notes panel opens or a note is resolved or replied to.
   // What stays here is what every model needs to draw its notes: each note's state and
   // thread as the server sent them, the marker of a resolved note, the names in a label,
-  // and the slots for the three components. 398.6 KB raw / 112.7 KB gzip against 392.0 / 110.3.
+  // and the slots for the three components. That took the chunk from 392.2 KB to 399.0 KB raw
+  // (112.9 KB gzip), against the 392.6 KB / 111.3 KB the budget allowed before.
   { pattern: /^App-.*\.chunk\.mjs$/, name: 'app', maxRaw: 410000, maxGzip: 117000 },
   { pattern: /^three-core-.*\.chunk\.mjs$/, name: 'three-core', maxRaw: 800000, maxGzip: 210000 }, // Three.js core
   // Three chunks are named index-<hash>: the main one, a ~280 KB one and a 250-byte one.
