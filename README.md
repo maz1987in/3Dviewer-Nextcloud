@@ -1,6 +1,6 @@
 # 3D Viewer for Nextcloud
 
-[![Version](https://img.shields.io/badge/version-3.13.0-blue)](https://github.com/maz1987in/3Dviewer-Nextcloud/releases)
+[![Version](https://img.shields.io/badge/version-3.14.0-blue)](https://github.com/maz1987in/3Dviewer-Nextcloud/releases)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-orange)](LICENSE)
 [![Nextcloud](https://img.shields.io/badge/Nextcloud-31--35-0082c9)](https://nextcloud.com)
 [![Update nextcloud/ocp](https://github.com/maz1987in/3Dviewer-Nextcloud/actions/workflows/update-nextcloud-ocp-matrix.yml/badge.svg)](https://github.com/maz1987in/3Dviewer-Nextcloud/actions/workflows/update-nextcloud-ocp-matrix.yml)
@@ -265,25 +265,30 @@ This project is licensed under the **AGPL-3.0 License**. See [LICENSE](LICENSE) 
 
 ## 📊 Version
 
-**Current Version**: 3.13.0
+**Current Version**: 3.14.0
 **Released**: November 25, 2026
 **Requires**: Nextcloud 31 -- 35
 
-### What's New in 3.13.0
+### What's New in 3.14.0
 
-**Save an export next to the model:**
-- "Save STL next to the model" (or whichever format is chosen) writes the export into the model's own folder in Nextcloud instead of downloading it, so a STEP file can become an STL beside it for the slicer
-- A file already there is never replaced: the copy is "bracket (2).stl". It is offered to anyone who may add files to that folder; a public link keeps the download
+**Note review:**
+- Resolve a note when it is dealt with and reopen it if not; the list filters by All, Open and Resolved, and resolved notes leave the scene unless you ask to see them
+- Reply to a note in a thread under it, and type @ to mention someone who can open the model: they get a notification that opens the note
+- Resolving, reopening and replying show in the Activity stream; on a public link, states and replies are read-only, with no names
 
-**View in AR in other iPhone browsers:**
-- In Brave, Chrome or Firefox on an iPhone or iPad, the AR button now shows too, and says to open the page in Safari, the only browser there that can show a web page's model in the room
+**Repair for printing:**
+- Print check lists what is wrong with the mesh in plain words: holes, faces the wrong way, inside-out parts, vertices that almost meet, duplicate or zero-area faces
+- Repair mends what it can, says what it could not, and saves the repaired STL or 3MF next to the model (or downloads it), never replacing a file
+
+**A 3D tab in the Files sidebar:**
+- A model's size in its own unit, triangles, parts, materials, textures and notes, without opening it; measured once and kept per file version
 
 **Also:**
-- An export of "bracket.v2.stl" is named "bracket.v2.glb", no longer "bracket.glb"
-- fast-xml-parser updated for a low-severity advisory; the app's production dependencies have no known advisories
+- Retrying a note that failed to save no longer saves it twice
 
 ### Recent releases
 
+- **3.13.0:** save an export next to the model in Nextcloud, and a View in AR button in other iPhone browsers that points to Safari
 - **3.12.0:** View in AR on public links and in the Files preview, an AR button in the phone toolbar, Print check that opens at once on large models, and in-app help for the tools added since 3.8
 - **3.11.0:** a Parts panel with IFC properties, View in AR, link previews in Talk, Text, Collectives and Deck, and notifications for notes
 - **3.10.0:** point clouds (LAS, LAZ, E57, PCD, XYZ) and Gaussian splats, links to a view, file units, embedding on other websites, and "Which way is up"
