@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.14.1] - 2026-11-25
+
+Print check looks for mesh problems on a large model as soon as it opens, as it does on a smaller one, without holding up the measurements: a new overhang angle or up axis is answered while the check runs.
+
 ### Changed
 - Print check checks a large model's mesh for problems on its own again, as it does a smaller one: "Check the mesh for problems" no longer has to be pressed on a model of more than 100,000 triangles. The check now runs beside the measurements rather than before them, so changing the overhang angle or the up axis while it works still answers at once. The button stays, to try again if a check fails.
 
