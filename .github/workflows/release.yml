@@ -76,7 +76,10 @@ jobs:
           APP_DIR="threedviewer"
           ARTIFACT_NAME="threedviewer-${{ steps.tag.outputs.tag }}.tar.gz"
           mkdir "$APP_DIR"
+          # "$APP_DIR" is inside the folder being copied: leave it out, or rsync reads its own
+          # half-written temporary files and fails when they vanish (v3.14.0's first run)
           rsync -a ./ "$APP_DIR" \
+            --exclude "/$APP_DIR/" \
             --exclude ".git/" \
             --exclude ".github/" \
             --exclude "node_modules/" \
