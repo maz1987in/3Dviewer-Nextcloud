@@ -65,6 +65,23 @@ describe('loadTabState', () => {
 		expect(deps.uploadModelStats).toHaveBeenCalledWith(7, 'etag-1', STATS)
 	})
 
+	it('measures for someone who can only read the file, shows it, and stores nothing', async () => {
+		const deps = setup({ model: info({ canEdit: false }) })
+
+		const state = await loadTabState(FILE, deps)
+
+		expect(state).toMatchObject({ phase: 'ready', stats: STATS, source: 'measured' })
+		expect(deps.measure).toHaveBeenCalledTimes(1)
+		expect(deps.uploadModelStats).not.toHaveBeenCalled()
+	})
+
+	it('still shows the stored numbers to someone who can only read the file', async () => {
+		const deps = setup({ model: info({ canEdit: false, stats: STATS }) })
+
+		expect(await loadTabState(FILE, deps)).toMatchObject({ phase: 'ready', stats: STATS, source: 'stored' })
+		expect(deps.measure).not.toHaveBeenCalled()
+	})
+
 	it('says when it starts to measure', async () => {
 		const onMeasuring = jest.fn()
 		const deps = setup()

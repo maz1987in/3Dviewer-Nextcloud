@@ -73,7 +73,7 @@ class ModelStatsHttpTest extends HttpTestCase
         $this->assertSame(['count' => 0, 'firstId' => null], $seen['notes']);
     }
 
-    public function testAReadOnlyRecipientMayStoreTheNumbersOfTheCurrentVersion(): void
+    public function testAReadOnlyRecipientIsRefusedAndStoresNothing(): void
     {
         $owner = $this->newUser();
         $reader = $this->newUser();
@@ -81,10 +81,27 @@ class ModelStatsHttpTest extends HttpTestCase
         $this->shareWithUser($model, $owner, $reader, Constants::PERMISSION_READ);
         $etag = $this->etag($model);
 
-        $stored = $this->basic($reader)->post(self::url($model->getId()), ['json' => ['etag' => $etag, 'stats' => self::stats()]]);
+        $refused = $this->basic($reader)->post(self::url($model->getId()), ['json' => ['etag' => $etag, 'stats' => self::stats(999)]]);
+
+        $this->assertSame(403, $refused->getStatusCode());
+        $this->assertNull(Server::get(ModelStatMapper::class)->findByFile($model->getId()));
+        $this->assertNull(self::json($this->basic($owner)->get(self::url($model->getId())))['stats']);
+    }
+
+    public function testARecipientWhoCanEditMayStoreTheNumbersOfTheCurrentVersion(): void
+    {
+        $owner = $this->newUser();
+        $editor = $this->newUser();
+        $reader = $this->newUser();
+        $model = $this->newModel($owner);
+        $this->shareWithUser($model, $owner, $editor, Constants::PERMISSION_READ | Constants::PERMISSION_UPDATE);
+        $this->shareWithUser($model, $owner, $reader, Constants::PERMISSION_READ);
+        $etag = $this->etag($model);
+
+        $stored = $this->basic($editor)->post(self::url($model->getId()), ['json' => ['etag' => $etag, 'stats' => self::stats()]]);
 
         $this->assertSame(201, $stored->getStatusCode());
-        $this->assertSame(12, self::json($this->basic($owner)->get(self::url($model->getId())))['stats']['triangles']);
+        $this->assertSame(12, self::json($this->basic($reader)->get(self::url($model->getId())))['stats']['triangles'], 'a reader sees what an editor stored');
     }
 
     public function testAStrangerGetsNothingAndStoresNothing(): void

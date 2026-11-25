@@ -184,12 +184,31 @@ class ModelStatsControllerTest extends TestCase
         $this->assertSame(['status' => 'stored'], $response->getData());
     }
 
-    public function testSomeoneWhoCanOnlyReadMayStoreToo(): void
+    public function testSomeoneWhoCanOnlyReadIsRefusedAndStoresNothing(): void
     {
         $this->grant(false);
-        $this->stats->expects($this->once())->method('store')->willReturn(ModelStatsStoreResult::Stored);
+        $this->stats->expects($this->never())->method('store');
 
-        $this->assertSame(201, $this->controller->store(7, '"e1"', ['v' => 1])->getStatus());
+        $response = $this->controller->store(7, '"e1"', ['v' => 1]);
+
+        $this->assertSame(403, $response->getStatus());
+    }
+
+    public function testSomeoneWhoCanOnlyReadStillReadsTheNumbers(): void
+    {
+        $this->grant(false);
+        $this->stats->method('get')->willReturn(['v' => 1]);
+        $this->settings->method('settings')->willReturn(['unit' => null, 'up' => null]);
+
+        $this->assertSame(['v' => 1], $this->controller->show(7)->getData()['stats']);
+    }
+
+    public function testTheRefusalForSomeoneWhoCannotEditAnswersTheSameAsForAThumbnail(): void
+    {
+        // ThumbnailController::storeThumbnail answers 403 'You cannot update this file'
+        $this->grant(false);
+
+        $this->assertSame('You cannot update this file', $this->controller->store(7, '"e1"', ['v' => 1])->getData()['error']);
     }
 
     public function testANumberMeasuredFromAnEarlierVersionIsRefused(): void

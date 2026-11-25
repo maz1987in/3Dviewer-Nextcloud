@@ -341,6 +341,14 @@ describe('a model that has no numbers yet', () => {
 		expect(deps.uploadModelStats).toHaveBeenCalledWith(7, 'e1', stats())
 	})
 
+	it('measures for someone who can only read the file and shows it, without storing it', async () => {
+		const { deps } = mount(info({ stats: null, canEdit: false }))
+		await settle()
+
+		expect(value('Triangles')).toBe('1,234,567')
+		expect(deps.uploadModelStats).not.toHaveBeenCalled()
+	})
+
 	it('warns when the numbers are from a model that went without what it refers to', async () => {
 		mount(info({ stats: null }), { measured: { status: 'measured', stats: stats(), complete: false } })
 		await settle()

@@ -28,12 +28,13 @@ use Psr\Log\LoggerInterface;
  * browser measured of the file's current version, the unit and direction chosen for it, and
  * how many notes it has.
  *
- * Anyone who can read the file reads them, and anyone who can read it may store a
- * measurement of its current version, because the browser that opens the tab is the one
- * with the model loaded and a view-only user's browser is as good a measurer as an
- * editor's. What makes that safe is what is stored: ModelStatsService accepts only the
- * fields it names, within bounds, only under the ETag the server says is current, and
- * keeps the first measurement of a version. No route carries NoCSRFRequired.
+ * Anyone who can read the file reads them. Only someone who can edit it may store a
+ * measurement, as only they may store its thumbnail: what is stored is shown to everyone who
+ * can open that version, so a reader must not be able to put numbers there. Someone who can
+ * only read gets the same numbers by measuring in their own browser, and nothing is stored.
+ * ModelStatsService also accepts only the fields it names, within bounds, only under the ETag
+ * the server says is current, and keeps the first measurement of a version. No route carries
+ * NoCSRFRequired.
  *
  * @psalm-suppress UnusedClass Routed via attribute registration in Nextcloud runtime.
  */
@@ -101,8 +102,8 @@ class ModelStatsController extends BaseController
     }
 
     /**
-     * Store the measurement of the current version of a model. The first measurement of a
-     * version is kept.
+     * Store the measurement of the current version of a model, for someone who can edit the
+     * file. The first measurement of a version is kept.
      *
      * @param int $fileId The model
      * @param string $etag The ETag of the version the browser measured
@@ -127,6 +128,9 @@ class ModelStatsController extends BaseController
         $access = $this->resolve($fileId);
         if ($access === null || $access->file === null) {
             return $this->notFound();
+        }
+        if (!$access->canEdit) {
+            return $this->responseBuilder->createErrorResponse('You cannot update this file', Http::STATUS_FORBIDDEN);
         }
 
         try {

@@ -13,7 +13,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import type { Page } from '@playwright/test'
-import { BASE_URL, INDEX, PASSWORD, PROJECT_ROOT, USER, expect, expectModelShown, readState, test } from './helpers'
+import { BASE_URL, EDITOR, EDITOR_PASSWORD, INDEX, PASSWORD, PROJECT_ROOT, USER, expect, expectModelShown, readState, test } from './helpers'
 
 const AUTHORIZATION = 'Basic ' + Buffer.from(`${USER}:${PASSWORD}`).toString('base64')
 const DAV = `${BASE_URL}/remote.php/dav/files/${encodeURIComponent(USER)}`
@@ -192,7 +192,7 @@ test.describe('the 3D tab', () => {
 		await expectModelShown(page)
 	})
 
-	test('is reachable from the keyboard: the tab list takes the arrow keys', async ({ page }) => {
+	test('can be chosen from the keyboard', async ({ page }) => {
 		const { fileIds } = readState()
 		const sidebar = await openDetails(page, fileIds.stl)
 		const tabs = sidebar.getByRole('tab')
@@ -249,6 +249,52 @@ test.describe('the 3D tab', () => {
 			expect(downloads).toEqual([])
 		} finally {
 			await fetch(`${DAV}/e2e-large.stl`, { method: 'DELETE', headers: { Authorization: AUTHORIZATION } })
+		}
+	})
+
+	test('a user who can only read the file sees the model measured, and stores nothing', async ({ browser }) => {
+		const name = 'e2e-readonly.stl'
+		const fixture = fs.readFileSync(path.join(PROJECT_ROOT, 'tests', 'fixtures', 'triangle.stl'))
+		const put = await fetch(`${DAV}/${name}`, { method: 'PUT', headers: { Authorization: AUTHORIZATION }, body: fixture })
+		expect([201, 204]).toContain(put.status)
+		// Read-only: permission 1
+		const share = await fetch(`${BASE_URL}/ocs/v2.php/apps/files_sharing/api/v1/shares`, {
+			method: 'POST',
+			headers: { Authorization: AUTHORIZATION, 'OCS-APIRequest': 'true', Accept: 'application/json' },
+			body: new URLSearchParams({ path: `/${name}`, shareType: '0', shareWith: EDITOR, permissions: '1' }),
+		})
+		expect(share.status).toBe(200)
+
+		const context = await browser.newContext({ storageState: { cookies: [], origins: [] } })
+		const page = await context.newPage()
+		try {
+			await page.goto(`${INDEX}/login`)
+			await page.locator('input[name="user"]').fill(EDITOR)
+			await page.locator('input[name="password"]').fill(EDITOR_PASSWORD)
+			await page.locator('button[type="submit"]').click()
+			await page.waitForURL(/\/apps\//)
+			await page.goto(`${INDEX}/apps/files/files`)
+			const row = page.locator(`[data-cy-files-list-row-name="${name}"]`)
+			await row.waitFor()
+			const fileId = Number(await row.getAttribute('data-cy-files-list-row-fileid'))
+			const posts: string[] = []
+			page.on('request', (request) => {
+				if (request.method() === 'POST' && request.url().includes('/api/stats/')) {
+					posts.push(request.url())
+				}
+			})
+
+			const tab = await openTab(page, fileId)
+
+			// Measured in this browser, for this user, and shown
+			await expect(tab.locator('[data-test="size"]')).toHaveText('1.00 × 1.00 × 0.00 mm')
+			await expect(tab.locator('[data-test="triangles"]')).toHaveText('1')
+			expect(posts, 'a reader does not store the numbers').toEqual([])
+			const stored = await fetch(`${INDEX}/apps/threedviewer/api/stats/${fileId}`, { headers: { Authorization: AUTHORIZATION, 'OCS-APIRequest': 'true' } })
+			expect((await stored.json()).stats, 'nothing is stored for everyone else').toBeNull()
+		} finally {
+			await context.close()
+			await fetch(`${DAV}/${name}`, { method: 'DELETE', headers: { Authorization: AUTHORIZATION } })
 		}
 	})
 

@@ -387,13 +387,14 @@ describe('captureForCurrentVersion measuring the model', () => {
 		expect(uploadThumbnail).toHaveBeenCalled()
 	})
 
-	test('stores them for someone who cannot edit the file: reading it is enough', async () => {
+	test('stores nothing for someone who cannot edit the file: what is stored is shown to everyone', async () => {
 		const result = await captureForCurrentVersion({
 			fileId: 5, extension: 'glb', object3D: model, statuses: statusPromise(status({ canEdit: false })),
 		})
 
 		expect(result).toBe('skipped')
-		expect(uploadModelStats).toHaveBeenCalledWith(5, 'etag-1', STATS)
+		expect(extractModelStats).not.toHaveBeenCalled()
+		expect(uploadModelStats).not.toHaveBeenCalled()
 		expect(renderThumbnail).not.toHaveBeenCalled()
 	})
 

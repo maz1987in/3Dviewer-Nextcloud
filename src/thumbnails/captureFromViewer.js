@@ -128,8 +128,8 @@ async function captureStats({ fileId, extension, object3D, status }) {
 /**
  * Render the loaded model and store it as the thumbnail for the version the status
  * describes, unless this version already has one or the user cannot store it; and store
- * the numbers measured of it, unless this version has them. The measurement needs only that
- * the user can read the file, so a view-only user's open stores it too.
+ * the numbers measured of it, unless this version has them, under the same rule: someone who
+ * can edit the file. A splat, whose thumbnail the background worker makes, is still measured.
  *
  * Never throws: a failed thumbnail must not disturb the viewer.
  *
@@ -159,7 +159,9 @@ export async function captureForCurrentVersion({ fileId, extension, object3D, st
 		return 'skipped'
 	}
 
-	if (!status.hasStats) {
+	// Like the thumbnail, the numbers are shown to everyone who can open this version, so
+	// only someone who can edit the file stores them
+	if (status.canEdit && !status.hasStats) {
 		await captureStats({ fileId, extension, object3D, status })
 	}
 

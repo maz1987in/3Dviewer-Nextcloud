@@ -4,7 +4,8 @@
  *
  * What the Files sidebar's "3D" tab shows for a model, and how it gets there: the stored
  * numbers when this version of the file has them, otherwise a measurement in the browser
- * within the user's thumbnail limits, stored for the next person to open the tab.
+ * within the user's thumbnail limits, stored for the next person to open the tab when the
+ * user can edit the file (and only measured for themselves when they cannot).
  *
  * Every dependency is injected, so this holds only the rules and runs without a DOM.
  */
@@ -97,6 +98,12 @@ export async function loadTabState({ fileId, name, dir }, deps, { force = false,
 			return { phase: 'ready', info, stats: result.stats, source: 'measured', incomplete: true }
 		}
 
+		// Only someone who can edit the file stores numbers, as only they store its thumbnail:
+		// what is stored is shown to everyone who can open this version. Someone who can only
+		// read has measured for themselves, and that is all it is.
+		if (!info.canEdit) {
+			return { phase: 'ready', info, stats: result.stats, source: 'measured' }
+		}
 		const outcome = await deps.uploadModelStats(fileId, info.etag, result.stats)
 		if (outcome !== 'stale') {
 			return { phase: 'ready', info, stats: result.stats, source: 'measured' }

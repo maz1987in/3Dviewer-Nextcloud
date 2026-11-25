@@ -295,7 +295,7 @@
         },
         {
             "name": "model_stats",
-            "description": "What the Files sidebar's \"3D\" tab shows of a model, for signed-in users: the numbers the browser measured of the file's current version, the unit and direction chosen for it, and how many notes it has. Anyone who can read the file reads them, and anyone who can read it may store a measurement of its current version, because the browser that opens the tab is the one with the model loaded and a view-only user's browser is as good a measurer as an editor's. What makes that safe is what is stored: ModelStatsService accepts only the fields it names, within bounds, only under the ETag the server says is current, and keeps the first measurement of a version. No route carries NoCSRFRequired."
+            "description": "What the Files sidebar's \"3D\" tab shows of a model, for signed-in users: the numbers the browser measured of the file's current version, the unit and direction chosen for it, and how many notes it has. Anyone who can read the file reads them. Only someone who can edit it may store a measurement, as only they may store its thumbnail: what is stored is shown to everyone who can open that version, so a reader must not be able to put numbers there. Someone who can only read gets the same numbers by measuring in their own browser, and nothing is stored. ModelStatsService also accepts only the fields it names, within bounds, only under the ETag the server says is current, and keeps the first measurement of a version. No route carries NoCSRFRequired."
         },
         {
             "name": "notes",
