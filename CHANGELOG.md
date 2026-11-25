@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - On a public link, notes show whether they are resolved and the replies under them, read-only. No name appears: not who wrote a reply, not who resolved the note, and every @word that reads as a mention is shown as "@someone", whether or not it names anyone, and nothing is looked up for it.
 - A note's link ("Copy link to this note", and the one in a notification) opens the note with its thread, even if the list is filtered to hide it.
 
+### Fixed
+- Retry on a note or measurement that failed to save sent it again but left it marked as not saved, so pressing Retry once more saved a second copy for everyone. A retried note is now marked saved, and saved once.
+
 ## [3.13.0] - 2026-11-25
 
 An export can now be saved straight into Nextcloud, next to the model, instead of downloaded: turn a STEP file into an STL beside it for the slicer, or keep a USDZ for a colleague. On an iPhone or iPad, people in Brave, Chrome or Firefox now find the View in AR button too, and it tells them to open the page in Safari, the only browser there that can show a web page's model in the room.
