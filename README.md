@@ -1,6 +1,6 @@
 # 3D Viewer for Nextcloud
 
-[![Version](https://img.shields.io/badge/version-3.12.0-blue)](https://github.com/maz1987in/3Dviewer-Nextcloud/releases)
+[![Version](https://img.shields.io/badge/version-3.13.0-blue)](https://github.com/maz1987in/3Dviewer-Nextcloud/releases)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-orange)](LICENSE)
 [![Nextcloud](https://img.shields.io/badge/Nextcloud-31--35-0082c9)](https://nextcloud.com)
 [![Update nextcloud/ocp](https://github.com/maz1987in/3Dviewer-Nextcloud/actions/workflows/update-nextcloud-ocp-matrix.yml/badge.svg)](https://github.com/maz1987in/3Dviewer-Nextcloud/actions/workflows/update-nextcloud-ocp-matrix.yml)
@@ -98,7 +98,7 @@ A comprehensive 3D model viewer application for Nextcloud that supports multiple
 - **Model Comparison** - Side-by-side model viewing with synchronized controls, against another file or an earlier version of the same file
 - **Compare with an Earlier Version** - Pick one of the versions Nextcloud kept and see it beside the current model with what changed, or as a see-through ghost over it
 - **Print Check** - See whether a model fits your printer's build volume (common printers or your own size), which surfaces overhang past an angle you choose, roughly how much filament it needs, and which walls are thinner than a minimum you set; for G-code, the print time and filament the slicer worked out
-- **View in AR** - On an iPhone or iPad in Safari (AR Quick Look) or an Android phone with Chrome (a live camera view), put the open model in your room at its real size, from the file's unit: a 100 mm part is 100 mm on your table. The button shows only on devices that can do it: in the full viewer's toolbar and its tools panel, and beside Screenshot in the viewer that public links and the Files preview open, so someone you share a model with can see it in their room without an account (not in embeds on other websites). It is off for scans and splats, and refuses models too heavy for a phone
+- **View in AR** - On an iPhone or iPad in Safari (AR Quick Look) or an Android phone with Chrome (a live camera view), put the open model in your room at its real size, from the file's unit: a 100 mm part is 100 mm on your table. The button shows only on phones and tablets (in Brave, Chrome or Firefox on an iPhone or iPad it says to open the page in Safari): in the full viewer's toolbar and its tools panel, and beside Screenshot in the viewer that public links and the Files preview open, so someone you share a model with can see it in their room without an account (not in embeds on other websites). It is off for scans and splats, and refuses models too heavy for a phone
 - **Turntable Video** - Record one full turn around the model (4–15 s, at 720p, 1080p or your window's size) and download it as WebM or MP4, or save it next to the model in your Nextcloud
 - **Links to a View** - "Copy link to this view" (or the L key) copies a link that reopens the model as you see it: the same camera, shading, lighting, cross-section and exploded view. Notes and bookmarks have links of their own. The link points at the file, so only people who can open it see it
 - **Link Previews** - A link to a model in Talk, Text, Collectives or Deck shows as a card with its thumbnail, name, format and size and an "Open in 3D Viewer" button, for people who can open the file. "3D models" in the Smart Picker finds a model by name and inserts its link
@@ -263,28 +263,26 @@ This project is licensed under the **AGPL-3.0 License**. See [LICENSE](LICENSE) 
 
 ## 📊 Version
 
-**Current Version**: 3.12.0
-**Released**: November 13, 2026
+**Current Version**: 3.13.0
+**Released**: November 25, 2026
 **Requires**: Nextcloud 31 -- 35
 
-### What's New in 3.12.0
+### What's New in 3.13.0
 
-**View in AR on public links:**
-- Someone you share a model with by link can put it in their room on an iPhone, an iPad or an Android phone with Chrome, without an account; the Files preview offers it too
-- It is at the real size from the file's unit, including a unit chosen for the file
+**Save an export next to the model:**
+- "Save STL next to the model" (or whichever format is chosen) writes the export into the model's own folder in Nextcloud instead of downloading it, so a STEP file can become an STL beside it for the slicer
+- A file already there is never replaced: the copy is "bracket (2).stl". It is offered to anyone who may add files to that folder; a public link keeps the download
 
-**View in AR in the toolbar:**
-- On a phone or tablet that can show a model in the room, the full viewer has an AR button beside Help, one tap from the model
-- On a narrow phone the toolbar makes room so Tools always stays on screen
+**View in AR in other iPhone browsers:**
+- In Brave, Chrome or Firefox on an iPhone or iPad, the AR button now shows too, and says to open the page in Safari, the only browser there that can show a web page's model in the room
 
-**Print check without freezing:**
-- Print check opens at once on large models and measures in the background; on a 240,000-triangle model the page no longer stops
-
-**Help:**
-- The in-app help covers Print check, Record turntable, Copy link to this view, Copy embed code, file units, Which way is up and link previews
+**Also:**
+- An export of "bracket.v2.stl" is named "bracket.v2.glb", no longer "bracket.glb"
+- fast-xml-parser updated for a low-severity advisory; the app's production dependencies have no known advisories
 
 ### Recent releases
 
+- **3.12.0:** View in AR on public links and in the Files preview, an AR button in the phone toolbar, Print check that opens at once on large models, and in-app help for the tools added since 3.8
 - **3.11.0:** a Parts panel with IFC properties, View in AR, link previews in Talk, Text, Collectives and Deck, and notifications for notes
 - **3.10.0:** point clouds (LAS, LAZ, E57, PCD, XYZ) and Gaussian splats, links to a view, file units, embedding on other websites, and "Which way is up"
 - **3.9.0:** compare with an earlier version of a file, Print check, and turntable video
