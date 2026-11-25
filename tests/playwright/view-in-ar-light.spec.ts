@@ -105,6 +105,27 @@ test('a desktop visitor is not offered View in AR', async ({ page }) => {
 	expect(errors).toEqual([])
 })
 
+test('a visitor in Brave on an iPhone is offered View in AR, and a press says to open the page in Safari', async ({ page }) => {
+	// Brave says it is Safari, but its links cannot open AR Quick Look: relList has no "ar"
+	await page.addInitScript(() => {
+		Object.defineProperty(navigator, 'userAgent', { get: () => 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.7 Mobile/15E148 Safari/604.1' })
+		;(window as any).__arLinks = 0
+		document.addEventListener('click', (event) => {
+			if (event.target instanceof Element && event.target.closest('a[rel~="ar"]')) (window as any).__arLinks++
+		}, true)
+	})
+	const { errors } = await openViewer(page, server.url, CUBE, visitor('arbrave'))
+	const button = arButton(page)
+	await expect(button).toHaveText('View in AR')
+
+	await button.click()
+	await expect(page.locator('.viewer-ar-message[role="status"]')).toContainText('Open this page in Safari')
+	await expect(page.locator('.viewer-ar-message--error')).toHaveText('')
+	await expect(button).toHaveText('View in AR')
+	expect(await page.evaluate(() => (window as any).__arLinks)).toBe(0)
+	expect(errors).toEqual([])
+})
+
 test('a visitor\'s iPhone gets the model in AR Quick Look as a USDZ file in metres', async ({ page }) => {
 	await asIPhone(page)
 	const { errors } = await openViewer(page, server.url, CUBE, visitor('arphone'))

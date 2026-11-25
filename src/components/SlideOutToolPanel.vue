@@ -848,7 +848,7 @@ export default {
 		printCheckActive: { type: Boolean, default: false },
 		// False where MediaRecorder or canvas streams are missing
 		canRecordVideo: { type: Boolean, default: false },
-		// How this device can show the model in the room ('quick-look', 'webxr'), or null
+		// How this device can show the model in the room ('quick-look', 'webxr', or 'needs-safari' in an iPhone browser that isn't Safari), or null
 		// where it cannot, and where that stands ('idle', 'preparing', 'ready', 'active')
 		arPath: { type: String, default: null },
 		arState: { type: String, default: 'idle' },

@@ -721,6 +721,7 @@
     "Thinner than {min} mm": "Thinner than {min} mm",
     "This .xyz file lists atoms, not a scan, so it can't be shown here.": "This .xyz file lists atoms, not a scan, so it can't be shown here.",
     "This browser can't record video": "This browser can't record video",
+    "This browser can't show models in AR on an iPhone or iPad. Open this page in Safari to see the model in your room.": "This browser can't show models in AR on an iPhone or iPad. Open this page in Safari to see the model in your room.",
     "This element has no properties in the file.": "This element has no properties in the file.",
     "This file doesn't include the slicer's estimates": "This file doesn't include the slicer's estimates",
     "This file holds no splats.": "This file holds no splats.",
