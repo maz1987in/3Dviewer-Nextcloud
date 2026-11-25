@@ -185,4 +185,37 @@ class NoteRecipientsTest extends TestCase
 
         $this->assertSame([], $this->recipients->forNotification($this->file(), NoteActor::user('owner')));
     }
+
+    // Mentions
+
+    public function testAMentionReachesOnlyThosePeopleWhoCanOpenTheFile(): void
+    {
+        $this->canOpen = ['sara', 'omar'];
+
+        $this->assertSame(
+            ['sara', 'omar'],
+            $this->recipients->forMention($this->file(), NoteActor::user('lina'), ['sara', 'outsider', 'omar']),
+        );
+    }
+
+    public function testAMentionNeverReachesTheWriter(): void
+    {
+        $this->canOpen = ['lina', 'sara'];
+
+        $this->assertSame(['sara'], $this->recipients->forMention($this->file(), NoteActor::user('lina'), ['lina', 'sara']));
+    }
+
+    public function testAMentionNeverReachesAGuestKey(): void
+    {
+        $this->canOpen = ['guest:abc', 'sara'];
+
+        $this->assertSame(['sara'], $this->recipients->forMention($this->file(), NoteActor::user('lina'), ['guest:abc', 'sara']));
+    }
+
+    public function testEachPersonIsToldOnce(): void
+    {
+        $this->canOpen = ['sara'];
+
+        $this->assertSame(['sara'], $this->recipients->forMention($this->file(), NoteActor::user('lina'), ['sara', 'sara']));
+    }
 }

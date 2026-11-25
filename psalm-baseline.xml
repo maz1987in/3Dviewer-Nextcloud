@@ -620,6 +620,9 @@
       <code><![CDATA[$createdAt]]></code>
       <code><![CDATA[$fileId]]></code>
       <code><![CDATA[$payload]]></code>
+      <code><![CDATA[$resolvedAt]]></code>
+      <code><![CDATA[$resolvedBy]]></code>
+      <code><![CDATA[$state]]></code>
       <code><![CDATA[$type]]></code>
       <code><![CDATA[$updatedAt]]></code>
     </MissingPropertyType>
@@ -628,11 +631,35 @@
       <code><![CDATA[$createdAt]]></code>
       <code><![CDATA[$fileId]]></code>
       <code><![CDATA[$payload]]></code>
+      <code><![CDATA[$resolvedAt]]></code>
+      <code><![CDATA[$resolvedBy]]></code>
+      <code><![CDATA[$state]]></code>
       <code><![CDATA[$type]]></code>
       <code><![CDATA[$updatedAt]]></code>
     </PossiblyUnusedProperty>
     <PropertyNotSetInConstructor>
       <code><![CDATA[Note]]></code>
+    </PropertyNotSetInConstructor>
+  </file>
+  <file src="lib/Db/NoteReply.php">
+    <MissingPropertyType>
+      <code><![CDATA[$authorUid]]></code>
+      <code><![CDATA[$createdAt]]></code>
+      <code><![CDATA[$fileId]]></code>
+      <code><![CDATA[$noteId]]></code>
+      <code><![CDATA[$text]]></code>
+      <code><![CDATA[$updatedAt]]></code>
+    </MissingPropertyType>
+    <PossiblyUnusedProperty>
+      <code><![CDATA[$authorUid]]></code>
+      <code><![CDATA[$createdAt]]></code>
+      <code><![CDATA[$fileId]]></code>
+      <code><![CDATA[$noteId]]></code>
+      <code><![CDATA[$text]]></code>
+      <code><![CDATA[$updatedAt]]></code>
+    </PossiblyUnusedProperty>
+    <PropertyNotSetInConstructor>
+      <code><![CDATA[NoteReply]]></code>
     </PropertyNotSetInConstructor>
   </file>
   <file src="lib/Listener/FileIndexListener.php">
@@ -746,6 +773,26 @@
   </file>
   <file src="lib/Migration/Version031000Date20261030000000.php">
     <UndefinedDocblockClass>
+      <code><![CDATA[$table]]></code>
+      <code><![CDATA[$table]]></code>
+    </UndefinedDocblockClass>
+  </file>
+  <file src="lib/Migration/Version031400Date20261125000000.php">
+    <UndefinedDocblockClass>
+      <code><![CDATA[$notes]]></code>
+      <code><![CDATA[$notes]]></code>
+      <code><![CDATA[$notes]]></code>
+      <code><![CDATA[$notes]]></code>
+      <code><![CDATA[$notes]]></code>
+      <code><![CDATA[$notes]]></code>
+      <code><![CDATA[$table]]></code>
+      <code><![CDATA[$table]]></code>
+      <code><![CDATA[$table]]></code>
+      <code><![CDATA[$table]]></code>
+      <code><![CDATA[$table]]></code>
+      <code><![CDATA[$table]]></code>
+      <code><![CDATA[$table]]></code>
+      <code><![CDATA[$table]]></code>
       <code><![CDATA[$table]]></code>
       <code><![CDATA[$table]]></code>
     </UndefinedDocblockClass>
@@ -980,6 +1027,14 @@
       <code><![CDATA[$users]]></code>
     </UnusedProperty>
   </file>
+  <file src="tests/http/NoteReviewHttpTest.php">
+    <MissingDependency>
+      <code><![CDATA[HttpTestCase]]></code>
+    </MissingDependency>
+    <UnusedClass>
+      <code><![CDATA[NoteReviewHttpTest]]></code>
+    </UnusedClass>
+  </file>
   <file src="tests/http/NotesHttpTest.php">
     <MissingDependency>
       <code><![CDATA[HttpTestCase]]></code>
@@ -1050,6 +1105,14 @@
     </UndefinedClass>
     <UnusedClass>
       <code><![CDATA[NoteMapperTest]]></code>
+    </UnusedClass>
+  </file>
+  <file src="tests/integration/NoteReplyMapperTest.php">
+    <UndefinedClass>
+      <code><![CDATA[TestCase]]></code>
+    </UndefinedClass>
+    <UnusedClass>
+      <code><![CDATA[NoteReplyMapperTest]]></code>
     </UnusedClass>
   </file>
   <file src="tests/integration/ServerEnvironmentTest.php">
@@ -1246,6 +1309,14 @@
       <code><![CDATA[CleanupOrphanFileSettingsTest]]></code>
     </UnusedClass>
   </file>
+  <file src="tests/unit/Cron/CleanupOrphanNotesTest.php">
+    <UndefinedClass>
+      <code><![CDATA[TestCase]]></code>
+    </UndefinedClass>
+    <UnusedClass>
+      <code><![CDATA[CleanupOrphanNotesTest]]></code>
+    </UnusedClass>
+  </file>
   <file src="tests/unit/Db/FileIndexMapperFolderTest.php">
     <UndefinedClass>
       <code><![CDATA[TestCase]]></code>
@@ -1332,6 +1403,14 @@
     </UndefinedClass>
     <UnusedClass>
       <code><![CDATA[Version031000Date20261030000000Test]]></code>
+    </UnusedClass>
+  </file>
+  <file src="tests/unit/Migration/Version031400Date20261125000000Test.php">
+    <UndefinedClass>
+      <code><![CDATA[TestCase]]></code>
+    </UndefinedClass>
+    <UnusedClass>
+      <code><![CDATA[Version031400Date20261125000000Test]]></code>
     </UnusedClass>
   </file>
   <file src="tests/unit/NoPrivateServerApiTest.php">
@@ -1503,12 +1582,28 @@
       <code><![CDATA[NoteChangePublisherTest]]></code>
     </UnusedClass>
   </file>
+  <file src="tests/unit/Service/NoteMentionsTest.php">
+    <UndefinedClass>
+      <code><![CDATA[TestCase]]></code>
+    </UndefinedClass>
+    <UnusedClass>
+      <code><![CDATA[NoteMentionsTest]]></code>
+    </UnusedClass>
+  </file>
   <file src="tests/unit/Service/NotePayloadTest.php">
     <UndefinedClass>
       <code><![CDATA[TestCase]]></code>
     </UndefinedClass>
     <UnusedClass>
       <code><![CDATA[NotePayloadTest]]></code>
+    </UnusedClass>
+  </file>
+  <file src="tests/unit/Service/NotePeopleTest.php">
+    <UndefinedClass>
+      <code><![CDATA[TestCase]]></code>
+    </UndefinedClass>
+    <UnusedClass>
+      <code><![CDATA[NotePeopleTest]]></code>
     </UnusedClass>
   </file>
   <file src="tests/unit/Service/NoteRecipientsTest.php">

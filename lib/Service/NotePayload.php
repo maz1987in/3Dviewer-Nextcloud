@@ -85,6 +85,40 @@ final class NotePayload
     }
 
     /**
+     * The text of a stored payload, or an empty string for one that has none (a measurement).
+     */
+    public static function textOf(?string $encoded): string
+    {
+        /** @psalm-suppress MixedAssignment json_decode's result is checked before it is used */
+        $payload = json_decode($encoded ?? '', true);
+        /** @psalm-suppress MixedAssignment checked below */
+        $text = is_array($payload) ? ($payload['text'] ?? null) : null;
+
+        return is_string($text) ? $text : '';
+    }
+
+    /**
+     * The text of a reply, checked before anything reaches the database. A reply has no
+     * payload — no position, no type — so this is all there is to check.
+     *
+     * @throws InvalidNoteException
+     */
+    public static function replyText(mixed $text): string
+    {
+        if (!is_string($text)) {
+            throw new InvalidNoteException('A reply must be text');
+        }
+        if (trim($text) === '') {
+            throw new InvalidNoteException('A reply needs some text');
+        }
+        if (mb_strlen($text) > self::MAX_TEXT_CHARS) {
+            throw new InvalidNoteException('The reply is too long');
+        }
+
+        return $text;
+    }
+
+    /**
      * @param array<string, mixed> $normalized output of validate()
      */
     public static function encode(array $normalized): string

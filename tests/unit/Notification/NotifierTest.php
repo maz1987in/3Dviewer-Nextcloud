@@ -236,4 +236,40 @@ class NotifierTest extends TestCase
 
         return new Notifier($factory, $urls, $this->users, $access, new NoteLinks($urls));
     }
+
+    public function testAMentionNamesWhoMentionedYouAndTheFile(): void
+    {
+        $this->notifier->prepare($this->notification('threedviewer', 'note_mention', ['noteId' => 33]), 'en');
+
+        $this->assertSame('{user} mentioned you in a note on {file}', $this->set['setRichSubject'][0]);
+        $this->assertSame('Sara Ahmed mentioned you in a note on bracket.step', $this->set['setParsedSubject'][0]);
+        $this->assertSame('user', $this->set['setRichSubject'][1]['user']['type']);
+    }
+
+    public function testAMentionOpensTheModelAtThatNote(): void
+    {
+        $this->notifier->prepare($this->notification('threedviewer', 'note_mention', ['noteId' => 33]), 'en');
+
+        $this->assertSame('https://cloud.test/apps/threedviewer/f/7?note=33', $this->set['setLink'][0]);
+    }
+
+    public function testAMentionCarriesNoNoteText(): void
+    {
+        $this->notifier->prepare($this->notification('threedviewer', 'note_mention', ['noteId' => 33, 'text' => 'SECRET']), 'en');
+
+        $this->assertStringNotContainsString('SECRET', json_encode($this->set, JSON_THROW_ON_ERROR));
+    }
+
+    public function testAMentionOfSomeoneWhoCanNoLongerOpenTheFileIsWithdrawn(): void
+    {
+        $access = $this->createMock(NoteAccess::class);
+        $access->method('forUser')->willReturn(null);
+        $urls = $this->createMock(IURLGenerator::class);
+        $factory = $this->createMock(IFactory::class);
+        $factory->method('get')->willReturn($this->createMock(IL10N::class));
+        $notifier = new Notifier($factory, $urls, $this->users, $access, new NoteLinks($urls));
+
+        $this->expectException(AlreadyProcessedException::class);
+        $notifier->prepare($this->notification('threedviewer', 'note_mention', ['noteId' => 33]), 'en');
+    }
 }

@@ -29,6 +29,7 @@
 - 🧩 Parts: A tree of the model's parts: hide a part, show only one, zoom to it, or find it by name, and click a part in the model to find it in the list. IFC elements are listed by storey, with their type and property sets
 - 📝 Shared notes: Annotations and measurements are saved with the model and shown to everyone who can open it
 - 🔔 Note notifications: When someone adds a note, the model's owner and earlier note authors are notified, and changes show in the Activity stream under a "3D Viewer" filter
+- ✅ Note review: Resolve and reopen notes, filter them by state, reply in a thread under a note, and @mention colleagues, who are notified and taken to the note
 - 📏 Measurements: Distance and angle measurement tools (with billboard text) with per-user sizing controls for point size, line thickness, and label width
 - 🎬 Animation Controls: Play/pause controls for animated models with loop toggle, timeline scrubber, and frame stepping
 - ✂️ Cross-Section: Interactive clipping plane to slice models along X/Y/Z axes for interior inspection

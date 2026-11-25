@@ -30,6 +30,9 @@ class Provider implements IProvider
     public const NOTE_ADDED = 'note_added';
     public const NOTE_CHANGED = 'note_changed';
     public const NOTE_DELETED = 'note_deleted';
+    public const NOTE_RESOLVED = 'note_resolved';
+    public const NOTE_REOPENED = 'note_reopened';
+    public const NOTE_REPLIED = 'note_replied';
 
     /** @psalm-suppress PossiblyUnusedMethod Constructed by the DI container */
     public function __construct(
@@ -50,7 +53,7 @@ class Provider implements IProvider
             throw new UnknownActivityException();
         }
         $subject = $event->getSubject();
-        if (!in_array($subject, [self::NOTE_ADDED, self::NOTE_CHANGED, self::NOTE_DELETED], true)) {
+        if (!in_array($subject, [self::NOTE_ADDED, self::NOTE_CHANGED, self::NOTE_DELETED, self::NOTE_RESOLVED, self::NOTE_REOPENED, self::NOTE_REPLIED], true)) {
             throw new UnknownActivityException();
         }
 
@@ -117,6 +120,16 @@ class Provider implements IProvider
             [self::NOTE_DELETED, 'self'] => $l->t('You deleted a note on {file}'),
             [self::NOTE_DELETED, 'user'] => $l->t('{user} deleted a note on {file}'),
             [self::NOTE_DELETED, 'guest'] => $l->t('{guest} (guest) deleted a note on {file}'),
+            // Resolving and replying are for people with an account; a row from anyone else still reads
+            [self::NOTE_RESOLVED, 'self'] => $l->t('You resolved a note on {file}'),
+            [self::NOTE_RESOLVED, 'user'] => $l->t('{user} resolved a note on {file}'),
+            [self::NOTE_RESOLVED, 'guest'], [self::NOTE_RESOLVED, 'anonymous'] => $l->t('A note on {file} was resolved'),
+            [self::NOTE_REOPENED, 'self'] => $l->t('You reopened a note on {file}'),
+            [self::NOTE_REOPENED, 'user'] => $l->t('{user} reopened a note on {file}'),
+            [self::NOTE_REOPENED, 'guest'], [self::NOTE_REOPENED, 'anonymous'] => $l->t('A note on {file} was reopened'),
+            [self::NOTE_REPLIED, 'self'] => $l->t('You replied to a note on {file}'),
+            [self::NOTE_REPLIED, 'user'] => $l->t('{user} replied to a note on {file}'),
+            [self::NOTE_REPLIED, 'guest'], [self::NOTE_REPLIED, 'anonymous'] => $l->t('A note on {file} got a reply'),
             default => $l->t('A visitor with the link deleted a note on {file}'),
         };
     }

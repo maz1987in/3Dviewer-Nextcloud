@@ -295,7 +295,7 @@
         },
         {
             "name": "notes",
-            "description": "The shared annotations and measurements of a model, for signed-in users. No route carries NoCSRFRequired — the read included, because it runs the legacy migration, and that publishes a user's private annotations to everyone who can open the model."
+            "description": "The shared annotations and measurements of a model, for signed-in users. No route carries NoCSRFRequired — the read included, because it runs the legacy migration, and that publishes a user's private annotations to everyone who can open the model. Review follows the rule the notes themselves do: whoever may add a note to the model may resolve it, reopen it, reply to it, and edit or delete any reply under it. The rights are the model's, read from the file on every request; a note or a reply has none of its own."
         },
         {
             "name": "slicer",
@@ -319,7 +319,7 @@
         },
         {
             "name": "public_notes",
-            "description": "A shared model's notes, read-only, for visitors on a public link. MUST extend PublicShareController, for the reason PublicFileController gives: the middleware enforces share passwords only for instances of it (GHSA-gjh8-x4wm-3cfj). Authors are left out so a public link doesn't hand out the names of the people who wrote on the model."
+            "description": "A shared model's notes, read-only, for visitors on a public link. MUST extend PublicShareController, for the reason PublicFileController gives: the middleware enforces share passwords only for instances of it (GHSA-gjh8-x4wm-3cfj). Authors are left out so a public link doesn't hand out the names of the people who wrote on the model — and the same goes for those who replied, who resolved a note, and who was mentioned. A visitor sees whether a note is resolved and the thread under it, and can change none of it."
         }
     ]
 }
