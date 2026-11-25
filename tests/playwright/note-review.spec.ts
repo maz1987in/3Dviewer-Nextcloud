@@ -311,8 +311,9 @@ test.describe('mentions', () => {
 		await expect(list).toHaveCount(0)
 		await card(page, 1).locator('.note-reply-send').click()
 
-		// What is sent is the id, which keeps meaning the same person; what is drawn is the name
-		expect(calls.replies).toEqual([{ text: 'Please look @sara' }])
+		// What is sent is the id, which keeps meaning the same person; what is drawn is the name.
+		// The request is on its way when the click returns, so wait for it to arrive
+		await expect.poll(() => calls.replies).toEqual([{ text: 'Please look @sara' }])
 		const mention = card(page, 1).locator('.note-reply-text .note-mention')
 		await expect(mention).toHaveText('@Sara Ahmed')
 		await expect(card(page, 1).locator('.note-reply-text')).not.toContainText('@sara')
