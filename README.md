@@ -110,7 +110,7 @@ A comprehensive 3D model viewer application for Nextcloud that supports multiple
 - **3D Camera Controller** - Enhanced intuitive circular controller for precise camera navigation with improved controls
 - **Face Labels** - Orientation markers (TOP, BOTTOM, FRONT, BACK, LEFT, RIGHT) on model faces
 - **Screenshot Capture** - Take high-quality PNG/JPEG screenshots of 3D models
-- **Export Functionality** - Export models to GLB, STL, OBJ, 3MF, PLY and USDZ formats
+- **Export Functionality** - Export models to GLB, STL, OBJ, 3MF, PLY and USDZ formats, as a download or saved next to the model in your Nextcloud (a STEP file saved as STL beside it, say)
 - **Render Modes** - Clay, Normals and X-ray shading to inspect surface form, flipped faces and assembly interiors
 - **Slicer Integration** - Send models directly to PrusaSlicer, Cura, BambuStudio, OrcaSlicer, Simplify3D, Eufy Studio, and AnycubicSlicer with enhanced security (file size limits, MIME validation, rolling expiration)
 - **Camera Projection Toggle** - Switch between perspective and orthographic views

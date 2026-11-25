@@ -793,23 +793,25 @@ const {
 
 #### useExport
 
-**Purpose:** Export 3D models in various formats (GLB, STL, OBJ).
+**Purpose:** Write the open model as a file: GLB, STL, OBJ, PLY, 3MF or USDZ, or its source files as a ZIP.
 
 **API:**
 ```javascript
 const {
-  // State refs
-  isExporting,         // ref<boolean>
-  exportProgress,      // ref<number>
-  exportFormat,        // ref<string>
-  exportError,         // ref<string | null>
-  
-  // Methods
-  exportModel,         // (format, options) => Promise<Blob>
-  getSupportedFormats, // () => string[]
-  validateExport,      // (model) => boolean
+  exporting,       // readonly ref<boolean>
+  exportProgress,  // readonly ref<{ stage, percentage }>
+  exportError,     // readonly ref<string | null>
+  exportAsGLB,     // (object, name, { onFile }) => Promise<void>
+  exportAsSTL,     // (object, name, { onFile }) => Promise<void>
+  exportAsOBJ,     // (object, name, { onFile }) => Promise<void>
+  exportAsPLY,     // (object, name, { onFile }) => Promise<void>
+  exportAs3MF,     // (object, name, { millimetresPerUnit, onFile }) => Promise<void>
+  exportAsUSDZ,    // (object, name, { millimetresPerUnit, onFile }) => Promise<void>
+  exportAsZIP,     // (sourceFiles, name, { onFile }) => Promise<void>
 } = useExport()
 ```
+
+Each one makes the file and hands it to `onFile(blob, filename)` when that is given, or downloads it. `ThreeViewer.handleExport(format, { save })` uses `onFile` for **Save {format} next to the model** in the tools panel's Export section: the file goes into the model's folder through `davFiles.saveNewFile`, as the turntable's save does (a free name such as "bracket (2).stl", `If-None-Match: *`, and a new listing on 412; see Turntable video). The viewer asks once per folder whether the logged-in user may create files there (`canCreateIn`), and the button is shown only then, never on a public link. `davFiles.js` loads on demand, not with the viewer. A failed save is an `ExportSaveError`, and `exportSaveFailure` words it by status: 507 says there is no space, 401 and 403 that the folder no longer takes new files.
 
 #### useFaceLabels
 

@@ -29,7 +29,9 @@ async function open(page: Page, { shares = [] as object[], permissions = 'RGDNVW
 		asked.shares++
 		return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ocs: { meta: { status: 'ok' }, data: shares } }) })
 	})
-	await page.route('**/remote.php/dav/files/alice/**', (route) => route.request().method() === 'PROPFIND' && ++asked.permissions
+	// Only the file's own permissions count: the viewer also asks about the model's folder,
+	// for "Save next to the model"
+	await page.route('**/remote.php/dav/files/alice/**', (route) => route.request().method() === 'PROPFIND' && (!route.request().url().endsWith('/cube.stl') || ++asked.permissions)
 		? route.fulfill({ status: 207, contentType: 'application/xml', body: `<?xml version="1.0"?><d:multistatus xmlns:d="DAV:" xmlns:oc="http://owncloud.org/ns"><d:response><d:href>/remote.php/dav/files/alice/models/cube.stl</d:href><d:propstat><d:prop><oc:permissions>${permissions}</oc:permissions></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response></d:multistatus>` })
 		: route.fallback())
 	return { ...await openViewer(page, server.url, MODEL, viewer), asked }

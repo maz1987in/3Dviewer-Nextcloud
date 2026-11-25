@@ -83,3 +83,27 @@ describe('the Record turntable button', () => {
 		expect(record).toContain(":title=\"canRecordVideo ? undefined : t('threedviewer', 'This browser can\\'t record video')\"")
 	})
 })
+
+describe('the Save next to the model button', () => {
+	const save = /<button\b[^>]*@click="saveExport"[^>]*>[\s\S]*?<\/button>/.exec(template)[0]
+	const script = PANEL.slice(PANEL.indexOf('<script>'))
+
+	it('is shown only to someone who may add files to the model\'s folder', () => {
+		expect(save).toContain('v-if="canSaveExport"')
+		expect(PANEL).toMatch(/canSaveExport: \{ type: Boolean, default: false \}/)
+	})
+
+	it('names the chosen format, and stays focusable while an export runs, as Export does', () => {
+		expect(save).toContain('type="button"')
+		expect(save).toContain("t('threedviewer', 'Save {format} next to the model', { format: exportFormat.toUpperCase() })")
+		expect(save).toContain(':disabled="!modelLoaded"')
+		expect(save).toContain(':aria-disabled="exporting || off(\'export\') ? \'true\' : null"')
+	})
+
+	it('asks for the chosen format, and nothing while an export runs, without a model, for a scan or without leave', () => {
+		const handler = /const saveExport = \(\) => \{[\s\S]*?\n\t\t\}/.exec(script)[0]
+		expect(handler).toContain("if (props.exporting || !props.modelLoaded || off('export') || !props.canSaveExport) return")
+		expect(handler).toContain("emit('save-export', exportFormat.value)")
+		expect(script).toMatch(/'save-export',/)
+	})
+})

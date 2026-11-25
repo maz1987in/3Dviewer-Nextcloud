@@ -60,7 +60,7 @@
 - 📷 Screenshot capture: Take high-quality PNG/JPEG screenshots of your models
 - 🎥 Turntable video: Record one full turn around the model and download it, or save it next to the model in your Nextcloud
 - 🥽 View in AR: Put the open model in your room at its real size, on an iPhone or iPad in Safari (AR Quick Look) or an Android phone with Chrome, in the full viewer, on public links and in the Files preview
-- 💾 Export models to GLB, STL, OBJ, 3MF, PLY and USDZ formats
+- 💾 Export models to GLB, STL, OBJ, 3MF, PLY and USDZ formats, as a download or saved next to the model in your Nextcloud
 - 🖨️ Slicer integration: Send models directly to PrusaSlicer, Cura, BambuStudio, OrcaSlicer, Simplify3D, Eufy Studio, and AnycubicSlicer with enhanced security (file size limits, MIME validation, rolling expiration)
 - 📊 Model statistics panel with detailed information
 - 🔲 Wireframe and bounding box visualization

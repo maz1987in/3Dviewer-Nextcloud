@@ -320,6 +320,43 @@ describe('useExport — blob creation', () => {
  * STL, OBJ and PLY are written in one synchronous call, so a render mode's stand-ins come
  * off for exactly that call and the viewer never shows the model without its shading.
  */
+describe('useExport — handing the file to onFile instead of downloading it', () => {
+	it('gives every format\'s file and name to onFile, and downloads nothing', async () => {
+		const exp = useExport()
+		const mesh = fakeMesh({ positions: TRIANGLE })
+		const given = []
+		const onFile = jest.fn(async (blob, name) => { given.push([name, blob.type]) })
+
+		await run(exp.exportAsSTL(mesh, 'part', { onFile }))
+		await run(exp.exportAsOBJ(mesh, 'part', { onFile }))
+		await run(exp.exportAsGLB(mesh, 'part', { onFile }))
+		await run(exp.exportAsPLY(mesh, 'part', { onFile }))
+		await run(exp.exportAs3MF(mesh, 'part', { millimetresPerUnit: 1, onFile }))
+		await run(exp.exportAsUSDZ(mesh, 'part', { millimetresPerUnit: 1, onFile }))
+
+		expect(given).toEqual([
+			['part.stl', 'model/stl'],
+			['part.obj', 'model/obj'],
+			['part.glb', 'model/gltf-binary'],
+			['part.ply', 'model/ply'],
+			['part.3mf', 'model/3mf'],
+			['part.usdz', 'model/vnd.usdz+zip'],
+		])
+		// No download link was made: createObjectURL is what a download needs
+		expect(URL.createObjectURL).not.toHaveBeenCalled()
+		expect(exp.exporting.value).toBe(false)
+	})
+
+	it('fails the export when onFile fails, with its error, and leaves the exporting flag down', async () => {
+		const exp = useExport()
+		const refused = Object.assign(new Error('Insufficient Storage'), { response: { status: 507 } })
+
+		await expect(run(exp.exportAsSTL(fakeMesh({ positions: TRIANGLE }), 'part', { onFile: async () => { throw refused } }))).rejects.toBe(refused)
+		await expect(run(exp.exportAs3MF(fakeMesh({ positions: TRIANGLE }), 'part', { onFile: async () => { throw refused } }))).rejects.toBe(refused)
+		expect(exp.exporting.value).toBe(false)
+	})
+})
+
 describe('useExport under a render mode', () => {
 	const THREE = require('three')
 	const { useRenderMode } = require('../../../src/composables/useRenderMode.js')

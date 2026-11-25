@@ -876,6 +876,7 @@ import { useModelLoading } from '../composables/useModelLoading.js'
 import { useComparison, MULTI_FILE_FORMATS } from '../composables/useComparison.js'
 import { useTurntable } from '../composables/useTurntable.js'
 import { saveFolder } from '../utils/turntable.js'
+import { ExportSaveError, exportSaveFailure } from '../utils/exportErrors.js'
 import { listVersions, formatVersionDate } from '../utils/fileVersions.js'
 // eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
 import { getCurrentUser } from '@nextcloud/auth'
@@ -975,7 +976,7 @@ export default {
 	// Declared and never sent is as misleading as sent and never declared: nine of these
 	// named toolbar actions the viewer stopped emitting long ago, and among them sat the
 	// three mode toggles it did send and nothing received.
-	emits: ['model-loaded', 'error', 'measurement-active', 'annotation-active', 'comparison-active', 'print-check-active', 'cycle-performance-mode', 'push-toast', 'loading-state-changed', 'fps-updated', 'animations-initialized', 'view-applied', 'point-cloud-changed', 'splat-changed', 'parts-ready', 'ar-path-changed', 'ar-state-changed'],
+	emits: ['model-loaded', 'error', 'measurement-active', 'annotation-active', 'comparison-active', 'print-check-active', 'cycle-performance-mode', 'push-toast', 'loading-state-changed', 'fps-updated', 'animations-initialized', 'view-applied', 'point-cloud-changed', 'splat-changed', 'parts-ready', 'ar-path-changed', 'ar-state-changed', 'export-save-changed'],
 	setup(props, { emit }) {
 		// Refs
 		const container = ref(null)
@@ -3075,6 +3076,25 @@ export default {
 				turntableOpen.value = true
 			}
 		}
+		// "Save next to the model" for an export: only for someone logged in who may add
+		// files to the model's folder, asked once per folder (a read-only share has no C)
+		const canSaveExport = ref(false)
+		let exportSaveCheck = 0
+		watch([turntableUserId, turntableFolder, turntablePublicShare], async ([userId, folder, publicShare]) => {
+			const check = ++exportSaveCheck
+			canSaveExport.value = false
+			if (!userId || folder === null || publicShare) {
+				return
+			}
+			// The WebDAV helpers load here, as the turntable dialog's do: not with the viewer
+			const { canCreateIn } = await import('../utils/davFiles.js')
+			const allowed = await canCreateIn(userId, folder)
+			if (check === exportSaveCheck) {
+				canSaveExport.value = allowed
+			}
+		}, { immediate: true })
+		watch(canSaveExport, (allowed) => emit('export-save-changed', allowed), { immediate: true })
+
 		const onTurntableSaved = (name) => {
 			emit('push-toast', { type: 'success', message: t('threedviewer', 'Saved {name} next to the model', { name }), timeout: 5000 })
 		}
@@ -3466,11 +3486,46 @@ export default {
 		 * Handle model export
 		 * @param {string} format - Export format (glb, stl, obj, ply, 3mf, usdz, zip)
 		 */
-		const handleExport = async (format) => {
+		/**
+		 * Export the model in a format, as a download, or with `save` into the model's
+		 * own folder under a name nothing there has (davFiles.saveNewFile).
+		 *
+		 * @param {string} format - glb, stl, obj, ply, 3mf, usdz or zip
+		 * @param {object} [options] - Options
+		 * @param {boolean} [options.save] - Save it next to the model instead
+		 */
+		const handleExport = async (format, { save = false } = {}) => {
 			// Export saves meshes, and a scan is points (pointclouds/unavailable.js)
 			if (pointCloud.value) {
 				return
 			}
+			if (save && !canSaveExport.value) {
+				return
+			}
+			// Where a save went: the name the file was written under
+			let savedAs = null
+			const onFile = save
+				? async (blob, name) => {
+					const dot = name.lastIndexOf('.')
+					try {
+						const { freeName, saveNewFile } = await import('../utils/davFiles.js')
+						savedAs = await saveNewFile(turntableUserId.value, turntableFolder.value, (existing) => freeName(name.slice(0, dot), name.slice(dot + 1), existing), blob)
+					} catch (error) {
+						throw new ExportSaveError(error)
+					}
+				}
+				: undefined
+			// What the toast says once the file is out: downloaded, or saved and where
+			const exported = (name, count = 0) => emit('push-toast', {
+				type: 'success',
+				title: t('threedviewer', 'Export Successful'),
+				message: save
+					? t('threedviewer', 'Saved {name} next to the model', { name: savedAs ?? name })
+					: count
+						? t('threedviewer', 'Model exported as {name} ({count} files)', { name, count })
+						: t('threedviewer', 'Model exported as {name}', { name }),
+				...(save ? { timeout: 5000 } : {}),
+			})
 			if (!modelRoot.value) {
 				logger.warn('ThreeViewer', 'No model loaded for export')
 				emit('push-toast', {
@@ -3522,36 +3577,23 @@ export default {
 					})
 				}
 
-				// Extract filename from props or use default
-				const baseFilename = props.filename
-					? props.filename.split('/').pop().split('.')[0]
-					: 'model'
+				// The file's own name without its last extension: "bracket.v2.stl" is
+				// "bracket.v2", not "bracket"
+				const baseFilename = turntableModelName.value.replace(/\.[^./]+$/, '') || 'model'
 
 				// Export based on format
 				switch (format.toLowerCase()) {
 				case 'glb':
-					await exportComposable.exportAsGLB(modelRoot.value, baseFilename)
-					emit('push-toast', {
-						type: 'success',
-						title: t('threedviewer', 'Export Successful'),
-						message: t('threedviewer', 'Model exported as {name}', { name: `${baseFilename}.glb` }),
-					})
+					await exportComposable.exportAsGLB(modelRoot.value, baseFilename, { onFile })
+					exported(`${baseFilename}.glb`)
 					break
 				case 'stl':
-					await exportComposable.exportAsSTL(modelRoot.value, baseFilename)
-					emit('push-toast', {
-						type: 'success',
-						title: t('threedviewer', 'Export Successful'),
-						message: t('threedviewer', 'Model exported as {name}', { name: `${baseFilename}.stl` }),
-					})
+					await exportComposable.exportAsSTL(modelRoot.value, baseFilename, { onFile })
+					exported(`${baseFilename}.stl`)
 					break
 				case 'obj':
-					await exportComposable.exportAsOBJ(modelRoot.value, baseFilename)
-					emit('push-toast', {
-						type: 'success',
-						title: t('threedviewer', 'Export Successful'),
-						message: t('threedviewer', 'Model exported as {name}', { name: `${baseFilename}.obj` }),
-					})
+					await exportComposable.exportAsOBJ(modelRoot.value, baseFilename, { onFile })
+					exported(`${baseFilename}.obj`)
 					break
 				case 'ply':
 				case '3mf':
@@ -3565,12 +3607,9 @@ export default {
 					// 3MF and USDZ carry a real size: a glTF is in metres, an STL in millimetres
 					await exporters[ext](modelRoot.value, baseFilename, {
 						millimetresPerUnit: modelMillimetresPerUnit.value,
+						onFile,
 					})
-					emit('push-toast', {
-						type: 'success',
-						title: t('threedviewer', 'Export Successful'),
-						message: t('threedviewer', 'Model exported as {name}', { name: `${baseFilename}.${ext}` }),
-					})
+					exported(`${baseFilename}.${ext}`)
 					break
 				}
 				case 'zip':
@@ -3582,12 +3621,8 @@ export default {
 						})
 						return
 					}
-					await exportComposable.exportAsZIP(modelSourceFiles.value, baseFilename)
-					emit('push-toast', {
-						type: 'success',
-						title: t('threedviewer', 'Export Successful'),
-						message: t('threedviewer', 'Model exported as {name} ({count} files)', { name: `${baseFilename}.zip`, count: modelSourceFiles.value.length }),
-					})
+					await exportComposable.exportAsZIP(modelSourceFiles.value, baseFilename, { onFile })
+					exported(`${baseFilename}.zip`, modelSourceFiles.value.length)
 					break
 				default:
 					throw new Error(`Unsupported export format: ${format}`)
@@ -3603,7 +3638,9 @@ export default {
 					// an empty file
 					message: error?.name === 'NothingToExportError'
 						? t('threedviewer', 'This model has no surfaces to save as {format}.', { format: error.format })
-						: (error.message || t('threedviewer', 'Failed to export model')),
+						: error instanceof ExportSaveError
+							? exportSaveFailure(error.cause)
+							: (error.message || t('threedviewer', 'Failed to export model')),
 				})
 			} finally {
 				if (setsModeAside) {

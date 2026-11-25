@@ -66,12 +66,31 @@ export function useExport() {
 	}
 
 	/**
+	 * Hand a finished export over: to `onFile` when one is given (such as saving it into
+	 * the model's folder), as a download otherwise.
+	 * @param {Blob} blob - The file
+	 * @param {string} filename - Its name, with the extension
+	 * @param {Function} [onFile] - async (blob, filename) => void
+	 * @return {Promise<void>}
+	 */
+	const deliver = async (blob, filename, onFile) => {
+		if (onFile) {
+			await onFile(blob, filename)
+			return
+		}
+		triggerDownload(blob, filename)
+	}
+
+	/**
 	 * Export model as GLB (binary glTF)
 	 * @param {THREE.Object3D} object - 3D object to export
 	 * @param {string} filename - Base filename (without extension)
+	 * @param {object} [options] - Options
+	 * @param {Function} [options.onFile] - async (blob, filename) => void, given the file
+	 *   instead of it being downloaded
 	 * @return {Promise<void>}
 	 */
-	const exportAsGLB = async (object, filename = 'model') => {
+	const exportAsGLB = async (object, filename = 'model', { onFile } = {}) => {
 		if (!object) {
 			throw new Error('No object provided for export')
 		}
@@ -116,7 +135,7 @@ export function useExport() {
 							exportProgress.value = { stage: 'Triggering download...', percentage: 95 }
 							await new Promise(resolve => setTimeout(resolve, 100))
 
-							triggerDownload(blob, `${filename}.glb`)
+							await deliver(blob, `${filename}.glb`, onFile)
 
 							exportProgress.value = { stage: 'Export complete!', percentage: 100 }
 
@@ -157,9 +176,12 @@ export function useExport() {
 	 * Export model as GLTF (JSON glTF)
 	 * @param {THREE.Object3D} object - 3D object to export
 	 * @param {string} filename - Base filename (without extension)
+	 * @param {object} [options] - Options
+	 * @param {Function} [options.onFile] - async (blob, filename) => void, given the file
+	 *   instead of it being downloaded
 	 * @return {Promise<void>}
 	 */
-	const exportAsGLTF = async (object, filename = 'model') => {
+	const exportAsGLTF = async (object, filename = 'model', { onFile } = {}) => {
 		if (!object) {
 			throw new Error('No object provided for export')
 		}
@@ -200,7 +222,7 @@ export function useExport() {
 							exportProgress.value = { stage: 'Triggering download...', percentage: 95 }
 							await new Promise(resolve => setTimeout(resolve, 100))
 
-							triggerDownload(blob, `${filename}.gltf`)
+							await deliver(blob, `${filename}.gltf`, onFile)
 
 							exportProgress.value = { stage: 'Export complete!', percentage: 100 }
 							await new Promise(resolve => setTimeout(resolve, 500))
@@ -238,9 +260,12 @@ export function useExport() {
 	 * Export model as STL (for 3D printing)
 	 * @param {THREE.Object3D} object - 3D object to export
 	 * @param {string} filename - Base filename (without extension)
+	 * @param {object} [options] - Options
+	 * @param {Function} [options.onFile] - async (blob, filename) => void, given the file
+	 *   instead of it being downloaded
 	 * @return {Promise<void>}
 	 */
-	const exportAsSTL = async (object, filename = 'model') => {
+	const exportAsSTL = async (object, filename = 'model', { onFile } = {}) => {
 		if (!object) {
 			throw new Error('No object provided for export')
 		}
@@ -277,7 +302,7 @@ export function useExport() {
 			exportProgress.value = { stage: 'Triggering download...', percentage: 95 }
 			await new Promise(resolve => setTimeout(resolve, 100))
 
-			triggerDownload(blob, `${filename}.stl`)
+			await deliver(blob, `${filename}.stl`, onFile)
 
 			exportProgress.value = { stage: 'Export complete!', percentage: 100 }
 			await new Promise(resolve => setTimeout(resolve, 500))
@@ -295,9 +320,12 @@ export function useExport() {
 	 * Export model as OBJ (universal format)
 	 * @param {THREE.Object3D} object - 3D object to export
 	 * @param {string} filename - Base filename (without extension)
+	 * @param {object} [options] - Options
+	 * @param {Function} [options.onFile] - async (blob, filename) => void, given the file
+	 *   instead of it being downloaded
 	 * @return {Promise<void>}
 	 */
-	const exportAsOBJ = async (object, filename = 'model') => {
+	const exportAsOBJ = async (object, filename = 'model', { onFile } = {}) => {
 		if (!object) {
 			throw new Error('No object provided for export')
 		}
@@ -333,7 +361,7 @@ export function useExport() {
 			exportProgress.value = { stage: 'Triggering download...', percentage: 95 }
 			await new Promise(resolve => setTimeout(resolve, 100))
 
-			triggerDownload(blob, `${filename}.obj`)
+			await deliver(blob, `${filename}.obj`, onFile)
 
 			exportProgress.value = { stage: 'Export complete!', percentage: 100 }
 			await new Promise(resolve => setTimeout(resolve, 500))
@@ -348,8 +376,7 @@ export function useExport() {
 	}
 
 	/**
-	 * Run one export: produce the file's bytes, then hand them to the browser as a
-	 * download, tracking progress and errors the same way for every format.
+	 * Run one export: produce the file's bytes, then hand them over (deliver), tracking progress and errors the same way for every format.
 	 * @param {object} spec
 	 * @param {string} spec.label - format name for progress and logs
 	 * @param {THREE.Object3D} spec.object - what to export
@@ -359,10 +386,12 @@ export function useExport() {
 	 * @param {Function} spec.produce - async (object, progress) => file contents; may call
 	 *   progress(0..1) as it goes
 	 * @param {boolean} [spec.points] - The format holds point clouds as well as meshes
+	 * @param {Function} [spec.onFile] - async (blob, filename) => void, given the file
+	 *   instead of it being downloaded
 	 * @return {Promise<void>}
 	 * @throws {NothingToExportError} When the model has nothing the format can hold
 	 */
-	const runExport = async ({ label, object, filename, extension, mimeType, produce, points = false }) => {
+	const runExport = async ({ label, object, filename, extension, mimeType, produce, points = false, onFile }) => {
 		if (!object) {
 			throw new Error('No object provided for export')
 		}
@@ -389,7 +418,7 @@ export function useExport() {
 			logger.info('useExport', `${label} export complete`, { filename, sizeMB: `${sizeMB}MB` })
 
 			exportProgress.value = { stage: 'Triggering download...', percentage: 95 }
-			triggerDownload(blob, `${filename}.${extension}`)
+			await deliver(blob, `${filename}.${extension}`, onFile)
 
 			exportProgress.value = { stage: 'Export complete!', percentage: 100 }
 			exporting.value = false
@@ -405,9 +434,13 @@ export function useExport() {
 	 * Export model as binary PLY (meshes with vertex colours; common for scans)
 	 * @param {THREE.Object3D} object - 3D object to export
 	 * @param {string} filename - Base filename (without extension)
+	 * @param {object} [options] - Options
+	 * @param {Function} [options.onFile] - async (blob, filename) => void, given the file
+	 *   instead of it being downloaded
 	 * @return {Promise<void>}
 	 */
-	const exportAsPLY = (object, filename = 'model') => runExport({
+	const exportAsPLY = (object, filename = 'model', { onFile } = {}) => runExport({
+		onFile,
 		label: 'PLY',
 		object,
 		filename,
@@ -435,9 +468,12 @@ export function useExport() {
 	 * @param {object} [options] - Options
 	 * @param {number} [options.millimetresPerUnit] - Millimetres per scene unit, from the
 	 *   format the model was loaded from (utils/sourceUnits.js)
+	 * @param {Function} [options.onFile] - async (blob, filename) => void, given the file
+	 *   instead of it being downloaded
 	 * @return {Promise<void>}
 	 */
-	const exportAs3MF = (object, filename = 'model', { millimetresPerUnit = 1 } = {}) => runExport({
+	const exportAs3MF = (object, filename = 'model', { millimetresPerUnit = 1, onFile } = {}) => runExport({
+		onFile,
 		label: '3MF',
 		object,
 		filename,
@@ -466,9 +502,12 @@ export function useExport() {
 	 * @param {object} [options] - Options
 	 * @param {number} [options.millimetresPerUnit] - Millimetres per scene unit, from the
 	 *   format the model was loaded from (utils/sourceUnits.js)
+	 * @param {Function} [options.onFile] - async (blob, filename) => void, given the file
+	 *   instead of it being downloaded
 	 * @return {Promise<void>}
 	 */
-	const exportAsUSDZ = (object, filename = 'model', { millimetresPerUnit = 1 } = {}) => runExport({
+	const exportAsUSDZ = (object, filename = 'model', { millimetresPerUnit = 1, onFile } = {}) => runExport({
+		onFile,
 		label: 'USDZ',
 		object,
 		filename,
@@ -481,9 +520,12 @@ export function useExport() {
 	 * Export source files as a ZIP archive (model + textures + materials)
 	 * @param {File[]} sourceFiles - Array of File objects from loading pipeline
 	 * @param {string} filename - Base filename (without extension)
+	 * @param {object} [options] - Options
+	 * @param {Function} [options.onFile] - async (blob, filename) => void, given the file
+	 *   instead of it being downloaded
 	 * @return {Promise<void>}
 	 */
-	const exportAsZIP = async (sourceFiles, filename = 'model') => {
+	const exportAsZIP = async (sourceFiles, filename = 'model', { onFile } = {}) => {
 		if (!sourceFiles || sourceFiles.length === 0) {
 			throw new Error('No source files available for ZIP export')
 		}
@@ -532,7 +574,7 @@ export function useExport() {
 				sizeMB: `${sizeMB}MB`,
 			})
 
-			triggerDownload(blob, `${filename}.zip`)
+			await deliver(blob, `${filename}.zip`, onFile)
 
 			exportProgress.value = { stage: 'Export complete!', percentage: 100 }
 			await new Promise(resolve => setTimeout(resolve, 500))
