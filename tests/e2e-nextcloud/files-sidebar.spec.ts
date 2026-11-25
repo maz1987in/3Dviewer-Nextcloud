@@ -200,7 +200,12 @@ test.describe('the 3D tab', () => {
 
 		const three = sidebar.getByRole('tab', { name: '3D' })
 		await three.focus()
+		await expect(three).toBeFocused()
 		await page.keyboard.press('Enter')
+		// The sidebar's tab buttons take Enter on some Nextcloud versions and Space on others
+		if (await three.getAttribute('aria-selected') !== 'true') {
+			await page.keyboard.press('Space')
+		}
 
 		await expect(three).toHaveAttribute('aria-selected', 'true')
 		await expect(sidebar.locator('.tdv-model-tab')).toBeVisible()
@@ -237,7 +242,8 @@ test.describe('the 3D tab', () => {
 			await setPreferences(page, { thumbnails: { background: false, maxFileSizeMB: 1 } })
 			const downloads: string[] = []
 			page.on('request', (request) => {
-				if (/\/api\/file\/|\/remote\.php\/dav\/files\/.*e2e-large\.stl/.test(request.url())) {
+				// The Files app itself asks WebDAV about the file (PROPFIND); a download is a GET
+				if (request.method() === 'GET' && /\/api\/file\/|\/remote\.php\/dav\/files\/.*e2e-large\.stl/.test(request.url())) {
 					downloads.push(request.url())
 				}
 			})

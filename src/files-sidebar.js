@@ -17,7 +17,8 @@
  *   stats/registerSidebarTab.js for why this script writes to it itself.
  *
  * The legacy sidebar exists once the Files app's own scripts have run, so the tab is
- * registered at DOMContentLoaded, when every script of the page has.
+ * registered at DOMContentLoaded, when every script of the page has (not when this script
+ * runs: a module runs with the document already `interactive`).
  */
 
 // eslint-disable-next-line n/no-extraneous-import -- Provided by @nextcloud/vue transitive dependency
@@ -109,8 +110,21 @@ function register() {
 	}
 }
 
-if (document.readyState === 'loading') {
-	window.addEventListener('DOMContentLoaded', register, { once: true })
+// A module script runs while the document is `interactive`, before DOMContentLoaded, and an
+// init script runs before the Files app's own scripts: the legacy sidebar does not exist yet.
+// So the tab waits for DOMContentLoaded (and for `load`, in case this script came late) and
+// registers once.
+let registered = false
+const registerOnce = () => {
+	if (!registered) {
+		registered = true
+		register()
+	}
+}
+
+if (document.readyState === 'complete') {
+	registerOnce()
 } else {
-	register()
+	window.addEventListener('DOMContentLoaded', registerOnce, { once: true })
+	window.addEventListener('load', registerOnce, { once: true })
 }

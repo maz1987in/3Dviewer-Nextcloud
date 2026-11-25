@@ -201,6 +201,46 @@ describe('on Nextcloud 31 and 32', () => {
 	})
 })
 
+describe('when the tab registers', () => {
+	const setReadyState = (value) => Object.defineProperty(document, 'readyState', { configurable: true, get: () => value })
+
+	afterEach(() => {
+		delete document.readyState
+	})
+
+	it('waits for DOMContentLoaded while the document is still loading or interactive, which is when a module script runs', () => {
+		const registerTab = jest.fn()
+		for (const state of ['loading', 'interactive']) {
+			jest.resetModules()
+			registerTab.mockClear()
+			setReadyState(state)
+			window.OCA = { Files: {} }
+
+			loadEntry()
+			expect(registerTab).not.toHaveBeenCalled()
+			expect(window._nc_files_scope?.v4_0?.filesSidebarTabs?.size ?? 0).toBe(0)
+
+			// The Files app's own scripts have run by now: the legacy sidebar is there
+			window.OCA.Files.Sidebar = { registerTab, Tab: LegacyTab }
+			window.dispatchEvent(new Event('DOMContentLoaded'))
+
+			expect(registerTab).toHaveBeenCalledTimes(1)
+			window.dispatchEvent(new Event('load'))
+			expect(registerTab).toHaveBeenCalledTimes(1)
+		}
+	})
+
+	it('registers at load when DOMContentLoaded had passed already', () => {
+		setReadyState('interactive')
+		window.OCA = { Files: {} }
+		loadEntry()
+
+		window.dispatchEvent(new Event('load'))
+
+		expect(window._nc_files_scope.v4_0.filesSidebarTabs.has('threedviewer')).toBe(true)
+	})
+})
+
 describe('a sidebar that has neither', () => {
 	it('registers for the web-component sidebar, which is the newer one', () => {
 		window.OCA = { Files: {} }
