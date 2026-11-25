@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 namespace OCA\ThreeDViewer\AppInfo;
 
+use OCA\Files\Event\LoadSidebar;
 use OCA\Files_Sharing\Event\BeforeTemplateRenderedEvent as PublicShareTemplateRenderedEvent;
 use OCA\ThreeDViewer\Constants\SupportedFormats;
 use OCA\ThreeDViewer\Listener\CspListener;
 use OCA\ThreeDViewer\Listener\FileIndexListener;
 use OCA\ThreeDViewer\Listener\LoadFilesListener;
 use OCA\ThreeDViewer\Listener\LoadPublicShareListener;
+use OCA\ThreeDViewer\Listener\LoadSidebarListener;
 use OCA\ThreeDViewer\Listener\LoadViewerListener;
+use OCA\ThreeDViewer\Listener\ModelStatsInvalidationListener;
 use OCA\ThreeDViewer\Listener\ReferenceInvalidationListener;
 use OCA\ThreeDViewer\Listener\RenderReferenceListener;
 use OCA\ThreeDViewer\Listener\ThumbnailInvalidationListener;
@@ -92,6 +95,16 @@ class Application extends App implements IBootstrap
         // Thumbnails are stored per file version; drop them when the file changes or goes
         $context->registerEventListener(NodeWrittenEvent::class, ThumbnailInvalidationListener::class);
         $context->registerEventListener(NodeDeletedEvent::class, ThumbnailInvalidationListener::class);
+
+        // The numbers measured of a model are stored per file version too, and go the same way
+        $context->registerEventListener(NodeWrittenEvent::class, ModelStatsInvalidationListener::class);
+        $context->registerEventListener(NodeDeletedEvent::class, ModelStatsInvalidationListener::class);
+
+        // The "3D" tab of the Files sidebar is a script of its own, added where the Files app
+        // asks for sidebar scripts (OCA\Files\Event\LoadSidebar, on every supported server)
+        if (class_exists(LoadSidebar::class)) {
+            $context->registerEventListener(LoadSidebar::class, LoadSidebarListener::class);
+        }
 
         // Links to a model show as a card where apps render link previews, and "3D models"
         // is in the Smart Picker. The provider claims the app's own viewer links only, not

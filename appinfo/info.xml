@@ -71,6 +71,7 @@
 
 **🚀 Performance & UX:**
 - 🖼️ Thumbnails in Files: Models get a thumbnail while you browse a folder, kept per file version and shown to everyone who can see the file
+- 📑 3D tab in Files: The sidebar of a model shows its size in the file's unit, triangles, parts, materials, textures and notes, measured in your browser and kept per file version
 - 🖼️ Progressive texture loading for improved performance
 - 💿 Dependency caching using IndexedDB for faster multi-file loading with live cache statistics (size, entries, hit rate)
 - ⚙️ Performance modes with visual quality overlay and automatic suggestions for large models
@@ -107,6 +108,7 @@ Built with Three.js for high-performance WebGL rendering. ✨]]></description>
 		<job>OCA\ThreeDViewer\Cron\CleanupTempFiles</job>
 		<job>OCA\ThreeDViewer\Cron\CleanupOrphanNotes</job>
 		<job>OCA\ThreeDViewer\Cron\CleanupOrphanFileSettings</job>
+		<job>OCA\ThreeDViewer\Cron\CleanupOrphanModelStats</job>
 	</background-jobs>
 	<repair-steps>
 		<post-migration>

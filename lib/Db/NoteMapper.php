@@ -106,6 +106,28 @@ class NoteMapper extends QBMapper
     }
 
     /**
+     * The id of a model's oldest note, which a link opens the model at, or null for a model with none.
+     */
+    public function firstIdByFile(int $fileId): ?int
+    {
+        $qb = $this->db->getQueryBuilder();
+        $qb->select($qb->func()->min('id'))
+            ->from($this->getTableName())
+            ->where($qb->expr()->eq('file_id', $qb->createNamedParameter($fileId, IQueryBuilder::PARAM_INT)));
+
+        $result = $qb->executeQuery();
+        $first = self::nullableId($result->fetchOne());
+        $result->closeCursor();
+
+        return $first;
+    }
+
+    private static function nullableId(mixed $value): ?int
+    {
+        return is_numeric($value) ? (int) $value : null;
+    }
+
+    /**
      * The ids of the notes deleteOrphans() would delete, so what refers to them — a
      * notification — can be removed as well.
      *

@@ -7,6 +7,7 @@ namespace OCA\ThreeDViewer\Controller;
 use OCA\ThreeDViewer\Constants\SupportedFormats;
 use OCA\ThreeDViewer\Reference\ModelReferenceProvider;
 use OCA\ThreeDViewer\Service\ModelFileSupport;
+use OCA\ThreeDViewer\Service\ModelStatsService;
 use OCA\ThreeDViewer\Service\NoteAccess;
 use OCA\ThreeDViewer\Service\ResponseBuilder;
 use OCA\ThreeDViewer\Service\ThumbnailService;
@@ -52,7 +53,8 @@ class ThumbnailController extends BaseController
         ModelFileSupport $modelFileSupport,
         LoggerInterface $logger,
         ICacheFactory $cacheFactory,
-        private readonly IReferenceManager $referenceManager
+        private readonly IReferenceManager $referenceManager,
+        private readonly ModelStatsService $modelStats,
     ) {
         parent::__construct($appName, $request, $responseBuilder, $modelFileSupport, $logger, $cacheFactory);
         $this->rootFolder = $rootFolder;
@@ -132,7 +134,8 @@ class ThumbnailController extends BaseController
      * Report, for up to 200 files, what the browser needs to thumbnail the ones that lack one.
      *
      * Files the user cannot read, folders and non-model files are left out, so the answer
-     * says nothing about whether such an id exists.
+     * says nothing about whether such an id exists. `hasStats` says whether the current
+     * version was measured (ModelStatsService), which the browser does as it renders.
      *
      * @param string $ids Comma-separated file ids
      */
@@ -154,6 +157,7 @@ class ThumbnailController extends BaseController
         }
 
         $files = [];
+        $etags = [];
         foreach ($parsed as $id) {
             try {
                 $file = $this->findThumbnailableFile($id, $uid);
@@ -170,7 +174,9 @@ class ThumbnailController extends BaseController
                     'etag' => $etag,
                     'canEdit' => $access->canEdit,
                     'hasThumbnail' => $this->thumbnailService->has($id, $etag),
+                    'hasStats' => false,
                 ];
+                $etags[$id] = $etag;
             } catch (\Throwable $e) {
                 // One bad file must not hide the thumbnails of the others.
                 $this->logger->warning('ThumbnailController: Skipped a file in the status check', [
@@ -178,6 +184,16 @@ class ThumbnailController extends BaseController
                     'exception' => $e,
                 ]);
             }
+        }
+
+        // Whether each file's current version was measured, in one query for the lot
+        try {
+            foreach ($this->modelStats->measured($etags) as $id) {
+                $files[$id]['hasStats'] = true;
+            }
+        } catch (\Throwable $e) {
+            // The thumbnails do not depend on it; the files are then taken as not measured
+            $this->logger->warning('ThumbnailController: Could not read which models were measured', ['exception' => $e]);
         }
 
         // An empty PHP array would encode as `[]`; the client reads this as a map.
