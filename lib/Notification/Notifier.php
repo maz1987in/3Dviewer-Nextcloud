@@ -63,7 +63,8 @@ class Notifier implements INotifier
         if ($notification->getApp() !== Application::APP_ID) {
             throw new UnknownNotificationException();
         }
-        if ($notification->getSubject() !== NoteNotificationPublisher::SUBJECT_NOTE_ADDED) {
+        $subject = $notification->getSubject();
+        if (!in_array($subject, [NoteNotificationPublisher::SUBJECT_NOTE_ADDED, NoteNotificationPublisher::SUBJECT_NOTE_MENTION], true)) {
             throw new UnknownNotificationException();
         }
 
@@ -83,7 +84,9 @@ class Notifier implements INotifier
 
         $l = $this->l10n->get(Application::APP_ID, $languageCode);
         $actor = NoteActor::fromParameters($parameters['actorKind'] ?? null, $parameters['actor'] ?? null);
-        $sentence = $this->sentence($l, $actor, $count);
+        $sentence = $subject === NoteNotificationPublisher::SUBJECT_NOTE_MENTION
+            ? $this->mentionSentence($l, $actor)
+            : $this->sentence($l, $actor, $count);
 
         // The file carries no link of its own. The Notifications app turns the whole line
         // into the notification's link only when no object in it has one, and that link is
@@ -114,6 +117,16 @@ class Notifier implements INotifier
             ->setIcon($this->urls->getAbsoluteURL($this->urls->imagePath(Application::APP_ID, 'app-dark.svg')));
 
         return $notification;
+    }
+
+    /**
+     * Only a user can mention someone, but a row that says otherwise still reads as a sentence.
+     */
+    private function mentionSentence(IL10N $l, NoteActor $actor): string
+    {
+        return $actor->isUser()
+            ? $l->t('{user} mentioned you in a note on {file}')
+            : $l->t('You were mentioned in a note on {file}');
     }
 
     /**

@@ -121,6 +121,15 @@ class ProviderTest extends TestCase
             'deleted, by a guest' => ['note_deleted', $guest, 'owner', '{guest} (guest) deleted a note on {file}', 'Omar (guest) deleted a note on Models/bracket.step'],
             'added, by an anonymous visitor' => ['note_added', $anonymous, 'owner', 'A visitor with the link added a note on {file}', 'A visitor with the link added a note on Models/bracket.step'],
             'changed, by an anonymous visitor' => ['note_changed', $anonymous, 'owner', 'A visitor with the link changed a note on {file}', 'A visitor with the link changed a note on Models/bracket.step'],
+            'resolved, by another user' => ['note_resolved', [], 'owner', '{user} resolved a note on {file}', 'Sara Ahmed resolved a note on Models/bracket.step'],
+            'resolved, by the reader' => ['note_resolved', [], 'sara', 'You resolved a note on {file}', 'You resolved a note on Models/bracket.step'],
+            'resolved, by an anonymous visitor' => ['note_resolved', $anonymous, 'owner', 'A note on {file} was resolved', 'A note on Models/bracket.step was resolved'],
+            'reopened, by another user' => ['note_reopened', [], 'owner', '{user} reopened a note on {file}', 'Sara Ahmed reopened a note on Models/bracket.step'],
+            'reopened, by the reader' => ['note_reopened', [], 'sara', 'You reopened a note on {file}', 'You reopened a note on Models/bracket.step'],
+            'reopened, by a guest' => ['note_reopened', $guest, 'owner', 'A note on {file} was reopened', 'A note on Models/bracket.step was reopened'],
+            'replied, by another user' => ['note_replied', [], 'owner', '{user} replied to a note on {file}', 'Sara Ahmed replied to a note on Models/bracket.step'],
+            'replied, by the reader' => ['note_replied', [], 'sara', 'You replied to a note on {file}', 'You replied to a note on Models/bracket.step'],
+            'replied, by an anonymous visitor' => ['note_replied', $anonymous, 'owner', 'A note on {file} got a reply', 'A note on Models/bracket.step got a reply'],
             'deleted, by an anonymous visitor' => ['note_deleted', $anonymous, 'owner', 'A visitor with the link deleted a note on {file}', 'A visitor with the link deleted a note on Models/bracket.step'],
         ];
     }
@@ -171,5 +180,16 @@ class ProviderTest extends TestCase
 
         $this->assertSame('Models/bracket.step', $this->set['setRichSubject'][1]['file']['path']);
         $this->assertSame('7', $this->set['setRichSubject'][1]['file']['id']);
+    }
+
+    /** An event stores the note's id and nothing of it: the sentence names no text and no one else. */
+    public function testReviewEventsCarryNoNoteText(): void
+    {
+        foreach (['note_resolved', 'note_reopened', 'note_replied'] as $subject) {
+            $this->provider->parse('en', $this->event($subject, ['text' => 'SECRET', 'mentions' => ['bob']]));
+
+            $this->assertStringNotContainsString('SECRET', json_encode($this->set, JSON_THROW_ON_ERROR));
+            $this->assertStringNotContainsString('bob', json_encode($this->set, JSON_THROW_ON_ERROR));
+        }
     }
 }

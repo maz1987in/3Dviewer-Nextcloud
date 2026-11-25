@@ -8,6 +8,7 @@ use OCA\ThreeDViewer\Db\Note;
 use OCA\ThreeDViewer\Db\NoteMapper;
 use OCA\ThreeDViewer\Notification\NoteNotificationPublisher;
 use OCA\ThreeDViewer\Service\NoteActor;
+use OCA\ThreeDViewer\Service\NoteMentions;
 use OCA\ThreeDViewer\Service\NoteRecipients;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Files\File;
@@ -330,12 +331,18 @@ class NoteNotificationPublisherTest extends TestCase
     {
         $this->publisher->noteDeleted(30);
 
-        $this->assertCount(1, $this->dismissed);
-        $this->assertSame('threedviewer', $this->dismissed[0]->app);
-        // No user: the filter matches the notification of every recipient
-        $this->assertSame('', $this->dismissed[0]->user);
-        $this->assertSame(NoteNotificationPublisher::OBJECT_TYPE, $this->dismissed[0]->objectType);
-        $this->assertSame('30', $this->dismissed[0]->objectId);
+        // The note's own notification and the mentions of it, both gone with it
+        $this->assertCount(2, $this->dismissed);
+        $this->assertSame(
+            [NoteNotificationPublisher::OBJECT_TYPE, NoteNotificationPublisher::MENTION_OBJECT_TYPE],
+            array_map(fn ($r) => $r->objectType, $this->dismissed),
+        );
+        foreach ($this->dismissed as $dismissed) {
+            $this->assertSame('threedviewer', $dismissed->app);
+            // No user: the filter matches the notification of every recipient
+            $this->assertSame('', $dismissed->user);
+            $this->assertSame('30', $dismissed->objectId);
+        }
         $this->assertSame([], $this->sent);
     }
 
@@ -343,7 +350,7 @@ class NoteNotificationPublisherTest extends TestCase
     {
         $this->publisher->notesDeleted([4, 5, 9]);
 
-        $this->assertSame(['4', '5', '9'], array_map(fn ($r) => $r->objectId, $this->dismissed));
+        $this->assertSame(['4', '4', '5', '5', '9', '9'], array_map(fn ($r) => $r->objectId, $this->dismissed));
     }
 
     public function testFailingToDismissIsLoggedAndTheRestStillAre(): void
@@ -362,6 +369,81 @@ class NoteNotificationPublisherTest extends TestCase
 
         $publisher->notesDeleted([4, 5]);
 
-        $this->assertSame(['5'], array_map(fn ($r) => $r->objectId, $this->dismissed));
+        $this->assertSame(['5', '5'], array_map(fn ($r) => $r->objectId, $this->dismissed));
+    }
+
+    public function testAMentionNotifiesThePersonNamedAboutThatNoteAndCarriesNoText(): void
+    {
+        $this->recipients->method('forMention')->willReturn(['sara']);
+        $note = $this->note(30, 1_000);
+        $note->setPayload('{"space":"model","point":{"x":0,"y":0,"z":0},"text":"Secret words @sara"}');
+
+        $this->publisher->mentioned($this->file(), $note, NoteActor::user('lina'), ['sara']);
+
+        $this->assertCount(1, $this->sent);
+        $sent = $this->sent[0];
+        $this->assertSame('sara', $sent->user);
+        $this->assertSame(NoteNotificationPublisher::SUBJECT_NOTE_MENTION, $sent->subject);
+        $this->assertSame(NoteNotificationPublisher::MENTION_OBJECT_TYPE, $sent->objectType);
+        $this->assertSame('30', $sent->objectId);
+        $this->assertSame(['actorKind' => 'user', 'actor' => 'lina', 'fileId' => 7, 'noteId' => 30], $sent->parameters);
+        $this->assertStringNotContainsString('Secret', json_encode($sent->parameters, JSON_THROW_ON_ERROR));
+        // The mention the person already had for this note gives way to the new one
+        $this->assertCount(1, $this->dismissed);
+        $this->assertSame('sara', $this->dismissed[0]->user);
+        $this->assertSame(NoteNotificationPublisher::MENTION_OBJECT_TYPE, $this->dismissed[0]->objectType);
+    }
+
+    public function testOnlyWhomTheAudienceAllowsIsNotified(): void
+    {
+        $this->recipients->expects($this->once())->method('forMention')
+            ->with($this->anything(), $this->anything(), ['sara', 'outsider', 'lina'])
+            ->willReturn(['sara']);
+
+        $this->publisher->mentioned($this->file(), $this->note(30, 1_000), NoteActor::user('lina'), ['sara', 'outsider', 'lina']);
+
+        $this->assertSame(['sara'], array_map(fn ($r) => $r->user, $this->sent));
+    }
+
+    public function testNoMoreThanTheLimitAreNotifiedForOneText(): void
+    {
+        $everyone = array_map(fn (int $i) => 'user' . $i, range(1, NoteMentions::MAX_NOTIFIED + 5));
+        $this->recipients->method('forMention')->willReturn($everyone);
+
+        $this->publisher->mentioned($this->file(), $this->note(30, 1_000), NoteActor::user('lina'), $everyone);
+
+        $this->assertCount(NoteMentions::MAX_NOTIFIED, $this->sent);
+    }
+
+    public function testAMentionedPersonDoesNotAlsoGetTheNoteAddedNotification(): void
+    {
+        $note = $this->note(30, 1_000);
+        $this->given([$note], ['owner', 'sara']);
+
+        $this->publisher->noteAdded($this->file(), $note, NoteActor::user('lina'), ['sara']);
+
+        $this->assertSame(['owner'], array_map(fn ($r) => $r->user, $this->sent));
+    }
+
+    public function testOneMentionedPersonWhoseNotificationFailsDoesNotCostTheOthers(): void
+    {
+        $manager = $this->createMock(IManager::class);
+        $manager->method('createNotification')->willReturnCallback(fn () => $this->newNotification());
+        $manager->method('notify')->willReturnCallback(function (INotification $n): void {
+            $record = $this->record($n);
+            if ($record->user === 'sara') {
+                throw new \RuntimeException('push gateway down');
+            }
+            $this->sent[] = $record;
+        });
+        $this->recipients->method('forMention')->willReturn(['sara', 'omar']);
+        $this->logger->expects($this->once())->method('warning');
+        $time = $this->createMock(ITimeFactory::class);
+        $time->method('getDateTime')->willReturn(new \DateTime());
+        $publisher = new NoteNotificationPublisher($manager, $this->recipients, $this->mapper, $time, $this->logger);
+
+        $publisher->mentioned($this->file(), $this->note(30, 1_000), NoteActor::user('lina'), ['sara', 'omar']);
+
+        $this->assertSame(['omar'], array_map(fn ($r) => $r->user, $this->sent));
     }
 }

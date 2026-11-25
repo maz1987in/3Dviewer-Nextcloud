@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace OCA\ThreeDViewer\Tests\Unit\Controller;
 
 use OCA\ThreeDViewer\Controller\PublicNotesController;
-use OCA\ThreeDViewer\Db\Note;
 use OCA\ThreeDViewer\Service\NotesService;
 use OCA\ThreeDViewer\Service\ShareFileService;
 use OCP\AppFramework\PublicShareController;
@@ -45,10 +44,7 @@ class PublicNotesControllerTest extends TestCase
         $file = $this->createMock(File::class);
         $file->method('getId')->willReturn(7);
         $notes = $this->createMock(NotesService::class);
-        $note = new Note();
-        $note->setId(3);
-        $notes->expects($this->once())->method('list')->with(7)->willReturn([$note]);
-        $notes->expects($this->once())->method('serialize')->with($note, false)->willReturn(['id' => 3, 'author' => null]);
+        $notes->expects($this->once())->method('serializeAll')->with(7, false)->willReturn([['id' => 3, 'author' => null]]);
 
         $response = $this->controller($this->createMock(IShare::class), $notes, $file)->index('tok', 99);
 

@@ -15,6 +15,7 @@ import {
 	raycastIntersection,
 	updateTextMesh,
 } from '../utils/modelScaleUtils.js'
+import { applyMarkerLook } from '../utils/noteReview.js'
 
 // Visual sizing configuration for annotations (percentages of model size)
 const ANNOTATION_SIZING = (VIEWER_CONFIG.visualSizing && VIEWER_CONFIG.visualSizing.annotation) || {
@@ -45,6 +46,12 @@ export function useAnnotation() {
 	let noteHooks = {}
 	const setNoteHooks = (hooks) => { noteHooks = hooks || {} }
 	const setCanAdd = (value) => { canAdd.value = value }
+
+	// What the label in the scene says. A note's text keeps the id of anyone it mentions; the
+	// label shows their name, which useSharedNotes knows and this composable does not.
+	let labelFormatter = (annotation) => annotation.text
+	const setLabelFormatter = (formatter) => { labelFormatter = formatter || ((annotation) => annotation.text) }
+	const labelText = (annotation) => labelFormatter(annotation)
 
 	// Date.now() alone collides when notes are drawn in the same millisecond on load.
 	let idSequence = 0
@@ -246,7 +253,7 @@ export function useAnnotation() {
 			const canvasHeight = 128
 
 			// Use shared text mesh utility
-			const textMesh = createTextMesh(annotation.text, annotation.point, {
+			const textMesh = createTextMesh(labelText(annotation), annotation.point, {
 				scale: labelHeight,
 				heightMultiplier: 1,
 				yOffset,
@@ -276,40 +283,61 @@ export function useAnnotation() {
 		}
 	}
 
+	// Draw an annotation's label again from its text
+	const redrawLabel = (annotation) => {
+		// Update visual text mesh using stored reference
+		const textMesh = annotation.textMesh
+
+		if (textMesh) {
+			// One updater, shared with the measurement labels: it re-measures the text,
+			// so a note that grows longer is redrawn rather than clipped by the canvas
+			// it was first drawn into.
+			updateTextMesh(textMesh, labelText(annotation), {
+				textColor: MARKER_COLORS.annotation,
+				bgColor: MARKER_COLORS.labelSurface,
+			})
+
+			// Update position with current yOffset (in case model scale changed)
+			if (textMesh.userData?.originalTextScale && textMesh.userData?.originalYOffset) {
+				const textScale = textMesh.userData.originalTextScale
+				const yOffset = textMesh.userData.originalYOffset
+
+				// Reset position to point and apply yOffset
+				textMesh.position.copy(annotation.point)
+				textMesh.position.y += textScale * yOffset
+			}
+
+			// Ensure renderOrder is highest to keep text on top
+			textMesh.renderOrder = 1000
+		}
+	}
+
 	// Update annotation text
 	const updateAnnotationText = (annotationId, newText, { silent = false } = {}) => {
 		const annotation = annotations.value.find(a => a.id === annotationId)
 		if (annotation) {
 			annotation.text = newText
-
-			// Update visual text mesh using stored reference
-			const textMesh = annotation.textMesh
-
-			if (textMesh) {
-				// One updater, shared with the measurement labels: it re-measures the text,
-				// so a note that grows longer is redrawn rather than clipped by the canvas
-				// it was first drawn into.
-				updateTextMesh(textMesh, newText, {
-					textColor: MARKER_COLORS.annotation,
-					bgColor: MARKER_COLORS.labelSurface,
-				})
-
-				// Update position with current yOffset (in case model scale changed)
-				if (textMesh.userData?.originalTextScale && textMesh.userData?.originalYOffset) {
-					const textScale = textMesh.userData.originalTextScale
-					const yOffset = textMesh.userData.originalYOffset
-
-					// Reset position to point and apply yOffset
-					textMesh.position.copy(annotation.point)
-					textMesh.position.y += textScale * yOffset
-				}
-
-				// Ensure renderOrder is highest to keep text on top
-				textMesh.renderOrder = 1000
-			}
+			redrawLabel(annotation)
 
 			if (!silent) noteHooks.changed?.(annotation)
 		}
+	}
+
+	// The label again, for a change to what the text should read as that is not an edit of it
+	const refreshAnnotationLabel = (annotationId) => {
+		const annotation = annotations.value.find(a => a.id === annotationId)
+		if (annotation) redrawLabel(annotation)
+	}
+
+	/**
+	 * Draw one annotation's marker as its note's state asks: normally, dimmed or hidden.
+	 *
+	 * @param {string} annotationId - the annotation
+	 * @param {'normal'|'dim'|'hidden'} look - how to draw it
+	 */
+	const setMarkerLook = (annotationId, look) => {
+		const annotation = annotations.value.find(a => a.id === annotationId)
+		if (annotation) applyMarkerLook([annotation.pointMesh, annotation.textMesh], look)
 	}
 
 	// Delete annotation
@@ -507,6 +535,9 @@ export function useAnnotation() {
 		handleClick,
 		setCanAdd,
 		setNoteHooks,
+		setLabelFormatter,
+		setMarkerLook,
+		refreshAnnotationLabel,
 		addAnnotationPoint,
 		addAnnotationFromNote,
 		updateAnnotationText,

@@ -18,7 +18,8 @@ use OCP\Share\IShareHelper;
  * change. In both, nobody who can't open the file is ever named: the audience for the
  * stream comes from the server's own access list for the file, and the one for
  * notifications is checked against the file again, because someone who wrote a note last
- * month may have lost access since.
+ * month may have lost access since. A mention is a third audience: whoever the text names
+ * and can open the file.
  *
  * @psalm-suppress MissingDependency Nextcloud runtime provides dependent classes in full environment.
  */
@@ -76,6 +77,32 @@ class NoteRecipients
                 continue;
             }
             if ($this->access->forUser($fileId, $uid) === null) {
+                continue;
+            }
+            $recipients[] = $uid;
+        }
+
+        return $recipients;
+    }
+
+    /**
+     * The people a text mentions who may be told: the ones who can open the file, other than
+     * the person who wrote it. This is the check that keeps a mention from reaching anyone
+     * who could not see the model — the text names whom it likes, access decides who hears.
+     *
+     * @param list<string> $uids accounts the text mentions
+     * @return list<string> user ids
+     */
+    public function forMention(File $file, NoteActor $actor, array $uids): array
+    {
+        $fileId = $file->getId();
+        $recipients = [];
+        foreach (array_unique($uids) as $uid) {
+            if ($actor->isUser() && $uid === $actor->value) {
+                continue;
+            }
+            // A visitor's notes are filed under a made-up id (NoteActor::authorKey), not an account
+            if (str_starts_with($uid, 'guest:') || $this->access->forUser($fileId, $uid) === null) {
                 continue;
             }
             $recipients[] = $uid;

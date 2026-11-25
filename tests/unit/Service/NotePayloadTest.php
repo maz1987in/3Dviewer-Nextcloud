@@ -107,4 +107,44 @@ class NotePayloadTest extends TestCase
 
         $this->assertSame($normalized, json_decode(NotePayload::encode($normalized), true));
     }
+
+    public function testAReplyKeepsItsTextExactly(): void
+    {
+        $this->assertSame("  Check the hole @sara\nthanks  ", NotePayload::replyText("  Check the hole @sara\nthanks  "));
+    }
+
+    /** @return array<string, array{0: mixed}> */
+    public static function badReplies(): array
+    {
+        return [
+            'empty' => [''],
+            'blank' => ["  \n\t "],
+            'null' => [null],
+            'a number' => [5],
+            'a list' => [['text']],
+            'too long' => [str_repeat('a', NotePayload::MAX_TEXT_CHARS + 1)],
+        ];
+    }
+
+    #[DataProvider('badReplies')]
+    public function testARejectedReply(mixed $text): void
+    {
+        $this->expectException(InvalidNoteException::class);
+        NotePayload::replyText($text);
+    }
+
+    public function testAReplyMayBeAsLongAsANote(): void
+    {
+        $text = str_repeat('🔩', NotePayload::MAX_TEXT_CHARS);
+
+        $this->assertSame($text, NotePayload::replyText($text));
+    }
+
+    public function testTheTextOfAStoredPayload(): void
+    {
+        $this->assertSame('Hi', NotePayload::textOf('{"space":"model","point":{"x":0,"y":0,"z":0},"text":"Hi"}'));
+        $this->assertSame('', NotePayload::textOf('{"space":"model","points":[]}'), 'a measurement has no text');
+        $this->assertSame('', NotePayload::textOf('not json'));
+        $this->assertSame('', NotePayload::textOf(null));
+    }
 }

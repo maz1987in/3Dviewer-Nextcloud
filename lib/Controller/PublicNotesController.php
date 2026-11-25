@@ -24,7 +24,9 @@ use OCP\Share\IShare;
  * MUST extend PublicShareController, for the reason PublicFileController gives: the
  * middleware enforces share passwords only for instances of it (GHSA-gjh8-x4wm-3cfj).
  * Authors are left out so a public link doesn't hand out the names of the people who
- * wrote on the model.
+ * wrote on the model — and the same goes for those who replied, who resolved a note, and
+ * who was mentioned. A visitor sees whether a note is resolved and the thread under it,
+ * and can change none of it.
  *
  * @psalm-suppress UnusedClass Routed via attribute registration in Nextcloud runtime.
  */
@@ -84,11 +86,8 @@ class PublicNotesController extends PublicShareController
 
         // Keyed by the id of the file the share actually resolved to, never the id the
         // caller sent: on a single-file share getFileFromShare() ignores that id.
-        $notes = array_map(
-            fn ($note) => $this->notes->serialize($note, false),
-            $this->notes->list($file->getId()),
-        );
-
-        return new JSONResponse(['canEdit' => false, 'notes' => $notes]);
+        // States and replies come with the notes, read-only. No author's name, nobody who
+        // resolved a note, and every mention hidden: see NotesService::serialize.
+        return new JSONResponse(['canEdit' => false, 'notes' => $this->notes->serializeAll($file->getId(), false)]);
     }
 }

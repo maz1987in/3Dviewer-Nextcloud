@@ -654,8 +654,18 @@
 				<p v-if="notesReadOnly" class="canvas-panel-hint">
 					{{ t('threedviewer', 'Measurements you take here aren’t saved.') }}
 				</p>
+				<NoteReviewBar v-if="noteCounts.all > 0"
+					:model-value="noteFilter"
+					@update:model-value="noteFilter = $event"
+					:counts="noteCounts"
+					:show-resolved="sharedNotes.showResolved.value"
+					@update:show-resolved="sharedNotes.setShowResolved" />
 				<div class="measurement-list">
-					<div v-for="m in measurements" :key="m.id" class="canvas-panel-card measurement-item">
+					<div v-for="m in measurements"
+						v-show="noteMatches(m)"
+						:key="m.id"
+						:data-note-id="m.meta?.noteId ?? null"
+						class="canvas-panel-card measurement-item">
 						<div class="canvas-panel-card-header">
 							<!-- Distances and angles are numbered separately -->
 							<span class="canvas-panel-card-title">{{ m.type === 'angle'
@@ -703,6 +713,11 @@
 							<span>{{ t('threedviewer', 'Point 2') }}</span>
 							<span class="point-coords">({{ m.point2.x.toFixed(2) }}, {{ m.point2.y.toFixed(2) }}, {{ m.point2.z.toFixed(2) }})</span>
 						</div>
+						<NoteThread v-if="hasThread(m)"
+							:item="m"
+							kind="measurement"
+							:can-review="notesCanEdit && isSharedNote(m)"
+							:review="sharedNotes" />
 					</div>
 				</div>
 			</div>
@@ -772,8 +787,15 @@
 				<p v-else-if="!notePlacementHeld" class="canvas-panel-hint">
 					{{ t('threedviewer', 'Click the model to place a note at that point.') }}
 				</p>
+				<NoteReviewBar v-if="noteCounts.all > 0"
+					:model-value="noteFilter"
+					@update:model-value="noteFilter = $event"
+					:counts="noteCounts"
+					:show-resolved="sharedNotes.showResolved.value"
+					@update:show-resolved="sharedNotes.setShowResolved" />
 				<div class="annotation-list">
 					<div v-for="(annotation, index) in annotations"
+						v-show="noteMatches(annotation)"
 						:key="annotation.id"
 						:data-note-id="annotation.meta?.noteId ?? null"
 						:class="{ 'is-highlighted': isHighlightedNote(annotation) }"
@@ -829,8 +851,22 @@
 							a time left the field reading "Annotation 1t". Committing per
 							keystroke keeps the two in step, so a patch rewrites the same string.
 						-->
-						<input
-							:value="annotation.text"
+						<!--
+							Someone who may edit the note types in a field that offers the people who can
+							open this model when they type an @. Everyone else, and a note nobody can
+							change, gets the plain field, with the people it mentions shown by name.
+						-->
+						<NoteMentionField v-if="notesCanEdit"
+							:model-value="annotation.text"
+							:names="annotation.meta?.mentions"
+							:find-people="(search) => sharedNotes.findPeople(annotation, search)"
+							:remember-people="(found) => sharedNotes.learnMentions(annotation, found)"
+							input-class="annotation-text-input"
+							:label="t('threedviewer', 'Annotation text')"
+							:placeholder="t('threedviewer', 'Enter annotation text...')"
+							@update:model-value="updateAnnotationText(annotation.id, $event)" />
+						<input v-else
+							:value="annotationFieldValue(annotation)"
 							class="annotation-text-input"
 							maxlength="2000"
 							:readonly="!canChangeNote(annotation)"
@@ -840,6 +876,11 @@
 							<span>{{ t('threedviewer', 'Position') }}</span>
 							<span class="point-coords">({{ annotation.point.x.toFixed(2) }}, {{ annotation.point.y.toFixed(2) }}, {{ annotation.point.z.toFixed(2) }})</span>
 						</div>
+						<NoteThread v-if="hasThread(annotation)"
+							:item="annotation"
+							kind="annotation"
+							:can-review="notesCanEdit && isSharedNote(annotation)"
+							:review="sharedNotes" />
 					</div>
 				</div>
 			</div>
@@ -884,6 +925,7 @@ import { getCurrentUser } from '@nextcloud/auth'
 import { measurementNumbers, useMeasurement } from '../composables/useMeasurement.js'
 import { useAnnotation } from '../composables/useAnnotation.js'
 import { useSharedNotes } from '../composables/useSharedNotes.js'
+import { countByState, expandMentions, isResolved, matchesFilter } from '../utils/noteReview.js'
 import { createNotesApi } from '../utils/notesApi.js'
 import { createFileSettingsApi } from '../utils/fileSettingsApi.js'
 import { useFileUnit } from '../composables/useFileUnit.js'
@@ -940,6 +982,11 @@ export default {
 		SplatStats: defineAsyncComponent(() => import('./SplatStats.vue')),
 		// Loaded the first time someone records a turntable
 		TurntableDialog: defineAsyncComponent(() => import('./TurntableDialog.vue')),
+		// Review of a note — its filter, its thread, and the field that offers people to
+		// mention — loads when a notes panel opens
+		NoteReviewBar: defineAsyncComponent(() => import('./NoteReviewBar.vue')),
+		NoteThread: defineAsyncComponent(() => import('./NoteThread.vue')),
+		NoteMentionField: defineAsyncComponent(() => import('./NoteMentionField.vue')),
 	},
 	props: {
 		fileId: { type: [Number, String], default: null },
@@ -2881,6 +2928,18 @@ export default {
 		 */
 		const isSharedNote = (note) => Number.isSafeInteger(note?.meta?.noteId) && note.meta.noteId > 0
 
+		// Whether a note has a thread to show: a saved note that is resolved or has replies, or
+		// any saved note to someone who may reply to it
+		const hasThread = (note) => isSharedNote(note) && (notesCanEdit.value || isResolved(note) || (note.meta?.replies?.length ?? 0) > 0)
+
+		// The notes list's filter, and what each choice would show
+		const noteFilter = ref('all')
+		const noteCounts = computed(() => countByState([...annotation.annotations.value, ...measurement.measurements.value]))
+		const noteMatches = (note) => matchesFilter(note, noteFilter.value)
+
+		// A note nobody can change shows its text with the people it mentions by name
+		const annotationFieldValue = (note) => (canChangeNote(note) ? note.text : expandMentions(note.text, note.meta?.mentions))
+
 		const isHighlightedNote = (note) => highlightedNoteId.value !== null && note?.meta?.noteId === highlightedNoteId.value
 
 		// Working on another note ends the highlight a link gave one
@@ -2915,8 +2974,11 @@ export default {
 		 * @param {number} noteId
 		 */
 		const focusLinkedNote = async (noteId) => {
-			if (!annotation.annotations.value.some((a) => a.meta?.noteId === noteId)) return
+			const linked = annotation.annotations.value.find((a) => a.meta?.noteId === noteId)
+			if (!linked) return
 			if (!annotation.isActive.value) toggleAnnotationMode()
+			// The note a link names is shown even if the filter would hide it: with its thread, and its marker
+			if (!matchesFilter(linked, noteFilter.value)) noteFilter.value = 'all'
 			highlightedNoteId.value = noteId
 			notePlacementHeld.value = true
 			await nextTick()
@@ -5088,6 +5150,11 @@ export default {
 			notePlacementHeld,
 			isSharedNote,
 			isHighlightedNote,
+			hasThread,
+			noteFilter,
+			noteCounts,
+			noteMatches,
+			annotationFieldValue,
 			onAnnotationCardClick,
 			copyNoteLink,
 			toggleMeasurementMode,

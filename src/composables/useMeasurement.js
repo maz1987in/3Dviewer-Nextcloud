@@ -12,6 +12,7 @@ import {
 	updateTextMesh,
 } from '../utils/modelScaleUtils.js'
 import { displayLengthFactor, formatLength } from '../utils/sourceUnits.js'
+import { applyMarkerLook } from '../utils/noteReview.js'
 
 // Unit conversion factors from config
 const UNIT_SCALES = VIEWER_CONFIG.measurement.unitScales
@@ -624,6 +625,17 @@ export function useMeasurement() {
 		logger.info('useMeasurement', 'Mode changed', { mode: newMode })
 	}
 
+	/**
+	 * Draw one measurement as its note's state asks: normally, dimmed or hidden.
+	 *
+	 * @param {string} measurementId - the measurement
+	 * @param {'normal'|'dim'|'hidden'} look - how to draw it
+	 */
+	const setMarkerLook = (measurementId, look) => {
+		const objects = measurementObjects.get(measurementId)
+		if (objects) applyMarkerLook([...objects.points, ...objects.lines, objects.text], look)
+	}
+
 	// Delete a single measurement
 	const deleteMeasurement = (measurementId, { silent = false } = {}) => {
 		const index = measurements.value.findIndex(m => m.id === measurementId)
@@ -717,6 +729,7 @@ export function useMeasurement() {
 		toggleMeasurement,
 		handleClick,
 		setNoteHooks,
+		setMarkerLook,
 		addMeasurementPoint,
 		addMeasurement,
 		addMeasurementFromNote,

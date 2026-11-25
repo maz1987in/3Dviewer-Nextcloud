@@ -7,9 +7,11 @@ namespace OCA\ThreeDViewer\Tests\Unit\Service;
 use OCA\ThreeDViewer\Activity\NoteActivityPublisher;
 use OCA\ThreeDViewer\Activity\Provider;
 use OCA\ThreeDViewer\Db\Note;
+use OCA\ThreeDViewer\Db\NoteReply;
 use OCA\ThreeDViewer\Notification\NoteNotificationPublisher;
 use OCA\ThreeDViewer\Service\NoteActor;
 use OCA\ThreeDViewer\Service\NoteChangePublisher;
+use OCA\ThreeDViewer\Service\NoteMentions;
 use OCP\Files\File;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -19,6 +21,7 @@ class NoteChangePublisherTest extends TestCase
 {
     private NoteActivityPublisher&MockObject $activity;
     private NoteNotificationPublisher&MockObject $notifications;
+    private NoteMentions&MockObject $mentions;
     private LoggerInterface&MockObject $logger;
     private NoteChangePublisher $publisher;
 
@@ -26,8 +29,9 @@ class NoteChangePublisherTest extends TestCase
     {
         $this->activity = $this->createMock(NoteActivityPublisher::class);
         $this->notifications = $this->createMock(NoteNotificationPublisher::class);
+        $this->mentions = $this->createMock(NoteMentions::class);
         $this->logger = $this->createMock(LoggerInterface::class);
-        $this->publisher = new NoteChangePublisher($this->activity, $this->notifications, $this->logger);
+        $this->publisher = new NoteChangePublisher($this->activity, $this->notifications, $this->mentions, $this->logger);
     }
 
     private function note(int $id = 31, string $author = 'lina', int $updatedAt = 10_000): Note
@@ -47,7 +51,8 @@ class NoteChangePublisherTest extends TestCase
         $note = $this->note();
         $actor = NoteActor::user('lina');
         $this->activity->expects($this->once())->method('publish')->with(Provider::NOTE_ADDED, $file, $actor, 31);
-        $this->notifications->expects($this->once())->method('noteAdded')->with($file, $note, $actor);
+        $this->notifications->expects($this->once())->method('noteAdded')->with($file, $note, $actor, []);
+        $this->notifications->expects($this->never())->method('mentioned');
 
         $this->publisher->added($file, $note, $actor);
     }
@@ -132,5 +137,164 @@ class NoteChangePublisherTest extends TestCase
         $this->logger->expects($this->once())->method('warning');
 
         $this->publisher->added($file, $this->note(), NoteActor::user('lina'));
+    }
+
+    /** The text a mention test gives a note: only its mentions matter, the mock answers by text. */
+    private function textNote(string $text, int $id = 31, string $author = 'lina'): Note
+    {
+        $note = $this->note($id, $author);
+        $note->setPayload(json_encode(['space' => 'model', 'point' => ['x' => 0, 'y' => 0, 'z' => 0], 'text' => $text], JSON_THROW_ON_ERROR));
+
+        return $note;
+    }
+
+    /** @param array<string, list<string>> $byText what the mentions service finds in each text */
+    private function mentionsIn(array $byText): void
+    {
+        $this->mentions->method('uids')->willReturnCallback(fn (string $text, int $fileId, bool $settled) => $byText[$text] ?? []);
+    }
+
+    public function testANewNoteThatMentionsSomeoneNotifiesThemAndNotWithTheRegularNotification(): void
+    {
+        $file = $this->createMock(File::class);
+        $note = $this->textNote('Look @sara');
+        $actor = NoteActor::user('lina');
+        $this->mentionsIn(['Look @sara' => ['sara']]);
+        $this->activity->expects($this->once())->method('publish')->with(Provider::NOTE_ADDED, $file, $actor, 31);
+        // The mention wins: the regular notification is told to leave sara out
+        $this->notifications->expects($this->once())->method('noteAdded')->with($file, $note, $actor, ['sara']);
+        $this->notifications->expects($this->once())->method('mentioned')->with($file, $note, $actor, ['sara']);
+
+        $this->publisher->added($file, $note, $actor);
+    }
+
+    public function testANoteIsReadForMentionsOnlyOnceTheyAreSettled(): void
+    {
+        $this->mentions->expects($this->once())->method('uids')->with('Look @sa', 0, true)->willReturn([]);
+
+        $this->publisher->added($this->createMock(File::class), $this->textNote('Look @sa'), NoteActor::user('lina'));
+    }
+
+    public function testAnEditNotifiesOnlyThosePeopleItAddsEvenWhenItIsTheAuthorsQuickTyping(): void
+    {
+        $file = $this->createMock(File::class);
+        $note = $this->textNote('Look @sara and @omar', 31, 'lina');
+        $note->setUpdatedAt(10_001);
+        $this->mentionsIn(['Look @sara and @omar' => ['sara', 'omar'], 'Look @sara and ' => ['sara']]);
+        $this->notifications->expects($this->once())->method('mentioned')->with($file, $note, $this->anything(), ['omar']);
+        // Quick typing by the author: not news for the stream, but the new mention still is
+        $this->activity->expects($this->never())->method('publish');
+
+        $this->publisher->changed($file, $note, NoteActor::user('lina'), 10_000, 'Look @sara and ');
+    }
+
+    public function testAnEditThatAddsNoOneNotifiesNoOne(): void
+    {
+        $note = $this->textNote('Look @sara closely');
+        $this->mentionsIn(['Look @sara closely' => ['sara'], 'Look @sara' => ['sara']]);
+        $this->notifications->expects($this->never())->method('mentioned');
+
+        $this->publisher->changed($this->createMock(File::class), $note, NoteActor::user('omar'), 0, 'Look @sara');
+    }
+
+    public function testResolvingAndReopeningGoToTheStreamAndNeverNotify(): void
+    {
+        $file = $this->createMock(File::class);
+        $actor = NoteActor::user('omar');
+        $note = $this->note();
+        $note->setState(Note::STATE_RESOLVED);
+        $reopened = $this->note();
+        $this->activity->expects($this->exactly(2))->method('publish')->willReturnCallback(
+            function (string $subject, File $f, NoteActor $a, ?int $noteId) use ($file, $actor): void {
+                $this->assertSame($file, $f);
+                $this->assertSame($actor, $a);
+                $this->assertSame(31, $noteId);
+                $this->assertContains($subject, [Provider::NOTE_RESOLVED, Provider::NOTE_REOPENED]);
+            },
+        );
+        $this->notifications->expects($this->never())->method('noteAdded');
+        $this->notifications->expects($this->never())->method('mentioned');
+
+        $this->publisher->stateChanged($file, $note, $actor);
+        $this->publisher->stateChanged($file, $reopened, $actor);
+    }
+
+    public function testAReplyGoesToTheStreamAndNotifiesThoseItMentions(): void
+    {
+        $file = $this->createMock(File::class);
+        $actor = NoteActor::user('omar');
+        $note = $this->note();
+        $reply = new NoteReply();
+        $reply->setText('Fixed, @lina');
+        $this->mentionsIn(['Fixed, @lina' => ['lina']]);
+        $this->activity->expects($this->once())->method('publish')->with(Provider::NOTE_REPLIED, $file, $actor, 31);
+        $this->notifications->expects($this->once())->method('mentioned')->with($file, $note, $actor, ['lina']);
+        $this->notifications->expects($this->never())->method('noteAdded');
+
+        $this->publisher->replied($file, $note, $reply, $actor);
+    }
+
+    public function testAReplyThatMentionsNoOneNotifiesNoOne(): void
+    {
+        $reply = new NoteReply();
+        $reply->setText('Fixed');
+        $this->activity->expects($this->once())->method('publish');
+        $this->notifications->expects($this->never())->method('mentioned');
+
+        $this->publisher->replied($this->createMock(File::class), $this->note(), $reply, NoteActor::user('omar'));
+    }
+
+    public function testARepliesLastWordIsFinalSoItCountsAtOnce(): void
+    {
+        $reply = new NoteReply();
+        $reply->setText('Thanks @lina');
+        $this->mentions->expects($this->once())->method('uids')->with('Thanks @lina', 0, false)->willReturn(['lina']);
+
+        $this->publisher->replied($this->createMock(File::class), $this->note(), $reply, NoteActor::user('omar'));
+    }
+
+    public function testEditingAReplyNotifiesOnlyThoseItAdds(): void
+    {
+        $file = $this->createMock(File::class);
+        $note = $this->note();
+        $reply = new NoteReply();
+        $reply->setText('Fixed, @lina and @sara');
+        $this->mentionsIn(['Fixed, @lina and @sara' => ['lina', 'sara'], 'Fixed, @lina' => ['lina']]);
+        $this->notifications->expects($this->once())->method('mentioned')->with($file, $note, $this->anything(), ['sara']);
+        $this->activity->expects($this->never())->method('publish');
+
+        $this->publisher->replyChanged($file, $note, $reply, NoteActor::user('omar'), 'Fixed, @lina');
+    }
+
+    public function testNothingIsToldWithoutAFileForStateRepliesAndEdits(): void
+    {
+        $this->activity->expects($this->never())->method('publish');
+        $this->notifications->expects($this->never())->method('mentioned');
+        $reply = new NoteReply();
+        $actor = NoteActor::user('omar');
+
+        $this->publisher->stateChanged(null, $this->note(), $actor);
+        $this->publisher->replied(null, $this->note(), $reply, $actor);
+        $this->publisher->replyChanged(null, $this->note(), $reply, $actor, '');
+    }
+
+    public function testAFailureReadingMentionsCostsTheMentionAndNotTheNote(): void
+    {
+        $this->mentions->method('uids')->willThrowException(new \RuntimeException('user backend down'));
+        $this->activity->expects($this->once())->method('publish');
+        $this->notifications->expects($this->once())->method('noteAdded')->with($this->anything(), $this->anything(), $this->anything(), []);
+        $this->logger->expects($this->atLeastOnce())->method('warning');
+
+        $this->publisher->added($this->createMock(File::class), $this->textNote('Look @sara'), NoteActor::user('lina'));
+    }
+
+    public function testAFailureInTheMentionNotificationDoesNotEscape(): void
+    {
+        $this->mentionsIn(['Look @sara' => ['sara']]);
+        $this->notifications->method('mentioned')->willThrowException(new \RuntimeException('notifications app broken'));
+        $this->activity->expects($this->once())->method('publish');
+        $this->logger->expects($this->once())->method('warning');
+
+        $this->publisher->added($this->createMock(File::class), $this->textNote('Look @sara'), NoteActor::user('lina'));
     }
 }

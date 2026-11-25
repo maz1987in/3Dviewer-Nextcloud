@@ -8,6 +8,7 @@ use OCA\ThreeDViewer\AppInfo\Application;
 use OCA\ThreeDViewer\Db\Note;
 use OCA\ThreeDViewer\Db\NoteMapper;
 use OCA\ThreeDViewer\Service\NoteActor;
+use OCA\ThreeDViewer\Service\NoteMentions;
 use OCA\ThreeDViewer\Service\NoteRecipients;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\Files\File;
@@ -29,6 +30,9 @@ use Psr\Log\LoggerInterface;
  * A note more than COLLAPSE_SECONDS after the last starts a burst of its own, and a
  * notification of its own.
  *
+ * A mention is told apart from that: "someone mentioned you in a note" goes to the person
+ * named, about that note, whatever else is going on. Neither kind carries the note's text.
+ *
  * @psalm-suppress MissingDependency Nextcloud runtime provides dependent classes in full environment.
  */
 class NoteNotificationPublisher
@@ -36,7 +40,12 @@ class NoteNotificationPublisher
     /** The type of the object a notification is about; its id is the first note of the burst */
     public const OBJECT_TYPE = 'threedviewer_note';
 
+    /** The type of the object a mention is about; its id is the note, so a person has one per note */
+    public const MENTION_OBJECT_TYPE = 'threedviewer_note_mention';
+
     public const SUBJECT_NOTE_ADDED = 'note_added';
+
+    public const SUBJECT_NOTE_MENTION = 'note_mention';
 
     /** The longest quiet gap inside one burst of notes */
     public const COLLAPSE_SECONDS = 600;
@@ -54,9 +63,14 @@ class NoteNotificationPublisher
     ) {
     }
 
-    public function noteAdded(File $file, Note $note, NoteActor $actor): void
+    /**
+     * @param list<string> $except people who are being told about this note some other way —
+     *     a mention names someone more precisely than "a note was added", so whoever is
+     *     mentioned gets that notification alone
+     */
+    public function noteAdded(File $file, Note $note, NoteActor $actor, array $except = []): void
     {
-        $recipients = $this->recipients->forNotification($file, $actor);
+        $recipients = array_values(array_diff($this->recipients->forNotification($file, $actor), $except));
         if ($recipients === []) {
             return;
         }
@@ -87,7 +101,41 @@ class NoteNotificationPublisher
     }
 
     /**
-     * A deleted note's notification goes with it, for everyone who has it.
+     * Tell the people a text mentions, who can open the model, that they were. Whoever
+     * can't open it is not told, and neither is the writer.
+     *
+     * A person has one such notification per note: mentioned again in the same thread, the
+     * earlier one gives way to the new one rather than the list growing.
+     *
+     * @param list<string> $uids the accounts the text mentions
+     */
+    public function mentioned(File $file, Note $note, NoteActor $actor, array $uids): void
+    {
+        $recipients = array_slice($this->recipients->forMention($file, $actor, $uids), 0, NoteMentions::MAX_NOTIFIED);
+
+        foreach ($recipients as $uid) {
+            // One recipient whose notification can't be written must not cost the others theirs
+            try {
+                $this->notifications->markProcessed($this->forMention($uid, $note->getId()));
+
+                $notification = $this->forMention($uid, $note->getId())
+                    ->setDateTime($this->time->getDateTime())
+                    ->setSubject(self::SUBJECT_NOTE_MENTION, $actor->toParameters() + [
+                        'fileId' => $file->getId(),
+                        'noteId' => $note->getId(),
+                    ]);
+                $this->notifications->notify($notification);
+            } catch (\Throwable $e) {
+                $this->logger->warning('3D Viewer could not send a notification about a mention', [
+                    'fileId' => $file->getId(),
+                    'exception' => $e,
+                ]);
+            }
+        }
+    }
+
+    /**
+     * A deleted note's notifications go with it, for everyone who has them.
      */
     public function noteDeleted(int $noteId): void
     {
@@ -109,16 +157,26 @@ class NoteNotificationPublisher
     private function dismiss(int $noteId): void
     {
         try {
-            $notification = $this->notifications->createNotification()
-                ->setApp(Application::APP_ID)
-                ->setObject(self::OBJECT_TYPE, (string) $noteId);
-            $this->notifications->markProcessed($notification);
+            foreach ([self::OBJECT_TYPE, self::MENTION_OBJECT_TYPE] as $type) {
+                $notification = $this->notifications->createNotification()
+                    ->setApp(Application::APP_ID)
+                    ->setObject($type, (string) $noteId);
+                $this->notifications->markProcessed($notification);
+            }
         } catch (\Throwable $e) {
             $this->logger->warning('3D Viewer could not dismiss the notification of a deleted note', [
                 'noteId' => $noteId,
                 'exception' => $e,
             ]);
         }
+    }
+
+    private function forMention(string $uid, int $noteId): INotification
+    {
+        return $this->notifications->createNotification()
+            ->setApp(Application::APP_ID)
+            ->setUser($uid)
+            ->setObject(self::MENTION_OBJECT_TYPE, (string) $noteId);
     }
 
     private function forBurst(string $uid, int $firstNoteId): INotification

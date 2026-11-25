@@ -11,6 +11,8 @@ use OCA\ThreeDViewer\Service\NoteAccess;
 use OCA\ThreeDViewer\Service\NoteAccessResult;
 use OCA\ThreeDViewer\Service\NoteActor;
 use OCA\ThreeDViewer\Service\NoteChangePublisher;
+use OCA\ThreeDViewer\Service\NotePayload;
+use OCA\ThreeDViewer\Service\NotePeople;
 use OCA\ThreeDViewer\Service\NotesService;
 use OCA\ThreeDViewer\Service\ResponseBuilder;
 use OCP\AppFramework\Db\DoesNotExistException;
@@ -31,6 +33,11 @@ use Psr\Log\LoggerInterface;
  * migration, and that publishes a user's private annotations to everyone who can open
  * the model.
  *
+ * Review follows the rule the notes themselves do: whoever may add a note to the model
+ * may resolve it, reopen it, reply to it, and edit or delete any reply under it. The
+ * rights are the model's, read from the file on every request; a note or a reply has none
+ * of its own.
+ *
  * @psalm-suppress UnusedClass Routed via attribute registration in Nextcloud runtime.
  */
 class NotesController extends BaseController
@@ -42,6 +49,7 @@ class NotesController extends BaseController
         private readonly NoteAccess $access,
         private readonly NotesService $notes,
         private readonly NoteChangePublisher $changes,
+        private readonly NotePeople $people,
         ResponseBuilder $responseBuilder,
         ModelFileSupport $modelFileSupport,
         LoggerInterface $logger,
@@ -63,7 +71,7 @@ class NotesController extends BaseController
 
         return new JSONResponse([
             'canEdit' => $access->canEdit,
-            'notes' => array_map(fn ($note) => $this->notes->serialize($note, true), $this->notes->list($fileId)),
+            'notes' => $this->notes->serializeAll($fileId, true),
             'private' => $private,
         ]);
     }
@@ -112,7 +120,9 @@ class NotesController extends BaseController
         }
 
         try {
-            $previousUpdatedAt = $this->notes->find($fileId, $noteId)->getUpdatedAt();
+            $before = $this->notes->find($fileId, $noteId);
+            $previousUpdatedAt = $before->getUpdatedAt();
+            $previousText = NotePayload::textOf($before->getPayload());
             $note = $this->notes->update($fileId, $noteId, $payload);
         } catch (DoesNotExistException) {
             return $this->notFound();
@@ -120,9 +130,143 @@ class NotesController extends BaseController
             return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
         }
 
-        $this->changes->changed($access->file, $note, NoteActor::user($uid), $previousUpdatedAt);
+        $this->changes->changed($access->file, $note, NoteActor::user($uid), $previousUpdatedAt, $previousText);
 
-        return new JSONResponse($this->notes->serialize($note, true));
+        return new JSONResponse($this->notes->serializeWithThread($note, true));
+    }
+
+    /**
+     * Resolve a note or open it again. Doing either to a note already in that state is
+     * answered like a change, with the note as it is, and announces nothing.
+     */
+    #[NoAdminRequired]
+    #[FrontpageRoute(verb: 'PATCH', url: '/api/notes/{fileId}/{noteId}/state')]
+    public function setState(int $fileId, int $noteId, string $state = ''): JSONResponse
+    {
+        [$uid, $access] = $this->resolve($fileId);
+        if ($access === null) {
+            return $this->notFound();
+        }
+        if (!$access->canEdit) {
+            return $this->forbidden();
+        }
+
+        try {
+            [$note, $changed] = $this->notes->changeState($fileId, $noteId, $state, $uid);
+        } catch (DoesNotExistException) {
+            return $this->notFound();
+        } catch (InvalidNoteException $e) {
+            return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
+        }
+
+        if ($changed) {
+            $this->changes->stateChanged($access->file, $note, NoteActor::user($uid));
+        }
+
+        return new JSONResponse($this->notes->serializeWithThread($note, true));
+    }
+
+    /**
+     * Add a reply to a note. A reply to a resolved note is allowed and leaves it resolved:
+     * answering "done" or "thanks" is not a reason to put the note back on someone's list.
+     * Reopening is its own, deliberate action.
+     */
+    #[NoAdminRequired]
+    #[FrontpageRoute(verb: 'POST', url: '/api/notes/{fileId}/{noteId}/replies')]
+    public function reply(int $fileId, int $noteId, mixed $text = null): JSONResponse
+    {
+        [$uid, $access] = $this->resolve($fileId);
+        if ($access === null) {
+            return $this->notFound();
+        }
+        if (!$access->canEdit) {
+            return $this->forbidden();
+        }
+
+        try {
+            $note = $this->notes->find($fileId, $noteId);
+            $reply = $this->notes->addReply($fileId, $noteId, $text, $uid);
+        } catch (DoesNotExistException) {
+            return $this->notFound();
+        } catch (NoteLimitException $e) {
+            return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_CONFLICT);
+        } catch (InvalidNoteException $e) {
+            return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
+        }
+
+        $this->changes->replied($access->file, $note, $reply, NoteActor::user($uid));
+
+        return new JSONResponse($this->notes->serializeReply($reply, true), Http::STATUS_CREATED);
+    }
+
+    #[NoAdminRequired]
+    #[FrontpageRoute(verb: 'PATCH', url: '/api/notes/{fileId}/{noteId}/replies/{replyId}')]
+    public function updateReply(int $fileId, int $noteId, int $replyId, mixed $text = null): JSONResponse
+    {
+        [$uid, $access] = $this->resolve($fileId);
+        if ($access === null) {
+            return $this->notFound();
+        }
+        if (!$access->canEdit) {
+            return $this->forbidden();
+        }
+
+        try {
+            $note = $this->notes->find($fileId, $noteId);
+            $previousText = $this->notes->findReply($fileId, $noteId, $replyId)->getText();
+            $reply = $this->notes->updateReply($fileId, $noteId, $replyId, $text);
+        } catch (DoesNotExistException) {
+            return $this->notFound();
+        } catch (InvalidNoteException $e) {
+            return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
+        }
+
+        $this->changes->replyChanged($access->file, $note, $reply, NoteActor::user($uid), $previousText);
+
+        return new JSONResponse($this->notes->serializeReply($reply, true));
+    }
+
+    #[NoAdminRequired]
+    #[FrontpageRoute(verb: 'DELETE', url: '/api/notes/{fileId}/{noteId}/replies/{replyId}')]
+    public function destroyReply(int $fileId, int $noteId, int $replyId): Response
+    {
+        [, $access] = $this->resolve($fileId);
+        if ($access === null) {
+            return $this->notFound();
+        }
+        if (!$access->canEdit) {
+            return $this->forbidden();
+        }
+
+        try {
+            $this->notes->deleteReply($fileId, $noteId, $replyId);
+        } catch (DoesNotExistException) {
+            return $this->notFound();
+        }
+
+        $response = new Response();
+        $response->setStatus(Http::STATUS_NO_CONTENT);
+
+        return $response;
+    }
+
+    /**
+     * The people to offer when someone types an @: those who can open this model.
+     * Only someone who can write a note needs them, so a view-only user has none.
+     */
+    #[NoAdminRequired]
+    #[FrontpageRoute(verb: 'GET', url: '/api/notes/{fileId}/people')]
+    public function mentionable(int $fileId, string $search = ''): JSONResponse
+    {
+        [$uid, $access] = $this->resolve($fileId);
+        if ($access === null) {
+            return $this->notFound();
+        }
+        if (!$access->canEdit) {
+            return $this->forbidden();
+        }
+
+        return new JSONResponse(['people' => $this->people->search($fileId, $uid, $search)]);
     }
 
     #[NoAdminRequired]

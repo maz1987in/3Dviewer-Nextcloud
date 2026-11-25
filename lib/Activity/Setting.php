@@ -11,7 +11,7 @@ use OCP\IL10N;
  * The one switch for the stream and for email, under Settings > Notifications > Activity.
  *
  * Every event of the app carries this type, so a user who turns it off stops hearing about
- * notes added, changed and deleted on models, everywhere the Activity app would show them.
+ * notes added, changed, resolved, replied to and deleted on models, everywhere the Activity app would show them.
  * Email starts off: a stream entry is cheap to ignore, an email is not.
  *
  * The Activity app can also raise a notification of its own for a setting like this one.
@@ -39,7 +39,7 @@ class Setting extends ActivitySettings
 
     public function getName(): string
     {
-        return $this->l->t('Notes on a 3D model were added, changed or deleted');
+        return $this->l->t('Notes on a 3D model were added, changed, resolved, replied to or deleted');
     }
 
     public function getGroupIdentifier(): string
