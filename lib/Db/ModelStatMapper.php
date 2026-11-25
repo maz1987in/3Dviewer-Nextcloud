@@ -43,6 +43,8 @@ class ModelStatMapper extends QBMapper
      *
      * @param list<int> $fileIds
      * @return array<int, string> ETag by file id
+     *
+     * @psalm-suppress MixedAssignment, MixedArrayAccess The row's type is `mixed` on Nextcloud 31 to 33 and an array from 34
      */
     public function findEtags(array $fileIds): array
     {
