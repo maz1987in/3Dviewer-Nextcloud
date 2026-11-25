@@ -6,6 +6,7 @@ namespace OCA\ThreeDViewer\Tests\Unit\Controller;
 
 use OCA\ThreeDViewer\Controller\ThumbnailController;
 use OCA\ThreeDViewer\Service\ModelFileSupport;
+use OCA\ThreeDViewer\Service\ModelStatsService;
 use OCA\ThreeDViewer\Service\NoteAccess;
 use OCA\ThreeDViewer\Service\NoteAccessResult;
 use OCA\ThreeDViewer\Service\ResponseBuilder;
@@ -33,9 +34,11 @@ class ThumbnailControllerTest extends TestCase
     private ThumbnailService&MockObject $thumbnails;
     private NoteAccess&MockObject $access;
     private Folder&MockObject $home;
+    private IRootFolder&MockObject $rootFolder;
     private IRequest&MockObject $request;
     private LoggerInterface&MockObject $logger;
     private IReferenceManager&MockObject $references;
+    private ModelStatsService&MockObject $modelStats;
     private IUserSession&MockObject $session;
     private ThumbnailController $controller;
 
@@ -46,11 +49,14 @@ class ThumbnailControllerTest extends TestCase
         $this->request = $this->createMock(IRequest::class);
         $this->logger = $this->createMock(LoggerInterface::class);
         $this->references = $this->createMock(IReferenceManager::class);
+        $this->modelStats = $this->createMock(ModelStatsService::class);
+        $this->modelStats->method('measured')->willReturn([]);
 
         $this->home = $this->createMock(Folder::class);
         $this->home->method('getRelativePath')->willReturnCallback(static fn (string $p): string => preg_replace('#^/alice/files#', '', $p));
         $rootFolder = $this->createMock(IRootFolder::class);
         $rootFolder->method('getUserFolder')->with('alice')->willReturn($this->home);
+        $this->rootFolder = $rootFolder;
 
         $user = $this->createMock(IUser::class);
         $user->method('getUID')->willReturn('alice');
@@ -65,7 +71,7 @@ class ThumbnailControllerTest extends TestCase
         $cacheFactory = $this->createMock(ICacheFactory::class);
         $cacheFactory->method('createDistributed')->willReturn($this->createMock(ICache::class));
 
-        return new class ('threedviewer', $this->request, $rootFolder, $this->session, $this->thumbnails, $this->access, new ResponseBuilder($this->createMock(ModelFileSupport::class)), $this->createMock(ModelFileSupport::class), $this->logger, $cacheFactory, $this->references, $body) extends ThumbnailController {
+        return new class ('threedviewer', $this->request, $rootFolder, $this->session, $this->thumbnails, $this->access, new ResponseBuilder($this->createMock(ModelFileSupport::class)), $this->createMock(ModelFileSupport::class), $this->logger, $cacheFactory, $this->references, $this->modelStats, $body) extends ThumbnailController {
             public function __construct(
                 string $appName,
                 IRequest $request,
@@ -78,9 +84,10 @@ class ThumbnailControllerTest extends TestCase
                 LoggerInterface $logger,
                 ICacheFactory $cacheFactory,
                 IReferenceManager $referenceManager,
+                ModelStatsService $modelStats,
                 private readonly string $body,
             ) {
-                parent::__construct($appName, $request, $rootFolder, $userSession, $thumbnailService, $noteAccess, $responseBuilder, $modelFileSupport, $logger, $cacheFactory, $referenceManager);
+                parent::__construct($appName, $request, $rootFolder, $userSession, $thumbnailService, $noteAccess, $responseBuilder, $modelFileSupport, $logger, $cacheFactory, $referenceManager, $modelStats);
             }
 
             protected function readBody(): string
@@ -296,14 +303,17 @@ class ThumbnailControllerTest extends TestCase
         ]);
         $this->access->method('forUser')->willReturnCallback(static fn (int $id): NoteAccessResult => new NoteAccessResult($id === 3));
         $this->thumbnails->method('has')->willReturnCallback(static fn (int $id, string $etag): bool => $id === 3 && $etag === '"e1"');
+        $this->modelStats = $this->createMock(ModelStatsService::class);
+        $this->modelStats->expects($this->once())->method('measured')->with([3 => '"e1"', 4 => '"e2"'])->willReturn([3]);
+        $this->controller = $this->buildController(self::PNG, $this->rootFolder);
 
         $response = $this->controller->status('3,4');
 
         $this->assertSame(200, $response->getStatus());
         $this->assertEquals([
             'files' => [
-                '3' => ['name' => 'a.glb', 'dir' => '/models', 'size' => 1234, 'etag' => '"e1"', 'canEdit' => true, 'hasThumbnail' => true],
-                '4' => ['name' => 'b.stl', 'dir' => '/', 'size' => 1234, 'etag' => '"e2"', 'canEdit' => false, 'hasThumbnail' => false],
+                '3' => ['name' => 'a.glb', 'dir' => '/models', 'size' => 1234, 'etag' => '"e1"', 'canEdit' => true, 'hasThumbnail' => true, 'hasStats' => true],
+                '4' => ['name' => 'b.stl', 'dir' => '/', 'size' => 1234, 'etag' => '"e2"', 'canEdit' => false, 'hasThumbnail' => false, 'hasStats' => false],
             ],
         ], json_decode((string) json_encode($response->getData()), true));
     }
@@ -348,6 +358,20 @@ class ThumbnailControllerTest extends TestCase
 
         $this->assertSame(200, $response->getStatus());
         $this->assertSame([4], array_keys((array) $response->getData()['files']));
+    }
+
+    public function testStatusDoesNotDependOnTheStatisticsStore(): void
+    {
+        $this->filesById([3 => [$this->file('a.glb')]]);
+        $this->access->method('forUser')->willReturn(new NoteAccessResult(true));
+        $this->thumbnails->method('has')->willReturn(true);
+        $this->modelStats = $this->createMock(ModelStatsService::class);
+        $this->modelStats->method('measured')->willThrowException(new \RuntimeException('table missing'));
+        $this->controller = $this->buildController(self::PNG, $this->rootFolder);
+
+        $files = (array) $this->controller->status('3')->getData()['files'];
+
+        $this->assertSame(['name' => 'a.glb', 'dir' => '/models', 'size' => 1234, 'etag' => '"e1"', 'canEdit' => true, 'hasThumbnail' => true, 'hasStats' => false], $files[3]);
     }
 
     public function testStatusWithNothingReadableEncodesAsJsonObject(): void

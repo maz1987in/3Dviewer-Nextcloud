@@ -291,6 +291,19 @@ On a phone or tablet that can do it, the **AR** button in the viewer's toolbar (
 
 The button is not shown on desktops, and it is off for scans and splats. A model over a million triangles on an iPhone (three million on Android) is turned down with a message. A model embedded on another website does not offer View in AR, because the website would have to allow it; the frame's **Open in Nextcloud** link leads to the share page, which does.
 
+### The 3D Tab in the Files Sidebar
+
+In the Files app, open a model's details (the **Details** action, or the sidebar button) and choose the **3D** tab. It shows:
+
+- **Format** and **Size**: width × depth × height in the unit the file is in. When the format records no unit (STL, OBJ, PLY, OFF, 3DS) the tab says the unit is a guess; once someone who can edit the file has set it in the viewer's Model Statistics, it says the unit was set for the file, and every reading follows. A format that records its own unit (glTF, STEP, IFC, a Rhino file...) is shown in it with no remark.
+- **Surface area** and **Volume**, where the model has them (the volume says when it assumes the model is closed), **Triangles**, **Vertices**, **Parts**, **Materials** and **Textures** for a mesh; **Points** for a scan, **Splats** for a splat, **Layers** and **Print time** for G-code (the slicer's own estimate, when the file has one).
+- **Notes**: how many the model has, and a link that opens the model at the first one.
+- **Open in 3D Viewer**, which opens the model over the Files list (or on its own page where there is no Viewer app). Hold Ctrl, Cmd or Shift to open it in a new tab.
+
+The numbers are measured by your browser, never the server: while a thumbnail is made, when the viewer opens the model, and by the tab itself when nobody has measured this version yet. The tab then loads the model the way a background thumbnail does, within your limits (**Personal Settings › Thumbnails**: largest file, time per file, download per folder), and, when you can edit the file, keeps the result for everyone who can open it (as a thumbnail is kept); if you can only read the file you see the same numbers, measured in your own browser each time. A model over the limits is called too large to measure here, and the button opens it. The numbers belong to one version of the file: when the file is edited the tab measures again, and a deleted file's numbers are removed. A `.nc` or `.g` file, which other programs use too, is measured only when you press **Measure this file**.
+
+The tab is for signed-in users on Nextcloud 31 to 35, and not on public links. It works with the keyboard (the tab list, the notes link and the button), follows the theme and right-to-left layouts.
+
 ### Link Previews and the Smart Picker
 
 Paste a link to a model into Talk, Text, Collectives, Deck or another app that shows link previews, and it shows as a card: the model's thumbnail, its name, format and size, and an **Open in 3D Viewer** button. A link made with "Copy link to this view" opens at that view. Only people who can open the file see the card; for anyone else the link stays a plain link.

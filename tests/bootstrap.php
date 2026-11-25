@@ -115,6 +115,11 @@ if (!class_exists('OCA\\Files_Sharing\\Event\\BeforeTemplateRenderedEvent')) {
     require_once __DIR__ . '/stubs/Files_Sharing_BeforeTemplateRenderedEvent.php';
 }
 
+// The Files app's sidebar event, for the same reason: `files` is a shipped app too.
+if (!class_exists('OCA\\Files\\Event\\LoadSidebar')) {
+    require_once __DIR__ . '/stubs/Files_Event_LoadSidebar.php';
+}
+
 // AddContentSecurityPolicyEvent is public API whose constructor takes a private server
 // class. Without this stub the event cannot be built outside a full server, and the CSP
 // listener would go untested.

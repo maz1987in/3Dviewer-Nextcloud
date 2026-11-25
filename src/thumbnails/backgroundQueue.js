@@ -53,6 +53,8 @@ const BREAKER_LIMIT = 3
  * @property {object} api - Server calls
  * @property {(fileIds: number[]) => Promise<Map<number, ThumbnailStatus>>} api.fetchStatus - See thumbnailApi.js
  * @property {(fileId: number, etag: string, blob: Blob) => Promise<string>} api.uploadThumbnail - See thumbnailApi.js
+ * @property {(fileId: number, etag: string, stats: object) => Promise<string>} [api.uploadModelStats] - See
+ *   stats/statsApi.js; without it the models are not measured
  * @property {(fileId: number, filename: string, extension: string, dirPath: string, options: LoadOptions) => Promise<LoadResult>} load
  *   - Downloads a model and its companion files; see backgroundLoad.js
  * @property {(job: object, options: {timeoutMs: number, signal: AbortSignal}) => Promise<Blob>} render
@@ -300,9 +302,19 @@ export function createBackgroundQueue(deps) {
 		}
 
 		let blob
+		// The model is loaded for the thumbnail anyway, so it is measured while it is: what the
+		// Files sidebar's "3D" tab shows (stats/extractStats.js), unless this version has it
+		let stats = null
 		try {
 			blob = await render(
-				{ extension, buffer: await mainFile.arrayBuffer(), additionalFiles: dependencies },
+				{
+					extension,
+					buffer: await mainFile.arrayBuffer(),
+					additionalFiles: dependencies,
+					name: status.name,
+					measure: !status.hasStats,
+					onStats: (measured) => { stats = measured },
+				},
 				{ timeoutMs: remaining, signal: v.controller.signal },
 			)
 		} catch (error) {
@@ -349,6 +361,28 @@ export function createBackgroundQueue(deps) {
 			deps.onThumbnail?.(id, blob)
 		} else if (outcome !== 'exists') {
 			logger.info('backgroundQueue', 'Thumbnail not stored', { fileId: id, outcome })
+		}
+		if (stats && api.uploadModelStats && isCurrent(v)) {
+			await storeStats(id, status.etag, stats)
+		}
+	}
+
+	/**
+	 * Store what was measured of a version. Never throws: the thumbnail is made, and the tab
+	 * measures the model itself when it opens without numbers.
+	 *
+	 * @param {number} id - File id
+	 * @param {string} etag - The version, from before the download
+	 * @param {object} stats - What the worker measured
+	 */
+	async function storeStats(id, etag, stats) {
+		try {
+			const outcome = await api.uploadModelStats(id, etag, stats)
+			if (outcome !== 'stored' && outcome !== 'exists') {
+				logger.info('backgroundQueue', 'Statistics not stored', { fileId: id, outcome })
+			}
+		} catch (error) {
+			logger.info('backgroundQueue', 'Statistics not stored', { fileId: id, error })
 		}
 	}
 

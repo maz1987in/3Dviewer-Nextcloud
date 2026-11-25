@@ -87,6 +87,7 @@ function setup({ statuses = {}, settings = {} } = {}) {
 		api: {
 			fetchStatus: jest.fn(async (ids) => new Map(ids.filter((id) => table.has(id)).map((id) => [id, table.get(id)]))),
 			uploadThumbnail: jest.fn(async () => 'stored'),
+			uploadModelStats: jest.fn(async () => 'stored'),
 		},
 		load: jest.fn(async (id) => ({ mainFile: fakeFile(table.get(id).size), dependencies: [] })),
 		render: jest.fn(async () => PNG),
@@ -464,6 +465,9 @@ describe('createBackgroundQueue', () => {
 				extension: 'glb',
 				buffer: expect.any(ArrayBuffer),
 				additionalFiles: [],
+				name: 'Bracket.v2.GLB',
+				measure: true,
+				onStats: expect.any(Function),
 			})
 		})
 
@@ -1130,5 +1134,112 @@ describe('createBackgroundQueue', () => {
 			expect(deps.probe.mock.invocationCallOrder[0]).toBeLessThan(deps.load.mock.invocationCallOrder[0])
 			expect(loadedIds(deps.load)).toEqual([2, 3])
 		})
+	})
+})
+
+describe('createBackgroundQueue measuring the models it renders', () => {
+	const STATS = { v: 1, kind: 'mesh', size: [1, 2, 3] }
+
+	/** A render that reports what the worker measured, as workerRenderer's renderInWorker does. */
+	const measuringRender = (stats) => async (job) => {
+		if (job.measure) {
+			job.onStats(stats)
+		}
+		return PNG
+	}
+
+	it('asks the worker to measure a version that was not measured, and stores the numbers under the version the download started from', async () => {
+		const { queue, deps } = setup({ statuses: { 1: status(1, { hasStats: false }) } })
+		deps.render.mockImplementation(measuringRender(STATS))
+
+		queue.setFolder('/models', [1], new Set())
+		await queue.idle()
+
+		expect(deps.render.mock.calls[0][0]).toMatchObject({ name: 'model-1.glb', measure: true })
+		expect(deps.api.uploadThumbnail).toHaveBeenCalledWith(1, 'etag-1', PNG)
+		expect(deps.api.uploadModelStats).toHaveBeenCalledWith(1, 'etag-1', STATS)
+	})
+
+	it('does not measure a version that already has its numbers', async () => {
+		const { queue, deps } = setup({ statuses: { 1: status(1, { hasStats: true }) } })
+		deps.render.mockImplementation(measuringRender(STATS))
+
+		queue.setFolder('/models', [1], new Set())
+		await queue.idle()
+
+		expect(deps.render.mock.calls[0][0].measure).toBe(false)
+		expect(deps.api.uploadModelStats).not.toHaveBeenCalled()
+	})
+
+	it('measures when the server does not say (one that predates the numbers)', async () => {
+		const { queue, deps } = setup({ statuses: { 1: status(1) } })
+
+		queue.setFolder('/models', [1], new Set())
+		await queue.idle()
+
+		expect(deps.render.mock.calls[0][0].measure).toBe(true)
+	})
+
+	it('stores nothing when the model could not be measured', async () => {
+		const { queue, deps } = setup({ statuses: { 1: status(1) } })
+		deps.render.mockImplementation(measuringRender(null))
+
+		queue.setFolder('/models', [1], new Set())
+		await queue.idle()
+
+		expect(deps.api.uploadThumbnail).toHaveBeenCalled()
+		expect(deps.api.uploadModelStats).not.toHaveBeenCalled()
+	})
+
+	it('keeps the thumbnail when storing the numbers fails', async () => {
+		const { queue, deps } = setup({ statuses: { 1: status(1), 2: status(2) } })
+		deps.render.mockImplementation(measuringRender(STATS))
+		deps.api.uploadModelStats.mockRejectedValueOnce(new Error('offline'))
+
+		queue.setFolder('/models', [1, 2], new Set())
+		await queue.idle()
+
+		expect(deps.onThumbnail).toHaveBeenCalledTimes(2)
+		expect(deps.api.uploadModelStats).toHaveBeenCalledTimes(2)
+	})
+
+	it('stores the numbers when the thumbnail was not stored: another browser made it', async () => {
+		const { queue, deps } = setup({ statuses: { 1: status(1) } })
+		deps.render.mockImplementation(measuringRender(STATS))
+		deps.api.uploadThumbnail.mockResolvedValue('exists')
+
+		queue.setFolder('/models', [1], new Set())
+		await queue.idle()
+
+		expect(deps.api.uploadModelStats).toHaveBeenCalledWith(1, 'etag-1', STATS)
+	})
+
+	it('measures nothing when the queue has no way to store numbers', async () => {
+		const { queue, deps } = setup({ statuses: { 1: status(1) } })
+		delete deps.api.uploadModelStats
+		deps.render.mockImplementation(measuringRender(STATS))
+
+		queue.setFolder('/models', [1], new Set())
+		await queue.idle()
+
+		expect(deps.onThumbnail).toHaveBeenCalledTimes(1)
+	})
+
+	it('does not store numbers for a folder the user has left', async () => {
+		const render = deferred()
+		const { queue, deps } = setup({ statuses: { 1: status(1) } })
+		deps.render.mockImplementation(async (job) => {
+			const png = await render.promise
+			job.onStats(STATS)
+			return png
+		})
+
+		queue.setFolder('/models', [1], new Set())
+		await flush()
+		queue.setFolder('/elsewhere', [], new Set())
+		render.resolve(PNG)
+		await queue.idle()
+
+		expect(deps.api.uploadModelStats).not.toHaveBeenCalled()
 	})
 })

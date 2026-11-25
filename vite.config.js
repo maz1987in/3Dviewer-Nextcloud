@@ -24,6 +24,9 @@ const appConfig = createAppConfig(
     embed: 'src/embed.js',
     // The card for a link to a model, loaded where apps render link previews (no three.js)
     reference: 'src/reference.js',
+    // The "3D" tab of the Files sidebar: its registration, loaded as an init script where the
+    // Files app asks for sidebar scripts. The tab itself is a dynamic import (see the entry)
+    'files-sidebar': 'src/files-sidebar.js',
   },
   {
     createEmptyCSSEntryPoints: true,

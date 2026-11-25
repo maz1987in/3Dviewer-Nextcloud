@@ -37,6 +37,16 @@ const BUDGETS = [
   // 2,482 B raw / 840 B gzip; it used to import the app's design system, 13.1 KB raw /
   // 2.8 KB gzip in all. The budget stops that coming back.
   { css: 'threedviewer-reference.css', name: 'reference-css', maxRaw: 2800, maxGzip: 1000 },
+  // The "3D" tab's registration, an init script on every page that renders the Files sidebar
+  // (LoadSidebarListener). It holds the tab's name, its icon (3 KB of path data, the app's
+  // logo) and the two ways Nextcloud 31 to 35 take a tab; the tab itself is the chunk below.
+  // 5.8 KB raw / 2.6 KB gzip when added. Importing `@nextcloud/files` for its
+  // `registerSidebarTab` made this 139 KB, hence stats/registerSidebarTab.js.
+  { pattern: /^threedviewer-files-sidebar\.mjs$/, name: 'files-sidebar', maxRaw: 6500, maxGzip: 3000 },
+  // The tab itself (its component, the numbers' wording and the code that reads and stores
+  // them), loaded when the sidebar first shows it. The code that measures a model that has no
+  // numbers yet is a chunk of its own, loaded only then. 12.3 KB raw / 4.0 KB gzip when added.
+  { pattern: /^ModelStatsTab-.*\.chunk\.mjs$/, name: 'files-sidebar-tab', maxRaw: 14000, maxGzip: 4600 },
   { pattern: /^gltf-.*\.chunk\.mjs$/, name: 'gltf-loader', maxRaw: 22000, maxGzip: 6000 }, // GLTF loader chunk (includes decoder worker pool tuning via setWorkerLimit)
   // Main app component. Bumped 360 KB → 370 KB in v3.3.0 for the 9 new viewer-config
   // entries, and unchanged by the redesign: replacing every emoji control with a Material

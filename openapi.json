@@ -294,6 +294,10 @@
             "description": "A model's shared settings, for signed-in users: anyone who can open the file reads them, and anyone who can edit it changes them. No route carries NoCSRFRequired."
         },
         {
+            "name": "model_stats",
+            "description": "What the Files sidebar's \"3D\" tab shows of a model, for signed-in users: the numbers the browser measured of the file's current version, the unit and direction chosen for it, and how many notes it has. Anyone who can read the file reads them. Only someone who can edit it may store a measurement, as only they may store its thumbnail: what is stored is shown to everyone who can open that version, so a reader must not be able to put numbers there. Someone who can only read gets the same numbers by measuring in their own browser, and nothing is stored. ModelStatsService also accepts only the fields it names, within bounds, only under the ETag the server says is current, and keeps the first measurement of a version. No route carries NoCSRFRequired."
+        },
+        {
             "name": "notes",
             "description": "The shared annotations and measurements of a model, for signed-in users. No route carries NoCSRFRequired — the read included, because it runs the legacy migration, and that publishes a user's private annotations to everyone who can open the model. Review follows the rule the notes themselves do: whoever may add a note to the model may resolve it, reopen it, reply to it, and edit or delete any reply under it. The rights are the model's, read from the file on every request; a note or a reply has none of its own."
         },

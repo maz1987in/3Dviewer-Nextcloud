@@ -20,6 +20,8 @@ const MAX_IDS_PER_REQUEST = 200
  * @property {string} etag - Version of the file the status describes
  * @property {boolean} canEdit - Whether the user may write next to the file
  * @property {boolean} hasThumbnail - Whether this version already has a thumbnail
+ * @property {boolean} [hasStats] - Whether this version was already measured (for the Files
+ *   sidebar's "3D" tab); absent from a server that predates it, which reads as not measured
  */
 
 /**

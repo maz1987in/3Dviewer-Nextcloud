@@ -9,9 +9,13 @@ import { fetchStatus, uploadThumbnail } from '../../../src/thumbnails/thumbnailA
 import { renderThumbnail } from '../../../src/thumbnails/renderThumbnail.js'
 import { EmptyModelError } from '../../../src/thumbnails/errors.js'
 import { isPublicShare } from '../../../src/composables/usePublicShare.js'
+import { extractModelStats } from '../../../src/stats/extractStats.js'
+import { uploadModelStats } from '../../../src/stats/statsApi.js'
 
 jest.mock('../../../src/thumbnails/thumbnailApi.js')
 jest.mock('../../../src/thumbnails/renderThumbnail.js')
+jest.mock('../../../src/stats/extractStats.js', () => ({ extractModelStats: jest.fn() }))
+jest.mock('../../../src/stats/statsApi.js', () => ({ uploadModelStats: jest.fn() }))
 jest.mock('../../../src/composables/usePublicShare.js', () => ({ isPublicShare: jest.fn(() => false) }))
 jest.mock('../../../src/utils/logger.js', () => ({
 	logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() },
@@ -19,6 +23,7 @@ jest.mock('../../../src/utils/logger.js', () => ({
 
 const PNG = { type: 'image/png', size: 4 }
 const model = { isObject3D: true }
+const STATS = { v: 1, kind: 'mesh', size: [1, 2, 3] }
 
 function status(overrides = {}) {
 	return { name: 'a.glb', dir: '/', size: 1, etag: 'etag-1', canEdit: true, hasThumbnail: false, ...overrides }
@@ -33,6 +38,8 @@ beforeEach(() => {
 	renderThumbnail.mockResolvedValue(PNG)
 	uploadThumbnail.mockResolvedValue('stored')
 	isPublicShare.mockReturnValue(false)
+	extractModelStats.mockReturnValue(STATS)
+	uploadModelStats.mockResolvedValue('stored')
 })
 
 describe('captureForCurrentVersion', () => {
@@ -365,5 +372,93 @@ describe('scheduleCapture', () => {
 		await flush()
 
 		expect(renderThumbnail).not.toHaveBeenCalled()
+	})
+})
+
+describe('captureForCurrentVersion measuring the model', () => {
+	test('stores the numbers of a version that has none, with the thumbnail', async () => {
+		const result = await captureForCurrentVersion({
+			fileId: 5, extension: 'stl', object3D: model, statuses: statusPromise(status({ hasStats: false })),
+		})
+
+		expect(result).toBe('stored')
+		expect(extractModelStats).toHaveBeenCalledWith(model, { filename: 'model.stl' })
+		expect(uploadModelStats).toHaveBeenCalledWith(5, 'etag-1', STATS)
+		expect(uploadThumbnail).toHaveBeenCalled()
+	})
+
+	test('stores nothing for someone who cannot edit the file: what is stored is shown to everyone', async () => {
+		const result = await captureForCurrentVersion({
+			fileId: 5, extension: 'glb', object3D: model, statuses: statusPromise(status({ canEdit: false })),
+		})
+
+		expect(result).toBe('skipped')
+		expect(extractModelStats).not.toHaveBeenCalled()
+		expect(uploadModelStats).not.toHaveBeenCalled()
+		expect(renderThumbnail).not.toHaveBeenCalled()
+	})
+
+	test('stores them when only the thumbnail exists', async () => {
+		await captureForCurrentVersion({
+			fileId: 5, extension: 'glb', object3D: model, statuses: statusPromise(status({ hasThumbnail: true })),
+		})
+
+		expect(uploadModelStats).toHaveBeenCalledWith(5, 'etag-1', STATS)
+		expect(renderThumbnail).not.toHaveBeenCalled()
+	})
+
+	test('measures nothing for a version that was measured', async () => {
+		await captureForCurrentVersion({
+			fileId: 5, extension: 'glb', object3D: model, statuses: statusPromise(status({ hasStats: true })),
+		})
+
+		expect(extractModelStats).not.toHaveBeenCalled()
+		expect(uploadModelStats).not.toHaveBeenCalled()
+	})
+
+	test('measures a splat, whose thumbnail the background thumbnailer makes', async () => {
+		const splat = { isObject3D: true, userData: { tdvSplat: {} } }
+
+		const result = await captureForCurrentVersion({
+			fileId: 5, extension: 'splat', object3D: splat, statuses: statusPromise(status()),
+		})
+
+		expect(result).toBe('skipped')
+		expect(uploadModelStats).toHaveBeenCalledWith(5, 'etag-1', STATS)
+		expect(renderThumbnail).not.toHaveBeenCalled()
+	})
+
+	test('measures nothing for a file that is not a model or has no status', async () => {
+		await captureForCurrentVersion({ fileId: 5, extension: 'txt', object3D: model, statuses: statusPromise(status()) })
+		await captureForCurrentVersion({ fileId: 5, extension: 'glb', object3D: model, statuses: statusPromise(null) })
+
+		expect(extractModelStats).not.toHaveBeenCalled()
+	})
+
+	test('stores nothing when the model has nothing to measure', async () => {
+		extractModelStats.mockReturnValue(null)
+
+		await captureForCurrentVersion({ fileId: 5, extension: 'glb', object3D: model, statuses: statusPromise(status()) })
+
+		expect(uploadModelStats).not.toHaveBeenCalled()
+		expect(uploadThumbnail).toHaveBeenCalled()
+	})
+
+	test('keeps the thumbnail when the numbers cannot be stored', async () => {
+		uploadModelStats.mockRejectedValue(new Error('offline'))
+
+		const result = await captureForCurrentVersion({ fileId: 5, extension: 'glb', object3D: model, statuses: statusPromise(status()) })
+
+		expect(result).toBe('stored')
+	})
+
+	test('keeps the thumbnail when measuring throws', async () => {
+		extractModelStats.mockImplementation(() => {
+			throw new Error('bad geometry')
+		})
+
+		const result = await captureForCurrentVersion({ fileId: 5, extension: 'glb', object3D: model, statuses: statusPromise(status()) })
+
+		expect(result).toBe('stored')
 	})
 })

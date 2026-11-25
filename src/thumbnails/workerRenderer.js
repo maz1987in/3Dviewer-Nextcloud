@@ -38,6 +38,10 @@ function abortError() {
  * @param {string} job.extension - Model file extension, lower case, without the dot
  * @param {ArrayBuffer} job.buffer - The model file's bytes
  * @param {File[]} [job.additionalFiles] - Companion files (materials, textures, buffers)
+ * @param {string} [job.name] - The file's name, which the measurement reads its format from
+ * @param {boolean} [job.measure] - Also measure the model (stats/extractStats.js)
+ * @param {(stats: ?object) => void} [job.onStats] - Called with the measurement, or null
+ *   when the model could not be measured, just before the render resolves. Only with `measure`
  * @param {object} options - Limits
  * @param {number} options.timeoutMs - Hard limit for the whole render, in milliseconds
  * @param {AbortSignal} [options.signal] - Stops the render early
@@ -50,7 +54,40 @@ function abortError() {
  *   message that could not be read, or could not render (WebGL); not the file's fault
  * @throws {Error} When the loader could not read the model, which is the file's fault
  */
-export function renderInWorker(job, { timeoutMs, signal } = {}) {
+export function renderInWorker(job, options = {}) {
+	return runInWorker(job, options, (data) => {
+		if (job.measure) {
+			try {
+				job.onStats?.(data.stats ?? null)
+			} catch {
+				// What the caller does with the measurement is not the render's concern
+			}
+		}
+		return data.blob
+	})
+}
+
+/**
+ * Measure one model in a fresh worker, without drawing it: no WebGL is needed. Limits,
+ * errors and the transfer of `job.buffer` are those of `renderInWorker`.
+ *
+ * @param {object} job - What to measure: `extension`, `buffer`, `additionalFiles` and `name`,
+ *   as for `renderInWorker`
+ * @param {object} options - Limits, as for `renderInWorker`
+ * @return {Promise<?object>} The measurement (stats/extractStats.js), or null when the
+ *   model loaded and has nothing to measure
+ */
+export function measureInWorker(job, options = {}) {
+	return runInWorker({ ...job, statsOnly: true }, options, (data) => data.stats ?? null)
+}
+
+/**
+ * @param {object} job - As for `renderInWorker`, and `statsOnly` to measure and not draw
+ * @param {object} options - `timeoutMs` and `signal`, as for `renderInWorker`
+ * @param {(data: object) => *} result - What the job resolves with, from the worker's answer
+ * @return {Promise<*>} Whatever `result` returned
+ */
+function runInWorker(job, { timeoutMs, signal } = {}, result) {
 	if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
 		return Promise.reject(new TypeError('renderInWorker needs a positive, finite timeoutMs'))
 	}
@@ -69,8 +106,8 @@ export function renderInWorker(job, { timeoutMs, signal } = {}) {
 		 * End the job exactly once: stop the worker, drop the timer and listener, then
 		 * resolve or reject. Anything the worker sends afterwards is ignored.
 		 *
-		 * @param {(value: Blob|Error) => void} finish - resolve or reject
-		 * @param {Blob|Error} value - What to finish with
+		 * @param {(value: *) => void} finish - resolve or reject
+		 * @param {*} value - What to finish with
 		 */
 		const settle = (finish, value) => {
 			if (settled) {
@@ -88,7 +125,7 @@ export function renderInWorker(job, { timeoutMs, signal } = {}) {
 
 		worker.onmessage = ({ data }) => {
 			if (data?.ok) {
-				settle(resolve, data.blob)
+				settle(resolve, result(data))
 			} else if (data?.empty) {
 				settle(reject, new EmptyModelError(data.error || undefined))
 			} else if (data?.refused) {
@@ -123,6 +160,9 @@ export function renderInWorker(job, { timeoutMs, signal } = {}) {
 				extension: job.extension,
 				buffer: job.buffer,
 				additionalFiles: job.additionalFiles || [],
+				name: job.name,
+				measure: job.measure === true,
+				statsOnly: job.statsOnly === true,
 				// The worker has no page to read the app's web root from
 				appWebRoot: generateFilePath('threedviewer', '', ''),
 			}, [job.buffer])
