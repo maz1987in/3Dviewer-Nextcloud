@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Print check checks a large model's mesh for problems on its own again, as it does a smaller one: "Check the mesh for problems" no longer has to be pressed on a model of more than 100,000 triangles. The check now runs beside the measurements rather than before them, so changing the overhang angle or the up axis while it works still answers at once. The button stays, to try again if a check fails.
+
 ## [3.14.0] - 2026-11-25
 
 Notes become a design review: resolve a note when it is dealt with, answer it in a thread, and @mention a colleague, who is notified and taken straight to it. Print check now says what is wrong with a mesh (holes, faces the wrong way, inside-out parts) and repairs it, saving the mended STL or 3MF next to the model. And a model's size, triangle count, parts and notes show in a 3D tab in the Files sidebar, without opening it.

@@ -235,16 +235,18 @@ test('a closed model has no problems and no Repair', async ({ page }) => {
 	expect(errors).toEqual([])
 })
 
-test('a large model is checked for problems when asked, so opening Print check stays as light as ever', async ({ page }) => {
-	// 120,000 triangles are over the limit for checking on opening, and take a while to load on a software renderer
+test('a large model is checked for problems on opening, and a new angle is answered while it is', async ({ page }) => {
+	// 120,000 triangles take a while to load on a software renderer
 	test.slow()
 	const { errors } = await openPrintCheck(page, BIG)
-	await expect(card(page)).toContainText('On a large model this is checked when you ask.', { timeout: 20000 })
-	await expect(card(page)).not.toContainText('Checking…')
-	await expect(button(page, 'Repair')).toHaveCount(0)
-
-	await button(page, 'Check the mesh for problems').click()
-	// Closed, but with every face pointing in
+	await expect(card(page)).toContainText('of the surface overhangs', { timeout: 20000 })
+	// Another angle is measured by the session worker, not held up by the analysis
+	await card(page).locator('#print-check-angle').evaluate((input: HTMLInputElement) => {
+		input.value = '60'
+		input.dispatchEvent(new Event('input', { bubbles: true }))
+	})
+	await expect(card(page)).toContainText('of the surface overhangs')
+	// Closed, but with every face pointing in: found without anything pressed
 	await expect(card(page)).toContainText('1 part is inside out', { timeout: 30000 })
 	await expect(button(page, 'Check the mesh for problems')).toHaveCount(0)
 	await expect(button(page, 'Repair')).toBeVisible()
