@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  *
  * Print check: whether the open model fits a printer, where it overhangs, roughly how much
- * filament it takes, the slicer's own numbers for a G-code file, and on request how thick
- * its walls are.
+ * filament it takes, the slicer's own numbers for a G-code file, on request how thick its
+ * walls are, and what is wrong with the mesh for printing, which a repair can mend.
  *
  * Nothing here changes the model. The build box, the bed, the overhang shading and the
  * thickness colours are objects in the scene, beside the model (printCheck/surfaceOverlay.js),
@@ -12,21 +12,28 @@
  * export writes the model: parts together, placed as the user placed it. Everything is let
  * go of when Print check closes or the model changes, and a worker still running is ended.
  *
+ * A repair does not replace the model on screen. It works on a copy, in a worker, and keeps
+ * the repaired meshes here until they are saved or downloaded, Print check closes, the model
+ * is moved or the repair is undone; the viewer, Export, the measurements and the file in
+ * Nextcloud stay as they were. What the repair added (the faces that fill holes) is drawn
+ * over the model in green, which can be switched off.
+ *
  * Nothing that goes through every vertex or triangle runs on the page's thread: the card
  * opens at once, and the fit, overhangs and filament fill in as the print-check worker
  * answers (printCheckClient.openSurfaceSession). The shading's shaders are compiled before
  * they are first drawn (surfaceOverlay.compileQuietly), so no step stops the page.
  */
 
-import { ref, shallowRef, isRef, toRaw, watch } from 'vue'
+import { ref, shallowRef, computed, isRef, toRaw, watch } from 'vue'
 import * as THREE from 'three'
 import { bedAxes, fitReport } from '../printCheck/buildVolume.js'
 import { createOverhangMaterial, createFlatMaterial, setOverhangThreshold } from '../printCheck/overhang.js'
 import { createOverlaySet, compileQuietly } from '../printCheck/surfaceOverlay.js'
 import { modelClosed } from '../printCheck/closedMesh.js'
+import { combineReports, combineSummaries, MAX_HOLE_EDGES } from '../printCheck/meshReport.js'
 import { estimateFilament } from '../printCheck/filament.js'
 import { findSlicerSummary } from '../printCheck/slicerSummary.js'
-import { openSurfaceSession, measureThickness } from '../printCheck/printCheckClient.js'
+import { openSurfaceSession, measureThickness, repairParts } from '../printCheck/printCheckClient.js'
 import { measuredObjects, surfacePart } from '../printCheck/surfaceMeasures.js'
 import { loadPrintCheckSettings, savePrintCheckSettings, flushPrintCheckSettings, sanitizePrintCheckSettings } from '../printCheck/printCheckSettings.js'
 import { PRINTERS, MATERIALS, NEAR_THIN_FACTOR, BED_EPSILON_MM } from '../printCheck/printers.js'
@@ -35,7 +42,11 @@ import { logger } from '../utils/logger.js'
 
 const FIT_COLOUR = 0x9e9e9e
 const OVER_COLOUR = 0xe53935
+// The faces a repair added to fill holes
+const REPAIRED_COLOUR = 0x43a047
 const RECOMPUTE_DELAY_MS = 200
+
+const IDLE_REPAIR = Object.freeze({ state: 'idle', progress: 0, summary: null, after: null, highlight: true, holeLimit: MAX_HOLE_EDGES })
 
 // The up axis chosen for each file, for this session only
 const upChoices = new Map()
@@ -186,9 +197,12 @@ function createThicknessMaterial(minimum, clippingPlanes = null) {
  * @param {unknown} viewer.fileId - The open file's id
  * @param {unknown} [viewer.renderer] - The renderer, to compile the shading's shaders
  *   before it is first drawn
+ * @param {unknown} [viewer.repairExport] - What a repaired file needs: `canSave` (may it be
+ *   written next to the model), `userId`, `folder`, `modelName`, `notify(toast)` and
+ *   `download(blob, name)`
  * @return {object} Print check's state and methods
  */
-export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, filename, fileId, renderer = null }) {
+export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, filename, fileId, renderer = null, repairExport = null }) {
 	const active = ref(false)
 	const settings = ref(null)
 	const up = ref('y')
@@ -202,6 +216,15 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 	// The worker could not measure the model: the fit and overhangs will not come
 	const measureFailed = ref(false)
 	const thickness = ref({ state: 'idle', progress: 0, share: 0, sampled: false, warnOpen: false })
+	// What is wrong with the mesh (meshAnalysis), and what a repair did about it
+	const problems = ref({ state: 'idle', report: null })
+	const repairState = ref(IDLE_REPAIR)
+	// A repaired file is being made or saved
+	const fileBusy = ref(false)
+	// A repaired file is saved only where Export's is (a logged-in user who may add files to
+	// the folder) and downloaded wherever Export downloads
+	const canSaveRepaired = computed(() => !!read(repairExport)?.canSave)
+	const repair = computed(() => ({ ...repairState.value, busy: fileBusy.value, canSave: canSaveRepaired.value }))
 
 	// What open() made, all of it let go of by teardown()
 	let helpers = []
@@ -219,6 +242,14 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 	let thicknessResults = null
 	let thicknessParts = []
 	let thicknessController = null
+	// The repair in its worker, and its result: the repaired meshes (in the world, as an export
+	// writes them), the green overlay of what filled holes, and what to put back on undo
+	let repairController = null
+	let repairResult = null
+	let repairOverlay = null
+	let repairOverlayReady = false
+	let repairedTotals = null
+	let beforeRepair = null
 	let recomputeTimer = null
 	let savedUp = null
 	// The camera whose up Print check turned, and `savedUp` is that camera's own
@@ -247,14 +278,16 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 	}
 
 	const updateEstimate = () => {
-		if (closed.value !== 'closed' || !measured) {
+		if (closed.value !== 'closed' || !(measured || repairedTotals)) {
 			estimate.value = null
 			return
 		}
-		// As filament.modelVolumeAndArea gives them, from the worker's measurement in scene units
+		// As filament.modelVolumeAndArea gives them, from the worker's measurement in scene units;
+		// of the repaired meshes, once the model has been repaired
 		const unit = read(mmPerUnit) || 1
-		const volumeMm3 = measured.volume * unit ** 3
-		const areaMm2 = measured.area * unit ** 2
+		const { volume, area } = repairedTotals ?? measured
+		const volumeMm3 = volume * unit ** 3
+		const areaMm2 = area * unit ** 2
 		const density = MATERIALS.find((material) => material.id === settings.value.material)?.density ?? MATERIALS[0].density
 		estimate.value = estimateFilament({ volumeMm3, areaMm2, infillPercent: settings.value.infill, density })
 	}
@@ -467,11 +500,31 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 		}
 	}
 
+	/**
+	 * Let go of the repaired meshes and the overlay of what they added.
+	 */
+	const forgetRepair = () => {
+		repairController?.abort()
+		repairController = null
+		repairResult = null
+		repairedTotals = null
+		beforeRepair = null
+		if (repairOverlay) {
+			repairOverlay.removeFromParent()
+			repairOverlay.geometry.dispose()
+			repairOverlay.material.dispose()
+			repairOverlay = null
+			repairOverlayReady = false
+		}
+		repairState.value = IDLE_REPAIR
+	}
+
 	const teardown = () => {
 		followCamera()
 		generation++
 		thicknessController?.abort()
 		thicknessController = null
+		forgetRepair()
 		session?.close()
 		session = null
 		sessionObjects = []
@@ -501,6 +554,7 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 		slicerSummary.value = null
 		measureFailed.value = false
 		thickness.value = { state: 'idle', progress: 0, share: 0, sampled: false, warnOpen: false }
+		problems.value = { state: 'idle', report: null }
 	}
 
 	/**
@@ -576,6 +630,22 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 					if (opened === generation && error?.name !== 'AbortError') {
 						logger.warn('usePrintCheck', 'Could not check whether the model is closed', error)
 						closed.value = null
+					}
+				})
+
+			// What is wrong with the mesh, in each part's own units' millimetres
+			problems.value = { state: 'checking', report: null }
+			const unit = read(mmPerUnit) || 1
+			session.analyze(sessionObjects.map((object) => unit * object.matrixWorld.getMaxScaleOnAxis()))
+				.then((reports) => {
+					if (opened === generation) {
+						problems.value = { state: 'done', report: combineReports(reports) }
+					}
+				})
+				.catch((error) => {
+					if (opened === generation && error?.name !== 'AbortError') {
+						logger.warn('usePrintCheck', 'Could not check the mesh for problems', error)
+						problems.value = { state: 'error', report: null }
 					}
 				})
 		}
@@ -780,6 +850,207 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 	}
 
 	/**
+	 * The faces a repair added, as one mesh in the world, drawn over the model in green.
+	 * @param {Array<{positions: Float32Array, index: Uint32Array, patchStart: number}>} parts - The repaired meshes
+	 * @return {?THREE.Mesh} The overlay, or null when nothing was added
+	 */
+	const makePatchOverlay = (parts) => {
+		let triangles = 0
+		parts.forEach(({ index, patchStart }) => { triangles += index.length / 3 - patchStart })
+		if (triangles <= 0) {
+			return null
+		}
+		const positions = new Float32Array(triangles * 9)
+		let at = 0
+		parts.forEach((part) => {
+			for (let i = part.patchStart * 3; i < part.index.length; i++) {
+				const v = part.index[i] * 3
+				positions[at++] = part.positions[v]
+				positions[at++] = part.positions[v + 1]
+				positions[at++] = part.positions[v + 2]
+			}
+		})
+		const geometry = new THREE.BufferGeometry()
+		geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+		const overlay = new THREE.Mesh(geometry, createFlatMaterial({ color: REPAIRED_COLOUR, opacity: 0.85 }))
+		overlay.userData.viewerOverlay = true
+		overlay.name = 'Print check repair'
+		overlay.visible = false
+		read(scene).add(overlay)
+		return overlay
+	}
+
+	/**
+	 * Take in what the repair made.
+	 * @param {Array<object>} results - From printCheckClient.repairParts
+	 */
+	const applyRepair = (results) => {
+		repairResult = { parts: results.map(({ positions, index, patchStart }) => ({ positions, index, patchStart })) }
+		const after = combineReports(results.map((result) => result.after))
+		const summary = combineSummaries(results.map((result) => result.summary))
+
+		// The closed-mesh check, run on the result: the card shows the new state
+		beforeRepair = { closed: closed.value, openParts: openParts.value }
+		const verdict = modelClosed(results.map((result) => result.closedReport))
+		closed.value = verdict.closed ? 'closed' : 'open'
+		openParts.value = verdict.openParts
+		repairedTotals = { volume: after.volume, area: after.area }
+		updateEstimate()
+
+		repairOverlay = makePatchOverlay(repairResult.parts)
+		if (repairOverlay) {
+			const shown = repairOverlay
+			// Shown once its shader is compiled, as the shading is
+			compileQuietly(read(renderer), read(camera), read(scene), [shown]).then(() => {
+				if (repairOverlay === shown) {
+					repairOverlayReady = true
+					shown.visible = repairState.value.highlight
+				}
+			})
+		}
+		repairState.value = { ...IDLE_REPAIR, state: 'done', progress: 1, summary, after, triangles: after.triangles }
+	}
+
+	/**
+	 * Repair the model in a worker, on a copy: weld, drop faces with no area and duplicates,
+	 * turn faces and parts the right way, and fill the holes that can be filled.
+	 * @return {Promise<void>} Settled when done, cancelled or failed
+	 */
+	const runRepair = async () => {
+		const root = read(modelRoot)
+		if (!active.value || kind.value !== 'mesh' || !root || repairState.value.state === 'running' || repairState.value.state === 'done' || !problems.value.report?.fixable) {
+			return
+		}
+		const started = generation
+		repairController = new AbortController()
+		repairState.value = { ...IDLE_REPAIR, state: 'running' }
+		const meshes = partsOf(root)
+		// As an export writes the model: in the world, parts together, placed as the user placed it
+		const parts = withPartsTogether(root, () => {
+			root.updateMatrixWorld(true)
+			return meshes.map((mesh) => ({ positions: positionsOf(mesh, mesh.matrixWorld), index: mesh.geometry.index?.array.slice() ?? null }))
+		})
+		lastPlacement.copy(root.matrixWorld)
+		const placed = root.matrixWorld.clone()
+		try {
+			const results = await repairParts(parts, {
+				millimetresPerUnit: read(mmPerUnit) || 1,
+				signal: repairController.signal,
+				onProgress: (done, total) => {
+					if (started === generation && repairState.value.state === 'running') {
+						repairState.value = { ...repairState.value, progress: total > 0 ? done / total : 0 }
+					}
+				},
+			})
+			if (started === generation) {
+				// A model moved meanwhile is no longer where the repaired meshes are
+				if (read(modelRoot)?.matrixWorld.equals(placed)) {
+					applyRepair(results)
+				} else {
+					repairState.value = IDLE_REPAIR
+				}
+			}
+		} catch (error) {
+			if (started !== generation) {
+				return
+			}
+			if (error?.name === 'AbortError') {
+				repairState.value = { ...IDLE_REPAIR, state: 'cancelled' }
+			} else {
+				logger.warn('usePrintCheck', 'Could not repair the model', error)
+				repairState.value = { ...IDLE_REPAIR, state: 'error' }
+			}
+		} finally {
+			if (started === generation) {
+				repairController = null
+			}
+		}
+	}
+
+	const cancelRepair = () => repairController?.abort()
+
+	/**
+	 * Go back to the model as it was loaded: the repaired meshes go, and the closed check
+	 * and the estimate show what they did before.
+	 */
+	const undoRepair = () => {
+		if (repairState.value.state !== 'done') {
+			return
+		}
+		const before = beforeRepair
+		forgetRepair()
+		if (before) {
+			closed.value = before.closed
+			openParts.value = before.openParts
+		}
+		updateEstimate()
+	}
+
+	/**
+	 * @param {boolean} shown - Whether to draw the faces the repair added over the model
+	 */
+	const setRepairHighlight = (shown) => {
+		if (repairState.value.state !== 'done') {
+			return
+		}
+		repairState.value = { ...repairState.value, highlight: !!shown }
+		if (repairOverlay && repairOverlayReady) {
+			repairOverlay.visible = !!shown
+		}
+	}
+
+	/**
+	 * The repaired model as a file, written the way Export writes it.
+	 * @param {string} format - 'stl' or '3mf'
+	 * @return {Promise<?{blob: Blob, extension: string}>} The file; null when there is no repaired model, or nothing in it
+	 */
+	const buildRepairedFile = async (format) => {
+		if (!repairResult) {
+			return null
+		}
+		const { buildRepairedFile: build } = await import('../printCheck/repairedModel.js')
+		return build(repairResult.parts, format, { millimetresPerUnit: read(mmPerUnit) || 1 })
+	}
+
+	/**
+	 * The repaired model as a file, downloaded or saved next to the model, with a toast.
+	 * @param {string} format - 'stl' or '3mf'
+	 * @param {object} [options] - Options
+	 * @param {boolean} [options.save] - Write it into the model's folder instead
+	 * @return {Promise<void>} Settled when it is out, or its failure has been shown
+	 */
+	const exportRepaired = async (format, { save = false } = {}) => {
+		const context = read(repairExport)
+		if (!repairResult || !context || fileBusy.value || (save && !context.canSave)) {
+			return
+		}
+		fileBusy.value = true
+		try {
+			const { exportRepairedModel } = await import('../printCheck/exportRepaired.js')
+			await exportRepairedModel({ check: { buildRepairedFile }, format, save, ...context })
+		} finally {
+			fileBusy.value = false
+		}
+	}
+
+	/**
+	 * What the card's repair controls ask for.
+	 * @param {string} action - 'run', 'cancel', 'undo', 'highlight', 'save' or 'download'
+	 * @param {boolean|string} [value] - What goes with it: whether to show the green faces, or a file format
+	 * @return {?Promise<void>} Settled when it is done, for the ones that take time
+	 */
+	const repairAction = (action, value) => {
+		switch (action) {
+		case 'run': return runRepair()
+		case 'cancel': return cancelRepair()
+		case 'undo': return undoRepair()
+		case 'highlight': return setRepairHighlight(value)
+		case 'save': return exportRepaired(value, { save: true })
+		case 'download': return exportRepaired(value)
+		}
+	}
+
+	/**
 	 * Called every frame: overlays follow their parts, and a model that moved (the
 	 * transform gizmo, or anything else) is measured again once it settles.
 	 */
@@ -794,6 +1065,10 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 		if (root && !root.matrixWorld.equals(lastPlacement)) {
 			lastPlacement.copy(root.matrixWorld)
 			recomputeSoon()
+			// The repaired meshes are where the model was, and the model has moved
+			if (repairState.value.state === 'done') {
+				undoRepair()
+			}
 		}
 	}
 
@@ -827,6 +1102,8 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 		slicerSummary,
 		measureFailed,
 		thickness,
+		problems,
+		repair,
 		open,
 		close,
 		toggle: () => (active.value ? close() : open()),
@@ -839,6 +1116,12 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 		setMinThickness,
 		runThickness,
 		cancelThickness,
+		runRepair,
+		cancelRepair,
+		undoRepair,
+		setRepairHighlight,
+		buildRepairedFile,
+		repairAction,
 		thicknessAt,
 		modelMoved: recomputeSoon,
 		unitChanged,

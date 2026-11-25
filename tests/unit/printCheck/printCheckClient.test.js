@@ -1,9 +1,9 @@
 /**
- * The main-thread side of the print-check worker: one worker per thickness check, progress
+ * The main-thread side of the print-check worker: one worker per thickness check or repair, progress
  * passed on, and a cancelled call ends its worker and rejects as an AbortError; one worker
  * per open Print check for everything else, sent the model once.
  */
-import { measureThickness, openSurfaceSession } from '../../../src/printCheck/printCheckClient.js'
+import { measureThickness, openSurfaceSession, repairParts } from '../../../src/printCheck/printCheckClient.js'
 import { createPrintCheckWorker } from '../../../src/printCheck/createPrintCheckWorker.js'
 
 jest.mock('../../../src/printCheck/createPrintCheckWorker.js', () => ({ createPrintCheckWorker: jest.fn() }))
@@ -84,6 +84,34 @@ test('worker error rejects with its message', async () => {
 	expect(worker.terminated).toBe(true)
 })
 
+test('a repair is sent copies of the parts and the unit, and reports progress and its result', async () => {
+	const repaired = [{ positions: new Float32Array(9), index: new Uint32Array(3), patchStart: 1 }]
+	const worker = fakeWorker(() => [{ type: 'progress', done: 500, total: 1000 }, { type: 'result', result: repaired }])
+	createPrintCheckWorker.mockReturnValue(worker)
+	const positions = new Float32Array([1, 2, 3, 4, 5, 6, 7, 8, 9])
+	const progress = []
+
+	const result = await repairParts([{ positions, index: new Uint32Array([0, 1, 2]) }], { millimetresPerUnit: 25.4, onProgress: (done, total) => progress.push([done, total]) })
+
+	expect(result).toBe(repaired)
+	expect(progress).toEqual([[500, 1000]])
+	const { message, transfer } = worker.posted[0]
+	expect(message).toMatchObject({ type: 'repair', millimetresPerUnit: 25.4 })
+	expect(message.parts[0].positions).not.toBe(positions)
+	expect(transfer).toHaveLength(2)
+	expect(worker.terminated).toBe(true)
+})
+
+test('cancelling a repair ends its worker', async () => {
+	const worker = fakeWorker(() => [])
+	createPrintCheckWorker.mockReturnValue(worker)
+	const controller = new AbortController()
+	const running = repairParts([PART], { millimetresPerUnit: 1, signal: controller.signal })
+	controller.abort()
+	await expect(running).rejects.toMatchObject({ name: 'AbortError' })
+	expect(worker.terminated).toBe(true)
+})
+
 describe('a surface session', () => {
 	const MEASURED = { extent: { min: [0, 0, 0], max: [1, 1, 1] }, overhangArea: 0, totalArea: 6, volume: 1, area: 6 }
 	const answers = (message) => {
@@ -115,6 +143,16 @@ describe('a surface session', () => {
 		expect(worker.terminated).toBe(false)
 		session.close()
 		expect(worker.terminated).toBe(true)
+	})
+
+	test('asks for the mesh analysis with the unit of each part', async () => {
+		const report = [{ closed: true, fixable: false }]
+		const worker = fakeWorker((message) => (message.type === 'analyze' ? [{ type: 'result', result: report }] : answers(message)))
+		createPrintCheckWorker.mockReturnValue(worker)
+		const session = openSurfaceSession([{ positions: new Float32Array(9), index: null, surface: true }])
+		await expect(session.analyze([25.4])).resolves.toBe(report)
+		expect(worker.posted.at(-1).message).toMatchObject({ type: 'analyze', scales: [25.4] })
+		session.close()
 	})
 
 	test('closing ends the worker, and a request still waiting rejects as an AbortError', async () => {

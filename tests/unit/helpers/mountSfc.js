@@ -76,7 +76,7 @@ function mountSfc(name, props = {}, modules = {}) {
 
 	const app = vue.createApp({ render: () => vue.h(component, { ...state, ...listeners }) })
 	app.config.globalProperties.t = (appName, text, vars = {}) => text.replace(/{(\w+)}/g, (_, key) => (key in vars ? String(vars[key]) : `{${key}}`))
-	app.config.globalProperties.n = (appName, singular, plural, count) => (count === 1 ? singular : plural).replace('%n', String(count))
+	app.config.globalProperties.n = (appName, singular, plural, count, vars = {}) => (count === 1 ? singular : plural).replace('%n', String(count)).replace(/{(\w+)}/g, (_, key) => (key in vars ? String(vars[key]) : `{${key}}`))
 	app.mount(host)
 	return { host, props: state, events, unmount: () => app.unmount() }
 }

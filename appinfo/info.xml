@@ -54,6 +54,7 @@
 - 📐 Overhangs: Surfaces that overhang past an angle you choose are shaded, with their share of the surface
 - 🧵 Filament estimate: Roughly how many grams and metres a closed model needs, for your infill and material
 - 🧱 Wall thickness: Walls thinner than a minimum you set are coloured
+- 🩹 Repair: Holes, flipped faces, inside-out parts and duplicate or zero-area faces are listed and mended, and the repaired STL or 3MF is saved next to the model or downloaded
 - ⏱️ G-code: The print time and filament the slicer worked out
 
 **⚡ Export & Tools:**

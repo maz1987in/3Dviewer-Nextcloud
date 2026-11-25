@@ -191,7 +191,7 @@
 								<ViewerIcon class="help-icon" name="printer3d" :size="18" />
 								<div class="help-text">
 									<h4>{{ t('threedviewer', 'Print check') }}</h4>
-									<p>{{ t('threedviewer', 'See whether the model fits your printer, which surfaces overhang past an angle you choose, roughly how much filament it needs and which walls are too thin. For G-code, the print time and filament the slicer worked out.') }}</p>
+									<p>{{ t('threedviewer', 'See whether the model fits your printer, which surfaces overhang past an angle you choose, roughly how much filament it needs and which walls are too thin. It also lists what is wrong with the mesh (holes, faces that point the wrong way, parts that are inside out, duplicate or empty faces) and, when something can be mended, Repair fixes it. The repaired model is saved next to the model or downloaded; the model on screen and its file stay as they were. For G-code, the print time and filament the slicer worked out.') }}</p>
 								</div>
 							</div>
 							<div class="help-item">

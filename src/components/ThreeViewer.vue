@@ -363,7 +363,8 @@
 			@set-material="printCheck.setMaterial"
 			@set-min-thickness="printCheck.setMinThickness"
 			@run-thickness="printCheck.runThickness"
-			@cancel-thickness="printCheck.cancelThickness" />
+			@cancel-thickness="printCheck.cancelThickness"
+			@repair="printCheck.repairAction" />
 
 		<VersionPickerDialog v-if="versionPicker.open"
 			:versions="versionPicker.versions"
@@ -3007,6 +3008,8 @@ export default {
 				slicerSummary: check.slicerSummary.value,
 				measureFailed: check.measureFailed.value,
 				thickness: check.thickness.value,
+				problems: check.problems.value,
+				repair: check.repair.value,
 				hoverMm: printCheckHoverMm.value,
 			}
 		})
@@ -3034,6 +3037,16 @@ export default {
 						filename: () => props.filename,
 						fileId: () => props.fileId,
 						renderer: () => renderer.value,
+						// What a repaired file needs to be saved next to the model, or downloaded
+						// as Export does: saved only where Export's save is offered
+						repairExport: () => ({
+							canSave: canSaveExport.value,
+							userId: turntableUserId.value,
+							folder: turntableFolder.value,
+							modelName: turntableModelName.value,
+							notify: (toast) => emit('push-toast', toast),
+							download: exportComposable.downloadFile,
+						}),
 					}))
 				}
 				return printCheck.value

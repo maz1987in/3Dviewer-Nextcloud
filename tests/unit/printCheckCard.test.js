@@ -5,6 +5,7 @@
 const { mountSfc } = require('./helpers/mountSfc.js')
 const printers = require('../../src/printCheck/printers.js')
 const formatDuration = require('../../src/printCheck/formatDuration.js')
+const repairText = require('../../src/printCheck/repairText.js')
 
 jest.mock('@nextcloud/l10n', () => ({ translate: (_app, text, vars = {}) => text.replace(/{(\w+)}/g, (_, k) => String(vars[k])) }), { virtual: true })
 
@@ -12,6 +13,7 @@ const MODULES = {
 	'./ViewerIcon.vue': { default: { name: 'ViewerIcon', props: ['name', 'size'], template: '<i />' } },
 	'../printCheck/printers.js': printers,
 	'../printCheck/formatDuration.js': formatDuration,
+	'../printCheck/repairText.js': repairText,
 	'./FileUnitControl.vue': { default: { name: 'FileUnitControl', props: ['unit', 'controlId', 'selectClass'], emits: ['set'], template: '<div class="file-unit-stub" :data-key="unit.key" @click="$emit(\'set\', \'in\')" />' } },
 }
 
@@ -28,10 +30,28 @@ function meshState(overrides = {}) {
 		estimate: { grams: 0.96224, metres: 0.32262 },
 		slicerSummary: null,
 		thickness: { state: 'idle', progress: 0, share: 0, sampled: false, warnOpen: false },
+		problems: { state: 'idle', report: null },
+		repair: { state: 'idle', progress: 0, summary: null, after: null, highlight: true, holeLimit: 500, busy: false, canSave: false },
 		hoverMm: null,
 		...overrides,
 	}
 }
+
+/** What the mesh analysis reports for a model with nothing wrong, with changes. */
+function report(changes = {}) {
+	return {
+		meshes: 1, triangles: 12, vertices: 36, joinableVertices: 0, nearVertices: 0, degenerateFaces: 0, duplicateFaces: 0, openEdges: 0,
+		holes: { count: 0, fillable: 0, tooLarge: 0, complex: 0 }, nonManifoldEdges: 0, flippedFaces: 0, twistedEdges: 0, insideOutParts: 0,
+		parts: 1, volume: 1000, area: 600, closed: true, fixable: false, ...changes,
+	}
+}
+
+const SUMMARY = {
+	joinedVertices: 1204, removedDegenerateFaces: 0, removedDuplicateFaces: 0, turnedFaces: 36, turnedParts: 0, filledHoles: 3, addedFaces: 9,
+	leftTooLarge: 0, leftComplex: 0, leftUnfillable: 0,
+}
+
+const button = (label) => [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === label)
 
 function mount(state) {
 	return mountSfc('PrintCheckCard', { state }, MODULES)
@@ -204,4 +224,197 @@ test('closing the card gives focus back to what opened it', () => {
 	document.querySelector('.print-check-close').focus()
 	unmount()
 	expect(document.activeElement).toBe(opener)
+})
+
+describe('mesh problems and repair', () => {
+	test('says it is checking, and when it could not', () => {
+		mount(meshState({ problems: { state: 'checking', report: null } }))
+		expect(text()).toContain('Mesh problems')
+		expect(text().match(/Checking…/g)).toHaveLength(1)
+		document.body.replaceChildren()
+		mount(meshState({ closed: 'closed', problems: { state: 'error', report: null } }))
+		expect(text()).toContain('Could not check the mesh for problems')
+		expect(button('Repair')).toBeUndefined()
+	})
+
+	test('a model with nothing wrong says so and offers no repair', () => {
+		mount(meshState({ problems: { state: 'done', report: report({ joinableVertices: 28 }) } }))
+		expect(text()).toContain('No problems found')
+		expect(text()).toContain('28 vertices repeat another one\'s place, as in most STL files')
+		expect(button('Repair')).toBeUndefined()
+	})
+
+	test('lists each problem in plain words, and offers Repair', () => {
+		const { events } = mount(meshState({
+			closed: 'open',
+			problems: {
+				state: 'done',
+				report: report({
+					closed: false, fixable: true, openEdges: 12, holes: { count: 3, fillable: 3, tooLarge: 0, complex: 0 }, flippedFaces: 36, insideOutParts: 1,
+					degenerateFaces: 2, duplicateFaces: 1, nearVertices: 4, nonManifoldEdges: 4, twistedEdges: 1,
+				}),
+			},
+		}))
+		const lines = [...document.querySelectorAll('.print-check-lines li')].map((li) => li.textContent.trim())
+		expect(lines).toEqual([
+			'3 holes, open edges: 12',
+			'36 faces turned the wrong way',
+			'1 part is inside out',
+			'2 faces with no area',
+			'1 duplicate face',
+			'4 places where vertices almost meet but do not',
+			'4 edges shared by more than two faces',
+			'1 edge where the faces on both sides cannot face the same way',
+		])
+		expect(text()).not.toContain('No problems found')
+		button('Repair').click()
+		expect(events).toEqual([['repair', ['run']]])
+	})
+
+	test('a single hole reads as one', () => {
+		mount(meshState({ problems: { state: 'done', report: report({ closed: false, fixable: true, openEdges: 4, holes: { count: 1, fillable: 1, tooLarge: 0, complex: 0 } }) } }))
+		expect(text()).toContain('1 hole, open edges: 4')
+	})
+
+	test('a repair shows progress and Cancel, and no Repair button meanwhile', () => {
+		const { events } = mount(meshState({
+			problems: { state: 'done', report: report({ fixable: true }) },
+			repair: { state: 'running', progress: 0.4, summary: null, after: null, highlight: true, holeLimit: 500 },
+		}))
+		const bar = [...document.querySelectorAll('progress')].find((element) => element.getAttribute('aria-label') === 'Repairing the mesh')
+		expect(bar.value).toBeCloseTo(0.4, 9)
+		expect(button('Repair')).toBeUndefined()
+		button('Cancel').click()
+		expect(events).toEqual([['repair', ['cancel']]])
+	})
+
+	test('a repair that failed or was cancelled says so, and can be run again', () => {
+		const problems = { state: 'done', report: report({ fixable: true }) }
+		mount(meshState({ problems, repair: { state: 'error', progress: 0, summary: null, after: null, highlight: true, holeLimit: 500 } }))
+		expect(text()).toContain('Could not repair the model')
+		expect(button('Repair')).toBeDefined()
+		document.body.replaceChildren()
+		mount(meshState({ problems, repair: { state: 'cancelled', progress: 0, summary: null, after: null, highlight: true, holeLimit: 500 } }))
+		expect(text()).toContain('Repair cancelled')
+		expect(button('Repair')).toBeDefined()
+	})
+
+	test('a finished repair says what it did, one line each', () => {
+		mount(meshState({
+			closed: 'closed',
+			problems: { state: 'done', report: report({ fixable: true, flippedFaces: 36 }) },
+			repair: { state: 'done', progress: 1, summary: SUMMARY, after: report(), highlight: true, holeLimit: 500 },
+		}))
+		const lines = [...document.querySelectorAll('.print-check-lines li')].map((li) => li.textContent.trim())
+		expect(lines).toEqual(['Joined 1,204 vertices', 'Turned 36 faces the right way', 'Filled 3 holes'])
+		expect(text()).toContain('The repaired model is closed.')
+		expect(text()).not.toContain('Left as it is')
+		// Done: no second Repair, but a way back
+		expect(button('Repair')).toBeUndefined()
+		expect(button('Undo repair')).toBeDefined()
+		// The problems found before are not listed again
+		expect(text()).not.toContain('faces turned the wrong way')
+	})
+
+	test('says what is left and why', () => {
+		mount(meshState({
+			closed: 'open',
+			openParts: 1,
+			problems: { state: 'done', report: report({ fixable: true }) },
+			repair: {
+				state: 'done',
+				progress: 1,
+				summary: { ...SUMMARY, turnedParts: 1, removedDuplicateFaces: 5, removedDegenerateFaces: 1, leftTooLarge: 1, leftComplex: 2, leftUnfillable: 1 },
+				after: report({ closed: false, nonManifoldEdges: 4, twistedEdges: 2, openEdges: 600, holes: { count: 4, fillable: 0, tooLarge: 1, complex: 2 } }),
+				highlight: true,
+				holeLimit: 500,
+			},
+		}))
+		const body = text()
+		expect(body).toContain('Turned 1 part right side out')
+		expect(body).toContain('Removed 5 duplicate faces')
+		expect(body).toContain('Removed 1 face with no area')
+		expect(body).toContain('Left as it is:')
+		expect(body).toContain('1 hole is too large to fill (over 500 edges)')
+		expect(body).toContain('2 holes touch themselves, so they were left as they are')
+		expect(body).toContain('1 hole could not be filled without a guess, so it was left as it is')
+		expect(body).toContain('4 edges are shared by more than two faces')
+		expect(body).toContain('2 edges have faces on both sides that cannot face the same way')
+		expect(body).not.toContain('The repaired model is closed.')
+		// The card's own verdict follows the re-run closed check
+		expect(body).toContain('Needs a closed model: 1 part has holes')
+	})
+
+	test('offers the file as a download, and next to the model only where it is allowed', async () => {
+		const repaired = { problems: { state: 'done', report: report({ fixable: true }) }, repair: { state: 'done', progress: 1, summary: SUMMARY, after: report(), highlight: true, holeLimit: 500 } }
+		const first = mount(meshState(repaired))
+		expect(button('Download repaired STL')).toBeDefined()
+		expect(button('Save repaired STL next to the model')).toBeUndefined()
+		button('Download repaired STL').click()
+		expect(first.events).toEqual([['repair', ['download', 'stl']]])
+		document.body.replaceChildren()
+
+		const second = mount(meshState({ ...repaired, repair: { ...repaired.repair, canSave: true } }))
+		const format = document.querySelector('#print-check-repair-format')
+		format.value = '3mf'
+		format.dispatchEvent(new Event('change'))
+		await Promise.resolve()
+		button('Save repaired 3MF next to the model').click()
+		button('Download repaired 3MF').click()
+		expect(second.events).toEqual([['repair', ['save', '3mf']], ['repair', ['download', '3mf']]])
+	})
+
+	test('while a file is made its buttons do nothing, and say they are busy', () => {
+		const { events } = mount(meshState({
+			problems: { state: 'done', report: report({ fixable: true }) },
+			repair: { state: 'done', progress: 1, summary: SUMMARY, after: report(), highlight: true, holeLimit: 500, busy: true, canSave: true },
+		}))
+		for (const label of ['Save repaired STL next to the model', 'Download repaired STL']) {
+			expect(button(label).getAttribute('aria-disabled')).toBe('true')
+			expect(button(label).getAttribute('aria-busy')).toBe('true')
+			button(label).click()
+		}
+		expect(events).toEqual([])
+	})
+
+	test('what was filled can be shown or hidden, and the repair undone', () => {
+		const { events } = mount(meshState({
+			problems: { state: 'done', report: report({ fixable: true }) },
+			repair: { state: 'done', progress: 1, summary: SUMMARY, after: report(), highlight: true, holeLimit: 500 },
+		}))
+		const box = document.querySelector('#print-check-repair-highlight')
+		expect(box.checked).toBe(true)
+		expect(document.querySelector('label[for="print-check-repair-highlight"]').textContent).toBe('Show what was filled in green')
+		box.checked = false
+		box.dispatchEvent(new Event('change'))
+		button('Undo repair').click()
+		expect(events).toEqual([['repair', ['highlight', false]], ['repair', ['undo']]])
+	})
+
+	test('a repair that filled nothing has nothing to show in green', () => {
+		mount(meshState({
+			problems: { state: 'done', report: report({ fixable: true }) },
+			repair: { state: 'done', progress: 1, summary: { ...SUMMARY, filledHoles: 0, addedFaces: 0 }, after: report(), highlight: true, holeLimit: 500 },
+		}))
+		expect(document.querySelector('#print-check-repair-highlight')).toBeNull()
+	})
+
+	test('the repair controls are all labelled', () => {
+		mount(meshState({
+			problems: { state: 'done', report: report({ fixable: true }) },
+			repair: { state: 'done', progress: 1, summary: SUMMARY, after: report(), highlight: true, holeLimit: 500, busy: false, canSave: true },
+		}))
+		for (const control of document.querySelectorAll('input, select')) {
+			expect(document.querySelector(`label[for="${control.id}"]`) || control.getAttribute('aria-label')).toBeTruthy()
+		}
+		expect([...document.querySelectorAll('button')].every((b) => b.getAttribute('type') === 'button')).toBe(true)
+	})
+
+	test('no repair section for a toolpath or a scan', () => {
+		mount(meshState({ kind: 'gcode', slicerSummary: { slicer: null, printSeconds: 60, filamentMm: null, filamentGrams: null } }))
+		expect(text()).not.toContain('Mesh problems')
+		document.body.replaceChildren()
+		mount(meshState({ kind: 'points', overhang: null, closed: null, estimate: null }))
+		expect(text()).not.toContain('Mesh problems')
+	})
 })
