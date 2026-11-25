@@ -168,16 +168,46 @@ test('cancelling a running check stops it', async ({ page }) => {
  * renderer, every frame with a change on the page waits while the GPU draws 240,000
  * triangles, however little the page's code did. A script's time does include a wait it
  * caused, such as for a shader compile it asked for.
+ *
+ * It also includes the time a WebGL call spends waiting for the GPU to catch up: once the
+ * GPU process is behind on drawing, the next call blocks until it has caught up. On a
+ * two-core runner drawing 240,000 triangles in software, a frame callback that only
+ * issued its draw calls was charged 2.5 s that way after "Z up" turned the camera. So the
+ * time inside WebGL calls is recorded and left out of each script's own time, except for
+ * compiling and linking shaders, which is work the page asked for and still counts.
  */
 async function watchMainThread(page: Page) {
 	await page.addInitScript(() => {
 		const watch = {
 			scripts: [] as Array<{ start: number, duration: number, invoker: string }>,
 			longTasks: [] as Array<{ start: number, duration: number }>,
+			// Time spent inside WebGL calls, as [start, end], when a call took longer than 1 ms
+			gl: [] as Array<[number, number]>,
 			clicked: null as number | null,
 			card: null as number | null,
 		}
 		;(window as any).__printCheckWatch = watch
+		const compiling = new Set(['compileShader', 'linkProgram', 'getShaderParameter', 'getProgramParameter', 'getShaderInfoLog', 'getProgramInfoLog'])
+		for (const context of [WebGLRenderingContext, WebGL2RenderingContext]) {
+			for (const name of Object.getOwnPropertyNames(context.prototype)) {
+				const descriptor = Object.getOwnPropertyDescriptor(context.prototype, name)
+				if (compiling.has(name) || typeof descriptor?.value !== 'function' || name === 'constructor') {
+					continue
+				}
+				const call = descriptor.value
+				;(context.prototype as any)[name] = function (...args: unknown[]) {
+					const start = performance.now()
+					try {
+						return call.apply(this, args)
+					} finally {
+						const end = performance.now()
+						if (end - start > 1) {
+							watch.gl.push([start, end])
+						}
+					}
+				}
+			}
+		}
 		new PerformanceObserver((list) => {
 			for (const frame of list.getEntries() as any[]) {
 				for (const script of frame.scripts) {
@@ -206,15 +236,19 @@ async function watchMainThread(page: Page) {
 /**
  * @param page - The page
  * @param since - From when, in the page's time
- * @return The longest script since then, and the longest task, for the log
+ * @return The longest script since then, by the page's own time in it (without waits for
+ *   the GPU, see watchMainThread), with its full time and the longest task, for the log
  */
 async function longestSince(page: Page, since: number) {
 	return page.evaluate((from) => {
 		const watch = (window as any).__printCheckWatch
-		const scripts = watch.scripts.filter((script: { start: number, duration: number }) => script.start + script.duration >= from)
-		const longest = scripts.reduce((top: any, script: any) => (script.duration > (top?.duration ?? 0) ? script : top), null)
+		const waited = (start: number, end: number) => watch.gl.reduce((sum: number, [glStart, glEnd]: [number, number]) => sum + Math.max(0, Math.min(end, glEnd) - Math.max(start, glStart)), 0)
+		const scripts = watch.scripts
+			.filter((script: { start: number, duration: number }) => script.start + script.duration >= from)
+			.map((script: { start: number, duration: number, invoker: string }) => ({ ...script, own: script.duration - waited(script.start, script.start + script.duration) }))
+		const longest = scripts.reduce((top: any, script: any) => (script.own > (top?.own ?? 0) ? script : top), null)
 		const task = Math.max(0, ...watch.longTasks.filter((entry: { start: number, duration: number }) => entry.start + entry.duration >= from).map((entry: { duration: number }) => entry.duration))
-		return { script: longest ? Math.round(longest.duration) : 0, invoker: longest?.invoker ?? '', task: Math.round(task) }
+		return { script: longest ? Math.round(longest.own) : 0, total: longest ? Math.round(longest.duration) : 0, invoker: longest?.invoker ?? '', task: Math.round(task) }
 	}, since)
 }
 
@@ -229,7 +263,7 @@ test('opening print check on 240,000 triangles shows the card at once and never 
 	const measured = await page.evaluate(() => performance.now())
 	const watch = await page.evaluate(() => (window as any).__printCheckWatch)
 	const opening = await longestSince(page, watch.clicked)
-	console.log(`print check on 240,000 triangles: card ${Math.round(watch.card - watch.clicked)} ms after the click, measured ${Math.round(measured - watch.clicked)} ms after it; longest script ${opening.script} ms (${opening.invoker}), longest task ${opening.task} ms`)
+	console.log(`print check on 240,000 triangles: card ${Math.round(watch.card - watch.clicked)} ms after the click, measured ${Math.round(measured - watch.clicked)} ms after it; longest script ${opening.script} ms of its own, ${opening.total} ms with waits for the GPU (${opening.invoker}), longest task ${opening.task} ms`)
 	// The card is drawn in the click's own task, with nothing per vertex in it
 	expect(watch.card - watch.clicked).toBeLessThan(1000)
 	// Before the work moved to the worker, the click went through every triangle and the
@@ -242,7 +276,7 @@ test('opening print check on 240,000 triangles shows the card at once and never 
 	// to the limit
 	await page.waitForTimeout(3000)
 	const shading = await longestSince(page, measured)
-	console.log(`the shading's first frame: longest script ${shading.script} ms (${shading.invoker})`)
+	console.log(`the shading's first frame: longest script ${shading.script} ms of its own, ${shading.total} ms with waits for the GPU (${shading.invoker})`)
 
 	// Neither turning the bed nor a new angle stops the page
 	const mark = await page.evaluate(() => performance.now())
@@ -254,7 +288,7 @@ test('opening print check on 240,000 triangles shows the card at once and never 
 	await expect(card(page)).toContainText('of the surface overhangs')
 	await page.waitForTimeout(1000)
 	const changing = await longestSince(page, mark)
-	console.log(`Z up and a new angle: longest script ${changing.script} ms (${changing.invoker}), longest task ${changing.task} ms`)
+	console.log(`Z up and a new angle: longest script ${changing.script} ms of its own, ${changing.total} ms with waits for the GPU (${changing.invoker}), longest task ${changing.task} ms`)
 	expect(changing.script).toBeLessThan(SCRIPT_LIMIT_MS)
 })
 
