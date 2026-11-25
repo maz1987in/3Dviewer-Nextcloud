@@ -1,5 +1,6 @@
 import {
 	probeWorkerRendering,
+	measureInWorker,
 	renderInWorker,
 	ThumbnailEnvironmentError,
 	ThumbnailRefusedError,
@@ -292,6 +293,123 @@ describe('renderInWorker', () => {
 	it('rejects a missing time limit instead of running unbounded', async () => {
 		await expect(renderInWorker(job(), {})).rejects.toThrow(TypeError)
 		expect(workers).toHaveLength(0)
+	})
+})
+
+describe('measuring in the worker', () => {
+	const OriginalWorker = global.Worker
+
+	beforeEach(() => {
+		workers.length = 0
+		global.Worker = FakeWorker
+	})
+
+	afterEach(() => {
+		global.Worker = OriginalWorker
+		FakeWorker.postMessageError = null
+	})
+
+	it('asks the worker to measure the model, by its name, and draw nothing', async () => {
+		const input = { ...job(), name: 'part.stl' }
+		const promise = measureInWorker(input, { timeoutMs: 30000 })
+
+		const [{ message, transfer }] = workers[0].posted
+		expect(message).toEqual(expect.objectContaining({ extension: 'stl', name: 'part.stl', statsOnly: true, measure: false }))
+		expect(transfer).toEqual([input.buffer])
+
+		const stats = { v: 1, kind: 'mesh' }
+		workers[0].emit({ ok: true, stats })
+
+		await expect(promise).resolves.toBe(stats)
+		expect(workers[0].terminated).toBe(1)
+	})
+
+	it('resolves null for a model that loaded and has nothing to measure', async () => {
+		const promise = measureInWorker(job(), { timeoutMs: 30000 })
+
+		workers[0].emit({ ok: true, stats: null })
+
+		await expect(promise).resolves.toBeNull()
+	})
+
+	it('ends the way a render does: a failed load rejects, and the worker is terminated', async () => {
+		const promise = measureInWorker(job(), { timeoutMs: 30000 })
+
+		workers[0].emit({ ok: false, error: 'Invalid STL', stage: 'load' })
+
+		await expect(promise).rejects.toThrow('Invalid STL')
+		expect(workers[0].terminated).toBe(1)
+	})
+
+	it('times out like a render', async () => {
+		jest.useFakeTimers()
+		try {
+			const promise = measureInWorker(job(), { timeoutMs: 1000 })
+			const assertion = expect(promise).rejects.toBeInstanceOf(ThumbnailTimeoutError)
+
+			jest.advanceTimersByTime(1000)
+
+			await assertion
+			expect(workers[0].terminated).toBe(1)
+		} finally {
+			jest.useRealTimers()
+		}
+	})
+})
+
+describe('measuring while rendering', () => {
+	const OriginalWorker = global.Worker
+
+	beforeEach(() => {
+		workers.length = 0
+		global.Worker = FakeWorker
+	})
+
+	afterEach(() => {
+		global.Worker = OriginalWorker
+	})
+
+	it('asks the worker to measure, and hands the measurement on just before the thumbnail', async () => {
+		const seen = []
+		const input = { ...job(), name: 'part.stl', measure: true, onStats: (stats) => seen.push(['stats', stats]) }
+		const promise = renderInWorker(input, { timeoutMs: 30000 }).then((blob) => seen.push(['blob', blob]))
+
+		expect(workers[0].posted[0].message).toEqual(expect.objectContaining({ name: 'part.stl', measure: true, statsOnly: false }))
+		const blob = { type: 'image/png' }
+		workers[0].emit({ ok: true, blob, stats: { v: 1 } })
+		await promise
+
+		expect(seen).toEqual([['stats', { v: 1 }], ['blob', blob]])
+	})
+
+	it('says the model could not be measured with null', async () => {
+		const onStats = jest.fn()
+		const promise = renderInWorker({ ...job(), measure: true, onStats }, { timeoutMs: 30000 })
+
+		workers[0].emit({ ok: true, blob: {} })
+		await promise
+
+		expect(onStats).toHaveBeenCalledWith(null)
+	})
+
+	it('measures nothing unless asked, and never calls back', async () => {
+		const onStats = jest.fn()
+		const promise = renderInWorker({ ...job(), onStats }, { timeoutMs: 30000 })
+
+		expect(workers[0].posted[0].message.measure).toBe(false)
+		workers[0].emit({ ok: true, blob: {}, stats: { v: 1 } })
+		await promise
+
+		expect(onStats).not.toHaveBeenCalled()
+	})
+
+	it('still resolves with the thumbnail when what is done with the measurement throws', async () => {
+		const blob = { type: 'image/png' }
+		const promise = renderInWorker({ ...job(), measure: true, onStats: () => { throw new Error('boom') } }, { timeoutMs: 30000 })
+
+		workers[0].emit({ ok: true, blob, stats: { v: 1 } })
+
+		await expect(promise).resolves.toBe(blob)
 	})
 })
 

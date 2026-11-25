@@ -680,6 +680,45 @@ async function renderSample(page, appRoot: string, sample: Sample, timeoutMs = 3
   }, { urls, extension: sample.extension, timeoutMs })
 }
 
+/**
+ * Measure one sample in the worker.
+ *
+ * @param page - Playwright page with the harness loaded
+ * @param appRoot - Where the app is mounted
+ * @param sample - What to measure
+ * @param render - Draw it too, with `measure` set, and report whether a thumbnail came out
+ */
+async function measureSample(page, appRoot: string, sample: Sample, render = false) {
+  const urls = sample.files.map(file => appRoot + file.split('/').map(encodeURIComponent).join('/'))
+  return await page.evaluate(async ({ urls, extension, render }) => {
+    // @ts-ignore test hook
+    const api = window.__threedviewerThumbnails
+    const files = await Promise.all(urls.map(async (url) => {
+      const response = await fetch(url)
+      if (!response.ok) {
+        throw new Error(`${url}: HTTP ${response.status}`)
+      }
+      return new File([await response.arrayBuffer()], decodeURIComponent(url.split('/').pop()))
+    }))
+    const [model, ...additionalFiles] = files
+    const name = model.name
+    try {
+      if (render) {
+        let measured: unknown = 'never called'
+        const blob = await api.renderInWorker(
+          { extension, buffer: await model.arrayBuffer(), additionalFiles, name, measure: true, onStats: (stats) => { measured = stats } },
+          { timeoutMs: 30000 },
+        )
+        return { ok: true, stats: measured, thumbnail: blob.size > 0 }
+      }
+      const stats = await api.measureInWorker({ extension, buffer: await model.arrayBuffer(), additionalFiles, name }, { timeoutMs: 30000 })
+      return { ok: true, stats }
+    } catch (error) {
+      return { ok: false, error: String(error?.message || error) }
+    }
+  }, { urls, extension: sample.extension, render })
+}
+
 /*
  * Errors the page and its workers log during the current test. Several tests make a
  * render fail on purpose, so these are kept quiet and attached only to a failing test.
@@ -766,6 +805,96 @@ test.describe('thumbnail worker', () => {
       // decodes a bitmap there instead; if that broke, the two would come out alike
       expect(withMap.ok && withoutMap.ok).toBe(true)
       expect(withMap.colours).toBeGreaterThan(withoutMap.colours)
+    })
+  })
+
+  test.describe('every model format is measured in the worker', () => {
+    const appRoot = APP_ROOTS[0]
+
+    for (const sample of SAMPLES) {
+      test(sample.name, async ({ page }) => {
+        test.setTimeout(60000)
+        await openHarness(page, server.origin, appRoot)
+
+        const outcome = await measureSample(page, appRoot, sample)
+
+        expect(outcome.error).toBeUndefined()
+        const stats = outcome.stats
+        expect(stats).toMatchObject({ v: 1, unit: { changeable: expect.any(Boolean) } })
+        expect(['mesh', 'points', 'splats', 'toolpath']).toContain(stats.kind)
+        expect(stats.size).toHaveLength(3)
+        for (const length of stats.size) {
+          expect(Number.isFinite(length) && length >= 0).toBe(true)
+        }
+        expect(Math.max(...stats.size)).toBeGreaterThan(0)
+        expect(stats.unit.mm).toBeGreaterThan(0)
+      })
+    }
+
+    test('an stl is a mesh of one triangle, in millimetres that nobody chose', async ({ page }) => {
+      await openHarness(page, server.origin, appRoot)
+
+      const { stats } = await measureSample(page, appRoot, SAMPLES.find(s => s.name === 'stl'))
+
+      expect(stats).toMatchObject({ kind: 'mesh', triangles: 1, parts: 1, unit: { mm: 1, changeable: true } })
+    })
+
+    test('a glb is metres, as the format says', async ({ page }) => {
+      await openHarness(page, server.origin, appRoot)
+
+      const { stats } = await measureSample(page, appRoot, SAMPLES.find(s => s.name === 'glb'))
+
+      expect(stats).toMatchObject({ kind: 'mesh', unit: { mm: 1000, changeable: false } })
+    })
+
+    test('a scan is points, all of those in the file, and a splat is splats', async ({ page }) => {
+      await openHarness(page, server.origin, appRoot)
+
+      const las = (await measureSample(page, appRoot, SAMPLES.find(s => s.name === 'las'))).stats
+      const splat = (await measureSample(page, appRoot, SAMPLES.find(s => s.name === 'thinned splat'))).stats
+
+      expect(las).toMatchObject({ kind: 'points', triangles: 0 })
+      expect(las.points).toBeGreaterThan(0)
+      // The thumbnail thins the 520,000 splats it draws; the model has all of them
+      expect(splat).toMatchObject({ kind: 'splats', splats: 520000, triangles: 0 })
+    })
+
+    test('a toolpath is layers', async ({ page }) => {
+      await openHarness(page, server.origin, appRoot)
+
+      const { stats } = await measureSample(page, appRoot, SAMPLES.find(s => s.name === 'gcode'))
+
+      expect(stats.kind).toBe('toolpath')
+      expect(stats.layers).toBeGreaterThan(0)
+    })
+
+    test('a textured obj counts its texture', async ({ page }) => {
+      await openHarness(page, server.origin, appRoot)
+
+      const { stats } = await measureSample(page, appRoot, SAMPLES.find(s => s.name === 'textured obj'))
+
+      expect(stats.textures).toBeGreaterThan(0)
+    })
+
+    test('a thumbnail made with the measurement carries the same numbers, and is still drawn', async ({ page }) => {
+      test.setTimeout(60000)
+      await openHarness(page, server.origin, appRoot)
+      const sample = SAMPLES.find(s => s.name === 'obj + mtl')
+
+      const alone = await measureSample(page, appRoot, sample)
+      const together = await measureSample(page, appRoot, sample, true)
+
+      expect(together).toMatchObject({ ok: true, thumbnail: true })
+      expect(together.stats).toEqual(alone.stats)
+    })
+
+    test('a model that cannot be read fails like a render does, with its own message', async ({ page }) => {
+      await openHarness(page, server.origin, appRoot)
+
+      const outcome = await measureSample(page, appRoot, { name: 'molecule', extension: 'xyz', files: [`${FIXTURES}pointclouds/molecule.xyz`] })
+
+      expect(outcome.ok).toBe(false)
+      expect(outcome.error).toMatch(/lists atoms, not a scan/)
     })
   })
 

@@ -93,8 +93,43 @@ export async function awaitStatusBeforeDownload({ fileId, extension, timeoutMs =
 }
 
 /**
+ * Measure the loaded model and store the numbers for the version the status describes
+ * (the Files sidebar's "3D" tab shows them). Never throws.
+ *
+ * @param {object} options - Options
+ * @param {number} options.fileId - Nextcloud file id
+ * @param {string} options.extension - File extension, without the dot
+ * @param {THREE.Object3D} options.object3D - The loaded model
+ * @param {ThumbnailStatus} options.status - The status that arrived before the download
+ */
+async function captureStats({ fileId, extension, object3D, status }) {
+	try {
+		// Loaded here, not imported above: the viewer's chunk is full, and what measures a
+		// model is only needed for a version that was not measured yet
+		const [{ extractModelStats }, { uploadModelStats }] = await Promise.all([
+			import('../stats/extractStats.js'),
+			import('../stats/statsApi.js'),
+		])
+		// The measurement reads the format from the extension alone
+		const stats = extractModelStats(object3D, { filename: `model.${extension}` })
+		if (!stats) {
+			return
+		}
+		const outcome = await uploadModelStats(fileId, status.etag, stats)
+		if (outcome !== 'stored' && outcome !== 'exists') {
+			// 'stale': the file changed since the status; the next open measures the new one
+			logger.info('captureFromViewer', 'Statistics not stored', { fileId, outcome })
+		}
+	} catch (error) {
+		logger.warn('captureFromViewer', 'Measuring the model failed', error)
+	}
+}
+
+/**
  * Render the loaded model and store it as the thumbnail for the version the status
- * describes, unless this version already has one or the user cannot store it.
+ * describes, unless this version already has one or the user cannot store it; and store
+ * the numbers measured of it, unless this version has them. The measurement needs only that
+ * the user can read the file, so a view-only user's open stores it too.
  *
  * Never throws: a failed thumbnail must not disturb the viewer.
  *
@@ -106,12 +141,10 @@ export async function awaitStatusBeforeDownload({ fileId, extension, timeoutMs =
  *   - The status that arrived before the model was downloaded (see
  *   `awaitStatusBeforeDownload`), or a promise of it; never fetched again here, so a
  *   model edited since the download is not stored under its newer version
- * @return {Promise<'stored'|'exists'|'skipped'>} What happened
+ * @return {Promise<'stored'|'exists'|'skipped'>} What happened to the thumbnail
  */
 export async function captureForCurrentVersion({ fileId, extension, object3D, statuses }) {
-	// A splat's render waits for Spark's sort, with the open viewer's model lent to it all
-	// the while; the background thumbnailer, which has a model of its own, makes it instead
-	if (!isThumbnailFormat(extension) || object3D?.userData?.tdvSplat) {
+	if (!isThumbnailFormat(extension)) {
 		return 'skipped'
 	}
 
@@ -122,8 +155,17 @@ export async function captureForCurrentVersion({ fileId, extension, object3D, st
 		logger.warn('captureFromViewer', 'Could not read the thumbnail status', error)
 		return 'skipped'
 	}
+	if (!status) {
+		return 'skipped'
+	}
 
-	if (!status || !status.canEdit || status.hasThumbnail) {
+	if (!status.hasStats) {
+		await captureStats({ fileId, extension, object3D, status })
+	}
+
+	// A splat's render waits for Spark's sort, with the open viewer's model lent to it all
+	// the while; the background thumbnailer, which has a model of its own, makes it instead
+	if (object3D?.userData?.tdvSplat || !status.canEdit || status.hasThumbnail) {
 		return 'skipped'
 	}
 

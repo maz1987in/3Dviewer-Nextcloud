@@ -6,8 +6,11 @@
  * OffscreenCanvas, off the page's thread. Started per job by workerRenderer.js, which
  * terminates it when the job is over, so nothing here needs to clean up after itself.
  *
- * In:  { extension, buffer, additionalFiles, appWebRoot }, with `buffer` transferred
- * Out: { ok: true, blob } or { ok: false, error, stage, empty?, refused?, tooLarge? },
+ * In:  { extension, buffer, additionalFiles, appWebRoot, name?, measure?, statsOnly? }, with
+ *      `buffer` transferred. `measure` also measures the model (stats/extractStats.js) from the
+ *      file `name`; `statsOnly` measures it and draws nothing, which needs no WebGL
+ * Out: { ok: true, blob, stats? } (no blob for `statsOnly`; `stats` is null when the model
+ *      could not be measured) or { ok: false, error, stage, empty?, refused?, tooLarge? },
  *      where `stage` is 'load' when the loader could not read the model and 'render'
  *      when drawing it failed; `tooLarge` when its XML was longer than the parser takes
  *
@@ -22,6 +25,7 @@
 import * as THREE from 'three'
 import { setAppWebRoot } from '../loaders/appAssetPath.js'
 import { loadModelByExtension } from '../loaders/registry.js'
+import { extractModelStats } from '../stats/extractStats.js'
 import { describeError } from './errors.js'
 import { EmptyModelError, renderThumbnail } from './renderThumbnail.js'
 import { createWorkerResources, guardWorkerRequests, RefusedResourceError } from './workerResources.js'
@@ -142,7 +146,7 @@ self.onmessage = async ({ data }) => {
 		answerProbe()
 		return
 	}
-	const { extension, buffer, additionalFiles = [], appWebRoot } = data
+	const { extension, buffer, additionalFiles = [], appWebRoot, name, measure = false, statsOnly = false } = data
 	let stage = 'load'
 	try {
 		if (appWebRoot) {
@@ -180,12 +184,22 @@ self.onmessage = async ({ data }) => {
 			throw new RefusedResourceError(resources.refused[0])
 		}
 
+		// Measured before it is drawn, from the model as loaded; a model that cannot be
+		// measured still gets its thumbnail
+		const stats = measure || statsOnly
+			? extractModelStats(result.object3D, { filename: name || `model.${extension}` })
+			: undefined
+		if (statsOnly) {
+			self.postMessage({ ok: true, stats })
+			return
+		}
+
 		stage = 'render'
 		const blob = await renderThumbnail(result.object3D, {
 			canvas: new OffscreenCanvas(SIZE, SIZE),
 			size: SIZE,
 		})
-		self.postMessage({ ok: true, blob })
+		self.postMessage({ ok: true, blob, stats })
 	} catch (error) {
 		// Name the refusal rather than what the loader made of it
 		const reason = resources.refused.length > 0

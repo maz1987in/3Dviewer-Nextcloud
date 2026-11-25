@@ -16,6 +16,7 @@ import { getCurrentUser } from '@nextcloud/auth'
 import { loadModelForBackground } from './backgroundLoad.js'
 import { createBackgroundQueue } from './backgroundQueue.js'
 import { isSkipped, markSkipped } from './skipList.js'
+import { uploadModelStats } from '../stats/statsApi.js'
 import { fetchStatus, uploadThumbnail } from './thumbnailApi.js'
 import { loadThumbnailSettings } from './thumbnailSettings.js'
 import { probeWorkerRendering, renderInWorker } from './workerRenderer.js'
@@ -41,7 +42,7 @@ export async function createFilesQueue({ env, onThumbnail }) {
 	}
 	return createBackgroundQueue({
 		settings,
-		api: { fetchStatus, uploadThumbnail },
+		api: { fetchStatus, uploadThumbnail, uploadModelStats },
 		load: loadModelForBackground,
 		render: renderInWorker,
 		probe: probeWorkerRendering,
