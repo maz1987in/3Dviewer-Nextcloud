@@ -63,6 +63,20 @@ class NotePeople
     }
 
     /**
+     * Who Nextcloud's people search finds for a query, as the current user: the same answer
+     * the share dialog gives, so the administrator's rules about who may be listed to whom
+     * apply. Used to decide whether a mention may name someone at all.
+     *
+     * @return list<string> user ids
+     */
+    public function matching(string $query): array
+    {
+        [$results] = $this->search->search(mb_substr($query, 0, 64), [self::SHARE_TYPE_USER], false, self::CANDIDATES, 0);
+
+        return array_map(static fn (array $candidate): string => $candidate[0], $this->candidates($results));
+    }
+
+    /**
      * Exact matches first, then the rest, as the share dialog orders them.
      *
      * @param mixed $results what ISearch::search() answers; its own description of it

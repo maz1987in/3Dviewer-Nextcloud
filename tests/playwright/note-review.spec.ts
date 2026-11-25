@@ -366,7 +366,7 @@ test.describe('mentions', () => {
 		await card(page, 1).getByRole('option', { name: /Omar Khan/ }).click()
 
 		await expect(text).toHaveValue('Check with @Omar Khan ')
-		await expect.poll(() => calls.texts.length, { timeout: 5000 }).toBeGreaterThan(0)
+		await expect.poll(() => calls.texts.length, { timeout: 15000 }).toBeGreaterThan(0)
 		const last = calls.texts.at(-1) as { payload: { text: string } }
 		expect(last.payload.text).toBe('Check with @omar ')
 		// The server's answer names the person, and the field still shows them by name

@@ -11,13 +11,17 @@ use OCA\ThreeDViewer\Db\NoteReplyMapper;
 use OCA\ThreeDViewer\Service\AnnotationsService;
 use OCA\ThreeDViewer\Service\Exception\InvalidNoteException;
 use OCA\ThreeDViewer\Service\Exception\NoteLimitException;
+use OCA\ThreeDViewer\Service\NoteAccess;
+use OCA\ThreeDViewer\Service\NoteAccessResult;
 use OCA\ThreeDViewer\Service\NoteMentions;
+use OCA\ThreeDViewer\Service\NotePeople;
 use OCA\ThreeDViewer\Service\NotesService;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IDBConnection;
 use OCP\IUser;
 use OCP\IUserManager;
+use OCP\IUserSession;
 use OCP\Lock\ILockingProvider;
 use OCP\Lock\LockedException;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -32,6 +36,7 @@ class NotesServiceTest extends TestCase
 
     private NoteMapper&MockObject $mapper;
     private NoteReplyMapper&MockObject $replies;
+    private NoteMentions $mentions;
     private AnnotationsService&MockObject $legacy;
     private IUserManager&MockObject $users;
     private IDBConnection&MockObject $db;
@@ -44,6 +49,13 @@ class NotesServiceTest extends TestCase
         $this->replies = $this->createMock(NoteReplyMapper::class);
         $this->legacy = $this->createMock(AnnotationsService::class);
         $this->users = $this->createMock(IUserManager::class);
+        // Whoever is mentioned can open the file and is found by the people search, so the
+        // names come through; who is hidden, and why, is NoteMentionsTest's business
+        $access = $this->createMock(NoteAccess::class);
+        $access->method('forUser')->willReturn(new NoteAccessResult(false));
+        $people = $this->createMock(NotePeople::class);
+        $people->method('matching')->willReturnCallback(fn (string $query) => [$query]);
+        $this->mentions = new NoteMentions($this->users, $access, $people, $this->createMock(IUserSession::class));
         $this->db = $this->createMock(IDBConnection::class);
         $this->locking = $this->createMock(ILockingProvider::class);
         $time = $this->createMock(ITimeFactory::class);
@@ -59,7 +71,7 @@ class NotesServiceTest extends TestCase
         $this->service = new NotesService(
             $this->mapper,
             $this->replies,
-            new NoteMentions($this->users),
+            $this->mentions,
             $this->legacy,
             $this->users,
             $this->db,
@@ -480,6 +492,7 @@ class NotesServiceTest extends TestCase
         $reply = new NoteReply();
         $reply->setId(11);
         $reply->setNoteId(5);
+        $reply->setFileId(7);
         $reply->setText('Thanks @bob');
         $reply->setAuthorUid('alice');
         $reply->setCreatedAt(2);

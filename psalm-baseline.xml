@@ -934,6 +934,11 @@
       <code><![CDATA[$parent === null]]></code>
     </DocblockTypeContradiction>
   </file>
+  <file src="lib/Service/NoteChangePublisher.php">
+    <RedundantCastGivenDocblockType>
+      <code><![CDATA[(int) $file->getId()]]></code>
+    </RedundantCastGivenDocblockType>
+  </file>
   <file src="lib/Service/ResponseBuilder.php">
     <ArgumentTypeCoercion>
       <code><![CDATA[$code]]></code>
@@ -1105,6 +1110,14 @@
     </UndefinedClass>
     <UnusedClass>
       <code><![CDATA[NoteMapperTest]]></code>
+    </UnusedClass>
+  </file>
+  <file src="tests/integration/NoteMentionsTest.php">
+    <UndefinedClass>
+      <code><![CDATA[TestCase]]></code>
+    </UndefinedClass>
+    <UnusedClass>
+      <code><![CDATA[NoteMentionsTest]]></code>
     </UnusedClass>
   </file>
   <file src="tests/integration/NoteReplyMapperTest.php">

@@ -151,7 +151,7 @@ class NoteChangePublisherTest extends TestCase
     /** @param array<string, list<string>> $byText what the mentions service finds in each text */
     private function mentionsIn(array $byText): void
     {
-        $this->mentions->method('uids')->willReturnCallback(fn (string $text, bool $settled) => $byText[$text] ?? []);
+        $this->mentions->method('uids')->willReturnCallback(fn (string $text, int $fileId, bool $settled) => $byText[$text] ?? []);
     }
 
     public function testANewNoteThatMentionsSomeoneNotifiesThemAndNotWithTheRegularNotification(): void
@@ -170,7 +170,7 @@ class NoteChangePublisherTest extends TestCase
 
     public function testANoteIsReadForMentionsOnlyOnceTheyAreSettled(): void
     {
-        $this->mentions->expects($this->once())->method('uids')->with('Look @sa', true)->willReturn([]);
+        $this->mentions->expects($this->once())->method('uids')->with('Look @sa', 0, true)->willReturn([]);
 
         $this->publisher->added($this->createMock(File::class), $this->textNote('Look @sa'), NoteActor::user('lina'));
     }
@@ -248,7 +248,7 @@ class NoteChangePublisherTest extends TestCase
     {
         $reply = new NoteReply();
         $reply->setText('Thanks @lina');
-        $this->mentions->expects($this->once())->method('uids')->with('Thanks @lina', false)->willReturn(['lina']);
+        $this->mentions->expects($this->once())->method('uids')->with('Thanks @lina', 0, false)->willReturn(['lina']);
 
         $this->publisher->replied($this->createMock(File::class), $this->note(), $reply, NoteActor::user('omar'));
     }

@@ -52,7 +52,7 @@ class NoteChangePublisher
 
         // Whoever the text mentions is told that, and only that: the mention is the more
         // specific news, and a second notification for the same note would be noise
-        $mentioned = $this->mentionedIn(NotePayload::textOf($note->getPayload()), true);
+        $mentioned = $this->mentionedIn($file, NotePayload::textOf($note->getPayload()), true);
 
         $this->guard(fn () => $this->activity->publish(Provider::NOTE_ADDED, $file, $actor, $note->getId()));
         $this->guard(fn () => $this->notifications->noteAdded($file, $note, $actor, $mentioned));
@@ -77,8 +77,8 @@ class NoteChangePublisher
         // of those saves. A mention is news however quietly the text was edited, so this
         // comes before the check below.
         $added = array_values(array_diff(
-            $this->mentionedIn(NotePayload::textOf($note->getPayload()), true),
-            $this->mentionedIn($previousText, true),
+            $this->mentionedIn($file, NotePayload::textOf($note->getPayload()), true),
+            $this->mentionedIn($file, $previousText, true),
         ));
         if ($added !== []) {
             $this->guard(fn () => $this->notifications->mentioned($file, $note, $actor, $added));
@@ -116,7 +116,7 @@ class NoteChangePublisher
             return;
         }
 
-        $mentioned = $this->mentionedIn($reply->getText(), false);
+        $mentioned = $this->mentionedIn($file, $reply->getText(), false);
 
         $this->guard(fn () => $this->activity->publish(Provider::NOTE_REPLIED, $file, $actor, $note->getId()));
         if ($mentioned !== []) {
@@ -133,7 +133,7 @@ class NoteChangePublisher
             return;
         }
 
-        $added = array_values(array_diff($this->mentionedIn($reply->getText(), false), $this->mentionedIn($previousText, false)));
+        $added = array_values(array_diff($this->mentionedIn($file, $reply->getText(), false), $this->mentionedIn($file, $previousText, false)));
         if ($added !== []) {
             $this->guard(fn () => $this->notifications->mentioned($file, $note, $actor, $added));
         }
@@ -155,10 +155,10 @@ class NoteChangePublisher
      *
      * @return list<string>
      */
-    private function mentionedIn(string $text, bool $settledOnly): array
+    private function mentionedIn(File $file, string $text, bool $settledOnly): array
     {
         try {
-            return $this->mentions->uids($text, $settledOnly);
+            return $this->mentions->uids($text, (int) $file->getId(), $settledOnly);
         } catch (\Throwable $e) {
             $this->logger->warning('3D Viewer could not read the mentions in a note', ['exception' => $e]);
 

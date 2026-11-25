@@ -315,7 +315,7 @@ class NotesService
         $mentions = [];
         if (is_array($payload) && isset($payload['text']) && is_string($payload['text'])) {
             if ($withAuthor) {
-                $mentions = $this->mentions->names($payload['text']);
+                $mentions = $this->mentions->names($payload['text'], $note->getFileId());
             } else {
                 $payload['text'] = $this->mentions->redact($payload['text']);
             }
@@ -349,7 +349,7 @@ class NotesService
             'author' => $withAuthor ? $this->author($reply->getAuthorUid()) : null,
             'createdAt' => $reply->getCreatedAt(),
             'updatedAt' => $reply->getUpdatedAt(),
-            'mentions' => $withAuthor ? $this->mentions->names($reply->getText()) : [],
+            'mentions' => $withAuthor ? $this->mentions->names($reply->getText(), $reply->getFileId()) : [],
         ];
     }
 

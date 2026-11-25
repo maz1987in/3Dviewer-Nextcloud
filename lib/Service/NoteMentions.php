@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OCA\ThreeDViewer\Service;
 
 use OCP\IUserManager;
+use OCP\IUserSession;
 
 /**
  * The people a note's text or a reply names with an @.
@@ -14,9 +15,14 @@ use OCP\IUserManager;
  * mention keeps meaning the same account when the person is renamed; what people read is
  * the display name, put in at read time (see NotesService::serialize) and never stored.
  *
- * A token is a mention only if it names an account that exists. An email address is not
- * one (the @ must not follow a letter, digit or underscore), and neither is an @ that
- * names nobody.
+ * A token is a mention only if it names someone the reader may be shown on this file: an
+ * account that can open the file AND that the reader could find through Nextcloud's own
+ * people search (NotePeople), which applies the administrator's enumeration and group
+ * rules. Anything else is plain text, and plain text of exactly the same kind whether the
+ * account does not exist or exists and may not be shown, so a note's author cannot use a
+ * mention to learn who has accounts, who can open a file, or what anyone is called. An
+ * email address is not a mention either (the @ must not follow a letter, digit or
+ * underscore).
  *
  * @psalm-suppress MissingDependency Nextcloud runtime provides dependent classes in full environment.
  */
@@ -37,23 +43,27 @@ class NoteMentions
     /** The simple form ends at whitespace; the quoted one may hold a space */
     private const PATTERN = '/(?<![A-Za-z0-9_])@(?:"([^"\r\n]{1,64})"|([A-Za-z0-9_\-@.\']{1,64}))/u';
 
-    /** @var array<string, ?array{uid: string, displayName: string}> accounts already looked up in this request */
+    /** @var array<string, ?array{uid: string, displayName: string}> people already resolved in this request, by file and id */
     private array $accounts = [];
 
     /** @psalm-suppress PossiblyUnusedMethod Constructed by the DI container */
     public function __construct(
         private readonly IUserManager $users,
+        private readonly NoteAccess $access,
+        private readonly NotePeople $people,
+        private readonly IUserSession $session,
     ) {
     }
 
     /**
      * Every mention in a text, in order, each token with the account it names.
      *
+     * @param int $fileId the model the text is on: only people who can open it are resolved
      * @return list<array{start: int, length: int, token: string, uid: string, displayName: string, settled: bool}>
      *     `token` is the id as written, `uid` the account's own id; `settled` is false for a
      *     simple token that runs to the very end of the text, which may still be being typed
      */
-    public function find(string $text): array
+    public function find(string $text, int $fileId): array
     {
         if (!str_contains($text, '@') || preg_match_all(self::PATTERN, $text, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE) < 1) {
             return [];
@@ -65,7 +75,7 @@ class NoteMentions
             [$whole, $offset] = $match[0];
             $quoted = ($match[1][1] ?? -1) >= 0;
             $written = $quoted ? $match[1][0] : ($match[2][0] ?? '');
-            $account = $this->account($written);
+            $account = $this->account($fileId, $written);
             $end = $offset + strlen($whole);
 
             // A simple token swallows the punctuation that follows it ("@alice." at the end
@@ -73,7 +83,7 @@ class NoteMentions
             while ($account === null && !$quoted && $written !== '' && preg_match('/[.\'\-@]$/', $written) === 1) {
                 $written = substr($written, 0, -1);
                 $end--;
-                $account = $this->account($written);
+                $account = $this->account($fileId, $written);
             }
             if ($account === null) {
                 continue;
@@ -101,10 +111,10 @@ class NoteMentions
      *     of "@alice"; a reply is sent whole, and its last word is final.
      * @return list<string> user ids
      */
-    public function uids(string $text, bool $settledOnly = false): array
+    public function uids(string $text, int $fileId, bool $settledOnly = false): array
     {
         $uids = [];
-        foreach ($this->find($text) as $mention) {
+        foreach ($this->find($text, $fileId) as $mention) {
             if ($settledOnly && !$mention['settled']) {
                 continue;
             }
@@ -120,10 +130,10 @@ class NoteMentions
      *
      * @return array<string, string> written id => display name
      */
-    public function names(string $text): array
+    public function names(string $text, int $fileId): array
     {
         $names = [];
-        foreach ($this->find($text) as $mention) {
+        foreach ($this->find($text, $fileId) as $mention) {
             $names[$mention['token']] = $mention['displayName'];
         }
 
@@ -131,39 +141,79 @@ class NoteMentions
     }
 
     /**
-     * The text for someone who must not learn who was mentioned: every mention becomes
-     * PUBLIC_PLACEHOLDER. Only mentions are touched, so what else was written is kept.
+     * The text for someone who must not learn who was mentioned: every @ that reads as a
+     * mention becomes PUBLIC_PLACEHOLDER, whether or not it names anyone. No lookup is made, so
+     * a public link can no more tell who has an account or access than who is named; what else
+     * was written is kept, and so is the punctuation that follows a mention.
      */
     public function redact(string $text): string
     {
-        $mentions = $this->find($text);
-        if ($mentions === []) {
+        if (!str_contains($text, '@')) {
             return $text;
         }
 
-        $out = '';
-        $cursor = 0;
-        foreach ($mentions as $mention) {
-            $out .= substr($text, $cursor, $mention['start'] - $cursor) . self::PUBLIC_PLACEHOLDER;
-            $cursor = $mention['start'] + $mention['length'];
-        }
+        return preg_replace_callback(self::PATTERN, static function (array $match): string {
+            $rest = '';
+            // A bare id swallows the punctuation after it; give that back as it was written
+            if (!isset($match[1]) || $match[1] === '') {
+                if (isset($match[2]) && preg_match("/[.'\\-@]+$/", $match[2], $trailing) === 1) {
+                    $rest = $trailing[0];
+                }
+            }
 
-        return $out . substr($text, $cursor);
+            return self::PUBLIC_PLACEHOLDER . $rest;
+        }, $text) ?? $text;
     }
 
     /**
      * @return ?array{uid: string, displayName: string}
      */
-    private function account(string $written): ?array
+    private function account(int $fileId, string $written): ?array
     {
         if ($written === '') {
             return null;
         }
-        if (!array_key_exists($written, $this->accounts)) {
-            $user = $this->users->get($written);
-            $this->accounts[$written] = $user === null ? null : ['uid' => $user->getUID(), 'displayName' => $user->getDisplayName()];
+        $key = $fileId . '/' . $written;
+        if (!array_key_exists($key, $this->accounts)) {
+            $this->accounts[$key] = $this->resolve($fileId, $written);
         }
 
-        return $this->accounts[$written];
+        return $this->accounts[$key];
+    }
+
+    /**
+     * Who an id names, if the reader may be shown them: the account exists, can open the
+     * file, and is among those Nextcloud's people search lets this reader find. A reader is
+     * always shown themselves. Every other case is null, and the caller cannot tell which.
+     *
+     * @return ?array{uid: string, displayName: string}
+     */
+    private function resolve(int $fileId, string $written): ?array
+    {
+        $user = $this->users->get($written);
+        if ($user === null) {
+            return null;
+        }
+        $uid = $user->getUID();
+        if ($this->access->forUser($fileId, $uid) === null) {
+            return null;
+        }
+        if ($this->session->getUser()?->getUID() !== $uid && !$this->findable($uid, $written)) {
+            return null;
+        }
+
+        return ['uid' => $uid, 'displayName' => $user->getDisplayName()];
+    }
+
+    /** Whether the people search, as the current user, finds this account for what was written */
+    private function findable(string $uid, string $written): bool
+    {
+        foreach ($this->people->matching($written) as $found) {
+            if (strcasecmp($found, $uid) === 0) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
