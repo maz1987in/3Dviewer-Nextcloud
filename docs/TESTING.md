@@ -157,6 +157,13 @@ What it does:
   notes API. The owner must then have one notification counting both, with no note text in it, two
   entries under the Activity app's "3D Viewer" filter, and a line in the bell that opens the model on
   the app's own page with the newer note in focus.
+- Note review (`note-review.spec.ts`): the editor mentions the owner in a reply, and the owner gets
+  the mention in the bell (no note text in it), opens the note from it with its thread, resolves it in the
+  browser and answers it with a mention picked from the list; the editor is then told, the stream under
+  the "3D Viewer" filter shows the resolve and both replies, and the server holds the note resolved by the
+  owner. A second test checks that a mention replaces the "added a note" notification instead of adding
+  to it, that someone who cannot open a model is neither notified nor offered, and that a public link
+  shows state and replies with no name or account id in the response.
 
 CI runs it as `.github/workflows/test-e2e-nextcloud.yml`: it checks out `nextcloud/server` at the
 newest branch `info.xml` supports, adds the Viewer, Notifications and Activity apps (separate

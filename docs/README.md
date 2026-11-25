@@ -301,7 +301,16 @@ To insert a model without copying its link, choose **3D models** in the Smart Pi
 
 When someone adds a note to a model, the model's owner and everyone who has written a note on it before get a notification, which opens the model at that note. A run of notes by one person on one model, each within ten minutes of the last, is one notification that counts them. Nobody is told about their own notes.
 
-Adding, changing and deleting notes also shows in the Activity stream of everyone who can open the model, under the **3D Viewer** filter and on the file's Activity tab. Notifications and stream entries name the person and the file, never what the note says. Under **Settings › Notifications**, the 3D Viewer activity can be turned off in the stream or turned on for email.
+Adding, changing, resolving, replying to and deleting notes also shows in the Activity stream of everyone who can open the model, under the **3D Viewer** filter and on the file's Activity tab. Notifications and stream entries name the person and the file, never what the note says. Under **Settings › Notifications**, the 3D Viewer activity can be turned off in the stream or turned on for email.
+
+### Reviewing Notes
+
+Notes work as a review of the model. Everything here is for people who may add notes to it; people who can only view the model, and visitors on a public link, see the same states and threads but cannot change them.
+
+- **Resolve and reopen.** **Resolve** on a note marks it resolved, with who did it and when; **Reopen** puts it back. Every note starts open, those made before this feature included. A resolved note stays in the list, marked as resolved, and its marker in the scene is hidden. Tick **Show resolved notes in the scene** to draw them dimmed. Measurements and angles are notes too and can be resolved.
+- **Filter.** **All**, **Open** and **Resolved** above the list each show how many notes they hold. A link to a note shows it whatever the filter says.
+- **Replies.** Under a note, **Reply** adds to its thread. Replies are text only, shown oldest first with who wrote them and when. Anyone who may add notes may edit or delete any reply, as they may any note; deleting a note deletes its replies. A reply to a resolved note leaves it resolved.
+- **Mentions.** Type **@** in a note's text or a reply and pick someone from the list, which offers the people who can open the model. They are shown by name everywhere, including the note's label in the scene. A person you mention gets a notification, "*Name* mentioned you in a note on *file*", that opens the model at the note. Someone who cannot open the model is never told, you are never told about yourself, and someone who would also have been told that a note was added gets the mention alone. A note's text is saved as you type, so a name at the very end of it counts once something follows it; a reply counts at once.
 
 ### Camera Projection Toggle
 

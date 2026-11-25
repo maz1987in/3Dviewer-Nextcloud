@@ -380,6 +380,9 @@ export default {
 - `addAnnotation(position, text)`: Add annotation
 - `removeAnnotation(id)`: Remove annotation
 - `clearAnnotations()`: Clear all annotations
+- `setLabelFormatter(fn)`: What a note's label in the scene says, given the annotation; `useSharedNotes` sets it to the text with the people it mentions shown by name
+- `refreshAnnotationLabel(id)`: Draw a label again without treating it as an edit
+- `setMarkerLook(id, look)`: Draw a note's marker `'normal'`, `'dim'` or `'hidden'`, as its state asks (`useMeasurement` has the same)
 - `dispose()`: Clean up resources
 
 ---
