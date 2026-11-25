@@ -40,6 +40,7 @@ A comprehensive 3D model viewer application for Nextcloud that supports multiple
 - **Parts**: A tree of the model's parts to hide, isolate, zoom to and find by name; IFC elements by storey with their properties
 - **3D Camera Controller**: Intuitive circular controller for precise camera navigation
 - **Face Labels**: Orientation markers on model faces (TOP, BOTTOM, FRONT, BACK, LEFT, RIGHT)
+- **Print check and repair**: Fit to a printer, overhangs, a filament estimate and wall thickness, and the mesh problems that stop a model printing (holes, flipped faces, inside-out parts, duplicate or zero-area faces), with a repair that saves the repaired STL or 3MF next to the model
 - **Export functionality**: Export models to GLB, STL, OBJ, 3MF, PLY and USDZ formats, as a download or saved next to the model in Nextcloud
 - **View in AR**: Put the model in your room at its real size on an iPhone, iPad or Android phone, also from a public link
 - **Camera projection toggle**: Switch between perspective and orthographic views

@@ -5,15 +5,16 @@
 import * as THREE from 'three'
 import { ref, nextTick } from 'vue'
 import { usePrintCheck } from '../../../src/composables/usePrintCheck.js'
-import { openSurfaceSession, measureThickness } from '../../../src/printCheck/printCheckClient.js'
+import { openSurfaceSession, measureThickness, repairParts } from '../../../src/printCheck/printCheckClient.js'
 import { measureSurface } from '../../../src/printCheck/surfaceMeasures.js'
 import { loadPrintCheckSettings, savePrintCheckSettings, flushPrintCheckSettings } from '../../../src/printCheck/printCheckSettings.js'
 import { PRINT_CHECK_DEFAULTS } from '../../../src/printCheck/printers.js'
 
-jest.mock('../../../src/printCheck/printCheckClient.js', () => ({ openSurfaceSession: jest.fn(), measureThickness: jest.fn() }))
+jest.mock('../../../src/printCheck/printCheckClient.js', () => ({ openSurfaceSession: jest.fn(), measureThickness: jest.fn(), repairParts: jest.fn() }))
 
 // The worker's session, answered on the page with the worker's own measurements
 const checkClosed = jest.fn()
+const analyze = jest.fn()
 const closeSession = jest.fn()
 const measureRequests = []
 jest.mock('../../../src/printCheck/printCheckSettings.js', () => ({
@@ -24,6 +25,12 @@ jest.mock('../../../src/printCheck/printCheckSettings.js', () => ({
 }))
 
 const CLOSED = { boundaryEdges: 0, nonManifoldEdges: 0, closed: true }
+// What the worker's mesh analysis answers for a part with nothing wrong
+const CLEAN = {
+	triangles: 12, vertices: 36, joinableVertices: 28, nearVertices: 0, degenerateFaces: 0, duplicateFaces: 0, openEdges: 0,
+	holes: { count: 0, fillable: 0, tooLarge: 0, complex: 0 }, nonManifoldEdges: 0, flippedFaces: 0, twistedEdges: 0,
+	insideOutParts: 0, parts: 1, closed: true, volume: 1000, area: 600, tolerance: 1e-4, fixable: false,
+}
 const OPEN = { boundaryEdges: 4, nonManifoldEdges: 0, closed: false }
 
 /** A deferred promise, to hold a worker call open. */
@@ -35,7 +42,7 @@ function deferred() {
 }
 
 /** A 10 mm cube resting on y = 0, in a scene, with a camera and orbit controls. */
-function setup({ filename = 'cube.stl', size = 10, fileId = 1, mmPerUnit = () => 1, renderer = null } = {}) {
+function setup({ filename = 'cube.stl', size = 10, fileId = 1, mmPerUnit = () => 1, renderer = null, repairExport = null } = {}) {
 	const cameras = { current: null }
 	const scene = new THREE.Scene()
 	const root = new THREE.Group()
@@ -64,6 +71,7 @@ function setup({ filename = 'cube.stl', size = 10, fileId = 1, mmPerUnit = () =>
 		filename: () => filename,
 		fileId: () => fileId,
 		renderer: () => renderer,
+		repairExport,
 	})
 	return { scene, root, mesh, camera, cameras, controls, modelRoot, printCheck }
 }
@@ -85,6 +93,7 @@ beforeEach(() => {
 	jest.clearAllMocks()
 	loadPrintCheckSettings.mockReturnValue({ ...PRINT_CHECK_DEFAULTS, custom: { ...PRINT_CHECK_DEFAULTS.custom } })
 	checkClosed.mockResolvedValue([CLOSED])
+	analyze.mockResolvedValue([CLEAN])
 	measureRequests.length = 0
 	openSurfaceSession.mockImplementation((parts) => ({
 		measure: (request) => {
@@ -92,6 +101,7 @@ beforeEach(() => {
 			return Promise.resolve(measureSurface(parts, request))
 		},
 		checkClosed: () => checkClosed(parts),
+		analyze: (scales) => analyze(parts, scales),
 		close: closeSession,
 	}))
 })
@@ -456,7 +466,7 @@ describe('nothing per vertex on the page', () => {
 
 	test('closing while the worker measures leaves nothing behind, and its late answer is dropped', async () => {
 		const answer = deferred()
-		openSurfaceSession.mockImplementation(() => ({ measure: () => answer.promise, checkClosed: () => new Promise(() => {}), close: closeSession }))
+		openSurfaceSession.mockImplementation(() => ({ measure: () => answer.promise, checkClosed: () => new Promise(() => {}), analyze: () => new Promise(() => {}), close: closeSession }))
 		const { scene, root, printCheck } = setup()
 		printCheck.open()
 		expect(overlays(scene, root)).toHaveLength(3)
@@ -477,6 +487,7 @@ describe('nothing per vertex on the page', () => {
 		openSurfaceSession.mockImplementation(() => ({
 			measure: () => new Promise((resolve) => answers.push(resolve)),
 			checkClosed: () => Promise.resolve([CLOSED]),
+			analyze: () => Promise.resolve([CLEAN]),
 			close: closeSession,
 		}))
 		const { printCheck } = setup({ fileId: 42 })
@@ -490,7 +501,7 @@ describe('nothing per vertex on the page', () => {
 	})
 
 	test('a worker that cannot measure says so', async () => {
-		openSurfaceSession.mockImplementation(() => ({ measure: () => Promise.reject(new Error('out of memory')), checkClosed: () => Promise.resolve([CLOSED]), close: closeSession }))
+		openSurfaceSession.mockImplementation(() => ({ measure: () => Promise.reject(new Error('out of memory')), checkClosed: () => Promise.resolve([CLOSED]), analyze: () => Promise.resolve([CLEAN]), close: closeSession }))
 		const { printCheck } = setup()
 		printCheck.open()
 		await flush()
@@ -540,5 +551,449 @@ describe('nothing per vertex on the page', () => {
 		await settle()
 		expect(printCheck.estimate.value.grams).toBeGreaterThan(grams * 4)
 		jest.useRealTimers()
+	})
+})
+
+describe('mesh problems and repair', () => {
+	const { analyzeMesh } = jest.requireActual('../../../src/printCheck/meshAnalysis.js')
+	const { repairMesh } = jest.requireActual('../../../src/printCheck/meshRepair.js')
+	const { edgeReport } = jest.requireActual('../../../src/printCheck/closedMesh.js')
+
+	/** The worker's analysis and repair, run here on the same plain modules. */
+	function useRealMeshWork() {
+		analyze.mockImplementation((parts, scales) => Promise.resolve(parts.map((part, i) => analyzeMesh({ positions: part.positions, index: part.index, millimetresPerUnit: scales[i] }))))
+		repairParts.mockImplementation((parts, { millimetresPerUnit, onProgress }) => {
+			onProgress?.(1, 2)
+			return Promise.resolve(parts.map((part) => {
+				const result = repairMesh({ positions: part.positions, index: part.index, millimetresPerUnit })
+				return { ...result, closedReport: edgeReport({ positions: result.positions, index: result.index }) }
+			}))
+		})
+	}
+
+	/** The test cube with its -z face (the last two triangles) left out. */
+	function setupOpenCube(options) {
+		const result = setup(options)
+		const geometry = result.mesh.geometry
+		geometry.setIndex(Array.from(geometry.index.array).slice(0, -6))
+		return result
+	}
+
+	test('the analysis is asked for with the millimetres in a unit of each part, and its counts are kept', async () => {
+		useRealMeshWork()
+		const { printCheck } = setup({ mmPerUnit: () => 25.4 })
+		expect(printCheck.problems.value.state).toBe('idle')
+		printCheck.open()
+		expect(printCheck.problems.value.state).toBe('checking')
+		await flush()
+		expect(analyze.mock.calls[0][1]).toEqual([25.4])
+		expect(printCheck.problems.value.state).toBe('done')
+		expect(printCheck.problems.value.report).toMatchObject({ closed: true, fixable: false, holes: { count: 0 } })
+	})
+
+	test('an analysis that fails says so, and one cut short by closing says nothing', async () => {
+		analyze.mockRejectedValue(new Error('out of memory'))
+		const { printCheck } = setup()
+		printCheck.open()
+		await flush()
+		expect(printCheck.problems.value).toEqual({ state: 'error', report: null })
+
+		analyze.mockRejectedValue(new DOMException('cancelled', 'AbortError'))
+		const second = setup().printCheck
+		second.open()
+		await flush()
+		expect(second.problems.value.state).toBe('checking')
+	})
+
+	test('a model with nothing to fix has nothing to repair', async () => {
+		useRealMeshWork()
+		const { printCheck } = setup()
+		printCheck.open()
+		await flush()
+		await printCheck.runRepair()
+		expect(repairParts).not.toHaveBeenCalled()
+		expect(printCheck.repair.value.state).toBe('idle')
+	})
+
+	test('a repair fills the hole, re-checks the result, and the card shows the new state', async () => {
+		useRealMeshWork()
+		checkClosed.mockResolvedValue([OPEN])
+		const { scene, root, printCheck } = setupOpenCube()
+		printCheck.open()
+		await flush()
+		expect(printCheck.problems.value.report).toMatchObject({ fixable: true, holes: { count: 1, fillable: 1 } })
+		expect(printCheck.closed.value).toBe('open')
+		expect(printCheck.estimate.value).toBeNull()
+		const before = overlays(scene, root).length
+
+		await printCheck.runRepair()
+		await flush()
+
+		expect(repairParts.mock.calls[0][1].millimetresPerUnit).toBe(1)
+		const repair = printCheck.repair.value
+		expect(repair.state).toBe('done')
+		expect(repair.summary).toMatchObject({ filledHoles: 1, addedFaces: 2 })
+		expect(repair.after).toMatchObject({ closed: true, openEdges: 0 })
+		// The closed check ran on the repaired meshes, so the card says closed and the estimate is there
+		expect(printCheck.closed.value).toBe('closed')
+		expect(printCheck.openParts.value).toBe(0)
+		expect(printCheck.estimate.value.grams).toBeGreaterThan(0)
+		// What was added is drawn over the model, beside it in the scene and never under it
+		const added = overlays(scene, root).slice(before)
+		expect(added).toHaveLength(1)
+		expect(added[0].userData.viewerOverlay).toBe(true)
+		expect(added[0].geometry.attributes.position.count).toBe(6)
+		expect(added[0].visible).toBe(true)
+		let underRoot = 0
+		root.traverse((child) => { if (child.userData.viewerOverlay) underRoot++ })
+		expect(underRoot).toBe(0)
+		// And the model itself is as it was loaded
+		expect(root.children[0].geometry.index.count).toBe(30)
+	})
+
+	test('the repaired model is written as an STL of its real size, ready to save or download', async () => {
+		useRealMeshWork()
+		checkClosed.mockResolvedValue([OPEN])
+		const { printCheck } = setupOpenCube({ size: 20 })
+		printCheck.open()
+		await flush()
+		expect(await printCheck.buildRepairedFile('stl')).toBeNull()
+		await printCheck.runRepair()
+
+		const file = await printCheck.buildRepairedFile('stl')
+		expect(file.extension).toBe('stl')
+		// 12 triangles of 50 bytes after an 84-byte header
+		expect(file.blob.size).toBe(84 + 12 * 50)
+		const bytes = new Uint8Array(await new Promise((resolve) => {
+			const reader = new FileReader()
+			reader.onload = () => resolve(reader.result)
+			reader.readAsArrayBuffer(file.blob)
+		}))
+		const view = new DataView(bytes.buffer)
+		expect(view.getUint32(80, true)).toBe(12)
+		let largest = 0
+		for (let t = 0; t < 12; t++) {
+			for (let k = 0; k < 9; k++) {
+				largest = Math.max(largest, Math.abs(view.getFloat32(84 + t * 50 + 12 + k * 4, true)))
+			}
+		}
+		// A 20 mm cube resting on y = 0, centred: the real size, not a unit cube
+		expect(largest).toBeCloseTo(20, 4)
+	})
+
+	test('the 3MF carries the unit', async () => {
+		useRealMeshWork()
+		checkClosed.mockResolvedValue([OPEN])
+		const { printCheck } = setupOpenCube({ mmPerUnit: () => 1000 })
+		printCheck.open()
+		await flush()
+		await printCheck.runRepair()
+		expect(repairParts.mock.calls[0][1].millimetresPerUnit).toBe(1000)
+		const file = await printCheck.buildRepairedFile('3mf')
+		expect(file.extension).toBe('3mf')
+		expect(file.blob.size).toBeGreaterThan(100)
+	})
+
+	test('undo puts back what the card showed before, and the overlay goes', async () => {
+		useRealMeshWork()
+		checkClosed.mockResolvedValue([OPEN])
+		const { scene, root, printCheck } = setupOpenCube()
+		printCheck.open()
+		await flush()
+		const before = overlays(scene, root).length
+		await printCheck.runRepair()
+		await flush()
+		expect(overlays(scene, root).length).toBe(before + 1)
+
+		printCheck.undoRepair()
+
+		expect(printCheck.repair.value.state).toBe('idle')
+		expect(printCheck.closed.value).toBe('open')
+		expect(printCheck.openParts.value).toBe(1)
+		expect(printCheck.estimate.value).toBeNull()
+		expect(overlays(scene, root).length).toBe(before)
+		expect(await printCheck.buildRepairedFile('stl')).toBeNull()
+		// And it can be done again
+		await printCheck.runRepair()
+		expect(printCheck.repair.value.state).toBe('done')
+	})
+
+	test('the faces a repair added can be hidden and shown', async () => {
+		useRealMeshWork()
+		const { scene, root, printCheck } = setupOpenCube()
+		printCheck.open()
+		await flush()
+		await printCheck.runRepair()
+		await flush()
+		const overlay = overlays(scene, root).find((object) => object.name === 'Print check repair')
+		printCheck.setRepairHighlight(false)
+		expect(overlay.visible).toBe(false)
+		expect(printCheck.repair.value.highlight).toBe(false)
+		printCheck.setRepairHighlight(true)
+		expect(overlay.visible).toBe(true)
+	})
+
+	test('cancel stops a repair, which can be started again', async () => {
+		useRealMeshWork()
+		let signal
+		repairParts.mockImplementationOnce((parts, options) => {
+			signal = options.signal
+			return new Promise((resolve, reject) => options.signal.addEventListener('abort', () => reject(new DOMException('x', 'AbortError'))))
+		})
+		const { printCheck } = setupOpenCube()
+		printCheck.open()
+		await flush()
+		const running = printCheck.runRepair()
+		expect(printCheck.repair.value.state).toBe('running')
+		// Asking again while it runs starts nothing more
+		printCheck.runRepair()
+		expect(repairParts).toHaveBeenCalledTimes(1)
+
+		printCheck.cancelRepair()
+		await running
+		expect(signal.aborted).toBe(true)
+		expect(printCheck.repair.value.state).toBe('cancelled')
+
+		await printCheck.runRepair()
+		expect(printCheck.repair.value.state).toBe('done')
+	})
+
+	test('progress is kept while it runs', async () => {
+		useRealMeshWork()
+		const answer = deferred()
+		repairParts.mockImplementationOnce((parts, options) => {
+			options.onProgress(250, 1000)
+			return answer.promise
+		})
+		const { printCheck } = setupOpenCube()
+		printCheck.open()
+		await flush()
+		const running = printCheck.runRepair()
+		expect(printCheck.repair.value.progress).toBeCloseTo(0.25, 9)
+		answer.reject(new DOMException('x', 'AbortError'))
+		await running
+	})
+
+	test('a repair that fails says so', async () => {
+		useRealMeshWork()
+		repairParts.mockRejectedValueOnce(new Error('out of memory'))
+		const { printCheck } = setupOpenCube()
+		printCheck.open()
+		await flush()
+		await printCheck.runRepair()
+		expect(printCheck.repair.value.state).toBe('error')
+	})
+
+	test('moving the model drops the repair, as the repaired meshes are where it was', async () => {
+		useRealMeshWork()
+		const { root, scene, printCheck } = setupOpenCube()
+		printCheck.open()
+		await flush()
+		await printCheck.runRepair()
+		expect(printCheck.repair.value.state).toBe('done')
+
+		root.position.x = 5
+		root.updateMatrixWorld(true)
+		printCheck.onFrame()
+
+		expect(printCheck.repair.value.state).toBe('idle')
+		expect(overlays(scene, root).some((object) => object.name === 'Print check repair')).toBe(false)
+	})
+
+	test('a model moved while the repair ran is not repaired where it no longer is', async () => {
+		useRealMeshWork()
+		const answer = deferred()
+		repairParts.mockImplementationOnce(() => answer.promise)
+		const { root, printCheck } = setupOpenCube()
+		printCheck.open()
+		await flush()
+		const running = printCheck.runRepair()
+		root.position.x = 5
+		root.updateMatrixWorld(true)
+		answer.resolve([])
+		await running
+		expect(printCheck.repair.value.state).toBe('idle')
+	})
+
+	test('closing lets go of the repaired meshes and the overlay, and ends a repair still running', async () => {
+		useRealMeshWork()
+		const { scene, root, printCheck } = setupOpenCube()
+		printCheck.open()
+		await flush()
+		await printCheck.runRepair()
+		printCheck.close()
+		expect(overlays(scene, root)).toEqual([])
+		expect(printCheck.repair.value.state).toBe('idle')
+		expect(printCheck.problems.value.state).toBe('idle')
+		expect(await printCheck.buildRepairedFile('stl')).toBeNull()
+
+		let signal
+		repairParts.mockImplementationOnce((parts, options) => {
+			signal = options.signal
+			return new Promise(() => {})
+		})
+		printCheck.open()
+		await flush()
+		printCheck.runRepair()
+		printCheck.close()
+		expect(signal.aborted).toBe(true)
+	})
+})
+
+describe('handing over the repaired file', () => {
+	const { analyzeMesh } = jest.requireActual('../../../src/printCheck/meshAnalysis.js')
+	const { repairMesh } = jest.requireActual('../../../src/printCheck/meshRepair.js')
+	const { edgeReport } = jest.requireActual('../../../src/printCheck/closedMesh.js')
+
+	function useRealMeshWork() {
+		analyze.mockImplementation((parts, scales) => Promise.resolve(parts.map((part, i) => analyzeMesh({ positions: part.positions, index: part.index, millimetresPerUnit: scales[i] }))))
+		repairParts.mockImplementation((parts, { millimetresPerUnit }) => Promise.resolve(parts.map((part) => {
+			const result = repairMesh({ positions: part.positions, index: part.index, millimetresPerUnit })
+			return { ...result, closedReport: edgeReport({ positions: result.positions, index: result.index }) }
+		})))
+	}
+
+	/** An open cube, with the export context the viewer gives. */
+	function setupExport({ canSave = true } = {}) {
+		const context = { canSave, userId: 'alice', folder: '/models', modelName: 'cube.stl', notify: jest.fn(), download: jest.fn() }
+		const result = setup({ repairExport: () => context })
+		const geometry = result.mesh.geometry
+		geometry.setIndex(Array.from(geometry.index.array).slice(0, -6))
+		return { ...result, context }
+	}
+
+	test('is offered nothing before there is a repaired model', async () => {
+		useRealMeshWork()
+		const { printCheck, context } = setupExport()
+		printCheck.open()
+		await flush()
+		await printCheck.repairAction('download', 'stl')
+		expect(context.download).not.toHaveBeenCalled()
+		expect(context.notify).not.toHaveBeenCalled()
+	})
+
+	test('downloads the repaired STL, and is busy meanwhile', async () => {
+		useRealMeshWork()
+		const { printCheck, context } = setupExport()
+		printCheck.open()
+		await flush()
+		await printCheck.runRepair()
+		expect(printCheck.repair.value.busy).toBe(false)
+
+		const exporting = printCheck.repairAction('download', 'stl')
+		expect(printCheck.repair.value.busy).toBe(true)
+		// A second press while it is made does nothing more
+		printCheck.repairAction('download', 'stl')
+		await exporting
+
+		expect(printCheck.repair.value.busy).toBe(false)
+		expect(context.download).toHaveBeenCalledTimes(1)
+		expect(context.download.mock.calls[0][1]).toBe('cube (repaired).stl')
+		expect(context.download.mock.calls[0][0].size).toBe(84 + 12 * 50)
+	})
+
+	test('the card\'s events do the same', async () => {
+		useRealMeshWork()
+		const { printCheck, context } = setupExport()
+		printCheck.open()
+		await flush()
+		printCheck.repairAction('run')
+		await flush()
+		await flush()
+		expect(printCheck.repair.value.state).toBe('done')
+		printCheck.repairAction('highlight', false)
+		expect(printCheck.repair.value.highlight).toBe(false)
+		await printCheck.repairAction('download', '3mf')
+		expect(context.download.mock.calls[0][1]).toBe('cube (repaired).3mf')
+		printCheck.repairAction('undo')
+		expect(printCheck.repair.value.state).toBe('idle')
+		expect(printCheck.repairAction('cancel')).toBeUndefined()
+		expect(printCheck.repairAction('nonsense')).toBeUndefined()
+	})
+
+	test('saving is only for where Export may save, and the card is told', async () => {
+		useRealMeshWork()
+		const denied = setupExport({ canSave: false })
+		denied.printCheck.open()
+		await flush()
+		await denied.printCheck.runRepair()
+		expect(denied.printCheck.repair.value.canSave).toBe(false)
+		await denied.printCheck.repairAction('save', 'stl')
+		expect(denied.context.notify).not.toHaveBeenCalled()
+		expect(denied.context.download).not.toHaveBeenCalled()
+
+		const allowed = setupExport({ canSave: true })
+		allowed.printCheck.open()
+		await flush()
+		expect(allowed.printCheck.repair.value.canSave).toBe(true)
+	})
+})
+
+describe('when the mesh is checked for problems', () => {
+	test('once for the model, whatever setting changes or wherever it moves', async () => {
+		jest.useFakeTimers()
+		const { root, printCheck } = setup()
+		printCheck.open()
+		await settle()
+		expect(analyze).toHaveBeenCalledTimes(1)
+
+		printCheck.setOverhangAngle(60)
+		printCheck.setUp('z')
+		printCheck.setPrinter('custom')
+		printCheck.setInfill(30)
+		printCheck.setMaterial('petg')
+		printCheck.unitChanged()
+		root.scale.setScalar(2)
+		printCheck.modelMoved()
+		jest.advanceTimersByTime(500)
+		await settle()
+
+		// The measurements were asked for again, the mesh analysis was not
+		expect(measureRequests.length).toBeGreaterThan(2)
+		expect(analyze).toHaveBeenCalledTimes(1)
+		expect(printCheck.problems.value.state).toBe('done')
+		jest.useRealTimers()
+	})
+
+	test('a large model is checked when asked, once', async () => {
+		const { mesh, printCheck } = setup()
+		// 230 x 230 squares: 105,800 triangles, over the limit for checking on opening
+		mesh.geometry = new THREE.PlaneGeometry(10, 10, 230, 230)
+		printCheck.open()
+		await flush()
+		expect(analyze).not.toHaveBeenCalled()
+		expect(printCheck.problems.value).toEqual({ state: 'waiting', report: null })
+
+		printCheck.repairAction('check')
+		expect(printCheck.problems.value.state).toBe('checking')
+		printCheck.repairAction('check')
+		await flush()
+		expect(analyze).toHaveBeenCalledTimes(1)
+		expect(printCheck.problems.value.state).toBe('done')
+		printCheck.repairAction('check')
+		expect(analyze).toHaveBeenCalledTimes(1)
+	})
+
+	test('a model of 100,000 triangles or fewer is checked on opening', async () => {
+		const { mesh, printCheck } = setup()
+		// 223 x 223 squares: 99,458 triangles
+		mesh.geometry = new THREE.PlaneGeometry(10, 10, 223, 223)
+		printCheck.open()
+		await flush()
+		expect(analyze).toHaveBeenCalledTimes(1)
+	})
+
+	test('a check that failed can be asked for again, and one asked for after closing does nothing', async () => {
+		analyze.mockRejectedValueOnce(new Error('out of memory'))
+		const { printCheck } = setup()
+		printCheck.open()
+		await flush()
+		expect(printCheck.problems.value.state).toBe('error')
+		printCheck.repairAction('check')
+		await flush()
+		expect(printCheck.problems.value.state).toBe('done')
+		printCheck.close()
+		printCheck.repairAction('check')
+		expect(printCheck.problems.value.state).toBe('idle')
 	})
 })

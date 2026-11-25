@@ -19,8 +19,8 @@
 			<FileUnitControl v-if="state.fileUnit && state.kind !== 'gcode'"
 				class="print-check-unit"
 				:unit="state.fileUnit"
-				control-id="print-check-unit"
-				select-class="print-check-select"
+				controlId="print-check-unit"
+				selectClass="print-check-select"
 				@set="$emit('set-unit', $event)" />
 
 			<!-- A toolpath: the slicer has already worked out what matters -->
@@ -164,6 +164,136 @@
 					</div>
 
 					<div class="print-check-section">
+						<span class="tdv-section-label">{{ t('threedviewer', 'Mesh problems') }}</span>
+						<div aria-live="polite">
+							<p v-if="state.problems?.state === 'checking'" class="tdv-secondary">
+								{{ t('threedviewer', 'Checking…') }}
+							</p>
+							<p v-else-if="state.problems?.state === 'waiting'" class="tdv-secondary">
+								{{ t('threedviewer', 'On a large model this is checked when you ask.') }}
+							</p>
+							<p v-else-if="state.problems?.state === 'error'" class="print-check-warn">
+								{{ t('threedviewer', 'Could not check the mesh for problems') }}
+							</p>
+							<template v-else-if="state.problems?.state === 'done'">
+								<template v-if="repairDone">
+									<p>{{ t('threedviewer', 'Repaired') }}</p>
+									<ul v-if="doneLines.length" class="print-check-lines">
+										<li v-for="line in doneLines" :key="line">
+											{{ line }}
+										</li>
+									</ul>
+									<p v-if="state.repair.after.closed && !leftLines.length">
+										{{ t('threedviewer', 'The repaired model is closed.') }}
+									</p>
+									<template v-if="leftLines.length">
+										<p class="tdv-secondary">
+											{{ t('threedviewer', 'Left as it is:') }}
+										</p>
+										<ul class="print-check-lines print-check-warn">
+											<li v-for="line in leftLines" :key="line">
+												{{ line }}
+											</li>
+										</ul>
+									</template>
+								</template>
+								<template v-else>
+									<ul v-if="problemLines.length" class="print-check-lines print-check-warn">
+										<li v-for="line in problemLines" :key="line">
+											{{ line }}
+										</li>
+									</ul>
+									<p v-else-if="state.problems.report.closed">
+										{{ t('threedviewer', 'No problems found') }}
+									</p>
+									<p v-if="repeatedNote" class="tdv-secondary">
+										{{ repeatedNote }}
+									</p>
+								</template>
+							</template>
+						</div>
+
+						<!-- Repair: offered only when something can be mended, never for a model that is fine -->
+						<div v-if="state.repair?.state === 'running'" class="print-check-progress">
+							<progress :value="state.repair.progress"
+								max="1"
+								:aria-label="t('threedviewer', 'Repairing the mesh')" />
+							<button type="button" class="tdv-btn tdv-btn--secondary" @click="$emit('repair', 'cancel')">
+								{{ t('threedviewer', 'Cancel') }}
+							</button>
+						</div>
+						<button v-else-if="state.problems?.state === 'waiting'"
+							type="button"
+							class="tdv-btn tdv-btn--secondary print-check-run"
+							@click="$emit('repair', 'check')">
+							{{ t('threedviewer', 'Check the mesh for problems') }}
+						</button>
+						<button v-else-if="canRepair"
+							type="button"
+							class="tdv-btn tdv-btn--secondary print-check-run"
+							@click="$emit('repair', 'run')">
+							{{ t('threedviewer', 'Repair') }}
+						</button>
+						<div aria-live="polite">
+							<p v-if="state.repair?.state === 'error'" class="print-check-warn">
+								{{ t('threedviewer', 'Could not repair the model') }}
+							</p>
+							<p v-else-if="state.repair?.state === 'cancelled'" class="tdv-secondary">
+								{{ t('threedviewer', 'Repair cancelled') }}
+							</p>
+						</div>
+
+						<template v-if="repairDone">
+							<div v-if="state.repair.summary.addedFaces > 0" class="print-check-check">
+								<input id="print-check-repair-highlight"
+									type="checkbox"
+									:checked="state.repair.highlight"
+									@change="$emit('repair', 'highlight', $event.target.checked)">
+								<label for="print-check-repair-highlight">{{ t('threedviewer', 'Show what was filled in green') }}</label>
+							</div>
+							<div class="print-check-field">
+								<label for="print-check-repair-format">{{ t('threedviewer', 'Repaired file format') }}</label>
+								<select id="print-check-repair-format"
+									v-model="repairFormat"
+									class="tdv-select"
+									:disabled="state.repair.busy">
+									<option value="stl">
+										STL
+									</option>
+									<option value="3mf">
+										3MF
+									</option>
+								</select>
+							</div>
+							<!--
+								aria-disabled rather than disabled while a file is made, as Export's
+								buttons are, so focus stays where it is
+							-->
+							<button v-if="state.repair.canSave"
+								type="button"
+								class="tdv-btn tdv-btn--secondary print-check-run"
+								:aria-disabled="state.repair.busy ? 'true' : null"
+								:aria-busy="state.repair.busy ? 'true' : 'false'"
+								@click="saveRepaired">
+								{{ t('threedviewer', 'Save repaired {format} next to the model', { format: repairFormat.toUpperCase() }) }}
+							</button>
+							<button type="button"
+								class="tdv-btn tdv-btn--secondary print-check-run"
+								:aria-disabled="state.repair.busy ? 'true' : null"
+								:aria-busy="state.repair.busy ? 'true' : 'false'"
+								@click="downloadRepaired">
+								{{ t('threedviewer', 'Download repaired {format}', { format: repairFormat.toUpperCase() }) }}
+							</button>
+							<p class="tdv-secondary">
+								{{ t('threedviewer', 'The model on screen and its file are not changed.') }}
+							</p>
+							<button type="button" class="tdv-btn tdv-btn--secondary print-check-run" @click="$emit('repair', 'undo')">
+								{{ t('threedviewer', 'Undo repair') }}
+							</button>
+						</template>
+					</div>
+
+					<div class="print-check-section">
 						<span class="tdv-section-label">{{ t('threedviewer', 'Wall thickness') }}</span>
 						<div class="print-check-field">
 							<label for="print-check-min">{{ t('threedviewer', 'Minimum (mm)') }}</label>
@@ -226,6 +356,7 @@ import ViewerIcon from './ViewerIcon.vue'
 import FileUnitControl from './FileUnitControl.vue'
 import { PRINTERS, MATERIALS, OVERHANG_ANGLE_RANGE, NEAR_THIN_FACTOR } from '../printCheck/printers.js'
 import { formatDuration } from '../printCheck/formatDuration.js'
+import { problemLines, repeatedVerticesNote, doneLines, leftLines } from '../printCheck/repairText.js'
 
 export default {
 	name: 'PrintCheckCard',
@@ -239,9 +370,14 @@ export default {
 		state: { type: Object, required: true },
 	},
 
-	emits: ['close', 'set-unit', 'set-printer', 'set-custom', 'set-up', 'set-overhang-angle', 'set-infill', 'set-material', 'set-min-thickness', 'run-thickness', 'cancel-thickness'],
+	emits: ['close', 'set-unit', 'set-printer', 'set-custom', 'set-up', 'set-overhang-angle', 'set-infill', 'set-material', 'set-min-thickness', 'run-thickness', 'cancel-thickness',
+		// One event for the repair's controls: its action ('run', 'cancel', 'undo', 'highlight',
+		// 'save', 'download', 'check') and the value that goes with it, a format or whether to show
+		'repair'],
+
 	data() {
-		return { PRINTERS, MATERIALS, OVERHANG_ANGLE_RANGE, NEAR_THIN_FACTOR }
+		// The file a repair is written as, kept while the card is open
+		return { PRINTERS, MATERIALS, OVERHANG_ANGLE_RANGE, NEAR_THIN_FACTOR, repairFormat: 'stl' }
 	},
 
 	computed: {
@@ -260,6 +396,31 @@ export default {
 		hasSlicerNumbers() {
 			const { printSeconds, filamentMm, filamentGrams } = this.summary
 			return printSeconds !== null || filamentMm !== null || filamentGrams !== null
+		},
+
+		repairDone() {
+			return this.state.repair?.state === 'done'
+		},
+
+		// A repair is offered when it can change something, and not while one is made or held
+		canRepair() {
+			return this.state.problems?.state === 'done' && this.state.problems.report.fixable && !this.repairDone
+		},
+
+		problemLines() {
+			return problemLines(this.state.problems.report, { n: this.n })
+		},
+
+		repeatedNote() {
+			return repeatedVerticesNote(this.state.problems.report, { n: this.n })
+		},
+
+		doneLines() {
+			return doneLines(this.state.repair.summary, { n: this.n })
+		},
+
+		leftLines() {
+			return leftLines(this.state.repair.summary, this.state.repair.after, { n: this.n }, this.state.repair.holeLimit)
 		},
 
 		// The fit and the overhangs are measured in a worker, and fill in when it answers
@@ -294,6 +455,18 @@ export default {
 
 	methods: {
 		formatDuration,
+		saveRepaired() {
+			if (!this.state.repair.busy) {
+				this.$emit('repair', 'save', this.repairFormat)
+			}
+		},
+
+		downloadRepaired() {
+			if (!this.state.repair.busy) {
+				this.$emit('repair', 'download', this.repairFormat)
+			}
+		},
+
 		/**
 		 * @param {number} value - A number
 		 * @param {number} decimals - At most this many decimals
@@ -520,6 +693,12 @@ export default {
 
 .print-check-run.print-check-run {
 	align-self: flex-start;
+}
+
+.print-check-check {
+	display: flex;
+	gap: 8px;
+	align-items: center;
 }
 
 .print-check-lines,

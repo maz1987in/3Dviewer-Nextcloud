@@ -12,12 +12,20 @@
  * In:  { id, type: 'load', parts: [{ positions, index, surface }] }      a session's model
  *      { id, type: 'measure', matrices, axes, thresholdDeg, bedEpsilon } on that model
  *      { id, type: 'closed' }                                            on that model
+ *      { id, type: 'analyze', scales }                                   on that model
  *      { id, type: 'thickness', parts: [{ positions, index, normals }], budget }
- * Out: { id, type: 'progress', done, total } while a thickness check runs, then
+ *      { id, type: 'repair', parts: [{ positions, index }], millimetresPerUnit }
+ * Out: { id, type: 'progress', done, total } while a thickness check or a repair runs, then
  *      { id, type: 'result', result } or { id, type: 'error', message }
+ *
+ * The mesh analysis and the repair (meshAnalysis.js, meshRepair.js) are the same plain
+ * modules the tests run. A repair works on a copy of the model in its own worker, which is
+ * ended to cancel it.
  */
 
 import { edgeReport } from './closedMesh.js'
+import { analyzeMesh } from './meshAnalysis.js'
+import { repairMesh } from './meshRepair.js'
 import { measurePartThickness } from './thickness.js'
 import { measureSurface } from './surfaceMeasures.js'
 
@@ -25,7 +33,7 @@ import { measureSurface } from './surfaceMeasures.js'
 let held = []
 
 self.onmessage = (event) => {
-	const { id, type, parts, budget } = event.data
+	const { id, type, parts, budget, scales, millimetresPerUnit } = event.data
 	try {
 		if (type === 'load') {
 			held = parts
@@ -38,6 +46,25 @@ self.onmessage = (event) => {
 		}
 		if (type === 'closed') {
 			self.postMessage({ id, type: 'result', result: held.filter((part) => part.surface).map((part) => edgeReport(part)) })
+			return
+		}
+		if (type === 'analyze') {
+			// What is wrong with each mesh; `scales` is the millimetres in one of each part's own units
+			const result = held.map((part, i) => (part.surface
+				? analyzeMesh({ positions: part.positions, index: part.index, millimetresPerUnit: scales?.[i] })
+				: null)).filter(Boolean)
+			self.postMessage({ id, type: 'result', result })
+			return
+		}
+		if (type === 'repair') {
+			const repaired = parts.map((part, i) => {
+				const result = repairMesh({ positions: part.positions, index: part.index, millimetresPerUnit }, {
+					onProgress: (fraction) => self.postMessage({ id, type: 'progress', done: Math.round(((i + fraction) / parts.length) * 1000), total: 1000 }),
+				})
+				// The closed-mesh check, run on the result
+				return { ...result, closedReport: edgeReport({ positions: result.positions, index: result.index }) }
+			})
+			self.postMessage({ id, type: 'result', result: repaired }, repaired.flatMap((part) => [part.positions.buffer, part.index.buffer]))
 			return
 		}
 		if (type === 'thickness') {

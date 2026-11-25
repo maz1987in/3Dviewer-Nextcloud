@@ -220,6 +220,10 @@ tests/fixtures/*.3mf
 !tests/fixtures/no-mtl.obj
 !tests/fixtures/orphan-texture.obj
 !tests/fixtures/textured.obj
+# Broken cubes for Print check's mesh repair (open, inside out, and several things at once)
+!tests/fixtures/open-cube.stl
+!tests/fixtures/inside-out-cube.stl
+!tests/fixtures/broken-cube.stl
 
 # Keep small test fixtures
 !tests/fixtures/triangle.gltf

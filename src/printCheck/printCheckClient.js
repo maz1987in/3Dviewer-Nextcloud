@@ -4,9 +4,9 @@
  *
  * Run print-check jobs off the page's thread.
  *
- * A thickness check runs in a worker of its own, started for the call and ended when it
- * settles; cancelling ends it at once, so a check never outlives the model it was started
- * for. The parts sent are copies: the live model keeps its buffers.
+ * A thickness check or a repair runs in a worker of its own, started for the call and ended
+ * when it settles; cancelling ends it at once, so a job never outlives the model it was
+ * started for. The parts sent are copies: the live model keeps its buffers.
  *
  * Measuring the fit, overhangs, volume and area, and whether the model is closed, runs in
  * a session: one worker that is sent the model once, when Print check opens, and answers
@@ -55,9 +55,10 @@ function copyParts(parts) {
  * @param {AbortSignal} [options.signal] - Cancels the job
  * @param {function(number, number): void} [options.onProgress] - Progress, `(done, total)`
  * @param {number} [options.budget] - For a thickness check, the triangle budget per part
+ * @param {object} [options.extra] - More fields for the message, for the job
  * @return {Promise<Array>} One result per part
  */
-function run(type, parts, { signal, onProgress, budget } = {}) {
+function run(type, parts, { signal, onProgress, budget, extra } = {}) {
 	if (signal?.aborted) {
 		return Promise.reject(aborted())
 	}
@@ -95,7 +96,7 @@ function run(type, parts, { signal, onProgress, budget } = {}) {
 		}
 
 		const message = copyParts(parts)
-		worker.postMessage({ id, type, parts: message.parts, budget }, message.transfer)
+		worker.postMessage({ id, type, parts: message.parts, budget, ...extra }, message.transfer)
 	})
 }
 
@@ -111,17 +112,35 @@ export function measureThickness(parts, options = {}) {
 }
 
 /**
+ * Repair the parts of a model (meshRepair.repairMesh), off the page's thread.
+ *
+ * @param {Array<{positions: Float32Array, index: ?Uint32Array}>} parts - Each mesh, already
+ *   placed in the world as an export writes it, the arrays copies the caller lets go of
+ * @param {object} options - Options
+ * @param {number} options.millimetresPerUnit - Millimetres in one scene unit
+ * @param {AbortSignal} [options.signal] - Cancels the repair
+ * @param {function(number, number): void} [options.onProgress] - Progress, `(done, total)`
+ * @return {Promise<Array<object>>} Each part repaired: `positions`, `index`, `patchStart`,
+ *   `changed`, `summary`, `before`, `after`, and `closedReport` (closedMesh.edgeReport of the result)
+ */
+export function repairParts(parts, { millimetresPerUnit, signal, onProgress }) {
+	return run('repair', parts, { signal, onProgress, extra: { millimetresPerUnit } })
+}
+
+/**
  * A worker that keeps one model for Print check's measurements.
  *
  * @param {Array<object>} parts - The model's parts, in their own space: `positions`
  *   (xyz per vertex), `index` (or null) and `surface` (a mesh, rather than points or
  *   lines). Their arrays are transferred to the worker, so they must be copies the caller
  *   lets go of.
- * @return {{measure: function(object): Promise<object>, checkClosed: function(): Promise<Array>, close: function(): void}}
+ * @return {{measure: function(object): Promise<object>, checkClosed: function(): Promise<Array>, analyze: function(number[]): Promise<Array>, close: function(): void}}
  *   `measure` takes `{ matrices, axes, thresholdDeg, bedEpsilon }` and resolves with
  *   surfaceMeasures.measureSurface's result; `checkClosed` resolves with an edge report per
- *   surface part (closedMesh.edgeReport); `close` ends the worker, and every request still
- *   waiting rejects as an AbortError. Requests are answered in the order they were made.
+ *   surface part (closedMesh.edgeReport); `analyze` takes the millimetres in one of each
+ *   part's own units and resolves with what is wrong with each surface part
+ *   (meshAnalysis.analyzeMesh); `close` ends the worker, and every request still waiting
+ *   rejects as an AbortError. Requests are answered in the order they were made.
  */
 export function openSurfaceSession(parts) {
 	const worker = createPrintCheckWorker()
@@ -181,6 +200,7 @@ export function openSurfaceSession(parts) {
 	return {
 		measure: ({ matrices, axes, thresholdDeg, bedEpsilon }) => send({ type: 'measure', matrices, axes, thresholdDeg, bedEpsilon }),
 		checkClosed: () => send({ type: 'closed' }),
+		analyze: (scales) => send({ type: 'analyze', scales }),
 		close,
 	}
 }

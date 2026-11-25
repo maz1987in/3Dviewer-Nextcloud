@@ -610,6 +610,8 @@ export function useExport() {
 		exportAs3MF,
 		exportAsUSDZ,
 		exportAsZIP,
+		// A file made elsewhere, such as Print check's repaired model, downloaded
+		downloadFile: triggerDownload,
 		clearError,
 	}
 }
