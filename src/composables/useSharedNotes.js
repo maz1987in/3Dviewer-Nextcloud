@@ -348,7 +348,10 @@ export function useSharedNotes({ annotation, measurement, getModelRoot, notify =
 		status.value = data.canEdit ? 'saved' : 'readonly'
 	}
 
-	const retry = async (kind, item) => {
+	const retry = async (kind, view) => {
+		// The panel passes a read-only view: the save must change the note itself, or a retry
+		// that succeeds leaves it unsaved and the next one creates it again
+		const item = live(view)
 		if (item.meta.saveState === 'saving') {
 			// Already in flight; retrying now would send a duplicate create.
 			return

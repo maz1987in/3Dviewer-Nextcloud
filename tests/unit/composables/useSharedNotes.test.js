@@ -184,6 +184,36 @@ test('a failed save is marked failed, notifies, and retry saves it', async () =>
 	expect(item.meta).toMatchObject({ noteId: 7, saveState: 'saved' })
 })
 
+test('retry through a read-only view, as the panel holds, saves the note itself, once', async () => {
+	const { measurement, notes } = setup()
+	const api = fakeApi({ create: jest.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValue({ id: 7, author: null }) })
+	await notes.load(api)
+	const item = measurement.userAdd({ point1: new THREE.Vector3(10, 0, 0), point2: new THREE.Vector3(10, 1, 0) })
+	await flushPromises()
+	expect(item.meta.saveState).toBe('failed')
+
+	await notes.retry('measurement', readonly(item))
+
+	expect(item.meta).toMatchObject({ noteId: 7, saveState: 'saved' })
+	// Saved now: another retry has nothing to create
+	await notes.retry('measurement', readonly(item))
+	expect(api.create).toHaveBeenCalledTimes(2)
+	expect(api.update).not.toHaveBeenCalled()
+})
+
+test('discard through a read-only view removes the note', async () => {
+	const { annotation, notes } = setup()
+	const api = fakeApi({ create: jest.fn().mockRejectedValue(new Error('offline')) })
+	await notes.load(api)
+	const item = annotation.userAdd({ point: new THREE.Vector3(), text: 'x' })
+	await flushPromises()
+
+	notes.discard('annotation', readonly(item))
+
+	expect(annotation.items).toHaveLength(0)
+	expect(api.remove).not.toHaveBeenCalled()
+})
+
 test('discard removes a never-saved note locally only', async () => {
 	const { annotation, notes } = setup()
 	const api = fakeApi({ create: jest.fn().mockRejectedValue(new Error('offline')) })
