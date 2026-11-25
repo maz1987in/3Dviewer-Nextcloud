@@ -366,9 +366,8 @@ test.describe('mentions', () => {
 		await card(page, 1).getByRole('option', { name: /Omar Khan/ }).click()
 
 		await expect(text).toHaveValue('Check with @Omar Khan ')
-		await expect.poll(() => calls.texts.length, { timeout: 15000 }).toBeGreaterThan(0)
-		const last = calls.texts.at(-1) as { payload: { text: string } }
-		expect(last.payload.text).toBe('Check with @omar ')
+		// Saved as typed, a moment after each pause: wait for the last save to be the whole text
+		await expect.poll(() => (calls.texts.at(-1) as { payload: { text: string } } | undefined)?.payload.text, { timeout: 15000 }).toBe('Check with @omar ')
 		// The server's answer names the person, and the field still shows them by name
 		await expect(text).toHaveValue('Check with @Omar Khan ')
 	})
