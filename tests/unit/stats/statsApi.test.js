@@ -20,7 +20,7 @@ describe('fetchModelInfo', () => {
 				canEdit: true,
 				stats: STATS,
 				settings: { unit: 'in', up: '+z' },
-				notes: { count: 3, firstId: 11 },
+				notes: { count: 3, open: 2, firstId: 11 },
 			},
 		})
 
@@ -35,20 +35,20 @@ describe('fetchModelInfo', () => {
 			canEdit: true,
 			stats: STATS,
 			settings: { unit: 'in', up: '+z' },
-			notes: { count: 3, firstId: 11 },
+			notes: { count: 3, open: 2, firstId: 11 },
 		})
 	})
 
 	it('copes with a model that has nothing yet', async () => {
 		axios.get.mockResolvedValue({ data: { name: 'a.stl', size: 1, etag: 'e1', stats: null, settings: { unit: null, up: null }, notes: { count: 0, firstId: null } } })
 
-		expect(await fetchModelInfo(7)).toMatchObject({ canEdit: false, stats: null, notes: { count: 0, firstId: null } })
+		expect(await fetchModelInfo(7)).toMatchObject({ canEdit: false, stats: null, notes: { count: 0, open: 0, firstId: null } })
 	})
 
 	it('does not take what it did not expect for numbers', async () => {
 		axios.get.mockResolvedValue({ data: { stats: 'x', size: 'big', notes: { count: 'many' } } })
 
-		expect(await fetchModelInfo(7)).toMatchObject({ stats: null, size: 0, notes: { count: 0, firstId: null }, settings: { unit: null, up: null } })
+		expect(await fetchModelInfo(7)).toMatchObject({ stats: null, size: 0, notes: { count: 0, open: 0, firstId: null }, settings: { unit: null, up: null } })
 	})
 
 	it('rejects when the server will not say', async () => {

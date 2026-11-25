@@ -88,6 +88,7 @@ class ModelStatsController extends BaseController
                 'settings' => $this->settings->settings($fileId),
                 'notes' => [
                     'count' => $this->notes->countByFile($fileId),
+                    'open' => $this->notes->countOpenByFile($fileId),
                     'firstId' => $this->notes->firstIdByFile($fileId),
                 ],
             ]);

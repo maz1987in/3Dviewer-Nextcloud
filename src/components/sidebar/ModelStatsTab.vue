@@ -77,6 +77,9 @@
 							<a class="tdv-model-tab__link" :href="notesUrl" @click="openViewer($event, notesUrl)">
 								{{ n('threedviewer', '%n note', '%n notes', noteCount) }}
 							</a>
+							<span v-if="openNoteCount < noteCount" class="tdv-model-tab__note" data-test="notes-open">
+								{{ t('threedviewer', '{open} open', { open: openNoteCount }) }}
+							</span>
 						</template>
 						<template v-else>
 							{{ t('threedviewer', 'No notes yet') }}
@@ -199,6 +202,9 @@ export default {
 		},
 		noteCount() {
 			return this.state.info?.notes.count ?? 0
+		},
+		openNoteCount() {
+			return this.state.info?.notes.open ?? this.noteCount
 		},
 		viewerUrl() {
 			return generateUrl('/apps/threedviewer/f/{fileId}', { fileId: this.fileId })

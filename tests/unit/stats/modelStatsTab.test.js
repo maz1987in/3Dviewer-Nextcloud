@@ -240,6 +240,19 @@ describe('the notes', () => {
 		expect(row('Notes').querySelector('a')).toBeNull()
 	})
 
+	it('says how many are still open when some are resolved', async () => {
+		mount(info({ notes: { count: 3, open: 1, firstId: 11 } }))
+		await settle()
+
+		expect(row('Notes').querySelector('a').textContent.trim()).toBe('3 notes')
+		expect(row('Notes').querySelector('[data-test="notes-open"]').textContent.trim()).toBe('1 open')
+		document.body.replaceChildren()
+
+		mount(info({ notes: { count: 3, open: 3, firstId: 11 } }))
+		await settle()
+		expect(row('Notes').querySelector('[data-test="notes-open"]')).toBeNull()
+	})
+
 	it('counts them, in the singular and the plural, and links to the first in the viewer', async () => {
 		mount(info({ notes: { count: 3, firstId: 11 } }))
 		await settle()

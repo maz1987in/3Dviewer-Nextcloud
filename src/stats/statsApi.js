@@ -19,7 +19,7 @@ import { generateUrl } from '@nextcloud/router'
  * @property {boolean} canEdit - Whether the user may edit the file
  * @property {?object} stats - The measurement of this very version, or null when it has none
  * @property {{unit: ?string, up: ?string}} settings - The unit and direction chosen for the file
- * @property {{count: number, firstId: ?number}} notes - Its notes
+ * @property {{count: number, open: number, firstId: ?number}} notes - Its notes: how many, how many of them are still open, and the first one's id
  */
 
 /**
@@ -37,7 +37,7 @@ export async function fetchModelInfo(fileId) {
 		canEdit: data?.canEdit === true,
 		stats: data?.stats && typeof data.stats === 'object' ? data.stats : null,
 		settings: { unit: data?.settings?.unit ?? null, up: data?.settings?.up ?? null },
-		notes: { count: Number(data?.notes?.count) || 0, firstId: Number(data?.notes?.firstId) || null },
+		notes: { count: Number(data?.notes?.count) || 0, open: Number(data?.notes?.open ?? data?.notes?.count) || 0, firstId: Number(data?.notes?.firstId) || null },
 	}
 }
 

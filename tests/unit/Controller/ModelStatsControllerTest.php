@@ -92,6 +92,7 @@ class ModelStatsControllerTest extends TestCase
         $this->stats->method('get')->with(7, '"e1"')->willReturn(['v' => 1]);
         $this->settings->method('settings')->with(7)->willReturn(['unit' => 'in', 'up' => null]);
         $this->notes->method('countByFile')->with(7)->willReturn(3);
+        $this->notes->method('countOpenByFile')->with(7)->willReturn(2);
         $this->notes->method('firstIdByFile')->with(7)->willReturn(11);
 
         $response = $this->controller->show(7);
@@ -105,7 +106,7 @@ class ModelStatsControllerTest extends TestCase
             'canEdit' => false,
             'stats' => ['v' => 1],
             'settings' => ['unit' => 'in', 'up' => null],
-            'notes' => ['count' => 3, 'firstId' => 11],
+            'notes' => ['count' => 3, 'open' => 2, 'firstId' => 11],
         ], $response->getData());
     }
 

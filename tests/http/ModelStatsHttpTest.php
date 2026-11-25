@@ -70,7 +70,7 @@ class ModelStatsHttpTest extends HttpTestCase
         $this->assertSame(12, $seen['stats']['triangles']);
         $this->assertSame(false, $seen['canEdit']);
         $this->assertSame($etag, $seen['etag']);
-        $this->assertSame(['count' => 0, 'firstId' => null], $seen['notes']);
+        $this->assertSame(['count' => 0, 'open' => 0, 'firstId' => null], $seen['notes']);
     }
 
     public function testAReadOnlyRecipientIsRefusedAndStoresNothing(): void
@@ -246,6 +246,6 @@ class ModelStatsHttpTest extends HttpTestCase
 
         $seen = self::json($client->get(self::url($model->getId())));
 
-        $this->assertSame(['count' => 2, 'firstId' => $first['id']], $seen['notes']);
+        $this->assertSame(['count' => 2, 'open' => 2, 'firstId' => $first['id']], $seen['notes']);
     }
 }
