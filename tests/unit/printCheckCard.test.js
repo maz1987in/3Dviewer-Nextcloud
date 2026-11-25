@@ -237,10 +237,15 @@ describe('mesh problems and repair', () => {
 		expect(button('Repair')).toBeUndefined()
 	})
 
-	test('on a large model the check waits to be asked for', () => {
-		const { events } = mount(meshState({ problems: { state: 'waiting', report: null } }))
-		expect(text()).toContain('On a large model this is checked when you ask.')
+	test('says it is checking while the check is about to start, with nothing to press', () => {
+		mount(meshState({ problems: { state: 'waiting', report: null } }))
+		expect(text().match(/Checking…/g)).toHaveLength(1)
+		expect(button('Check the mesh for problems')).toBeUndefined()
 		expect(button('Repair')).toBeUndefined()
+	})
+
+	test('a check that failed can be tried again', () => {
+		const { events } = mount(meshState({ problems: { state: 'error', report: null } }))
 		button('Check the mesh for problems').click()
 		expect(events).toEqual([['repair', ['check']]])
 	})

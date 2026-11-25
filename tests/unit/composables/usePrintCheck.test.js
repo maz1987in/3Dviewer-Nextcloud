@@ -5,14 +5,15 @@
 import * as THREE from 'three'
 import { ref, nextTick } from 'vue'
 import { usePrintCheck } from '../../../src/composables/usePrintCheck.js'
-import { openSurfaceSession, measureThickness, repairParts } from '../../../src/printCheck/printCheckClient.js'
+import { openSurfaceSession, analyzeParts, measureThickness, repairParts } from '../../../src/printCheck/printCheckClient.js'
 import { measureSurface } from '../../../src/printCheck/surfaceMeasures.js'
 import { loadPrintCheckSettings, savePrintCheckSettings, flushPrintCheckSettings } from '../../../src/printCheck/printCheckSettings.js'
 import { PRINT_CHECK_DEFAULTS } from '../../../src/printCheck/printers.js'
 
-jest.mock('../../../src/printCheck/printCheckClient.js', () => ({ openSurfaceSession: jest.fn(), measureThickness: jest.fn(), repairParts: jest.fn() }))
+jest.mock('../../../src/printCheck/printCheckClient.js', () => ({ openSurfaceSession: jest.fn(), analyzeParts: jest.fn(), measureThickness: jest.fn(), repairParts: jest.fn() }))
 
-// The worker's session, answered on the page with the worker's own measurements
+// The worker's session, answered on the page with the worker's own measurements; and the
+// mesh analysis, which runs in a worker of its own, as `analyze(parts, scales)`
 const checkClosed = jest.fn()
 const analyze = jest.fn()
 const closeSession = jest.fn()
@@ -101,9 +102,9 @@ beforeEach(() => {
 			return Promise.resolve(measureSurface(parts, request))
 		},
 		checkClosed: () => checkClosed(parts),
-		analyze: (scales) => analyze(parts, scales),
 		close: closeSession,
 	}))
+	analyzeParts.mockImplementation((parts, { scales }) => analyze(parts, scales))
 })
 
 test('open adds overlays to the scene, none under the model root', async () => {
@@ -584,7 +585,8 @@ describe('mesh problems and repair', () => {
 		const { printCheck } = setup({ mmPerUnit: () => 25.4 })
 		expect(printCheck.problems.value.state).toBe('idle')
 		printCheck.open()
-		expect(printCheck.problems.value.state).toBe('checking')
+		// Started once the closed check answers
+		expect(printCheck.problems.value.state).toBe('waiting')
 		await flush()
 		expect(analyze.mock.calls[0][1]).toEqual([25.4])
 		expect(printCheck.problems.value.state).toBe('done')
@@ -955,32 +957,72 @@ describe('when the mesh is checked for problems', () => {
 		jest.useRealTimers()
 	})
 
-	test('a large model is checked when asked, once', async () => {
+	test('a large model is checked on opening too, once', async () => {
 		const { mesh, printCheck } = setup()
-		// 230 x 230 squares: 105,800 triangles, over the limit for checking on opening
+		// 230 x 230 squares: 105,800 triangles
 		mesh.geometry = new THREE.PlaneGeometry(10, 10, 230, 230)
 		printCheck.open()
 		await flush()
-		expect(analyze).not.toHaveBeenCalled()
-		expect(printCheck.problems.value).toEqual({ state: 'waiting', report: null })
-
-		printCheck.repairAction('check')
-		expect(printCheck.problems.value.state).toBe('checking')
-		printCheck.repairAction('check')
-		await flush()
 		expect(analyze).toHaveBeenCalledTimes(1)
+		expect(analyze.mock.calls[0][0][0].index.length).toBe(105800 * 3)
 		expect(printCheck.problems.value.state).toBe('done')
 		printCheck.repairAction('check')
 		expect(analyze).toHaveBeenCalledTimes(1)
 	})
 
-	test('a model of 100,000 triangles or fewer is checked on opening', async () => {
-		const { mesh, printCheck } = setup()
-		// 223 x 223 squares: 99,458 triangles
-		mesh.geometry = new THREE.PlaneGeometry(10, 10, 223, 223)
+	test('starts once the closed check has answered, so the first measurements are never held up', async () => {
+		const closedAnswer = deferred()
+		checkClosed.mockReturnValue(closedAnswer.promise)
+		const { printCheck } = setup()
+		printCheck.open()
+		await flush()
+		expect(analyze).not.toHaveBeenCalled()
+		expect(printCheck.problems.value.state).toBe('waiting')
+
+		closedAnswer.resolve([CLOSED])
+		await flush()
+		expect(analyze).toHaveBeenCalledTimes(1)
+		expect(printCheck.problems.value.state).toBe('done')
+	})
+
+	test('starts even when the closed check fails', async () => {
+		checkClosed.mockRejectedValue(new Error('out of memory'))
+		const { printCheck } = setup()
 		printCheck.open()
 		await flush()
 		expect(analyze).toHaveBeenCalledTimes(1)
+	})
+
+	test('a measurement asked for while it runs is answered meanwhile', async () => {
+		jest.useFakeTimers()
+		analyze.mockReturnValue(new Promise(() => {}))
+		const { printCheck } = setup()
+		printCheck.open()
+		await settle()
+		expect(printCheck.problems.value.state).toBe('checking')
+		const before = measureRequests.length
+
+		printCheck.setOverhangAngle(60)
+		jest.advanceTimersByTime(500)
+		await settle()
+
+		expect(measureRequests.length).toBe(before + 1)
+		expect(printCheck.overhang.value).not.toBeNull()
+		expect(printCheck.problems.value.state).toBe('checking')
+		jest.useRealTimers()
+	})
+
+	test('closing Print check ends a check still running', async () => {
+		analyze.mockReturnValue(new Promise(() => {}))
+		const { printCheck } = setup()
+		printCheck.open()
+		await flush()
+		const { signal } = analyzeParts.mock.calls[0][1]
+		expect(signal.aborted).toBe(false)
+
+		printCheck.close()
+		expect(signal.aborted).toBe(true)
+		expect(printCheck.problems.value.state).toBe('idle')
 	})
 
 	test('a check that failed can be asked for again, and one asked for after closing does nothing', async () => {

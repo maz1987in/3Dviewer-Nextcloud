@@ -514,7 +514,6 @@
     "OBJ (Universal)": "OBJ (Universal)",
     "Objects closer than this distance will not be rendered.": "Objects closer than this distance will not be rendered.",
     "Objects further than this distance will not be rendered.": "Objects further than this distance will not be rendered.",
-    "On a large model this is checked when you ask.": "On a large model this is checked when you ask.",
     "Once an admin lists the sites allowed, copy a frame that shows a public link's model on another website.": "Once an admin lists the sites allowed, copy a frame that shows a public link's model on another website.",
     "One site per line, such as https://shop.example.com. Only https addresses are accepted, and http://localhost for testing. Anyone can see this list: browsers are sent it with every embed.": "One site per line, such as https://shop.example.com. Only https addresses are accepted, and http://localhost for testing. Anyone can see this list: browsers are sent it with every embed.",
     "Only people who can edit this file can change this.": "Only people who can edit this file can change this.",

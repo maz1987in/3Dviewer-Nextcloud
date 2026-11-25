@@ -3,7 +3,7 @@
  * passed on, and a cancelled call ends its worker and rejects as an AbortError; one worker
  * per open Print check for everything else, sent the model once.
  */
-import { measureThickness, openSurfaceSession, repairParts } from '../../../src/printCheck/printCheckClient.js'
+import { analyzeParts, measureThickness, openSurfaceSession, repairParts } from '../../../src/printCheck/printCheckClient.js'
 import { createPrintCheckWorker } from '../../../src/printCheck/createPrintCheckWorker.js'
 
 jest.mock('../../../src/printCheck/createPrintCheckWorker.js', () => ({ createPrintCheckWorker: jest.fn() }))
@@ -145,16 +145,6 @@ describe('a surface session', () => {
 		expect(worker.terminated).toBe(true)
 	})
 
-	test('asks for the mesh analysis with the unit of each part', async () => {
-		const report = [{ closed: true, fixable: false }]
-		const worker = fakeWorker((message) => (message.type === 'analyze' ? [{ type: 'result', result: report }] : answers(message)))
-		createPrintCheckWorker.mockReturnValue(worker)
-		const session = openSurfaceSession([{ positions: new Float32Array(9), index: null, surface: true }])
-		await expect(session.analyze([25.4])).resolves.toBe(report)
-		expect(worker.posted.at(-1).message).toMatchObject({ type: 'analyze', scales: [25.4] })
-		session.close()
-	})
-
 	test('closing ends the worker, and a request still waiting rejects as an AbortError', async () => {
 		const worker = fakeWorker((message) => (message.type === 'load' ? answers(message) : []))
 		createPrintCheckWorker.mockReturnValue(worker)
@@ -177,4 +167,31 @@ describe('a surface session', () => {
 		await expect(session.checkClosed()).resolves.toHaveLength(1)
 		session.close()
 	})
+})
+
+test('the mesh analysis runs in a worker of its own, on copies, with the unit of each part', async () => {
+	const report = [{ closed: true, fixable: false }]
+	const worker = fakeWorker((message) => (message.type === 'analyze' ? [{ type: 'result', result: report }] : []))
+	createPrintCheckWorker.mockReturnValue(worker)
+	const part = { positions: new Float32Array(9), index: new Uint32Array([0, 1, 2]) }
+
+	await expect(analyzeParts([part], { scales: [25.4] })).resolves.toBe(report)
+
+	expect(createPrintCheckWorker).toHaveBeenCalledTimes(1)
+	const { message } = worker.posted.at(-1)
+	expect(message).toMatchObject({ type: 'analyze', scales: [25.4] })
+	// A copy: the model keeps its own arrays
+	expect(message.parts[0].positions).not.toBe(part.positions)
+	expect(part.positions.length).toBe(9)
+	expect(worker.terminated).toBe(true)
+})
+
+test('cancelling the mesh analysis ends its worker', async () => {
+	const worker = fakeWorker(() => [])
+	createPrintCheckWorker.mockReturnValue(worker)
+	const controller = new AbortController()
+	const running = analyzeParts([PART], { scales: [1], signal: controller.signal })
+	controller.abort()
+	await expect(running).rejects.toMatchObject({ name: 'AbortError' })
+	expect(worker.terminated).toBe(true)
 })

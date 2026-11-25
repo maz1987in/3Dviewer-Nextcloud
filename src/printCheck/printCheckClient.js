@@ -112,6 +112,23 @@ export function measureThickness(parts, options = {}) {
 }
 
 /**
+ * Find what is wrong with each part of a model (meshAnalysis.analyzeMesh), in a worker of
+ * its own: Print check's session worker stays free to answer the measurements meanwhile,
+ * which on a large model it otherwise could not until the analysis had gone through
+ * every triangle.
+ *
+ * @param {Array<{positions: Float32Array|Float64Array, index: ?Uint32Array}>} parts - Each
+ *   surface part, in its own space
+ * @param {object} options - Options
+ * @param {number[]} options.scales - Millimetres in one of each part's own units
+ * @param {AbortSignal} [options.signal] - Cancels the analysis
+ * @return {Promise<Array<object>>} One analyzeMesh result per part
+ */
+export function analyzeParts(parts, { scales, signal }) {
+	return run('analyze', parts, { signal, extra: { scales } })
+}
+
+/**
  * Repair the parts of a model (meshRepair.repairMesh), off the page's thread.
  *
  * @param {Array<{positions: Float32Array, index: ?Uint32Array}>} parts - Each mesh, already
@@ -134,13 +151,12 @@ export function repairParts(parts, { millimetresPerUnit, signal, onProgress }) {
  *   (xyz per vertex), `index` (or null) and `surface` (a mesh, rather than points or
  *   lines). Their arrays are transferred to the worker, so they must be copies the caller
  *   lets go of.
- * @return {{measure: function(object): Promise<object>, checkClosed: function(): Promise<Array>, analyze: function(number[]): Promise<Array>, close: function(): void}}
+ * @return {{measure: function(object): Promise<object>, checkClosed: function(): Promise<Array>, close: function(): void}}
  *   `measure` takes `{ matrices, axes, thresholdDeg, bedEpsilon }` and resolves with
  *   surfaceMeasures.measureSurface's result; `checkClosed` resolves with an edge report per
- *   surface part (closedMesh.edgeReport); `analyze` takes the millimetres in one of each
- *   part's own units and resolves with what is wrong with each surface part
- *   (meshAnalysis.analyzeMesh); `close` ends the worker, and every request still waiting
- *   rejects as an AbortError. Requests are answered in the order they were made.
+ *   surface part (closedMesh.edgeReport); `close` ends the worker, and every request still
+ *   waiting rejects as an AbortError. Requests are answered in the order they were made, so
+ *   nothing slow is sent here: the mesh analysis runs apart (analyzeParts).
  */
 export function openSurfaceSession(parts) {
 	const worker = createPrintCheckWorker()
@@ -200,7 +216,6 @@ export function openSurfaceSession(parts) {
 	return {
 		measure: ({ matrices, axes, thresholdDeg, bedEpsilon }) => send({ type: 'measure', matrices, axes, thresholdDeg, bedEpsilon }),
 		checkClosed: () => send({ type: 'closed' }),
-		analyze: (scales) => send({ type: 'analyze', scales }),
 		close,
 	}
 }

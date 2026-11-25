@@ -33,17 +33,12 @@ import { modelClosed } from '../printCheck/closedMesh.js'
 import { combineReports, combineSummaries, MAX_HOLE_EDGES } from '../printCheck/meshReport.js'
 import { estimateFilament } from '../printCheck/filament.js'
 import { findSlicerSummary } from '../printCheck/slicerSummary.js'
-import { openSurfaceSession, measureThickness, repairParts } from '../printCheck/printCheckClient.js'
+import { openSurfaceSession, analyzeParts, measureThickness, repairParts } from '../printCheck/printCheckClient.js'
 import { measuredObjects, surfacePart } from '../printCheck/surfaceMeasures.js'
 import { loadPrintCheckSettings, savePrintCheckSettings, flushPrintCheckSettings, sanitizePrintCheckSettings } from '../printCheck/printCheckSettings.js'
 import { PRINTERS, MATERIALS, NEAR_THIN_FACTOR, BED_EPSILON_MM } from '../printCheck/printers.js'
 import { withPartsTogether } from '../utils/viewerTransforms.js'
 import { logger } from '../utils/logger.js'
-
-// A model with more triangles than this is checked for mesh problems when asked, not when
-// Print check opens: the analysis goes through every triangle in the worker the first
-// measurement is waiting on, and on a large model it would compete with drawing it
-const AUTO_ANALYSIS_TRIANGLES = 100000
 
 const FIT_COLOUR = 0x9e9e9e
 const OVER_COLOUR = 0xe53935
@@ -247,6 +242,8 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 	let thicknessResults = null
 	let thicknessParts = []
 	let thicknessController = null
+	// Cancels the mesh analysis, which runs in a worker of its own
+	let analysisController = null
 	// The repair in its worker, and its result: the repaired meshes (in the world, as an export
 	// writes them), the green overlay of what filled holes, and what to put back on undo
 	let repairController = null
@@ -529,6 +526,8 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 		generation++
 		thicknessController?.abort()
 		thicknessController = null
+		analysisController?.abort()
+		analysisController = null
 		forgetRepair()
 		session?.close()
 		session = null
@@ -563,8 +562,10 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 	}
 
 	/**
-	 * Find what is wrong with the mesh, in the worker, once for the model that is open: a
-	 * setting that changes, or the model moving, does not ask again.
+	 * Find what is wrong with the mesh, once for the model that is open: a setting that
+	 * changes, or the model moving, does not ask again. It runs in a worker of its own, so
+	 * the measurements a setting asks for are answered meanwhile; closing Print check or
+	 * changing the model ends it.
 	 */
 	const runAnalysis = () => {
 		if (!session || kind.value !== 'mesh' || !['waiting', 'error'].includes(problems.value.state)) {
@@ -572,9 +573,14 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 		}
 		const opened = generation
 		problems.value = { state: 'checking', report: null }
+		const surfaces = sessionObjects.filter((object) => object.isMesh)
 		// Each part's own unit, in millimetres
 		const unit = read(mmPerUnit) || 1
-		session.analyze(sessionObjects.map((object) => unit * object.matrixWorld.getMaxScaleOnAxis()))
+		analysisController = new AbortController()
+		analyzeParts(surfaces.map(surfacePart), {
+			scales: surfaces.map((object) => unit * object.matrixWorld.getMaxScaleOnAxis()),
+			signal: analysisController.signal,
+		})
 			.then((reports) => {
 				if (opened === generation) {
 					problems.value = { state: 'done', report: combineReports(reports) }
@@ -663,18 +669,14 @@ export function usePrintCheck({ scene, modelRoot, camera, controls, mmPerUnit, f
 						closed.value = null
 					}
 				})
-
-			// What is wrong with the mesh: now, or on request for a large model
+				// What is wrong with the mesh, once the first measurements are in, so the
+				// analysis never holds them up
+				.finally(() => {
+					if (opened === generation) {
+						runAnalysis()
+					}
+				})
 			problems.value = { state: 'waiting', report: null }
-			let triangles = 0
-			sessionObjects.forEach((object) => {
-				if (object.isMesh) {
-					triangles += (object.geometry.index ?? object.geometry.attributes.position).count / 3
-				}
-			})
-			if (triangles <= AUTO_ANALYSIS_TRIANGLES) {
-				runAnalysis()
-			}
 		}
 	}
 

@@ -21,9 +21,9 @@ function openCube() {
 
 const send = (data) => self.onmessage({ data })
 
-test('analyze answers with what is wrong with each surface part, and leaves points out', () => {
-	send({ id: 1, type: 'load', parts: [openCube(), { positions: new Float32Array(9), index: null, surface: false }] })
-	send({ id: 2, type: 'analyze', scales: [1, 1] })
+test('analyze answers with what is wrong with each part it is sent', () => {
+	const part = openCube()
+	send({ id: 2, type: 'analyze', parts: [{ positions: part.positions, index: part.index }], scales: [1] })
 	const answer = posted.find(({ message }) => message.id === 2).message
 	expect(answer.type).toBe('result')
 	expect(answer.result).toHaveLength(1)

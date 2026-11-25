@@ -12,14 +12,14 @@
  * In:  { id, type: 'load', parts: [{ positions, index, surface }] }      a session's model
  *      { id, type: 'measure', matrices, axes, thresholdDeg, bedEpsilon } on that model
  *      { id, type: 'closed' }                                            on that model
- *      { id, type: 'analyze', scales }                                   on that model
+ *      { id, type: 'analyze', parts: [{ positions, index }], scales }
  *      { id, type: 'thickness', parts: [{ positions, index, normals }], budget }
  *      { id, type: 'repair', parts: [{ positions, index }], millimetresPerUnit }
  * Out: { id, type: 'progress', done, total } while a thickness check or a repair runs, then
  *      { id, type: 'result', result } or { id, type: 'error', message }
  *
  * The mesh analysis and the repair (meshAnalysis.js, meshRepair.js) are the same plain
- * modules the tests run. A repair works on a copy of the model in its own worker, which is
+ * modules the tests run. Each works on a copy of the model in a worker of its own, which is
  * ended to cancel it.
  */
 
@@ -49,10 +49,9 @@ self.onmessage = (event) => {
 			return
 		}
 		if (type === 'analyze') {
-			// What is wrong with each mesh; `scales` is the millimetres in one of each part's own units
-			const result = held.map((part, i) => (part.surface
-				? analyzeMesh({ positions: part.positions, index: part.index, millimetresPerUnit: scales?.[i] })
-				: null)).filter(Boolean)
+			// What is wrong with each mesh, in a worker of its own (see printCheckClient.analyzeParts);
+			// `scales` is the millimetres in one of each part's own units
+			const result = parts.map((part, i) => analyzeMesh({ positions: part.positions, index: part.index, millimetresPerUnit: scales?.[i] }))
 			self.postMessage({ id, type: 'result', result })
 			return
 		}
