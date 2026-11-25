@@ -54,10 +54,10 @@ class ModelStatMapper extends QBMapper
                 ->where($qb->expr()->in('file_id', $qb->createNamedParameter($chunk, IQueryBuilder::PARAM_INT_ARRAY)));
 
             $result = $qb->executeQuery();
-            $rows = array_map(static fn (mixed $row): array => is_array($row) ? $row : [], $result->fetchAll());
+            $rows = $result->fetchAll();
             $result->closeCursor();
             foreach ($rows as $row) {
-                $etags[(int) ($row['file_id'] ?? 0)] = (string) ($row['etag'] ?? '');
+                $etags[(int) $row['file_id']] = (string) $row['etag'];
             }
         }
 

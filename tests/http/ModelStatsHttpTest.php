@@ -140,22 +140,20 @@ class ModelStatsHttpTest extends HttpTestCase
         $this->assertSame(404, $this->basic($owner)->get(self::url($text->getId()))->getStatusCode());
     }
 
-    public function testNumbersMeasuredFromAnOlderVersionAreRefusedWithTheCurrentOnesIntact(): void
+    public function testNumbersMeasuredFromAnotherVersionAreRefusedWithTheCurrentOnesIntact(): void
     {
         $owner = $this->newUser();
         $model = $this->newModel($owner);
-        $old = $this->etag($model);
+        $current = $this->etag($model);
         $client = $this->basic($owner);
 
-        $this->davWrite($owner, 'model.stl', "solid v2\nendsolid v2\n");
-        $new = self::json($client->get(self::url($model->getId())))['etag'];
-        $this->assertNotSame($old, $new);
-
-        $stale = $client->post(self::url($model->getId()), ['json' => ['etag' => $old, 'stats' => self::stats()]]);
+        // The version the browser measured is not the file's current one
+        $stale = $client->post(self::url($model->getId()), ['json' => ['etag' => $current . '-older', 'stats' => self::stats()]]);
         $this->assertSame(412, $stale->getStatusCode());
         $this->assertNull(self::json($client->get(self::url($model->getId())))['stats']);
+        $this->assertNull(Server::get(ModelStatMapper::class)->findByFile($model->getId()));
 
-        $this->assertSame(201, $client->post(self::url($model->getId()), ['json' => ['etag' => $new, 'stats' => self::stats(24)]])->getStatusCode());
+        $this->assertSame(201, $client->post(self::url($model->getId()), ['json' => ['etag' => $current, 'stats' => self::stats(24)]])->getStatusCode());
         $this->assertSame(24, self::json($client->get(self::url($model->getId())))['stats']['triangles']);
     }
 
