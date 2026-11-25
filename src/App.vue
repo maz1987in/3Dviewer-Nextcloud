@@ -467,7 +467,7 @@ export default {
 			// WebXR
 			webxrSupported: false,
 			webxrActive: false,
-			// View in AR: the way this device has ('quick-look', 'webxr') or null, and its state
+			// View in AR: the way this device has ('quick-look', 'webxr', or 'needs-safari' in an iPhone browser that isn't Safari) or null, and its state
 			// ('idle', 'preparing', 'ready', 'active'); both from the viewer
 			arPath: null,
 			arState: 'idle',

@@ -16,6 +16,12 @@ export const AR_PATH = Object.freeze({
 	QUICK_LOOK: 'quick-look',
 	/** Android Chrome and other WebXR browsers: a live `immersive-ar` session. */
 	WEBXR: 'webxr',
+	/**
+	 * An iPhone or iPad browser other than Safari (Brave, Chrome, Firefox, an app's own
+	 * browser): no way of its own, but Safari on the same device has one, so the button is
+	 * shown and a press says to open the page there.
+	 */
+	NEEDS_SAFARI: 'needs-safari',
 })
 
 /**
@@ -46,21 +52,37 @@ export async function supportsWebXrAr(xr = typeof navigator === 'undefined' ? nu
 }
 
 /**
+ * @param {?object} [nav] - `navigator`
+ * @return {boolean} Whether this is an iPhone, an iPod or an iPad. iPadOS asks for desktop
+ *   pages and says it is a Mac, the only Mac with a touch screen.
+ */
+export function isIosDevice(nav = typeof navigator === 'undefined' ? null : navigator) {
+	const ua = String(nav?.userAgent ?? '')
+	return /\b(iPhone|iPad|iPod)\b/.test(ua) || (/\bMacintosh\b/.test(ua) && Number(nav?.maxTouchPoints) > 1)
+}
+
+/**
  * Which way this device can show a model in the room, or null where there is none (a
  * desktop), so the button is not offered. WebXR is asked first, as model-viewer does:
  * a browser that has a live session can place the model on the floor, and Quick Look
- * is for the ones that don't, Safari on an iPhone, an iPad or a Vision Pro.
+ * is for the ones that don't, Safari on an iPhone, an iPad or a Vision Pro. Every other
+ * browser on an iPhone or iPad gets NEEDS_SAFARI: Apple lets only Safari hand a web page's
+ * file to Quick Look, and someone in Brave should learn that rather than find no button.
  *
  * @param {object} [env] - What to ask, for a test
  * @param {Document} [env.doc] - The page
  * @param {?object} [env.xr] - `navigator.xr`
+ * @param {?object} [env.nav] - `navigator`
  * @return {Promise<?string>} A value of AR_PATH, or null
  */
-export async function detectArPath({ doc, xr } = {}) {
+export async function detectArPath({ doc, xr, nav } = {}) {
 	if (await supportsWebXrAr(xr)) {
 		return AR_PATH.WEBXR
 	}
-	return supportsQuickLook(doc) ? AR_PATH.QUICK_LOOK : null
+	if (supportsQuickLook(doc)) {
+		return AR_PATH.QUICK_LOOK
+	}
+	return isIosDevice(nav) ? AR_PATH.NEEDS_SAFARI : null
 }
 
 /**

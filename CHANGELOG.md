@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- On an iPhone or iPad, browsers other than Safari (Brave, Chrome, Firefox, and the browsers inside other apps) now show the View in AR button too, and pressing it says to open the page in Safari. Apple lets only Safari open AR Quick Look from a web page, and the button used to be missing from these browsers with nothing to say why. It is the same in the full viewer, on public links and in the Files preview.
+
 ## [3.12.0] - 2026-11-13
 
 View in AR reaches more people and is easier to find. Someone you share a model with by link can put it in their room on their phone, without an account, and the Files preview offers it too. On a phone, the full viewer has an AR button of its own in its toolbar. Print check opens at once on large models instead of freezing the page, and the in-app help now covers the tools added since 3.8.

@@ -254,6 +254,27 @@ describe('on Android Chrome', () => {
 	})
 })
 
+describe('in an iPhone browser that is not Safari', () => {
+	it('says to open the page in Safari, and makes no file', async () => {
+		const ar = useViewInAR()
+		await ar.detect({ xr: null, doc: { createElement: () => ({ relList: { supports: () => false } }) }, nav: { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X)' } })
+		expect(ar.path.value).toBe(AR_PATH.NEEDS_SAFARI)
+		const notify = jest.fn()
+		const hold = jest.fn(() => () => {})
+
+		// Even past the triangle limit: the size is Safari's to judge
+		const result = await ar.start({ object: MODEL, millimetresPerUnit: 1, triangles: 5_000_000, hold, notify })
+
+		expect(result).toEqual({ status: 'needs-safari' })
+		expect(notify).toHaveBeenCalledTimes(1)
+		expect(notify).toHaveBeenCalledWith('info', expect.stringContaining('Safari'))
+		expect(hold).not.toHaveBeenCalled()
+		expect(mockBuild).not.toHaveBeenCalled()
+		expect(mockStartSession).not.toHaveBeenCalled()
+		expect(ar.state.value).toBe('idle')
+	})
+})
+
 describe('on a desktop', () => {
 	it('has no way, so there is nothing to start', async () => {
 		const ar = await ready(null)

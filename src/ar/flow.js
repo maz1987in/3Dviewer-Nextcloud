@@ -59,12 +59,17 @@ function open(url, openQuickLook) {
  * @return {Promise<{status: string}>} `status` is one of: 'opened' (Quick Look was
  *   opened), 'ready' (a file waits for a tap), 'session' (a WebXR session runs),
  *   'unavailable', 'busy', 'too-large' (with `triangles` and `limit`), 'no-surfaces',
- *   'refused' (the person or the browser declined the session), or 'failed' (with `error`)
+ *   'refused' (the person or the browser declined the session), 'needs-safari' (told to
+ *   open the page in Safari), or 'failed' (with `error`)
  */
 export async function runViewInAR(view, { object, millimetresPerUnit, triangles, hold = () => () => {}, notify = () => {}, xr = null }) {
 	const { path, state, held } = view
 	if (!path.value || !object) {
 		return { status: 'unavailable' }
+	}
+	if (path.value === AR_PATH.NEEDS_SAFARI) {
+		notify('info', t('threedviewer', 'This browser can\'t show models in AR on an iPhone or iPad. Open this page in Safari to see the model in your room.'))
+		return { status: 'needs-safari' }
 	}
 	if (state.value === 'ready' && held.ready) {
 		const { url } = held.ready
